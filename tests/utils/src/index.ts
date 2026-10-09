@@ -5,3 +5,7 @@ export * from "./TestProject";
 export * from "./NativeLintProducer";
 export * from "./lint";
 export * from "./unplugin";
+export * from "./CompilerArchives";
+export * from "./CompilerArtifactPreparation";
+export * from "./RuntimeDescendantController";
+export * from "./RuntimeCleanupAssertion";

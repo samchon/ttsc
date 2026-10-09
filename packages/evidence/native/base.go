@@ -531,10 +531,9 @@ func describeBaseDirectoryProblem(
 // A base that is not a link costs one `os.Lstat` per path component plus one
 // for this answer, where resolving the leaf alone cost two. It is paid per call
 // rather than per file, and the call count is the graph's own shape rather than
-// this function's: claim-side populations are materialized before the whole
-// configuration, so a base is asked once for each load it appears in. That is
-// at most twice for a Markdown or Prisma claim base and once for its reference
-// bases, and twice those numbers for TypeScript, whose gate asks beside the
+// this function's. Markdown captures the first resolution for each base within
+// one Check. Prisma resolves each load, at most twice for a claim base and once
+// for a reference base. TypeScript asks twice those numbers: its gate asks beside the
 // pass that builds its match table and whose governance pass builds one more
 // from the configuration as declared. All of it stays off the loop this feeds,
 // which is every source file of the project.

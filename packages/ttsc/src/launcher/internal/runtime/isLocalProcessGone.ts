@@ -29,11 +29,11 @@ import os from "node:os";
  */
 export function isLocalProcessGone(
   owner: {
-  /** The process id the owner recorded. */
-  pid: number;
+    /** The process id the owner recorded. */
+    pid: number;
 
-  /** The `os.hostname()` of the machine the owner ran on. */
-  hostname: string;
+    /** The `os.hostname()` of the machine the owner ran on. */
+    hostname: string;
   },
   observe?: (
     result: "remote" | "present" | "absent" | "unknown",

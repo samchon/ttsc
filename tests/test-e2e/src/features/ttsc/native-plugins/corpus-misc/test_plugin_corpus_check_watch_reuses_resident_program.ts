@@ -67,7 +67,7 @@ export async function test_plugin_corpus_check_watch_reuses_resident_program(): 
   });
   const failures: unknown[] = [];
   try {
-    await session.waitForBuilds(1, 300_000);
+    await session.waitForBuilds(1);
     let samples = residentSamples(session.transcript());
     assert.equal(samples.length, 1, session.transcript());
     assert.ok(

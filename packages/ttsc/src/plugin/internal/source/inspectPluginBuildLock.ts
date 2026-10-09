@@ -3,8 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { isContendedCandidateRename } from "../../../internal/isContendedCandidateRename";
 import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
+import { isContendedCandidateRename } from "../../../internal/isContendedCandidateRename";
 import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 import type { PluginBuildLockObservation } from "./PluginBuildLockObservation";
 import { PluginBuildLockOwner } from "./PluginBuildLockOwner";
@@ -101,7 +101,11 @@ function inspectV3PluginBuildLock(lockDir: string): PluginBuildLockObservation {
     }
     if (PluginBuildLockOwner.gone(owner)) {
       if (SourceNativeRetirement.isProtected(lockDir))
-        return { state: "active", owner: `${label} with native retirement pending`, fence };
+        return {
+          state: "active",
+          owner: `${label} with native retirement pending`,
+          fence,
+        };
       return {
         state: "abandoned",
         reason: `${label} is no longer running`,

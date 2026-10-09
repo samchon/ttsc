@@ -1,7 +1,10 @@
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
+
+import { SidecarEnvironment } from "../../../packages/ttsc/lib/compiler/internal/sharedHost/SidecarEnvironment.js";
 
 import { E2eProcessTrace } from "./E2eProcessTrace";
 
@@ -100,6 +103,101 @@ export namespace TestProject {
    * dependency.
    */
   export const TSGO_BINARY = resolveTsgoBinary();
+
+  /**
+   * Bind test children to an ignored physical temporary parent in the checkout.
+   *
+   * E2E startup calls this before entering the suite's native carrier.
+   * An already ignored repository parent retains its authority. Other inherited
+   * roots select the checkout's ignored cache directory, keeping junctioned
+   * workspace declarations on the same filesystem root as their consumers.
+   * The physical parent also fences implicit Git discovery so standalone
+   * fixtures do not inherit the checkout's ignore rules. Existing ceiling
+   * entries and explicit Git directory/work-tree selectors retain authority.
+   * Individual allocations retain their existing cleanup and retention owners;
+   * this operation does not remove the shared cache infrastructure directory.
+   *
+   * @evidence contracts/common.md#principled-implementation Native realpath and relative containment validate physical coordinates, and Git verifies ignore policy before fallback creation. Temporary names and a supported Git discovery ceiling bind before child inheritance; explicit Git selectors remain caller-owned.
+   * @evidence contracts/common.md#clear-and-simple-design The existing temporary allocation owner selects one parent; startup delegates here without adding an allocation registry or changing fixture populations.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Physical containment and actual Git ignore results govern selection without drive, dependency or fixture exceptions. Graph path semantics and real imported declarations are unchanged.
+   * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain startup ordering, inherited authority, fallback and the retained per-allocation cleanup ownership.
+   * @evidence contracts/portability.md#os-neutral-implementation Native realpath observes aliases and junctions, path.relative checks checkout containment, and separate Git arguments avoid shell interpretation. The new Git-owned entry uses forward separators even after a caller's empty no-realpath sentinel, while POSIX literal backslashes remain unchanged. Native path.delimiter preserves list boundaries and the shared environment owner handles Windows name aliases without inferring filesystem case policy.
+   * @evidence contracts/performance.md#efficient-algorithms Startup resolves at most two candidate paths and runs bounded-output Git ignore queries without traversing a fixture tree. Ceiling lookup visits environment names and list text; exact-entry membership prevents repeated calls from growing the list with the same physical parent.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Selection observes the current inherited parent and ignore policy on each call and caches no validity claim.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous filesystem and Git observations settle before environment publication. The shared ignored cache directory remains infrastructure; children stay with their existing allocation and native retirement owners.
+   */
+  export function configureTemporaryEnvironment(
+    env: NodeJS.ProcessEnv = process.env,
+    inheritedRoot: string = os.tmpdir(),
+  ): string {
+    const workspace = fs.realpathSync.native(WORKSPACE_ROOT);
+    const ignored = (candidate: string): boolean => {
+      const relative = path.relative(workspace, candidate);
+      if (
+        !relative ||
+        path.isAbsolute(relative) ||
+        relative === ".." ||
+        relative.startsWith(".." + path.sep)
+      )
+        return false;
+      const result = spawnSync("git", ["check-ignore", "--quiet", "--", relative], {
+        cwd: workspace,
+        encoding: "utf8",
+        windowsHide: true,
+      });
+      if (result.error) throw result.error;
+      if (result.status !== 0 && result.status !== 1)
+        throw new Error(
+          "Unable to verify test temporary ignore policy: " + result.stderr,
+        );
+      return result.status === 0;
+    };
+    const physical = (candidate: string): string | undefined => {
+      try {
+        return fs.realpathSync.native(candidate);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "ENOTDIR") return undefined;
+        throw error;
+      }
+    };
+    let parent = physical(inheritedRoot);
+    if (
+      parent === undefined ||
+      !fs.statSync(parent).isDirectory() ||
+      !ignored(parent)
+    ) {
+      const fallback = path.join(workspace, ".cache");
+      if (!ignored(fallback))
+        throw new Error("Test temporary parent must be Gitignored: " + fallback);
+      const existing = physical(fallback);
+      if (existing !== undefined && !ignored(existing))
+        throw new Error(
+          "Test temporary parent escapes ignored checkout storage: " + fallback,
+        );
+      fs.mkdirSync(fallback, { recursive: true });
+      parent = fs.realpathSync.native(fallback);
+      if (!ignored(parent))
+        throw new Error(
+          "Created test temporary parent escapes ignored checkout storage: " + fallback,
+        );
+    }
+    env.TEMP = parent;
+    env.TMP = parent;
+    env.TMPDIR = parent;
+    const gitParent = parent.split(path.sep).join("/");
+    const ceiling = SidecarEnvironment.read(env, "GIT_CEILING_DIRECTORIES");
+    SidecarEnvironment.write(
+      env,
+      "GIT_CEILING_DIRECTORIES",
+      ceiling === undefined
+        ? gitParent
+        : ceiling.split(path.delimiter).includes(gitParent)
+          ? ceiling
+          : ceiling + path.delimiter + gitParent,
+    );
+    return parent;
+  }
 
   /**
    * Create a tracked temp directory under the supplied or OS temp root.
@@ -379,51 +477,24 @@ export namespace TestProject {
   }
 
   /**
-   * Rename `from` to `to`, waiting out a process that still holds the path.
+   * Rename an owned fixture path and await the native operation's result.
    *
-   * Windows refuses a rename while any process has the path or an entry below
-   * it open, with `EPERM` for a directory and `EBUSY` for a file, and a watcher
-   * under test holds what it observes: a Vite scope held a directory a test
-   * renamed on a CI runner. The rename is the test's own step, so it is made
-   * rather than abandoned, and only the refusals a held path produces are
-   * waited out: any other error, a source that is not there above all, fails at
-   * once.
+   * Native refusal is an actual failed filesystem transition. The caller owns
+   * its watcher or process cleanup; elapsed age neither converts a pending
+   * operation into failure nor certifies that a held native path was released.
    *
-   * @evidence contracts/common.md#principled-implementation Native rename is attempted until success or the deadline only for the supported held-path error codes; other failures propagate immediately.
-   * @evidence contracts/common.md#clear-and-simple-design One retry loop isolates the fixture's native rename step from watcher teardown timing.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Retries address actual Windows handle-sharing refusals and remain bounded; absent source and unrelated failures are not hidden.
-   * @evidence contracts/common.md#meaningful-documentation The paragraphs identify held-path failures, deadline behavior and the fact that a rename must actually happen.
-   * @evidence contracts/portability.md#os-neutral-implementation The filesystem reports EACCES, EBUSY or EPERM at the boundary; native rename and timer delays preserve platform behavior without guessing case policy.
-   * @evidence contracts/performance.md#efficient-algorithms Each attempt makes one native rename; attempts scale with actual elapsed refusal time and 25ms delay rather than directory contents.
+   * @evidence contracts/common.md#principled-implementation The native promise settles only from the filesystem rename result, preserving its actual success or error.
+   * @evidence contracts/common.md#clear-and-simple-design One awaited native operation leaves watcher and process lifetime authority with the caller that owns those resources.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No elapsed deadline, renamed retry budget or inferred handle release changes the native result.
+   * @evidence contracts/common.md#meaningful-documentation States native completion and the caller's independent resource cleanup responsibility.
+   * @evidence contracts/portability.md#os-neutral-implementation Node's filesystem promise uses native paths and reports the platform's actual rename errors without classifying them by OS name.
+   * @evidence contracts/performance.md#efficient-algorithms One native rename performs the filesystem transition without repeated pathname polling.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Rename is an effectful transition and is never cached or shared between requests.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Only one awaited timer exists per failed attempt; success or final failure leaves no pending timer or retained helper state. The caller owns source and destination.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The awaited native operation owns its pending request until settlement; the caller retains ownership of source, destination and any active watchers.
    */
-  export async function rename(
-    from: string,
-    to: string,
-    milliseconds = 30_000,
-  ): Promise<void> {
-    const until = Date.now() + milliseconds;
-    for (;;) {
-      try {
-        fs.renameSync(from, to);
-        return;
-      } catch (error) {
-        const code = (error as { code?: string }).code;
-        if (
-          code === undefined ||
-          !HELD_PATH_CODES.has(code) ||
-          Date.now() >= until
-        ) {
-          throw error;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 25));
-      }
-    }
+  export async function rename(from: string, to: string): Promise<void> {
+    await fs.promises.rename(from, to);
   }
-
-  /** What a filesystem answers while another process still holds the path. */
-  const HELD_PATH_CODES = new Set(["EACCES", "EBUSY", "EPERM"]);
 
   /**
    * Materialize a relative-path file map under the target project root.
@@ -554,19 +625,12 @@ export namespace TestProject {
    * @evidence contracts/performance.md#bound-retention-and-release-resources spawnSync waits for the direct child and closes its pipes; this wrapper does not join arbitrary descendants. Caller owners retain fixture inputs when descendant closure is unknown.
    */
   export function spawn(command: string, args: string[], options: any = {}) {
-    const usesNodeLauncher = command === TTSC_BIN || command === TTSX_BIN;
+    const selected = processInputs(command, args, options);
     const result = E2eProcessTrace.spawnSync(
-      usesNodeLauncher ? process.execPath : command,
-      [...(usesNodeLauncher ? [command] : []), ...args],
+      selected.command,
+      selected.args,
       {
-        ...options,
-        env: {
-          ...process.env,
-          TTSC_BINARY: NATIVE_BINARY,
-          TTSC_TSGO_BINARY: TSGO_BINARY,
-          GOCACHE: sharedGoBuildCache(),
-          ...options.env,
-        },
+        ...selected.options,
         encoding: "utf8",
         maxBuffer: 1024 * 1024 * 64,
         windowsHide: true,
@@ -576,6 +640,93 @@ export namespace TestProject {
       result.stderr = result.error.message;
     }
     return result;
+  }
+
+  /**
+   * Capture a real command while allowing the caller's event loop to serve
+   * authenticated descendants. Launcher selection and environment precedence
+   * are shared with spawn. Each pipe is bounded to 64MiB; overflow requests the
+   * original direct child's termination and still awaits its actual close.
+   * Arbitrary descendant lifetime remains the caller's responsibility.
+   *
+   * @evidence contracts/common.md#principled-implementation The original traced spawn runs exact argv and shared environment selection; byte-bounded pipes decode once after actual close and error/status/signal remain separate.
+   * @evidence contracts/common.md#clear-and-simple-design One asynchronous sibling reuses the original process-input owner rather than copying tool defaults into consumers.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No process result or descendant certificate is synthesized; overflow/abort requests termination but cannot settle before the returned ChildProcess closes.
+   * @evidence contracts/common.md#meaningful-documentation Explains live event-loop purpose, per-pipe cap, actual direct-child join and caller-owned descendants.
+   * @evidence contracts/portability.md#os-neutral-implementation Separate executable/argv and windowsHide preserve the synchronous wrapper's native launch representation; supported ChildProcess events supply actual status and signal.
+   * @evidence contracts/performance.md#efficient-algorithms Each captured chunk is retained once up to the per-stream cap, concatenated and decoded once at close; memory scales with bounded captured bytes.
+   * @evidence contracts/performance.md#reuse-equivalent-work Shared launcher/environment selection and Go cache authority serve sync/async callers; each command executes independently.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Error/close listeners are installed immediately, streams remain owned until actual close, and overflow retains the original error while awaiting termination; no process-duration deadline or descendant proof is introduced.
+   */
+  export async function spawnAsync(
+    command: string,
+    args: string[],
+    options: any = {},
+  ): Promise<SpawnSyncReturns<string>> {
+    const selected = processInputs(command, args, options);
+    if (options.input !== undefined && typeof options.input !== "string" &&
+        !ArrayBuffer.isView(options.input))
+      throw new TypeError("Command input must be a string or byte view");
+    const input = ArrayBuffer.isView(options.input)
+      ? Buffer.from(options.input.buffer, options.input.byteOffset, options.input.byteLength)
+      : options.input;
+    return await new Promise<SpawnSyncReturns<string>>((resolve) => {
+      const chunks: Buffer[][] = [[], []];
+      const sizes = [0, 0];
+      let error: Error | undefined;
+      let overflowRequested = false;
+      const child = E2eProcessTrace.spawn(selected.command, selected.args, {
+        ...selected.options,
+        windowsHide: true,
+      });
+      const capture = (index: number, value: Buffer): void => {
+        const limit = 64 * 1024 * 1024;
+        const available = limit - sizes[index]!;
+        if (available > 0) chunks[index]!.push(value.subarray(0, available));
+        sizes[index] = sizes[index]! + Math.min(value.length, available);
+        if (value.length > available && !overflowRequested) {
+          overflowRequested = true;
+          const overflow = Object.assign(new Error("Command output exceeds 64MiB"), { code: "ENOBUFS" });
+          error = error ? new AggregateError([error, overflow], "Command output overflow") : overflow;
+          try { child.kill(options.killSignal ?? "SIGTERM"); }
+          catch (cause) {
+            error = new AggregateError([error, cause], "Output overflow termination failed");
+          }
+        }
+      };
+      child.stdout?.on("data", (value: Buffer) => capture(0, value));
+      child.stderr?.on("data", (value: Buffer) => capture(1, value));
+      child.stdout?.on("error", (cause) => { error ??= cause; });
+      child.stderr?.on("error", (cause) => { error ??= cause; });
+      child.once("error", (cause) => { error ??= cause; });
+      child.once("close", (status, signal) => {
+        const stdout = Buffer.concat(chunks[0]!).toString("utf8");
+        const stderr = Buffer.concat(chunks[1]!).toString("utf8") || error?.message || "";
+        resolve({ pid: child.pid ?? 0, status, signal, error,
+          stdout, stderr, output: [null, stdout, stderr] });
+      });
+      child.stdin?.on("error", (cause) => { error ??= cause; });
+      child.stdin?.end(input);
+    });
+  }
+
+  /** Common launcher representation and caller-over-tool environment authority. */
+  function processInputs(command: string, args: string[], options: any) {
+    const usesNodeLauncher = command === TTSC_BIN || command === TTSX_BIN;
+    return {
+      command: usesNodeLauncher ? process.execPath : command,
+      args: [...(usesNodeLauncher ? [command] : []), ...args],
+      options: {
+        ...options,
+        env: {
+          ...process.env,
+          TTSC_BINARY: NATIVE_BINARY,
+          TTSC_TSGO_BINARY: TSGO_BINARY,
+          GOCACHE: sharedGoBuildCache(),
+          ...options.env,
+        },
+      },
+    };
   }
 
   /**

@@ -57,7 +57,7 @@ Plugin-backed `compile()` keeps all compiler outputs in a private temporary life
 
 ## Lifecycle
 
-`TtscCompiler` is **construct-once, reuse**. The constructor captures one project context (working directory, tsconfig, plugin list, cache root, env) and every operation runs against that context. The context is intentionally not replaceable per call, create another instance to compile a different project.
+`TtscCompiler` is **construct-once, reuse**. The constructor captures one project context (working directory, tsconfig, plugin list, cache root, env) and every operation runs against that context. The context is intentionally not replaceable per call, create another instance to compile a different project. Explicit `tsconfig`, `projectRoot` and `pluginConfigDir` keep their documented authority. Compiler CLI forwarding does not become a per-operation project override on this API. Internal build and watch lanes share one selected config while retaining a separate original compiler argument directory for response and relative command-line options.
 
 ```ts
 // One compiler per project, kept around across calls.
@@ -214,6 +214,10 @@ The service is resident within one process. It does not share a host across sepa
 | `env` | Extra environment variables merged over `process.env` for child compiler processes. |
 | `cacheDir` | Root for compiled ttsc artifacts. Relative paths resolve against `cwd`. Defaults to `TTSC_CACHE_DIR`, else the workspace-local `node_modules/.cache/ttsc`. |
 | `plugins` | `undefined` = read project plugins. `false` = ignore project plugins for this instance. Array = explicit entries. |
+
+Environment overrides are copied at construction and merged over the invocation's current environment for preparation, compilation, transformation and cleanup. On Windows, names are case-insensitive, so a constructor `ttsc_cache_dir` overrides inherited `TTSC_CACHE_DIR`; within one supplied environment object, the lexicographically first spelling wins. On POSIX, differently cased names remain distinct.
+
+An own `undefined` entry overrides the inherited entry, after which selectors apply their normal fallback. Empty cache selectors also use their normal fallback. An explicit `cacheDir` takes precedence over environment cache selectors. Cleanup protects the selected caller `GOCACHE`, including when it overlaps an explicit whole-cache target.
 
 ## Filesystem path identity
 

@@ -22,13 +22,13 @@ var explicitAnchorPattern = regexp.MustCompile(`\s*\{#([A-Za-z0-9][A-Za-z0-9._:-
 // one cannot become line-leading metadata. Neither view changes source offsets.
 type markdownLexicalLine struct {
   Heading string
-  Prose string
+  Prose   string
 }
 
 // markdownRegion records a half-open range in the original UTF-8 source.
 type markdownRegion struct {
   Start int
-  End int
+  End   int
   Block bool
 }
 
@@ -36,10 +36,10 @@ type markdownRegion struct {
 // CommonMark parse. It consumes the original reader instead of projecting or
 // deleting bytes, so paragraph and container boundaries remain authoritative.
 type markdownHybridParser struct {
-  Source string
+  Source    string
   Protected []markdownRegion
-  Owners []markdownRegion
-  Ends map[ast.Node]int
+  Owners    []markdownRegion
+  Ends      map[ast.Node]int
 }
 
 // markdownHybridBlock is deliberately not an ast.Paragraph. Goldmark gives
@@ -47,9 +47,9 @@ type markdownHybridParser struct {
 // while retaining original source segments for the standard inline parser.
 var markdownHybridBlockKind = ast.NewNodeKind("EvidenceMarkdownExample")
 
-type markdownHybridBlock struct { ast.BaseBlock }
+type markdownHybridBlock struct{ ast.BaseBlock }
 
-func (block *markdownHybridBlock) Kind() ast.NodeKind { return markdownHybridBlockKind }
+func (block *markdownHybridBlock) Kind() ast.NodeKind          { return markdownHybridBlockKind }
 func (block *markdownHybridBlock) Dump(_ []byte) *ast.NodeDump { return ast.NewNodeDump(block, nil) }
 
 // Free block parsers run after every registered trigger parser regardless of
@@ -57,7 +57,9 @@ func (block *markdownHybridBlock) Dump(_ []byte) *ast.NodeDump { return ast.NewN
 // quote openers, and a new carrier can precede the ordinary HTML block parser.
 var markdownHybridTriggers = func() []byte {
   triggers := make([]byte, 256)
-  for index := range triggers { triggers[index] = byte(index) }
+  for index := range triggers {
+    triggers[index] = byte(index)
+  }
   return triggers
 }()
 
@@ -152,7 +154,7 @@ func (scan *markdownHybridParser) CanAcceptIndentedLine() bool { return false }
 // markdownHybridCarry reacquires a known owner after a paragraph/container
 // boundary, before the bytes inside it can open an unrelated Markdown block.
 // It never acquires new owners and therefore cannot steal ordinary code blocks.
-type markdownHybridCarry struct { Scan *markdownHybridParser }
+type markdownHybridCarry struct{ Scan *markdownHybridParser }
 
 func (carry *markdownHybridCarry) Trigger() []byte { return markdownHybridTriggers }
 func (carry *markdownHybridCarry) Open(_ ast.Node, reader text.Reader, _ parser.Context) (ast.Node, parser.State) {
@@ -168,12 +170,16 @@ func (carry *markdownHybridCarry) Open(_ ast.Node, reader text.Reader, _ parser.
   reader.AdvanceToEOL()
   return node, parser.NoChildren
 }
-func (carry *markdownHybridCarry) Continue(node ast.Node, reader text.Reader, context parser.Context) parser.State { return carry.Scan.Continue(node, reader, context) }
-func (carry *markdownHybridCarry) Close(node ast.Node, reader text.Reader, context parser.Context) { carry.Scan.Close(node, reader, context) }
+func (carry *markdownHybridCarry) Continue(node ast.Node, reader text.Reader, context parser.Context) parser.State {
+  return carry.Scan.Continue(node, reader, context)
+}
+func (carry *markdownHybridCarry) Close(node ast.Node, reader text.Reader, context parser.Context) {
+  carry.Scan.Close(node, reader, context)
+}
 func (carry *markdownHybridCarry) CanInterruptParagraph() bool { return true }
 func (carry *markdownHybridCarry) CanAcceptIndentedLine() bool { return true }
 
-type markdownHybridInline struct { Scan *markdownHybridParser }
+type markdownHybridInline struct{ Scan *markdownHybridParser }
 
 func (inline *markdownHybridInline) Trigger() []byte { return []byte{' ', '<', '=', '`'} }
 
@@ -192,7 +198,7 @@ func (inline *markdownHybridInline) Parse(parent ast.Node, reader text.Reader, _
       break
     }
     if end <= segment.Stop {
-      reader.Advance(end-segment.Start)
+      reader.Advance(end - segment.Start)
       break
     }
     reader.AdvanceLine()
@@ -205,29 +211,37 @@ func (inline *markdownHybridInline) Parse(parent ast.Node, reader text.Reader, _
 func markdownParserRegions(source string, document ast.Node, comments bool) []markdownRegion {
   regions := []markdownRegion{}
   ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
-    if !entering { return ast.WalkContinue, nil }
+    if !entering {
+      return ast.WalkContinue, nil
+    }
     switch value := node.(type) {
     case *ast.CodeBlock:
       start, end := value.Pos(), value.Pos()
-      for _, segment := range value.Value.Segments() { end = segment.Stop }
-      start = strings.LastIndexByte(source[:start], '\n')+1
-      regions = append(regions, markdownRegion{Start:start, End:end, Block:true})
+      for _, segment := range value.Value.Segments() {
+        end = segment.Stop
+      }
+      start = strings.LastIndexByte(source[:start], '\n') + 1
+      regions = append(regions, markdownRegion{Start: start, End: end, Block: true})
     case *ast.CodeSpan:
       indices := value.Value.Indices()
       if len(indices) != 0 {
         start, end := value.Pos(), indices[len(indices)-1].Stop
-        for end < len(source) && source[end] == '`' { end++ }
-        regions = append(regions, markdownRegion{Start:start, End:end})
+        for end < len(source) && source[end] == '`' {
+          end++
+        }
+        regions = append(regions, markdownRegion{Start: start, End: end})
       }
     case *ast.HTMLBlock:
       if comments && value.HTMLBlockKind == ast.HTMLBlockKind2 {
         end := markdownCommentEnd(source, value.Pos())
-        regions = append(regions, markdownRegion{Start:value.Pos(), End:end})
+        regions = append(regions, markdownRegion{Start: value.Pos(), End: end})
       }
     case *ast.RawHTML:
       if comments && strings.HasPrefix(source[value.Pos():], "<!--") {
         indices := value.Value.Indices()
-        if len(indices) != 0 { regions = append(regions, markdownRegion{Start:value.Pos(), End:indices[len(indices)-1].Stop}) }
+        if len(indices) != 0 {
+          regions = append(regions, markdownRegion{Start: value.Pos(), End: indices[len(indices)-1].Stop})
+        }
       }
     }
     return ast.WalkContinue, nil
@@ -242,21 +256,25 @@ func markdownParserRegions(source string, document ast.Node, comments bool) []ma
 // No rendered text or normalized projection participates in source offsets.
 func scanMarkdownRegions(content string, lines []string) ([]markdownLexicalLine, [][2]int) {
   baseline := parser.New().Parse([]byte(content))
-  scan := &markdownHybridParser{Source:content, Protected:markdownParserRegions(content, baseline, true), Ends:map[ast.Node]int{}}
+  scan := &markdownHybridParser{Source: content, Protected: markdownParserRegions(content, baseline, true), Ends: map[ast.Node]int{}}
   // All block entries share one receiver's ownership state. A known owner
   // resumes before new blocks; headings acquire carriers before ATX parsing,
   // and ordinary carriers acquire ownership after code and quote openers.
   document := parser.New(parser.WithBlockParsers(
-    util.Prioritized[parser.BlockParser](&markdownHybridCarry{Scan:scan}, 0),
-    util.Prioritized[parser.BlockParser](&markdownHybridHeading{Scan:scan}, 590),
+    util.Prioritized[parser.BlockParser](&markdownHybridCarry{Scan: scan}, 0),
+    util.Prioritized[parser.BlockParser](&markdownHybridHeading{Scan: scan}, 590),
     util.Prioritized[parser.BlockParser](scan, 850),
-  ), parser.WithInlineParsers(util.Prioritized[parser.InlineParser](&markdownHybridInline{Scan:scan}, 50))).Parse([]byte(content))
+  ), parser.WithInlineParsers(util.Prioritized[parser.InlineParser](&markdownHybridInline{Scan: scan}, 50))).Parse([]byte(content))
   regions := markdownParserRegions(content, document, false)
   code := make([]byte, len(content))
   for _, region := range regions {
     kind := byte(1)
-    if region.Block { kind = 2 }
-    for cursor := region.Start; cursor < region.End; cursor++ { code[cursor] = kind }
+    if region.Block {
+      kind = 2
+    }
+    for cursor := region.Start; cursor < region.End; cursor++ {
+      code[cursor] = kind
+    }
   }
   lexical := make([]markdownLexicalLine, len(lines))
   spans := [][2]int{}
@@ -269,7 +287,9 @@ func scanMarkdownRegions(content string, lines []string) ([]markdownLexicalLine,
     mask := func(start, end int, structural bool) {
       for cursor := start; cursor < end; cursor++ {
         prose[cursor] = ' '
-        if structural { heading[cursor] = ' ' }
+        if structural {
+          heading[cursor] = ' '
+        }
       }
     }
     for cursor := 0; cursor < len(line); {
@@ -282,52 +302,58 @@ func scanMarkdownRegions(content string, lines []string) ([]markdownLexicalLine,
         } else if closing := strings.Index(line[cursor:], "-->"); closing >= 0 {
           end, closed = cursor+closing+3, true
         }
-        mask(cursor,end,true)
-        if commentStart < offset { heading[cursor] = 'x' }
+        mask(cursor, end, true)
+        if commentStart < offset {
+          heading[cursor] = 'x'
+        }
         cursor = end
         if closed {
-          spans = append(spans,[2]int{commentStart,offset+end})
+          spans = append(spans, [2]int{commentStart, offset + end})
           commentStart = -1
         }
         continue
       }
       if opaqueEnd > offset+cursor {
-        end := min(len(line),opaqueEnd-offset)
+        end := min(len(line), opaqueEnd-offset)
         continuation := opaqueStart < offset
-        mask(cursor,end,continuation)
-        if continuation { heading[cursor] = 'x' }
+        mask(cursor, end, continuation)
+        if continuation {
+          heading[cursor] = 'x'
+        }
         prose[cursor] = 'x'
         cursor = end
         continue
       }
       if kind := code[offset+cursor]; kind != 0 {
-        end := cursor+1
-        for end < len(line) && code[offset+end] == kind { end++ }
-        mask(cursor,end,kind==2)
+        end := cursor + 1
+        for end < len(line) && code[offset+end] == kind {
+          end++
+        }
+        mask(cursor, end, kind == 2)
         prose[cursor] = 'x'
         cursor = end
         continue
       }
-      if line[cursor] == '\\' && cursor+1 < len(line) && strings.ContainsRune("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",rune(line[cursor+1])) {
-        mask(cursor,cursor+2,false)
+      if line[cursor] == '\\' && cursor+1 < len(line) && strings.ContainsRune("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~", rune(line[cursor+1])) {
+        mask(cursor, cursor+2, false)
         prose[cursor] = 'x'
         cursor += 2
         continue
       }
       if strings.HasPrefix(line[cursor:], "<!--") {
-        commentStart = offset+cursor
-        mask(cursor,cursor+4,true)
+        commentStart = offset + cursor
+        mask(cursor, cursor+4, true)
         cursor += 4
         continue
       }
-      if end := markdownOpaqueEnd(content,offset+cursor); end > offset+cursor {
+      if end := markdownOpaqueEnd(content, offset+cursor); end > offset+cursor {
         opaqueStart, opaqueEnd = offset+cursor, end
         continue
       }
       cursor++
     }
-    lexical[index] = markdownLexicalLine{Heading:string(heading),Prose:string(prose)}
-    offset += len(rawLine)+1
+    lexical[index] = markdownLexicalLine{Heading: string(heading), Prose: string(prose)}
+    offset += len(rawLine) + 1
   }
   return lexical, spans
 }
@@ -337,7 +363,7 @@ type markdownHybridHeading struct {
 }
 
 func (heading *markdownHybridHeading) Trigger() []byte { return []byte{'#'} }
-func (heading *markdownHybridHeading) Open(parent ast.Node, reader text.Reader, context parser.Context) (ast.Node,parser.State) {
+func (heading *markdownHybridHeading) Open(parent ast.Node, reader text.Reader, context parser.Context) (ast.Node, parser.State) {
   line, segment := reader.PeekLine()
   if _, _, found := markdownHeading(string(line)); !found {
     return nil, parser.NoChildren
@@ -350,8 +376,12 @@ func (heading *markdownHybridHeading) Open(parent ast.Node, reader text.Reader, 
   }
   return node, state
 }
-func (heading *markdownHybridHeading) Continue(node ast.Node, reader text.Reader, context parser.Context) parser.State { return heading.Scan.Continue(node,reader,context) }
-func (heading *markdownHybridHeading) Close(node ast.Node, reader text.Reader, context parser.Context) { heading.Scan.Close(node,reader,context) }
+func (heading *markdownHybridHeading) Continue(node ast.Node, reader text.Reader, context parser.Context) parser.State {
+  return heading.Scan.Continue(node, reader, context)
+}
+func (heading *markdownHybridHeading) Close(node ast.Node, reader text.Reader, context parser.Context) {
+  heading.Scan.Close(node, reader, context)
+}
 func (heading *markdownHybridHeading) CanInterruptParagraph() bool { return true }
 func (heading *markdownHybridHeading) CanAcceptIndentedLine() bool { return false }
 
@@ -360,59 +390,86 @@ func (heading *markdownHybridHeading) CanAcceptIndentedLine() bool { return fals
 // suffix, matching the existing permissive Markdown/MDX documentation contract.
 func markdownOpaqueEnd(content string, start int) int {
   if strings.HasPrefix(content[start:], "={`") {
-    return markdownTemplateEnd(content,start+3)
+    return markdownTemplateEnd(content, start+3)
   }
-  if content[start] != '<' || start+1 >= len(content) { return start }
-  cursor := start+1
-  closing := content[cursor]=='/'
-  if closing { cursor++ }
+  if content[start] != '<' || start+1 >= len(content) {
+    return start
+  }
+  cursor := start + 1
+  closing := content[cursor] == '/'
+  if closing {
+    cursor++
+  }
   name := cursor
-  for cursor < len(content) && (content[cursor]>='a'&&content[cursor]<='z'||content[cursor]>='A'&&content[cursor]<='Z'||cursor>name&&(content[cursor]>='0'&&content[cursor]<='9'||content[cursor]=='-'||content[cursor]==':')) { cursor++ }
-  if cursor == name { return start }
-  if cursor < len(content) && !strings.ContainsRune(" \t\r\n/>", rune(content[cursor])) { return start }
-  pre := !closing && strings.EqualFold(content[name:cursor],"pre")
+  for cursor < len(content) && (content[cursor] >= 'a' && content[cursor] <= 'z' || content[cursor] >= 'A' && content[cursor] <= 'Z' || cursor > name && (content[cursor] >= '0' && content[cursor] <= '9' || content[cursor] == '-' || content[cursor] == ':')) {
+    cursor++
+  }
+  if cursor == name {
+    return start
+  }
+  if cursor < len(content) && !strings.ContainsRune(" \t\r\n/>", rune(content[cursor])) {
+    return start
+  }
+  pre := !closing && strings.EqualFold(content[name:cursor], "pre")
   quote := byte(0)
   for cursor < len(content) {
     char := content[cursor]
     if quote != 0 {
-      if char == quote { quote = 0 }
+      if char == quote {
+        quote = 0
+      }
       cursor++
-    } else if char=='\'' || char=='"' {
+    } else if char == '\'' || char == '"' {
       quote = char
       cursor++
-    } else if strings.HasPrefix(content[cursor:],"={`") {
-      cursor = markdownTemplateEnd(content,cursor+3)
-    } else if char=='>' {
+    } else if strings.HasPrefix(content[cursor:], "={`") {
+      cursor = markdownTemplateEnd(content, cursor+3)
+    } else if char == '>' {
       cursor++
       if pre {
-        for probe:=cursor; probe+6<=len(content); probe++ {
-          if strings.EqualFold(content[probe:probe+6],"</pre>") { return probe+6 }
+        for probe := cursor; probe+6 <= len(content); probe++ {
+          if strings.EqualFold(content[probe:probe+6], "</pre>") {
+            return probe + 6
+          }
         }
         return len(content)
       }
       return cursor
-    } else if char=='<' {
+    } else if char == '<' {
       return start
-    } else { cursor++ }
+    } else {
+      cursor++
+    }
   }
-  if pre { return len(content) }
+  if pre {
+    return len(content)
+  }
   return start
 }
 
 // markdownCommentEnd clips a protected comment to its actual closing byte;
 // CommonMark HTML blocks may retain unrelated text from the closing line.
 func markdownCommentEnd(content string, start int) int {
-  body := start+4
-  if strings.HasPrefix(content[body:], ">") { return body+1 }
-  if strings.HasPrefix(content[body:], "->") { return body+2 }
-  if close := strings.Index(content[body:], "-->"); close >= 0 { return body+close+3 }
+  body := start + 4
+  if strings.HasPrefix(content[body:], ">") {
+    return body + 1
+  }
+  if strings.HasPrefix(content[body:], "->") {
+    return body + 2
+  }
+  if close := strings.Index(content[body:], "-->"); close >= 0 {
+    return body + close + 3
+  }
   return len(content)
 }
 
 func markdownTemplateEnd(content string, from int) int {
-  for cursor:=from; cursor<len(content); cursor++ {
-    if content[cursor]=='\\' && cursor+1<len(content) { cursor++
-    } else if strings.HasPrefix(content[cursor:],"`}") { return cursor+2 }
+  for cursor := from; cursor < len(content); cursor++ {
+    if content[cursor] == '\\' && cursor+1 < len(content) {
+      cursor++
+    } else if strings.HasPrefix(content[cursor:], "`}") {
+      return cursor + 2
+    }
   }
   return len(content)
 }
@@ -428,13 +485,18 @@ func markdownTemplateEnd(content string, from int) int {
 func loadMarkdownInventories(
   root string,
   config graphConfig,
+  captures ...*markdownCapture,
 ) (map[string]*artifactInventory, graphDiagnostics) {
+  capture := &markdownCapture{}
+  if len(captures) != 0 && captures[0] != nil {
+    capture = captures[0]
+  }
   inventories := map[string]*artifactInventory{}
   problems := graphDiagnostics{}
   for _, base := range configuredBases(config, artifactMarkdown) {
     problems = append(
       problems,
-      loadMarkdownBase(base, config, inventories)...,
+      loadMarkdownBase(base, config, inventories, capture)...,
     )
   }
   return inventories, problems
@@ -444,19 +506,35 @@ func loadMarkdownBase(
   base populationBase,
   config graphConfig,
   inventories map[string]*artifactInventory,
+  capture *markdownCapture,
 ) graphDiagnostics {
   problems := graphDiagnostics{}
   severity := populationSeverity(config, artifactMarkdown, base, "", "*", false)
-  if problem := baseDirectoryProblem(base, artifactMarkdown); problem != "" {
+  from, problem := capture.resolve(base)
+  if problem != "" {
     recordPopulationFailure(inventories, artifactMarkdown, base)
     return problems.add(severity, problem)
   }
-  from, resolved := resolvedBaseDirectory(base)
-  if !resolved {
-    recordPopulationFailure(inventories, artifactMarkdown, base)
-    return problems.add(severity, unresolvedBaseProblem(base, artifactMarkdown))
+  project := func(relative string, inventory *artifactInventory, readErr error) {
+    address := base.addressOf(relative)
+    inventories[address.Key] = inventory
+    severity := populationSeverity(config, artifactMarkdown, base, relative, "*", false)
+    if readErr != nil {
+      problems = problems.add(severity,
+        "Evidence graph could not read Markdown file '"+address.Display+"': "+causeText(readErr)+". Fix filesystem access or exclude the file from configured globs.",
+      )
+      return
+    }
+    for _, inventoryProblem := range inventory.Problems {
+      if selectedByMarkdownPopulation(config, base, relative, inventoryProblem.Symbol) {
+        problems = problems.add(populationSeverity(config, artifactMarkdown, base, relative, inventoryProblem.Symbol, false), inventoryProblem.Message)
+      }
+    }
+    // Unreadable tags concern the selected file, independently of its symbols
+    // or health. They retain the same phase-specific file severity.
+    problems = problems.add(severity, inventory.Unreadable...)
   }
-  err := base.inputs.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
+  err := capture.walk(base, from, config, func(current string, entry fs.DirEntry, walkErr error) error {
     if walkErr != nil {
       // The walk root belongs to its population by construction, so a failure
       // to list it is a failure of the population and is never decided by what
@@ -512,35 +590,20 @@ func loadMarkdownBase(
     if !matchesConfiguredMarkdownFile(config, base, relative) {
       return nil
     }
-    severity := populationSeverity(config, artifactMarkdown, base, relative, "*", false)
     address := base.addressOf(relative)
-    content, readErr := base.inputs.ReadFile(current)
-    if readErr != nil {
-      inventories[address.Key] = &artifactInventory{
-        Path:       address.Display,
-        Type:       artifactMarkdown,
-        LoadFailed: true,
-      }
-      problems = problems.add(
-        severity,
-        "Evidence graph could not read Markdown file '"+address.Display+"': "+causeText(readErr)+". Fix filesystem access or exclude the file from configured globs.",
-      )
-      return nil
-    }
-    inventory, _ := scanMarkdownInventory(address, string(content))
-    inventories[address.Key] = inventory
-    for _, inventoryProblem := range inventory.Problems {
-      if selectedByMarkdownPopulation(config, base, relative, inventoryProblem.Symbol) {
-        problems = problems.add(populationSeverity(config, artifactMarkdown, base, relative, inventoryProblem.Symbol, false), inventoryProblem.Message)
-      }
-    }
-    // An unreadable tag is not a health question and not a symbol question
-    // either: the file loaded, its units are complete, and the tag reaches no
-    // host whichever symbol a reference selects. The walk already refuses a
-    // path no configured glob takes, so reaching here is enough to report.
-    problems = problems.add(severity, inventory.Unreadable...)
+    inventory, readErr := capture.read(address, current)
+    project(relative, inventory, readErr)
     return nil
   })
+  // An expanded reference selection may need fresh discovery. Files already
+  // consumed remain part of this Check's snapshot even if that later walk no
+  // longer sees them. Reproject their original inventory and failures only
+  // where this phase selects the same address.
+  for relative, captured := range capture.inventories[base.Absolute] {
+    if _, seen := inventories[base.address(relative)]; !seen && matchesConfiguredMarkdownFile(config, base, relative) {
+      project(relative, captured.inventory, captured.err)
+    }
+  }
   if err != nil {
     recordPopulationFailure(inventories, artifactMarkdown, base)
     problems = problems.add(severity, unlistableBaseProblem(base, "Markdown", err))

@@ -23,13 +23,13 @@ import { isOutsideRelativePath } from "./isOutsideRelativePath";
 export namespace PrivateCompilerOutput {
   /**
    * Relocate each compiler destination independently. Directory mappings retain
-   * the compiler's per-source layout; exact mappings keep bundle and incremental
-   * names independent of that layout. A private explicit build-info path avoids
-   * inferred paths above outDir for deeply nested rootDir values. Independent
-   * checks use another state file so diagnostic recovery cannot overwrite or
-   * masquerade as an emitted API artifact. Only a newly added outDir needs
-   * private root pinning. Relocating a configured outDir retains native inferred
-   * layout and its configuration diagnostics.
+   * the compiler's per-source layout; exact mappings keep bundle and
+   * incremental names independent of that layout. A private explicit build-info
+   * path avoids inferred paths above outDir for deeply nested rootDir values.
+   * Independent checks use another state file so diagnostic recovery cannot
+   * overwrite or masquerade as an emitted API artifact. Only a newly added
+   * outDir needs private root pinning. Relocating a configured outDir retains
+   * native inferred layout and its configuration diagnostics.
    *
    * @evidence contracts/common.md#principled-implementation Separate native destinations have inverse mappings to original artifact locations. Only originally source-adjacent emission receives root pinning; configured outDir retains native inferred layout and diagnostics. Inferred state follows pinned outputpaths.GetBuildInfoFileName config/rootDir/outDir rules; explicit private state prevents upward escapes and independent checks use a separate non-artifact destination.
    * @evidence contracts/common.md#clear-and-simple-design One request-local mapping joins destination selection and artifact translation, preserving bundle/declaration distinctions at the API boundary.
@@ -152,9 +152,9 @@ export namespace PrivateCompilerOutput {
    * Return all captured compiler artifacts at their original API keys. Source
    * maps without compiler-owned sourceRoot/mapRoot need their relative sources
    * re-based from the private destination to the original destination. Explicit
-   * roots already give sources their independent compiler-defined base. Only the
-   * final compiler map trailer is translated; similar authored text inside a
-   * multiline literal remains source text.
+   * roots already give sources their independent compiler-defined base. Only
+   * the final compiler map trailer is translated; similar authored text inside
+   * a multiline literal remains source text.
    *
    * Build information is identified by its selected path, including arbitrary
    * extensions. Recovery-only state is excluded by path; actual emitted state

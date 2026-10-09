@@ -12,9 +12,9 @@ import { parentPort } from "node:worker_threads";
 
 import { CompilerContextSnapshot } from "../../internal/CompilerContextSnapshot";
 import { serializeCompilerError } from "../../internal/serializeCompilerError";
-import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 import type { TransformProjectWorkerReply } from "./TransformProjectWorkerReply";
 import type { TransformProjectWorkerRequest } from "./TransformProjectWorkerRequest";
+import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 import { transformProjectInMemory } from "./transformProjectInMemory";
 
 parentPort?.on("message", (request: TransformProjectWorkerRequest) => {

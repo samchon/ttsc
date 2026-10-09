@@ -63,7 +63,10 @@ async function scan() {
       let rows;
       if (windows) rows = await windows.query();
       else {
-        const stdout = await new Promise((resolve, reject) => execFile("ps", ["-axo", "pid=,ppid=,lstart=,comm=,args="], { maxBuffer: 16 * 1024 * 1024, env: { ...process.env, LC_ALL: "C" } }, (error, output) => error ? reject(error) : resolve(output)));
+        // lstart has second precision and uses localtime on both supported ps
+        // implementations. UTC prevents local DST folds from reversing dates;
+        // equal seconds remain ambiguous and never certify original lifetime.
+        const stdout = await new Promise((resolve, reject) => execFile("ps", ["-axo", "pid=,ppid=,lstart=,comm=,args="], { maxBuffer: 16 * 1024 * 1024, env: { ...process.env, LC_ALL: "C", TZ: "UTC" } }, (error, output) => error ? reject(error) : resolve(output)));
         rows = String(stdout).split("\n").filter(Boolean).map((line) => {
           const match = line.trim().match(/^(\d+)\s+(\d+)\s+(\S+\s+\S+\s+\d+\s+\S+\s+\d+)\s+(\S+)\s+(.*)$/);
           if (!match) throw new Error("Unrecognized ps process identity: " + line);

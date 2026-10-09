@@ -11,10 +11,10 @@ import (
 // TestSwaggerEffectiveContractsExpireOperationReviews verifies bridge digests
 // reach native review policy instead of being replaced by a document cache key.
 //
-// 1. Normalize inherited, equivalent explicit and changed server contracts.
-// 2. Materialize their operation units and a separately overridden sibling.
-// 3. Accept the original review, expire it for the changed contract and preserve
-//    it for equivalent or unrelated edits.
+//  1. Normalize inherited, equivalent explicit and changed server contracts.
+//  2. Materialize their operation units and a separately overridden sibling.
+//  3. Accept the original review, expire it for the changed contract and preserve
+//     it for equivalent or unrelated edits.
 //
 // @evidence contracts/testing.md#behavioral-verification One real normalizeSwaggerSources batch feeds swaggerOperationUnit, newScopeIndex, materializeClaimStates and evaluateEvidenceGraph. An original review must pass, a server change must report Stale @evidenceReview and equivalent explicit or unused-scheme edits must remain silent; the isolated sibling fingerprint must remain unchanged throughout.
 // @evidence contracts/testing.md#independent-expectations OpenAPI server inheritance and override determine which authored operation changed. The initial review token is fixture setup, while accepted-to-stale and unchanged-sibling transitions independently challenge omitted contracts and whole-document hashing without a golden implementation digest.
@@ -35,8 +35,8 @@ func TestSwaggerEffectiveContractsExpireOperationReviews(t *testing.T) {
   inputs := map[string]string{
     "original.json": document("https://one.invalid", false, "X-Unused"),
     "explicit.json": document("https://one.invalid", true, "X-Unused"),
-    "changed.json": document("https://two.invalid", false, "X-Unused"),
-    "unused.json": document("https://one.invalid", false, "X-Other"),
+    "changed.json":  document("https://two.invalid", false, "X-Unused"),
+    "unused.json":   document("https://one.invalid", false, "X-Other"),
   }
   sources := []string{"original.json", "explicit.json", "changed.json", "unused.json"}
   for source, content := range inputs {

@@ -24,14 +24,15 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * record can be reclaimed.
  *
  * Scoped native boundaries add independent guards: their exact build leases
- * survive age/PID-based collection until qualified closure. Shared cache
- * guards prevent eviction and clean without serializing independent builders.
+ * survive age/PID-based collection until qualified closure. Shared cache guards
+ * prevent eviction and clean without serializing independent builders.
  * Maintenance freshness remains separate so an old maintenance record cannot
  * block concurrent builds indefinitely under an unrelated native guard.
  *
- * Age-based expiry for unguarded records assumes a running task can keep its heartbeat fresh. A
- * prolonged suspension or failed heartbeat after startup can outlast the grace;
- * elapsed time alone does not prove that its Go process has ended.
+ * Age-based expiry for unguarded records assumes a running task can keep its
+ * heartbeat fresh. A prolonged suspension or failed heartbeat after startup can
+ * outlast the grace; elapsed time alone does not prove that its Go process has
+ * ended.
  *
  * @evidence contracts/common.md#principled-implementation Exact scoped native guards supersede build-lease expiry until certified closure while shared Go admission remains concurrent. Published completion and refreshed mtimes implement task policy: build grace is one hour and maintenance grace one minute. Unknown metadata age defers pruning, while unreadable bytes can still expire by observed age; grace expiry is not process-absence proof after heartbeat failure.
  * @evidence contracts/common.md#clear-and-simple-design Root validation, task publication and collection form one coordination boundary used by builders and maintenance.
@@ -114,9 +115,9 @@ export namespace GoBuildCacheCoordination {
      * Request heartbeat shutdown, attempt to mark the record complete, then
      * attempt deletion. Synchronous finish does not join shutdown; an explicit
      * worker scope tracks actual exit/close and termination failures for its
-     * asynchronous owner to join. Ordinary failures may leave a task or
-     * file. A successful completion write prevents a failed delete from leaving
-     * the task active; if both writes and deletion fail, stale-timeout handling
+     * asynchronous owner to join. Ordinary failures may leave a task or file. A
+     * successful completion write prevents a failed delete from leaving the
+     * task active; if both writes and deletion fail, stale-timeout handling
      * remains the collector's fallback.
      *
      * @evidence contracts/common.md#principled-implementation The terminal callback requests refresher shutdown and attempts complete-state publication before removal; only successful publication records completion if deletion fails, and actual termination remains tracked for an opted-in asynchronous owner rather than joined by this synchronous callback.
@@ -471,16 +472,22 @@ export namespace GoBuildCacheCoordination {
       throw error;
     }
     const live: string[] = [];
-    const protectedGenerations = directoryName === GO_BUILD_CACHE_LEASE_DIR
-      ? SourceNativeRetirement.protectedGenerations(root)
-      : new Set<string>();
+    const protectedGenerations =
+      directoryName === GO_BUILD_CACHE_LEASE_DIR
+        ? SourceNativeRetirement.protectedGenerations(root)
+        : new Set<string>();
     for (const record of records) {
       if (!record.isFile()) {
         continue;
       }
       const file = path.join(directory, record.name);
-      const protectedNativeInputs = protectedGenerations === undefined || protectedGenerations.has(record.name);
-      if (protectedNativeInputs || goBuildCacheCoordinationRecordIsLive(file, directoryName, now)) {
+      const protectedNativeInputs =
+        protectedGenerations === undefined ||
+        protectedGenerations.has(record.name);
+      if (
+        protectedNativeInputs ||
+        goBuildCacheCoordinationRecordIsLive(file, directoryName, now)
+      ) {
         live.push(file);
         continue;
       }

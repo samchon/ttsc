@@ -5,6 +5,7 @@ import path from "node:path";
 import { assertSharedHostCompatibility } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/assertSharedHostCompatibility";
 import { pluginLabel } from "../../../../../packages/ttsc/src/plugin/internal/load/pluginLabel";
 import { resolveNativeSource } from "../../../../../packages/ttsc/src/plugin/internal/load/resolveNativeSource";
+import { NativeSourcePackages } from "../../../../../packages/ttsc/src/plugin/internal/source/NativeSourcePackages";
 import type { ITtscLoadedNativePlugin } from "../../../../../packages/ttsc/src/structures/internal/ITtscLoadedNativePlugin";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -20,10 +21,10 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    owners.
  * 3. Classify linked and invalid production-package controls and label fallbacks.
  *
- * @evidence contracts/testing.md#behavioral-verification resolveNativeSource classifies two Go main packages named like built-in plugins as executable and a non-main package under an arbitrary label as linked; assertSharedHostCompatibility then throws the exact emit and source-to-source messages for two executables with different binaries, accepts equal binaries, an empty list and a single plugin, skips a linked transform contributor, and still throws when that contributor is check-stage; a directory with only a _test.go file is refused and pluginLabel falls back from name to specifier to #index.
+ * @evidence contracts/testing.md#behavioral-verification resolveNativeSource classifies two Go main packages named like built-in plugins as executable and a non-main package under an arbitrary label as linked; assertSharedHostCompatibility then throws the exact emit and source-to-source messages for two executables with different binaries, accepts equal binaries, an empty list and a single plugin, skips a linked transform contributor, and still throws when that contributor is check-stage; a directory without a valid production package is refused and pluginLabel falls back from name to specifier to #index.
  * @evidence contracts/testing.md#independent-expectations Literal package declarations and original module names establish executable versus library ownership independently of descriptor names; complete diagnostics and actual module roots are independently expected.
  * @evidence contracts/testing.md#distinguishing-cases Owns two fake built-in labels on distinct main packages, both pass errors, equal-owner acceptance, real linked exclusion, check-stage non-exclusion, test-only/no-package refusal and name/specifier/index label fallback.
- * @evidence contracts/testing.md#execution-ownership The matching named source-unit export imports authored classifier, label and pass-guard functions directly; only source filesystem fixtures are created, without a descriptor evaluator, native build or supplied fake capability.
+ * @evidence contracts/testing.md#execution-ownership The matching named source-unit export imports authored classifier, label and pass-guard functions directly; source filesystem fixtures and actual Go metadata commands establish ownership, without a descriptor evaluator, native producer build or supplied fake capability.
  */
 export function test_native_source_classification_keeps_fake_labels_out_of_host_ownership(): void {
   const root = TestProject.physicalPath(
@@ -53,12 +54,17 @@ export function test_native_source_classification_keeps_fake_labels_out_of_host_
   );
   const mainA = path.join(root, "fake-banner");
   const mainB = path.join(root, "fake-strip");
+  const sources = [mainA, mainB, path.join(root, "linked"), path.join(root, "no-package")];
+  const observations = NativeSourcePackages.ownPackages(
+    sources.map((source) => ({ source, label: path.basename(source) })), process.env,
+  );
   const classify = (source: string, name: string) =>
     resolveNativeSource(
       source,
       { name, source },
       { transform: "./plugins/" + name + ".cjs" },
       0,
+      { observation: observations[sources.indexOf(source)]! },
     );
   const a = classify(mainA, "@ttsc/banner");
   const b = classify(mainB, "@ttsc/strip");
@@ -109,9 +115,7 @@ export function test_native_source_classification_keeps_fake_labels_out_of_host_
     /multiple compiler native backends/,
   );
   const invalid = path.join(root, "no-package");
-  assert.throws(() => classify(invalid, "missing-package"), {
-    message: `ttsc: plugin "missing-package" source must contain at least one non-test ".go" file with a package declaration: ${invalid}`,
-  });
+  assert.throws(() => classify(invalid, "missing-package"), /expected 'package'/);
   assert.equal(
     pluginLabel(
       { name: "chosen", source: mainA },

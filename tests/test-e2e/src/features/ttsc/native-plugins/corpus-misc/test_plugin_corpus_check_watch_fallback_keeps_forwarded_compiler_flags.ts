@@ -31,8 +31,8 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export drives one real WatchSession, native lint process and OS process termination through the native E2E selection; no Linux-only admission is encoded by this named body.
  * @evidence contracts/e2e.md#necessary-boundary The watcher must carry compiler flags from resident startup into fallback spawn after a real child death; direct argument composition cannot prove failure recovery uses the same payload.
  * @evidence contracts/e2e.md#shared-execution The unchanged lint producer shares the batch plugin cache and Go objects; healthy and fallback cycles use one watcher, with fallback required by the deliberately stopped resident. Actual fallback/native/Program populations require their own observations rather than host or banner counts.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The isolated project owns strict:false config and source, the test stops the safe positive non-self PID obtained from actual telemetry. After the first new marker it waits for started cycles to settle within the original recovery deadline before reading diagnostics. Finally retains body and close causes; nonce receipt/direct-child close is not arbitrary descendant retirement or forced-interruption cleanup.
- * @evidence contracts/e2e.md#preserved-coverage Original healthy diagnostic presence, integer PID, recovery-cycle deadline and healthy-count-plus-one assertions remain; no real fallback is replaced with a simulated client failure.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The isolated project owns strict:false config and source, the test stops the safe positive non-self PID obtained from actual telemetry. A genuine additional completion marker and finite settled boundary precede diagnostic inspection; actual owner failure remains an error regardless of elapsed age. Finally retains body and close causes; nonce receipt/direct-child close is not arbitrary descendant retirement or forced-interruption cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Original healthy diagnostic presence, integer PID, genuine recovery-cycle completion and healthy-count-plus-one assertions remain; no real fallback is replaced with a simulated client failure.
  */
 export async function test_plugin_corpus_check_watch_fallback_keeps_forwarded_compiler_flags(): Promise<void> {
   const root = setupLintProject("lint-violations");
@@ -61,7 +61,7 @@ export async function test_plugin_corpus_check_watch_fallback_keeps_forwarded_co
   });
   const failures: unknown[] = [];
   try {
-    await session.waitForBuilds(1, 300_000);
+    await session.waitForBuilds(1);
     // A rerun queued during a cold first build would replace the resident
     // this test is about to stop, so every cycle so far has run first.
     await session.waitForSettled();
@@ -81,14 +81,8 @@ export async function test_plugin_corpus_check_watch_fallback_keeps_forwarded_co
 
     process.kill(pid);
     fs.appendFileSync(source, "// edited after the resident host died\n");
-    const deadline = Date.now() + 120_000;
-    while (
-      !session.transcript().slice(healthy.length).includes("watch build")
-    ) {
-      assert.ok(Date.now() < deadline, session.transcript());
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    await session.waitForSettled(300, Math.max(1, deadline - Date.now()));
+    await session.waitForBuilds((healthy.match(/\[ttsc\] watch build (?:complete|failed)/g)?.length ?? 0) + 1);
+    await session.waitForSettled(300);
     const recovered = session.transcript();
     assert.equal(
       countTs7006(recovered),

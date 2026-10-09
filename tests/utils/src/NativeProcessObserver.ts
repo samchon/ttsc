@@ -17,7 +17,7 @@ import { TestProject } from "./TestProject";
  * @evidence contracts/portability.md#os-neutral-implementation The isolated native fixture owns Windows handles, Linux pidfds and Darwin kqueue registrations; TypeScript validates their explicit platform/kernel identity without treating it as a new lookup authority.
  * @evidence contracts/performance.md#efficient-algorithms Protocol routing uses request and target maps; preparation hashes actual fixture bytes and the executable, with storage proportional to the fixture and enrolled targets.
  * @evidence contracts/performance.md#reuse-equivalent-work One preparation per process reuses only identical selected binary/source readings; each session and enrolled process lifetime remains distinct.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Session close awaits native resource release and actual observer exit. Five seconds without graceful close triggers retention and an owned-process kill request; it does not certify a bounded join if OS completion remains unknown. Preparation allocations are exit-tracked, and retained ones cannot be reused.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Session close requires the native closed acknowledgement and actual original observer close, without an elapsed deadline. Protocol or stream failure rejects pending work once and closes owned input to initiate native EOF cleanup; distinct later stream, write, retention and original-close failures remain in the final cleanup error, while repeated delivery of the same error and derivative missing-ack EOF are not added again; unproved closure retains the preparation and disables reuse. The containing E2E native owner supplies operator cancellation; elapsed time never kills an observer or certifies retirement.
  */
 export namespace NativeProcessObserver {
   let shared: PreparationState | undefined;
@@ -133,7 +133,8 @@ export namespace NativeProcessObserver {
       } catch (retentionFailure) {
         preparationFailure = new AggregateError(
           [cause, retentionFailure],
-          "Observer preparation failed and input retention was refused: " + allocation,
+          "Observer preparation failed and input retention was refused: " +
+            allocation,
           { cause },
         );
       }
@@ -287,7 +288,7 @@ async function openSession(
     {
       resolve: (frame: Record<string, unknown>) => void;
       reject: (error: unknown) => void;
-      timer: NodeJS.Timeout;
+      op: string;
     }
   >();
   const targets = new Set<Target>();
@@ -298,22 +299,56 @@ async function openSession(
   let readyResolve!: () => void;
   let readyReject!: (error: unknown) => void;
   let readyReceived = false;
+  let closedReceived = false;
+  let inputEnded = false;
+  const failures: Error[] = [];
+  const failureCauses = new Set<unknown>();
   const ready = new Promise<void>((resolve, reject) => {
     readyResolve = resolve;
     readyReject = reject;
   });
+  const endInput = (): void => {
+    if (inputEnded) return;
+    inputEnded = true;
+    child.stdin.end();
+  };
   const fail = (cause: unknown): void => {
-    failure ??= cause instanceof Error ? cause : new Error(String(cause));
-    readyReject(failure);
-    for (const request of pending.values()) {
-      clearTimeout(request.timer);
-      request.reject(failure);
+    const first = failure === undefined;
+    if (!failureCauses.has(cause)) {
+      failureCauses.add(cause);
+      failures.push(cause instanceof Error ? cause : new Error(String(cause)));
+      failure = failures.length === 1
+        ? failures[0]!
+        : new AggregateError(
+            [...failures],
+            "Observer protocol and cleanup failures",
+            { cause: failures[0] },
+          );
+      failureCauses.add(failure);
     }
+    if (!first) return;
+    try {
+      retain();
+    } catch (retentionFailure) {
+      fail(retentionFailure);
+    }
+    try {
+      endInput();
+    } catch (inputFailure) {
+      fail(inputFailure);
+    }
+    readyReject(failure);
+    for (const request of pending.values()) request.reject(failure);
     pending.clear();
   };
   const exited = new Promise<void>((resolve) =>
     child.once("close", (code, signal) => {
-      if (!closing || code !== 0 || signal !== null || buffer.length)
+      if (code !== 0 || signal !== null)
+        fail(new Error(
+          "Observer original close failed: " +
+            JSON.stringify({ code, signal, stderr, buffer }),
+        ));
+      else if (!failure && (!closedReceived || buffer.length || pending.size))
         fail(
           new Error(
             "Observer exited without certified close: " +
@@ -325,6 +360,16 @@ async function openSession(
   );
   child.once("error", fail);
   child.stdin.on("error", fail);
+  child.stderr.on("error", fail);
+  child.stdout.on("error", fail);
+  child.stdout.once("end", () => {
+    if (!failure && (!closedReceived || buffer.length || pending.size))
+      fail(new Error("Observer output ended before certified close: " + buffer));
+  });
+  child.stdout.once("close", () => {
+    if (!failure && (!closedReceived || buffer.length || pending.size))
+      fail(new Error("Observer output closed before certified close: " + buffer));
+  });
   child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
     if (failure) return;
     const overflow = stderr.length + chunk.length > 65536;
@@ -345,7 +390,8 @@ async function openSession(
         if (frame.version !== 1 || frame.sessionNonce !== sessionNonce)
           throw new Error("Foreign observer frame");
         if (frame.event === "ready") {
-          if (readyReceived) throw new Error("Duplicate observer readiness");
+          if (readyReceived || frame.id !== undefined)
+            throw new Error("Invalid or duplicate observer readiness");
           readyReceived = true;
           readyResolve();
           continue;
@@ -354,24 +400,24 @@ async function openSession(
           throw new Error("Observer response lacks request identity");
         const request = pending.get(frame.id);
         if (!request) throw new Error("Unsolicited observer response");
+        if (frame.event === "error")
+          throw new Error("Observer refused request: " + JSON.stringify(frame));
+        const expected =
+          request.op === "acquire"
+            ? "acquired"
+            : request.op === "wait"
+              ? "waited"
+              : "closed";
+        if (frame.event !== expected)
+          throw new Error("Observer response does not match request: " + request.op);
         pending.delete(frame.id);
-        clearTimeout(request.timer);
-        if (frame.event === "error") {
-          const error = new Error(
-            "Observer refused request: " + JSON.stringify(frame),
-          );
-          request.reject(error);
-          fail(error);
-        } else request.resolve(frame);
+        if (request.op === "close") closedReceived = true;
+        request.resolve(frame);
       }
     } catch (cause) {
       fail(cause);
     }
   });
-  const readyTimer = setTimeout(
-    () => fail(new Error("Observer readiness deadline")),
-    5000,
-  );
   const request = (
     op: string,
     values: Record<string, unknown> = {},
@@ -379,57 +425,41 @@ async function openSession(
     if (failure) return Promise.reject(failure);
     const id = crypto.randomUUID();
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(
-        () => fail(new Error("Observer request deadline: " + op)),
-        5000,
-      );
-      pending.set(id, { resolve, reject, timer });
-      child.stdin.write(
-        JSON.stringify({ version: 1, sessionNonce, id, op, ...values }) + "\n",
-      );
+      pending.set(id, { resolve, reject, op });
+      try {
+        child.stdin.write(
+          JSON.stringify({ version: 1, sessionNonce, id, op, ...values }) + "\n",
+          (error) => {
+            if (error) fail(error);
+          },
+        );
+      } catch (cause) {
+        fail(cause);
+      }
     });
   };
   const close = (): Promise<void> =>
     (closing ??= (async () => {
-      const timer = setTimeout(() => {
-        try {
-          retain();
-        } catch (cause) {
-          fail(cause);
-        } finally {
-          fail(
-            new Error(
-              "Observer graceful close deadline; original join remains required",
-            ),
-          );
-          child.kill();
-        }
-      }, 5000);
       try {
-        try {
-          if (!failure) {
-            const frame = await request("close");
-            if (frame.event !== "closed")
-              throw new Error("Observer did not acknowledge resource release");
-          }
-        } catch (cause) {
-          fail(cause);
-        }
-        child.stdin.end();
-        await exited;
-      } finally {
-        clearTimeout(timer);
+        if (!failure) await request("close");
+      } catch (cause) {
+        fail(cause);
       }
+      try {
+        endInput();
+      } catch (cause) {
+        fail(cause);
+      }
+      await exited;
       targets.clear();
       if (failure) throw failure;
     })());
   try {
     await ready;
+    if (failure) throw failure;
   } catch (cause) {
-    await close().catch(() => {});
+    await close();
     throw cause;
-  } finally {
-    clearTimeout(readyTimer);
   }
   return {
     sessionNonce,

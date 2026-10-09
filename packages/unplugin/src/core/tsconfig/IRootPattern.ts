@@ -2,11 +2,12 @@
  * One compiled root-file specification from a tsconfig's `files` or `include`.
  *
  * `components` holds one matcher per path segment: a literal string, the
- * recursive `**` marker, or a compiled expression. `literal` marks a `files`
- * entry, which must match a whole path exactly and never a directory prefix.
+ * recursive `**` marker, or compiled literal/wildcard predicates. `literal`
+ * marks a `files` entry, which must match a whole path exactly and never a
+ * directory prefix.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Literal segments, recursive markers and compiled expressions represent
+ *   Literal segments, recursive markers and compiled predicates/tokens represent
  *   TypeScript's component grammar; flags preserve case, JSON and exact-file rules.
  *
  * @evidence contracts/common.md#clear-and-simple-design
@@ -40,13 +41,16 @@ export interface IRootPattern {
 
   /**
    * One matcher per path segment: a literal, the recursive `**` marker, or a
-   * compiled expression.
+   * whole literal expression or bounded wildcard token sequence.
    */
   components: readonly (
     | string
     | {
-        /** Whole-component matcher under the compiler's comparison policy. */
-        expression: RegExp;
+        /**
+         * A whole escaped literal, or wildcard tokens whose expressions match
+         * one literal Unicode code point under the compiler's case policy.
+         */
+        expression: RegExp | readonly ("*" | "?" | RegExp)[];
 
         /**
          * Whether the segment spells `.min.`, which lets a wildcard file match

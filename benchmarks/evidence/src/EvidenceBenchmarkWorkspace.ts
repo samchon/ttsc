@@ -382,10 +382,10 @@ export namespace EvidenceBenchmarkWorkspace {
    * Points every packed toolchain package at its local archive.
    *
    * `adoptRepositoryCatalog` substitutes requested repository versions, while
-   * the template selects its external consumer dependencies. Published workspace
-   * packages need a further binding: `^0.24.0` resolves to whatever the registry
-   * last received, so a cell would measure a released compiler while reporting
-   * on the tree under test.
+   * the template selects its external consumer dependencies. Published
+   * workspace packages need a further binding: `^0.24.0` resolves to whatever
+   * the registry last received, so a cell would measure a released compiler
+   * while reporting on the tree under test.
    *
    * The binding lands in `overrides` rather than in the catalog for two
    * reasons. pnpm refuses a `file:` entry inside a catalog outright

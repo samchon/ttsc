@@ -4,6 +4,17 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const actorController = require("./runtime-owned-descendant.cjs");
+const actorFacts = { finished: false, success: false, actors: {}, inputsRestored: false, registerRestorationRequired: false, registerRestored: false, mainReportingAttempted: false, semanticErrors: [] };
+const receiptFailures = [];
+const saveActor = () => {
+  try { actorController.publishOutcome("declared", actorFacts); }
+  catch (cause) { receiptFailures.push(cause); }
+};
+let actorFailure;
+let verifyActorInputs;
+saveActor();
+try {
 const root = path.dirname(__dirname);
 const launcher = path.dirname(process.env.TTSC_E2E_INSTALLED_TTSX);
 const { TtscCompiler } = require(path.join(launcher, "../TtscCompiler.js"));
@@ -21,7 +32,29 @@ const inputs = new Map([
   "tools/native-emission/src/main.ts", "tools/native-emission/src/lib/value.ts",
   "tools/native-emission/src/package-entry.ts",
   "tools/runtime-negative/args.txt", "tools/runtime-negative/script.js", "tools/runtime-negative/preload.cjs",
+  "src/runtime-corpus/package-boundary.cts",
+  "tools/api-environment-layers.cjs", "tools/api-env-descriptor.cjs",
 ].map((relative) => [path.join(root, relative), fs.readFileSync(path.join(root, relative))]));
+const boundaryRoot = path.join(root, "tools/runtime-package-boundary");
+// Unoverridden builds for these package projects select this installation's
+// documented default plugin cache. Its binaries are not authored fixture input.
+const boundaryCache = path.join(boundaryRoot, "app/NODE_MODULES/.cache/ttsc");
+const readBoundaryTree = () => {
+  const files = new Map();
+  const cache = fs.existsSync(boundaryCache) ? fs.realpathSync.native(boundaryCache) : undefined;
+  const visit = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (cache === undefined || fs.realpathSync.native(file) !== cache) visit(file);
+      } else if (entry.isFile()) files.set(file, fs.readFileSync(file));
+    }
+  };
+  visit(boundaryRoot);
+  return files;
+};
+const boundaryInputs = readBoundaryTree();
+const boundaryExpected = JSON.parse(fs.readFileSync(path.join(boundaryRoot, "expected.json"), "utf8"));
 assert.equal(fs.existsSync(artifacts), false);
 const missingDescriptor = path.join(root, "missing-plugin.cjs");
 assert.equal(fs.existsSync(missingDescriptor), false);
@@ -124,11 +157,13 @@ try {
   for (const [file, bytes] of seed) assert.deepEqual(fs.readFileSync(file), bytes);
 } catch (cause) { apiFailures.push(new Error("public API isolation: restored capture", { cause })); }
 const unchanged = () => {
+  assert.deepEqual(readBoundaryTree(), boundaryInputs, "installed-boundary sources/configs must stay unchanged without adjacent output");
   for (const [file, bytes] of seed) assert.deepEqual(fs.readFileSync(file), bytes, "actual runtime delivery must preserve every produced declaration, map and build-info byte");
   for (const [file, bytes] of inputs) assert.deepEqual(fs.readFileSync(file), bytes, "each delivery must preserve its authored source and compiler configuration");
   for (const relative of ["src/runtime-corpus/native-factory.js", "src/runtime-corpus/declared-owned.cjs", "src/runtime-corpus/declaration-entry.cjs", "tools/runtime-declared-script.js", "tools/runtime-placement.js"])
     assert.equal(fs.existsSync(path.join(root, relative)), false, "runtime delivery must not emit beside its authored input");
 };
+verifyActorInputs = unchanged;
 assert.deepEqual(require(path.join(root, "src/runtime-corpus/native-factory.ts")).observed,
   { generated: 42, neighbor: 43, payload: 42 });
 assert.equal(require(path.join(root, "src/runtime-corpus/declared-owned.cts")).value, "entry");
@@ -145,6 +180,7 @@ const nativeConfigFile = path.join(nativeProject, "tsconfig.json");
 const nativeConfiguration = fs.readFileSync(nativeConfigFile);
 const nativeOptions = JSON.parse(nativeConfiguration);
 const rootEntries = JSON.parse(fs.readFileSync(path.join(root, "runtime-base.json"), "utf8")).compilerOptions.plugins;
+const apiEnvironmentReceipts = require("./api-environment-layers.cjs")({ root, launcher, rootEntries, apiFailures });
 // Reporting is scoped to the Program that this dispatch actually loads. The
 // shared root's bundle/map inputs do not belong to this nested source owner.
 const emissionReports = {
@@ -243,10 +279,15 @@ const registerBefore = receiptCount();
 const rejectedEnv = { ...process.env };
 for (const name of ["TTSX_RUNTIME_MANIFEST", "TTSX_RUNTIME_CACHE_DIR", "TTSX_RUNTIME_RUN_DIR", "TTSX_RUNTIME_RUNS_DIR"])
   delete rejectedEnv[name];
+actorFacts.actors.rejection = { attempted: true, closed: false };
+saveActor();
 const rejected = spawnSync(process.execPath, [
   "--require", path.join(__dirname, "runtime-negative/preload.cjs"), process.env.TTSC_E2E_INSTALLED_TTSX,
   "--cwd", root, "--strict", "-P", "runtime-owned.json", "--no-plugins", "@tools/runtime-negative/args.txt", "tools/runtime-negative/script.js",
 ], { cwd: root, env: rejectedEnv, encoding: "utf8", windowsHide: true });
+Object.assign(actorFacts.actors.rejection, { pid: rejected.pid, status: rejected.status, signal: rejected.signal, error: rejected.error ? String(rejected.error) : null,
+  closed: !rejected.error && rejected.pid > 0 && (rejected.status !== null || rejected.signal !== null) });
+saveActor();
 if (rejected.error || rejected.signal !== null || rejected.status === null || !(rejected.pid > 0))
   throw new Error("rejection actor closure remained unresolved", { cause: rejected.error ?? new Error(JSON.stringify({ signal: rejected.signal, status: rejected.status, pid: rejected.pid })) });
 assert.equal(rejected.error, undefined);
@@ -352,9 +393,16 @@ registerOptions.compilerOptions.plugins = registerOptions.compilerOptions.plugin
 const registerAutomatic = JSON.parse(automaticManifestBytes);
 registerAutomatic.ttsc.plugin = registerReports(registerAutomatic.ttsc.plugin);
 let childReport;
-let childIsRunning;
+let childJoined = false;
+let descendantAdmission;
+let descendantRelease;
+let descendantJoin;
+const descendantController = require("./runtime-owned-descendant.cjs");
 const descendant = path.join(__dirname, "runtime-descendant");
+let registerFailure;
 try {
+actorFacts.registerRestorationRequired = true;
+saveActor();
 fs.writeFileSync(registerBaseFile, JSON.stringify(registerOptions));
 fs.writeFileSync(automaticManifestFile, JSON.stringify(registerAutomatic));
 fs.copyFileSync(registerBaseFile, configuration);
@@ -367,19 +415,18 @@ try {
   delete env.TTSC_CACHE_DIR;
   env.TTSC_E2E_CONFIGLESS_PLACEMENT = configlessPlacement;
   env.TEMP = env.TMP = env.TMPDIR = temporary;
+  actorFacts.actors.registered = { attempted: true, closed: false };
+  saveActor();
   registered = spawnSync(process.execPath,
     ["--require", path.join(launcher, "../register.js"), path.join(root, "tools/configured-owners/legacy/src/register-entry.tsx")],
     { cwd: root, env, encoding: "utf8", windowsHide: true });
+  Object.assign(actorFacts.actors.registered, { pid: registered.pid, status: registered.status, signal: registered.signal, error: registered.error ? String(registered.error) : null,
+    closed: !registered.error && registered.pid > 0 && (registered.status !== null || registered.signal !== null) });
+  saveActor();
 } finally {
   fs.unlinkSync(configuration);
 }
 childReport = fs.existsSync(path.join(descendant, "parent.json")) ? JSON.parse(fs.readFileSync(path.join(descendant, "parent.json"), "utf8")) : undefined;
-childIsRunning = () => {
-  if (childReport === undefined) return false;
-  assert.ok(Number.isSafeInteger(childReport.child) && childReport.child > 0);
-  try { process.kill(childReport.child, 0); return true; }
-  catch (error) { if (error.code === "ESRCH") return false; throw error; }
-};
 const defaultRuntime = path.join(root, "node_modules/.cache/ttsc/ttsx");
 const defaultRuns = path.join(defaultRuntime, "project");
 const cleanDefault = () => {
@@ -393,50 +440,102 @@ try {
   assert.equal(registered.signal, null);
   assert.equal(registered.status, 0, registered.stderr);
   assert.ok(registered.pid > 0);
-  assert.throws(() => process.kill(registered.pid, 0), (error) => error.code === "ESRCH");
-  assert.equal(registered.stdout.trim(), 'TTSC_REGISTER_VIEW:<div>hello</div><b>world</b>\nlowered\nentry\nTTSC_DECLARED_REGISTER:{"generated":42,"neighbor":43,"payload":42}');
-  assert.equal(lowerings(defaultOrphans).filter((name) => !defaultBefore.has(name)).length, 1, "the manifestless register entry must prepare a default project-local cache and lower its configless input there");
+  descendantAdmission = descendantController.request("registered", "ready");
+  assert.equal(descendantAdmission.parent.pid, registered.pid);
+  descendantController.request("registered", "parent-joined");
+  const registerLines = registered.stdout.trim().split(/\r?\n/);
+  assert.deepEqual(registerLines.slice(0, -1), ['TTSC_REGISTER_VIEW:<div>hello</div><b>world</b>', 'lowered', 'entry', 'TTSC_DECLARED_REGISTER:{"generated":42,"neighbor":43,"payload":42}']);
+  const boundaryPrefix = "TTSC_INSTALLED_BOUNDARY_REGISTER:";
+  assert.ok(registerLines.at(-1).startsWith(boundaryPrefix), registered.stdout);
+  assert.deepEqual(JSON.parse(registerLines.at(-1).slice(boundaryPrefix.length)), boundaryExpected);
+  const defaultAdded = lowerings(defaultOrphans).filter((name) => !defaultBefore.has(name));
+  assert.equal(defaultAdded.length, 3, "default placement and the two configless installed targets each own one lowering");
+  const loweredSources = defaultAdded.flatMap((name) => {
+    const text = fs.readFileSync(path.join(defaultOrphans, name), "utf8");
+    const inline = /sourceMappingURL=data:application\/json;charset=utf-8;base64,([A-Za-z0-9+/=]+)/.exec(text);
+    assert.ok(inline, "each retained isolated emit must preserve its original source-map identity");
+    return JSON.parse(Buffer.from(inline[1], "base64").toString("utf8")).sources;
+  });
+  const { fileURLToPath } = require("node:url");
+  assert.deepEqual(loweredSources.map((source) => fs.realpathSync.native(fileURLToPath(source))).sort(), [
+    configlessPlacement,
+    path.join(boundaryRoot, "app/NODE_MODULES/boundary-no-config/index.cts"),
+    path.join(boundaryRoot, "app/NODE_MODULES/boundary-no-config/esm.mts"),
+  ].map((file) => fs.realpathSync.native(file)).sort());
   assert.deepEqual(fs.readFileSync(configlessPlacement), configlessBytes);
   assert.equal(fs.existsSync(path.join(configlessDirectory, "runtime-placement.js")), false);
   assert.equal(fs.existsSync(path.join(temporary, "ttsc-orphan")), false, "neither placement may retain its lowering in the temporary directory");
   assert.ok(childReport, "the actual registered parent must publish its owned child identity");
   assert.equal(childReport.parent, registered.pid);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(descendant, "ready.json"), "utf8")), { pid: childReport.child, manifest: null, run: null, runtime: null, runs: null });
-  assert.equal(childIsRunning(), true, "the manifestless registered descendant must remain alive for its lazy import");
+  assert.equal(descendantController.request("registered", "live").live, true, "the authenticated original manifestless descendant must remain held for its lazy import");
   const owners = fs.existsSync(defaultRuns) ? fs.readdirSync(defaultRuns).flatMap((run) => fs.readdirSync(path.join(defaultRuns, run)).filter((name) => /^owner-.*\.json$/.test(name)).map((name) => JSON.parse(fs.readFileSync(path.join(defaultRuns, run, name), "utf8")))) : [];
   assert.equal(owners.some((owner) => owner.pid === childReport.child), false, "manifestless register must not invent an inherited generation owner");
   assert.equal(cleanDefault(), 0);
   assert.equal(fs.existsSync(defaultRuntime), false, "default clean must remove the unowned manifestless generation before the live descendant lazily rebuilds its typed input");
-  fs.writeFileSync(path.join(descendant, "release"), "release");
-  const deadline = Date.now() + 30000;
-  while (!fs.existsSync(path.join(descendant, "result")) || childIsRunning()) {
-    assert.ok(Date.now() < deadline, "the released descendant did not finish its actual lazy import");
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
-  }
+  descendantRelease = descendantController.request("registered", "release");
+  descendantJoin = descendantController.request("registered", "joined");
+  childJoined = descendantJoin.retired;
+  assert.equal(descendantJoin.completion.value, "descendant-ready", JSON.stringify(descendantJoin));
   assert.equal(fs.readFileSync(path.join(descendant, "result"), "utf8"), "descendant-ready");
   assert.equal(cleanDefault(), 0);
   assert.equal(fs.existsSync(defaultRuntime), false, "default clean must remove the completed registered run");
 } catch (error) { descendantFailures.push(error); }
 finally {
-  fs.writeFileSync(path.join(descendant, "release"), "release");
-  try {
-    const deadline = Date.now() + 30000;
-    while (childIsRunning()) {
-      assert.ok(Date.now() < deadline, "registered descendant closure remained unresolved");
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
-    }
+  if (!childJoined) try {
+    if (!descendantRelease) descendantController.request("registered", "abort");
+    descendantJoin = descendantController.request("registered", "joined");
+    childJoined = descendantJoin.retired;
   } catch (error) { descendantFailures.push(new Error("registered descendant closure remained unresolved", { cause: error })); }
 }
 if (descendantFailures.length) throw new AggregateError(descendantFailures, "registered descendant live/lazy/finished cleanup");
-} finally {
-  if (childIsRunning !== undefined && childIsRunning())
-    throw new Error("register reporting epoch retained because its descendant closure is unresolved");
-  try { fs.writeFileSync(registerBaseFile, registerBaseBytes); }
-  finally { fs.writeFileSync(automaticManifestFile, automaticManifestBytes); }
-  assert.deepEqual(fs.readFileSync(configlessPlacement), configlessBytes);
-  fs.unlinkSync(configlessPlacement);
-  fs.rmdirSync(configlessDirectory);
+} catch (cause) { registerFailure = cause; }
+finally {
+  const restorationFailures = [];
+  if (!childJoined) restorationFailures.push(new Error("register reporting epoch retained because its descendant closure is unresolved"));
+  else {
+    try { fs.writeFileSync(registerBaseFile, registerBaseBytes); } catch (cause) { restorationFailures.push(cause); }
+    try { fs.writeFileSync(automaticManifestFile, automaticManifestBytes); } catch (cause) { restorationFailures.push(cause); }
+    try {
+      assert.deepEqual(fs.readFileSync(configlessPlacement), configlessBytes);
+      fs.unlinkSync(configlessPlacement);
+      fs.rmdirSync(configlessDirectory);
+    } catch (cause) { restorationFailures.push(cause); }
+  }
+  if (restorationFailures.length)
+    throw new AggregateError([...(registerFailure === undefined ? [] : [registerFailure]), ...restorationFailures], "registered preparation and independent restoration failures");
+  actorFacts.registerRestored = true;
+  saveActor();
 }
+if (registerFailure !== undefined) throw registerFailure;
 assert.deepEqual(fs.readFileSync(automaticManifestFile), automaticManifestBytes, "register reporting must restore the root discovery contributor after its descendant closes");
 unchanged();
-fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ apiFailures: apiFailures.map((error) => ({ name: error.message, detail: String(error.cause), stack: error.cause?.stack })), produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, driverEmitBefore, driverEmitAfter, driverEmitStatus, driverEmitStderr, rejectedOutputAbsent: !fs.existsSync(rejectedOutput), emitManifestAbsent: !fs.existsSync(emitManifest), registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: !childIsRunning(), registerBefore, registerAfter: receiptCount() }));
+actorFacts.inputsRestored = true;
+saveActor();
+const registerCompletedAt = new Date().toISOString();
+fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ apiEnvironmentBefore: apiEnvironmentReceipts.before, apiEnvironmentAfter: apiEnvironmentReceipts.after, apiFailures: apiFailures.map((error) => ({ name: error.message, detail: String(error.cause), stack: error.cause?.stack })), produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, driverEmitBefore, driverEmitAfter, driverEmitStatus, driverEmitStderr, rejectedOutputAbsent: !fs.existsSync(rejectedOutput), emitManifestAbsent: !fs.existsSync(emitManifest), registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: childJoined, descendantAdmission, descendantRelease, descendantJoin, registerBefore, registerAfter: receiptCount(), registerCompletedAt, mainEpochOwner: process.pid }));
+
+// Registration's original snapshots and receipt endpoint precede this separate
+// main-source epoch. The outer owner restores exact original base/marker bytes
+// only after this main and every original descendant have actually joined.
+const mainOptions = JSON.parse(registerBaseBytes);
+mainOptions.compilerOptions.plugins = mainOptions.compilerOptions.plugins.map(registerReports);
+const mainAutomatic = JSON.parse(automaticManifestBytes);
+mainAutomatic.ttsc.plugin = registerReports(mainAutomatic.ttsc.plugin);
+actorFacts.mainReportingAttempted = true;
+saveActor();
+fs.writeFileSync(registerBaseFile, JSON.stringify(mainOptions));
+fs.writeFileSync(automaticManifestFile, JSON.stringify(mainAutomatic));
+} catch (cause) { actorFailure = cause; }
+finally {
+  if (!actorFacts.mainReportingAttempted && verifyActorInputs) {
+    try { verifyActorInputs(); actorFacts.inputsRestored = true; }
+    catch (cause) { receiptFailures.push(cause); }
+  }
+  actorFacts.finished = true;
+  actorFacts.success = actorFailure === undefined && receiptFailures.length === 0;
+  actorFacts.semanticErrors = [actorFailure, ...receiptFailures].filter((cause) => cause !== undefined).map(String);
+  saveActor();
+}
+if (actorFailure !== undefined || receiptFailures.length)
+  throw new AggregateError([...(actorFailure === undefined ? [] : [actorFailure]), ...receiptFailures], "declared runtime observations and receipt publication");

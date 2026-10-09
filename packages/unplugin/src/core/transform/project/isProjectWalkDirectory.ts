@@ -25,8 +25,8 @@ import { isIgnoredProjectEntry } from "./isIgnoredProjectEntry";
  *   patterns and their component states. Temporary normalized paths and
  *   matching state belong to those delegated operations, while immutable
  *   policy compilation is shared by the matching owner.
- *   Component regular expressions retain their text and wildcard-evaluation
- *   costs; bounded component states do not establish linear regex evaluation.
+ *   Wildcard component matching merges token states with work bounded by
+ *   pattern and candidate code-point dimensions; literal tests retain text cost.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources

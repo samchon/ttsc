@@ -13,20 +13,9 @@ async function main() {
     request.preparation,
     "EvidenceBenchmarkToolchain.js",
   ));
-  let toolchain = request.toolchain;
-  let artifact = request.artifact;
-  if (!toolchain || !artifact) {
-    const archives = path.join(request.root, "archives");
-    fs.mkdirSync(archives);
-    toolchain = await EvidenceBenchmarkToolchain.pack(request.repository, archives);
-    const archive = path.join(archives, "evidence.tgz");
-    await EvidenceBenchmarkToolchain.packPackage(
-      request.repository,
-      "packages/evidence",
-      archive,
-    );
-    artifact = { name: "@ttsc/evidence", archive };
-  }
+  const { prepareArtifacts } = require(request.artifactPreparationRuntime);
+  const { toolchain, artifact } = await prepareArtifacts(request, EvidenceBenchmarkToolchain);
+  const started = performance.now();
   const result = await EvidenceBenchmarkWorkspace.prepareWorkspace({
     repository: request.repository,
     output: path.join(request.root, "prepared"),
@@ -41,10 +30,11 @@ async function main() {
     toolchain,
     artifact,
   });
+  console.info("TTSC_BACKEND_ARCHIVE_COST " + JSON.stringify({ phase: "materialize-install", elapsedMs: performance.now() - started }));
   fs.writeFileSync(request.result, JSON.stringify(result));
 }
 
-main().catch((error) => {
+if (require.main === module) main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

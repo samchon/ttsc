@@ -1,3 +1,4 @@
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -19,8 +20,11 @@ import { settleFilesystemNotifications } from "../../../../internal/unplugin/int
  * the isolated broker process on Windows, which reports a write below a
  * directory as a content change of that directory's own entry. On Linux and
  * macOS a watch follows the directory it opened on, so replacing that directory
- * produces no event at all and only the location identity check can notice it;
- * Windows refuses to rename a watched directory, so that row is POSIX only.
+ * can leave the watch on its old target, so location identity must qualify its
+ * authority. The replacement row here is POSIX only; Windows root replacement
+ * with process cwd outside the watched directory is covered by the Vite native
+ * subscription-boundary case. This exclusion makes no Windows rename-refusal
+ * claim.
  *
  * 1. Track a presence-only `node_modules`, a listed type root, and a read
  *    declaration through the real backend.
@@ -31,9 +35,9 @@ import { settleFilesystemNotifications } from "../../../../internal/unplugin/int
  *    withdraws the tracker's authority.
  *
  * @evidence contracts/testing.md#behavioral-verification createHostInputMutationTracker must ignore writes beneath presence-only node_modules, record a new child of a listed type root and an edited declaration, then on POSIX withdraw authority when the watched declaration directory is replaced.
- * @evidence contracts/testing.md#independent-expectations Explicit presence/children/content scopes independently determine which mutations matter. Collected relative event paths and failed flags distinguish native-backend misclassification; the expectation is not computed by the shared classifier. POSIX replacement is excluded on Windows where renaming a watched directory is refused.
+ * @evidence contracts/testing.md#independent-expectations Explicit presence/children/content scopes independently determine which mutations matter. Collected relative event paths and failed flags distinguish native-backend misclassification; the expectation is not computed by the shared classifier. This body retains its POSIX-only tracker replacement row; the Vite native subscription-boundary case independently exercises watched project-root replacement on Windows with cwd outside the moved root.
  * @evidence contracts/testing.md#distinguishing-cases Nested runner-cache writes are the no-op control, a new direct type-root child and read declaration edit are positive mutations, and unchanged versus replaced watched-directory identity tests authority. Backend events are settled before each assertion rather than assumed immediate.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_host_input_tracker_real_backends_agree in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/testing.md#execution-ownership The ordinary tests/test-e2e/src/index.ts run selects nine batch entries whose import graph excludes this retained module, so that suite does not execute this declaration. If explicitly invoked, test_host_input_tracker_real_backends_agree owns real backend scope notifications and the retained POSIX-only watched-directory replacement row. Evidence selection does not establish runtime coverage.
  * @evidence contracts/e2e.md#necessary-boundary Actual inotify/FSEvents/broker notifications reach host-input scope classification and location verification. A watch seam alone cannot establish the filename and directory-event shapes delivered by each operating-system backend.
  * @evidence contracts/e2e.md#shared-execution One fixture and tracker lifetime batch all scope decisions over three inputs. Native backend startup is shared across mutations; the POSIX location check reuses that tracker so replacement cannot be hidden by reopening it.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique physical root and settled fixture creation prevent prior setup events becoming case mutations. until repeatedly settles the same tracker until the expected event is present; finally tracker.close releases its subscriptions. TestProject owns paths at runner exit.
@@ -68,13 +72,12 @@ export async function test_host_input_tracker_real_backends_agree(): Promise<voi
   );
   /** Settle until `done` holds, so a slow backend is waited for, not raced. */
   const until = async (done: () => boolean, label: string): Promise<void> => {
-    const deadline = Date.now() + 10_000;
-    for (;;) {
+    await waitFor(async () => {
       await settleMutationTrackers([tracker]);
-      if (done()) return;
-      assert.ok(Date.now() < deadline, `timed out waiting for ${label}`);
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
+      return !tracker.failed && done();
+    }, label, {
+      check: () => assert.equal(tracker.failed, false, "the actual native tracker failed before its expected mutation"),
+    });
   };
   const recorded = (): string[] =>
     [...tracker.changes].map((changed) =>

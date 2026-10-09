@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
+import { waitFor } from "../../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies predicted products never erase authoritative compiler inputs and
@@ -31,7 +31,7 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
  * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
  * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject roots separate mutable config, source, output and declared-input state. Each topology owns its subscriptions and existing finally paths close them. Event counters reset only between asserted transitions; actual cold registration and config recovery remain unprimed.
- * @evidence contracts/e2e.md#preserved-coverage 1. Keep an explicit declaration input that collides with a predicted output while the compiler reports its overwrite diagnostic. 2. Preserve `.mjs` and `.cjs` inputs whose paths collide only with an incorrectly changed extension. 3. Suppress nested products emitted above the project without `rootDir`. 4. Treat removed `outFile` as a diagnostic, not an output-layout contract. 5. Resolve launcher-owned output paths from the execution cwd and passthrough paths from the compiler's project cwd. 6. Suppress TS/JS diagnostic-recovery products outside the mapping root, while retaining an adjacent JSON negative twin. 7. Classify a source-overlapping output once per identity transaction rather than rescanning every compiler input for every declared project input. Every original assertion and authored layout remains in this named entry; no change to timeout, capability guard, input, expected event or quiet negative twin is made by these acknowledgments.
+ * @evidence contracts/e2e.md#preserved-coverage 1. Keep an explicit declaration input that collides with a predicted output while the compiler reports its overwrite diagnostic. 2. Preserve `.mjs` and `.cjs` inputs whose paths collide only with an incorrectly changed extension. 3. Suppress nested products emitted above the project without `rootDir`. 4. Treat removed `outFile` as a diagnostic, not an output-layout contract. 5. Resolve launcher-owned output paths from the execution cwd and passthrough paths from the compiler's project cwd. 6. Suppress TS/JS diagnostic-recovery products outside the mapping root, while retaining an adjacent JSON negative twin. 7. Classify a source-overlapping output once per identity transaction rather than rescanning every compiler input for every declared project input. Every original assertion and authored layout remains in this named entry. Actual callback errors and the containing native owner bound positive observation; finite quiet windows, capability guards, inputs and expected events remain intact.
  */
 export const test_watch_topology_preserves_authoritative_inputs_and_json_outputs =
   async (): Promise<void> => {
@@ -61,11 +61,11 @@ async function verifyDeclarationInputCollision(): Promise<void> {
   });
 
   const changes: WatchInputChange[] = [];
-  const topology = createTopology(root, changes);
+  const { topology, owner } = createTopology(root, changes);
   try {
     topology.refresh(false);
     fs.writeFileSync(declaration, "export declare const external: 2;\n");
-    await waitForCompilerChange(changes, 0, "declaration input collision");
+    await waitForCompilerChange(owner, changes, 0, "declaration input collision");
   } finally {
     topology.close();
   }
@@ -97,14 +97,14 @@ async function verifyJavaScriptExtensionInputs(): Promise<void> {
   });
 
   const changes: WatchInputChange[] = [];
-  const topology = createTopology(root, changes);
+  const { topology, owner } = createTopology(root, changes);
   try {
     topology.refresh(false);
     fs.writeFileSync(moduleInput, "export const value = 2;\n");
-    await waitForCompilerChange(changes, 0, ".mjs output extension");
+    await waitForCompilerChange(owner, changes, 0, ".mjs output extension");
     const previous = compilerChangeCount(changes);
     fs.writeFileSync(commonInput, "export const value = 2;\n");
-    await waitForCompilerChange(changes, previous, ".cjs output extension");
+    await waitForCompilerChange(owner, changes, previous, ".cjs output extension");
 
     for (const output of [
       path.join(root, "dist", "src", "module.mjs"),
@@ -146,7 +146,7 @@ async function verifyJsonCopyIsProduct(): Promise<void> {
   });
 
   const changes: WatchInputChange[] = [];
-  const topology = createTopology(root, changes);
+  const { topology, owner } = createTopology(root, changes);
   try {
     topology.refresh(false);
     for (const output of [javascriptOutput, jsonOutput]) {
@@ -154,6 +154,7 @@ async function verifyJsonCopyIsProduct(): Promise<void> {
       fs.mkdirSync(path.dirname(output), { recursive: true });
       fs.writeFileSync(output, "compiler product\n");
       await expectProjectQuiet(
+      owner,
         changes,
         `${path.basename(output)} retriggered the project-input lane`,
       );
@@ -167,6 +168,7 @@ async function verifyJsonCopyIsProduct(): Promise<void> {
     const previous = projectChangeCount(changes);
     fs.writeFileSync(nearbyNonProduct, "external data\n");
     await waitForProjectChange(
+          owner,
       changes,
       previous,
       "nearby external data was classified as a product",
@@ -192,7 +194,7 @@ async function verifyRemovedOutFileLayout(): Promise<void> {
   });
 
   const changes: WatchInputChange[] = [];
-  const topology = createTopology(root, changes);
+  const { topology, owner } = createTopology(root, changes);
   try {
     topology.refresh(false);
     topology.setProjectInputs({
@@ -203,6 +205,7 @@ async function verifyRemovedOutFileLayout(): Promise<void> {
     fs.mkdirSync(path.dirname(configuredBundle), { recursive: true });
     fs.writeFileSync(configuredBundle, "external bundle\n");
     await waitForProjectChange(
+          owner,
       changes,
       0,
       "removed outFile was still classified as a product",
@@ -211,6 +214,7 @@ async function verifyRemovedOutFileLayout(): Promise<void> {
     topology.setProjectInputs({ root, files: [actualOutput], globs: [] });
     fs.writeFileSync(actualOutput, "export const value = 1;\n");
     await expectProjectQuiet(
+      owner,
       changes,
       "actual per-source output retriggered the project-input lane",
     );
@@ -228,7 +232,7 @@ async function verifyCompilerFacingPathsUseTheirExecutionRoots(): Promise<void> 
   writeConfig(root, { files: ["src/main.ts"] });
 
   const changes: WatchInputChange[] = [];
-  const topology = createTopology(root, changes, {
+  const { topology, owner } = createTopology(root, changes, {
     cwd: container,
     outDir: "javascript",
     passthrough: [
@@ -253,6 +257,7 @@ async function verifyCompilerFacingPathsUseTheirExecutionRoots(): Promise<void> 
       fs.mkdirSync(path.dirname(output), { recursive: true });
       fs.writeFileSync(output, "compiler product\n");
       await expectProjectQuiet(
+      owner,
         changes,
         `${output} used the wrong compiler execution root`,
       );
@@ -263,6 +268,7 @@ async function verifyCompilerFacingPathsUseTheirExecutionRoots(): Promise<void> 
     const nearbyChanges = projectChangeCount(changes);
     fs.writeFileSync(nearby, '{"external":true}\n');
     await waitForProjectChange(
+          owner,
       changes,
       nearbyChanges,
       "nearby passthrough-relative data was classified as build info",
@@ -275,7 +281,7 @@ async function verifyCompilerFacingPathsUseTheirExecutionRoots(): Promise<void> 
 function verifyOutputOverlapClassificationIsBounded(): void {
   const root = path.resolve("synthetic-watch-overlap");
   const output = path.join(root, "generated");
-  const topology = createTopology(root, []);
+  const { topology } = createTopology(root, []);
   const classifier = topology as unknown as {
     files: Map<string, string>;
     outputs: Map<string, string>;
@@ -350,7 +356,7 @@ async function verifyOutOfRootDiagnosticRecoveryOutputs(): Promise<void> {
   });
 
   const changes: WatchInputChange[] = [];
-  const topology = createTopology(root, changes);
+  const { topology, owner } = createTopology(root, changes);
   try {
     topology.refresh(false);
     for (const output of [
@@ -362,6 +368,7 @@ async function verifyOutOfRootDiagnosticRecoveryOutputs(): Promise<void> {
       topology.setProjectInputs({ root, files: [output], globs: [] });
       fs.writeFileSync(output, "compiler recovery product\n");
       await expectProjectQuiet(
+      owner,
         changes,
         `${path.basename(output)} diagnostic-recovery emit was not excluded`,
       );
@@ -372,6 +379,7 @@ async function verifyOutOfRootDiagnosticRecoveryOutputs(): Promise<void> {
     const externalJsonChanges = projectChangeCount(changes);
     fs.writeFileSync(externalJson, '{"external":true}\n');
     await waitForProjectChange(
+          owner,
       changes,
       externalJsonChanges,
       "external JSON was incorrectly modeled as diagnostic-recovery emit",
@@ -389,8 +397,14 @@ function createTopology(
     outDir?: string;
     passthrough?: string[];
   } = {},
-): WatchTopology {
-  return new WatchTopology(
+) {
+  let topologyFailure: Error | undefined;
+  const owner = {
+    check: () => {
+      if (topologyFailure) throw topologyFailure;
+    },
+  };
+  const topology = new WatchTopology(
     {
       cwd: overrides.cwd ?? root,
       emit: true,
@@ -402,12 +416,13 @@ function createTopology(
     },
     {
       onError: (location, error) => {
-        throw new Error(`watch error on ${location}`, { cause: error });
+        topologyFailure ??= new Error(`watch error on ${location}`, { cause: error });
       },
       onInputChange: (change) => changes.push(change),
       onTopologyChange: () => undefined,
     },
   );
+  return { topology, owner };
 }
 
 function writeConfig(root: string, config: Record<string, unknown>): void {
@@ -420,31 +435,24 @@ function writeConfig(root: string, config: Record<string, unknown>): void {
 }
 
 async function waitForCompilerChange(
+  owner: { check: () => void },
   changes: readonly WatchInputChange[],
   previous: number,
   label: string,
 ): Promise<void> {
-  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
-  while (compilerChangeCount(changes) <= previous) {
-    if (Date.now() >= deadline) {
-      assert.fail(`${label}: compiler input edit was not observed`);
-    }
-    await delay(25);
-  }
+  await waitFor(() => compilerChangeCount(changes) > previous,
+    `${label}: compiler input edit was not observed`, owner);
+  owner.check();
 }
 
 async function waitForProjectChange(
+  owner: { check: () => void },
   changes: readonly WatchInputChange[],
   previous: number,
   label: string,
 ): Promise<void> {
-  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
-  while (projectChangeCount(changes) <= previous) {
-    if (Date.now() >= deadline) {
-      assert.fail(label);
-    }
-    await delay(25);
-  }
+  await waitFor(() => projectChangeCount(changes) > previous, label, owner);
+  owner.check();
 }
 
 function compilerChangeCount(changes: readonly WatchInputChange[]): number {
@@ -456,11 +464,13 @@ function projectChangeCount(changes: readonly WatchInputChange[]): number {
 }
 
 async function expectProjectQuiet(
+  owner: { check: () => void },
   changes: readonly WatchInputChange[],
   message: string,
 ): Promise<void> {
   const previous = projectChangeCount(changes);
   await delay();
+  owner.check();
   assert.equal(projectChangeCount(changes), previous, message);
 }
 

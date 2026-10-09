@@ -1,10 +1,14 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -316,25 +320,47 @@ func genericCountRun(config map[string]any) error {
 	return file.Close()
 }
 
-// awaitRelease holds the compile at a point the caller chooses: it writes
+// genericAwaitRelease holds the compile at a point the caller chooses: it writes
 // the configured barrier file, then waits for the release file, so a
 // scenario can change the disk while a compile is known to be running.
+// The caller releases in finally and joins the original delivery. Withdrawing
+// its published barrier cancels the hold; filesystem failures remain failures.
 func genericAwaitRelease(config map[string]any) error {
 	barrier := genericStringValue(config, "barrier")
 	release := genericStringValue(config, "release")
 	if barrier == "" || release == "" {
 		return fmt.Errorf("await-release requires barrier and release paths")
 	}
-	if err := os.WriteFile(barrier, nil, 0o600); err != nil {
+	// Publish only after closing our handle: on Windows a visible open file
+	// cannot yet be withdrawn by the owner that observes it.
+	publication, err := os.CreateTemp(filepath.Dir(barrier), ".barrier-")
+	if err != nil {
 		return err
 	}
-	deadline := time.Now().Add(60 * time.Second)
+	if err := publication.Close(); err != nil {
+		return errors.Join(err, os.Remove(publication.Name()))
+	}
+	if err := os.Rename(publication.Name(), barrier); err != nil {
+		return errors.Join(err, os.Remove(publication.Name()))
+	}
 	for {
-		if _, err := os.Stat(release); err == nil {
-			return nil
+		if _, err := os.Stat(barrier); err != nil {
+			return fmt.Errorf("await-release barrier unavailable: %w", err)
 		}
-		if time.Now().After(deadline) {
-			return fmt.Errorf("await-release timed out waiting for %s", release)
+		parent, err := os.Stat(filepath.Dir(release))
+		if err != nil {
+			return err
+		}
+		if !parent.IsDir() {
+			return fmt.Errorf("await-release parent is not a directory: %s", release)
+		}
+		if info, err := os.Stat(release); err == nil {
+			if !info.Mode().IsRegular() {
+				return fmt.Errorf("await-release requires a regular release file: %s", release)
+			}
+			return nil
+		} else if !os.IsNotExist(err) {
+			return err
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -754,6 +780,102 @@ func cacheRun(args []string) int {
 	}
 }
 
+// cacheLifetimeReceipt binds one held invocation to its authored owner session.
+type cacheLifetimeReceipt struct {
+	Session string `json:"session"`
+	Token   string `json:"token"`
+	PID     int    `json:"pid"`
+}
+
+// cachePublishLifetime refuses an existing receipt instead of reusing its identity.
+func cachePublishLifetime(file string, receipt cacheLifetimeReceipt) error {
+	data, err := json.Marshal(receipt)
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	n, writeErr := f.Write(data)
+	if n != len(data) && writeErr == nil {
+		writeErr = io.ErrShortWrite
+	}
+	return errors.Join(writeErr, f.Close())
+}
+
+// cacheLifetimeReleased accepts only the exact regular-file release receipt.
+func cacheLifetimeReleased(file string, expected cacheLifetimeReceipt) (bool, error) {
+	directory, err := os.Lstat(filepath.Dir(file))
+	if err != nil {
+		return false, err
+	}
+	if !directory.IsDir() {
+		return false, fmt.Errorf("native lifetime gate parent is not a directory: %s", file)
+	}
+	info, err := os.Lstat(file)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !info.Mode().IsRegular() {
+		return false, fmt.Errorf("native lifetime release is not a regular file: %s", file)
+	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return false, err
+	}
+	if len(data) == 0 || data[len(data)-1] != '\n' {
+		return false, nil
+	}
+	var actual cacheLifetimeReceipt
+	decoder := json.NewDecoder(strings.NewReader(string(data)))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&actual); err != nil {
+		return false, err
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		return false, fmt.Errorf("native lifetime release has trailing data: %s", file)
+	}
+	if actual != expected {
+		return false, fmt.Errorf("native lifetime release identity mismatch: %s", file)
+	}
+	return true, nil
+}
+
+// cacheHoldNativeLifetime is opt-in fixture ownership, before the real workload.
+// The caller releases the exact receipt; its enclosing process owner contains
+// this native descendant if release fails or the caller dies. No timed expiry
+// may silently turn an enrollment PID into a later process's identity.
+func cacheHoldNativeLifetime(cfg map[string]any) error {
+	directory := cacheStringValue(cfg, "nativeLifetimeDirectory")
+	session := cacheStringValue(cfg, "nativeLifetimeSession")
+	if directory == "" && session == "" {
+		return nil
+	}
+	if !filepath.IsAbs(directory) || session == "" {
+		return fmt.Errorf("native lifetime gate requires an absolute directory and session")
+	}
+	var token [16]byte
+	if _, err := rand.Read(token[:]); err != nil {
+		return err
+	}
+	receipt := cacheLifetimeReceipt{Session: session, Token: hex.EncodeToString(token[:]), PID: os.Getpid()}
+	if err := cachePublishLifetime(filepath.Join(directory, receipt.Token+".json"), receipt); err != nil {
+		return err
+	}
+	for {
+		released, err := cacheLifetimeReleased(filepath.Join(directory, receipt.Token+".release"), receipt)
+		if err != nil || released {
+			return err
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 func cacheTransform(args []string) int {
 	fs := flag.NewFlagSet("transform", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
@@ -770,18 +892,28 @@ func cacheTransform(args []string) int {
 	cfg := cacheFirstConfig(*pluginsJSON)
 
 	if logPath := cacheStringValue(cfg, "runLog"); logPath != "" {
-		if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err == nil {
+		f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		if err == nil {
+			var writeErr error
 			if cacheBoolValue(cfg, "runLogPids") {
 				// The same native invocation receipt exposes its real process owner.
-				f.WriteString(strconv.Itoa(os.Getpid()) + "\n")
+				_, writeErr = f.WriteString(strconv.Itoa(os.Getpid()) + "\n")
 			} else {
-				f.WriteString("x")
+				_, writeErr = f.WriteString("x")
 			}
-			f.Close()
+			err = errors.Join(writeErr, f.Close())
+		}
+		if err != nil && cacheStringValue(cfg, "nativeLifetimeDirectory") != "" {
+			fmt.Fprintln(os.Stderr, err)
+			return 2
 		}
 	}
 
 	if delay := cacheNumberValue(cfg, "transformDelayMs"); delay > 0 {
+		if err := cacheHoldNativeLifetime(cfg); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 2
+		}
 		time.Sleep(time.Duration(delay) * time.Millisecond)
 	}
 

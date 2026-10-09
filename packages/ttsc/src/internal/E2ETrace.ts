@@ -51,16 +51,17 @@ export namespace E2ETrace {
   export function runtimeCleanup(
     directory: string,
     runtimeCacheDir: string,
+    origin: "ttsx-runtime-cleanup" | "runtime-clean-selection" = "ttsx-runtime-cleanup",
   ):
     | ((
         phase: string,
         ownership?: string,
         error?: unknown,
         ownerObservation?: {
-        record: string;
-        owner?: { hostname: string; pid: number };
-        result: string;
-        errorCode?: string;
+          record: string;
+          owner?: { hostname: string; pid: number };
+          result: string;
+          errorCode?: string;
         },
       ) => void)
     | undefined {
@@ -73,7 +74,7 @@ export namespace E2ETrace {
         argv: [...process.argv],
         cwd: process.cwd(),
         lower: new Date().toISOString(),
-        origin: "ttsx-runtime-cleanup",
+        origin,
         argv0: null,
       };
       const record = (
@@ -482,11 +483,13 @@ export namespace E2ETrace {
 
   /**
    * Record a returned primitive result without claiming a child close event.
+   * Native failures may return undefined streams; both null and undefined mean
+   * absent payload, without invalidating the writer or replacing the result.
    *
-   * @evidence contracts/common.md#principled-implementation Native returned PID/status/signal/error and original returned buffers/string values remain distinct from attempt metadata and product outcomes; encoded returned text is not certified original child bytes.
+   * @evidence contracts/common.md#principled-implementation Native returned PID/status/signal/error and original returned buffers/string values remain distinct from attempt metadata and product outcomes; null or undefined streams retain absent payload references, and encoded returned text is not certified original child bytes.
    * @evidence contracts/common.md#clear-and-simple-design One result event connects the token to optional raw stdout/stderr payload references.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed or missing PID is not counted as a launch; observer exceptions never replace the result.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states returned-result scope and absence of descendant-close proof.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed or missing PID is not counted as a launch, and absent output is not fabricated as empty bytes; genuine payload or sink failure still invalidates the writer without replacing the result.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states returned-result scope, native absent-stream meaning and absence of descendant-close proof.
    * @evidence contracts/portability.md#os-neutral-implementation Status and signal are used as returned by Node; there is no POSIX interpretation of Windows status or guessed start timestamp.
    * @evidence contracts/performance.md#efficient-algorithms Actual returned text/buffer conversion, payload writes and metadata/error serialization scale with their bytes; budget admission does not bound prior conversion allocation.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Every returned result belongs to its own observed call and cannot stand in for another invocation.
@@ -609,9 +612,9 @@ function event(
 function payload(
   token: E2ETrace.Token,
   label: string,
-  value: string | Buffer | null,
+  value: string | Buffer | null | undefined,
 ) {
-  if (value === null || failed) return null;
+  if (value === null || value === undefined || failed) return null;
   if (typeof value === "string") {
     if (Buffer.byteLength(value) > PAYLOAD_LIMIT) {
       integrity(token, "payload-budget-exceeded");

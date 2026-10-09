@@ -8,11 +8,12 @@ import { isWatchInputKeyBaseline } from "./isWatchInputKeyBaseline";
 /**
  * Compare generation evidence with the main process's exact key baseline.
  *
- * A codec matches only the facts the baseline actually captured. Listing and
- * plugin-tree observations require their optional payloads; membership is a
+ * A codec matches only the facts the baseline actually captured. Native,
+ * listing and plugin-tree observations require their optional payloads;
+ * membership is a
  * separate project walk and cannot match one path's baseline.
  *
- * @evidence contracts/common.md#principled-implementation Identity and every recorded codec fact must agree with a validated baseline; narrow discovery facts cannot establish broad read, target or listing predicates, and absent optional facts do not gain a match.
+ * @evidence contracts/common.md#principled-implementation Identity and every recorded codec fact must agree with a validated baseline; native predicates additionally require a supported version, stable producer identity, matching raw digest and physical target. Narrow discovery facts and absent optional native/listing/tree payloads cannot establish broader observations.
  * @evidence contracts/common.md#clear-and-simple-design Codec branches reuse the strict baseline guard and native realpath comparator, with one private refinement exposing the broader carrier.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown state and unsupported membership fail comparison, while older baselines without a listing cannot silently validate a newly recorded listing predicate.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain optional observation coverage and membership limits, with separated tags following documentation guidance.
@@ -57,6 +58,18 @@ export function watchInputEvidenceMatchesBaseline(
     return broad !== undefined && broad.tree === evidence.state.digest;
   }
   const observation = evidence.state.observation;
+  for (const predicate of observation.nativePredicates ?? []) {
+    const current = broad?.nativePredicates?.[predicate.kind];
+    if (
+      predicate.version !== 1 ||
+      !predicate.identityStable ||
+      current === undefined ||
+      predicate.digest !== current.digest ||
+      !sameHostInputRealpath(predicate.realpath, current.realpath, identities)
+    ) {
+      return false;
+    }
+  }
   if (
     observation.accessibleEntries !== undefined &&
     (broad?.accessibleEntries === undefined ||

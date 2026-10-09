@@ -10,9 +10,10 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * Verifies owner diagnostics preserve the actual scan and its cleanup policy.
  *
  * Diagnostics must identify the record responsible for conservative retention
- * without probing again or turning a failing diagnostic into deletion authority.
- * These owned inputs exercise an actually live local pid, a remote claim and
- * invalid JSON; no guessed dead pid or replaced native probe is used.
+ * without probing again or turning a failing diagnostic into deletion
+ * authority. These owned inputs exercise an actually live local pid, a remote
+ * claim and invalid JSON; no guessed dead pid or replaced native probe is
+ * used.
  *
  * 1. Inspect separate local, remote and malformed owner records.
  * 2. Assert literal classifications and their observed record/owner provenance.
@@ -24,15 +25,32 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership One discoverable unit entry uses its tracked physical scratch and direct maintained source operations, without a compiler, installed consumer, child process, global replacement or private inspection.
  */
 export function test_runtime_owner_observations_preserve_cleanup_policy(): void {
-  const root = TestProject.physicalPath(TestProject.tmpdir("owner-observation-"));
+  const root = TestProject.physicalPath(
+    TestProject.tmpdir("owner-observation-"),
+  );
   const record = `owner-${process.pid}.json`;
   const local = { hostname: os.hostname(), pid: process.pid };
   const remote = { hostname: `${os.hostname()}-elsewhere`, pid: process.pid };
   const failures: Error[] = [];
   for (const scenario of [
-    { name: "local", bytes: JSON.stringify(local), state: "live", observation: { record, owner: local, result: "present" } },
-    { name: "remote", bytes: JSON.stringify(remote), state: "live", observation: { record, owner: remote, result: "remote" } },
-    { name: "malformed", bytes: "{", state: "unknown", observation: { record, result: "invalid-record" } },
+    {
+      name: "local",
+      bytes: JSON.stringify(local),
+      state: "live",
+      observation: { record, owner: local, result: "present" },
+    },
+    {
+      name: "remote",
+      bytes: JSON.stringify(remote),
+      state: "live",
+      observation: { record, owner: remote, result: "remote" },
+    },
+    {
+      name: "malformed",
+      bytes: "{",
+      state: "unknown",
+      observation: { record, result: "invalid-record" },
+    },
   ] as const) {
     try {
       const directory = path.join(root, scenario.name);
@@ -42,7 +60,9 @@ export function test_runtime_owner_observations_preserve_cleanup_policy(): void 
       const observed: ProcessOwnedDirectory.Observation[] = [];
       assert.equal(ProcessOwnedDirectory.ownership(directory), scenario.state);
       assert.equal(
-        ProcessOwnedDirectory.ownership(directory, false, (value) => observed.push(value)),
+        ProcessOwnedDirectory.ownership(directory, false, (value) =>
+          observed.push(value),
+        ),
         scenario.state,
       );
       assert.deepEqual(observed, [scenario.observation]);
@@ -61,5 +81,8 @@ export function test_runtime_owner_observations_preserve_cleanup_policy(): void 
     }
   }
   if (failures.length !== 0)
-    throw new AggregateError(failures, "owner diagnostics changed cleanup policy");
+    throw new AggregateError(
+      failures,
+      "owner diagnostics changed cleanup policy",
+    );
 }

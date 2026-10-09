@@ -18,6 +18,10 @@ import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Parses argv tokens only; file arguments are returned verbatim and are neither resolved nor normalized here.
  */
 export function parseTtscBuildArgs(argv: readonly string[]) {
+  const compilerProjectSelections: {
+    passthroughIndex: number;
+    value: string;
+  }[] = [];
   const result = parseFlags({
     argv,
     errorPrefix: "ttsc:",
@@ -28,6 +32,10 @@ export function parseTtscBuildArgs(argv: readonly string[]) {
     // parser routes those tokens into `passthrough` in place, so the forwarded
     // flag/value pairs reach tsgo in their original order.
     isPositional: looksLikeInputFile,
+    onConsumedFlag: (name, value, passthroughIndex) => {
+      if (name === "--tsconfig" && typeof value === "string")
+        compilerProjectSelections.push({ passthroughIndex, value });
+    },
     subcommand: "build",
   });
   assertNoSolutionBuild(result, "ttsc:");
@@ -53,6 +61,7 @@ export function parseTtscBuildArgs(argv: readonly string[]) {
     binary: getString(result, "--binary"),
     cacheDir: getString(result, "--cache-dir"),
     checkers: getNumber(result, "--checkers"),
+    compilerProjectSelections,
     cwd: getString(result, "--cwd"),
     emit,
     files,

@@ -1,6 +1,5 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
@@ -9,6 +8,8 @@ import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProce
 import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { runHoldingLock } from "../../../internal/runHoldingLock";
+import { NativeSourcePackages } from "./NativeSourcePackages";
+import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
 import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
@@ -26,7 +27,6 @@ import { computeCacheKey } from "./computeCacheKey";
 import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
 import { createExternalSourceSnapshotLayout } from "./createExternalSourceSnapshotLayout";
 import { ensureExecutableGoToolchain } from "./ensureExecutableGoToolchain";
-import { formatGoWorkPath } from "./formatGoWorkPath";
 import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
 import { pluginSourceDigest } from "./pluginSourceDigest";
 import { pruneGoBuildCacheRoot } from "./pruneGoBuildCacheRoot";
@@ -43,8 +43,9 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
 /**
  * Build one Go source plugin into a cached executable.
  *
- * `opts.env` is the effective environment for this build — the caller merges `{
- * ...process.env, ...context.env }` so a programmatic `TtscCompiler` instance
+ * `opts.env` is the effective environment for this build; the caller merges
+ * inherited and constructor layers using native environment-name identity so
+ * a programmatic `TtscCompiler` instance
  * can pin its own Go toolchain (`TTSC_GO_BINARY`), Go build cache
  * (`TTSC_GO_CACHE_DIR`), and Go build variables (`GOFLAGS`, `CGO_*`, …) without
  * mutating the shared `process.env`. CLI callers omit it and inherit
@@ -61,7 +62,10 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * failures do not retry. Only the successful epoch publishes caller digests.
  * The Go-owned object cache retains Go's tool/action identity semantics; these
  * attempts discard ttsc's failed binary and scratch, not Go's object entries.
- * Existing binary hits trust the cache producer and key rather than rehashing
+ * Optional loader-required package ownership enters the key. Its cold producer
+ * admits the entry and linked sources through Go metadata in the actual
+ * materialized workspace before compilation; legacy cache artifacts have a
+ * different key. Existing binary hits trust the cache producer and key rather than rehashing
  * executable bytes. Default caches are managed locally, while explicit roots
  * retain caller-managed pruning policy. Every returned cache key registers a
  * reader token retained by this process until exit; registration shares the
@@ -73,17 +77,18 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * bounded build owner starts again.
  *
  * Explicit worker scopes check cancellation between build phases, copied source
- * entries and native commands, including reader admission and final publication.
- * Observed cancellation releases held leases and scratch without starting a
- * new post-build maintenance pass. Native calls and delegated hashing can delay
- * observation; these checkpoints do not impose a hard execution deadline.
+ * entries and native commands, including reader admission and final
+ * publication. Observed cancellation releases held leases and scratch without
+ * starting a new post-build maintenance pass. Native calls and delegated
+ * hashing can delay observation; these checkpoints do not impose a hard
+ * execution deadline.
  *
  * @evidence contracts/common.md#principled-implementation Each of at most three toolchain epochs compares materialized source digests and checks its own pre-read witness before build, publication or cache adoption. A changed epoch publishes nothing and starts again only after its scratch and key lease finish; first source readings and request variables remain fixed. Caller digest maps receive only successful authority. Opted-in cancellation guards stage, copy-entry, native-command, reader and publication admission, while cleanup still finishes. Metadata observations are not an atomic snapshot, and existing executable bytes remain trusted cache-producer output.
  * @evidence contracts/common.md#clear-and-simple-design One owner sequences target resolution, key creation, cache selection and fenced build coordination; private helpers own scratch materialization, Go workspace semantics and publication cleanup.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A changed witness is never overwritten or accepted. A fresh epoch takes a new toolchain reading and performs the actual build or qualified adoption; source, native and cleanup failures stay terminal. No selected SDK tool is warmed by a special command, and no foreign environment or memo is rebased. Shared Go objects retain their owner's toolID/actionID contract; same-version custom tool semantics beyond that contract are not newly guaranteed.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain effective environment, recorded-input comparisons and their trust/observation limits, reader registration and managed versus explicit roots; option-map comments state their reading provenance with blank member separation.
  * @evidence contracts/portability.md#os-neutral-implementation Node path/physical-cache/temp APIs preserve native identities; executable resolution and Windows command handling are isolated owners, and the binary filename explicitly follows its executable platform.
- * @evidence contracts/performance.md#efficient-algorithms At most three epochs redo native toolchain observation, key construction, materialization and guarded admission; each can run one Go build. The shared compiler reader can itself make three version observations, hence at most nine such cold observations for a persistently moving compiler and no build when its key witness fails. Full-file bytes, entries, path/sort text, contributors, external trees and witness populations drive work. Scoped cancellation is sampled between phases/entries/commands and does not bound native calls or delegated hashing. First source digest readings are reused across epochs, while each scratch is independently checked. Existing lock contention has its separate wait budget and native Go compiler work remains delegated.
+ * @evidence contracts/performance.md#efficient-algorithms At most three epochs redo native toolchain observation, key construction, materialization and guarded admission; each can run one Go build, preceded by one batched package metadata command when the loader requires ownership admission. The shared compiler reader can itself make three version observations, hence at most nine such cold observations for a persistently moving compiler and no build when its key witness fails. Full-file bytes, entries, path/sort text, contributors, external trees and witness populations drive work. Scoped cancellation is sampled between phases/entries/commands and does not bound native calls or delegated hashing. First source digest readings are reused across epochs, while each scratch is independently checked. Existing lock contention has its separate wait budget and native Go compiler work remains delegated.
  * @evidence contracts/performance.md#reuse-equivalent-work Existing binaries and concurrent builders share the version/platform/source/environment key with reader admission before return, assuming trustworthy cache producers and supplied digest maps. Fixed trimpath compilation removes disposable snapshot paths from Go object identities. Shared load readings and sequential source/toolchain comparisons reject observed changes; metadata reuse and unobserved concurrent mutation remain the underlying witnesses' limits.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Scratch directories and build/cache leases have finally-based cleanup, including cancellation; cancelled work admits no new post-build prune pass. Scratch removal or lease cleanup can fail, and selected synchronous child settlement does not join arbitrary descendants. Repeated commands can repeat external tool effects; only ttsc-owned failed outputs are discarded, and Go-owned object entries retain their existing lifetime. Pending binary cleanup is best-effort. Reader tokens and their process map grow with distinct physical keys until process exit. Managed pruning attempts age/LRU reclamation while protecting live, unknown and selected entries, so it is not a hard disk bound; explicit roots remain caller-managed.
  */
@@ -94,6 +99,9 @@ export function buildSourcePlugin(opts: {
   cacheDir?: string;
   contributors?: readonly ITtscBuildContributor[];
   env?: NodeJS.ProcessEnv;
+
+  /** Loader-required ownership of the entry and named linked packages. */
+  packageOwnership?: readonly { entry: string; kind: "executable" | "linked" }[];
 
   /**
    * Digests of the environment each build directory is keyed on, shared by
@@ -166,7 +174,7 @@ function buildSourcePluginAttempt(
 ): string {
   OwnedSynchronousProcess.checkpoint();
   const { dir, entry, source } = resolveSourceBuildTarget(opts);
-  const overlayDirs = [...(opts.overlayDirs ?? findTtscOverlayDirs())].sort();
+  const overlayDirs = [...(opts.overlayDirs ?? SourcePluginWorkspace.findTtscOverlayDirs())].sort();
   const contributors = opts.contributors ?? [];
   const compiler = resolveGoCompiler(env);
   const goBinary = GoToolResolution.resolveGoToolForBuild(
@@ -181,6 +189,7 @@ function buildSourcePluginAttempt(
   const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
   const key = computeCacheKey({
     contributors,
+    packageOwnership: opts.packageOwnership,
     dir,
     entry,
     env,
@@ -302,6 +311,7 @@ function buildSourcePluginAttempt(
         binaryPath,
         cacheDir,
         contributors,
+        packageOwnership: opts.packageOwnership,
         dir,
         entry,
         env,
@@ -375,8 +385,6 @@ function requireBuildEnvironment(
     throw pluginBuildEnvironmentChanged(pluginName);
 }
 
-const TTSC_GO_MODULE_PATH = "github.com/samchon/ttsc/packages/ttsc";
-
 const CONTRIBUTIONS_FILE_NAME = "ttsc_contributions.go";
 
 const CONTRIB_DIRNAME = "contrib";
@@ -386,6 +394,7 @@ function compileSourcePlugin(opts: {
   binaryPath: string;
   cacheDir: string;
   contributors: readonly ITtscBuildContributor[];
+  packageOwnership?: readonly { entry: string; kind: "executable" | "linked" }[];
   dir: string;
   entry: string;
   env: NodeJS.ProcessEnv;
@@ -424,6 +433,7 @@ function compileSourcePlugin(opts: {
   }
 
   const scratchDir = createCanonicalTempDirectory(`ttsc-plugin-${opts.key}-`);
+  let taskFailure: { error: unknown } | undefined;
   try {
     SourceNativeRetirement.register({
       fenceRoot: scratchDir,
@@ -440,7 +450,7 @@ function compileSourcePlugin(opts: {
       retainedPaths: [scratchDir, opts.cacheDir, opts.goBuildCacheRoot],
     });
     OwnedSynchronousProcess.checkpoint();
-    materializeScratchDir(opts.dir, scratchDir);
+    SourcePluginWorkspace.materialize(opts.dir, scratchDir);
     requireKeyedSource(
       opts.dir,
       scratchDir,
@@ -477,7 +487,7 @@ function compileSourcePlugin(opts: {
       opts.goBinary,
       opts.env,
     );
-    const goModReader = createGoModReader(
+    const goModReader = SourcePluginWorkspace.createGoModReader(
       opts.goBinary,
       opts.pluginName,
       opts.env,
@@ -493,7 +503,7 @@ function compileSourcePlugin(opts: {
         scratchDir,
       });
     }
-    writeGoWork(
+    SourcePluginWorkspace.writeGoWork(
       scratchDir,
       opts.overlayDirs.map(
         (directory) => external.get(path.resolve(directory))!,
@@ -501,6 +511,7 @@ function compileSourcePlugin(opts: {
       opts.goBinary,
       opts.pluginName,
       opts.env,
+      goModReader,
     );
     OwnedSynchronousProcess.checkpoint();
     const scratchBinaryName =
@@ -527,6 +538,18 @@ function compileSourcePlugin(opts: {
                 unchanged: true,
               },
             );
+          }
+          if (opts.packageOwnership !== undefined) {
+            const observations = NativeSourcePackages.read({
+              cwd: scratchDir,
+              entries: opts.packageOwnership.map((input) => input.entry),
+              env: GoSourceInputs.goBuildEnv(opts.goBinary, goBuildCacheRoot, opts.env),
+              goBinary: opts.goBinary,
+              pluginName: opts.pluginName,
+            });
+            opts.packageOwnership.forEach((input, index) => {
+              NativeSourcePackages.kind(observations[index]!, `${opts.pluginName} ${input.entry}`, input.kind);
+            });
           }
           runGoBuild(
             scratchDir,
@@ -602,12 +625,14 @@ function compileSourcePlugin(opts: {
     publishBuiltBinary(builtBinary, opts.binaryPath);
     touchCacheEntry(opts.cacheDir);
     return opts.binaryPath;
+  } catch (error) {
+    taskFailure = { error };
+    throw error;
   } finally {
-    SourceNativeRetirement.release(() => {
-      SourceNativeRetirement.forget(scratchDir);
+    SourceNativeRetirement.releaseResource(scratchDir, () => {
       fs.rmSync(scratchDir, { recursive: true, force: true });
       SourceNativeRetirement.forget(opts.cacheDir);
-    });
+    }, taskFailure);
   }
 }
 
@@ -806,7 +831,7 @@ function reportPluginLockSteal(
 function mergeContributors(opts: {
   contributors: readonly ITtscBuildContributor[];
   entry: string;
-  goModReader: GoModReader;
+  goModReader: SourcePluginWorkspace.GoModReader;
   keyedDigests: ReadonlyMap<string, string>;
   pluginName: string;
   scratchDir: string;
@@ -984,17 +1009,6 @@ function resolveSourceBuildTarget(opts: {
   return { dir: moduleRoot, entry, source };
 }
 
-function materializeScratchDir(source: string, scratch: string): void {
-  OwnedSynchronousProcess.checkpoint();
-  fs.mkdirSync(scratch, { recursive: true });
-  fs.cpSync(source, scratch, {
-    recursive: true,
-    filter: (src) => {
-      OwnedSynchronousProcess.checkpoint();
-      return copiesPluginSourceEntry(source, src);
-    },
-  });
-}
 
 /**
  * The path, below a build's scratch directory, of the tree holding its copies
@@ -1009,10 +1023,10 @@ const EXTERNAL_SOURCES_DIRECTORY = path.join(".ttsc", "external");
  *
  * The copies translate each volume's common source ancestor below one root,
  * omitting unrelated absolute ancestry that can exceed a native cwd limit.
- * Uniform translation preserves relative paths
- * between two of them, such as a driver's `replace` of the shims beside it,
- * still names the copy of what it named. A directory below another is copied
- * with it and again on its own path, which is the same place.
+ * Uniform translation preserves relative paths between two of them, such as a
+ * driver's `replace` of the shims beside it, still names the copy of what it
+ * named. A directory below another is copied with it and again on its own path,
+ * which is the same place.
  */
 function snapshotExternalSources(
   scratchDir: string,
@@ -1024,7 +1038,7 @@ function snapshotExternalSources(
   const copies = createExternalSourceSnapshotLayout(root, directories);
   for (const [directory, copy] of copies) {
     OwnedSynchronousProcess.checkpoint();
-    materializeScratchDir(directory, copy);
+    SourcePluginWorkspace.materialize(directory, copy);
     requireKeyedSource(directory, copy, keyedDigests, pluginName);
   }
   return copies;
@@ -1103,257 +1117,6 @@ function requireKeyedSource(
   );
 }
 
-function writeGoWork(
-  scratchDir: string,
-  useDirs: readonly string[],
-  goBinary: string,
-  pluginName: string,
-  env: NodeJS.ProcessEnv,
-): void {
-  const goModReader = createGoModReader(goBinary, pluginName, env);
-  validateSourceReplacements(scratchDir, useDirs, goModReader, pluginName);
-  const sourceInfo = goModReader.read(scratchDir);
-  const effectiveUseDirs =
-    sourceInfo.modulePath === TTSC_GO_MODULE_PATH
-      ? useDirs.filter((dir) => {
-          OwnedSynchronousProcess.checkpoint();
-          const modulePath = goModReader.read(dir).modulePath;
-          return (
-            modulePath !== null &&
-            !SourcePluginAdmission.isManagedModule(modulePath)
-          );
-        })
-      : useDirs;
-  const useLines = ["\t."];
-  for (const dir of effectiveUseDirs) {
-    OwnedSynchronousProcess.checkpoint();
-    useLines.push(`\t${formatGoWorkPath(dir)}`);
-  }
-  const replaceLines = sourceBuildWorkspaceReplacements(
-    effectiveUseDirs,
-    goModReader,
-  );
-  const replaceBlock =
-    replaceLines.length === 0 ? "" : `\n\n${replaceLines.join("\n")}\n`;
-  const goWork = `use (\n${useLines.join("\n")}\n)${replaceBlock}`;
-  fs.writeFileSync(path.join(scratchDir, "go.work"), goWork, "utf8");
-  // The Go tool sets the workspace's `go` directive: `go work use` raises it to
-  // what every listed module declares. A fixed directive rejects a module that
-  // declares a patch release (`go 1.26.0` against `go 1.26`), and a module the
-  // selected toolchain is too old for fails here with Go's own error.
-  const settled = spawnGoTool(goBinary, ["work", "use"], {
-    cwd: scratchDir,
-    encoding: "utf8",
-    env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
-    windowsHide: true,
-  });
-  OwnedSynchronousProcess.checkpoint();
-  if (settled.error) {
-    throw new Error(
-      goSpawnFailureMessage(
-        `setting the Go workspace version for plugin "${pluginName}"`,
-        pluginName,
-        goBinary,
-        scratchDir,
-        settled.error,
-      ),
-    );
-  }
-  if (settled.status !== 0) {
-    throw new Error(
-      `ttsc: setting the Go workspace version for plugin "${pluginName}" failed:\n${settled.stderr || settled.stdout}`,
-    );
-  }
-}
-
-function validateSourceReplacements(
-  scratchDir: string,
-  useDirs: readonly string[],
-  goModReader: GoModReader,
-  pluginName: string,
-): void {
-  const sourceInfo = goModReader.read(scratchDir);
-  if (sourceInfo.modulePath === TTSC_GO_MODULE_PATH) {
-    return;
-  }
-  const sourceReplacements = sourceInfo.replacements;
-  if (sourceReplacements.length === 0) {
-    return;
-  }
-  const overlayModules = collectOverlayModulePaths(useDirs, goModReader);
-  SourcePluginAdmission.requireSourceReplacements(
-    sourceReplacements,
-    overlayModules,
-    pluginName,
-  );
-}
-
-function sourceBuildWorkspaceReplacements(
-  useDirs: readonly string[],
-  goModReader: GoModReader,
-): string[] {
-  const ttscRoot = useDirs.find(
-    (dir) => goModReader.read(dir).modulePath === TTSC_GO_MODULE_PATH,
-  );
-  if (!ttscRoot) {
-    return [];
-  }
-  return [
-    `replace ${TTSC_GO_MODULE_PATH} v0.0.0 => ${formatGoWorkPath(ttscRoot)}`,
-  ];
-}
-
-interface GoModReplacement {
-  readonly modulePath: string;
-}
-
-interface GoModInfo {
-  readonly modulePath: string | null;
-  readonly replacements: readonly GoModReplacement[];
-}
-
-interface GoModReader {
-  read(dir: string): GoModInfo;
-}
-
-interface GoModJson {
-  readonly Module?: {
-    readonly Path?: string;
-  };
-  readonly Require?: readonly {
-    readonly Path?: string;
-    readonly Version?: string;
-  }[];
-  readonly Replace?: readonly {
-    readonly Old?: {
-      readonly Path?: string;
-      readonly Version?: string;
-    };
-    readonly New?: {
-      readonly Path?: string;
-      readonly Version?: string;
-    };
-  }[];
-}
-
-function createGoModReader(
-  goBinary: string,
-  pluginName: string,
-  env: NodeJS.ProcessEnv,
-): GoModReader {
-  const cache = new Map<string, GoModInfo>();
-  return {
-    read(dir) {
-      OwnedSynchronousProcess.checkpoint();
-      const resolved = path.resolve(dir);
-      const cached = cache.get(resolved);
-      if (cached !== undefined) {
-        return cached;
-      }
-      const info = readGoModInfo(resolved, goBinary, pluginName, env);
-      cache.set(resolved, info);
-      return info;
-    },
-  };
-}
-
-function readGoModInfo(
-  dir: string,
-  goBinary: string,
-  pluginName: string,
-  env: NodeJS.ProcessEnv,
-): GoModInfo {
-  if (!fs.existsSync(path.join(dir, "go.mod"))) {
-    return emptyGoModInfo();
-  }
-
-  // `go mod edit` takes the file as an argument, so the tool runs from the
-  // system temporary directory rather than from `dir`: a copy of an external
-  // source mirrors its absolute path below the build's scratch directory, and
-  // Windows refuses a working directory longer than MAX_PATH even where every
-  // path the build itself opens is fine.
-  const cwd = os.tmpdir();
-  const result = spawnGoTool(
-    goBinary,
-    ["mod", "edit", "-json", path.join(dir, "go.mod")],
-    {
-      cwd,
-      encoding: "utf8",
-      env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
-      windowsHide: true,
-    },
-  );
-  OwnedSynchronousProcess.checkpoint();
-  if (result.error) {
-    throw new Error(
-      goSpawnFailureMessage(
-        `reading go.mod for plugin "${pluginName}"`,
-        pluginName,
-        goBinary,
-        cwd,
-        result.error,
-      ),
-    );
-  }
-  if (result.status !== 0) {
-    throw new Error(
-      `ttsc: reading go.mod for plugin "${pluginName}" failed:\n${result.stderr || result.stdout}`,
-    );
-  }
-
-  let json: GoModJson;
-  try {
-    json = JSON.parse(result.stdout) as GoModJson;
-  } catch (error) {
-    throw new Error(
-      `ttsc: reading go.mod for plugin "${pluginName}" returned invalid JSON: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-
-  return {
-    modulePath: json.Module?.Path ?? null,
-    replacements: (json.Replace ?? [])
-      .map(jsonReplacementToGoModReplacement)
-      .filter((replacement) => replacement !== null),
-  };
-}
-
-function emptyGoModInfo(): GoModInfo {
-  return {
-    modulePath: null,
-    replacements: [],
-  };
-}
-
-function jsonReplacementToGoModReplacement(
-  replacement: NonNullable<GoModJson["Replace"]>[number],
-): GoModReplacement | null {
-  const modulePath = replacement.Old?.Path;
-  if (modulePath === undefined) {
-    return null;
-  }
-  return {
-    modulePath,
-  };
-}
-
-function collectOverlayModulePaths(
-  dirs: readonly string[],
-  goModReader: GoModReader,
-): Set<string> {
-  const out = new Set<string>();
-  for (const dir of dirs) {
-    OwnedSynchronousProcess.checkpoint();
-    const modulePath = goModReader.read(dir).modulePath;
-    if (modulePath !== null) {
-      out.add(modulePath);
-    }
-  }
-  return out;
-}
-
 function runGoBuild(
   cwd: string,
   entry: string,
@@ -1379,7 +1142,7 @@ function runGoBuild(
   OwnedSynchronousProcess.checkpoint();
   if (result.error) {
     throw new Error(
-      goSpawnFailureMessage(
+      SourcePluginWorkspace.goSpawnFailureMessage(
         `building plugin "${pluginName}"`,
         pluginName,
         goBinary,
@@ -1392,77 +1155,6 @@ function runGoBuild(
     throw new Error(
       `ttsc: building plugin "${pluginName}" via "go build" failed:\n${result.stderr || result.stdout}`,
     );
-  }
-}
-
-/**
- * Describe a Go tool that could not be started. The operating system reports a
- * missing working directory, or one Windows refuses as too long, with the same
- * `ENOENT` as a missing executable, so only an executable that is itself absent
- * is reported as a missing toolchain; any other failure names the executable,
- * the working directory, and the system error.
- */
-function goSpawnFailureMessage(
-  action: string,
-  pluginName: string,
-  goBinary: string,
-  cwd: string,
-  error: Error,
-): string {
-  if (
-    (error as NodeJS.ErrnoException).code === "ENOENT" &&
-    !(path.isAbsolute(goBinary) && fs.existsSync(goBinary))
-  ) {
-    return goToolchainNotFoundMessage(pluginName);
-  }
-  return `ttsc: ${action} failed to spawn ${goBinary} in ${cwd}: ${error.message}`;
-}
-
-function goToolchainNotFoundMessage(pluginName: string): string {
-  return (
-    `ttsc: building plugin "${pluginName}" failed because the Go toolchain was not found. ` +
-    `Reinstall ttsc with optional dependencies so the bundled Go compiler is present, ` +
-    `or set TTSC_GO_BINARY to an absolute path.`
-  );
-}
-
-function findTtscOverlayDirs(): readonly string[] {
-  const ttscRoot = path.resolve(__dirname, "..", "..", "..", "..");
-  const dirs: string[] = [];
-  if (fs.existsSync(path.join(ttscRoot, "go.mod"))) {
-    dirs.push(ttscRoot);
-  }
-  const shimRoot = path.join(ttscRoot, "shim");
-  if (fs.existsSync(shimRoot)) {
-    walkForGoMod(shimRoot, dirs);
-  }
-  dirs.sort();
-  return dirs;
-}
-
-function walkForGoMod(dir: string, out: string[]): void {
-  OwnedSynchronousProcess.checkpoint();
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  let hasGoMod = false;
-  for (const entry of entries) {
-    OwnedSynchronousProcess.checkpoint();
-    if (entry.isFile() && entry.name === "go.mod") {
-      hasGoMod = true;
-    }
-  }
-  if (hasGoMod) {
-    out.push(dir);
-  }
-  for (const entry of entries) {
-    OwnedSynchronousProcess.checkpoint();
-    if (!entry.isDirectory()) continue;
-    if (GoSourceInputs.shouldPruneDirectory(entry.name)) continue;
-    walkForGoMod(path.join(dir, entry.name), out);
   }
 }
 

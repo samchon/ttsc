@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonOptions";
+import { CompilerProjectSelection } from "../project/CompilerProjectSelection";
 import type { BuildExecution } from "./BuildExecution";
 import { PassthroughFlags } from "./PassthroughFlags";
 import type { RunBuildOptions } from "./RunBuildOptions";
@@ -79,6 +80,9 @@ export namespace TsgoArguments {
     if (flags.noEmitOnError === true) {
       args.push("--noEmitOnError");
     }
+    args.push(
+      ...CompilerProjectSelection.readGuard(execution.compilerSelection, options.passthrough),
+    );
     return args;
   }
 

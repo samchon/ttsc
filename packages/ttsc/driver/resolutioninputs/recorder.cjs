@@ -23,11 +23,11 @@
  * withdraw the proof for a path that cannot have steered the resolution. A
  * resolution that fails read every root, and commits them all. A `#` specifier
  * its package's `imports` maps to a bare package reads that package's roots the
- * same way; the package is named only once the resolution selected it, so each
- * root's own metadata is fingerprinted before it instead
- * (`observeImportSearchRoots`, `visitImportMappedCandidates`). A `#` resolution
- * that fails names no package; every target the `imports` entry can map it to
- * is observed before it instead (`visitImportTargetCandidates`).
+ * same way. Every declared target is observed before resolution; the actual
+ * selection narrows which prior package observations are committed, without
+ * refreshing them to the later state (`visitImportMappedCandidates`). Search
+ * root witnesses additionally protect candidates discovered only afterwards.
+ * A failed `#` resolution retains every declared target's observations.
  */
 const crypto = require("node:crypto");
 const fs = require("node:fs");
@@ -435,9 +435,9 @@ function searchRoots(parentFile) {
 /**
  * Fingerprint the search roots a `#` import of `parent` can resolve a bare
  * package through, before the resolution runs. Which package that is can be
- * named only once the resolution selected it, so the candidates of the nearer
- * roots are observed afterwards; each root's own metadata, taken here, is what
- * shows a nearer package that appeared in between.
+ * named precisely only once the resolution selected it. Declared targets have
+ * their own earlier candidate observations; these additional root witnesses
+ * protect selected candidates discovered only after resolution.
  *
  * @param {string | undefined} parent The importer, a path or a file URL.
  *
@@ -633,7 +633,7 @@ function importMappedPackageDirectories(parent, resolved, extensions) {
  * @param {readonly string[]} extensions The extensions the resolution probes.
  * @param {Map<string, string | undefined> | undefined} witnesses What
  *   `observeImportSearchRoots` took before the resolution.
- * @param {(file: string, moved: boolean) => void} visit Receives each
+ * @param {(file: string, moved: boolean, directory: string) => void} visit Receives each
  *   candidate, and whether the supplied root witness is missing or differs from
  *   its current signature. Omitted witnesses disable this comparison; two
  *   unavailable signatures compare equal and do not prove unchanged identity.
@@ -666,7 +666,7 @@ function visitImportMappedCandidates(
     visitModuleCandidates(
       directory,
       extensions,
-      (file) => visit(file, moved),
+      (file) => visit(file, moved, directory),
       bases,
     );
   }
@@ -687,7 +687,8 @@ function visitImportMappedCandidates(
  * @param {string} specifier The `#` specifier as the importer wrote it.
  * @param {string | undefined} parent The importer, a path or a file URL.
  * @param {readonly string[]} extensions The extensions the resolution probes.
- * @param {(file: string) => void} visit Receives each candidate.
+ * @param {(file: string, root: string | undefined) => void} visit Receives each
+ *   candidate and its package search directory, or undefined for a local target.
  */
 function visitImportTargetCandidates(specifier, parent, extensions, visit) {
   const parentFile = asFile(parent);
@@ -725,7 +726,7 @@ function visitImportTargetCandidates(specifier, parent, extensions, visit) {
           parentFile,
           undefined,
           extensions,
-          (file) => visit(file),
+          visit,
           bases,
         );
       }
@@ -908,15 +909,15 @@ function createResolutionInputRecorder(options) {
       );
       const isImport =
         typeof specifier === "string" && specifier.startsWith("#");
-      // A failed `#` resolution commits these; a successful one records the
-      // candidates of the target it selected instead.
+      // Success narrows these prior observations to the selected package's
+      // reached roots. It must not replace them with post-resolution readings.
       const importPending = [];
       if (isImport) {
-        visitImportTargetCandidates(specifier, parent, extensions, (file) => {
+        visitImportTargetCandidates(specifier, parent, extensions, (file, root) => {
           file = path.resolve(file);
           if (seen.has(file) || inputs.has(file)) return;
           seen.add(file);
-          importPending.push(observe(file));
+          importPending.push({ ...observe(file), root });
         });
       }
       return {
@@ -960,16 +961,43 @@ function createResolutionInputRecorder(options) {
         return;
       }
       if (token.imports !== undefined) {
+        const pendingByRoot = new Map();
+        const pendingByFile = new Map();
+        for (const observation of token.importPending ?? []) {
+          pendingByFile.set(observation.file, observation);
+          if (observation.root === undefined) continue;
+          let group = pendingByRoot.get(observation.root);
+          if (group === undefined) {
+            group = [];
+            pendingByRoot.set(observation.root, group);
+          }
+          group.push(observation);
+        }
         visitImportMappedCandidates(
           token.parent,
           resolved,
           extensions,
           token.imports,
-          (file, moved) => {
+          (file, moved, directory) => {
+            const prior = pendingByRoot.get(directory);
+            if (prior !== undefined) {
+              pendingByRoot.delete(directory);
+              for (const observation of prior) commit(observation);
+            }
+            const earlier = pendingByFile.get(path.resolve(file));
+            if (earlier !== undefined && earlier.root === undefined)
+              commit(earlier);
             const observation = observe(file);
             commit(moved ? { ...observation, before: undefined } : observation);
           },
         );
+        // A local target, or a link retargeted after Node selected it, need not
+        // have a currently discoverable package root. Its available earlier
+        // file witness still belongs to the selected result and cannot be lost.
+        const selected = selectedFile(resolved);
+        for (const observation of token.importPending ?? [])
+          if (selected !== undefined && observation.realpath === selected)
+            commit(observation);
       }
       visitResolutionCandidates(
         token.specifier,
@@ -1000,6 +1028,16 @@ function createResolutionInputRecorder(options) {
         inputs: [...inputs].sort(),
         realpaths: Object.fromEntries(realpaths),
       };
+    },
+
+    /**
+     * Copy the metadata witnesses retained with the current content proofs.
+     * Call after `finish` to transfer its revalidated identities to an owned
+     * runtime reporter without taking a later observation or changing the
+     * persisted evaluation envelope. Missing keys remain unavailable proof.
+     */
+    metadataSignatures() {
+      return Object.fromEntries(signatures);
     },
   };
 }

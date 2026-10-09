@@ -88,7 +88,7 @@ func (noFallthrough) Check(ctx *Context, node *shimast.Node) {
   ctx.DecodeOptions(&opts)
   pattern := noFallthroughDefaultCommentPattern
   if opts.CommentPattern != "" {
-    if custom, err := compileUserPattern(opts.CommentPattern); err == nil {
+    if custom, err := ctx.compileUserPattern(opts.CommentPattern); err == nil {
       pattern = custom
     }
   }

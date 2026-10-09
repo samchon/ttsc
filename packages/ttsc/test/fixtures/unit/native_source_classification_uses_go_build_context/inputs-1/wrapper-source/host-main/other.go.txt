@@ -1,0 +1,4 @@
+//go:build !ttsc_main
+
+package main
+func main() {}

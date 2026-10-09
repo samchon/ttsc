@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { NativeSourcePackages } from "../../../../../packages/ttsc/src/plugin/internal/source/NativeSourcePackages";
 import { resolveNativeSource } from "../../../../../packages/ttsc/src/plugin/internal/load/resolveNativeSource";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -18,9 +19,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    expectations.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the authored resolveNativeSource for eighteen actual module/file layouts and checks complete ordered ownership results, including every failure rather than stopping at the first mismatch.
- * @evidence contracts/testing.md#independent-expectations Each case's expected kind is a literal derived from the Go package clause the file actually declares (comments and BOM skipped, Unicode letters and digits kept in the identifier), authored for the package-owned source fixtures; the Go toolchain is not run to confirm them.
+ * @evidence contracts/testing.md#independent-expectations Each case's expected kind is a literal derived from the Go package clause the file actually declares (comments and BOM skipped, Unicode letters and digits kept in the identifier), authored for the package-owned source fixtures; the actual Go toolchain selects the package rather than supplying the expected result.
  * @evidence contracts/testing.md#distinguishing-cases Owns plain main/library, fake package lines in comments in both directions, line/adjacent/inline/inter-token comments, leading BOM, underscore and Unicode letter/digit controls; test-only and missing-package rejection belong to the neighboring original classification unit.
- * @evidence contracts/testing.md#execution-ownership The matching named source-unit export imports the actual classifier directly and copies bounded package-owned source fixtures; it does not build native producers, evaluate descriptors or spawn Go during unit execution.
+ * @evidence contracts/testing.md#execution-ownership The matching named source-unit export imports the actual classifier directly and copies bounded package-owned source fixtures; it runs Go package metadata in generated workspaces without native producer builds or descriptor evaluation.
  */
 export function test_native_source_classification_observes_go_package_tokens_through_comments(): void {
   const root = TestProject.physicalPath(
@@ -64,7 +65,10 @@ export function test_native_source_classification_observes_go_package_tokens_thr
       path.join(root, id, "main.go.txt"),
       path.join(root, id, "main.go"),
     );
-  const actual = inputs.map(([id]) => {
+  const observations = NativeSourcePackages.ownPackages(inputs.map(([id]) => ({
+    source: path.join(root, id), label: id,
+  })), process.env);
+  const actual = inputs.map(([id], index) => {
     const source = path.join(root, id);
     try {
       const resolved = resolveNativeSource(
@@ -72,6 +76,7 @@ export function test_native_source_classification_observes_go_package_tokens_thr
         { source, name: id },
         { transform: id },
         0,
+        { observation: observations[index]! },
       );
       return { id, kind: resolved.kind, moduleRoot: resolved.moduleRoot };
     } catch (error) {

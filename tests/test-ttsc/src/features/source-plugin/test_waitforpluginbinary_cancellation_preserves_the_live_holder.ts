@@ -5,8 +5,8 @@ import { pathToFileURL } from "node:url";
 import { Worker } from "node:worker_threads";
 
 import { OwnedSynchronousProcess } from "../../../../../packages/ttsc/src/internal/OwnedSynchronousProcess";
-import { acquirePluginBuildLock } from "../../../../../packages/ttsc/src/plugin/internal/source/acquirePluginBuildLock";
 import { PluginBuildLockProtocol } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildLockProtocol";
+import { acquirePluginBuildLock } from "../../../../../packages/ttsc/src/plugin/internal/source/acquirePluginBuildLock";
 import { releasePluginBuildLock } from "../../../../../packages/ttsc/src/plugin/internal/source/releasePluginBuildLock";
 import { waitForPluginBinary } from "../../../../../packages/ttsc/src/plugin/internal/source/waitForPluginBinary";
 import { TestProject } from "../../../../utils/src/TestProject";

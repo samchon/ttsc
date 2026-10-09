@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { LINUX_DIRECTORY_WATCHES } from "../../../../../../../packages/unplugin/lib/core/transform/tracker/linux/LINUX_DIRECTORY_WATCHES.mjs";
 import { openLinuxDirectoryObserver } from "../../../../../../../packages/unplugin/lib/core/transform/tracker/linux/openLinuxDirectoryObserver.mjs";
-import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies the directory-level observer watches exactly the directories its
@@ -35,7 +35,7 @@ import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-ser
  * @evidence contracts/testing.md#behavioral-verification Two real Linux observers must share exactly the admitted root/src directory watches, report a newly created nested source, reject new package directories, add only explicitly tracked package chains, and widen a previously watched subtree only on subtree=true. Closing both must release every watch.
  * @evidence contracts/testing.md#independent-expectations Literal relative-path watch sets follow the declared admission predicate and explicitly tracked locations independently of observer traversal. An actual emitted filesystem filename confirms notification behavior rather than directory arrangement. Watch-map inspection measures live resource ownership, not committed files.
  * @evidence contracts/testing.md#distinguishing-cases Two consumers sharing one path, admitted versus rejected new directories, file versus directory tracks, ordinary versus widened subtree track, and final shared-owner close are distinct decisions. This entry is Linux-only because it observes the native inotify helper population.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_directory_observer_watches_only_admitted_directories in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/testing.md#execution-ownership The ordinary tests/test-e2e/src/index.ts run selects nine batch entries whose import graph excludes this retained module, so that suite does not execute this declaration. If explicitly invoked, test_directory_observer_watches_only_admitted_directories owns Linux-only shared native directory watches, admission changes and last-owner release assertions. Evidence selection does not establish runtime coverage.
  * @evidence contracts/e2e.md#necessary-boundary The directory observer connects real filesystem events through the native Linux watch helper to JS admission and notification consumers. Synthetic callbacks cannot show newly created directories acquire actual watches or that last-owner close releases shared native resources.
  * @evidence contracts/e2e.md#shared-execution Both observers intentionally share one root and native helper session. Initial directories and later tracked chains are built once; no per-file helper launch is needed. Twenty unadmitted package trees test bounded admission without another installation.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique physical root scopes watch-map inspection. first/second callbacks are separate, and widened is changed only before the subtree comparison. finally closes both observers even after assertion failure; TestProject owns the fixture directory through runner exit.
@@ -86,6 +86,7 @@ export async function test_directory_observer_watches_only_admitted_directories(
     () => undefined,
     () => failures.push("second"),
   );
+  const owner = { check: () => assert.deepEqual(failures, [], "native observer failure") };
   try {
     assert.deepEqual(
       [await first.ready, await second.ready],
@@ -101,13 +102,15 @@ export async function test_directory_observer_watches_only_admitted_directories(
     fs.mkdirSync(at("src", "later"));
     fs.mkdirSync(at("node_modules", "pkg-new"));
     await waitFor(
-      () => watchedBelowRoot().includes("src/later"),
+      () => { owner.check(); return watchedBelowRoot().includes("src/later"); },
       "the created directory to be watched",
+      owner,
     );
     fs.writeFileSync(at("src", "later", "new.ts"), "export {};\n");
     await waitFor(
       () => reported.includes("src/later/new.ts"),
       "the file created in the new directory to be reported",
+      owner,
     );
     assert.equal(
       watchedBelowRoot().includes("node_modules/pkg-new"),

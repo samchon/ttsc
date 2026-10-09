@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"syscall"
 	"time"
 	"unicode/utf8"
 )
@@ -261,9 +262,10 @@ func decodeRequest(data []byte, nonce string) (req request, err error) {
 	return req, nil
 }
 
-// waitOriginal's zero timeout is exactly one original-object poll. Positive
-// waits use bounded native slices so EOF/close joins before releasing a handle;
-// elapsed timeout returns false, while an API error remains unknown.
+// waitOriginal's zero timeout is one completed original-object poll. EINTR
+// retries the same reference without manufacturing a lifetime observation.
+// Positive waits use bounded native slices so EOF/close joins before releasing
+// a handle; elapsed timeout returns false, while an API error remains unknown.
 func waitOriginal(ctx context.Context, ref reference, milliseconds int) (bool, error) {
 	deadline := time.Now().Add(time.Duration(milliseconds) * time.Millisecond)
 	for {
@@ -279,6 +281,9 @@ func waitOriginal(ctx context.Context, ref reference, milliseconds int) (bool, e
 			interval = min(20, int((remaining+time.Millisecond-1)/time.Millisecond))
 		}
 		retired, err := ref.poll(interval)
+		if errors.Is(err, syscall.EINTR) {
+			continue
+		}
 		if retired || err != nil || milliseconds == 0 {
 			return retired, err
 		}
@@ -288,7 +293,7 @@ func waitOriginal(ctx context.Context, ref reference, milliseconds int) (bool, e
 // requireLive rejects an already retired enrollment instead of interpreting a
 // failed/missing enrollment as proof. The caller releases the failed reference.
 func requireLive(ref reference) (reference, error) {
-	retired, err := ref.poll(0)
+	retired, err := waitOriginal(context.Background(), ref, 0)
 	if err == nil && retired {
 		err = errors.New("target already retired before enrollment")
 	}

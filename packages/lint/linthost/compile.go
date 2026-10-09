@@ -196,6 +196,7 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
     singleThreaded:     *singleThreaded,
     checkers:           *checkers,
     tsgoArgs:           tsgoArgs,
+    tsgoArgsCwd:        decodeTsgoArgsCwd(*tsgoArgsRaw, tsgoArgs),
     projectIdentity:    projectIdentity,
   })
   if err != nil {
@@ -283,6 +284,7 @@ type subcommandOpts struct {
   singleThreaded        bool
   checkers              int
   tsgoArgs              []string
+  tsgoArgsCwd           string
   projectIdentity       publicrule.ProjectIdentity
   checkObservationsJSON string
   stdout                io.Writer
@@ -365,6 +367,7 @@ func parseSubcommandFlagsWithIO(name string, args []string, stdout, stderr io.Wr
     singleThreaded:        *singleThreaded,
     checkers:              *checkers,
     tsgoArgs:              tsgoArgs,
+    tsgoArgsCwd:           decodeTsgoArgsCwd(*tsgoArgsRaw, tsgoArgs),
     projectIdentity:       projectIdentity,
     checkObservationsJSON: checkObservationsJSON,
     stdout:                stdout,
@@ -377,6 +380,18 @@ func parseSubcommandFlagsWithIO(name string, args []string, stdout, stderr io.Wr
 // than imported because this host deliberately does not depend on the ttsc
 // driver module (see host.go).
 const tsgoArgsEnv = "TTSC_TSGO_ARGS"
+
+// tsgoArgsCwdEnv is the argument base paired with the launcher payload. It does
+// not change the Program/rule root, and an explicit --tsgo-args (including [])
+// retains its own original cwd instead of inheriting an ancestor's base.
+const tsgoArgsCwdEnv = "TTSC_TSGO_ARGS_CWD"
+
+func decodeTsgoArgsCwd(explicit string, args []string) string {
+  if explicit != "" || len(args) == 0 {
+    return ""
+  }
+  return os.Getenv(tsgoArgsCwdEnv)
+}
 
 // decodeTsgoArgs decodes the JSON-array value of the `--tsgo-args` flag — the
 // tsgo CLI flags the `ttsc` launcher forwarded — into a string slice.
@@ -446,6 +461,7 @@ func runProject(opts *subcommandOpts) (code int) {
     singleThreaded:     opts.singleThreaded,
     checkers:           opts.checkers,
     tsgoArgs:           opts.tsgoArgs,
+    tsgoArgsCwd:        opts.tsgoArgsCwd,
     projectIdentity:    opts.projectIdentity,
   })
   if err != nil {

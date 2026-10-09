@@ -1,10 +1,10 @@
 /**
  * Compare a process listing with one selected executable and argument vector.
  *
- * POSIX ps prints the command without shell quoting. Windows listings may
- * quote the executable when its path contains spaces. This observer compares
- * the complete displayed command; comm/name truncation supplies no authority.
- * The caller separately binds the original generation, parent and source key.
+ * POSIX ps prints the command without shell quoting. Windows listings may quote
+ * the executable when its path contains spaces. This observer compares the
+ * complete displayed command; comm/name truncation supplies no authority. The
+ * caller separately binds the original generation, parent and source key.
  *
  * @evidence contracts/common.md#principled-implementation Full command equality binds the selected executable and every argument; executable quoting is the explicit Windows representation difference. Process names and basename prefixes never authorize a match.
  * @evidence contracts/common.md#clear-and-simple-design One predicate owns displayed-command comparison while callers own original process generation and source admission.
@@ -22,6 +22,8 @@ export function matchesObservedProcessCommand(
 ): boolean {
   if (command === null || argv.length === 0) return false;
   if (command === argv.join(" ")) return true;
-  return platform === "win32" &&
-    command === [`"${argv[0]}"`, ...argv.slice(1)].join(" ");
+  return (
+    platform === "win32" &&
+    command === [`"${argv[0]}"`, ...argv.slice(1)].join(" ")
+  );
 }

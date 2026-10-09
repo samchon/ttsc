@@ -19,8 +19,9 @@ import type { IRootPattern } from "./IRootPattern";
  *
  * @evidence contracts/common.md#principled-implementation
  *   Component compilation preserves literal-file versus include semantics,
- *   compiler case policy, recursive directories and JSON admission. RegExp
- *   metacharacters are escaped so only TypeScript's own wildcards are active.
+ *   compiler case policy, recursive directories and JSON admission. Escaped
+ *   literal predicates cannot activate regex grammar; wildcard tokens retain
+ *   only TypeScript's star/question semantics.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   The compiler produces one explicit pattern value; matches owns state
@@ -42,10 +43,10 @@ import type { IRootPattern } from "./IRootPattern";
  *   Separator normalization is compiler spelling, not physical canonicalization.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Resolution, separator conversion and splitting scale with path text.
- *   Component compilation maps each code point to a fixed wildcard or escaped
- *   literal fragment, joins the fragments and constructs one RegExp where
- *   needed. Temporary components/fragments and retained pattern text scale
- *   with the specification; this does not bound later matcher traversal.
+ *   Wildcard compilation maps each code point to one star/question token or
+ *   one escaped literal predicate. Literal components retain direct strings
+ *   or one escaped expression. Resolution and retained tokens/expressions scale
+ *   with specification text; component evaluation merges bounded token states.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Compiles one spec. matchesProjectRootFile owns sharing complete pattern
  *   lists by immutable policy and filesystem-view platform; rootSpellings uses
@@ -75,25 +76,24 @@ export function compile(
       if (!literal && part === "**") return part;
       const wildcard = !literal && /[*?]/.test(part);
       if (!wildcard && caseSensitive) return part;
-      const expression = [...part]
-        .map((char) =>
-          wildcard && char === "*"
-            ? "[^/]*"
-            : wildcard && char === "?"
-              ? "[^/]"
-              : char.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&"),
-        )
-        .join("");
+      const flags = caseSensitive ? "u" : "iu";
+      const expression = wildcard
+        ? [...part].map((char) =>
+            char === "*" || char === "?"
+              ? char
+              : new RegExp(
+                  `^${char.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}$`,
+                  flags,
+                ),
+          )
+        : new RegExp(`^${part.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}$`, flags);
       // Unicode simple folding also belongs to literal components: lowercasing
       // alone misses equivalences such as Greek sigma/final sigma in Go.
       return {
         mentionsMin: (caseSensitive ? part : part.toLowerCase()).includes(
           ".min.",
         ),
-        expression: new RegExp(
-          `^${wildcard && (part.startsWith("*") || part.startsWith("?")) ? "(?!\\.)" : ""}${expression}$`,
-          caseSensitive ? "u" : "iu",
-        ),
+        expression,
         wildcard,
       };
     }),

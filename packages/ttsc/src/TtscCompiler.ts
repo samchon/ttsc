@@ -212,8 +212,8 @@ export class TtscCompiler {
     } else {
       // Default / `context.env.TTSC_CACHE_DIR`: resolve the cache root and the Go
       // build cache (`TTSC_GO_CACHE_DIR`) from this instance's effective
-      // environment — the same `{ ...process.env, ...context.env }` that
-      // prepare()/compile()/transform() build with — then remove only the
+      // environment, using the same native-name layer precedence as
+      // prepare()/compile()/transform(), then remove only the
       // ttsc-owned subdirectories, so a possibly-shared root is never deleted and
       // a user-provided `GOCACHE` is never touched. Using the effective env (not
       // ambient `process.env`) makes clean() remove exactly the artifacts this
@@ -403,7 +403,10 @@ export class TtscCompiler {
   }
 
   private resolvePluginCacheDir(): string | undefined {
-    return this.resolveCacheDir() ?? this.context.env?.TTSC_CACHE_DIR;
+    return (
+      this.resolveCacheDir() ??
+      SidecarEnvironment.read(this.context.env, "TTSC_CACHE_DIR")
+    );
   }
 
   /**
@@ -412,11 +415,12 @@ export class TtscCompiler {
    * documented {@link ITtscCompilerContext.env} contract that child compiler,
    * native-plugin, native-host, and isolated descriptor processes already
    * receive. Returned as a fresh object so callers never mutate the shared
-   * `process.env`; when no `context.env` was supplied this is a plain copy of
-   * `process.env`, so CLI / default behavior is unchanged.
+   * `process.env`. Native environment-name identity is applied while inherited
+   * and constructor layers remain distinct, so Windows aliases cannot defeat
+   * constructor authority and POSIX spellings stay independent.
    */
   private resolveEffectiveEnv(): NodeJS.ProcessEnv {
-    return { ...process.env, ...this.context.env };
+    return SidecarEnvironment.merge(process.env, this.context.env);
   }
 }
 

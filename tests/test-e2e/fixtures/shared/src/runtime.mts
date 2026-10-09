@@ -1,6 +1,7 @@
 import "./runtime-corpus/import-binding/main.mjs";
 import { observeConfiguredOwners } from "./runtime-corpus/configured-owners.mjs";
 import { observeExportPopulation } from "./runtime-corpus/export-population/observe.mjs";
+import { observePackageBoundary } from "./runtime-corpus/package-boundary.cjs";
 import adapterEntries from "../adapter-entries.json" with { type: "json" };
 import { sourceLocations } from "./source-locations.js";
 import { createMemFS, parseResult } from "@ttsc/wasm";
@@ -48,20 +49,19 @@ const mixedRuntime = {
   mainMessage: proposal.mainMessage(),
   optionalChainPreserved: proposal.optionalChainPreserved,
 };
-const exportPopulation = await observeExportPopulation();
+const { packageStars, ...exportPopulation } = await observeExportPopulation();
+const installedBoundary = await observePackageBoundary();
 const configuredOwners = await observeConfiguredOwners();
 const nodeCompatible = await observeNodeCompatibleCorpus();
 const nativeFrames = [stackInside.frame, stackOutside.frame];
 const requireBindings = await observeRequireBindings();
 console.info("relative-runner-cache");
-console.info("TTSC_BATCH:" + JSON.stringify({ ...result, exportPopulation, configuredOwners, normalPopulation: normalPopulation.observed, nativeFrames, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, helperMain, url: import.meta.url }, publicHelpers: {
+console.info("TTSC_BATCH:" + JSON.stringify({ ...result, exportPopulation, packageStars, installedBoundary, configuredOwners, normalPopulation: normalPopulation.observed, nativeFrames, sourceLocations, mixedRuntime, cliPolicyRuntime, nodeCompatible, requireBindings, entryPolicy: { main: "main" in import.meta ? (import.meta as ImportMeta & { main?: boolean }).main : null, helperMain, url: import.meta.url }, publicHelpers: {
   memoryFile: host.readFileText("/main.ts"),
   decoded: parseResult({ result: '{"value":1}' } as never),
   scoped: packageNameFromSpecifier("@scope/package/subpath"),
   builtin: packageNameFromSpecifier("node:fs"),
 } }));
-
-
 
 
 

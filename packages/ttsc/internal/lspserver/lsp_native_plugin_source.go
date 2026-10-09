@@ -767,6 +767,7 @@ func (s *NativePluginSource) discoverCompletionHints(generation uint64) {
       // and the alternative is punishing every well-behaved old plugin to catch
       // a rare new one. Refresh strengthens that trade rather than weakening it:
       // a logged failure would now print per save instead of per session.
+      e2etrace.CompletionHintsPublication(s.cwd, pluginLabel(plugin), generation, "run-failed", 0, err)
       continue
     }
     published, err := decodeNativeCompletionHints(body)
@@ -775,9 +776,14 @@ func (s *NativePluginSource) discoverCompletionHints(generation uint64) {
       // verb and got it wrong, which is worth saying — unlike one that never
       // implemented it at all.
       s.log("ttscserver: %s lsp-hints returned invalid JSON: %v", pluginLabel(plugin), err)
+      e2etrace.CompletionHintsPublication(s.cwd, pluginLabel(plugin), generation, "decode-failed", 0, err)
       continue
     }
-    s.storeCompletionHints(plugin, generation, published)
+    outcome := "published"
+    if !s.storeCompletionHints(plugin, generation, published) {
+      outcome = "superseded"
+    }
+    e2etrace.CompletionHintsPublication(s.cwd, pluginLabel(plugin), generation, outcome, len(published), nil)
   }
   s.notifyCompletionHintsObserver()
 }
@@ -789,18 +795,21 @@ func (s *NativePluginSource) discoverCompletionHints(generation uint64) {
 // empty successful answer clears it — that is how a disabled rule's items stop
 // being offered. An older generation is dropped: refresh cycles are scheduled by
 // editor events, and the last event's answer is the one the user is waiting for.
-func (s *NativePluginSource) storeCompletionHints(plugin NativeLSPPluginEntry, generation uint64, hints []LSPCompletionHint) {
+// The return value reports whether this store actually published, including an
+// empty corpus, so private observation cannot label a rejected result as live.
+func (s *NativePluginSource) storeCompletionHints(plugin NativeLSPPluginEntry, generation uint64, hints []LSPCompletionHint) bool {
   key := pluginKey(plugin, s.projectContextJSON)
   s.hintsMu.Lock()
   defer s.hintsMu.Unlock()
   if existing, ok := s.pluginHints[key]; ok && generation < existing.generation {
-    return
+    return false
   }
   if s.pluginHints == nil {
     s.pluginHints = map[string]completionHintRecord{}
   }
   s.pluginHints[key] = completionHintRecord{hints: hints, generation: generation}
   s.completionHints = s.flattenCompletionHintsLocked()
+  return true
 }
 
 // flattenCompletionHintsLocked concatenates every producer's corpus in manifest

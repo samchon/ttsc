@@ -10,8 +10,9 @@ import { TtscCompiler } from "../../../../../packages/ttsc/src/TtscCompiler";
  * external Go build cache while preserving a user `GOCACHE`.
  *
  * `clean()` must derive its removal targets from the same effective environment
- * (`{ ...process.env, ...context.env }`) that `prepare()`/`compile()` build
- * with, so a `TTSC_GO_CACHE_DIR` supplied only in `context.env` is owned and
+ * (constructor overrides merged using native-name identity) that
+ * `prepare()`/`compile()` build with, so a `TTSC_GO_CACHE_DIR` supplied only in
+ * `context.env` is owned and
  * removed by that instance. A `GOCACHE` value is the caller's broader Go
  * toolchain cache and must never be removed. Reading the ambient `process.env`
  * instead — which never held `TTSC_GO_CACHE_DIR` here — would leave the
@@ -30,8 +31,9 @@ import { TtscCompiler } from "../../../../../packages/ttsc/src/TtscCompiler";
  *    survives, and `process.env.TTSC_GO_CACHE_DIR` is still unset.
  *
  * The cache selector rows distinguish absent ambient state, inherited ambient
- * selection, an own undefined overlay and an explicit instance path. Independent
- * sentinels require every unselected cache and the authored source to survive.
+ * selection, an own undefined overlay and an explicit instance path.
+ * Independent sentinels require every unselected cache and the authored source
+ * to survive.
  *
  * @evidence contracts/testing.md#behavioral-verification TtscCompiler.clean removes instance-selected plugin and external Go caches while preserving user GOCACHE and ambient environment. Explicit cacheDir and relative environment cache rows assert their exact removed lists, absent selected targets and unchanged authored source bytes.
  * @evidence contracts/testing.md#independent-expectations TTSC_GO_CACHE_DIR is compiler-owned and GOCACHE is caller-owned; independently seeded roots make accidental deletion observable. Explicit selectors keep requested spellings; relative project caches use independently observed Node realpaths captured before deletion, including aliased temporary parents.
@@ -137,9 +139,17 @@ export function test_ttsccompiler_clean_removes_context_env_external_go_cache() 
     );
     const ambientGoCache = path.join(root, "ambient-go-cache");
     fs.mkdirSync(ambientGoCache);
-    fs.writeFileSync(path.join(ambientGoCache, "sentinel"), "ambient Go cache must survive\n");
+    fs.writeFileSync(
+      path.join(ambientGoCache, "sentinel"),
+      "ambient Go cache must survive\n",
+    );
     process.env.TTSC_GO_CACHE_DIR = ambientGoCache;
-    for (const selection of ["absent", "inherited", "removed", "explicit"] as const) {
+    for (const selection of [
+      "absent",
+      "inherited",
+      "removed",
+      "explicit",
+    ] as const) {
       const project = path.join(root, selection);
       fs.mkdirSync(project, { recursive: true });
       fs.writeFileSync(path.join(project, "package.json"), '{"private":true}');
@@ -151,7 +161,10 @@ export function test_ttsccompiler_clean_removes_context_env_external_go_cache() 
       const explicit = path.join(project, "explicit-cache");
       for (const cache of [defaults, ambient, explicit]) {
         fs.mkdirSync(path.join(cache, "plugins"), { recursive: true });
-        fs.writeFileSync(path.join(cache, "plugins", "sentinel"), "preserve unselected\n");
+        fs.writeFileSync(
+          path.join(cache, "plugins", "sentinel"),
+          "preserve unselected\n",
+        );
       }
       if (selection === "absent") delete process.env.TTSC_CACHE_DIR;
       else process.env.TTSC_CACHE_DIR = ambient;
@@ -161,19 +174,42 @@ export function test_ttsccompiler_clean_removes_context_env_external_go_cache() 
       };
       if (selection === "removed") overlay.TTSC_CACHE_DIR = undefined;
       if (selection === "explicit") overlay.TTSC_CACHE_DIR = explicit;
-      const selected = selection === "inherited" ? ambient
-        : selection === "explicit" ? explicit : defaults;
+      const selected =
+        selection === "inherited"
+          ? ambient
+          : selection === "explicit"
+            ? explicit
+            : defaults;
       new TtscCompiler({ cwd: project, env: overlay }).clean();
       for (const cache of [defaults, ambient, explicit]) {
         const sentinel = path.join(cache, "plugins", "sentinel");
-        assert.equal(fs.existsSync(sentinel), cache !== selected, selection + ": " + cache);
+        assert.equal(
+          fs.existsSync(sentinel),
+          cache !== selected,
+          selection + ": " + cache,
+        );
         if (cache !== selected)
-          assert.equal(fs.readFileSync(sentinel, "utf8"), "preserve unselected\n");
+          assert.equal(
+            fs.readFileSync(sentinel, "utf8"),
+            "preserve unselected\n",
+          );
       }
-      assert.equal(fs.readFileSync(authored, "utf8"), "export const intact = 42;\n");
-      assert.equal(fs.readFileSync(path.join(userGoCache, "seed"), "utf8"), "cache\n");
-      assert.equal(process.env.TTSC_CACHE_DIR, selection === "absent" ? undefined : ambient);
-      assert.equal(fs.readFileSync(path.join(ambientGoCache, "sentinel"), "utf8"), "ambient Go cache must survive\n");
+      assert.equal(
+        fs.readFileSync(authored, "utf8"),
+        "export const intact = 42;\n",
+      );
+      assert.equal(
+        fs.readFileSync(path.join(userGoCache, "seed"), "utf8"),
+        "cache\n",
+      );
+      assert.equal(
+        process.env.TTSC_CACHE_DIR,
+        selection === "absent" ? undefined : ambient,
+      );
+      assert.equal(
+        fs.readFileSync(path.join(ambientGoCache, "sentinel"), "utf8"),
+        "ambient Go cache must survive\n",
+      );
     }
     if (previousCache === undefined) delete process.env.TTSC_CACHE_DIR;
     else process.env.TTSC_CACHE_DIR = previousCache;

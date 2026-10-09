@@ -23,15 +23,15 @@ func TestMarkdownRenderedReferencesRetainVisibleRequirements(t *testing.T) {
   for name, example := range map[string]string{
     "inline pre": "Discuss `<pre>` and `</pre>` here.\n",
     "inline mdx": "Discuss ``<Code code={` `` here.\n",
-    "comment": "<!-- <pre>\n# Hidden\n-->\n",
-    "pre": "<pre>\n# Hidden\n</pre>\n",
+    "comment":    "<!-- <pre>\n# Hidden\n-->\n",
+    "pre":        "<pre>\n# Hidden\n</pre>\n",
     "pre reopen": "<pre></pre><pre>\n# Hidden\n</pre>\n",
-    "mdx": "<Code code={`\n# Hidden\n`} />\n",
+    "mdx":        "<Code code={`\n# Hidden\n`} />\n",
     "mdx reopen": "<Code code={``} /><Code code={`\n# Hidden\n`} />\n",
   } {
     t.Run(name, func(t *testing.T) {
       files := map[string]string{
-        "spec.md": "# First\n\n" + example + "\n# Second\n",
+        "spec.md":  "# First\n\n" + example + "\n# Second\n",
         "claim.md": "# Claim\n<!-- @evidence spec.md#first Implements the first rule. -->\n",
       }
       assertReported(t, runIndexRule(t, files, config), "Missing acknowledgement for 'spec.md#second'")

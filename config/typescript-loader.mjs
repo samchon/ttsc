@@ -18,6 +18,24 @@ import ts from "typescript";
 
 const extensions = [".ts", ".js", ".mjs", ".cjs"];
 
+/** Bind the ordinary E2E entry before its native carrier inherits it. */
+export async function initializeTestEnvironment() {
+  if (!process.argv[1]) return;
+  let entry;
+  try {
+    entry = fs.realpathSync.native(path.resolve(process.argv[1]));
+  } catch (error) {
+    if (error.code === "ENOENT" || error.code === "ENOTDIR") return;
+    throw error;
+  }
+  const ordinaryEntry = fs.realpathSync.native(
+    fileURLToPath(new URL("../tests/test-e2e/src/index.ts", import.meta.url)),
+  );
+  if (entry !== ordinaryEntry) return;
+  const { TestProject } = await import("../tests/utils/src/TestProject.ts");
+  TestProject.configureTemporaryEnvironment();
+}
+
 /**
  * Serve every TypeScript module compiled, for `import` and `require()` alike.
  *

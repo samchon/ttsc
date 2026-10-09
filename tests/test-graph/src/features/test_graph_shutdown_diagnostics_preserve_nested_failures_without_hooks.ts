@@ -20,25 +20,70 @@ import { formatGraphFailure } from "../../../../packages/graph/src/server/format
  * @evidence contracts/testing.md#execution-ownership The test-graph unit runner calls the renderer directly without a graph host, native process or consumer installation; actual server shutdown wiring remains in the maintained cold EOF scenario.
  */
 export function test_graph_shutdown_diagnostics_preserve_nested_failures_without_hooks(): void {
-  const inner = new Error("authored original cleanup refusal", { cause: new Error("authored native boundary detail") });
-  const outer = new AggregateError([inner, new Error("authored deferred refusal")], "session shutdown failed", { cause: inner });
+  const inner = new Error("authored original cleanup refusal", {
+    cause: new Error("authored native boundary detail"),
+  });
+  const outer = new AggregateError(
+    [inner, new Error("authored deferred refusal")],
+    "session shutdown failed",
+    { cause: inner },
+  );
   Object.assign(inner, { parent: outer });
   const text = formatGraphFailure(outer);
-  for (const message of ["session shutdown failed", "authored original cleanup refusal", "authored native boundary detail", "authored deferred refusal"])
+  for (const message of [
+    "session shutdown failed",
+    "authored original cleanup refusal",
+    "authored native boundary detail",
+    "authored deferred refusal",
+  ])
     assert.ok(text.includes(message), message);
   assert.match(text, /\$ttscReference/u);
   let calls = 0;
-  const metadata = Object.defineProperties({ [inspect.custom]() { ++calls; throw new Error("inspector invoked"); }, toString() { ++calls; throw new Error("string conversion invoked"); } }, { secret: { enumerable: true, get() { ++calls; throw new Error("getter invoked"); } } });
-  const sparse = Object.assign(new Array(3), { 1: metadata, authored: "sparse metadata retained" });
+  const metadata = Object.defineProperties(
+    {
+      [inspect.custom]() {
+        ++calls;
+        throw new Error("inspector invoked");
+      },
+      toString() {
+        ++calls;
+        throw new Error("string conversion invoked");
+      },
+    },
+    {
+      secret: {
+        enumerable: true,
+        get() {
+          ++calls;
+          throw new Error("getter invoked");
+        },
+      },
+    },
+  );
+  const sparse = Object.assign(new Array(3), {
+    1: metadata,
+    authored: "sparse metadata retained",
+  });
   const rendered = formatGraphFailure(sparse);
   assert.ok(rendered.includes("sparse metadata retained"));
   assert.ok(rendered.includes("accessor"));
   const accessorError = new Error("authored accessor error");
-  Object.defineProperty(accessorError, "name", { get() { ++calls; throw new Error("Error name accessor invoked"); } });
-  assert.ok(formatGraphFailure(accessorError).includes("authored accessor error"));
+  Object.defineProperty(accessorError, "name", {
+    get() {
+      ++calls;
+      throw new Error("Error name accessor invoked");
+    },
+  });
+  assert.ok(
+    formatGraphFailure(accessorError).includes("authored accessor error"),
+  );
   assert.equal(calls, 0);
   assert.equal(formatGraphFailure(undefined), "{ '$ttscValue': 'undefined' }");
   assert.equal(formatGraphFailure(null), "null");
   assert.equal(formatGraphFailure(23), "23");
-  assert.ok(formatGraphFailure(new Error("ordinary refusal")).includes("ordinary refusal"));
+  assert.ok(
+    formatGraphFailure(new Error("ordinary refusal")).includes(
+      "ordinary refusal",
+    ),
+  );
 }

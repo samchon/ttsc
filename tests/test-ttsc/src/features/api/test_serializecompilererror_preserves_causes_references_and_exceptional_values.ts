@@ -96,17 +96,33 @@ export function test_serializecompilererror_preserves_causes_references_and_exce
         },
       },
     });
-    assert.deepEqual(serializeCompilerError({ $ttscValue: "object", $ttscProperties: { $ttscReference: "" } }), {
-      $ttscValue: "object",
-      $ttscProperties: {
+    assert.deepEqual(
+      serializeCompilerError({
         $ttscValue: "object",
-        $ttscProperties: { $ttscValue: "object", $ttscProperties: { $ttscReference: "" } },
+        $ttscProperties: { $ttscReference: "" },
+      }),
+      {
+        $ttscValue: "object",
+        $ttscProperties: {
+          $ttscValue: "object",
+          $ttscProperties: {
+            $ttscValue: "object",
+            $ttscProperties: { $ttscReference: "" },
+          },
+        },
+      },
+    );
+    let calls = 0;
+    const accessor = Object.defineProperty({}, "$ttscReference", {
+      enumerable: true,
+      get: () => {
+        calls++;
+        return "must not execute";
       },
     });
-    let calls = 0;
-    const accessor = Object.defineProperty({}, "$ttscReference", { enumerable: true, get: () => { calls++; return "must not execute"; } });
     assert.deepEqual(serializeCompilerError(accessor), {
-      $ttscValue: "object", $ttscProperties: { $ttscReference: { $ttscValue: "accessor" } },
+      $ttscValue: "object",
+      $ttscProperties: { $ttscReference: { $ttscValue: "accessor" } },
     });
     assert.equal(calls, 0);
   });

@@ -24,6 +24,7 @@ import { TtsgraphClient } from "../internal/graph/internal/ttsgraph";
 import { case_capability_worker_environment_preserves_runtime_authority } from "./graph/scenes/case_capability_worker_environment_preserves_runtime_authority";
 import { case_ttscgraph_cold_artifact_preparation_owns_cancel_and_eof } from "./graph/scenes/case_ttscgraph_cold_artifact_preparation_owns_cancel_and_eof";
 import { case_ttscgraph_launcher_repairs_non_executable_dump_binary } from "./graph/scenes/case_ttscgraph_launcher_repairs_non_executable_dump_binary";
+import { case_ttscgraph_resident_projection_matches_fresh_full } from "./graph/scenes/case_ttscgraph_resident_projection_matches_fresh_full";
 import { case_ttscgraph_target_installed_consumers_share_native_boundary } from "./graph/scenes/case_ttscgraph_target_installed_consumers_share_native_boundary";
 import { case_ttscgraph_view_owns_http_server_lifecycle } from "./graph/scenes/case_ttscgraph_view_owns_http_server_lifecycle";
 
@@ -66,6 +67,7 @@ export async function test_e2e_graph_batch(): Promise<void> {
     for (const run of [
       case_ttscgraph_target_installed_consumers_share_native_boundary,
       case_ttscgraph_launcher_repairs_non_executable_dump_binary,
+      case_ttscgraph_resident_projection_matches_fresh_full,
     ]) {
       try {
         await run();

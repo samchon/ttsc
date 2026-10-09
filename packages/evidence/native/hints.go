@@ -21,6 +21,10 @@ import (
 // validated by content, and successful HTTP(S) Swagger documents are reused for
 // the process lifetime while failed fetches are retried. A source that fails to
 // load is reported by Check, which fails the rule, which withdraws the corpus.
+// Markdown activation and evaluation share the first observation of each
+// addressed document within that Check. Hints reflects that captured content;
+// an edit after consumption is observed by a later Check, not by projecting
+// this corpus. Reusable downstream delivery still validates consumed proofs.
 type graphCorpus struct {
   Config   graphConfig
   Markdown map[string]*artifactInventory

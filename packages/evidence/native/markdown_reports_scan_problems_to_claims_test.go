@@ -82,12 +82,9 @@ func TestMarkdownReportsScanProblemsToClaims(t *testing.T) {
   assertProblemContains(t, withheld, "Missing acknowledgement for 'docs/rules.md#only'")
 
   // One file read by both a claim and a reference reports each problem once.
-  // The mechanism is the reporter, not this predicate: the scan runs twice, once
-  // over the declared claim populations and once over the activated config, and
-  // each pass appends the same message. `reportProblems` sorts and drops the
-  // adjacent duplicate. An unreadable tag is appended by both passes in the same
-  // way; the case is a regression guard on
-  // the reporter rather than on the line above it.
+  // Both phases project problems from the same captured scan. The reporter
+  // still coalesces their repeated messages, including unreadable tags, while
+  // selection and severity remain phase-specific.
   both := runIndexRule(t, map[string]string{
     "plans/alpha.md": "## ---\n\n<!-- @evidence plans/alpha.md#kept Self. -->\n\n## Kept {#kept}\n\nBody.\n",
   }, `{"claims":[{

@@ -246,6 +246,7 @@ type Context struct {
   collect        func(*Finding)
   projectResults publicrule.ProjectResultReader
   fileMemo       *fileMemo
+  patterns       *userPatternCache
 }
 
 // fileMemo caches file-invariant values that rules would otherwise
@@ -876,6 +877,8 @@ func AllRuleNames() []string {
 //
 // The registry and resolver must remain stable while this engine is used;
 // configure execution settings before Run and do not overlap runs.
+// Option regex results belong to the parsed configuration when available;
+// other resolvers use this engine's cache. A live engine keeps that owner alive.
 //
 // @evidence contracts/common.md#principled-implementation Kind-indexed subscriptions preserve the compiler's discriminants; separate configuration error, project settings and file-rule state distinguish binding failure from execution policy.
 // @evidence contracts/common.md#clear-and-simple-design Engine owns immutable dispatch metadata and run settings; per-file Contexts own transient checking state, with a mutex confined to cross-file unknown-name collection.
@@ -897,6 +900,7 @@ type Engine struct {
   projectSettings    map[string]ProjectRuleSetting
   configError        error
   currentDirectory   string
+  patterns           *userPatternCache
 }
 
 // SetSerial forces Engine.Run to walk files one at a time. The host calls
@@ -987,14 +991,15 @@ func NewEngine(config RuleConfig) *Engine {
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state file-scoped policy, initial failure effects, accumulated option errors and stable-input ownership before the tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Construction defines name, option and kind binding without its own native path or process policy. Resolver and rule callbacks own any supported native input operations they perform.
 // @evidence contracts/performance.md#efficient-algorithms For r registered file rules, p project rules, v returned option variants, b payload bytes, a active names, k requested kinds and u unknown names, local work is O(r log r+p log p+u log u+v+b+a+k) sorting, scans and set operations. String hashing/comparison examines name bytes; resolver, display-severity lookup, metadata and unique-option validator costs are additional. A display-severity alias lookup may scan the returned map entries. All registered file rules are considered for options, not only enabled subscriptions.
-// @evidence contracts/performance.md#reuse-equivalent-work Stable registered rule metadata and identical option bytes define one validation input within construction; a per-rule seen set invokes validation once per distinct byte payload. Sets are not shared across rules or engine constructions; per-file resolution remains separate.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives the engine with its resolver, project settings, enabled/unknown names and KindCount-indexed subscriptions. Validation-only payload/kind sets and invalid-name tables end at constructor return; retained data grows with registered project rules, configured names, project payloads and subscribed kinds, with no historical-engine cache, native handle or task owned here.
+// @evidence contracts/performance.md#reuse-equivalent-work Stable registered rule metadata and identical option bytes define one validation input within construction; a per-rule seen set invokes validation once per distinct byte payload. Sets are not shared across rules or engine constructions; per-file resolution remains separate. Parsed configurations share their synchronized regex result cache across engines and command wrappers; other resolvers have an engine-owned cache because no stable shared owner is available.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives the engine with its resolver, project settings, enabled/unknown names, KindCount-indexed subscriptions and regex-cache owner. Validation-only sets end at constructor return. Retained dispatch/configuration grows with registered rules, configured names, project payloads and subscribed kinds; regex results grow with patterns requested from the stable live configuration. Replacing a resolver leaves its cache collectible after its last engine/context owner ends, with no process-global historical-pattern cache, native handle or task owned here.
 func NewEngineWithResolver(config RuleResolver) *Engine {
   if config == nil {
     config = RuleConfig{}
   }
   eng := &Engine{
     config:            config,
+    patterns:          patternCacheForResolver(config),
     rules:             make([][]Rule, int(shimast.KindCount)),
     enabled:           make(map[string]Severity),
     unknownDirectives: make(map[string]struct{}),
@@ -1419,6 +1424,7 @@ func (e *Engine) runFile(
             collect:          collect,
             projectResults:   results,
             fileMemo:         memo,
+            patterns:         e.patterns,
           }
         }
         // A nil entry memoizes "off for this file" so a rule registered

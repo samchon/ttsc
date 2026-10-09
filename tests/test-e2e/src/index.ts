@@ -1,29 +1,22 @@
 import path from "node:path";
 
-import { TestExecutor } from "../../utils/src/TestExecutor";
-import { BatchWorkspace } from "./batch/BatchWorkspace";
+import { OwnedE2eEntry } from "./batch/OwnedE2eEntry";
 
-// Immutable consumers finish before the editor changes source bytes. Each file
-// owns its explicit DAG consumers; webpack includes two real hosts. No legacy scenario discovery remains.
-const batches = [
-  "runtime",
-  "vite",
-  "esbuild",
-  "webpack",
-  "bun",
-  "metro",
-  "evidence",
-  "graph",
-  "lsp",
-] as const;
-if (process.argv.some((argument) => argument.startsWith("--package=")))
-  throw new Error("The shared DAG suite runs the shared boundary DAG together");
-await TestExecutor.main({
-  location: (process.argv.includes("--installation")
-    ? (["runtime"] as const)
-    : batches
-  ).map((name) =>
-    path.join(import.meta.dirname, "features", `test_e2e_${name}_batch.ts`),
-  ),
-});
-if (!process.exitCode) await BatchWorkspace.close();
+const controller = new AbortController();
+const cancel = () => controller.abort(new Error("E2E entry interrupted"));
+process.once("SIGINT", cancel);
+process.once("SIGTERM", cancel);
+try {
+  const result = await OwnedE2eEntry.run({
+    entry: path.join(import.meta.dirname, "main.ts"),
+    args: process.argv.slice(2),
+    signal: controller.signal,
+  });
+  if (result.error) throw result.error;
+  if (result.status === null)
+    throw new Error(`E2E entry terminated with signal ${result.signal}`);
+  process.exitCode = result.status;
+} finally {
+  process.removeListener("SIGINT", cancel);
+  process.removeListener("SIGTERM", cancel);
+}

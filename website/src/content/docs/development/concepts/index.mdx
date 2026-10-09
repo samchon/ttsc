@@ -9,6 +9,10 @@ A `ttsc` plugin is **one npm package with two halves**:
 1. A **JS descriptor** in `node_modules` that tells `ttsc` what the plugin does, its name, stage, and the Go source directory.
 2. A **Go source plugin** that holds the actual transform or check logic. `ttsc` builds it on the consumer machine the first time it is used, then caches the result. Executable `package main` sources become sidecars; non-`main` transform packages are linked into a native host.
 
+Go selects native ownership using the effective tags, target OS/architecture, cgo and environment. Excluded files do not turn a library into an executable. For a nested transform source, `ttsc` first pins the Go tool selected at its original module directory and observes a prospective source-only package: an owned copy keeps that module's admitted file layout and relative inputs, while only its root `go.mod`/`go.sum` are replaced by the maintained generic host manifests. The normal generated workspace applies. This proposal does not activate an outer module graph or toolchain that a linked source would not use. Module-root sources, direct `go.mod` sources and check plugins use their own module for this observation.
+
+An executable proposal must also select `package main` in its complete owning module. A linked proposal must select a non-`main` package inside every chosen actual transform host, with that host's tool, dependency graph and generated workspace. Errors, missing production files and disagreement terminate loading; `ttsc` does not retry with another ownership choice. The cold build confirms ownership again in its materialized context before publishing a cached binary. This deterministic proposal rule does not promise a preference between hypothetical competing release-toolchain interpretations. A relative Go input available in the source module can still be unavailable in a linked host, where Go's actual error is authoritative.
+
 ```text
 my-ttsc-plugin/                  installed in consumer's node_modules
 ├── plugin.cjs                   ◄── JS descriptor: factory or object

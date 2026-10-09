@@ -7,7 +7,8 @@ import path from "node:path";
 import { preserveColdRowDiagnostics } from "../../../../utils/src/preserveColdRowDiagnostics";
 
 /**
- * Verifies partial cold diagnostics preserve stderr without reading live inputs.
+ * Verifies partial cold diagnostics preserve stderr without reading live
+ * inputs.
  *
  * A failed process can have unconfirmed native closure. Its stderr snapshot is
  * still needed, while neither diagnostic text nor a vanished PID grants input
@@ -26,11 +27,19 @@ import { preserveColdRowDiagnostics } from "../../../../utils/src/preserveColdRo
 export function test_partial_cold_diagnostics_preserve_stderr_without_copying_unknown_inputs(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cold-diagnostic-unit-"));
   try {
-    const stderr = "session shutdown failed\nauthored original boundary refusal\n";
+    const stderr =
+      "session shutdown failed\nauthored original boundary refusal\n";
     const missing = path.join(root, "still-owned-source");
-    const partial = preserveColdRowDiagnostics({ root: missing, diagnosticRoot: root }, false, false, stderr);
+    const partial = preserveColdRowDiagnostics(
+      { root: missing, diagnosticRoot: root },
+      false,
+      false,
+      stderr,
+    );
     assert.ok(partial);
-    const metadata = JSON.parse(fs.readFileSync(path.join(partial, "row.jsonl"), "utf8"));
+    const metadata = JSON.parse(
+      fs.readFileSync(path.join(partial, "row.jsonl"), "utf8"),
+    );
     assert.equal(metadata.stderr, stderr);
     assert.equal(metadata.joined, false);
     assert.equal(metadata.releaseConfirmed, false);
@@ -38,10 +47,22 @@ export function test_partial_cold_diagnostics_preserve_stderr_without_copying_un
     assert.deepEqual(metadata.files, []);
     assert.equal(fs.existsSync(missing), false);
     for (const event of ["failed", "close-failed"]) {
-      const actorMessage = { event, diagnostic: "outer cleanup failure\n  cause: authored native refusal\n  errors: [authored guard refusal]" };
-      const captured = preserveColdRowDiagnostics({ root: missing, diagnosticRoot: root }, false, false, stderr, actorMessage);
+      const actorMessage = {
+        event,
+        diagnostic:
+          "outer cleanup failure\n  cause: authored native refusal\n  errors: [authored guard refusal]",
+      };
+      const captured = preserveColdRowDiagnostics(
+        { root: missing, diagnosticRoot: root },
+        false,
+        false,
+        stderr,
+        actorMessage,
+      );
       assert.ok(captured);
-      const receipt = JSON.parse(fs.readFileSync(path.join(captured, "row.jsonl"), "utf8"));
+      const receipt = JSON.parse(
+        fs.readFileSync(path.join(captured, "row.jsonl"), "utf8"),
+      );
       assert.deepEqual(receipt.actorMessage, actorMessage);
       assert.equal(receipt.joined, false);
       assert.equal(receipt.releaseConfirmed, false);
@@ -53,16 +74,38 @@ export function test_partial_cold_diagnostics_preserve_stderr_without_copying_un
     fs.mkdirSync(source);
     const bytes = Buffer.from('{"receipt":"authored original bytes"}\n');
     fs.writeFileSync(path.join(source, "receipt.jsonl"), bytes);
-    const closed = preserveColdRowDiagnostics({ root: source, diagnosticRoot: root }, true, false, stderr);
+    const closed = preserveColdRowDiagnostics(
+      { root: source, diagnosticRoot: root },
+      true,
+      false,
+      stderr,
+    );
     assert.ok(closed);
-    const receipt = JSON.parse(fs.readFileSync(path.join(closed, "row.jsonl"), "utf8"));
+    const receipt = JSON.parse(
+      fs.readFileSync(path.join(closed, "row.jsonl"), "utf8"),
+    );
     assert.equal(receipt.joined, true);
     assert.equal(receipt.releaseConfirmed, false);
     assert.equal(receipt.partial, false);
-    assert.deepEqual(receipt.files, [{ file: "receipt.jsonl", size: bytes.length, sha256: crypto.createHash("sha256").update(bytes).digest("hex") }]);
-    assert.deepEqual(fs.readFileSync(path.join(closed, "receipt.jsonl")), bytes);
-    assert.deepEqual(fs.readFileSync(path.join(source, "receipt.jsonl")), bytes);
-    assert.equal(preserveColdRowDiagnostics({ root: missing }, false, false, stderr), undefined);
+    assert.deepEqual(receipt.files, [
+      {
+        file: "receipt.jsonl",
+        size: bytes.length,
+        sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
+      },
+    ]);
+    assert.deepEqual(
+      fs.readFileSync(path.join(closed, "receipt.jsonl")),
+      bytes,
+    );
+    assert.deepEqual(
+      fs.readFileSync(path.join(source, "receipt.jsonl")),
+      bytes,
+    );
+    assert.equal(
+      preserveColdRowDiagnostics({ root: missing }, false, false, stderr),
+      undefined,
+    );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

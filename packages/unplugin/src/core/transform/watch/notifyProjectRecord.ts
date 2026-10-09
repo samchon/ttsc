@@ -68,9 +68,12 @@ const HANDED = new WeakMap<
  * does not certify physical absence.
  *
  * Persistence writes changed bytes or accepts an identical existing record
- * before initial handoff. Later deliveries reuse that accepted revision without
- * rechecking the file here; hosts and bridge readers own current record proof,
- * including concurrent changes and unreadable/torn bytes. A host that keeps no
+ * before initial handoff. Later deliveries reuse that accepted revision while
+ * its path still resolves to a regular file. A missing or unavailable record
+ * loses acceptance and enters persistence again without rereading generation
+ * inputs. Hosts and bridge readers own current byte proof, including concurrent
+ * changes and unreadable/torn bytes; availability here cannot exclude removal
+ * after the check. A host that keeps no
  * snapshot of the file, Rollup's cache, is handed the digest of the bytes
  * written for the generation to compare against instead
  * (`TtscProjectRegistration.digest`).
@@ -100,11 +103,11 @@ const HANDED = new WeakMap<
  *   successful delivery can be handed no record.
  * @evidence contracts/common.md#principled-implementation Generation observations are retained by lexical input spelling and extended with new routing inputs; each host record is reusable only for the same evidenced snapshot, and bridge registrations receive a new array when that snapshot expands.
  * @evidence contracts/common.md#clear-and-simple-design One generation-owned handoff state separates evidenced inputs, watching snapshot and per-record written version; record serialization and unrecorded host-byte capture remain private helpers.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts A fresh-only result cannot manufacture persistent proof from current bytes or an older record; fallback remains an explicit host capability, and other unwritten or missing records preserve the supported volatility or watching error path.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A fresh-only result cannot manufacture persistent proof from current bytes or an older record; an unavailable accepted record loses persistence acceptance and is recovered by the existing writer rather than forcing a new compile. Fallback remains an explicit host capability, and unavailable records preserve the supported volatility or watching error path.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain snapshot expansion, host roots, write-before-registration, fallback and watching failure; parameters and separated tags follow documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Record paths come from host-owned directories and actual write/existence outcomes; observation identities use the shared native filesystem context without OS-wide permission or case assumptions.
- * @evidence contracts/performance.md#efficient-algorithms First handoff scans/maps generation inputs and observes current host bytes/native identities for entries lacking state. Every delivery scans selection spellings, with key-text cost; expansion copies the growing union and derives membership. New/unaccepted host revisions also build records, scan membership, sort/encode nested dictionary keys, hash/compare persisted bytes and perform native path/parent/write work. Input/policy/text/query populations determine temporary storage and bytes, while registration callback work remains a delivery effect even for accepted revisions.
- * @evidence contracts/performance.md#reuse-equivalent-work Retained generation evidence and accepted per-host snapshot digests are shared while input-set revision agrees, under fixed generation/root/policy and caller nonmutation. Selection expansion invalidates prior host versions without suppressing registration effects. An accepted version skips persistence here, so this memo does not prove current on-disk bytes; record readers and host digest/snapshot comparison own that proof.
+ * @evidence contracts/performance.md#efficient-algorithms First handoff scans/maps generation inputs and observes current host bytes/native identities for entries lacking state. Every delivery scans selection spellings, with key-text cost; expansion copies the growing union and derives membership. An accepted revision pays one native path stat, without serialization or byte reads. New/unaccepted or unavailable host revisions build records, scan membership, sort/encode nested dictionary keys, hash/compare persisted bytes and perform native path/parent/write work. Input/policy/text/query populations determine temporary storage and bytes, while registration callback work remains a delivery effect even for accepted revisions.
+ * @evidence contracts/performance.md#reuse-equivalent-work Retained generation evidence and accepted per-host snapshot digests are shared while input-set revision agrees and the path resolves to a regular file, under fixed generation/root/policy and caller nonmutation. Selection expansion or lost availability invalidates the host's persistence acceptance without suppressing registration effects or discarding generation evidence. An available accepted version skips persistence here, so this memo does not prove current on-disk bytes; record readers and host digest/snapshot comparison own that proof.
  * @evidence contracts/performance.md#bound-retention-and-release-resources WeakMap state retains unique lexical inputs/evidence, spelling keys and one digest/revision per reached host record path without a capacity or byte cap. Expansion replaces arrays, but registration closures and borrowers can retain earlier snapshots after replacement or generation release. Native record files also outlive the generation and this operation supplies no historical on-disk reclamation policy; no live watcher handle is owned here.
  */
 export function notifyProjectRecord(
@@ -164,8 +167,11 @@ export function notifyProjectRecord(
   let refused: unknown;
   for (const candidate of records) {
     if (handed.written.get(candidate)?.revision === handed.revision) {
-      record = candidate;
-      break;
+      if (recordAvailable(candidate)) {
+        record = candidate;
+        break;
+      }
+      handed.written.delete(candidate);
     }
     try {
       handed.written.set(candidate, {
@@ -181,7 +187,7 @@ export function notifyProjectRecord(
       refused ??= error;
     }
   }
-  record ??= records.find((candidate) => fs.existsSync(candidate));
+  record ??= records.find(recordAvailable);
   if (record === undefined) {
     warnUnwritableProjectRecord(records[0]!, refused);
     if (project.watching === true && !failed) {
@@ -200,6 +206,19 @@ export function notifyProjectRecord(
     record,
   });
   return true;
+}
+
+/**
+ * Availability of the host's file, following linked targets without changing
+ * lexical spelling. Byte readability and generation proof remain with readers;
+ * an unavailable path must re-enter writing and the host's fallback policy.
+ */
+function recordAvailable(file: string): boolean {
+  try {
+    return fs.statSync(file).isFile();
+  } catch {
+    return false;
+  }
 }
 
 /** The record of a generation over its evidenced inputs. */

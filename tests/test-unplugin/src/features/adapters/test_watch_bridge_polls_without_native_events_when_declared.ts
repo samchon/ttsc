@@ -6,8 +6,8 @@ import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/b
 import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
-import { captureWatchInputBaseline } from "../../../../../packages/unplugin/src/core/transform/watch/captureWatchInputBaseline";
 import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
+import { captureWatchInputBaseline } from "../../../../../packages/unplugin/src/core/transform/watch/captureWatchInputBaseline";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -16,9 +16,12 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * The observer seam deliberately remains silent; it is not a failed native
  * backend. Explicit ticks exercise owned observation and actual record writes.
  *
- * 1. Poll unchanged bytes, then changed bytes, and distinguish their record signals.
- * 2. Register a failed delivery after removal and observe repaired bytes through polling.
- * 3. Replace a native session before its handle retires; reject old callbacks and poll the replacement.
+ * 1. Poll unchanged bytes, then changed bytes, and distinguish their record
+ *    signals.
+ * 2. Register a failed delivery after removal and observe repaired bytes through
+ *    polling.
+ * 3. Replace a native session before its handle retires; reject old callbacks and
+ *    poll the replacement.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual openHostWatchBridge registration, bounded poll checks, failure retention, record movement and close operate on authored helper files. Native callbacks work while active; callbacks from a closed bridge cannot signal after a polling replacement registers, even while native retirement is withheld.
  * @evidence contracts/testing.md#independent-expectations Authored initial/changed/repaired bytes prescribe unchanged versus moved record signals. Captured graph evidence supplies input setup, not expected verdicts; acquisition/closure counters observe handles returned by the owned seam.
@@ -33,19 +36,29 @@ export async function test_watch_bridge_polls_without_native_events_when_declare
   fs.writeFileSync(tsconfig, "{}");
   const record = projectRecordFile(path.join(root, ".ttsc"), tsconfig);
   writeProjectRecordFile(record, {
-    inputs: {}, membership: null, root, signal: 0, tsconfig,
+    inputs: {},
+    membership: null,
+    root,
+    signal: 0,
+    tsconfig,
   });
   const current = (): TtscWatchInput[] => {
     const baseline = captureWatchInputBaseline(helper);
     assert.ok(baseline);
-    return [{
-      file: helper,
-      evidence: {
-        identity: baseline.identity,
-        missing: !baseline.fileExists,
-        state: { codec: "graph", hash: baseline.graphHash, realpath: baseline.realpath.ok ? baseline.realpath.path : null },
+    return [
+      {
+        file: helper,
+        evidence: {
+          identity: baseline.identity,
+          missing: !baseline.fileExists,
+          state: {
+            codec: "graph",
+            hash: baseline.graphHash,
+            realpath: baseline.realpath.ok ? baseline.realpath.path : null,
+          },
+        },
       },
-    }];
+    ];
   };
   const signal = () => readProjectRecordFile(record)?.signal;
   let tick: (() => void) | undefined;
@@ -57,15 +70,29 @@ export async function test_watch_bridge_polls_without_native_events_when_declare
   let pollCloses = 0;
   const operations = {
     caseSensitive: () => true,
-    watch: (_root: string, listener: (event: string, file: string | null) => void) => {
+    watch: (
+      _root: string,
+      listener: (event: string, file: string | null) => void,
+    ) => {
       nativeOpens++;
       emit = listener;
-      return { close: () => { retireNative = () => { nativeCloses++; retireNative = undefined; }; } };
+      return {
+        close: () => {
+          retireNative = () => {
+            nativeCloses++;
+            retireNative = undefined;
+          };
+        },
+      };
     },
     poll: (listener: () => void) => {
       pollOpens++;
       tick = listener;
-      return { close: () => { pollCloses++; } };
+      return {
+        close: () => {
+          pollCloses++;
+        },
+      };
     },
   };
   const bridge = openHostWatchBridge(root, operations, true);
@@ -88,7 +115,10 @@ export async function test_watch_bridge_polls_without_native_events_when_declare
     tick();
     fs.writeFileSync(helper, "repaired\n");
     tick();
-    assert.ok((signal() ?? 0) > 1, "repair remains observed after failed delivery");
+    assert.ok(
+      (signal() ?? 0) > 1,
+      "repair remains observed after failed delivery",
+    );
   } finally {
     await bridge.close();
   }
@@ -115,21 +145,39 @@ export async function test_watch_bridge_polls_without_native_events_when_declare
       fs.writeFileSync(helper, "replacement changed\n");
       staleCallback("change", helper);
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      assert.equal(signal(), before, "the closed observer cannot publish into its replacement");
+      assert.equal(
+        signal(),
+        before,
+        "the closed observer cannot publish into its replacement",
+      );
       assert.ok(tick);
       tick();
-      assert.ok((signal() ?? 0) > (before ?? 0), "the replacement publishes through its own poll");
+      assert.ok(
+        (signal() ?? 0) > (before ?? 0),
+        "the replacement publishes through its own poll",
+      );
       const published = signal();
       staleCallback("change", helper);
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      assert.equal(signal(), published, "late native callbacks cannot duplicate publication");
+      assert.equal(
+        signal(),
+        published,
+        "late native callbacks cannot duplicate publication",
+      );
       retireNative?.();
       await closing;
-      assert.equal(nativeCloses, 1, "the original native handle eventually retires");
+      assert.equal(
+        nativeCloses,
+        1,
+        "the original native handle eventually retires",
+      );
       replacement.register(record, current(), false, replacement.begin());
       fs.writeFileSync(helper, "after original retirement\n");
       tick();
-      assert.ok((signal() ?? 0) > (published ?? 0), "old retirement leaves the replacement usable");
+      assert.ok(
+        (signal() ?? 0) > (published ?? 0),
+        "old retirement leaves the replacement usable",
+      );
     } finally {
       await replacement.close();
       retireNative?.();

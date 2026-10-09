@@ -20,12 +20,9 @@ import { E2ETrace } from "../../../internal/E2ETrace";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
-import { observeImportSearchRoots } from "../../../plugin/internal/load/observeImportSearchRoots";
-import { visitImportMappedCandidates } from "../../../plugin/internal/load/visitImportMappedCandidates";
 import { recordCacheFileUse } from "../../../plugin/internal/source/recordCacheFileUse";
 import { buildSingleRootProject } from "../buildSingleRootProject";
 import { inlineServedSourceMap } from "../inlineServedSourceMap";
-import { parseCommonJsExports } from "../parseCommonJsExports";
 import { runtimeCompilerArgs } from "../runtimeCompilerArgs";
 import { CommonJsRuntimeSource } from "./CommonJsRuntimeSource";
 import { DependencyBuildAdmission } from "./DependencyBuildAdmission";
@@ -41,11 +38,14 @@ import { RuntimeIsolatedEmit } from "./RuntimeIsolatedEmit";
 import { RuntimeLoaderCapabilities } from "./RuntimeLoaderCapabilities";
 import type { RuntimeManifest } from "./RuntimeManifest";
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
+import { RuntimeProjectOwnership } from "./RuntimeProjectOwnership";
 import { RuntimeModuleFormat } from "./RuntimeModuleFormat";
 import { checkNodeRuntimeSupport } from "./checkNodeRuntimeSupport";
+import { commonJsExportNames } from "./commonJsExportNames";
 import { commonJsImportFacade } from "./commonJsImportFacade";
 import { dependencyCacheKey } from "./dependencyCacheKey";
 import { dependencyCacheRoot } from "./dependencyCacheRoot";
+import { observeMappedDescriptorResolution } from "./observeMappedDescriptorResolution";
 import { projectModuleOptions } from "./projectModuleOptions";
 import { readDependencyCache } from "./readDependencyCache";
 import { realPath } from "./realPath";
@@ -375,31 +375,23 @@ function observePluginDescriptorResolutionCandidates(
   if (isBuiltin(specifier) || specifier.startsWith("node:")) return inactive;
   const parent = runtimeFilePath(parentURL);
   if (parent === undefined) return inactive;
-  // A `#` specifier is looked up in the importer's own package `imports`, whose
-  // manifest was recorded with the importer. When that maps it to a bare
-  // package, the package's candidates up to the root that selected it are
-  // inputs, named once the resolution settles.
+  // Mapped targets use the shared recorder's earlier witnesses. A later
+  // candidate read cannot replace a proof withdrawn during this window.
   if (specifier.startsWith("#")) {
-    const witnesses = observeImportSearchRoots(parent);
+    const observation = observeMappedDescriptorResolution(
+      specifier,
+      parent,
+      DESCRIPTOR_PROBE_EXTENSIONS,
+    );
     return {
       commit: (selectedURL) => {
-        const lines: string[] = [];
-        visitImportMappedCandidates(
-          parent,
-          selectedURL === undefined ? undefined : runtimeFilePath(selectedURL),
-          DESCRIPTOR_PROBE_EXTENSIONS,
-          witnesses,
-          (file, moved) => {
-            lines.push(
-              ...observePluginDescriptorInput({
-                parent,
-                resolved: file,
-                ...(moved ? { unstable: true } : {}),
-              }),
-            );
-          },
+        appendPluginDescriptorInputs(
+          observation
+            .commit(
+              selectedURL === undefined ? undefined : runtimeFilePath(selectedURL),
+            )
+            .map((record) => `${JSON.stringify({ parent, ...record })}\n`),
         );
-        appendPluginDescriptorInputs(lines);
       },
     };
   }
@@ -883,10 +875,9 @@ function load(
       source: commonJsImportFacade(
         url,
         filename,
-        commonJsExportNames(
+        runtimeCommonJsExportNames(
+          served.sourceFile ?? filename,
           served.source,
-          served.emittedFile,
-          served.sourceFile,
         ),
         RuntimeLoaderCapabilities.commonJsNamespaceCarriesModuleExports(),
       ),
@@ -978,7 +969,7 @@ function loadJavaScript(
     source: commonJsImportFacade(
       url,
       filename,
-      javaScriptExportNames(filename, source),
+      runtimeCommonJsExportNames(filename, source),
       RuntimeLoaderCapabilities.commonJsNamespaceCarriesModuleExports(),
     ),
   };
@@ -998,47 +989,19 @@ function servesCommonJsFromSource(url: string): boolean {
   return true;
 }
 
-/**
- * The names an ESM importer of a JavaScript CommonJS module sees besides
- * `default`, by Node's own static detection: the module's detected exports and
- * those of each re-exported `.js`, `.cjs` or served TypeScript module, resolved
- * as the module's own `require` resolves it.
- */
-function javaScriptExportNames(filename: string, source: string): string[] {
-  return [...collectJavaScriptExportNames(filename, source, new Set())];
-}
-
-function collectJavaScriptExportNames(
-  filename: string,
-  source: string,
-  seen: Set<string>,
-): Set<string> {
-  const real = realPath(filename);
-  if (seen.has(real)) return new Set();
-  seen.add(real);
-  const parsed = parseCommonJsExports(source);
-  const names = new Set(parsed.exports);
-  for (const specifier of parsed.reexports) {
-    let target: string;
-    try {
-      target = createRequire(filename).resolve(specifier);
-    } catch {
-      continue;
-    }
-    if (!path.isAbsolute(target)) continue;
-    let nested: Set<string>;
-    if (isTypeScriptSource(target)) {
-      nested = collectSourceCommonJsExportNames(target, new Set());
-    } else if ([".js", ".cjs"].includes(path.extname(target))) {
-      const text = readFileOrNull(target);
-      if (text === null) continue;
-      nested = collectJavaScriptExportNames(target, text, seen);
-    } else {
-      continue;
-    }
-    for (const name of nested) if (name !== "default") names.add(name);
-  }
-  return names;
+/** Scan both facade lanes from source paths using their actual require policy. */
+function runtimeCommonJsExportNames(filename: string, source: string): string[] {
+  return commonJsExportNames(
+    source,
+    filename,
+    (target) => isTypeScriptSource(target)
+      ? emitCommonJsForNameScan(target)
+      : readFileOrNull(target),
+    (parent, specifier) => {
+      const native = createRequire(parent).resolve;
+      return resolveCommonJsRequest(native, specifier, undefined, parent);
+    },
+  );
 }
 
 /**
@@ -1217,7 +1180,7 @@ function equalPluginDescriptorInputHashes(
 
 function recordPluginDescriptorProjectInputs(
   inputs: Iterable<string>,
-  unstable: boolean,
+  unstable: boolean = false,
 ): void {
   for (const input of inputs) {
     const resolved = path.resolve(input);
@@ -1687,171 +1650,6 @@ function isolatedEmitOf(input: string, outDir: string): string | null {
 class RuntimeEmitOwnershipError extends Error {}
 
 /**
- * The names an ESM importer of a served CommonJS module sees besides `default`,
- * by Node's own static detection (`cjs-module-lexer`, the lexer Node runs): the
- * module's detected exports, and the names of each star re-export's target.
- *
- * Tsgo lowers `export *` to `__exportStar(require("./x"), exports)`, whose
- * target Node would lex from disk, where only `x.ts` exists. The target's names
- * are therefore read from its emit, or from the source's own name scan, as Node
- * would read them had the emitted file been there. The helper still owns every
- * runtime binding.
- */
-function commonJsExportNames(
-  source: string,
-  emittedFile: string | undefined,
-  sourceFile: string | undefined,
-): string[] {
-  const parsed = parseCommonJsExports(source);
-  const names = new Set(parsed.exports);
-  for (const specifier of parsed.reexports) {
-    for (const name of collectStarExportNames(
-      emittedFile,
-      sourceFile,
-      specifier,
-    )) {
-      if (name !== "default" && name !== "__esModule") names.add(name);
-    }
-  }
-  return [...names];
-}
-
-function collectStarExportNames(
-  emittedFile: string | undefined,
-  sourceFile: string | undefined,
-  specifier: string,
-): Set<string> {
-  if (emittedFile !== undefined) {
-    const emittedTarget = resolveEmittedRequire(emittedFile, specifier);
-    if (emittedTarget !== null) {
-      return collectCommonJsExportNames(emittedTarget, new Set());
-    }
-  }
-  if (sourceFile !== undefined) {
-    const sourceTarget = resolveSourceSpecifier(sourceFile, specifier);
-    if (sourceTarget !== null) {
-      return collectSourceCommonJsExportNames(sourceTarget, new Set());
-    }
-  }
-  return new Set();
-}
-
-function collectCommonJsExportNames(
-  emittedFile: string,
-  seen: Set<string>,
-): Set<string> {
-  const real = realPath(emittedFile);
-  if (seen.has(real)) {
-    return new Set();
-  }
-  seen.add(real);
-  const source = readFileOrNull(real);
-  if (source === null) {
-    return new Set();
-  }
-  const parsed = parseCommonJsExports(source);
-  const names = new Set(parsed.exports);
-  for (const specifier of parsed.reexports) {
-    const target = resolveEmittedRequire(real, specifier);
-    if (target === null) {
-      continue;
-    }
-    for (const name of collectCommonJsExportNames(target, seen)) {
-      if (name !== "default" && name !== "__esModule" && !names.has(name)) {
-        names.add(name);
-      }
-    }
-  }
-  return names;
-}
-
-function collectSourceCommonJsExportNames(
-  sourceFile: string,
-  seen: Set<string>,
-): Set<string> {
-  const real = realPath(sourceFile);
-  if (seen.has(real)) {
-    return new Set();
-  }
-  seen.add(real);
-  const source = emitCommonJsForNameScan(real);
-  if (source === null) {
-    return new Set();
-  }
-  const parsed = parseCommonJsExports(source);
-  const names = new Set(parsed.exports);
-  for (const specifier of parsed.reexports) {
-    const target = resolveSourceSpecifier(real, specifier);
-    if (target === null) {
-      continue;
-    }
-    for (const name of collectSourceCommonJsExportNames(target, seen)) {
-      if (name !== "default" && name !== "__esModule" && !names.has(name)) {
-        names.add(name);
-      }
-    }
-  }
-  return names;
-}
-
-function resolveEmittedRequire(
-  emittedFile: string,
-  specifier: string,
-): string | null {
-  if (!isRelativeSpecifier(specifier)) {
-    return null;
-  }
-  const base = path.resolve(path.dirname(emittedFile), specifier);
-  if (path.extname(base).length !== 0) {
-    return RuntimeFilesystem.isFile(base) ? base : null;
-  }
-  for (const extension of [".js", ".cjs", ".mjs"] as const) {
-    const candidate = base + extension;
-    if (RuntimeFilesystem.isFile(candidate)) {
-      return candidate;
-    }
-  }
-  for (const extension of [".js", ".cjs", ".mjs"] as const) {
-    const candidate = path.join(base, `index${extension}`);
-    if (RuntimeFilesystem.isFile(candidate)) {
-      return candidate;
-    }
-  }
-  return null;
-}
-
-function resolveSourceSpecifier(
-  sourceFile: string,
-  specifier: string,
-): string | null {
-  if (!isRelativeSpecifier(specifier)) {
-    return null;
-  }
-  const base = path.resolve(path.dirname(sourceFile), specifier);
-  if (path.extname(base).length !== 0) {
-    if (RuntimeFilesystem.isFile(base)) return base;
-    return (
-      typescriptSourcesForJavaScriptSpecifier(base).find(
-        RuntimeFilesystem.isFile,
-      ) ?? null
-    );
-  }
-  for (const extension of TYPESCRIPT_EXTENSIONS) {
-    const candidate = base + extension;
-    if (RuntimeFilesystem.isFile(candidate)) {
-      return candidate;
-    }
-  }
-  for (const extension of TYPESCRIPT_EXTENSIONS) {
-    const candidate = path.join(base, `index${extension}`);
-    if (RuntimeFilesystem.isFile(candidate)) {
-      return candidate;
-    }
-  }
-  return null;
-}
-
-/**
  * Serve the JavaScript a checked entry build emitted from `real`, or `null`
  * when no such build compiled it.
  *
@@ -2136,23 +1934,8 @@ function runtimePluginPolicy(): false | undefined {
 function rootIsChecked(real: string): boolean {
   return (
     process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD !== "1" &&
-    !isInstalledPackageSource(real)
+    !RuntimeProjectOwnership.isInstalledPackageSource(real)
   );
-}
-
-/**
- * Whether `real` belongs to an installed package: its physical path passes
- * through a `node_modules` directory. A workspace package linked into
- * `node_modules` is not one, because its physical path is its own directory.
- */
-function isInstalledPackageSource(real: string): boolean {
-  return real
-    .split(/[\\/]/)
-    .some((segment) =>
-      process.platform === "win32"
-        ? segment.toLowerCase() === "node_modules"
-        : segment === "node_modules",
-    );
 }
 
 /**
@@ -2480,114 +2263,25 @@ function throwAfterFailedArtifactCleanup(
  */
 class EmptyProjectEmitError extends Error {}
 
-/** Owning-tsconfig cache keyed by directory, mirroring `packageTypeCache`. */
-interface ITsconfigLookup {
-  candidates: readonly string[];
-  result: string | null;
-}
-
 /**
  * The config of the project that owns `real`: its nearest `tsconfig.json`, or,
  * when that config is a solution that does not contain the file, the referenced
  * project that does. `null` when no config owns the file at all.
  */
 function owningTsconfig(real: string): string | null {
-  const nearest = nearestTsconfig(real);
+  const nearest = RuntimeProjectOwnership.nearestTsconfig(
+    real,
+    recordPluginDescriptorProjectInputs,
+  );
   if (nearest === null) return null;
   // Config spelling and target identity do not prove that inherited options,
   // reference roots or directory membership are unchanged. The resolver owns
   // lookup-scoped reuse; a later import must ask it for a current answer.
   return resolveOwningProjectConfig({
     file: real,
-    onConfig: (config) => recordPluginDescriptorTsconfigCandidates([config]),
+    onConfig: (config) => recordPluginDescriptorProjectInputs([config]),
     tsconfig: nearest,
   });
-}
-
-const tsconfigCache = new Map<string, ITsconfigLookup>();
-
-/**
- * The nearest `tsconfig.json` at or above `file`'s directory, or `null`. The
- * walk stops at a `node_modules` boundary: a tsconfig above `node_modules`
- * belongs to the consumer, not to the published dependency inside it, so a
- * dependency that ships no tsconfig of its own has no owning project and is
- * compiled in isolation instead. A pnpm-symlinked workspace package is
- * unaffected because `file` is already its real path (outside `node_modules`).
- *
- * The walk is memoised per directory (the whole walked chain shares one
- * answer), so the thousands of files a fanned-out test corpus imports from the
- * same handful of projects do not each re-stat the same parent directories.
- */
-function nearestTsconfig(file: string): string | null {
-  let directory = path.dirname(file);
-  const chain: string[] = [];
-  for (;;) {
-    const cached = tsconfigCache.get(directory);
-    if (cached !== undefined) {
-      // Bracket the cached selection with the same candidate observations the
-      // parent later reconciles. A nearer config created between a liveness
-      // check and reporting must conflict, not be paired with the cached
-      // farther result and certified as current.
-      recordPluginDescriptorTsconfigCandidates(cached.candidates);
-      const current = nearestExistingTsconfig(cached.candidates);
-      recordPluginDescriptorTsconfigCandidates(cached.candidates);
-      if (current === cached.result) {
-        return rememberTsconfig(chain, cached.result, cached.candidates);
-      }
-      // Descriptor factories can deliberately create a config before a lazy
-      // import. A lookup cached while an earlier import ran must not keep
-      // serving the orphan lane after the nearest candidate changed.
-      tsconfigCache.delete(directory);
-    }
-    if (path.basename(directory) === "node_modules") {
-      return rememberTsconfig(chain, null);
-    }
-    chain.push(directory);
-    const candidate = path.join(directory, "tsconfig.json");
-    recordPluginDescriptorTsconfigCandidates([candidate]);
-    if (RuntimeFilesystem.isFile(candidate)) {
-      return rememberTsconfig(chain, candidate);
-    }
-    const parent = path.dirname(directory);
-    if (parent === directory) {
-      return rememberTsconfig(chain, null);
-    }
-    directory = parent;
-  }
-}
-
-function nearestExistingTsconfig(candidates: readonly string[]): string | null {
-  for (const candidate of candidates) {
-    if (RuntimeFilesystem.isFile(candidate)) return path.resolve(candidate);
-  }
-  return null;
-}
-
-function rememberTsconfig(
-  directories: readonly string[],
-  result: string | null,
-  tailCandidates: readonly string[] = [],
-): string | null {
-  let candidates = [...tailCandidates];
-  for (let index = directories.length - 1; index >= 0; index -= 1) {
-    const directory = directories[index]!;
-    candidates = [path.join(directory, "tsconfig.json"), ...candidates];
-    tsconfigCache.set(directory, { candidates, result });
-  }
-  return result;
-}
-
-/** Report every owning-config candidate observed by the nearest-config walk. */
-function recordPluginDescriptorTsconfigCandidates(
-  candidates: readonly string[],
-): void {
-  if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return;
-  for (const candidate of candidates) {
-    const resolved = path.resolve(candidate);
-    recordPluginDescriptorInput({
-      resolved,
-    });
-  }
 }
 
 function readFileOrNull(file: string | null): string | null {

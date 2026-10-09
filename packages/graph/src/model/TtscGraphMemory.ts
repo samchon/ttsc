@@ -1,14 +1,10 @@
 import { ITtscGraphDump } from "../structures/ITtscGraphDump";
 import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
-import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
-import { ITtscGraphSpan } from "../structures/ITtscGraphSpan";
-import { isArtifactNodeKind } from "../structures/TtscGraphArtifactNodeKind";
 import { TtscGraphEdgeKind } from "../structures/TtscGraphEdgeKind";
-import { ttscGraphNodeIdPath } from "./TtscGraphNodeId";
+import { TtscGraphProjection } from "./TtscGraphProjection";
 import { type TtscGraphReadonly } from "./TtscGraphReadonly";
 import { TtscGraphSourceReader } from "./TtscGraphSourceReader";
-import { copyGraphSnapshot } from "./copyGraphSnapshot";
 
 type SnapshotNode = TtscGraphReadonly<ITtscGraphNode>;
 type SnapshotEdge = TtscGraphReadonly<ITtscGraphEdge>;
@@ -32,18 +28,23 @@ type SnapshotEdge = TtscGraphReadonly<ITtscGraphEdge>;
  * @evidence contracts/common.md#clear-and-simple-design One snapshot owns node, name, relation and citation indexes; individual accessors expose that shared model.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Export surfaces remain checker relationships rather than guessed from local export flags or fixture paths.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish compiler facts from synthesized structure, and accessors explain lookup and absence semantics.
- * @evidenceExclude contracts/performance.md#efficient-algorithms from owns index construction and its private synthesis/constructor helpers; this class declaration describes the resulting representation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work from establishes one shared generation; the declaration does not independently coordinate requests.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources from transfers generation storage to its caller; session/caller release owns its duration rather than this declaration.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms from and fromResident own projection/index construction through their private helpers; this class declaration describes the resulting representation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work from and fromResident establish each shared generation; the declaration does not independently coordinate requests.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources from and fromResident transfer generation storage to their caller; session/caller release owns its duration rather than this declaration.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation an in-memory index over parsed facts; the source reader it owns is the only file reader.
  */
 export class TtscGraphMemory {
+  private readonly nodeKeys: Map<
+    SnapshotNode,
+    { symbols: readonly string[]; targets: readonly string[] }
+  >;
+
   private readonly byId: Map<string, SnapshotNode>;
-  private readonly outEdges: Map<string, SnapshotEdge[]>;
-  private readonly inEdges: Map<string, SnapshotEdge[]>;
-  private readonly byNameIndex: Map<string, SnapshotNode[]>;
-  private readonly bySymbolIndex: Map<string, SnapshotNode[]>;
-  private readonly byDocTagTarget: Map<string, SnapshotNode[]>;
+  private readonly outEdges: Map<string, readonly SnapshotEdge[]>;
+  private readonly inEdges: Map<string, readonly SnapshotEdge[]>;
+  private readonly byNameIndex: Map<string, readonly SnapshotNode[]>;
+  private readonly bySymbolIndex: Map<string, readonly SnapshotNode[]>;
+  private readonly byDocTagTarget: Map<string, readonly SnapshotNode[]>;
 
   /** The absolute project root the dump was built for. */
   readonly project: string;
@@ -61,50 +62,58 @@ export class TtscGraphMemory {
     project: string,
     nodes: readonly SnapshotNode[],
     edges: readonly SnapshotEdge[],
-    provenance: ITtscGraphDump.IProvenance,
+    provenance:
+      | ITtscGraphDump.IProvenance
+      | TtscGraphReadonly<ITtscGraphDump.IProvenance>
+      | undefined,
+    private readonly projection?: TtscGraphProjection.State,
+    previous?: TtscGraphMemory,
   ) {
     this.project = project;
     this.nodes = nodes;
     this.edges = edges;
-    this.source = new TtscGraphSourceReader(project, provenance);
-
-    this.byId = new Map(nodes.map((n) => [n.id, n]));
-    this.byNameIndex = new Map();
-    this.bySymbolIndex = new Map();
-    this.byDocTagTarget = new Map();
+    // Source adjudication belongs to this generation even when graph facts
+    // remain equivalent. Never transfer cached lines or cached absence.
+    this.source = new TtscGraphSourceReader(
+      project,
+      provenance === undefined
+        ? undefined
+        : {
+            capabilities: [...provenance.capabilities],
+            sources: provenance.sources.map((source) => ({ ...source })),
+          },
+    );
+    this.byId = new Map(nodes.map((node) => [node.id, node]));
+    this.nodeKeys = new Map();
     for (const node of nodes) {
-      const bucket = this.byNameIndex.get(node.name);
-      if (bucket) bucket.push(node);
-      else this.byNameIndex.set(node.name, [node]);
-      if (node.kind !== "file") {
-        push(this.bySymbolIndex, node.name, node);
-        if (
-          node.qualifiedName !== undefined &&
-          node.qualifiedName !== node.name
-        ) {
-          push(this.bySymbolIndex, node.qualifiedName, node);
-        }
-      }
-      for (const target of docTagTargetsOf(node)) {
-        const carriers = this.byDocTagTarget.get(target);
-        if (carriers === undefined) this.byDocTagTarget.set(target, [node]);
-        else carriers.push(node);
-      }
+      const retained = previous?.nodeKeys.get(node);
+      this.nodeKeys.set(
+        node,
+        retained ?? {
+          symbols:
+            node.kind === "file"
+              ? []
+              : node.qualifiedName !== undefined &&
+                  node.qualifiedName !== node.name
+                ? [node.name, node.qualifiedName]
+                : [node.name],
+          targets: docTagTargetsOf(node),
+        },
+      );
     }
-    this.outEdges = new Map();
-    this.inEdges = new Map();
-    for (const edge of edges) {
-      push(this.outEdges, edge.from, edge);
-      push(this.inEdges, edge.to, edge);
-    }
-    for (const buckets of [
-      this.byNameIndex,
-      this.bySymbolIndex,
-      this.byDocTagTarget,
-    ])
-      for (const bucket of buckets.values()) Object.freeze(bucket);
-    for (const buckets of [this.outEdges, this.inEdges])
-      for (const bucket of buckets.values()) Object.freeze(bucket);
+    this.byNameIndex = index(nodes, (node) => node.name, previous?.byNameIndex);
+    this.bySymbolIndex = index(
+      nodes,
+      (node) => this.nodeKeys.get(node)!.symbols,
+      previous?.bySymbolIndex,
+    );
+    this.byDocTagTarget = index(
+      nodes,
+      (node) => this.nodeKeys.get(node)!.targets,
+      previous?.byDocTagTarget,
+    );
+    this.outEdges = index(edges, (edge) => edge.from, previous?.outEdges);
+    this.inEdges = index(edges, (edge) => edge.to, previous?.inEdges);
     Object.freeze(this);
   }
 
@@ -124,8 +133,39 @@ export class TtscGraphMemory {
    * @evidenceExclude contracts/portability.md#os-neutral-implementation builds indexes from a parsed dump object and reads no file; source text goes through TtscGraphSourceReader.
    */
   static from(dump: ITtscGraphDump): TtscGraphMemory {
-    const { nodes, edges } = copyGraphSnapshot(synthesize(dump));
+    const { nodes, edges } = TtscGraphProjection.full(dump);
     return new TtscGraphMemory(dump.project, nodes, edges, dump.provenance);
+  }
+
+  /**
+   * Project validated frozen resident facts while retaining equivalent work.
+   *
+   * The shard store invokes this before committing its staged generation. Each
+   * model owns new index maps and a new source reader; unchanged facts and
+   * ordered index buckets may be shared with the previous immutable model.
+   *
+   * @evidence contracts/common.md#principled-implementation Validated frozen fact identity and complete projection dependencies qualify component reuse; construction never mutates the preceding model.
+   * @evidence contracts/common.md#clear-and-simple-design The projection owner handles synthesis components and this model owns ordered query indexes and source authority.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts This internal path requires the store's complete validation; public from still detaches caller DTOs and no graph facts or validation are omitted.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states the validated-input premise, staged commit and per-generation source-reader boundary.
+   * @evidence contracts/performance.md#efficient-algorithms Projection scans references and rebuilds only invalidated components; index scans retain equal buckets without allocating their arrays, while maps and generation arrays remain linear in facts.
+   * @evidence contracts/performance.md#reuse-equivalent-work Same-file owner/module dependencies and metadata qualify immutable components; exact ordered reference equality qualifies node/relation/citation buckets. New source adjudication is intentionally independent.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Each model retains only its current components, facts, indexes and source reader; unchanged values may also belong to retained old models, without a link retaining prior model generations.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Processes only frozen in-memory facts; source IO remains with the per-generation reader.
+   */
+  static fromResident(
+    dump: TtscGraphReadonly<ITtscGraphDump>,
+    previous?: TtscGraphMemory,
+  ): TtscGraphMemory {
+    const projection = TtscGraphProjection.create(dump, previous?.projection);
+    return new TtscGraphMemory(
+      dump.project,
+      projection.nodes,
+      projection.edges,
+      dump.provenance,
+      projection,
+      previous,
+    );
   }
 
   /**
@@ -352,265 +392,49 @@ export function leadingToken(text: string | undefined): string | undefined {
   return stop < 0 ? trimmed : trimmed.slice(0, stop);
 }
 
-/** Append value to the slice stored at key, creating the slice on first use. */
-function push<K, V>(map: Map<K, V[]>, key: K, value: V): void {
-  const bucket = map.get(key);
-  if (bucket) bucket.push(value);
-  else map.set(key, [value]);
-}
-
 /**
- * The within-file identity of a node: its owner-qualified name when it has one
- * (`Class.method`), else its simple name. Merged declarations can share this
- * handle; declaration ranges disambiguate their member ownership.
- */
-function keyOf(node: ITtscGraphNode): string {
-  return node.qualifiedName ?? node.name;
-}
-
-/**
- * The owner key derived from facts the producer serialized separately.
+ * Build an ordered index, copying a bucket only after its membership differs.
  *
- * A quoted member named `"a.b"` has Name `a.b` and QualifiedName `Box.a.b`.
- * Cutting the qualified name at its last dot invents owner `Box.a`; removing
- * the exact `.${name}` suffix instead preserves the producer's real boundary.
- * Object keys containing dots, brackets or no characters carry a JSON bracket
- * suffix, keeping their identity distinct from nested object ownership.
+ * The scan compares reference identity at each position with the previous
+ * immutable bucket. Prefixes are copied only on the first difference; a
+ * shortened bucket is copied at the end. New maps never mutate old maps or
+ * frozen buckets. Cost is linear in memberships plus changed bucket sizes;
+ * current counts/maps are temporary and no historical index is retained.
  */
-function ownerKey(node: ITtscGraphNode): string | undefined {
-  if (node.qualifiedName === undefined || node.qualifiedName === node.name)
-    return undefined;
-  const suffix = `.${node.name}`;
-  let owner: string | undefined;
-  if (node.qualifiedName.endsWith(suffix)) {
-    owner = node.qualifiedName.slice(0, -suffix.length);
-  } else if (node.qualifiedName.endsWith('"]')) {
-    // The native producer brackets reserved/empty object keys using JSON. Find
-    // the opening string quote without treating an escaped quote inside the
-    // key as a boundary; JSON decoding accepts equivalent Unicode escapes.
-    const qualified = node.qualifiedName;
-    for (let index = qualified.length - 3; index > 0; index--) {
-      if (qualified[index] !== '"') continue;
-      let escapes = 0;
-      for (
-        let before = index - 1;
-        before >= 0 && qualified[before] === "\\";
-        before--
-      )
-        escapes++;
-      if (escapes % 2 !== 0) continue;
-      if (qualified[index - 1] !== "[") break;
-      try {
-        if (JSON.parse(qualified.slice(index, -1)) === node.name)
-          owner = qualified.slice(0, index - 1);
-      } catch {
-        // A malformed qualified coordinate proves no owner.
+function index<T>(
+  values: readonly T[],
+  keys: (value: T) => string | readonly string[],
+  previous?: ReadonlyMap<string, readonly T[]>,
+): Map<string, readonly T[]> {
+  const result = new Map<string, readonly T[]>();
+  const counts = new Map<string, number>();
+  const append = (key: string, value: T): void => {
+    const count = counts.get(key) ?? 0;
+    let bucket = result.get(key);
+    if (bucket === undefined) {
+      bucket = previous?.get(key) ?? [];
+      result.set(key, bucket);
+    }
+    if (bucket === previous?.get(key)) {
+      if (bucket[count] !== value) {
+        bucket = [...bucket.slice(0, count), value];
+        result.set(key, bucket);
       }
-      break;
+    } else (bucket as T[]).push(value);
+    counts.set(key, count + 1);
+  };
+  for (const value of values) {
+    const selected = keys(value);
+    if (typeof selected === "string") append(selected, value);
+    else {
+      for (const key of selected) append(key, value);
     }
   }
-  return owner === "" ? undefined : owner;
-}
-
-/** Prove lexical ownership using complete same-file declaration coordinates. */
-function enclosesDeclaration(
-  owner: ITtscGraphNode,
-  member: ITtscGraphNode,
-): boolean {
-  const outer = owner.evidence;
-  const inner = member.evidence;
-  if (
-    outer === undefined ||
-    inner === undefined ||
-    outer.file !== inner.file ||
-    outer.startCol === undefined ||
-    outer.endLine === undefined ||
-    outer.endCol === undefined ||
-    inner.startCol === undefined ||
-    inner.endLine === undefined ||
-    inner.endCol === undefined
-  )
-    return false;
-  return (
-    (outer.startLine < inner.startLine ||
-      (outer.startLine === inner.startLine &&
-        outer.startCol <= inner.startCol)) &&
-    (outer.endLine > inner.endLine ||
-      (outer.endLine === inner.endLine && outer.endCol >= inner.endCol))
-  );
-}
-
-/** A file's id and node name from its dump path coordinate. */
-function fileNodeId(file: string): string {
-  return file;
-}
-
-/**
- * A wire span with its file put back: the one the builder left out because the
- * reader has it, or the one it kept because it could not be derived (an
- * implementation in another file).
- */
-function spanIn(span: ITtscGraphSpan, file: string): ITtscGraphEvidence {
-  return { ...span, file: span.file ?? file };
-}
-
-/**
- * The source file a node id names. An id is `path#Qualified.Name:kind`, and a
- * file node's id is the path itself.
- */
-function fileOfNodeId(id: string): string {
-  return ttscGraphNodeIdPath(id) ?? id;
-}
-
-function basename(file: string): string {
-  const slash = file.lastIndexOf("/");
-  return slash >= 0 ? file.slice(slash + 1) : file;
-}
-
-/**
- * Derive the structural layer from a dump's faithful facts: refine class-member
- * variables to properties, add a `file` node per workspace source, connect the
- * `contains` ownership tree, and re-anchor compiler-owned `exports` edges.
- */
-function synthesize(dump: ITtscGraphDump): {
-  nodes: ITtscGraphNode[];
-  edges: ITtscGraphEdge[];
-} {
-  // A module node is the dump's name for a source file's export surface, and a
-  // file node is this layer's name for the same file. Fold the two: the module
-  // keeps its file present here even when the file declares nothing (a barrel),
-  // and its `exports` edges are re-anchored on the file id every other tool
-  // already traverses. What the module carried, the file now carries.
-  const moduleFiles = new Set(
-    dump.nodes.filter((n) => n.kind === "module").map((n) => n.file),
-  );
-  const moduleIds = new Map(
-    dump.nodes.filter((n) => n.kind === "module").map((n) => [n.id, n.file]),
-  );
-  // Clone nodes so property refinement does not mutate the caller's dump, and
-  // put back the file the builder left out of every span: a node's span is in
-  // the node's file, an edge's span is in the file its `from` id names. The
-  // builder omits both because they are exactly reconstructible and they are not
-  // small — the two copies are 17% of the document, 55 MB of VS Code's 323 MB,
-  // paid again in the encode, the pipe, the parse and the validation. Nothing
-  // downstream of this line sees a span without its file.
-  const nodes: ITtscGraphNode[] = dump.nodes.flatMap((n): ITtscGraphNode[] => {
-    if (n.kind === "module") return [];
-    const { evidence, implementation, ...rest } = n;
-    return [
-      {
-        ...rest,
-        kind: n.kind,
-        ...(evidence !== undefined
-          ? { evidence: spanIn(evidence, n.file) }
-          : {}),
-        ...(implementation !== undefined
-          ? { implementation: spanIn(implementation, n.file) }
-          : {}),
-      },
-    ];
-  });
-  const edges: ITtscGraphEdge[] = dump.edges.map((edge) => {
-    const { evidence, ...rest } = edge;
-    const from = moduleIds.get(edge.from);
-    return {
-      ...rest,
-      ...(from !== undefined ? { from: fileNodeId(from) } : {}),
-      ...(evidence !== undefined
-        ? { evidence: spanIn(evidence, fileOfNodeId(edge.from)) }
-        : {}),
-    };
-  });
-
-  // Index workspace nodes by (file, within-file key) so ownership can resolve a
-  // member to its declaring class/namespace.
-  const byFileKey = new Map<string, ITtscGraphNode[]>();
-  for (const node of nodes) {
-    if (!node.external) push(byFileKey, node.file + "\0" + keyOf(node), node);
+  for (const [key, bucket] of result) {
+    const count = counts.get(key)!;
+    if (bucket === previous?.get(key) && bucket.length !== count)
+      result.set(key, Object.freeze(bucket.slice(0, count)));
+    else if (bucket !== previous?.get(key)) Object.freeze(bucket);
   }
-  const owners = new Map<ITtscGraphNode, ITtscGraphNode | undefined>();
-  const owner = (node: ITtscGraphNode): ITtscGraphNode | undefined => {
-    if (owners.has(node)) return owners.get(node);
-    const parent = ownerKey(node);
-    const candidates =
-      parent === undefined
-        ? undefined
-        : byFileKey.get(node.file + "\0" + parent);
-    // A unique checker handle also owns merged namespace members outside its
-    // primary declaration span. Only a colliding handle needs lexical evidence.
-    // Ambiguous or incomplete ranges prove no declaration owner; retain file
-    // containment rather than assigning an arbitrary merged declaration.
-    const enclosing =
-      candidates?.length === 1
-        ? candidates
-        : candidates?.filter((candidate) =>
-            enclosesDeclaration(candidate, node),
-          );
-    const selected = enclosing?.length === 1 ? enclosing[0] : undefined;
-    owners.set(node, selected);
-    return selected;
-  };
-
-  // Refine: a `variable` whose owner is a class or interface is a property.
-  for (const node of nodes) {
-    if (node.kind !== "variable" || node.external) continue;
-    const parent = owner(node);
-    if (parent && (parent.kind === "class" || parent.kind === "interface")) {
-      node.kind = "property";
-    }
-  }
-
-  // One file container node per distinct workspace source file, plus every file
-  // the dump saw an export surface on — a barrel declares nothing, so its only
-  // trace in the dump is its module node, and it is exactly the file a consumer
-  // imports the package from.
-  const fileNodes = new Map<string, ITtscGraphNode>();
-  const addFileNode = (file: string): void => {
-    if (file === "" || fileNodes.has(file)) return;
-    fileNodes.set(file, {
-      id: fileNodeId(file),
-      kind: "file",
-      name: basename(file),
-      file,
-      external: false,
-    });
-  };
-  for (const node of nodes) {
-    if (node.external || isArtifactNodeKind(node.kind)) continue;
-    addFileNode(node.file);
-  }
-  for (const file of moduleFiles) addFileNode(file);
-
-  // Ownership: a member is contained by its owner; a top-level declaration by
-  // its file. Exports are not synthesized here: the dump's `exports` edges come
-  // from the checker's export table, which follows re-exports and barrels, so
-  // they say which module puts a symbol on the wire. Deriving them from the
-  // `exported` flag instead would say only that the declaring file made it
-  // public, which is the fact that cannot tell a package's front door from its
-  // legacy subpath.
-  const structural: ITtscGraphEdge[] = [];
-  for (const node of nodes) {
-    // An artifact is contained by the artifact its producer named, and by
-    // nothing when that producer named none. It is never contained by a `file`
-    // node: a document is already its own node, a Prisma address carries no
-    // path on purpose, and an API operation has no file at all.
-    if (isArtifactNodeKind(node.kind)) {
-      if (node.parent !== undefined && node.parent !== "")
-        structural.push({ from: node.parent, to: node.id, kind: "contains" });
-      continue;
-    }
-    if (node.external || node.file === "") continue;
-    const parent = owner(node);
-    const container = parent ? parent.id : fileNodeId(node.file);
-    structural.push({
-      from: container,
-      to: node.id,
-      kind: "contains",
-    });
-  }
-
-  return {
-    nodes: [...nodes, ...fileNodes.values()],
-    edges: [...edges, ...structural],
-  };
+  return result;
 }

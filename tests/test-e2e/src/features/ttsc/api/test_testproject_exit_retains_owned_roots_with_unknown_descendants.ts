@@ -25,7 +25,7 @@ const { spawnSync } = E2eProcessTrace;
  * @evidence contracts/testing.md#behavioral-verification Calls actual TestProject allocation and retention in a child that really exits; the parent checks surviving native directory identity and literal input bytes rather than a cleanup flag.
  * @evidence contracts/testing.md#independent-expectations The explicit retention contract requires the same originally allocated directory to survive exit. Foreign and retired paths lack allocation authority, and a different path spelling cannot transfer ownership.
  * @evidence contracts/testing.md#distinguishing-cases Checks retained allocation, tracked ancestor protection, idempotent retention and refusal of untracked, trailing-separator alias, native directory link, removed and physically replaced roots; refused replacement occupants and the link target must survive child exit. The normal-release companion checks cleanup without retention.
- * @evidence contracts/testing.md#execution-ownership The named features/api export belongs to E2E discovery and selection because it observes an actual Node exit listener across the process boundary.
+ * @evidence contracts/testing.md#execution-ownership Focused lifecycle verification invokes this named API export directly across a real Node exit boundary. Evidence selects the function, but the shared boundary DAG does not discover this legacy API feature file.
  * @evidence contracts/e2e.md#necessary-boundary The owning process exits before the parent reads retained inputs. A mocked exit callback or a direct cleanup call cannot detect erroneous automatic release at real process termination.
  * @evidence contracts/e2e.md#shared-execution One Node child exercises all retention distinctions using the authored helper. No SDK installation, Go producer or product host is started.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All allocations and deliberately untracked sentinel roots are below the parent-owned outer fixture. After successful unsignalled child termination the parent reclaims that outer fixture, including its sentinel roots; it removes no root outside that authority. Retention does not certify descendant closure. Body and cleanup failures are both retained.
@@ -81,7 +81,6 @@ export const test_testproject_exit_retains_owned_roots_with_unknown_descendants 
         {
           cwd: TestProject.WORKSPACE_ROOT,
           encoding: "utf8",
-          timeout: 30_000,
           windowsHide: true,
         },
       );

@@ -2,9 +2,12 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 import { sanitizeBenchmarkEnvironment } from "../../../../../../benchmarks/evidence/src/sanitizeBenchmarkEnvironment";
+import { CompilerArtifactPreparation } from "../../../../../utils/src/CompilerArtifactPreparation";
+import type { CompilerArchives } from "../../../../../utils/src/CompilerArchives";
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { EvidenceProcessOwnership } from "../../../../../utils/src/evidence/EvidenceProcessOwnership";
 import { BackendActivation } from "../../../internal/evidence/BackendActivation";
@@ -28,7 +31,7 @@ import { BackendActivation } from "../../../internal/evidence/BackendActivation"
  * @evidence contracts/testing.md#execution-ownership test_e2e_evidence_batch invokes this selected case; an explicit native build applies the benchmark's typia transform, then ordinary Node calls the actual emitted workspace API. This case judges each owning package script without launching a benchmark campaign.
  * @evidence contracts/e2e.md#necessary-boundary The pnpm workspace links, real Prisma/SDK generation and compiler-owned claim populations are the connection previously exercised by test_benchmark_evidence_backend_gates_activate_each_claim; in-process decoded-config tests cannot establish these installed populations.
  * @evidence contracts/e2e.md#shared-execution One native preparation build, generated workspace, installation and plugin cache serve both positive owners and all five staged transitions. The preparation build is necessary because typia's executable host supports explicit builds but not ttsx's required emit-provenance protocol. Its emitted modules link the benchmark's existing dependencies; no dependency install is added for preparation. Optional caller-owned archives avoid repacking when a frozen common set exists.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Generated preparation modules, logs, workspace and native scratch/cache roots belong to one allocation. Its dependency directory link targets the benchmark's existing installation without writing there; recursive cleanup removes the link rather than its target. Earlier workspace layers remain intentionally enabled according to the instruction DAG. A null status, signal or spawn error retains inputs and blocks subsequent writes; normal returned results establish only direct command completion. The Windows path-keyed store is admitted only if absent before preparation and removed only after normal completion.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Generated preparation modules, logs, workspace and native scratch/cache roots belong to one short repository allocation. Its dependency directory link targets the benchmark's existing installation without writing there; recursive cleanup removes the link rather than its target. A caller-owned pnpm virtual store overrides inherited case variants and the materializer's Windows default through its supported environment boundary. Installed compiler/native package realpaths must belong to that store. The run-owned immutable compiler archive generation is physically/content-qualified before preparation and rechecked after its actual child returns; that borrower ends before generation uses the independently installed packages. Unknown closure while borrowing retains both owners. Earlier workspace layers remain intentionally enabled according to the instruction DAG. A null status, signal or spawn error retains inputs and blocks subsequent writes; normal returned results establish only direct command completion. Validated exact-root cleanup reclaims the nested store only after ownership permits it.
  * @evidence contracts/e2e.md#preserved-coverage Restores the deleted ordinary backend walk's per-claim activation, nonempty-reference, delivered-document and all-published-accessor assertions; adds disabled success controls and per-row failure collection. Other deleted benchmark feature cases and measured campaigns are outside this scenario.
  */
 export async function case_evidence_backend_claims_activate_after_generation(
@@ -36,9 +39,10 @@ export async function case_evidence_backend_claims_activate_after_generation(
     toolchain: { name: string; archive: string }[];
     artifact: { name: string; archive: string };
   },
+  compilerArchives?: CompilerArchives.Owner,
 ): Promise<{ observations: unknown[]; passedClaims: string[] }> {
   const repository = TestProject.WORKSPACE_ROOT;
-  const root = TestProject.tmpdir("ttsc-backend-activation-");
+  const root = TestProject.tmpdir("eb-", path.join(repository, ".work"));
   const rootIdentity = fs.statSync(root, { bigint: true });
   const rootNativePath = fs.realpathSync.native(root);
   const fixture = path.resolve(
@@ -49,37 +53,34 @@ export async function case_evidence_backend_claims_activate_after_generation(
   const logs = path.join(root, "logs");
   fs.mkdirSync(logs);
   const cache = path.join(root, "plugin-cache");
+  const virtualStore = path.join(root, "s");
+  const temporary = path.join(root, "t");
   const environment: NodeJS.ProcessEnv = {
     ...sanitizeBenchmarkEnvironment(process.env),
     TTSC_CACHE_DIR: cache,
     GOCACHE: path.join(root, "go-cache"),
     GOTMPDIR: path.join(root, "go-tmp"),
+    TMP: temporary,
+    TEMP: temporary,
+    TMPDIR: temporary,
   };
   for (const name of Object.keys(environment))
     if (
       name.startsWith("npm_package_") ||
       name.startsWith("npm_lifecycle_") ||
-      name.toUpperCase() === "INIT_CWD"
+      name.toUpperCase() === "INIT_CWD" ||
+      name.toUpperCase() === "NPM_CONFIG_VIRTUAL_STORE_DIR"
     )
       delete environment[name];
+  environment.npm_config_virtual_store_dir = virtualStore;
   fs.mkdirSync(environment.GOTMPDIR!);
-  const ownership = EvidenceProcessOwnership.create((reason) =>
-    TestProject.retainTemporaryDirectory(root, reason),
-  );
+  fs.mkdirSync(temporary);
+  let borrowed: CompilerArchives.Borrow | undefined;
+  const ownership = EvidenceProcessOwnership.create((reason) => {
+    TestProject.retainTemporaryDirectory(root, reason);
+    borrowed?.retain(reason);
+  });
   ownership.registerCache(root, cache);
-  const virtualStore = process.platform === "win32"
-    ? path.join(
-        path.parse(workspace).root,
-        ".ttsc-vstore",
-        crypto.createHash("sha256").update(workspace.toLowerCase()).digest("hex").slice(0, 12),
-      )
-    : undefined;
-  if (virtualStore)
-    assert.equal(
-      fs.existsSync(virtualStore),
-      false,
-      "A test must not adopt an existing virtual store",
-    );
   const failures: unknown[] = [];
   const observations: unknown[] = [];
   const passedClaims: string[] = [];
@@ -99,7 +100,6 @@ export async function case_evidence_backend_claims_activate_after_generation(
         env: environment,
         stdio: ["ignore", stdout, stderr],
         windowsHide: true,
-        timeout: 1_800_000,
       });
     } catch (error) {
       ownership.retain(root, error);
@@ -145,15 +145,25 @@ export async function case_evidence_backend_claims_activate_after_generation(
     return run(directory, [process.env.npm_execpath, "run", name], label);
   };
   try {
+    if (!artifacts && compilerArchives) borrowed = compilerArchives.borrow();
     const preparation = path.join(root, "preparation");
-    const compiled = run(path.join(repository, "benchmarks/evidence"), [
-      path.join(repository, "packages/ttsc/lib/launcher/ttsc.js"),
-      "--project", path.join(repository, "benchmarks/evidence/tsconfig.json"),
-      "--noEmit", "false",
-      "--outDir", preparation,
-      "--declaration", "false",
-      "--sourceMap", "false",
-    ], "build-preparation");
+    const compiled = run(
+      path.join(repository, "benchmarks/evidence"),
+      [
+        path.join(repository, "packages/ttsc/lib/launcher/ttsc.js"),
+        "--project",
+        path.join(repository, "benchmarks/evidence/tsconfig.json"),
+        "--noEmit",
+        "false",
+        "--outDir",
+        preparation,
+        "--declaration",
+        "false",
+        "--sourceMap",
+        "false",
+      ],
+      "build-preparation",
+    );
     assert.equal(compiled.status, 0, compiled.output);
     // The emitted CommonJS modules resolve their existing dependencies through
     // this owned directory link. Node ignores the junction type on POSIX.
@@ -166,19 +176,84 @@ export async function case_evidence_backend_claims_activate_after_generation(
     const result = path.join(root, "prepared.json");
     fs.writeFileSync(
       request,
-      JSON.stringify({ repository, root, result, preparation, ...artifacts }),
+      JSON.stringify({
+        repository,
+        root,
+        result,
+        preparation,
+        ...artifacts,
+        borrowedCompilerArchives: borrowed?.artifacts,
+        artifactPreparationRuntime: CompilerArtifactPreparation.runtimePath,
+      }),
     );
-    const prepared = run(repository, [
-      path.join(fixture, "prepare.cjs"),
-      request,
-    ], "prepare");
+    const prepared = run(
+      repository,
+      [path.join(fixture, "prepare.cjs"), request],
+      "prepare",
+    );
     assert.equal(prepared.status, 0, prepared.output);
+    for (const artifact of borrowed?.artifacts ?? []) {
+      const delivered = path.join(
+        workspace,
+        ".benchmark-deps",
+        path.basename(artifact.archive),
+      );
+      const started = performance.now();
+      const hash = crypto.createHash("sha256");
+      let bytes = 0;
+      for await (const chunk of fs.createReadStream(delivered)) {
+        bytes += chunk.length;
+        hash.update(chunk);
+      }
+      const sha256 = hash.digest("hex");
+      assert.equal(sha256, artifact.sha256, artifact.name + " delivered bytes");
+      assert.notEqual(
+        fs.realpathSync.native(delivered),
+        artifact.physical,
+        "Backend preparation must own its distinct archive delivery",
+      );
+      observations.push({
+        borrowedCompilerArchive: artifact.name,
+        archive: artifact.archive,
+        delivered,
+        sha256,
+        streamedBytes: bytes,
+        elapsedMs: performance.now() - started,
+      });
+    }
+    borrowed?.assertAvailable();
+    borrowed?.release();
+    borrowed = undefined;
     assert.equal(
       JSON.parse(fs.readFileSync(result, "utf8")).workspace,
       workspace,
     );
     const backend = path.join(workspace, "packages/backend");
-    fs.copyFileSync(path.join(backend, ".env.example"), path.join(backend, ".env"));
+    const compilerManifest = createRequire(path.join(backend, "package.json"))
+      .resolve("ttsc/package.json");
+    const nativeManifest = createRequire(compilerManifest).resolve(
+      `@ttsc/${process.platform}-${process.arch}/package.json`,
+    );
+    const storePhysical = fs.realpathSync.native(virtualStore);
+    for (const manifest of [compilerManifest, nativeManifest]) {
+      const physical = fs.realpathSync.native(manifest);
+      const relative = path.relative(storePhysical, physical);
+      assert.ok(
+        relative !== "" &&
+          relative !== ".." &&
+          !relative.startsWith(".." + path.sep) &&
+          !path.isAbsolute(relative),
+        `Installed compiler package escaped its owned virtual store: ${physical}`,
+      );
+      observations.push({
+        installedCompilerPackage: physical,
+        virtualStore: storePhysical,
+      });
+    }
+    fs.copyFileSync(
+      path.join(backend, ".env.example"),
+      path.join(backend, ".env"),
+    );
     for (const name of ["build:prisma", "build:sdk"]) {
       const built = script(backend, name, name.replace(":", "-"));
       assert.equal(built.status, 0, built.output);
@@ -202,16 +277,18 @@ export async function case_evidence_backend_claims_activate_after_generation(
       instruction,
     });
     BackendActivation.stripCitations(path.join(backend, "test/features"));
-    const owners = new Map(claims.map((claim) => [
-      claim.directory + "\0" + claim.script,
-      claim,
-    ]));
+    const owners = new Map(
+      claims.map((claim) => [claim.directory + "\0" + claim.script, claim]),
+    );
     for (const owner of owners.values()) {
       try {
         const disabled = script(
           owner.directory,
           owner.script,
-          "disabled-" + path.basename(owner.directory) + "-" + owner.script.replace(":", "-"),
+          "disabled-" +
+            path.basename(owner.directory) +
+            "-" +
+            owner.script.replace(":", "-"),
         );
         assert.equal(disabled.status, 0, disabled.output);
       } catch (error) {
@@ -226,8 +303,14 @@ export async function case_evidence_backend_claims_activate_after_generation(
             path.join(backend, "prisma/schema/main.prisma"),
             "\n" + fs.readFileSync(path.join(fixture, "probe.prisma"), "utf8"),
           );
-        else if (claim.name === "dto-types" || claim.name === "dto-properties") {
-          const structures = path.join(workspace, "packages/api/src/structures");
+        else if (
+          claim.name === "dto-types" ||
+          claim.name === "dto-properties"
+        ) {
+          const structures = path.join(
+            workspace,
+            "packages/api/src/structures",
+          );
           fs.copyFileSync(
             path.join(fixture, "IBenchmarkProbe.ts"),
             path.join(structures, "IBenchmarkProbe.ts"),
@@ -241,13 +324,20 @@ export async function case_evidence_backend_claims_activate_after_generation(
             "Missing host layer for " + claim.name,
           );
         BackendActivation.unlock(claim);
-        const hostLayer = claim.name === "schema-models"
-          ? path.join(backend, "prisma/schema/main.prisma")
-          : claim.name === "dto-types" || claim.name === "dto-properties"
-            ? path.join(workspace, "packages/api/src/structures/IBenchmarkProbe.ts")
-            : claim.name === "api-operations"
-              ? path.join(backend, "src/controllers/HealthController.ts")
-              : path.join(backend, "test/features/api/health/test_api_health.ts");
+        const hostLayer =
+          claim.name === "schema-models"
+            ? path.join(backend, "prisma/schema/main.prisma")
+            : claim.name === "dto-types" || claim.name === "dto-properties"
+              ? path.join(
+                  workspace,
+                  "packages/api/src/structures/IBenchmarkProbe.ts",
+                )
+              : claim.name === "api-operations"
+                ? path.join(backend, "src/controllers/HealthController.ts")
+                : path.join(
+                    backend,
+                    "test/features/api/health/test_api_health.ts",
+                  );
         observations.push({
           claim: claim.name,
           configuration: claim.file,
@@ -260,22 +350,31 @@ export async function case_evidence_backend_claims_activate_after_generation(
         assert.equal(prisma.status, 0, prisma.output);
         const activated = script(claim.directory, claim.script, claim.name);
         assert.notEqual(activated.status, 0, activated.output);
-        const obligations = BackendActivation.obligations(activated.output, claim.name);
-        const targets = new Set(obligations.map((obligation) => obligation.target));
+        const obligations = BackendActivation.obligations(
+          activated.output,
+          claim.name,
+        );
+        const targets = new Set(
+          obligations.map((obligation) => obligation.target),
+        );
         const documents = [...targets]
           .map((target) => target.split("#")[0]!)
           .filter((target) => target.endsWith(".md"));
         if (documents.length) {
           for (const document of requirements)
             assert.ok(
-              documents.some((target) =>
-                target === document || target.endsWith("/" + path.posix.basename(document)),
+              documents.some(
+                (target) =>
+                  target === document ||
+                  target.endsWith("/" + path.posix.basename(document)),
               ),
               claim.name + " did not reach " + document,
             );
           for (const document of documents)
             assert.ok(
-              requirements.some((target) => document.endsWith(path.posix.basename(target))),
+              requirements.some((target) =>
+                document.endsWith(path.posix.basename(target)),
+              ),
               "Undelivered requirement " + document,
             );
         }
@@ -287,7 +386,9 @@ export async function case_evidence_backend_claims_activate_after_generation(
             );
         passedClaims.push(claim.name);
       } catch (error) {
-        failures.push(new Error("Backend activation claim " + claim.name, { cause: error }));
+        failures.push(
+          new Error("Backend activation claim " + claim.name, { cause: error }),
+        );
       }
     }
   } catch (error) {
@@ -295,15 +396,8 @@ export async function case_evidence_backend_claims_activate_after_generation(
   }
   try {
     ownership.assertAvailable(root);
-    if (virtualStore && fs.existsSync(virtualStore)) {
-      assert.equal(
-        fs.realpathSync.native(virtualStore),
-        path.join(fs.realpathSync.native(path.dirname(virtualStore)), path.basename(virtualStore)),
-      );
-      assert.equal(fs.lstatSync(virtualStore).isSymbolicLink(), false);
-      fs.rmSync(virtualStore, { recursive: true, force: true });
-      assert.equal(fs.existsSync(virtualStore), false);
-    }
+    borrowed?.assertAvailable();
+    borrowed?.release();
     assert.equal(fs.realpathSync.native(root), rootNativePath);
     assert.equal(fs.lstatSync(root).isSymbolicLink(), false);
     const currentIdentity = fs.statSync(root, { bigint: true });
@@ -316,7 +410,9 @@ export async function case_evidence_backend_claims_activate_after_generation(
     ownership.retain(root, error);
   }
   if (failures.length) {
-    throw new AggregateError(failures, "Backend staged activation failures", { cause: observations });
+    throw new AggregateError(failures, "Backend staged activation failures", {
+      cause: observations,
+    });
   }
   return { observations, passedClaims };
 }

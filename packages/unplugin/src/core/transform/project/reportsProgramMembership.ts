@@ -38,9 +38,8 @@ import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
  *   paths, and filename eligibility scans the supplied extensions. Repeated
  *   root questions share the matching owner's immutable-policy compilation,
  *   while the current kind observation remains local to this event.
- *   Component regular-expression evaluation depends on component text and
- *   compiled wildcard expressions; the state count alone is not a bound on
- *   that work, and this adapter establishes no linear regex-time guarantee.
+ *   Wildcard component matching merges token states with work bounded by
+ *   pattern and candidate code-point dimensions; literal tests retain text cost.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources

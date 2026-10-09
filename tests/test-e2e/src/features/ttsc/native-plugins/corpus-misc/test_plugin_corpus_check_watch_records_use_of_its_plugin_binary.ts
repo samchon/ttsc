@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 import { SHARED_GO_BUILD_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 import {
   assert,
@@ -59,7 +60,7 @@ export async function test_plugin_corpus_check_watch_records_use_of_its_plugin_b
   });
   const failures: unknown[] = [];
   try {
-    await session.waitForBuilds(1, 300_000);
+    await session.waitForBuilds(1);
     await session.waitForSettled();
     const binary = loadProjectPlugins({
       binary: "",
@@ -89,14 +90,11 @@ export async function test_plugin_corpus_check_watch_records_use_of_its_plugin_b
     fs.writeFileSync(source, "var legacy = 2;\nJSON.stringify(legacy);\n");
     // The edit's own cycle, which started after the entry was aged, is the
     // one that reports the edited line.
-    const deadline = Date.now() + 120_000;
-    while (!session.transcript().includes("var legacy = 2")) {
-      assert.ok(
-        Date.now() < deadline,
-        `the edit never reached the sidecar:\n${session.transcript()}`,
-      );
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
+    await waitFor(
+      () => session.transcript().includes("var legacy = 2"),
+      `the edit never reached the sidecar:\n${session.transcript()}`,
+      { check: () => session.assertRunning() },
+    );
     assert.equal(
       residents().at(-1),
       resident,

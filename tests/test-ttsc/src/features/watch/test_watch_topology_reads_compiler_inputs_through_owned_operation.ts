@@ -21,11 +21,11 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * source selection must not ask a project-membership reader at all.
  *
  * 1. Read root and referenced project membership through one explicit reader,
- *    preserving its arrays and the actual project/options arguments.
+ *    preserving its arrays and the original request within selected context.
  * 2. Reconcile changed membership, then reject a listing and preserve old handles.
  * 3. Refresh a positional source without invoking the membership operation.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual WatchTopology resolves inherited config and references, requests supplied membership, reports edits of admitted source members while ignoring omitted ones, replaces that admission and propagates a listing error without retiring the prior live population. Positional inputs do not call the supplied reader and close retires all handles.
+ * @evidence contracts/testing.md#behavioral-verification The actual WatchTopology resolves inherited config and references, requests supplied membership with selected argument cwd and guard policy while retaining original env/argv references and leaving the caller unchanged, reports edits of admitted source members while ignoring omitted ones, replaces that admission and propagates a listing error without retiring the prior live population. Positional inputs do not call the supplied reader and close retires all handles.
  * @evidence contracts/testing.md#independent-expectations Authored config inheritance, reference paths and explicit absolute member arrays establish expected input notifications; a deliberate reader error and actual byte transitions establish failure preservation independently of topology state. Directory coverage may observe omitted names, but does not admit them as compiler inputs.
  * @evidence contracts/testing.md#distinguishing-cases Root versus referenced projects, included versus omitted files, replacement membership, unchanged caller-owned arrays, listing failure and recovery, and positional selection distinguish acquisition from topology policy. The canonical E2E population owns native compiler listing and real observer delivery.
  * @evidence contracts/testing.md#execution-ownership This source unit calls WatchTopology with the shared recorder's supported operations and an explicit compiler-input reader. It reads real temporary configs and source files, but invokes no native compiler, artifact build, product host or OS subscription.
@@ -115,7 +115,15 @@ async function verifyProjectMembership(): Promise<void> {
     fs.readdirSync,
     (project, receivedOptions) => {
       calls.push(project.path);
-      assert.equal(receivedOptions, options);
+      assert.deepEqual(receivedOptions, {
+        ...options,
+        compilerArgsCwd: root,
+        pinCompilerProject: false,
+      });
+      assert.equal(receivedOptions.env, options.env);
+      assert.equal(receivedOptions.passthrough, options.passthrough);
+      assert.equal(Object.hasOwn(options, "compilerArgsCwd"), false);
+      assert.equal(Object.hasOwn(options, "pinCompilerProject"), false);
       assert.equal(project.root, project.path === rootConfig ? root : child);
       if (project.path === rootConfig) {
         assert.equal(project.compilerOptions.strict, true);

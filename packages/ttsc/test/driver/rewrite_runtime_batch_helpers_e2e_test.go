@@ -1,7 +1,6 @@
 package driver_test
 
 import (
-  "context"
   "embed"
   "encoding/json"
   "fmt"
@@ -9,7 +8,6 @@ import (
   "os"
   "os/exec"
   "path/filepath"
-  "time"
 
   "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
@@ -22,7 +20,7 @@ import (
 // do not certify automated coverage or introduce a review requirement.
 //
 // Common: Principled implementation: The immutable embedded tree carries actual authored source and module configuration, with independent expected values kept in Go assertions.
-// Common: Clear and simple design: One tree supplies the two effective option groups and one runtime script without runtime source generation.
+// Common: Clear and simple design: One tree supplies the authored compiler inputs and one runtime script without runtime source generation.
 // Common: Prohibited implementation shortcuts: The embedded inputs exercise the real compiler and module loader; no product behavior is replaced.
 // Common: Meaningful documentation: The native paragraph explains fixture ownership and why lookup is independent of current directory and trimpath.
 // Portability: Not applicable: OS-neutral implementation: This embed.FS declaration uses virtual slash-separated paths; copying and native execution belong to the helpers below.
@@ -46,7 +44,7 @@ var rewriteRuntimeFixtures embed.FS
 // Common: Meaningful documentation: The comment distinguishes immutable authored input from the private compiler output root following the documentation prose guidance.
 // Portability: OS-neutral implementation: fs.Sub uses embed's virtual slash path while os.CopyFS obtains native filesystem behavior for the destination; no OS-specific path or shell is assumed.
 // Performance: Efficient algorithms: One traversal copies the fixed fixture files once, with cost proportional to their authored bytes.
-// Performance: Reuse equivalent work: The batch calls this once before both producers and all nine consumers, sharing identical fixture materialization.
+// Performance: Reuse equivalent work: Each owning test copies its immutable input tree once before emission and independent module loads, sharing identical fixture materialization.
 // Performance: Bound retention and release resources: The caller's TempDir owns copied inputs and emitted outputs; CopyFS closes its file operations and retains no resources after return.
 func copyRewriteRuntimeFixtures(root string) error {
   source, err := fs.Sub(rewriteRuntimeFixtures, "fixtures/rewrite-runtime")
@@ -110,18 +108,16 @@ type rewriteRuntimeResult struct {
 // Common: Clear and simple design: One argv-based process call owns serialization, decoding and exact result identity validation; compiler production remains visible in the test.
 // Common: Prohibited implementation shortcuts: No shell, output prediction, module replacement or retry substitutes for Node's actual loader.
 // Common: Meaningful documentation: The native paragraph separates infrastructure errors from individually caught load failures and exposes one-process ownership.
-// Portability: OS-neutral implementation: exec.CommandContext passes executable and arguments separately; filepath.Join locates the native script and pathToFileURL handles ESM URL spelling in Node.
-// Performance: Efficient algorithms: Input encoding and result indexing each scan the nine records once; the consumer loads each emitted module once.
-// Performance: Reuse equivalent work: All eight CommonJS and one ESM load share a single Node startup; unique module paths preserve independent fixture state and loader kind.
-// Performance: Bound retention and release resources: One sixty-second context owns the process, CombinedOutput waits for termination and deferred cancellation releases the timer; output and result maps are invocation-local. CombinedOutput has no independent byte cap; the authored consumer's normal output is nine small maps or caught errors.
+// Portability: OS-neutral implementation: exec.Command passes executable and arguments separately; filepath.Join locates the native script and pathToFileURL handles ESM URL spelling in Node.
+// Performance: Efficient algorithms: Input encoding and result indexing each scan the supplied records once; the consumer loads each emitted module once.
+// Performance: Reuse equivalent work: Requested CommonJS and ESM loads share a single Node startup; unique module paths preserve independent fixture state and loader kind.
+// Performance: Bound retention and release resources: CombinedOutput waits for the original Node command and its output readers; output and result maps are invocation-local. This supplies no independent inherited-pipe drain deadline or descendant-closure guarantee. CombinedOutput has no byte cap; the authored consumer's normal output is one small map or caught error per supplied input.
 func runRewriteRuntimeBatch(root string, inputs []rewriteRuntimeInput) (map[string]rewriteRuntimeResult, error) {
   encoded, err := json.Marshal(inputs)
   if err != nil {
     return nil, err
   }
-  ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-  defer cancel()
-  command := exec.CommandContext(ctx, "node", filepath.Join(root, "runtime.cjs"), string(encoded))
+  command := exec.Command("node", filepath.Join(root, "runtime.cjs"), string(encoded))
   command.Dir = root
   observation := e2etrace.BeginCommand(command, "CombinedOutput", "rewrite-runtime-node-oracle")
   output, err := command.CombinedOutput()

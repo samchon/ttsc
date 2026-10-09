@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import type { SpawnSyncReturns } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -129,7 +130,8 @@ export function retainNativeLintProducer(reason: string): void {
  * linked rather than copied: production build witnesses still own dependency,
  * SDK, toolchain and flag validity. This captures package bytes, not a binary
  * or an assertion that another source identity can reuse one. Go's `list -find`
- * selects exact non-embedded test declarations without resolving dependencies;
+ * selects exact non-embedded test declarations without resolving package imports;
+ * module-graph discovery may still download modules and report progress on stderr.
  * inherited and workspace/proxy-isolated source selections must agree. All
  * other files, including ignored OS alternatives, remain copied. Reuse refuses
  * changed selection environment, bytes, manifest or installation link. A
@@ -438,6 +440,66 @@ export function selectNativeLintSourceFiles(
   };
 }
 
+/**
+ * Decode a completed Go selection without treating progress as process failure.
+ *
+ * Go may report module downloads on stderr even with a successful exit. Only
+ * terminal failure prevents stdout decoding here; package completeness and
+ * source ownership remain with selectNativeLintSourceFiles.
+ *
+ * @evidence contracts/common.md#principled-implementation Exit status, signal and spawn error establish process success independently of diagnostic stderr; successful stdout still passes the original JSON record decoder and downstream selection checks.
+ * @evidence contracts/common.md#clear-and-simple-design One pure decoder is shared by the real subprocess collector and direct regression controls, preserving inherited-before-isolated collection order.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not warm caches, suppress terminal failures, replace subprocess execution or change package selection and environment equivalence.
+ * @evidence contracts/common.md#meaningful-documentation Separates successful progress diagnostics from terminal failure and leaves package admission with its owning selector.
+ * @evidence contracts/portability.md#os-neutral-implementation Uses Node's status, signal and error observations without platform-specific stderr text classification.
+ * @evidence contracts/performance.md#efficient-algorithms One scan of stdout identifies concatenated JSON objects; JSON parsing visits each complete record once.
+ * @evidence contracts/performance.md#reuse-equivalent-work Decodes each supplied observation independently and caches no process or metadata result.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Call-local records grow with stdout and transfer to the caller; the decoder creates no process, file or retained handle.
+ */
+export function decodeNativeLintGoSelection(
+  result: Pick<
+    SpawnSyncReturns<string>,
+    "error" | "status" | "signal" | "stdout" | "stderr"
+  >,
+): IGoPackageSelection[] {
+  if (result.error || result.status !== 0 || result.signal !== null)
+    throw new Error(
+      `Native lint producer Go selection failed: status=${result.status}, signal=${result.signal}, error=${result.error?.message ?? "none"}\n${result.stderr}`,
+      { cause: result.error },
+    );
+  const records: IGoPackageSelection[] = [];
+  let depth = 0,
+    quoted = false,
+    escaped = false,
+    start = 0;
+  for (let index = 0; index < result.stdout.length; ++index) {
+    const character = result.stdout[index]!;
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === '"') quoted = false;
+    } else if (character === '"') quoted = true;
+    else if (character === "{") {
+      if (depth++ === 0) start = index;
+    } else if (character === "}") {
+      if (--depth < 0)
+        throw new Error(
+          "Native lint producer Go selection returned malformed JSON",
+        );
+      if (depth === 0)
+        records.push(JSON.parse(result.stdout.slice(start, index + 1)));
+    } else if (depth === 0 && !/\s/.test(character))
+      throw new Error(
+        "Native lint producer Go selection returned malformed JSON",
+      );
+  }
+  if (depth || quoted)
+    throw new Error(
+      "Native lint producer Go selection returned truncated JSON",
+    );
+  return records;
+}
+
 function readGoSelection(sourceRoot: string): INativeLintSourceSelection {
   const { resolveGoCompiler } = TestProject.REQUIRE_FROM_TEST(
     path.join(
@@ -449,8 +511,8 @@ function readGoSelection(sourceRoot: string): INativeLintSourceSelection {
   };
   const binary = resolveGoCompiler(process.env).binary;
   const collect = (env: NodeJS.ProcessEnv): IGoPackageSelection[] => {
-    // -find asks Go to select package files without resolving imports. Dependency
-    // availability is subsequently proved by the actual native compiler build.
+    // -find avoids resolving package imports, but module-graph discovery can
+    // download modules and report progress. The native build proves dependencies.
     const result = E2eProcessTrace.spawnSync(
       binary,
       ["list", "-find", "-e", "-json", "./..."],
@@ -461,41 +523,7 @@ function readGoSelection(sourceRoot: string): INativeLintSourceSelection {
         maxBuffer: 32 * 1024 * 1024,
       },
     );
-    if (result.error || result.status !== 0 || result.stderr.trim())
-      throw new Error(
-        `Native lint producer Go selection failed: ${result.error?.message ?? result.stderr}`,
-      );
-    const records: IGoPackageSelection[] = [];
-    let depth = 0,
-      quoted = false,
-      escaped = false,
-      start = 0;
-    for (let index = 0; index < result.stdout.length; ++index) {
-      const character = result.stdout[index]!;
-      if (quoted) {
-        if (escaped) escaped = false;
-        else if (character === "\\") escaped = true;
-        else if (character === '"') quoted = false;
-      } else if (character === '"') quoted = true;
-      else if (character === "{") {
-        if (depth++ === 0) start = index;
-      } else if (character === "}") {
-        if (--depth < 0)
-          throw new Error(
-            "Native lint producer Go selection returned malformed JSON",
-          );
-        if (depth === 0)
-          records.push(JSON.parse(result.stdout.slice(start, index + 1)));
-      } else if (depth === 0 && !/\s/.test(character))
-        throw new Error(
-          "Native lint producer Go selection returned malformed JSON",
-        );
-    }
-    if (depth || quoted)
-      throw new Error(
-        "Native lint producer Go selection returned truncated JSON",
-      );
-    return records;
+    return decodeNativeLintGoSelection(result);
   };
   const inherited = collect(process.env);
   const isolated = collect({ ...process.env, GOWORK: "off", GOPROXY: "off" });

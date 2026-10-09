@@ -1,5 +1,6 @@
 import type { IRootPattern } from "./IRootPattern";
 import { isPackageDirectory } from "./isPackageDirectory";
+import { matchesRootComponent } from "./matchesRootComponent";
 
 /**
  * Match path components through the compiled glob's possible states.
@@ -27,8 +28,9 @@ import { isPackageDirectory } from "./isPackageDirectory";
  * @evidence contracts/performance.md#efficient-algorithms
  *   At most C + 1 component positions form each active state set; P path parts
  *   require up to P-times-C expansion/transitions and O(C) temporary states.
- *   String/package/minified-name checks and generated RegExp tests add their
- *   text/regex costs; state count does not bound regex runtime. Iterative sets
+ *   String/package/minified-name checks add their text costs; each component's
+ *   token matcher additionally bounds work by its pattern and candidate lengths.
+ *   Escaped whole-literal expressions retain their text cost. Iterative sets
  *   merge equal positions instead of expanding recursive glob paths separately.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Wildcard states reuse one lazy minified-suffix result for the same path part
@@ -67,7 +69,7 @@ export function matches(
               (directory ||
                 component.mentionsMin ||
                 !(minJs ??= hasMinJsSuffix(part, pattern.caseSensitive))))) &&
-          component.expression.test(part)
+          matchesRootComponent(part, component.expression)
         )
           next.add(state + 1);
       } else if (component === part) {

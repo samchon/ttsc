@@ -5,6 +5,7 @@ import { createCanonicalTempDirectory } from "../../internal/createCanonicalTemp
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { EmitOwnershipIndex } from "./EmitOwnershipIndex";
 import { runBuild } from "./build/runBuild";
+import { CompilerProjectSelection } from "./project/CompilerProjectSelection";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { readEffectiveCompilerOptions } from "./readEffectiveCompilerOptions";
 
@@ -19,34 +20,46 @@ import { readEffectiveCompilerOptions } from "./readEffectiveCompilerOptions";
  * failure propagates on success and is aggregated with an earlier operation
  * failure rather than replacing it.
  *
+ * A launcher-supplied selection shares its project and original compiler argument
+ * cwd with public output planning. Response freshness is checked before native
+ * work and publication; these sequential checks do not pin bytes atomically.
+ * Callers without that record retain explicit config/nearest-file discovery.
+ *
  * @returns The transformed JavaScript source text.
  * @throws When the build exits non-zero, proves no JavaScript for the requested
  *   source or cannot establish unique ownership.
- * @evidence contracts/common.md#principled-implementation Effective rootDir precedence and isolated project emission preserve the producing invocation; its emitted-source provenance and current physical source identity select the actual written output before optional caller-directed writing.
- * @evidence contracts/common.md#clear-and-simple-design One operation owns project emission and returned text, delegating option interpretation and source/output identity instead of duplicating those policies.
+ * @evidence contracts/common.md#principled-implementation The supplied invocation selection or legacy locator establishes one project and compiler argument base; current response observations, effective rootDir precedence and isolated emission preserve that producing invocation; its emitted-source provenance and current physical source identity select the actual written output before optional caller-directed writing.
+ * @evidence contracts/common.md#clear-and-simple-design One operation owns project emission, optional public copy and returned text. A supplied existing selection replaces repeated discovery; delegated option interpretation and provenance retain their owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or ambiguous provenance cannot become ownership through basename, source-map presence or extension precedence; inferred-root pinning addresses the compiler's injected-outDir requirement.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain exact-source selection, missing owned output and temporary lifetime; the private realpath helper describes unavailable identity without a test-specific premise.
- * @evidence contracts/performance.md#efficient-algorithms Project discovery and effective-option response inspection precede one full project build. Output enumeration visits directory entries and sorts output paths; provenance indexing resolves native output identities and processes source associations. Only selected output content is read here, with optional caller output writing; path/association/output bytes and delegated native/build costs remain part of this call.
+ * @evidence contracts/performance.md#efficient-algorithms A supplied project avoids another discovery; otherwise legacy discovery remains. Sequential response freshness checks and effective-option inspection precede one full project build, followed by publication reobservation. Output enumeration visits directory entries and sorts output paths; provenance indexing resolves native output identities and processes source associations. Only selected output content is read here, with optional caller output writing; path/association/output bytes and delegated native/build costs remain part of this call.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This invocation observes the project's current compiler/plugin effects and owns no valid-generation cache; equivalent build sharing belongs to higher-level runtime owners.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources One accepted private output directory reaches removal in finally after success, build failure, lookup failure or output writing; acquisition has its own failure limitations. The index and selected text live until return/throw and transfer text to the caller, without an output-byte ceiling or timeout supplied here. Cleanup failure propagates after success and aggregates with the original failure and cause after an unsuccessful operation, so neither outcome is hidden.
  * @evidence contracts/portability.md#os-neutral-implementation Native paths and filesystem identities use Node APIs, child execution uses argument arrays, and optional output targets resolve from the invocation cwd on each supported host.
  */
-export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
+export function runSingleFileEmit(
+  options: TtscSingleFileEmitOptions,
+  selection?: ReturnType<typeof CompilerProjectSelection.read>,
+): string {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const sourceFile = realpathIfExists(
     path.isAbsolute(options.file)
       ? options.file
       : path.resolve(cwd, options.file),
   );
-  const project = readProjectConfig({
-    cwd,
-    file: options.file,
-    projectRoot: options.projectRoot,
-    tsconfig: options.tsconfig,
-  });
+  const project =
+    selection?.project ??
+    readProjectConfig({
+      cwd,
+      file: options.file,
+      projectRoot: options.projectRoot,
+      tsconfig: options.tsconfig,
+    });
   const tsconfig = project.path;
+  const compilerArgsCwd = selection?.compilerArgsCwd ?? project.root;
+  if (selection !== undefined) CompilerProjectSelection.assertCurrent(selection);
   // The root tsgo lays the outputs against: a `--rootDir` forwarded on the
   // command line, which reaches it after the config; otherwise the declared
   // one, which `readProjectConfig` already absolutized; otherwise the project's
@@ -55,11 +68,14 @@ export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
     project,
     options.passthrough,
     options.binary,
+    options.env,
+    compilerArgsCwd,
   )?.("rootDir");
   const rootDir =
     typeof effective === "string"
-      ? path.resolve(project.root, effective)
+      ? path.resolve(compilerArgsCwd, effective)
       : project.root;
+  if (selection !== undefined) CompilerProjectSelection.assertCurrent(selection);
   const outDir = createCanonicalTempDirectory("ttsc-single-file-");
   let failed = false;
   let failure: unknown;
@@ -67,6 +83,7 @@ export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
     const result = runBuild({
       ...options,
       cwd,
+      compilerArgsCwd,
       emit: true,
       forceEmitProvenance: true,
       isolateOutputsTo: outDir,
@@ -102,6 +119,7 @@ export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
       );
     }
     const transformed = fs.readFileSync(emitted, "utf8");
+    if (selection !== undefined) CompilerProjectSelection.assertCurrent(selection);
     if (options.out) {
       const target = path.isAbsolute(options.out)
         ? options.out

@@ -58,14 +58,17 @@ if (mode === "echo") {
     const outcome = operation.then(value => ({ value }), error => ({ error }));
     // Deliver the request, then hold the main event loop while the actual
     // worker queues its normal runtime command. No message handler is replaced.
+    // The blocked dispatcher cannot receive worker reply/error/exit callbacks,
+    // and the worker has no terminal file receipt before queue publication.
+    // If publication is unavailable, the containing E2E native owner alone
+    // supplies operator cancellation and adjudicates original actor closure;
+    // unavailable closure must keep its inputs held.
     await Promise.resolve();
     await Promise.resolve();
-    const until = Date.now() + 5000;
     let queued;
     const readEvents = (complete = false) => fs.readdirSync(trace).filter(file => file.endsWith(".jsonl")).flatMap(file => fs.readFileSync(path.join(trace, file), "utf8").split("\n").filter(Boolean).flatMap(line => { try { return [JSON.parse(line)]; } catch (error) { if (complete) throw error; return []; } }));
     while (!queued) {
       queued = readEvents().find(event => event.event === "capability-resolution" && event.data?.phase === "command-relay-queued");
-      assert.ok(Date.now() < until, "real worker queued command readiness");
       if (!queued) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
     }
     const closing = owner.close();
@@ -177,10 +180,16 @@ if (mode === "echo") {
       process.stdout.write("queued unknown retirement rejected\n");
     } else {
       operation = owner.resolve(request, { signal: controller.signal });
-      void operation.catch(() => {});
-      const until = Date.now() + 5000;
+      let outcome;
+      void operation.then(
+        () => { outcome = { kind: "returned" }; },
+        error => { outcome = { kind: "rejected", error }; },
+      );
       while (!fs.existsSync(process.env.TTSC_OWNED_PROBE_PID)) {
-        assert.ok(Date.now() < until, "actual runtime probe readiness deadline");
+        if (outcome) {
+          if (outcome.kind === "rejected") throw outcome.error;
+          throw new Error("RPC request completed before runtime probe admission");
+        }
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
       const pid = Number(fs.readFileSync(process.env.TTSC_OWNED_PROBE_PID, "utf8"));

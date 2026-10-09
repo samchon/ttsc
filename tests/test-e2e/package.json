@@ -22,6 +22,7 @@
     "@ttsc/playground": "workspace:*",
     "@ttsc/strip": "workspace:*",
     "@ttsc/testing": "workspace:*",
+    "@ttsc/unplugin": "workspace:*",
     "@ttsc/wasm": "workspace:*",
     "@types/node": "catalog:utils",
     "@typia/interface": "catalog:samchon",

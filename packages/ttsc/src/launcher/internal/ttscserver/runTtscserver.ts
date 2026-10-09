@@ -33,6 +33,7 @@ import { needsStdio } from "./needsStdio";
  * performs the Node-owned setup that depends on package resolution:
  *
  * - Resolve the platform binary,
+ * - Ask that binary to interpret the complete invocation before project setup,
  * - Resolve the project TypeScript-Go binary for the native wrapper,
  * - Resolve the project config and materialize the private LSP plugin manifest,
  * - Inject the Node/ttsx helper paths used by disk-backed LSP sidecars,
@@ -40,14 +41,14 @@ import { needsStdio } from "./needsStdio";
  * - Delegate with inherited stdio and convert a reported POSIX signal to an exit
  *   status. Windows termination has no POSIX signal number.
  *
- * @evidence contracts/common.md#principled-implementation Native arguments remain an argv vector. A discovered project uses repeated selection and current reload-fingerprint checks before manifest handoff; meta commands skip that preparation, and failed implicit config reading leaves native discovery without a JS plugin manifest. After successful disposal the final host's status or reported signal is propagated, not certified as protocol or descendant completion.
- * @evidence contracts/common.md#clear-and-simple-design Resolution, selection confirmation, snapshot parsing and manifest transport are private responsibilities beneath one synchronous launcher; native help and version dispatch remain in the binary.
+ * @evidence contracts/common.md#principled-implementation The native host's shared parser resolves the complete original invocation before project reads; its effective cwd/config/binary drive preparation while final caller argv remains intact. A discovered project uses repeated selection and current reload-fingerprint checks before manifest handoff; native metadata dispatch skips preparation and failed implicit config reading leaves discovery without a JS plugin manifest. Native refusal and final status or reported signal propagate, without certifying descendant completion.
+ * @evidence contracts/common.md#clear-and-simple-design A private native query supplies effective launch options to Node-owned package preparation. No JavaScript flag parser competes with the Go parser; selection confirmation, snapshots and manifest transport remain private responsibilities beneath this synchronous launcher.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Bounded confirmation addresses real startup filesystem drift and fails explicitly when unstable; native process and environment APIs carry the selected plugins without foreign patching or test-specific branches.
  * @evidence contracts/common.md#meaningful-documentation The native description names setup responsibilities and platform-specific termination meaning; private context/member documentation records ownership with paragraph and tag separation following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Shared environment merge/removal resolves Windows variable aliases while POSIX names remain exact; native paths and argv avoid shell quoting, and chmod plus signal status are isolated to their supported native platforms.
- * @evidence contracts/performance.md#efficient-algorithms Project startup allows three confirmation attempts, each containing two plugin loads and project-input captures. Native config/source/environment/runtime observations, delegated builds/queries, manifest/argv/result bytes, fingerprint reads and sorted snapshot serialization contribute work beyond plugin counts. Transport keys deduplicate binary/context-mode queries within one capture; attempt count is not a total time or child-count bound.
+ * @evidence contracts/performance.md#efficient-algorithms One native launch query parses argv and returns selected option strings before project startup. Startup allows three confirmation attempts, each containing two plugin loads and project-input captures. Native config/source/environment/runtime observations, delegated builds/queries, manifest/argv/result bytes, fingerprint reads and sorted snapshot serialization contribute work beyond plugin counts. Transport keys deduplicate binary/context-mode queries within one capture; attempt count is not a total time or child-count bound.
  * @evidence contracts/performance.md#reuse-equivalent-work Each capture reuses one project-input snapshot per binary/context mode; plugin loader and binary owners supply validated persistent reuse, while confirmation must observe current selection rather than reuse an unchecked snapshot.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The launcher owns the final synchronous host invocation and, when allocated, its manifest disposer in finally. Startup helpers own their additional native children/files; selected and confirmation maps coexist during an attempt and serialized records have no input-size ceiling here. Disposal failures remain observable and can prevent status return; abnormal interruption does not guarantee cleanup or descendant settlement.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The launcher owns the synchronous native query and final host invocation and, when allocated, its manifest disposer in finally. Query output has no independent byte ceiling; the matching native host returns selected argv strings. Startup helpers own their additional native children/files; selected and confirmation maps coexist during an attempt and serialized records have no input-size ceiling here. Disposal failures remain observable and can prevent status return; abnormal interruption does not guarantee cleanup or descendant settlement.
  */
 export function runTtscserver(
   argv: readonly string[] = process.argv.slice(2),
@@ -67,7 +68,22 @@ export function runTtscserver(
   const args = needsStdio(argv) ? ["--stdio", ...argv] : [...argv];
   let execution: TtscserverEnvironment;
   try {
-    execution = resolveTtscserverEnv(args);
+    const queryArgs = ["--ttsc-resolve-launch", ...args];
+    const trace = E2ETrace.begin(binary, queryArgs, {}, "ttscserver");
+    const query = spawnSync(binary, queryArgs, {
+      encoding: "utf8",
+      maxBuffer: Infinity,
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
+    E2ETrace.result(trace, query);
+    if (query.error || query.signal || query.status !== 0) {
+      process.stdout.write(query.stdout ?? "");
+      process.stderr.write(query.stderr ?? "");
+      return nativeExitStatus(query);
+    }
+    const launch = parseLaunchOptions(query.stdout);
+    execution = resolveTtscserverEnv(launch);
   } catch (error) {
     process.stderr.write(
       `ttscserver: ${stripTtscPrefix(formatError(error))}\n`,
@@ -87,6 +103,10 @@ export function runTtscserver(
   } finally {
     execution.dispose();
   }
+  return nativeExitStatus(result);
+}
+
+function nativeExitStatus(result: ReturnType<typeof spawnSync>): number {
   if (result.error) {
     process.stderr.write(`ttscserver: ${result.error.message}\n`);
     return 1;
@@ -104,6 +124,31 @@ export function runTtscserver(
     return typeof signum === "number" ? 128 + signum : 1;
   }
   return result.status ?? 1;
+}
+
+type LSPLaunchOptions = {
+  lsp: boolean;
+  cwd: string;
+  tsconfig: string;
+  tsconfigExplicit: boolean;
+  tsgo: string;
+};
+
+/** Validate the private native response without interpreting caller flags. */
+function parseLaunchOptions(text: string): LSPLaunchOptions {
+  const value: unknown = JSON.parse(text);
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    typeof (value as LSPLaunchOptions).lsp !== "boolean" ||
+    typeof (value as LSPLaunchOptions).cwd !== "string" ||
+    typeof (value as LSPLaunchOptions).tsconfig !== "string" ||
+    typeof (value as LSPLaunchOptions).tsconfigExplicit !== "boolean" ||
+    typeof (value as LSPLaunchOptions).tsgo !== "string"
+  ) {
+    throw new Error("native host returned malformed launch options");
+  }
+  return value as LSPLaunchOptions;
 }
 
 type LSPExecutionContext = {
@@ -143,16 +188,14 @@ const LSP_SELECTION_STABILITY_ATTEMPTS = 3;
  * file and inject canonical helper paths so the native host and every later
  * sidecar refresh use the same launch context.
  */
-function resolveTtscserverEnv(argv: readonly string[]): TtscserverEnvironment {
-  if (!argv.includes("--stdio")) {
+function resolveTtscserverEnv(launch: LSPLaunchOptions): TtscserverEnvironment {
+  if (!launch.lsp) {
     // Non-LSP invocations (--version, --help) do not shell out to tsgo.
     return { args: [], dispose() {}, env: process.env };
   }
-  const context = resolveLspExecutionContext(argv);
+  const context = resolveLspExecutionContext(launch);
   const env = lspSidecarEnvironment({
-    cwd:
-      context.projectContext?.logicalProjectRoot ??
-      path.resolve(optionValue(argv, "--cwd") ?? process.cwd()),
+    cwd: context.projectContext?.logicalProjectRoot ?? path.resolve(launch.cwd),
     pluginConfigOrigin: context.projectContext?.pluginConfigOrigin,
     tsgoBinary: context.tsgoBinary,
   });
@@ -168,7 +211,7 @@ function resolveTtscserverEnv(argv: readonly string[]): TtscserverEnvironment {
       ? context.selectionInputs
       : undefined;
   if (lspPlugins.length === 0 && selectionInputs === undefined) {
-    // Nothing would be lost by an older native host, so keep it startable.
+    // No transport is needed without plugins or observed selection inputs.
     return { args: [], dispose() {}, env };
   }
   const transport = materializeLSPPluginManifest({
@@ -221,10 +264,10 @@ function lspSidecarEnvironment(options: {
 }
 
 function resolveLspExecutionContext(
-  argv: readonly string[],
+  launch: LSPLaunchOptions,
 ): LSPExecutionContext {
-  const cwd = path.resolve(optionValue(argv, "--cwd") ?? process.cwd());
-  const tsconfig = optionValue(argv, "--tsconfig");
+  const cwd = path.resolve(launch.cwd);
+  const tsconfig = launch.tsconfigExplicit ? launch.tsconfig : undefined;
   const pluginConfigOrigin =
     process.env.TTSC_PLUGIN_CONFIG_DIR === undefined ||
     process.env.TTSC_PLUGIN_CONFIG_DIR === ""
@@ -238,7 +281,7 @@ function resolveLspExecutionContext(
       throw error;
     }
     const tsgo = resolveTsgo({
-      binary: optionValue(argv, "--tsgo"),
+      binary: launch.tsgo,
       cwd,
       resolveFrom: __filename,
     });
@@ -257,7 +300,7 @@ function resolveLspExecutionContext(
     const loaded = loadLSPProjectPlugins(project, cwd, pluginConfigOrigin);
     const selectedProject = loaded.project;
     const tsgo = resolveTsgo({
-      binary: optionValue(argv, "--tsgo"),
+      binary: launch.tsgo,
       cwd: selectedProject.root,
       resolveFrom: __filename,
     });
@@ -275,7 +318,7 @@ function resolveLspExecutionContext(
     );
     const confirmedProject = confirmation.project;
     const confirmedTsgo = resolveTsgo({
-      binary: optionValue(argv, "--tsgo"),
+      binary: launch.tsgo,
       cwd: confirmedProject.root,
       resolveFrom: __filename,
     });
@@ -510,22 +553,6 @@ function lspSelectionSignature(
       stage: plugin.stage,
     })),
   });
-}
-
-function optionValue(
-  argv: readonly string[],
-  name: string,
-): string | undefined {
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]!;
-    if (arg === name) {
-      return argv[i + 1];
-    }
-    if (arg.startsWith(name + "=")) {
-      return arg.slice(name.length + 1);
-    }
-  }
-  return undefined;
 }
 
 function serializeNativePlugins(

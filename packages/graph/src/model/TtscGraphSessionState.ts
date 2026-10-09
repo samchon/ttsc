@@ -81,7 +81,7 @@ export class TtscGraphSessionState {
    * @evidence contracts/common.md#clear-and-simple-design Admission groups callers, refresh owns artifact synchronization and atomic model replacement, and the group's controller owns the shared producer independently of caller signals.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Sharing is justified by admission before validation, without a clock, cooldown or quiet-watcher assumption. The last active consumer's abort cancels shared work and retires a peer with an outstanding native request rather than returning fabricated facts.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the admission boundary and distinguish individual cancellation from producer cancellation; receive separately states its validation premise.
-   * @evidence contracts/performance.md#efficient-algorithms Set insertion/removal is expected constant time per consumer and settlement visits each live consumer once. One frame and artifact validation serve each group; changed transactions additionally validate shards and rebuild indexes.
+   * @evidence contracts/performance.md#efficient-algorithms Set insertion/removal is expected constant time per consumer and settlement visits each live consumer once. One frame and artifact validation serve each group; changed transactions retain complete validation and reference scans while equivalent immutable projection components and ordered index buckets are reused.
    * @evidence contracts/performance.md#reuse-equivalent-work Callers admitted before a refresh starts share its validation and immutable model. A later group validates again, changed responses replace memory atomically, and retirement clears reusable generation state.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Queued groups and live consumer sets grow with outstanding demand. Settlement removes consumers and abort listeners immediately; completed queue callbacks release their groups, while one current peer/model/store remains session-owned.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation queues a request and calls injected host operations; it opens no file or process itself.
@@ -216,8 +216,9 @@ export class TtscGraphSessionState {
     if (response.changed) {
       if (response.snapshot !== undefined) {
         try {
-          this.current = TtscGraphMemory.from(
-            this.shardStore.apply(response.snapshot),
+          this.current = this.shardStore.applyProjection(
+            response.snapshot,
+            (dump) => TtscGraphMemory.fromResident(dump, this.current),
           );
         } catch (error) {
           const failure = asError(error);

@@ -23,7 +23,9 @@ import { spawnNative } from "./spawnNative";
  * the visible flags would miss the options inside it. Path values are returned
  * as written: a config path is already absolute, a forwarded one is relative to
  * the build's working directory, and a response-file one to the config's
- * directory.
+ * directory. The optional compilerArgsCwd preserves that original base when
+ * project selection redirects to another configuration. The supplied project
+ * remains the authority for this query, including reference-child queries.
  *
  * A separate observed safety tokenizer checks response frames before reporting
  * flags are appended; the native compiler still owns expansion and value
@@ -62,27 +64,36 @@ export function readEffectiveCompilerOptions(
   passthrough: readonly string[] = [],
   binary?: string,
   env?: NodeJS.ProcessEnv,
+  compilerArgsCwd: string = project.root,
 ): ((name: string, aliases?: readonly string[]) => unknown) | null {
   const projected = readCompilerOptionValues(passthrough);
   let assignments = projected.values;
   let shown: Record<string, unknown> | undefined;
   if (projected.responseFiles.length !== 0) {
+    let observations: ReadonlyMap<string, string>;
     try {
       const inspected = CompilerArgumentsInspection.inspect(
         ["-p", project.path, ...passthrough],
-        project.root,
+        compilerArgsCwd,
       );
+      observations = inspected.observations;
       assignments = readCompilerOptionValues(inspected.args).values;
+      for (const [file, observation] of inspected.observations)
+        if (CompilerArgumentsInspection.observeInputFile(file) !== observation)
+          return null;
     } catch {
       return null;
     }
     const tsgo = resolveTsgo({ cwd: project.root, binary });
     const result = spawnNative(
       tsgo.binary,
-      ["-p", project.path, ...passthrough, "--showConfig"],
-      { cwd: project.root, env, encoding: "utf8" },
+      ["-p", project.path, ...passthrough, "-p", project.path, "--showConfig"],
+      { cwd: compilerArgsCwd, env, encoding: "utf8" },
     );
     if (result.status !== 0) return null;
+    for (const [file, observation] of observations)
+      if (CompilerArgumentsInspection.observeInputFile(file) !== observation)
+        return null;
     shown = JSON.parse(outputText(result.stdout)).compilerOptions as Record<
       string,
       unknown

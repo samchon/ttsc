@@ -8,16 +8,27 @@ import { BatchWorkspace } from "./BatchWorkspace";
 import { residentConfigCorpus } from "./residentConfigCorpus";
 
 /**
- * Preserve native JSON membership, warm inputs, duplicate delivery and
- * dead-owner fallback in one public watch session.
+ * Verifies cold metadata recovery, native JSON membership, warm inputs,
+ * duplicate delivery and dead-owner fallback in one public watch session.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual resident telemetry distinguishes five JSON/Markdown transitions, two duplicate plugin deliveries and forwarded TS7006 after genuine native resident death.
+ * The selected lint producer is a sibling of the watched TypeScript project.
+ * Its initially conflicting Go file must fail before any resident starts;
+ * removing only that file must retry through the plugin source subscription.
+ * The repaired bytes are the original shared producer, not another fixture.
+ *
+ * 1. Reject the cold external mixed package, then repair only its Go input and
+ *    require the first real resident result without touching TypeScript/config.
+ * 2. Preserve the original thirteen membership, duplicate, source/module and
+ *    dead-resident stages, accounting separately for the initial failed cycle.
+ * 3. Join the original watch before restoring inputs and running config controls.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The actual CLI first reports mixed-package setup failure with no resident telemetry, then removing only the conflicting external Go file yields a later real resident result. Existing telemetry distinguishes five JSON/Markdown transitions, duplicate plugin deliveries and forwarded TS7006 after genuine native resident death.
  * @evidence contracts/testing.md#independent-expectations Literal load/update tables distinguish root membership from bytes; source has an untyped parameter and forwarded noImplicitAny requires TS7006 even under strict:false.
- * @evidence contracts/testing.md#distinguishing-cases Missing/present/deleted JSON, JSON versus Markdown content, single versus duplicate plugins and healthy versus actually dead resident remain separate observations.
+ * @evidence contracts/testing.md#distinguishing-cases Cold mixed-package refusal and Go-only repair contrast with subsequent valid warm operation; failed-cycle markers are not successful resident results. Missing/present/deleted JSON, JSON versus Markdown content, single versus duplicate plugins and healthy versus actually dead resident remain separate observations.
  * @evidence contracts/testing.md#execution-ownership The selected esbuild batch calls this consolidated body once. One upfront nested project owns a real CLI watch and successive native residents; config transitions and fallback are real extra native work, not one Program or zero cost.
  * @evidence contracts/e2e.md#necessary-boundary OS events, Go project-input registration, native resident protocol and fallback argv must agree; source-unit counters cannot prove their connection.
- * @evidence contracts/e2e.md#shared-execution All transitions share one actual watcher and package producer. Duplicate and single config epochs necessarily replace native residents; deliberate death acquires a real fallback. No per-case fixture preparation or plugin-cache deletion occurs.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The upfront nested source/config/Markdown are restored only after nonce-bound actual watcher closure. Failed closure retains the shared root and refuses later mutations; body and shutdown errors are both retained.
+ * @evidence contracts/e2e.md#shared-execution The cold failure adds real descriptor/metadata/compiler diagnostic work but no valid native producer; Go-only repair restores the original upfront source/cache used by the same watcher and all thirteen original stages. Duplicate and single config epochs necessarily replace native residents; deliberate death acquires a real fallback. No extra watch session, per-case fixture preparation or plugin-cache deletion occurs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One initially absent conflict file is a mutation of the prepared producer's real main source, outside the TypeScript project. It is removed for recovery; finally retries its removal only after nonce-bound actual watcher closure, alongside restoration of source/config/Markdown/module inputs. Failed closure retains the shared root and refuses later mutations; body and shutdown errors are both retained.
  * @evidence contracts/e2e.md#preserved-coverage Restores original valid five-step telemetry, duplicate buffer reuse and dead-host compiler-flag meanings. Counters are native telemetry, not total Program construction proof; Actual edits to the copied selected lint module sibling Go rule and its go.mod require a replacement resident and the edited diagnostic; an owned node_modules Go-byte copy must remain quiet. Full compiler-list/refs/output/case OS topology remains separate unproved coverage. These extra epochs add two actual resident lifetimes and native rebuild work. After joined restoration, residentConfigCorpus separately owns real/link executable helper counters, raw project-input replies and startup opt-out in two additional children; a failed watch body does not block that body when closure and restoration are proven. Unknown closure or restoration failure blocks the dependent carrier. Original Go resident donors remain selected until actual acceptance.
  */
 export async function nativeWatchCorpus(
@@ -31,8 +42,12 @@ export async function nativeWatchCorpus(
   const producer = path.join(workspace.root, "tools/mutable-lint-producer");
   const rule = path.join(producer, "linthost/rules_var.go");
   const module = path.join(producer, "go.mod");
+  const conflictingGo = path.join(producer, "plugin/zz_watch_metadata_failure.go");
   const ignoredPackage = path.join(producer, "node_modules/e2e-watch-pruned");
   assert.equal(fs.existsSync(ignoredPackage), false);
+  assert.equal(fs.existsSync(conflictingGo), false);
+  assert.ok(path.relative(root, producer).startsWith(`..${path.sep}`),
+    "the failing Go package must lie outside the watched TypeScript project");
   const originals = new Map(
     [source, config, markdown, rule, module].map((file) => [
       file,
@@ -45,6 +60,10 @@ export async function nativeWatchCorpus(
     lintConfig,
     `module.exports={plugins:{topology:{source:${JSON.stringify(path.join(TestProject.WORKSPACE_ROOT, "packages/lint/test/watch-project-input"))}}},rules:{"topology/project-input":"error","no-var":"warning"}};\n`,
   );
+  const mainSource = fs.readFileSync(path.join(producer, "plugin/main.go"), "utf8");
+  const conflictingSource = mainSource.replace(/^package main(?=\r?$)/m, "package watch_metadata_conflict");
+  assert.notEqual(conflictingSource, mainSource, "the authored main package clause must move");
+  fs.writeFileSync(conflictingGo, conflictingSource);
   const failures: unknown[] = [];
   let joined = false;
   let restored = false;
@@ -77,12 +96,24 @@ export async function nativeWatchCorpus(
       session.transcript(),
     );
   const cycle = async (count: number) => {
-    await session.waitForBuilds(count);
+    // The original thirteen semantic stages follow one failed metadata cycle.
+    await session.waitForBuilds(count + 1);
     await session.waitForSettled(300);
   };
   try {
-    await session.waitForBuilds(1, 300_000);
+    await session.waitForBuilds(1);
     await session.waitForSettled(300);
+    assert.match(session.transcript(), /Go package selection failed: found packages main .* and watch_metadata_conflict/);
+    assert.match(session.transcript(), /\[ttsc\] watch build failed/);
+    assert.deepEqual(samples(session.transcript()), [],
+      "cold package refusal must precede resident execution");
+    // No TypeScript, descriptor or config mutation may supply this retry.
+    const recoveryBoundary = session.transcript().length;
+    fs.unlinkSync(conflictingGo);
+    await session.waitForBuilds(2);
+    await session.waitForSettled(300);
+    assert.ok(samples(session.transcript().slice(recoveryBoundary)).length > 0,
+      "repairing only the external Go package must start the real resident");
     assert.equal(samples(session.transcript()).length, 1, session.transcript());
     const pid = samples(session.transcript())[0]!.pid;
     assert.ok(Number.isSafeInteger(pid) && pid > 0 && pid !== process.pid);
@@ -229,6 +260,9 @@ export async function nativeWatchCorpus(
           if (fs.existsSync(json)) fs.unlinkSync(json);
         },
         () => fs.unlinkSync(lintConfig),
+        () => {
+          if (fs.existsSync(conflictingGo)) fs.unlinkSync(conflictingGo);
+        },
         () => {
           if (fs.existsSync(ignoredPackage))
             fs.rmSync(ignoredPackage, { recursive: true });

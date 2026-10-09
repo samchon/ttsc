@@ -26,7 +26,7 @@ const { spawn } = E2eProcessTrace;
  * 3. On macOS, rename a separately registered root and await its actual gap.
  * 4. Collect independent failures, remove registrations and join IPC disconnect
  *    plus the actual process exit; ignored stdio contributes no pipe lifetime.
- *    release every parent wait timer and message listener even on failure.
+ *    release every parent observation and message listener even on failure.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual built watchBrokerSource child uses native fs.watch or the installed fsevents binding. Overlapping post-ready delivery, nested delivery/nonrecursive silence and no-gap remain; Windows measures 200 event-exists and event-before-drain pairs, while macOS retains historical suppression, empty unproven, post-write ordering and actual root-rename gap.
  * @evidence contracts/testing.md#independent-expectations Authored filenames, write timing and received IPC indices establish ordering independently of broker bookkeeping. Ready permits trusting subsequent silence; Windows completion ordering and ordered macOS probes supply the drain premise. RootChanged is a real flag transport proxy, not induced dropped-event overflow or a universal kernel proof.
@@ -34,7 +34,7 @@ const { spawn } = E2eProcessTrace;
  * @evidence contracts/testing.md#execution-ownership The selected Vite batch calls this consolidated body once with its already owned cache subtree. One additional real broker subprocess owns all native filesystem/IPC phases, without a child per phase or write. Windows/macOS-specific phases remain gated; portable scripted scheduling and probe state-machine cases retain their existing unit owners. No compiler or contributor runs.
  * @evidence contracts/e2e.md#necessary-boundary Native completion ordering, binding stream latency and system flags can fail across actual IPC despite correct scripted callbacks. The entry measures those real backend connections and keeps the binding-presence oracle; scripted units cannot establish these connections.
  * @evidence contracts/e2e.md#shared-execution One child/backend serves all applicable phases through supported add/remove/drain IPC. Actual baseline processes were two on Windows, three on macOS and one on other platforms; the implementation prepares one, with no per-round spawn or old-entry wrappers. Reduced runtime counts still require execution observation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each phase has private paths and disjoint registration/drain IDs. FIFO remove then drain retires earlier registration state before proved-stream assertions, and root rename is last. The harness buffers IPC and cancels waits on exit. This ignored-stdio broker requires public disconnect, null channel, exact exit0/no signal and actual PID ESRCH; it does not claim a ChildProcess.close event from Node's local-disconnect accounting. Pipe-owning workers retain their separate close contracts. The existing bounded grace rejects unresolved shutdown; forced cleanup remains a failure and uncertain inputs are retained. The selected cache subtree is outside Vite source inputs; standalone calls retain their exact TestProject allocation key.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each phase has private paths and disjoint registration/drain IDs. FIFO remove then drain retires earlier registration state before proved-stream assertions, and root rename is last. The harness buffers IPC and cancels waits on exit. This ignored-stdio broker requires public disconnect, null channel, exact exit0/no signal and actual PID ESRCH; it does not claim a ChildProcess.close event from Node's local-disconnect accounting. Pipe-owning workers retain their separate close contracts. Actual exit and IPC disconnect settle shutdown; an owned forced retirement remains a failure and uncertain inputs are retained. The selected cache subtree is outside Vite source inputs; standalone calls retain their exact TestProject allocation key.
  * @evidence contracts/e2e.md#preserved-coverage The four original bodies map to readiness, Windows 400 assertions, macOS probe historical/empty-unproven/two ordering assertions and macOS root gap phases here. Registration-open and binding-presence checks remain, with per-phase failure labels. Genuine queue overflow is still untested; this batch does not infer it from root rename. No meaningful native assertion transfers to a scripted unit.
  */
 export async function test_watch_broker_hears_what_follows_ready(
@@ -334,6 +334,7 @@ function openBroker(fsevents: string | null | undefined) {
   };
   child.on("message", receive);
   let closing = false;
+  let closure: Promise<void> | undefined;
   let childFailure: Error | undefined;
   let joined = false;
   let finishExit!: () => void, finishDisconnect!: () => void;
@@ -363,7 +364,14 @@ function openBroker(fsevents: string | null | undefined) {
     fail(error);
     finishExit();
   };
-  const childDisconnect = (): void => finishDisconnect();
+  const childDisconnect = (): void => {
+    if (!closing) {
+      const error = new Error("watch broker IPC disconnected before supported shutdown");
+      childFailure ??= error;
+      fail(error);
+    }
+    finishDisconnect();
+  };
   child.on("error", childError);
   child.once("exit", childExit);
   child.once("disconnect", childDisconnect);
@@ -378,9 +386,9 @@ function openBroker(fsevents: string | null | undefined) {
     label: string,
   ): Promise<BrokerMessage> =>
     new Promise((resolve, reject) => {
-      let timer: ReturnType<typeof setTimeout>;
+      let settled = false;
       const release = (): void => {
-        clearTimeout(timer);
+        settled = true;
         waiters.delete(waiter);
       };
       const waiter = {
@@ -392,17 +400,14 @@ function openBroker(fsevents: string | null | undefined) {
           }
         },
         fail: (error: Error): void => {
+          if (settled) return;
           release();
-          reject(error);
+          reject(new Error(label, { cause: error }));
         },
       };
-      timer = setTimeout(
-        () => waiter.fail(new Error(`timed out waiting for ${label}`)),
-        20_000,
-      );
       waiters.add(waiter);
-      if (stopped !== undefined) waiter.fail(stopped);
-      else waiter.wake();
+      waiter.wake();
+      if (!settled && stopped !== undefined) waiter.fail(stopped);
     });
   const send = (message: object): void => {
     if (stopped !== undefined) throw stopped;
@@ -445,35 +450,25 @@ function openBroker(fsevents: string | null | undefined) {
       await drain();
     },
     unresolvedChild: (): boolean => child.pid !== undefined && !joined,
-    close: async (): Promise<void> => {
-      // The product disconnect handler removes all remaining registrations.
+    close: (): Promise<void> => closure ??= (async () => {
       closing = true;
       fail(new Error("watch broker fixture closing"));
-      let timer: ReturnType<typeof setTimeout> | undefined;
       const shutdown = Promise.all([exited, disconnected]).then(() => {
         joined = true;
-      });
-      const deadline = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          const error = new Error(
-            "watch broker did not join process and IPC shutdown after supported disconnect",
-          );
-          childFailure ??= error;
-          child.kill("SIGKILL");
-          reject(error); // Forced cleanup and timeout are failures, never proof.
-        }, 2_000);
       });
       let disconnectError: unknown;
       try {
         if (child.connected) child.disconnect();
       } catch (error) {
         disconnectError = error;
-        child.kill("SIGKILL");
+        try { child.kill("SIGKILL"); }
+        catch (killError) {
+          disconnectError = new AggregateError([error, killError], "broker disconnect and owned retirement failed", { cause: error });
+        }
       }
       try {
-        await Promise.race([shutdown, deadline]);
+        await shutdown;
       } finally {
-        if (timer !== undefined) clearTimeout(timer);
         child.off("message", receive);
         child.off("error", childError);
         if (joined) {
@@ -498,6 +493,6 @@ function openBroker(fsevents: string | null | undefined) {
         (error: unknown) => (error as NodeJS.ErrnoException).code === "ESRCH",
         "the actually exited broker PID must be gone",
       );
-    },
+    })(),
   };
 }

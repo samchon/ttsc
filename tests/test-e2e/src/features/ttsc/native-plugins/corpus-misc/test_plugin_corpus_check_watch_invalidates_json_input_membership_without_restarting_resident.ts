@@ -136,7 +136,7 @@ module.exports = {
   });
   const failures: unknown[] = [];
   try {
-    await session.waitForBuilds(1, 300_000);
+    await session.waitForBuilds(1);
     let samples = residentSamples(session.transcript());
     assert.equal(samples.length, 1, session.transcript());
     assert.deepEqual(samples[0], {

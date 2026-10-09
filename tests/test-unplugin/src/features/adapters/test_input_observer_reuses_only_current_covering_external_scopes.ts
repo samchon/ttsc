@@ -1,3 +1,4 @@
+import { waitFor } from "../../../../utils/src/internal/waitFor";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -144,7 +145,9 @@ export async function test_input_observer_reuses_only_current_covering_external_
         );
         fs.writeFileSync(children[0]!.file, "export {};\n");
         parent.event("rename", children[0]!.file);
-        await new Promise((resolve) => setTimeout(resolve, 30));
+        await waitFor(() => changed.has(childOwner), "shared scope change reaches its descendant owner", {
+          check: () => assert.equal(parent.closed, 0, "the current shared scope closed before its callback"),
+        });
         assert.ok(
           changed.has(childOwner),
           "a shared scope event reaches its descendant owner",

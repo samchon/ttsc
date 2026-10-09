@@ -2,8 +2,8 @@ import type { SpawnSyncOptions, SpawnSyncReturns } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { Worker } from "node:worker_threads";
 import { serialize } from "node:v8";
+import { Worker } from "node:worker_threads";
 
 import { E2ETrace } from "../internal/E2ETrace";
 import { OwnedNativeProcess } from "../internal/OwnedNativeProcess";
@@ -12,8 +12,8 @@ import type { ITtscCapabilityPlugin } from "./ITtscCapabilityPlugin";
 import { receiveCapabilityFailure } from "./internal/receiveCapabilityFailure";
 
 /**
- * Own asynchronous capability discovery and its opaque freshness proofs.
- * The same worker executes the existing synchronous resolver and keeps each
+ * Own asynchronous capability discovery and its opaque freshness proofs. The
+ * same worker executes the existing synchronous resolver and keeps each
  * original proof closure. Its native commands are relayed to a joined process
  * supervisor, so cancellation unwinds build cleanup rather than killing the
  * resolver thread while it holds a lease.
@@ -55,18 +55,39 @@ export class CapabilityPluginResolver {
     options: { capability: string; cwd?: string; tsconfig?: string },
     request: { signal?: AbortSignal } = {},
   ): Promise<CapabilityPluginResolver.Resolution> {
-    const value = await this.request({ kind: "resolve", options }, request.signal) as {
-      handle: number; generation: number; status: "resolved" | "unavailable"; plugins: ITtscCapabilityPlugin[];
+    const value = (await this.request(
+      { kind: "resolve", options },
+      request.signal,
+    )) as {
+      handle: number;
+      generation: number;
+      status: "resolved" | "unavailable";
+      plugins: ITtscCapabilityPlugin[];
     };
     let released = false;
     return {
       status: value.status,
       plugins: value.plugins,
-      isCurrent: async ({ signal } = {}) => released || this.closed ? false : await this.request({ kind: "current", handle: value.handle, generation: value.generation }, signal) as boolean,
+      isCurrent: async ({ signal } = {}) =>
+        released || this.closed
+          ? false
+          : ((await this.request(
+              {
+                kind: "current",
+                handle: value.handle,
+                generation: value.generation,
+              },
+              signal,
+            )) as boolean),
       release: async () => {
         if (released) return;
         released = true;
-        if (!this.closed) await this.request({ kind: "release", handle: value.handle, generation: value.generation });
+        if (!this.closed)
+          await this.request({
+            kind: "release",
+            handle: value.handle,
+            generation: value.generation,
+          });
       },
     };
   }
@@ -89,14 +110,22 @@ export class CapabilityPluginResolver {
     options: SpawnSyncOptions,
     request: { signal?: AbortSignal } = {},
   ): Promise<SpawnSyncReturns<string | Buffer>> {
-    if (this.closed) return Promise.reject(new Error("ttsc: capability resolver is closed"));
+    if (this.closed)
+      return Promise.reject(new Error("ttsc: capability resolver is closed"));
     const controller = new AbortController();
     this.controllers.add(controller);
     const abort = () => controller.abort(request.signal?.reason);
     request.signal?.addEventListener("abort", abort, { once: true });
     if (request.signal?.aborted) abort();
-    const operation = OwnedNativeProcess.run(command, args, options, controller.signal,
-      (state) => { if (state === "unknown") this.closed = true; });
+    const operation = OwnedNativeProcess.run(
+      command,
+      args,
+      options,
+      controller.signal,
+      (state) => {
+        if (state === "unknown") this.closed = true;
+      },
+    );
     this.native.add(operation);
     void operation.catch((error: unknown) => {
       if (!controller.signal.aborted || error !== controller.signal.reason)
@@ -125,15 +154,18 @@ export class CapabilityPluginResolver {
     if (this.closing !== undefined) return this.closing;
     this.closed = true;
     for (const controller of this.controllers)
-      controller.abort(new DOMException("ttsc: capability resolver closed", "AbortError"));
+      controller.abort(
+        new DOMException("ttsc: capability resolver closed", "AbortError"),
+      );
     this.closing = (async () => {
       await this.queue;
       await Promise.allSettled(this.native);
       const worker = this.worker;
       if (worker !== undefined) {
         worker.ref();
-        try { worker.postMessage({ kind: "close" }); }
-        catch (error) {
+        try {
+          worker.postMessage({ kind: "close" });
+        } catch (error) {
           this.rememberFailure(error);
           // No task remains after queue/native joining, so a failed shutdown
           // message may terminate this idle thread without abandoning leases.
@@ -143,37 +175,56 @@ export class CapabilityPluginResolver {
       await Promise.all(this.exits.values());
       this.worker = undefined;
       if (this.failures.length !== 0)
-        throw new AggregateError(this.failures, "ttsc: capability owner failed to retire cleanly");
+        throw new AggregateError(
+          this.failures,
+          "ttsc: capability owner failed to retire cleanly",
+        );
     })();
     return this.closing;
   }
 
-  private request(body: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
-    if (this.closed) return Promise.reject(new Error("ttsc: capability resolver is closed"));
+  private request(
+    body: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<unknown> {
+    if (this.closed)
+      return Promise.reject(new Error("ttsc: capability resolver is closed"));
     const controller = new AbortController();
     this.controllers.add(controller);
     const abort = () => controller.abort(signal?.reason);
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) abort();
-    const operation = this.queue.catch(() => undefined).then(() => this.call(body, controller.signal));
-    this.queue = operation.then(() => undefined, () => undefined);
+    const operation = this.queue
+      .catch(() => undefined)
+      .then(() => this.call(body, controller.signal));
+    this.queue = operation.then(
+      () => undefined,
+      () => undefined,
+    );
     return operation.finally(() => {
       this.controllers.delete(controller);
       signal?.removeEventListener("abort", abort);
     });
   }
 
-  private async call(body: Record<string, unknown>, signal: AbortSignal): Promise<unknown> {
+  private async call(
+    body: Record<string, unknown>,
+    signal: AbortSignal,
+  ): Promise<unknown> {
     signal.throwIfAborted();
     if (this.closed) throw new Error("ttsc: capability resolver is closed");
-    if (body.generation !== undefined &&
-      (this.worker === undefined || body.generation !== this.generation))
+    if (
+      body.generation !== undefined &&
+      (this.worker === undefined || body.generation !== this.generation)
+    )
       return body.kind === "current" ? false : undefined;
     const worker = this.worker ?? this.createWorker();
     const generation = this.generation;
     const id = ++this.nextId;
     const cancel = new SharedArrayBuffer(4);
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-capability-rpc-"));
+    const directory = fs.mkdtempSync(
+      path.join(os.tmpdir(), "ttsc-capability-rpc-"),
+    );
     const commands = new Set<Promise<unknown>>();
     const nativeController = new AbortController();
     const stop = () => {
@@ -199,77 +250,152 @@ export class CapabilityPluginResolver {
           if (this.worker === worker) this.worker = undefined;
           reject(error);
         };
-        const exited = (code: number) => failed(new Error(`ttsc: capability worker exited ${code} before replying`));
+        const exited = (code: number) =>
+          failed(
+            new Error(`ttsc: capability worker exited ${code} before replying`),
+          );
         const message = (reply: WorkerReply) => {
           if (reply.id !== id) return;
           if (reply.kind === "command") {
             if (this.closed) {
               const explicitClose = this.closing !== undefined;
-              E2ETrace.capabilityResolution("command-admission-withdrawn", { request: id, responseFile: reply.responseFile, explicitClose, retirement: "not-started" });
-              const rejection = Promise.resolve().then(() => writeCommandReply(reply, {
+              E2ETrace.capabilityResolution("command-admission-withdrawn", {
+                request: id,
+                responseFile: reply.responseFile,
+                explicitClose,
                 retirement: "not-started",
-                thrown: serializeCompilerError(
-                  explicitClose
-                    ? Object.assign(new Error("ttsc: capability resolver closed before command admission"), { name: "AbortError" })
-                    : new Error("ttsc: capability resolver is closed"),
-                ),
-              }));
+              });
+              const rejection = Promise.resolve().then(() =>
+                writeCommandReply(reply, {
+                  retirement: "not-started",
+                  thrown: serializeCompilerError(
+                    explicitClose
+                      ? Object.assign(
+                          new Error(
+                            "ttsc: capability resolver closed before command admission",
+                          ),
+                          { name: "AbortError" },
+                        )
+                      : new Error("ttsc: capability resolver is closed"),
+                  ),
+                }),
+              );
               commands.add(rejection);
-              void rejection.catch((error: unknown) => this.rememberFailure(error));
+              void rejection.catch((error: unknown) =>
+                this.rememberFailure(error),
+              );
               return;
             }
-            let retirement: "joined" | "not-started" | "unknown" = "not-started";
-            const operation = OwnedNativeProcess.run(reply.command, reply.args, reply.options, nativeController.signal,
-              (state) => {
+            let retirement: "joined" | "not-started" | "unknown" =
+              "not-started";
+            const operation = OwnedNativeProcess.run(
+              reply.command,
+              reply.args,
+              reply.options,
+              nativeController.signal,
+              (state, _reason, observation) => {
                 retirement = state;
                 if (state === "unknown") this.closed = true;
-              })
-              .then((result) => writeCommandReply(reply, {
-                retirement,
-                result: { ...result, ...(result.error === undefined ? {} : { error: serializeCompilerError(result.error) }) },
-              }), (error: unknown) => {
-                const cancelled = nativeController.signal.aborted && error === nativeController.signal.reason;
+                if (process.env.TTSC_E2E_TRACE) {
+                  // The worker's existing command-relay-queued event binds
+                  // this response file to its original boundary token.
+                  E2ETrace.capabilityResolution("native-command-retired", {
+                    taskToken: `${directory}:${id}`,
+                    responseFile: reply.responseFile,
+                    retirement: state,
+                    ...observation,
+                  });
+                }
+              },
+            ).then(
+              (result) =>
+                writeCommandReply(reply, {
+                  retirement,
+                  result: {
+                    ...result,
+                    ...(result.error === undefined
+                      ? {}
+                      : { error: serializeCompilerError(result.error) }),
+                  },
+                }),
+              (error: unknown) => {
+                const cancelled =
+                  nativeController.signal.aborted &&
+                  error === nativeController.signal.reason;
                 if (!cancelled) this.rememberFailure(error);
                 // The worker needs a cancellation classification, while the
                 // caller's arbitrary reason stays on its original main thread.
-                writeCommandReply(reply, { retirement, thrown: serializeCompilerError(cancelled
-                  ? Object.assign(new Error("ttsc: operation cancelled"), { name: "AbortError" })
-                  : error) });
-              });
+                writeCommandReply(reply, {
+                  retirement,
+                  thrown: serializeCompilerError(
+                    cancelled
+                      ? Object.assign(new Error("ttsc: operation cancelled"), {
+                          name: "AbortError",
+                        })
+                      : error,
+                  ),
+                });
+              },
+            );
             commands.add(operation);
             this.native.add(operation);
             // Keep every command in this request until its final join, including
             // failed exchange writes after native retirement.
-            void operation.finally(() => this.native.delete(operation)).catch(() => undefined);
+            void operation
+              .finally(() => this.native.delete(operation))
+              .catch(() => undefined);
             return;
           }
           clear();
           if (reply.thrown !== undefined) {
-            const error = receiveCapabilityFailure(reply, (failure) => this.failures.push(failure));
-            if (signal.aborted && error.name === "AbortError") reject(signal.reason);
-            else if (signal.aborted) reject(new AggregateError([signal.reason, error], "ttsc: cancellation cleanup failed"));
+            const error = receiveCapabilityFailure(reply, (failure) =>
+              this.failures.push(failure),
+            );
+            if (signal.aborted && error.name === "AbortError")
+              reject(signal.reason);
+            else if (signal.aborted)
+              reject(
+                new AggregateError(
+                  [signal.reason, error],
+                  "ttsc: cancellation cleanup failed",
+                ),
+              );
             else reject(error);
           } else if (signal.aborted) {
             if (body.kind === "resolve") {
               const handle = (reply.value as { handle: number }).handle;
-              try { worker.postMessage({ kind: "discard", handle }); }
-              catch (error) {
+              try {
+                worker.postMessage({ kind: "discard", handle });
+              } catch (error) {
                 this.rememberFailure(error);
-                reject(new AggregateError([signal.reason, error], "ttsc: cancelled proof retirement failed"));
+                reject(
+                  new AggregateError(
+                    [signal.reason, error],
+                    "ttsc: cancelled proof retirement failed",
+                  ),
+                );
                 return;
               }
             }
             reject(signal.reason);
-          }
-          else resolve(body.kind === "resolve"
-            ? { ...(reply.value as object), generation }
-            : reply.value);
+          } else
+            resolve(
+              body.kind === "resolve"
+                ? { ...(reply.value as object), generation }
+                : reply.value,
+            );
         };
         worker.on("message", message);
         worker.once("error", failed);
         worker.once("exit", exited);
         try {
-          worker.postMessage({ ...body, id, cancel, directory, env: { ...process.env } });
+          worker.postMessage({
+            ...body,
+            id,
+            cancel,
+            directory,
+            env: { ...process.env },
+          });
         } catch (error) {
           failed(error instanceof Error ? error : new Error(String(error)));
         }
@@ -283,30 +409,46 @@ export class CapabilityPluginResolver {
       await Promise.allSettled(commands);
       if (this.worker !== worker) await this.exits.get(worker);
       worker.unref();
-      try { fs.rmSync(directory, { force: true, recursive: true }); }
-      catch (error) {
+      try {
+        fs.rmSync(directory, { force: true, recursive: true });
+      } catch (error) {
         this.rememberFailure(error);
-        throw failed ? new AggregateError([originalFailure, error], "ttsc: resolver request cleanup failed") : error;
+        throw failed
+          ? new AggregateError(
+              [originalFailure, error],
+              "ttsc: resolver request cleanup failed",
+            )
+          : error;
       }
     }
   }
 
   /** Keep idle worker failures observed and prevent reuse of a retired thread. */
   private createWorker(): Worker {
-    const worker = new Worker(path.join(__dirname, "internal", "capabilityPluginWorker.js"));
+    const worker = new Worker(
+      path.join(__dirname, "internal", "capabilityPluginWorker.js"),
+    );
     const retire = () => {
       if (this.worker === worker) this.worker = undefined;
     };
     worker.on("error", (error: unknown) => {
-      this.failWorker(error instanceof Error ? error : new Error(String(error)));
+      this.failWorker(
+        error instanceof Error ? error : new Error(String(error)),
+      );
       retire();
     });
-    const exited = new Promise<void>((resolve) => worker.once("exit", (code) => {
-      if (code !== 0 || this.closing === undefined)
-        this.failWorker(new Error(`ttsc: capability worker exited ${code}${this.closing === undefined ? " unexpectedly" : ""}`));
-      retire();
-      resolve();
-    }));
+    const exited = new Promise<void>((resolve) =>
+      worker.once("exit", (code) => {
+        if (code !== 0 || this.closing === undefined)
+          this.failWorker(
+            new Error(
+              `ttsc: capability worker exited ${code}${this.closing === undefined ? " unexpectedly" : ""}`,
+            ),
+          );
+        retire();
+        resolve();
+      }),
+    );
     this.exits.set(worker, exited);
     worker.unref();
     ++this.generation;
@@ -365,7 +507,9 @@ export namespace CapabilityPluginResolver {
      * @evidenceExclude contracts/performance.md#reuse-equivalent-work The type establishes proof identity but itself shares no computation.
      * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The field declares no acquired resource; its owning resolver retains and releases the proof.
      */
-    readonly isCurrent: (options?: { signal?: AbortSignal }) => Promise<boolean>;
+    readonly isCurrent: (options?: {
+      signal?: AbortSignal;
+    }) => Promise<boolean>;
     /**
      * Retire this proof without affecting a later worker generation.
      *

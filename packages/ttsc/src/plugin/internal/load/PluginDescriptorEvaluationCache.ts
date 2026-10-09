@@ -340,8 +340,9 @@ export namespace PluginDescriptorEvaluationCache {
    * Entry format tag. Moves when the entry shape or its proof rule changes, so
    * an entry written under another rule is evaluated again.
    */
-  // File-entry evaluation must not reuse answers computed with Node -e globals.
-  const FORMAT = "ttsc-descriptor-evaluation-v6";
+  // Earlier generations could replace mapped-resolution pre-witnesses with
+  // later candidate state, so their apparently complete proofs are not reusable.
+  const FORMAT = "ttsc-descriptor-evaluation-v7";
 
   interface IEntry {
     evaluation: IEvaluation;

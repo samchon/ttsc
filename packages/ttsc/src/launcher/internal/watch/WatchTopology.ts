@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { outputText } from "../../../compiler/internal/outputText";
+import { CompilerProjectSelection } from "../../../compiler/internal/project/CompilerProjectSelection";
 import { readJsoncFile } from "../../../compiler/internal/project/readJsoncFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
@@ -46,6 +47,11 @@ import { watchDirectory } from "./watchDirectory";
  * same absolute-path membership and failure contract for each resolved project.
  * Configuration files, project-reference roots, output inference and native
  * filesystem identity remain this topology's responsibility.
+ * Response frames are observed once per project refresh at its compiler cwd;
+ * that option view serves all project-output queries while the original argv
+ * reaches compiler membership. A second observation rejects response changes
+ * across membership resolution. Response files join the config reload set;
+ * these observations do not pin files or detect a change restored in between.
  *
  * `TTSC_WATCH_DEBUG_INPUTS` reports the named event, observed population deltas
  * and reload decision. These diagnostics reuse the decision's existing inputs;
@@ -163,7 +169,7 @@ export class WatchTopology {
    * @evidence contracts/common.md#meaningful-documentation Native prose states notification gating, thrown errors and registration error ownership following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Compiler processes use explicit argv/env; native APIs own path grammar and backend differences. Lexical membership uses measured component case policy, keeping unknown names and symlink aliases distinct instead of folding all Windows paths.
    * @evidence contracts/performance.md#efficient-algorithms Project/reference configuration discovery, output inference and supplied/native compiler listing precede file/key snapshot passes. Native path/case/ancestor work and newly admitted file hashing add text/byte costs; broad reconciliation stats tracked files and strongly reads metadata/owner movement, while named/gap events request strong reads. Windows directory pruning is pairwise, and extra/project watcher reconciliation adds its own scans and backend callback costs without a file-count or deadline cap.
-   * @evidence contracts/performance.md#reuse-equivalent-work Existing live watchers and unchanged fingerprints are reused by key; one fresh synchronous transaction shares parent case probes across membership, output and directory keys. Registration microtasks coalesce gap work while actual compiler membership is refreshed rather than inferred from quiet notifications.
+   * @evidence contracts/performance.md#reuse-equivalent-work Existing live watchers and unchanged fingerprints are reused by key; one fresh synchronous transaction shares parent case probes across membership, output and directory keys. One current root selection shares response inspection across referenced-project output queries; response observations are checked again after membership and never cached across refreshes. Registration microtasks coalesce gap work while actual compiler membership is refreshed rather than inferred from quiet notifications.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Current snapshots prune removed members and synchronization attempts obsolete handle closure, keeping old coverage after incomplete registration. Current/recovery populations and observations have no size cap; supplied close/error callbacks can throw and close does not await backend completion. State remains owner-held until released.
    */
   public refresh(notify: boolean): void {
@@ -1697,6 +1703,8 @@ export class WatchTopology {
 type WatchTopologyOptions = Pick<
   TtscBuildOptions,
   | "binary"
+  | "compilerArgsCwd"
+  | "compilerProjectSelections"
   | "emit"
   | "env"
   | "outDir"
@@ -1706,6 +1714,7 @@ type WatchTopologyOptions = Pick<
 > & {
   cwd: string;
   files: readonly string[];
+  pinCompilerProject?: boolean;
 };
 
 type WatchTopologyCallbacks = {
@@ -1742,6 +1751,13 @@ function resolveWatchTopology(
   identities: ProjectInputPathIdentityContext,
   getCompilerInputs: typeof listCompilerInputs,
 ): ResolvedWatchTopology {
+  const selection = CompilerProjectSelection.read(options);
+  if (selection.inspectionError !== undefined) throw selection.inspectionError;
+  options = {
+    ...options,
+    compilerArgsCwd: selection.compilerArgsCwd,
+    pinCompilerProject: selection.projectGuard.length !== 0,
+  };
   let analysisOnly = options.emit === false;
   const files = new Map<string, string>();
   const outputFiles = new Map<string, string>();
@@ -1749,12 +1765,11 @@ function resolveWatchTopology(
   const reloadFiles = new Map<string, string>();
   const roots: string[] = [];
   if (options.files.length !== 0) {
-    const project = readProjectConfig({
-      cwd: options.cwd,
-      projectRoot: options.projectRoot,
-      tsconfig: options.tsconfig,
-    });
+    const project = selection.project;
+    const inspected = watchCompilerOptions(selection, options);
     analysisOnly = watchTopologyAnalysisOnly(options, project);
+    addPaths(files, inspected.responseFiles, identities);
+    addPaths(reloadFiles, inspected.responseFiles, identities);
     roots.push(project.root);
     addPaths(files, project.configPaths, identities);
     addPaths(reloadFiles, project.configPaths, identities);
@@ -1768,35 +1783,42 @@ function resolveWatchTopology(
       addPaths(
         outputFiles,
         [
-          resolveSingleFileOutput({
-            cliOutDir: options.outDir,
-            cwd: options.cwd,
-            file: positionalInputs[0]!,
-            passthrough: options.passthrough,
-            tsconfig: options.tsconfig,
-          }),
+          resolveSingleFileOutput(
+            {
+              cliOutDir: options.outDir,
+              cwd: options.cwd,
+              file: positionalInputs[0]!,
+              passthrough: options.passthrough,
+              tsconfig: options.tsconfig,
+            },
+            project,
+          ),
         ],
         identities,
       );
     }
     addPaths(files, positionalInputs, identities);
   } else {
-    const projects = readReferencedProjects(options, identities);
-    if (projects[0] !== undefined) {
-      analysisOnly = watchTopologyAnalysisOnly(options, projects[0]);
-    }
+    const projects = readReferencedProjects(selection.project, identities);
     for (const project of projects) {
+      const inspected = watchCompilerOptions(selection, options);
+      if (project === projects[0]) {
+        analysisOnly = watchTopologyAnalysisOnly(inspected.options, project);
+      }
       roots.push(project.root);
       addPaths(files, project.configPaths, identities);
       addPaths(reloadFiles, project.configPaths, identities);
+      addPaths(files, inspected.responseFiles, identities);
+      addPaths(reloadFiles, inspected.responseFiles, identities);
       const compilerInputs = getCompilerInputs(project, options);
-      const compilerOutputs = resolveCompilerOutputs(project, options);
+      CompilerProjectSelection.assertCurrent(selection);
+      const compilerOutputs = resolveCompilerOutputs(project, inspected.options);
       addPaths(outputFiles, compilerOutputs.files, identities);
       addPaths(
         outputFiles,
         inferPerSourceCompilerOutputs(
           project,
-          options,
+          inspected.options,
           compilerInputs,
           identities,
         ),
@@ -1806,6 +1828,7 @@ function resolveWatchTopology(
       addPaths(files, compilerInputs, identities);
     }
   }
+  CompilerProjectSelection.assertCurrent(selection);
   addPaths(files, extraInputs, identities);
   return {
     analysisOnly,
@@ -1817,28 +1840,43 @@ function resolveWatchTopology(
   };
 }
 
+/**
+ * Share the root selection's observed options across its referenced projects.
+ * The original request still reaches the compiler-input operation. Positional
+ * output placement remains the single-file launcher's own copy policy.
+ */
+function watchCompilerOptions(
+  selection: ReturnType<typeof CompilerProjectSelection.read>,
+  options: WatchTopologyOptions,
+): {
+  options: WatchTopologyOptions;
+  responseFiles: readonly string[];
+} {
+  return {
+    options: { ...options, passthrough: selection.inspectedArgs },
+    responseFiles: [...selection.observations.keys()],
+  };
+}
+
 function watchTopologyAnalysisOnly(
   options: WatchTopologyOptions,
   project: ITtscParsedProjectConfig,
 ): boolean {
-  if (options.emit !== undefined) return options.emit === false;
   const noEmit =
     passthroughBooleanOption(
       readCompilerOptionValues(options.passthrough).values,
       "--noEmit",
-    ) ?? project.compilerOptions.noEmit === true;
+    ) ??
+    (options.emit === undefined
+      ? project.compilerOptions.noEmit === true
+      : options.emit === false);
   return noEmit;
 }
 
 function readReferencedProjects(
-  options: WatchTopologyOptions,
+  root: ITtscParsedProjectConfig,
   identities: ProjectInputPathIdentityContext,
 ): ITtscParsedProjectConfig[] {
-  const root = readProjectConfig({
-    cwd: options.cwd,
-    projectRoot: options.projectRoot,
-    tsconfig: options.tsconfig,
-  });
   const projects: ITtscParsedProjectConfig[] = [];
   const queue = [root];
   const seen = new Set<string>();
@@ -1901,9 +1939,10 @@ function listCompilerInputs(
       "--pretty",
       "false",
       ...(options.passthrough ?? []),
+      ...(options.pinCompilerProject === true ? ["-p", project.path] : []),
     ],
     {
-      cwd: project.root,
+      cwd: options.compilerArgsCwd ?? project.root,
       env: { ...process.env, ...options.env },
       encoding: "utf8",
     },
@@ -2118,7 +2157,7 @@ function effectiveCompilerEmit(
       ? normalizeCompilerEnumValue(compilerOptions.jsx, "json")
       : undefined;
   const jsx = typeof rawJsx === "string" ? rawJsx : undefined;
-  const compilerCwd = project.root;
+  const compilerCwd = options.compilerArgsCwd ?? project.root;
   return {
     declaration,
     declarationDir:

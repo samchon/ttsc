@@ -22,6 +22,19 @@ import type { TtscWatchInputFileBaseline } from "./TtscWatchInputFileBaseline";
  */
 export interface TtscWatchInputBaseline extends TtscWatchInputFileBaseline {
   /**
+   * Current version-one native codec facts, captured only for requested kinds.
+   * These observations do not certify a producer's identityStable flag or scope.
+   */
+  nativePredicates?: Partial<
+    Record<
+      NonNullable<
+        ITtscCompilerTransformation.IInputObservation["nativePredicates"]
+      >[number]["kind"],
+      { digest: string; realpath: string | null }
+    >
+  >;
+
+  /**
    * Sorted compiler-accessible entry names, captured only when requested.
    * Absence cannot establish a recorded listing predicate's agreement.
    */

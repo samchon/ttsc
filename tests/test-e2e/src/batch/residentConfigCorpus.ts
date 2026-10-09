@@ -7,7 +7,6 @@ import readline from "node:readline";
 import { SidecarEnvironment } from "../../../../packages/ttsc/lib/compiler/internal/sharedHost/SidecarEnvironment";
 import { TtscCompiler } from "../../../../packages/ttsc/lib/index";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
-import { PLUGIN_BUILD_TIMEOUT } from "../internal/ttsc/internal/ttscserver";
 import { BatchWorkspace } from "./BatchWorkspace";
 import {
   scriptConfigGraphResident,
@@ -262,7 +261,7 @@ export async function residentConfigCorpus(
           current?.reject(error);
         }
       });
-      const bounded = async <T>(operation: Promise<T>): Promise<T> => {
+      const closeWithDeadline = async <T>(operation: Promise<T>): Promise<T> => {
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {
           return await Promise.race([
@@ -270,8 +269,8 @@ export async function residentConfigCorpus(
             new Promise<never>((_, reject) => {
               timer = setTimeout(
                 () =>
-                  reject(new Error("resident protocol/close did not settle")),
-                PLUGIN_BUILD_TIMEOUT,
+                  reject(new Error("resident close did not settle")),
+                900_000,
               );
             }),
           ]);
@@ -292,11 +291,11 @@ export async function residentConfigCorpus(
               pending?.reject(error);
             }
           });
-          return bounded(response);
+          return response;
         },
         close: async () => {
           input.end();
-          await bounded(closed);
+          await closeWithDeadline(closed);
           joined = true;
         },
       };

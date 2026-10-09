@@ -40,6 +40,18 @@ export interface ITtscPluginCapabilities {
   checkObservations?: true;
 
   /**
+   * Whether the host consumes `TTSC_TSGO_ARGS_CWD` with its forwarded compiler
+   * payload. Upstream response and CLI option parsing use that directory;
+   * Program, plugin and rule-input roots retain the selected `--cwd`.
+   *
+   * Only invocations requiring a distinct compiler argument base need this
+   * protocol. An omitted capability retains same-directory legacy behavior.
+   *
+   * @default false
+   */
+  compilerArgsCwd?: true;
+
+  /**
    * Whether the sidecar accepts `--diagnostics` and `--extendedDiagnostics` on
    * its command line and may print plugin-owned timing detail to stdout.
    *

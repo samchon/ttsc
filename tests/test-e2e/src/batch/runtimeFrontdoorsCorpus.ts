@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
+import { case_ttsx_response_watch_refusal } from "../features/ttsc/ttsx-runtime/case_ttsx_response_watch_refusal";
 import { runRuntimeSignalSessions } from "../features/ttsc/ttsx-runtime/test_ttsx_forwards_termination_signals_and_cleans_up_on_posix";
 import { STANDARD_DECORATOR_OUTPUT } from "../internal/ttsc/internal/ttsx-decorators";
 import { BatchWorkspace } from "./BatchWorkspace";
@@ -22,12 +23,17 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * is no extra Node actor, but three real checked root preparations are
  * additional work.
  *
+ * Two short CLI admission actors share the upfront response-watch fixture.
+ * Nested false and UTF16 watch requests must fail from the selected project
+ * directory before resolving the intentionally absent compiler or acquiring
+ * cache state. Portable response semantics remain in the source units.
+ *
  * @evidence contracts/testing.md#behavioral-verification Real installed public register and CLI children preserve CommonJS main/native cache/prefix-only builtins/typed dependency, ESM SQLite, JavaScript main under import preload with exact tail argv, handled exception survival and actual exit7/throw1/rejection1 statuses.
  * @evidence contracts/testing.md#independent-expectations Authored dep+leaf, main/cache booleans, UUID36, SQLite-close completion, exact forwarded tokens and literal OS statuses are independent of product outputs. Original input bytes and actual synchronous child closure are checked.
  * @evidence contracts/testing.md#distinguishing-cases Import-register and import-preload plus require-register are distinct startup modes. Typed CommonJS and ESM entry ownership differ from JavaScript main requiring TypeScript; handled continuation contrasts with three terminal outcomes. Installed owner preload separately distinguishes an existing inherited run, a removed inherited run and manifestless independent startup.
- * @evidence contracts/testing.md#execution-ownership One Runtime DAG body owns eight additional real launcher lifetimes: four direct Node/register startup modes, one handled-exception CLI and three terminal CLIs. The four CLI launchers also start their actual entry children, so these are at least twelve Node lifetimes, with further native preparation work still delegated and uncounted here. Fatal exits and preload selection require separate lifetimes; no child is created per source or builtin. No one-Program or zero-cost claim is made.
+ * @evidence contracts/testing.md#execution-ownership One Runtime DAG body owns ten additional real launcher lifetimes: four direct Node/register startup modes, one handled-exception CLI, three terminal CLIs and two response-watch admission CLIs. Four CLI launchers also start their actual entry children, so these are at least fourteen Node lifetimes, with further native preparation work still delegated and uncounted here. The response admission actors require no entry child or compiler. Fatal exits and preload selection require separate lifetimes; no child is created per source or builtin. No one-Program or zero-cost claim is made.
  * @evidence contracts/e2e.md#necessary-boundary Native Node preload/main dispatch, register hooks, SQLite module loading and terminal statuses cannot be established by argument classification or cached source units. A static first-user program requires its actual hostname/PID owner record before writing the marker; removed-run startup must fail without that marker, whereas the empty-manifest child must execute independently.
- * @evidence contracts/e2e.md#shared-execution All eight launcher requests and their actual entry children read one upfront immutable project and shared available cache. Compatible builtin/dependency assertions are combined in each startup; terminal and startup-mode lifetimes remain explicitly separate. The three owner-preload environment transitions add three actual Node lifetimes using the same installed SDK and project; they neither install another fixture nor build another native contributor.
+ * @evidence contracts/e2e.md#shared-execution All ten launcher requests and their actual entry children use the upfront staged graph and installed SDK. The two admission requests share their separate response fixture and absent cache path without native preparation. Compatible builtin/dependency assertions are combined in each startup; terminal and startup-mode lifetimes remain explicitly separate. The three owner-preload environment transitions add three actual Node lifetimes using the same installed SDK and project; they neither install another fixture nor build another native contributor.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each synchronous spawn owns a real status/signal/PID receipt and joins closure before the next. Runtime ownership environment inherited from unrelated actors is removed. Source bytes remain unchanged; unresolved closure blocks later shared reuse. Independent case failures are collected.
  * @evidence contracts/e2e.md#preserved-coverage Restores baseline selected native main/fatal/register/import-preload/JavaScript/ESM builtin meanings with one upfront island instead of per-case fixtures. On POSIX the same owning signal helper adds three real detached launcher/entry sessions for handled SIGTERM, unhandled SIGTERM and exactly-once group SIGINT with all three empty runtime-index assertions; Windows supplies no POSIX coverage. Those six additional Node lifetimes and repeated native checks remain costs. The same handled CLI carries all four require spellings, scoped/subpath preloads, typed TS/TSX outside include, exact preload order and post-entry option tokens. A separate mistyped preload must reject before main; that irreducible failed-startup actor adds at least one launcher and potentially an entry child, with native costs unmeasured. Existing fatal actors also carry constant-source orphan enum/package-format transitions. Separately seeded stale generations use the preceding actually joined actor PID and a fresh ESRCH/hostname proof; real register startup and real ttsx startup must each sweep their own seed. No extra PID-establishing child is added. An overall single-digit process budget remains uncertified.
  */
@@ -187,6 +193,13 @@ export async function runtimeFrontdoorsCorpus(
       failures.push(new Error(name, { cause: error }));
     }
   };
+  try {
+    await case_ttsx_response_watch_refusal(path.join(root, "response-watch"), {
+      launcher: workspace.installedTtsx,
+    });
+  } catch (cause) {
+    failures.push(new Error("response watch CLI admission", { cause }));
+  }
   const typed = {
     main: true,
     cache: "object",

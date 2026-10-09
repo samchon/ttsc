@@ -6,8 +6,8 @@ import { hostDeclaresPolling } from "../transform/tracker/hostDeclaresPolling";
  * Read a build host's active watch-session polling declaration.
  *
  * Webpack and Rspack accept options directly on compiler.watch(), so their
- * public watching.watchOptions can differ from the compiler configuration.
- * A closed session has no watching carrier. Other hosts retain environment
+ * public watching.watchOptions can differ from the compiler configuration. A
+ * closed session has no watching carrier. Other hosts retain environment
  * declarations; Vite's resolved option remains with its lifecycle owner.
  * Watchpack's environment declaration can force polling but cannot disable a
  * polling session. Chokidar-specific flags do not govern these two hosts.

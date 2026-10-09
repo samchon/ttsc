@@ -25,20 +25,37 @@ export function test_capabilitycommandreply_preserves_error_metadata_and_native_
   const values = new Array(4) as unknown[] & { detail?: string };
   values[0] = "kept";
   values.detail = "enumerable array metadata";
-  const source = Object.assign(new Error("native refusal"), { metadata, values });
+  const source = Object.assign(new Error("native refusal"), {
+    metadata,
+    values,
+  });
   const bytes = Buffer.from([0, 65, 255]);
-  const reply = decodeCapabilityCommandReply(serialize({
-    retirement: "joined",
-    result: { stdout: bytes, stderr: "text output", output: [null, bytes, "text output"], error: serializeCompilerError(source) },
-    thrown: serializeCompilerError(source),
-  }));
+  const reply = decodeCapabilityCommandReply(
+    serialize({
+      retirement: "joined",
+      result: {
+        stdout: bytes,
+        stderr: "text output",
+        output: [null, bytes, "text output"],
+        error: serializeCompilerError(source),
+      },
+      thrown: serializeCompilerError(source),
+    }),
+  );
   assert.equal(reply.retirement, "joined");
   assert.ok(Buffer.isBuffer(reply.result!.stdout));
   assert.deepEqual(reply.result!.stdout, Buffer.from([0, 65, 255]));
   assert.equal(reply.result!.stderr, "text output");
-  assert.deepEqual(reply.result!.output, [null, Buffer.from([0, 65, 255]), "text output"]);
+  assert.deepEqual(reply.result!.output, [
+    null,
+    Buffer.from([0, 65, 255]),
+    "text output",
+  ]);
   for (const value of [reply.result!.error, reply.thrown]) {
-    const received = restoreCompilerError(value) as Error & { metadata: unknown; values: typeof values };
+    const received = restoreCompilerError(value) as Error & {
+      metadata: unknown;
+      values: typeof values;
+    };
     assert.equal(received.message, "native refusal");
     assert.deepEqual(received.metadata, { type: "Buffer", data: [65, 66] });
     assert.equal(Buffer.isBuffer(received.metadata), false);
@@ -47,7 +64,9 @@ export function test_capabilitycommandreply_preserves_error_metadata_and_native_
     assert.equal(received.values.detail, "enumerable array metadata");
     assert.deepEqual(Object.keys(received.values), ["0", "detail"]);
   }
-  const absent = decodeCapabilityCommandReply(serialize({retirement: "unknown", thrown: {message: "unproved"}}));
+  const absent = decodeCapabilityCommandReply(
+    serialize({ retirement: "unknown", thrown: { message: "unproved" } }),
+  );
   assert.equal(absent.retirement, "unknown");
   assert.equal(absent.result, undefined);
   assert.deepEqual(absent.thrown, { message: "unproved" });

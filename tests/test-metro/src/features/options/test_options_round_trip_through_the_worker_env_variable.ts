@@ -4,7 +4,7 @@ import { assertOptionsRoundTripThroughEnv } from "../../internal/metro-options";
  * Verifies options round-trip through the worker env variable.
  *
  * The worker transformer reconstructs its configuration solely from the
- * serialized env payload. Every field, the ttsc overlay (project,
+ * serialized env payload. Every field, the ttsc overlay (project, projectRoot,
  * compilerOptions, plugins) and the Metro-specific include/exclude/
  * upstreamTransformer, must survive the serialize → env → resolve trip, or a
  * caller's override would be dropped inside the worker.
@@ -13,7 +13,7 @@ import { assertOptionsRoundTripThroughEnv } from "../../internal/metro-options";
  * 2. Resolve it back with resolveOptionsFromEnv.
  * 3. Assert every field matches the original.
  *
- * @evidence contracts/testing.md#behavioral-verification serializeOptions and resolveOptionsFromEnv retain project, strict compiler options, plugin descriptors, include/exclude arrays and custom upstream through JSON in the actual environment.
+ * @evidence contracts/testing.md#behavioral-verification serializeOptions and resolveOptionsFromEnv retain project, the distinct compiler projectRoot, strict compiler options, plugin descriptors, include/exclude arrays and custom upstream through JSON in the actual environment.
  * @evidence contracts/testing.md#independent-expectations The authored overlay values are exact literals required by the Metro config-to-worker JSON contract; each resolved field is compared to its corresponding input.
  * @evidence contracts/testing.md#distinguishing-cases Populated options contrast defaults and plugins:false in neighboring source entries; this entry owns every supplied overlay field.
  * @evidence contracts/testing.md#execution-ownership Unit layer: calls serializeOptions and resolveOptionsFromEnv from packages/metro/src/core/options.ts in-process with TTSC_METRO_OPTIONS set and restored by the helper; no child process, native build or installed package.

@@ -32,7 +32,7 @@ func TestDocumentationHTMLRegionsPreserveRealAnnotations(t *testing.T) {
     })
   }
   for _, prefix := range []string{
-    "<!--\n"+hidden+"\n-->\n", "<!-- one --> <!-- two -->\n", "<!-->\n", "<!--->\n",
+    "<!--\n" + hidden + "\n-->\n", "<!-- one --> <!-- two -->\n", "<!-->\n", "<!--->\n",
     "`<!--`\n", "``<!-- ` literal``\n", "`literal\n<!--\nend`\n",
     "<span title=\"<!--\">literal</span>\n", "\\<!--\n", "~~~text\n<!--\n~~~\n",
     "`<!-- literal\\` more prose\n",

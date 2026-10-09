@@ -82,6 +82,9 @@ type loadProgramOptions struct {
   // command-line parser into a CompilerOptions overlay that wins over the
   // tsconfig, exactly as tsgo's CLI merges them.
   tsgoArgs        []string
+  // tsgoArgsCwd anchors response and CLI option parsing without changing the
+  // Program, rule-input or plugin project root. Empty retains cwd.
+  tsgoArgsCwd     string
   projectIdentity publicrule.ProjectIdentity
 }
 
@@ -114,8 +117,17 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     fs = observer
   }
   host := shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
-
-  commandLine, cliDiags := parseTsgoArgs(options.tsgoArgs, host)
+  argumentHost := host
+  if options.tsgoArgsCwd != "" {
+    argumentCwd := options.tsgoArgsCwd
+    if !filepath.IsAbs(argumentCwd) {
+      argumentCwd = filepath.Join(cwd, argumentCwd)
+    }
+    if argumentCwd != cwd {
+      argumentHost = shimcompiler.NewCompilerHost(argumentCwd, fs, bundled.LibPath(), nil, nil)
+    }
+  }
+  commandLine, cliDiags := parseTsgoArgs(options.tsgoArgs, argumentHost)
   if len(cliDiags) > 0 {
     return nil, cliDiags, nil
   }
@@ -131,7 +143,7 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     resolved,
     cliOptions,
     tsoptions.CommandLineRawOptions(commandLine),
-    host,
+    argumentHost,
     nil,
   )
   if parsed == nil {

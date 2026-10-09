@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
+import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import vm from "node:vm";
@@ -22,6 +23,7 @@ import { pluginBuildEnvironment } from "../../../../packages/ttsc/lib/plugin/int
 import { resolveGoCompiler } from "../../../../packages/ttsc/lib/plugin/internal/source/resolveGoCompiler.js";
 import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/lib/plugin/internal/source/resolveSourceBuildCachePaths.js";
 import { spawnGoTool } from "../../../../packages/ttsc/lib/plugin/internal/source/spawnGoTool.js";
+import { CompilerArchives } from "../../../utils/src/CompilerArchives";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { prepareEvidenceDependencies } from "../../../utils/src/evidence/prepareEvidenceDependencies";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
@@ -62,6 +64,8 @@ export namespace BatchWorkspace {
     casePolicyReceipt: string;
     projectAlias: string;
     installationOnly: boolean;
+    /** Run-owned archives isolated from file entries mirrored by runtime hosts. */
+    compilerArchives: CompilerArchives.Owner;
     sourcePublication?: { binary: string; root: string };
     expected: readonly { title: string; units: number[] }[];
   }
@@ -191,7 +195,7 @@ export namespace BatchWorkspace {
 
   /** Read native ApplyProgram admission receipts, never emitted-value evidence. */
   export function readContextReceipts(
-    workspace: Workspace,
+    workspace: Pick<Workspace, "contextReceipt">,
   ): Record<string, unknown>[] {
     if (!fs.existsSync(workspace.contextReceipt)) return [];
     return fs
@@ -222,7 +226,7 @@ export namespace BatchWorkspace {
    * @evidence contracts/common.md#meaningful-documentation The headline distinguishes actual parsed Program options from config-file interpretation; the return type preserves null versus keyed targets for the caller's literal assertions.
    */
   export function readPathsReceipts(
-    workspace: Workspace,
+    workspace: Pick<Workspace, "pathsReceipt">,
   ): { name: string; paths: Record<string, string[]> | null }[] {
     if (!fs.existsSync(workspace.pathsReceipt)) return [];
     return fs
@@ -302,7 +306,7 @@ export namespace BatchWorkspace {
     const context = vm.createContext({
       console: { info() {}, debug() {}, warn() {} },
     });
-    vm.runInContext(code, context, { timeout: 30_000 });
+    vm.runInContext(code, context);
     return JSON.parse(JSON.stringify(context.TTSC_BATCH_RESULT));
   }
 
@@ -332,34 +336,42 @@ export namespace BatchWorkspace {
   export async function close(): Promise<void> {
     if (reuseFailure !== undefined) return;
     if (preparation === undefined) return;
-    const { root, projectAlias, graphNegativeRoot, cache, runtimeCliCache } =
-      await preparation;
+    const {
+      root,
+      projectAlias,
+      graphNegativeRoot,
+      cache,
+      runtimeCliCache,
+      compilerArchives,
+    } = await preparation;
     if (!fs.existsSync(root)) return;
-    if (runtimeCliCache !== cache)
-      fs.rmSync(runtimeCliCache, {
+    compilerArchives.close(() => {
+      if (runtimeCliCache !== cache)
+        fs.rmSync(runtimeCliCache, {
+          recursive: true,
+          force: true,
+          maxRetries: 3,
+          retryDelay: 100,
+        });
+      if (root !== projectAlias)
+        fs.rmSync(path.dirname(projectAlias), {
+          recursive: true,
+          force: true,
+          maxRetries: 3,
+          retryDelay: 100,
+        });
+      fs.rmSync(root, {
         recursive: true,
         force: true,
         maxRetries: 3,
         retryDelay: 100,
       });
-    if (root !== projectAlias)
-      fs.rmSync(path.dirname(projectAlias), {
+      fs.rmSync(graphNegativeRoot, {
         recursive: true,
         force: true,
         maxRetries: 3,
         retryDelay: 100,
       });
-    fs.rmSync(root, {
-      recursive: true,
-      force: true,
-      maxRetries: 3,
-      retryDelay: 100,
-    });
-    fs.rmSync(graphNegativeRoot, {
-      recursive: true,
-      force: true,
-      maxRetries: 3,
-      retryDelay: 100,
     });
   }
 
@@ -378,22 +390,20 @@ export namespace BatchWorkspace {
    * failures. The copied main module's assembly input guarantees a real SDK
    * assembler execution while preserving reuse of unrelated Go objects.
    *
-   * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts. The Go adapter returns Node's actual exit immediately on Windows and uses exec on POSIX. Unsupported-help status 2 and version status 0 under absent/0/999 inherited status shadows before and after byte rewrites independently distinguishes failed tool execution from successful publication.
+   * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. A private archive directory stays opaque to runtime ancestor mirroring, which hard-links regular file entries and changes their native version metadata; the archive identity and content guards remain intact. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts. The Go adapter returns Node's actual exit immediately on Windows and uses exec on POSIX. Unsupported-help status 2 and version status 0 under absent/0/999 inherited status shadows before and after byte rewrites independently distinguishes failed tool execution from successful publication. Runtime package-star inputs are linked from their authored package root. The installed-boundary island uses native realpath equality to prove that its lowercase package spelling reaches its physical uppercase store, and links a workspace to its actual outside-store source; no runtime resolution method is replaced.
    * @evidence contracts/common.md#clear-and-simple-design One preparation owns the installation and fixture population, while consumers own operations and assertions. The existing five output coordinates remain Workspace fields so their native writers and runtime readers keep one identity.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Output initialization neither warms a compiler nor substitutes a cached result. Exclusive creation refuses prior content rather than truncating evidence. Actual wrapper writes and a nonempty native completion-marker directory exercise strict witness rejection and lease cleanup failure without replacing foreign filesystem methods. Initial cold attempts require independent before/after tool metadata evidence for every discarded build and a stable final epoch; they are not accepted merely because a retry passed.
    * @evidence contracts/common.md#meaningful-documentation The setup comment distinguishes an empty owned output from an execution receipt and explains why its directory member exists before a reader snapshots it. It also identifies the Windows exit boundary needed by the self-rewriting adapter.
-   * @evidence contracts/portability.md#os-neutral-implementation The canonical native root and Node path/file APIs author the same five output spellings on each supported OS. Exclusive wx creation uses filesystem ownership semantics. Windows wrappers return the Node child status with exit /b before appended batch lines after clearing its case-insensitive ERRORLEVEL environment shadow, while POSIX exec replaces the shell; both retain the underlying Go command verdict through the existing native quoting owner.
-   * @evidence contracts/performance.md#efficient-algorithms Preparation copies complete selected fixture and installed payloads, hashes candidate executable bytes, installs packages, prints the authored value matrix, and runs its real source-publication builds and toolchain observations. Population and byte sizes drive IO, buffers and native subprocess cost. The status regression runs twelve real Go processes across absent/0/999 status shadows. The epoch matrix adds nine actual builds using the existing source and Go object storage, plus nine version observations for the persistently moving reader; the initial cold producer permits at most three independently witnessed build epochs. Each build receipt traverses selected SDK bin/tool metadata. These checks add no installation or native host profile.
+   * @evidence contracts/portability.md#os-neutral-implementation The canonical native root and Node path/file APIs author the same five output spellings on each supported OS. Exclusive wx creation uses filesystem ownership semantics. Windows wrappers return the Node child status with exit /b before appended batch lines after clearing its case-insensitive ERRORLEVEL environment shadow, while POSIX exec replaces the shell; both retain the underlying Go command verdict through the existing native quoting owner. Existing native lowercase aliasing is preserved; otherwise a supported directory link establishes that identity explicitly. No OS-wide case folding establishes project ownership, and explicit cts/mts inputs keep module-format inference out of the boundary experiment.
+   * @evidence contracts/performance.md#efficient-algorithms Preparation copies complete selected fixture and installed payloads, hashes candidate executable bytes, installs packages, prints the authored value matrix, and runs its real source-publication builds and toolchain observations. Compiler archives additionally stream their exact bytes at publication and actual reader boundaries; their immutable generation avoids another SDK/platform pack without scanning source trees or querying package configuration. Population and byte sizes drive IO, buffers and native subprocess cost. The status regression runs twelve real Go processes across absent/0/999 status shadows. The epoch matrix adds nine actual builds using the existing source and Go object storage, plus nine version observations for the persistently moving reader; the initial cold producer permits at most three independently witnessed build epochs. Each build receipt traverses selected SDK bin/tool metadata. These checks add no installation or native host profile.
    * @evidence contracts/performance.md#reuse-equivalent-work The process-owned preparation Promise shares this fixture population. Epoch cases isolate plugin namespaces while sharing the existing Go object root; only the first unique dependency action compiles cold, and a stable recovered publication is reused with zero additional Go builds. Native metadata and binary execution establish validity rather than expected retry counts alone.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Observation files and isolated epoch roots belong to the allocated project's cleanup/retention lifecycle. Each matrix case restores its owned launcher/source bytes in finally; ordinary paths assert removed scratch inputs, released current leases and absent pending candidates. The deliberately poisoned release retains its failed native coordination state for project cleanup and proves no second epoch begins. Reader tokens remain product process-owned until exit; partial failures retain actual receipts.
    */
   async function prepare(): Promise<Workspace> {
     // Choose one native spelling before authoring absolute config/cwd inputs.
     // Intentional project aliases below remain separately authored inputs.
-    const temporaryParent = path.join(
-      path.dirname(TestProject.WORKSPACE_ROOT),
-      ".ttsc-e2e-projects",
-    );
+    // The entry's initial TEMP/TMP/TMPDIR owns every sibling allocation.
+    const temporaryParent = os.tmpdir();
     const cache = TestProject.sharedPluginCache(temporaryParent);
     const allocatedRoot = TestProject.tmpdir(
       "ttsc-shared-boundaries-",
@@ -564,8 +574,8 @@ export namespace BatchWorkspace {
         path.join(root, "tools/descriptor-collection"),
       ),
     );
-    // The native default-cache resolver recognizes this real installation
-    // boundary. No package is installed in the graph-negative root itself.
+    // This copied package declares its own workspace, independently of the
+    // checkout's ancestors. No package is installed in the graph-negative root.
     fs.mkdirSync(path.join(descriptorCollectionRoot, "node_modules"));
     await FileSystemIterator.write(
       path.join(root, "tools/public-lint"),
@@ -739,11 +749,35 @@ export namespace BatchWorkspace {
         stdio: "inherit",
       });
     };
-    for (const name of ["ttsc", `ttsc-${target}`])
-      pnpm(
-        ["pack", "--out", path.join(root, `${name}.tgz`)],
-        path.join(TestProject.WORKSPACE_ROOT, "packages", name),
-      );
+    assert.ok(
+      process.env.npm_execpath,
+      "The E2E runner must be launched through pnpm",
+    );
+    const compilerDirectories = ["packages/ttsc", `packages/ttsc-${target}`];
+    // Runtime layouts mirror root files through hardlinks. Keep immutable
+    // archives inside an opaque directory so those links cannot change their
+    // native version metadata before another installation borrows them.
+    const compilerArchiveRoot = path.join(root, ".compiler-archives");
+    fs.mkdirSync(compilerArchiveRoot);
+    const compilerArchives = CompilerArchives.create({
+      repository: TestProject.WORKSPACE_ROOT,
+      output: compilerArchiveRoot,
+      allocation: root,
+      directories: compilerDirectories,
+      produce: (directory, archive) =>
+        E2eProcessTrace.execFileSync(
+          process.execPath,
+          [process.env.npm_execpath!, "pack", "--out", archive],
+          {
+            cwd: path.join(TestProject.WORKSPACE_ROOT, directory),
+            stdio: "inherit",
+            windowsHide: true,
+          },
+        ),
+      retain,
+      observe: (event) =>
+        console.info("TTSC_COMPILER_ARCHIVE_COST " + JSON.stringify(event)),
+    });
     const authoredManifest = JSON.parse(
       fs.readFileSync(path.join(root, "package.json"), "utf8"),
     );
@@ -754,15 +788,15 @@ export namespace BatchWorkspace {
         private: true,
         type: "commonjs",
         dependencies: {
-          ttsc: "file:./ttsc.tgz",
-          [`@ttsc/${target}`]: `file:./ttsc-${target}.tgz`,
+          ttsc: "file:./.compiler-archives/ttsc.tgz",
+          [`@ttsc/${target}`]: `file:./.compiler-archives/ttsc-${target}.tgz`,
           typescript: "7.0.2",
         },
         pnpm: {
           ...authoredManifest.pnpm,
           overrides: {
             ...authoredManifest.pnpm?.overrides,
-            [`@ttsc/${target}`]: `file:./ttsc-${target}.tgz`,
+            [`@ttsc/${target}`]: `file:./.compiler-archives/ttsc-${target}.tgz`,
           },
         },
       }),
@@ -988,6 +1022,27 @@ export namespace BatchWorkspace {
           path.join(modules, name!),
           "junction",
         );
+      fs.symlinkSync(
+        path.join(root, "tools/runtime-package-stars"),
+        path.join(modules, "batch-package-stars"),
+        "junction",
+      );
+      // A physical differently-spelled store is a boundary only when Node can
+      // reach that same directory through its installed-package spelling.
+      const boundaryApp = path.join(root, "tools/runtime-package-boundary/app");
+      const boundaryStore = path.join(boundaryApp, "NODE_MODULES");
+      const boundaryAlias = path.join(boundaryApp, "node_modules");
+      if (!fs.existsSync(boundaryAlias))
+        fs.symlinkSync(boundaryStore, boundaryAlias, "junction");
+      assert.equal(
+        fs.realpathSync.native(boundaryAlias),
+        fs.realpathSync.native(boundaryStore),
+      );
+      fs.symlinkSync(
+        path.join(boundaryApp, "workspace"),
+        path.join(boundaryStore, "boundary-workspace"),
+        "junction",
+      );
       const configPath = path.join(root, "tsconfig.json");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
       const producerModule = path.join(root, "native-source");
@@ -1213,6 +1268,16 @@ export namespace BatchWorkspace {
         recursive: true,
         filter: (location) => copiesPluginSourceEntry(fixture, location),
       });
+      // The source publication owns its default cache as an independent local
+      // workspace even when this experiment lives below another workspace.
+      // Unmarked installation fallback remains with the direct cache units.
+      fs.copyFileSync(
+        path.join(
+          TestProject.WORKSPACE_ROOT,
+          "tests/test-e2e/fixtures/ttsc/source-plugin/source-publication-workspace.yaml",
+        ),
+        path.join(source, "pnpm-workspace.yaml"),
+      );
       const materializationInputs = path.join(
         TestProject.WORKSPACE_ROOT,
         "packages/ttsc/test/fixtures/e2e",
@@ -1865,7 +1930,9 @@ export namespace BatchWorkspace {
           dependencyText
             .replace(
               "package dependency",
-              'package dependency\n\nimport helper "' + workspaceHelperName + '"',
+              'package dependency\n\nimport helper "' +
+                workspaceHelperName +
+                '"',
             )
             .replace('return "first"', "return helper.Value()"),
         );
@@ -2428,6 +2495,7 @@ export namespace BatchWorkspace {
       graphRoot,
       installedTtsx,
       installationOnly,
+      compilerArchives,
       sourcePublication,
       programRunLog,
       contextReceipt,

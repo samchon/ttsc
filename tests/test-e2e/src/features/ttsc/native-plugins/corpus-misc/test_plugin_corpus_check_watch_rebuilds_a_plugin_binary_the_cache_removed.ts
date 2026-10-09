@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 import { SHARED_GO_BUILD_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 import {
   assert,
@@ -39,7 +40,7 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * @evidence contracts/e2e.md#necessary-boundary The persistent watch execution must detect a gone executable and return through native resolution before the next cycle can spawn it; direct cache-admission units cannot prove that reload connection.
  * @evidence contracts/e2e.md#shared-execution One isolated plugin cache and watcher preserve the missing-path transition with the suite Go-cache location available. Restored pathname availability is asserted; compiler-object reuse, build counts and loaded-image equality are not measured.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The rename touches only this private cache, which is an owned input root retained on uncertain WatchSession close. Body/close failures are retained separately. Actual native rename must succeed on the executing host, without certifying other platforms or arbitrary descendant termination.
- * @evidence contracts/e2e.md#preserved-coverage Original restored-path existence and edited-source checks remain with their bounded waits. They establish availability and continued checking, not a build-count or binary-content oracle absent from the original case.
+ * @evidence contracts/e2e.md#preserved-coverage Original restored-path existence and edited-source checks remain under actual session error and close authority. They establish availability and continued checking, not a build-count or binary-content oracle absent from the original case.
  */
 export async function test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_the_cache_removed(): Promise<void> {
   const root = setupLintProject("lint-violations");
@@ -64,7 +65,7 @@ export async function test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_th
   });
   const failures: unknown[] = [];
   try {
-    await session.waitForBuilds(1, 300_000);
+    await session.waitForBuilds(1);
     await session.waitForSettled();
     const binary = loadProjectPlugins({
       binary: "",
@@ -86,10 +87,12 @@ export async function test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_th
     await waitFor(
       () => fs.existsSync(binary),
       `the removed binary is built again:\n${session.transcript()}`,
+      { check: () => session.assertRunning() },
     );
     await waitFor(
       () => session.transcript().includes("var legacy = 2"),
       `the session checks the edit:\n${session.transcript()}`,
+      { check: () => session.assertRunning() },
     );
   } catch (error) {
     failures.push(error);
@@ -106,15 +109,4 @@ export async function test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_th
       failures,
       "Resident check watch and shutdown failed",
     );
-}
-
-async function waitFor(
-  condition: () => boolean,
-  message: string,
-): Promise<void> {
-  const deadline = Date.now() + 300_000;
-  while (!condition()) {
-    assert.ok(Date.now() < deadline, message);
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
 }

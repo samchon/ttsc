@@ -6,8 +6,8 @@ import path from "node:path";
  * Preserve closed process receipts and an explicitly partial stderr snapshot.
  *
  * Unknown readers keep their input files untouched. Captured stderr and IPC
- * failure records cannot certify join or resource release. Closed
- * readers permit copying receipt bytes with a manifest for later verification.
+ * failure records cannot certify join or resource release. Closed readers
+ * permit copying receipt bytes with a manifest for later verification.
  *
  * @evidence contracts/common.md#principled-implementation Caller-supplied closure controls receipt copying; captured stderr and plain IPC failure records are exported independently while partial and release flags retain their original meanings.
  * @evidence contracts/common.md#clear-and-simple-design One helper owns diagnostic snapshot files and their integrity manifest; the scenario continues to own actual join, resource release and retention.

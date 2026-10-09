@@ -1,4 +1,5 @@
 import { TestProject } from "@ttsc/testing";
+import { WatchBuildObservation } from "../../../../../utils/src/WatchBuildObservation";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -20,22 +21,19 @@ import {
  * ownedInputRoots.
  *
  * @evidence contracts/common.md#principled-implementation Native build markers distinguish completed cycles from starts. Shutdown requires the supported launcher nonce receipt plus actual close and matching exit status, rather than assuming signal termination joined native descendants.
- * @evidence contracts/common.md#clear-and-simple-design One live child owns the transcript and observers; one memoized close operation supplies all callers with the same join result, and exitResult exposes only the real close event.
+ * @evidence contracts/common.md#clear-and-simple-design One live child forwards original output/error/close events to its concrete observation owner; one memoized close operation supplies all callers with the same join result, and exitResult exposes only the real close event.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Real native watch and public launcher execution remain intact. No method is replaced, timeout increased, failure converted to quiet success or killed launcher treated as descendant closure.
  * @evidence contracts/common.md#meaningful-documentation Describes the IPC join authority, actual stdio close and caller-owned tracked workspace/external-input lifetime; observation methods describe their build-count and idle-window meanings.
  * @evidence contracts/portability.md#os-neutral-implementation Executable plus argv and the supported Node IPC protocol work on Windows and POSIX without requiring Windows SIGTERM to invoke JavaScript signal handlers. Forced termination remains a failed join.
- * @evidence contracts/performance.md#efficient-algorithms Each output chunk updates counts by scanning the accumulated transcript; observation notification scales with active waiters. Transcript scanning is not claimed to be incremental.
+ * @evidence contracts/performance.md#efficient-algorithms The concrete observation owner scans accumulated stream bytes for markers; this process owner routes each original chunk once and retains no second transcript.
  * @evidence contracts/performance.md#reuse-equivalent-work All cycle and quiet assertions reuse the same immutable launcher/native session until their caller changes inputs; concurrent close callers share one nonce and one closure.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Observation callbacks remove themselves on settlement; close removes its message listener and timer after actual closure. Missing/invalid/forced join retains caller-declared tracked inputs and an already allocated shared plugin cache; callers must declare every separately owned input, and transcript bytes remain unbounded until this session is discarded.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The concrete observation owner releases observation handles; close removes its message listener after actual closure. Missing/invalid join retains caller-declared tracked inputs and an already allocated shared plugin cache; callers must declare every separately owned input, and transcript bytes remain unbounded until this session is discarded.
  */
 export class WatchSession {
   private readonly child: ReturnType<typeof child_process.spawn>;
   /** The session as its failures name it: the command line it runs. */
   private readonly label: string;
-  private readonly listeners = new Set<() => void>();
-  private builds = 0;
-  private buildStarts = 0;
-  private output = "";
+  private readonly observation: WatchBuildObservation;
   private readonly ownedInputRoots: readonly string[];
   private closed = false;
   private startupError: Error | undefined;
@@ -49,16 +47,24 @@ export class WatchSession {
     root: string,
     options: {
       args?: readonly string[];
+      /** Installed launcher owned by the caller; defaults to the checkout CLI. */
+      launcher?: string;
       env?: NodeJS.ProcessEnv;
       ownershipRoot?: string;
       ownedInputRoots?: readonly string[];
       watchFlag?: string;
     } = {},
   ) {
+    this.label = [
+      "ttsc",
+      ...(options.args ?? []),
+      options.watchFlag ?? "--watch",
+    ].join(" ");
+    this.observation = new WatchBuildObservation(this.label);
     const child = child_process.spawn(
       process.execPath,
       [
-        ttscBin,
+        options.launcher ?? ttscBin,
         ...(options.args ?? []),
         options.watchFlag ?? "--watch",
         "--cwd",
@@ -90,132 +96,43 @@ export class WatchSession {
       child.once("close", (code, signal) => {
         this.exit = { code, signal };
         this.closed = true;
-        for (const listener of this.listeners) listener();
+        this.observation.close();
         resolve();
       });
     });
     child.on("error", (error) => {
       this.startupError = error;
-      for (const listener of this.listeners) listener();
+      this.observation.fail(error);
     });
-    this.label = [
-      "ttsc",
-      ...(options.args ?? []),
-      options.watchFlag ?? "--watch",
-    ].join(" ");
-    const onChunk = (chunk: Buffer): void => {
-      this.output += chunk.toString("utf8");
-      this.builds = (
-        this.output.match(/\[ttsc\] watch build (?:complete|failed)/g) ?? []
-      ).length;
-      this.buildStarts = (
-        this.output.match(/\[ttsc\] rebuilding at /g) ?? []
-      ).length;
-      for (const listener of this.listeners) listener();
-    };
-    stdout.on("data", onChunk);
-    stderr.on("data", onChunk);
+    stdout.on("data", (chunk: Buffer) => this.observation.append(chunk.toString("utf8"), "stdout"));
+    stderr.on("data", (chunk: Buffer) => this.observation.append(chunk.toString("utf8"), "stderr"));
+    stdout.on("error", (error) => this.observation.fail(error));
+    stderr.on("error", (error) => this.observation.fail(error));
   }
 
-  /** Wait until at least `count` build completions have been observed. */
-  public waitForBuilds(count: number, timeout = 120_000): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const finish = (): void => {
-        clearTimeout(timer);
-        this.listeners.delete(check);
-        resolve();
-      };
-      const timer = setTimeout(() => {
-        this.listeners.delete(check);
-        reject(
-          new Error(
-            `${this.label} did not reach ${count} builds:\n${this.output}`,
-          ),
-        );
-      }, timeout);
-      const check = (): void => {
-        if (this.builds >= count) finish();
-        else if (this.startupError !== undefined || this.closed) {
-          clearTimeout(timer);
-          this.listeners.delete(check);
-          reject(
-            this.startupError ??
-              new Error(
-                `${this.label} exited before ${count} builds:\n${this.output}`,
-              ),
-          );
-        }
-      };
-      this.listeners.add(check);
-      check();
-    });
+  /** Wait for actual complete or failed build markers, without an age ceiling. */
+  public waitForBuilds(count: number): Promise<void> {
+    return this.observation.waitForBuilds(count);
   }
 
-  /**
-   * Wait until every started build has completed and none starts for `quiet`
-   * milliseconds, so a rerun queued while a long build ran has run too.
-   */
-  public async waitForSettled(quiet = 2_000, timeout = 300_000): Promise<void> {
-    const deadline = Date.now() + timeout;
-    for (;;) {
-      const starts = this.buildStarts;
-      await new Promise((resolve) => setTimeout(resolve, quiet));
-      this.assertRunning();
-      if (this.buildStarts === starts && this.builds >= starts) return;
-      assert.ok(
-        Date.now() < deadline,
-        `${this.label} never settled:\n${this.output}`,
-      );
-    }
+  /** Await completed cycles and a finite interval with no additional start. */
+  public waitForSettled(quiet = 2_000): Promise<void> {
+    return this.observation.waitForSettled(quiet);
   }
 
-  /** Assert that no additional build lands during a deliberate idle period. */
+  /** Assert no build starts or completes during a deliberate idle interval. */
   public waitForQuiet(duration = 900): Promise<void> {
-    const initialBuilds = this.builds;
-    const initialBuildStarts = this.buildStarts;
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.listeners.delete(check);
-        try {
-          this.assertRunning();
-          resolve();
-        } catch (error) {
-          reject(error);
-        }
-      }, duration);
-      const check = (): void => {
-        if (this.closed || this.startupError !== undefined) {
-          clearTimeout(timer);
-          this.listeners.delete(check);
-          reject(
-            this.startupError ??
-              new Error(
-                `${this.label} exited during quiet observation:\n${this.output}`,
-              ),
-          );
-          return;
-        }
-        if (
-          this.builds === initialBuilds &&
-          this.buildStarts === initialBuildStarts
-        ) {
-          return;
-        }
-        clearTimeout(timer);
-        this.listeners.delete(check);
-        reject(
-          new Error(
-            `${this.label} rebuilt during an idle period:\n${this.output}`,
-          ),
-        );
-      };
-      this.listeners.add(check);
-    });
+    return this.observation.waitForQuiet(duration);
   }
 
   /** Return the combined stdout/stderr transcript observed so far. */
   public transcript(): string {
-    return this.output;
+    return this.observation.transcript();
+  }
+
+  /** Reject an unmet consumer observation on actual session error or close. */
+  public assertRunning(): void {
+    this.observation.assertRunning();
   }
 
   /** Actual launcher/stdio closure result; absent while the session is live. */
@@ -229,7 +146,8 @@ export class WatchSession {
    * Request owning native-session shutdown over IPC and join launcher stdio.
    *
    * A killed launcher alone does not establish descendant closure. Missing or
-   * invalid joined receipts retain tracked inputs even after forced close.
+   * invalid joined receipts retain tracked inputs. An unresolved close stays
+   * pending until the native containing owner adjudicates operator cancellation.
    */
   public close(): Promise<void> {
     return (this.closeOperation ??= this.closeOwnedSession());
@@ -239,7 +157,6 @@ export class WatchSession {
     const id = randomUUID();
     let receipt: number | null | undefined;
     let failure: Error | undefined;
-    let timer: NodeJS.Timeout | undefined;
     const onMessage = (value: unknown): void => {
       if (typeof value !== "object" || value === null) return;
       const message = value as Record<string, unknown>;
@@ -262,7 +179,7 @@ export class WatchSession {
     try {
       if (this.closed || !this.child.connected) {
         failure = new Error(
-          `${this.label} closed without an owning shutdown receipt:\n${this.output}`,
+          `${this.label} closed without an owning shutdown receipt:\n${this.transcript()}`,
         );
       } else {
         try {
@@ -275,45 +192,24 @@ export class WatchSession {
           });
         }
       }
-      timer = setTimeout(() => {
-        failure ??= new Error(
-          `${this.label} did not join shutdown:\n${this.output}`,
-        );
-        try {
-          this.retainInputs(failure);
-        } catch (error) {
-          failure = new Error(
-            `${this.label} could not retain unresolved inputs`,
-            { cause: new AggregateError([failure, error]) },
-          );
-        }
-        try {
-          this.child.kill("SIGKILL");
-        } catch (error) {
-          failure = new Error(
-            `${this.label} could not terminate its launcher`,
-            { cause: new AggregateError([failure, error]) },
-          );
-        }
-      }, 30_000);
-      // Even escalation joins actual close: a timeout never authorizes deleting
-      // inputs that an unproved descendant may still read.
+      // Only the original close event ends this join. Operator cancellation is
+      // owned by the containing native E2E entry, not an elapsed kill deadline.
       await this.closure;
       if (this.startupError !== undefined) failure ??= this.startupError;
       if (receipt === undefined)
         failure ??= new Error(
-          `${this.label} omitted its joined shutdown receipt:\n${this.output}`,
+          `${this.label} omitted its joined shutdown receipt:\n${this.transcript()}`,
         );
-      if (receipt === null && this.builds > 0)
+      if (receipt === null && this.observation.completed() > 0)
         failure ??= new Error(
-          `${this.label} omitted the completed build status:\n${this.output}`,
+          `${this.label} omitted the completed build status:\n${this.transcript()}`,
         );
       if (
         this.child.signalCode !== null ||
         this.child.exitCode !== (receipt ?? 0)
       )
         failure ??= new Error(
-          `${this.label} close disagrees with joined status ${receipt}: code=${this.child.exitCode}, signal=${this.child.signalCode}\n${this.output}`,
+          `${this.label} close disagrees with joined status ${receipt}: code=${this.child.exitCode}, signal=${this.child.signalCode}\n${this.transcript()}`,
         );
       if (failure !== undefined) throw failure;
       this.assertNoUncaughtExit();
@@ -328,7 +224,6 @@ export class WatchSession {
       }
       throw error;
     } finally {
-      if (timer !== undefined) clearTimeout(timer);
       this.child.removeListener("message", onMessage);
     }
   }
@@ -355,33 +250,11 @@ export class WatchSession {
       );
   }
 
-  private assertRunning(): void {
-    if (this.startupError !== undefined) throw this.startupError;
-    assert.equal(
-      this.closed,
-      false,
-      `${this.label} exited during observation:\n${this.output}`,
-    );
-  }
-
   private assertNoUncaughtExit(): void {
     assert.equal(
-      /Uncaught|UnhandledPromiseRejection/.test(this.output),
+      /Uncaught|UnhandledPromiseRejection/.test(this.transcript()),
       false,
-      `ttsc --watch must terminate without an uncaught error:\n${this.output}`,
+      `ttsc --watch must terminate without an uncaught error:\n${this.transcript()}`,
     );
   }
 }
-
-/**
- * How long a watch test waits for an event it has already caused.
- *
- * These tests assert that a notification arrives, never how quickly, so the
- * bound only has to exceed the slowest backend that still works. macOS
- * coalesces FSEvents and delivers them on its own schedule, which under CI load
- * runs well past a few seconds; the same suite already allows two minutes for a
- * build. A generous bound costs a healthy run nothing, because every waiter
- * polls and returns the moment its predicate holds, and it keeps a slow
- * delivery from being reported as a missing one.
- */
-export const WATCH_EVENT_DEADLINE_MS = 30_000;

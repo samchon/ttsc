@@ -31,7 +31,10 @@ export function test_owned_cleanup_failures_survive_catches_and_worker_replies()
     { cancel: new SharedArrayBuffer(4), failures },
     () => {
       assert.throws(
-        () => SourceNativeRetirement.release(() => { throw immediate; }),
+        () =>
+          SourceNativeRetirement.release(() => {
+            throw immediate;
+          }),
         (error) => error === immediate,
       );
       assert.deepEqual(failures, [immediate]);
@@ -39,12 +42,18 @@ export function test_owned_cleanup_failures_survive_catches_and_worker_replies()
       let attempts = 0;
       SourceNativeRetirement.run(scope, () => {
         SourceNativeRetirement.begin("boundary");
-        SourceNativeRetirement.settle("boundary", "unknown", "authored unresolved boundary");
+        SourceNativeRetirement.settle(
+          "boundary",
+          "unknown",
+          "authored unresolved boundary",
+        );
         SourceNativeRetirement.release(() => {
           order.push("first");
           if (++attempts === 1) throw deferred;
         });
-        SourceNativeRetirement.release(() => { order.push("second"); });
+        SourceNativeRetirement.release(() => {
+          order.push("second");
+        });
       });
       assert.deepEqual(order, []);
       assert.throws(
@@ -61,25 +70,38 @@ export function test_owned_cleanup_failures_survive_catches_and_worker_replies()
     },
   );
   const parent: Error[] = [];
-  const aggregate = new AggregateError([immediate, deferred], "worker cleanup refused", { cause: immediate });
+  const aggregate = new AggregateError(
+    [immediate, deferred],
+    "worker cleanup refused",
+    { cause: immediate },
+  );
   const marked = receiveCapabilityFailure(
     { thrown: serializeCompilerError(aggregate), ownershipFailed: true },
     (error) => parent.push(error),
   );
   assert.deepEqual(parent, [marked]);
   assert.ok(marked instanceof AggregateError);
-  assert.deepEqual(marked.errors.map((error: Error) => error.message), [immediate.message, deferred.message]);
+  assert.deepEqual(
+    marked.errors.map((error: Error) => error.message),
+    [immediate.message, deferred.message],
+  );
   assert.equal((marked.cause as Error).message, immediate.message);
   for (const ownershipFailed of [undefined, false]) {
     const ordinary = receiveCapabilityFailure(
-      { thrown: serializeCompilerError(new Error("ordinary discovery refusal")), ownershipFailed },
+      {
+        thrown: serializeCompilerError(new Error("ordinary discovery refusal")),
+        ownershipFailed,
+      },
       (error) => parent.push(error),
     );
     assert.equal(ordinary.message, "ordinary discovery refusal");
     assert.deepEqual(parent, [marked]);
   }
   const abortedCleanup = receiveCapabilityFailure(
-    { thrown: { name: "AbortError", message: "resource cleanup refused" }, ownershipFailed: true },
+    {
+      thrown: { name: "AbortError", message: "resource cleanup refused" },
+      ownershipFailed: true,
+    },
     (error) => parent.push(error),
   );
   assert.equal(abortedCleanup.name, "AbortError");

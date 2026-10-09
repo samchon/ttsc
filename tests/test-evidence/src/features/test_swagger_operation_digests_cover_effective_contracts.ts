@@ -53,7 +53,11 @@ export async function test_swagger_operation_digests_cover_effective_contracts()
     paths: {
       "/a": { get: operation },
       "/isolated": {
-        get: { ...structuredClone(operation), servers: [{ url: "/isolated" }], security: [] },
+        get: {
+          ...structuredClone(operation),
+          servers: [{ url: "/isolated" }],
+          security: [],
+        },
       },
     },
   };
@@ -63,38 +67,122 @@ export async function test_swagger_operation_digests_cover_effective_contracts()
     edit(document);
     variants[name] = document;
   };
-  variant("root-server", (d) => { d.servers[0].url = "https://two.invalid"; });
-  variant("server-variable", (d) => { d.servers[0].variables = { region: { default: "east" } }; });
-  variant("used-scheme", (d) => { d.components.securitySchemes.Key.name = "X-Other"; });
-  variant("unused-scheme", (d) => { d.components.securitySchemes.OAuth.flows.clientCredentials.tokenUrl = "https://other.invalid"; });
-  variant("root-empty-security", (d) => { d.security = []; });
-  variant("explicit", (d) => { d.paths["/a"].get.servers = servers; d.paths["/a"].get.security = security; });
-  variant("path-equivalent", (d) => { d.paths["/a"].servers = servers; });
-  variant("path-override", (d) => { d.paths["/a"].servers = [{ url: "/path" }]; });
-  variant("operation-wins", (d) => { d.paths["/a"].servers = [{ url: "/path" }]; d.paths["/a"].get.servers = servers; });
-  variant("operation-empty", (d) => { d.paths["/a"].get.security = []; });
-  variant("anonymous", (d) => { d.paths["/a"].get.security = [{}, { Key: [] }]; });
-  variant("or", (d) => { d.paths["/a"].get.security = [{ OAuth: ["read", "write"] }, { Key: [] }]; });
-  variant("or-reordered", (d) => { d.paths["/a"].get.security = [{ Key: [] }, { OAuth: ["write", "read"] }]; });
-  variant("or-duplicate", (d) => { d.paths["/a"].get.security = [{ Key: [] }, { OAuth: ["write", "read", "read"] }, { Key: [] }]; });
-  variant("and", (d) => { d.paths["/a"].get.security = [{ Key: [], OAuth: ["read", "write"] }]; });
-  variant("scope-change", (d) => { d.paths["/a"].get.security = [{ OAuth: ["read"] }, { Key: [] }]; });
-  variant("used-oauth", (d) => { d.paths["/a"].get.security = variants.or.paths["/a"].get.security; d.components.securitySchemes.OAuth.flows.clientCredentials.tokenUrl = "https://changed.invalid"; });
-  variant("anonymous-reordered", (d) => { d.paths["/a"].get.security = [{ Key: [] }, {}]; });
-  variant("servers-ordered", (d) => { d.paths["/a"].get.servers = [{ url: "/one" }, { url: "/two" }]; });
-  variant("servers-reversed", (d) => { d.paths["/a"].get.servers = [{ url: "/two" }, { url: "/one" }]; });
-  variant("literal", (d) => { d.paths["/a"].get.responses["200"].content = { "application/json": { example: [1, 2] } }; });
-  variant("literal-reversed", (d) => { d.paths["/a"].get.responses["200"].content = { "application/json": { example: [2, 1] } }; });
-  variant("absent-servers", (d) => { delete d.servers; });
-  variant("empty-servers", (d) => { d.servers = []; });
-  variant("default-servers", (d) => { d.servers = [{ url: "/" }]; });
-  variant("no-security", (d) => { delete d.security; });
-  variant("version-3.1", (d) => { d.openapi = "3.1.0"; });
-  variant("version-3.2", (d) => { d.openapi = "3.2.0"; });
-  variant("path-empty-servers", (d) => { d.paths["/a"].servers = []; });
-  variant("operation-empty-servers", (d) => { d.paths["/a"].servers = [{ url: "/path" }]; d.paths["/a"].get.servers = []; });
-  variant("scheme-extension", (d) => { d.components.securitySchemes.Key["x-example"] = { $ref: "#/components/schemas/Example" }; d.components.schemas = { Example: { type: "string" } }; });
-  variant("scheme-extension-unrelated", (d) => { d.components.securitySchemes.Key["x-example"] = { $ref: "#/components/schemas/Example" }; d.components.schemas = { Example: { type: "number" } }; });
+  variant("root-server", (d) => {
+    d.servers[0].url = "https://two.invalid";
+  });
+  variant("server-variable", (d) => {
+    d.servers[0].variables = { region: { default: "east" } };
+  });
+  variant("used-scheme", (d) => {
+    d.components.securitySchemes.Key.name = "X-Other";
+  });
+  variant("unused-scheme", (d) => {
+    d.components.securitySchemes.OAuth.flows.clientCredentials.tokenUrl =
+      "https://other.invalid";
+  });
+  variant("root-empty-security", (d) => {
+    d.security = [];
+  });
+  variant("explicit", (d) => {
+    d.paths["/a"].get.servers = servers;
+    d.paths["/a"].get.security = security;
+  });
+  variant("path-equivalent", (d) => {
+    d.paths["/a"].servers = servers;
+  });
+  variant("path-override", (d) => {
+    d.paths["/a"].servers = [{ url: "/path" }];
+  });
+  variant("operation-wins", (d) => {
+    d.paths["/a"].servers = [{ url: "/path" }];
+    d.paths["/a"].get.servers = servers;
+  });
+  variant("operation-empty", (d) => {
+    d.paths["/a"].get.security = [];
+  });
+  variant("anonymous", (d) => {
+    d.paths["/a"].get.security = [{}, { Key: [] }];
+  });
+  variant("or", (d) => {
+    d.paths["/a"].get.security = [{ OAuth: ["read", "write"] }, { Key: [] }];
+  });
+  variant("or-reordered", (d) => {
+    d.paths["/a"].get.security = [{ Key: [] }, { OAuth: ["write", "read"] }];
+  });
+  variant("or-duplicate", (d) => {
+    d.paths["/a"].get.security = [
+      { Key: [] },
+      { OAuth: ["write", "read", "read"] },
+      { Key: [] },
+    ];
+  });
+  variant("and", (d) => {
+    d.paths["/a"].get.security = [{ Key: [], OAuth: ["read", "write"] }];
+  });
+  variant("scope-change", (d) => {
+    d.paths["/a"].get.security = [{ OAuth: ["read"] }, { Key: [] }];
+  });
+  variant("used-oauth", (d) => {
+    d.paths["/a"].get.security = variants.or.paths["/a"].get.security;
+    d.components.securitySchemes.OAuth.flows.clientCredentials.tokenUrl =
+      "https://changed.invalid";
+  });
+  variant("anonymous-reordered", (d) => {
+    d.paths["/a"].get.security = [{ Key: [] }, {}];
+  });
+  variant("servers-ordered", (d) => {
+    d.paths["/a"].get.servers = [{ url: "/one" }, { url: "/two" }];
+  });
+  variant("servers-reversed", (d) => {
+    d.paths["/a"].get.servers = [{ url: "/two" }, { url: "/one" }];
+  });
+  variant("literal", (d) => {
+    d.paths["/a"].get.responses["200"].content = {
+      "application/json": { example: [1, 2] },
+    };
+  });
+  variant("literal-reversed", (d) => {
+    d.paths["/a"].get.responses["200"].content = {
+      "application/json": { example: [2, 1] },
+    };
+  });
+  variant("absent-servers", (d) => {
+    delete d.servers;
+  });
+  variant("empty-servers", (d) => {
+    d.servers = [];
+  });
+  variant("default-servers", (d) => {
+    d.servers = [{ url: "/" }];
+  });
+  variant("no-security", (d) => {
+    delete d.security;
+  });
+  variant("version-3.1", (d) => {
+    d.openapi = "3.1.0";
+  });
+  variant("version-3.2", (d) => {
+    d.openapi = "3.2.0";
+  });
+  variant("path-empty-servers", (d) => {
+    d.paths["/a"].servers = [];
+  });
+  variant("operation-empty-servers", (d) => {
+    d.paths["/a"].servers = [{ url: "/path" }];
+    d.paths["/a"].get.servers = [];
+  });
+  variant("scheme-extension", (d) => {
+    d.components.securitySchemes.Key["x-example"] = {
+      $ref: "#/components/schemas/Example",
+    };
+    d.components.schemas = { Example: { type: "string" } };
+  });
+  variant("scheme-extension-unrelated", (d) => {
+    d.components.securitySchemes.Key["x-example"] = {
+      $ref: "#/components/schemas/Example",
+    };
+    d.components.schemas = { Example: { type: "number" } };
+  });
   // Swagger 2 has document host/schemes rather than per-operation servers.
   // Keep its group separate: changing that host necessarily reaches siblings.
   const swagger2 = {
@@ -112,12 +200,24 @@ export async function test_swagger_operation_digests_cover_effective_contracts()
   };
   variants["v2-baseline"] = swagger2;
   for (const [name, edit] of Object.entries({
-    host: (d: any) => { d.host = "two.invalid"; },
-    scheme: (d: any) => { d.schemes = ["http"]; },
-    used: (d: any) => { d.securityDefinitions.Key.name = "X-Other"; },
-    unused: (d: any) => { d.securityDefinitions.Unused.name = "X-Other"; },
-    explicit: (d: any) => { d.paths["/a"].get.security = [{ Key: [] }]; },
-    empty: (d: any) => { d.paths["/a"].get.security = []; },
+    host: (d: any) => {
+      d.host = "two.invalid";
+    },
+    scheme: (d: any) => {
+      d.schemes = ["http"];
+    },
+    used: (d: any) => {
+      d.securityDefinitions.Key.name = "X-Other";
+    },
+    unused: (d: any) => {
+      d.securityDefinitions.Unused.name = "X-Other";
+    },
+    explicit: (d: any) => {
+      d.paths["/a"].get.security = [{ Key: [] }];
+    },
+    empty: (d: any) => {
+      d.paths["/a"].get.security = [];
+    },
   })) {
     const document = structuredClone(swagger2);
     edit(document);
@@ -125,27 +225,67 @@ export async function test_swagger_operation_digests_cover_effective_contracts()
   }
   const failures: unknown[] = [];
   const check = (name: string, run: () => void): void => {
-    try { run(); } catch (cause) { failures.push(new Error(name, { cause })); }
+    try {
+      run();
+    } catch (cause) {
+      failures.push(new Error(name, { cause }));
+    }
   };
   try {
-    await Promise.all(Object.entries(variants).map(([name, value]) =>
-      fs.writeFile(path.join(root, `${name}.json`), JSON.stringify(value)),
-    ));
-    const loaded = await loadSwaggerOperations({ root, sources: Object.keys(variants).map((name) => `${name}.json`) });
-    check("every variant normalizes", () => assert.deepEqual(loaded.problems, []));
+    await Promise.all(
+      Object.entries(variants).map(([name, value]) =>
+        fs.writeFile(path.join(root, `${name}.json`), JSON.stringify(value)),
+      ),
+    );
+    const loaded = await loadSwaggerOperations({
+      root,
+      sources: Object.keys(variants).map((name) => `${name}.json`),
+    });
+    check("every variant normalizes", () =>
+      assert.deepEqual(loaded.problems, []),
+    );
     const digests = new Map<string, Map<string, string>>();
     for (const document of loaded.documents)
-      digests.set(document.source.replace(/\.json$/u, ""), new Map(document.operations.map((o: { path: string; digest: string }) => [o.path, o.digest])));
+      digests.set(
+        document.source.replace(/\.json$/u, ""),
+        new Map(
+          document.operations.map((o: { path: string; digest: string }) => [
+            o.path,
+            o.digest,
+          ]),
+        ),
+      );
     const get = (name: string, target = "/a"): string => {
       const digest = digests.get(name)?.get(target);
-      assert.match(digest ?? "", /^[0-9a-f]{64}$/u, `${name} ${target} is present`);
+      assert.match(
+        digest ?? "",
+        /^[0-9a-f]{64}$/u,
+        `${name} ${target} is present`,
+      );
       return digest!;
     };
     const compare = (left: string, right: string, equal: boolean): void =>
-      check(`${left} versus ${right}`, () => equal ? assert.equal(get(left), get(right)) : assert.notEqual(get(left), get(right)));
-    for (const name of ["root-server", "server-variable", "used-scheme", "root-empty-security", "path-override", "operation-empty", "anonymous"])
+      check(`${left} versus ${right}`, () =>
+        equal
+          ? assert.equal(get(left), get(right))
+          : assert.notEqual(get(left), get(right)),
+      );
+    for (const name of [
+      "root-server",
+      "server-variable",
+      "used-scheme",
+      "root-empty-security",
+      "path-override",
+      "operation-empty",
+      "anonymous",
+    ])
       compare(name, "baseline", false);
-    for (const name of ["unused-scheme", "explicit", "path-equivalent", "operation-wins"])
+    for (const name of [
+      "unused-scheme",
+      "explicit",
+      "path-equivalent",
+      "operation-wins",
+    ])
       compare(name, "baseline", true);
     compare("operation-empty", "root-empty-security", true);
     compare("no-security", "root-empty-security", true);
@@ -169,8 +309,12 @@ export async function test_swagger_operation_digests_cover_effective_contracts()
       compare(`v2-${name}`, "v2-baseline", false);
     for (const name of ["unused", "explicit"])
       compare(`v2-${name}`, "v2-baseline", true);
-    for (const name of Object.keys(variants).filter((name) => !name.startsWith("v2-")))
-      check(`${name} isolated sibling`, () => assert.equal(get(name, "/isolated"), get("baseline", "/isolated")));
+    for (const name of Object.keys(variants).filter(
+      (name) => !name.startsWith("v2-"),
+    ))
+      check(`${name} isolated sibling`, () =>
+        assert.equal(get(name, "/isolated"), get("baseline", "/isolated")),
+      );
   } catch (cause) {
     failures.push(cause);
   } finally {
@@ -180,5 +324,6 @@ export async function test_swagger_operation_digests_cover_effective_contracts()
       failures.push(new Error("temporary input cleanup", { cause }));
     }
   }
-  if (failures.length) throw new AggregateError(failures, "Effective Swagger contracts failed");
+  if (failures.length)
+    throw new AggregateError(failures, "Effective Swagger contracts failed");
 }

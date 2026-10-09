@@ -4,6 +4,7 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { normalizeCompilerEnumValue } from "../../flags/normalizeCompilerEnumValue";
 import { readCompilerOptionValues } from "../../flags/readCompilerOptionValues";
 import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysicalPath";
+import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 
 /**
  * Resolves the only file that positional `ttsc <source>` can materialize in the
@@ -12,15 +13,18 @@ import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysical
  * The compiler itself emits into a private temporary directory. The launcher
  * then copies one transformed JavaScript file to this path, so project-mode
  * declaration, map, build-info, outFile, and broad outDir products are not
- * positional outputs. Forwarded JSX uses the supplied native argv frames and
- * does not expand response-file requests in this placement helper. CLI enum
+ * positional outputs. Explicit output mirrors cwd for contained sources and
+ * uses the source basename for outside-layout or different-volume sources.
+ * A supplied invocation project owns placement without
+ * resolving the original locator again. Forwarded JSX uses the supplied native
+ * argv frames and does not expand response-file requests here. CLI enum
  * normalization; an explicit reset selects the default suffix instead of
  * reviving the configured JSX. Placement-setting read failures use the
  * no-project fallback; that fallback does not certify a successful build or
  * valid configuration. Physical spelling is a current native observation, not a
  * pinned filesystem object.
  *
- * @evidence contracts/common.md#principled-implementation CLI output wins over project output, supported source extensions choose the emitted suffix, and physical root/file relation preserves project layout through links when the file is contained.
+ * @evidence contracts/common.md#principled-implementation CLI output wins over the selected project output; a contained cwd-relative source mirrors its layout while an outside-layout or cross-volume source uses its basename inside that explicit root. Supported extensions choose the emitted suffix, and physical root/file relation preserves configured project layout through links.
  * @evidence contracts/common.md#clear-and-simple-design Output placement delegates project settings and isolates containment, extension and forwarded-option readers; it does not materialize compiler side products.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Basename placement for files outside the project root is a supported positional-output rule; no fixture path or transformed-content special case decides the destination.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish the one copied JavaScript artifact from private build products; the physical-path comment explains why lexical aliases are insufficient.
@@ -29,14 +33,17 @@ import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysical
  * @evidence contracts/performance.md#efficient-algorithms Placement delegates project/config-chain discovery/parsing, forwarded argv-frame/scalar selection and optional physical identity resolution, including native case-query costs. The frame reader retains response requests as data without opening them. Path/extension work also processes string bytes; fixed outer branch count does not bound those input scans or IO latency.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This planner computes current placement and keeps no cross-call result memo. Project/config/argv/identity owners define any delegated reuse; mutable native observations cannot be certified by caching this path alone.
  */
-export function resolveSingleFileOutput(options: {
-  cliOutDir?: string;
-  cwd: string;
-  file: string;
-  passthrough?: readonly string[];
-  tsconfig?: string;
-}): string {
-  const project = readProjectSettings(options);
+export function resolveSingleFileOutput(
+  options: {
+    cliOutDir?: string;
+    cwd: string;
+    file: string;
+    passthrough?: readonly string[];
+    tsconfig?: string;
+  },
+  selectedProject?: ITtscParsedProjectConfig,
+): string {
+  const project = readProjectSettings(options, selectedProject);
   const forwarded = readCompilerOptionValues(options.passthrough).values;
   const rawJsx = forwarded.has("jsx") ? forwarded.get("jsx") : project?.jsx;
   const extension = singleFileJavaScriptExtension(
@@ -49,9 +56,10 @@ export function resolveSingleFileOutput(options: {
 
   if (options.cliOutDir) {
     const relative = path.relative(options.cwd, options.file);
-    const jsRelative =
-      relative.slice(0, relative.length - path.extname(relative).length) +
-      extension;
+    const jsRelative = isOutsideSingleFileLayout(relative)
+      ? jsBasename
+      : relative.slice(0, relative.length - path.extname(relative).length) +
+        extension;
     return path.resolve(options.cwd, options.cliOutDir, jsRelative);
   }
 
@@ -76,17 +84,18 @@ export function resolveSingleFileOutput(options: {
   return options.file.replace(/\.(?:[cm]?tsx?|jsx)$/i, extension);
 }
 
-function readProjectSettings(options: {
-  cwd: string;
-  file: string;
-  tsconfig?: string;
-}): { jsx?: string; outDir?: string; rootDir: string } | null {
+function readProjectSettings(
+  options: { cwd: string; file: string; tsconfig?: string },
+  selectedProject?: ITtscParsedProjectConfig,
+): { jsx?: string; outDir?: string; rootDir: string } | null {
   try {
-    const project = readProjectConfig({
-      cwd: options.cwd,
-      file: options.file,
-      tsconfig: options.tsconfig,
-    });
+    const project =
+      selectedProject ??
+      readProjectConfig({
+        cwd: options.cwd,
+        file: options.file,
+        tsconfig: options.tsconfig,
+      });
     const outDir = project.compilerOptions.outDir;
     const rawRoot = project.compilerOptions.rootDir;
     const rootDir =

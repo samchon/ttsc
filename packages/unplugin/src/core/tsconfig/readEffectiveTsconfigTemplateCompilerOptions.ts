@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
 import { CONFIG_DIR_TEMPLATE_LIST_OPTIONS } from "./CONFIG_DIR_TEMPLATE_LIST_OPTIONS";
 import { CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS } from "./CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS";
 import { absolutizePathsTarget } from "./absolutizePathsTarget";
@@ -41,13 +42,14 @@ import { startsWithConfigDirTemplate } from "./startsWithConfigDirTemplate";
  *   JSDoc explains final-consumer template ownership and why ordinary inherited
  *   paths stay untouched, with the configDir argument's spelling stated.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Fixed option groups perform independent inheritance selections with shared
- *   source decoding. Work follows visited config occurrences/depths and mapping,
+ *   Fixed option groups share lexical source, identity and extends observations.
+ *   Memoized selections follow nodes and ancestry contexts, with subtree-volume
+ *   source/identity witness work; output follows mapping,
  *   list and target lengths; mixed lists retain all entries when materialized.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   One call shares decoded sources across scalar, list and paths searches.
- *   Lexical declaring contexts and physical branch guards remain independent;
- *   every subsequent call starts a fresh map to observe changed configuration.
+ *   One call shares graph observations across scalar, list and paths searches.
+ *   Query-local values require matching physical ancestry intersections; every
+ *   subsequent call starts a fresh owner to observe changed configuration.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Its output is local and handed to the caller.
  */
@@ -56,7 +58,7 @@ export function readEffectiveTsconfigTemplateCompilerOptions(
   configDir: string = path.dirname(path.resolve(tsconfig)),
 ): Record<string, unknown> {
   const resolved = path.resolve(tsconfig);
-  const configs = new Map<string, unknown>();
+  const configs = new TsconfigReadTransaction();
   const output: Record<string, unknown> = {};
   for (const key of CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS) {
     const declared = findDeclaredCompilerOption(resolved, key, configs);

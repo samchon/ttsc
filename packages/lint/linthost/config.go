@@ -387,6 +387,7 @@ func resolvedRuleOptionsVariants(resolver RuleResolver, name string) []json.RawM
 type boundProjectRuleResolver struct {
   RuleResolver
   settings map[string]ProjectRuleSetting
+  patterns *userPatternCache
 }
 
 func bindProjectRuleResolver(resolver RuleResolver) (RuleResolver, error) {
@@ -397,7 +398,11 @@ func bindProjectRuleResolver(resolver RuleResolver) (RuleResolver, error) {
   if err != nil {
     return nil, err
   }
-  return boundProjectRuleResolver{RuleResolver: resolver, settings: settings}, nil
+  return boundProjectRuleResolver{
+    RuleResolver: resolver,
+    settings:     settings,
+    patterns:     patternCacheForResolver(resolver),
+  }, nil
 }
 
 func (r boundProjectRuleResolver) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
@@ -719,6 +724,8 @@ func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]Proj
 // Extends-target entries precede the extending file's entries so local rules
 // win on collision; format settings join the same scoped rule entry.
 // Duplicate aliases within one rules object are rejected before entries are stored.
+// Parsed stores share an option-regex cache through a pointer, so read-only
+// value copies preserve reuse without copying synchronization state.
 //
 // @evidence contracts/common.md#principled-implementation Ordered entries preserve extends precedence and matching-file ownership of severities and options; global-ignore entries distinguish whole-file exclusion from local selection.
 // @evidence contracts/common.md#clear-and-simple-design Parsed entries are the policy source of truth, while paths and fingerprints separately carry watch and resident-cache provenance.
@@ -729,6 +736,7 @@ func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]Proj
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ConfigStore is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ConfigStore is a declaration of data shape; the code that holds its values owns their lifetime.
 type ConfigStore struct {
+  patterns          *userPatternCache
   cacheDependencies []configDependencyFingerprint
   cacheFiles        []string
   directories       []string
@@ -1264,7 +1272,10 @@ func collectConfigStoreWithin(
   rootPath string,
   resolutionRoot string,
 ) (*ConfigStore, error) {
-  store := &ConfigStore{resolutionRoot: filepath.Clean(resolutionRoot)}
+  store := &ConfigStore{
+    patterns:       &userPatternCache{},
+    resolutionRoot: filepath.Clean(resolutionRoot),
+  }
   var chain []string
   if rootPath != "" {
     rootPath = filepath.Clean(rootPath)
@@ -5934,146 +5945,6 @@ func normalizeGlobPattern(pattern string) string {
     return "**/" + pattern
   }
   return pattern
-}
-
-// matchGlob tests whether `name` matches `pattern` using the ESLint-compatible
-// glob semantics implemented by matchGlobParts. Both strings are trimmed of
-// leading/trailing slashes before splitting on "/" so that empty segments do
-// not appear in the part slices. Brace alternatives (`{a,b,c}`) are expanded
-// before matching so patterns like `src/foo/{a.ts,b.ts}` reach every branch —
-// Go's `filepath.Match` does not honor brace expansion natively.
-func matchGlob(pattern, name string) bool {
-  pattern = strings.Trim(pattern, "/")
-  name = strings.Trim(name, "/")
-  if pattern == "" {
-    return name == ""
-  }
-  nameParts := []string{}
-  if name != "" {
-    nameParts = strings.Split(name, "/")
-  }
-  for _, expanded := range expandBraces(pattern) {
-    if matchGlobParts(strings.Split(expanded, "/"), nameParts) {
-      return true
-    }
-  }
-  return false
-}
-
-// expandBraces expands shell-style brace alternatives (`{a,b,c}`) in `pattern`
-// into the equivalent flat list of patterns. The expansion is recursive: a
-// pattern with multiple brace groups produces the Cartesian product across all
-// groups. Patterns with no braces, or with an unmatched opening `{`, are
-// returned unchanged so that callers can treat the result as an authoritative
-// list of every concrete alternative the user wrote.
-//
-// Only top-level braces are recognized; nested braces inside another brace
-// group's alternative are honored by the recursion in alternative expansion,
-// but escaped braces (`\{`, `\}`) are not currently supported because lint
-// config patterns have no reason to embed literal braces. If a user ever needs
-// one, the simplest workaround is to author the glob without the brace group.
-func expandBraces(pattern string) []string {
-  open := strings.IndexByte(pattern, '{')
-  if open < 0 {
-    return []string{pattern}
-  }
-  // Find the matching close brace, accounting for nested groups so the
-  // outermost group is split first. A pattern with no matching close brace
-  // is treated as a literal — return it unchanged. `closeIdx` shadows no
-  // builtin (unlike the natural `close` name), which keeps `go vet` quiet.
-  depth := 0
-  closeIdx := -1
-  for i := open; i < len(pattern); i++ {
-    switch pattern[i] {
-    case '{':
-      depth++
-    case '}':
-      depth--
-      if depth == 0 {
-        closeIdx = i
-      }
-    }
-    if closeIdx >= 0 {
-      break
-    }
-  }
-  if closeIdx < 0 {
-    return []string{pattern}
-  }
-  prefix := pattern[:open]
-  suffix := pattern[closeIdx+1:]
-  // Split the brace body on top-level commas so nested groups remain
-  // intact for the recursive expansion below.
-  body := pattern[open+1 : closeIdx]
-  alternatives := splitBraceAlternatives(body)
-  // Expand each alternative against the suffix; the suffix may itself
-  // contain further brace groups, which the recursive call handles.
-  suffixExpansions := expandBraces(suffix)
-  out := make([]string, 0, len(alternatives)*len(suffixExpansions))
-  for _, alt := range alternatives {
-    for _, altExpanded := range expandBraces(alt) {
-      for _, suf := range suffixExpansions {
-        out = append(out, prefix+altExpanded+suf)
-      }
-    }
-  }
-  return out
-}
-
-// splitBraceAlternatives splits the body of a brace group on top-level commas.
-// Commas inside a nested `{...}` are not separators — the matching close brace
-// is tracked so `a,{b,c},d` splits into three alternatives, not four.
-func splitBraceAlternatives(body string) []string {
-  out := []string{}
-  depth := 0
-  start := 0
-  for i := 0; i < len(body); i++ {
-    switch body[i] {
-    case '{':
-      depth++
-    case '}':
-      if depth > 0 {
-        depth--
-      }
-    case ',':
-      if depth == 0 {
-        out = append(out, body[start:i])
-        start = i + 1
-      }
-    }
-  }
-  out = append(out, body[start:])
-  return out
-}
-
-// matchGlobParts recursively matches path segments against pattern segments.
-// A "**" segment matches zero or more path segments (greedy: tries zero first,
-// then each successive prefix) so that `**/*.ts` matches both `a.ts` and
-// `dir/a.ts`.
-func matchGlobParts(patternParts, nameParts []string) bool {
-  if len(patternParts) == 0 {
-    return len(nameParts) == 0
-  }
-  head := patternParts[0]
-  if head == "**" {
-    if matchGlobParts(patternParts[1:], nameParts) {
-      return true
-    }
-    for i := range nameParts {
-      if matchGlobParts(patternParts[1:], nameParts[i+1:]) {
-        return true
-      }
-    }
-    return false
-  }
-  if len(nameParts) == 0 {
-    return false
-  }
-  ok, err := filepath.Match(head, nameParts[0])
-  if err != nil || !ok {
-    return false
-  }
-  return matchGlobParts(patternParts[1:], nameParts[1:])
 }
 
 // Severity returns the configured level for a rule, defaulting to

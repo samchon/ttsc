@@ -48,4 +48,5 @@ export { mergeMembershipPolicyOverlay } from "./tsconfig/mergeMembershipPolicyOv
 export { readProjectMembershipPolicy } from "./tsconfig/readProjectMembershipPolicy";
 export { readTsconfigSourceSnapshot } from "./tsconfig/readTsconfigSourceSnapshot";
 export { searchedReferencedProjects } from "./tsconfig/searchedReferencedProjects";
+export { selectReferencedProject } from "./tsconfig/selectReferencedProject";
 export { unplugin, unplugin as default } from "./unplugin";

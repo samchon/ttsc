@@ -23,6 +23,10 @@
  *   files and directories, rather than reconstructing an earlier baseline after
  *   workers have run.
  *
+ * Native contributor codecs retain separate per-path kind requests; their raw
+ * byte, entry and directory facts are captured anew for the next key. Schema
+ * four snapshots cannot establish those requests and restart with a fresh epoch.
+ *
  * Snapshot layout: one main file carrying a random epoch id plus per-worker
  * files with unique names, so concurrent workers never race a shared write.
  * `withTtsc` compacts worker files into the main file before its workers exist,
@@ -68,6 +72,7 @@ import {
   readProjectMembershipPolicy,
   readTsconfigSourceSnapshot,
   searchedReferencedProjects,
+  selectReferencedProject,
   watchInputEvidenceMatchesBaseline,
 } from "@ttsc/unplugin/api";
 import type {
@@ -85,7 +90,7 @@ import type { SnapshotReadOperations } from "./SnapshotReadOperations";
 import type { TtscMetroProjectView } from "./TtscMetroProjectView";
 
 /** Bumped when the snapshot JSON shape changes; mismatches read as corrupt. */
-const SNAPSHOT_VERSION = 4;
+const SNAPSHOT_VERSION = 5;
 
 /** Snapshot directory segments under the fingerprint base directory. */
 const SNAPSHOT_DIRECTORY = ["node_modules", ".cache", "ttsc-metro"];
@@ -128,8 +133,15 @@ const KEY_BASELINE_PREFIX = "key-baseline-";
 /** Run-token prefix that forces every transformer key to be non-reusable. */
 const NON_REUSABLE_RUN_PREFIX = "nonce:";
 
+/** Requested native codecs, separate from compiler-accessible entry listings. */
+type NativeInputKind = keyof NonNullable<
+  TtscWatchInputBaseline["nativePredicates"]
+>;
+
 /** Union of the snapshot state readable on disk. */
 interface SnapshotState {
+  /** Native version-one kinds to observe again for each recorded path. */
+  nativePredicates: Record<string, NativeInputKind[]>;
   /** Paths whose compiler-visible immediate entry listings affect output. */
   accessibleEntries: string[];
 
@@ -154,6 +166,8 @@ interface SnapshotState {
 
 /** Serialized shape of the main and worker snapshot files. */
 interface SnapshotDocument {
+  /** Native kind requests, each path also retained in files. */
+  nativePredicates: Record<string, NativeInputKind[]>;
   /** Recorded listing predicates, each also present in files. */
   accessibleEntries: string[];
 
@@ -347,14 +361,17 @@ interface TtscMetroFingerprintProjectMap {
 /**
  * Resolve one transform's project view, once, for every watch input it reports.
  *
- * Discovery and membership policy are resolved once per delivered module and
- * shared by its recorder batch. The policy is read from source rather than
- * trusting a cached mtime/size observation, which could miss same-stamp edits.
+ * Discovery, referenced-project selection and membership policy are resolved
+ * once per delivered module and shared by its recorder batch. The policy is
+ * read from source rather than trusting a cached mtime/size observation, which
+ * could miss same-stamp edits.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Shared project discovery and membership-policy APIs select the same config
- *   as the transform core, retaining positive and negative discovery
- *   predicates. Compiler-option overlays are merged through that owner.
+ *   Shared project discovery, reference selection and membership-policy APIs
+ *   select the same config as the transform core, retaining positive and
+ *   negative discovery predicates. Consulted routing configs retain current
+ *   content, since their references or admission rules can change the owner.
+ *   Compiler-option overlays are merged through that owner.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   Selection records the predicates that chose the project, then one
@@ -362,10 +379,12 @@ interface TtscMetroFingerprintProjectMap {
  *   in the module's recorder batch.
  *
  * @evidence contracts/performance.md#efficient-algorithms
- *   Discovery follows the ancestor candidates and config ancestry; the
+ *   Discovery follows the ancestor candidates and reference graph; the
  *   resulting policy and roots are assembled once for the delivered module.
- *   Each candidate gets one captured predicate rather than recorder-time
- *   rediscovery for every derived input.
+ *   Candidate predicates and consulted config content are captured once for
+ *   this view, with a lexical-key map merging their overlapping paths in
+ *   linear map operations. Capturing content performs the shared baseline's
+ *   two observations and scales with the consulted config bytes.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   The returned view is reused by the module's recorder batch; its selected
@@ -411,10 +430,15 @@ export function resolveProjectView(props: {
     explicitProject === undefined
       ? discoverNearestProjectTsconfig(start, props.projectDiscoveryFilesystem)
       : undefined;
-  const tsconfig =
+  const nearest =
     discovery === undefined
       ? resolveProjectTsconfig(start, explicitProject)
       : (discovery.file ?? path.resolve(process.cwd(), "tsconfig.json"));
+  const selection =
+    explicitProject === undefined && props.filename !== undefined
+      ? selectReferencedProject(path.resolve(props.filename), nearest)
+      : { consulted: [], tsconfig: nearest };
+  const tsconfig = selection.tsconfig;
   const discoveryInputs =
     discovery === undefined
       ? [captureProjectDiscoveryInput(tsconfig)]
@@ -423,6 +447,32 @@ export function resolveProjectView(props: {
         );
   if (!discoveryInputs.some((input) => samePath(input.file, tsconfig))) {
     discoveryInputs.push(captureProjectDiscoveryInput(tsconfig));
+  }
+  const discoveryIndexes = new Map(
+    discoveryInputs.map((input, index) => [snapshotPathKey(input.file), index]),
+  );
+  for (const config of selection.consulted) {
+    const baseline = captureWatchInputBaseline(config);
+    const input: TtscWatchInput =
+      baseline === undefined
+        ? { file: config }
+        : {
+            evidence: {
+              identity: baseline.identity,
+              missing: !baseline.fileExists,
+              state: { codec: "host", hash: baseline.hostHash },
+              ...(!baseline.fileExists
+                ? { unavailable: "missing" as const }
+                : {}),
+            },
+            file: config,
+          };
+    const key = snapshotPathKey(config);
+    const index = discoveryIndexes.get(key);
+    if (index === undefined) {
+      discoveryIndexes.set(key, discoveryInputs.length);
+      discoveryInputs.push(input);
+    } else discoveryInputs[index] = input;
   }
   return createProjectView({
     base,
@@ -882,6 +932,7 @@ function observeProjectFingerprint(props: {
       identity: string;
       tree?: string | null;
       accessibleEntries?: TtscWatchInputBaseline["accessibleEntries"];
+      nativePredicates?: TtscWatchInputBaseline["nativePredicates"];
     }
   > = {};
   for (const file of snapshot.files) {
@@ -891,6 +942,7 @@ function observeProjectFingerprint(props: {
       undefined,
       trees.has(file),
       accessibleEntries.has(file),
+      snapshot.nativePredicates[file],
     );
     recorded[snapshotPathKey(file)] = {
       hash: baseline.hostHash,
@@ -899,6 +951,9 @@ function observeProjectFingerprint(props: {
       ...(baseline.accessibleEntries === undefined
         ? {}
         : { accessibleEntries: baseline.accessibleEntries }),
+      ...(baseline.nativePredicates === undefined
+        ? {}
+        : { nativePredicates: baseline.nativePredicates }),
     };
   }
   return {
@@ -918,7 +973,10 @@ function observeProjectFingerprint(props: {
  * Add one lexical path's stable broad state to a key baseline, with its plugin
  * source state when it was recorded as a plugin source directory (`tree`).
  * Recorded listing predicates request exact immediate accessible entries; these
- * optional payloads merge only after their shared broad state agrees.
+ * optional payloads merge only after their shared broad state agrees. Native
+ * kind requests capture the raw producer codec independently of those listings.
+ * The returned state includes every payload already observed at the same key,
+ * so a later alias cannot erase an earlier payload from the fingerprint.
  */
 function addBaselineInput(
   inputs: Record<string, TtscWatchInputKeyBaseline>,
@@ -926,30 +984,41 @@ function addBaselineInput(
   staticInputs?: Set<string>,
   tree = false,
   accessibleEntries = false,
+  nativePredicates?: readonly NativeInputKind[],
 ): TtscWatchInputBaseline {
   const key = snapshotPathKey(file);
   const observed = captureWatchInputBaseline(file, undefined, {
     tree,
     accessibleEntries,
+    nativePredicates,
   });
   if (observed === undefined) {
     throw new Error("Unable to read a stable Metro input baseline.");
   }
   const existing = inputs[key];
+  let baseline = observed;
   if (existing !== undefined) {
     // One path observed as a plugin source and as a plain input compares on
     // what both observations carry.
     const {
       tree: existingTree,
       accessibleEntries: existingEntries,
+      nativePredicates: existingNative,
       ...existingState
     } = existing as TtscWatchInputBaseline;
     const {
       tree: observedTree,
       accessibleEntries: observedEntries,
+      nativePredicates: observedNative,
       ...observedState
     } = observed;
     if (
+      Object.entries(existingNative ?? {}).some(
+        ([kind, state]) =>
+          observedNative?.[kind as NativeInputKind] !== undefined &&
+          stableStringify(state) !==
+            stableStringify(observedNative[kind as NativeInputKind]),
+      ) ||
       existing.identity !== observed.identity ||
       existing.fileExists !== observed.fileExists ||
       ("hostHash" in existing &&
@@ -966,12 +1035,17 @@ function addBaselineInput(
     ) {
       throw new Error("A Metro input changed between baseline observations.");
     }
-    inputs[key] = { ...existing, ...observed };
-  } else {
-    inputs[key] = observed;
+    baseline = {
+      ...existing,
+      ...observed,
+      ...(existingNative === undefined && observedNative === undefined
+        ? {}
+        : { nativePredicates: { ...existingNative, ...observedNative } }),
+    };
   }
+  inputs[key] = baseline;
   staticInputs?.add(key);
-  return observed;
+  return baseline;
 }
 
 /** Add the stable file predicate used by the project-map traversal. */
@@ -1081,6 +1155,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
   const runId = randomBytes(16).toString("hex");
   let reusable = true;
   let pending: SnapshotDocument = {
+    nativePredicates: {},
     accessibleEntries: [],
     files: [],
     tainted: false,
@@ -1118,6 +1193,10 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
     const files = new Set(main?.files ?? []);
     const trees = new Set(main?.trees ?? []);
     const accessibleEntries = new Set(main?.accessibleEntries ?? []);
+    const nativePredicates = mergeNativePredicateRequests(
+      {},
+      main?.nativePredicates ?? {},
+    );
     const observations = [
       ...recovery.entries,
       ...uncompactedWorkerEntries(workers, main),
@@ -1138,6 +1217,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
           // able to clear the sticky flag.
           observations.some((entry) => entry.volatile);
     for (const entry of observations) {
+      mergeNativePredicateRequests(nativePredicates, entry.nativePredicates);
       for (const file of entry.files) {
         files.add(file);
       }
@@ -1153,6 +1233,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
       recovery.paths.length !== 0 ||
       recovery.corruptPaths.length !== 0;
     pending = {
+      nativePredicates,
       accessibleEntries: [...accessibleEntries].sort(),
       ...(compacted.length !== 0 ? { compacted } : {}),
       files: [...files].sort(),
@@ -1518,9 +1599,14 @@ function readSnapshotStateOnce(
   const files = new Set(main.files);
   const trees = new Set(main.trees);
   const accessibleEntries = new Set(main.accessibleEntries);
+  const nativePredicates = mergeNativePredicateRequests(
+    {},
+    main.nativePredicates,
+  );
   let volatile = main.volatile;
   let tainted = main.tainted;
   for (const entry of uncompactedWorkerEntries(workers, main)) {
+    mergeNativePredicateRequests(nativePredicates, entry.nativePredicates);
     for (const file of entry.files) {
       files.add(file);
     }
@@ -1534,6 +1620,7 @@ function readSnapshotStateOnce(
     tainted ||= entry.tainted;
   }
   return {
+    nativePredicates,
     accessibleEntries: [...accessibleEntries].sort(),
     files: [...files].sort(),
     id: main.id,
@@ -1560,8 +1647,9 @@ function readSnapshotStateOnce(
  * process. An unknown or mismatching baseline marks the snapshot tainted, and
  * since `record` carries no evidence, a run identity always reads it as a
  * mismatch. Listing predicates retain their paths for the next run's key
- * observation; the worker never adds a new disk read to its earlier immutable
- * baseline.
+ * observation; native kind requests survive the same persistence path without
+ * becoming compiler listings or gaining watch scope. The worker never adds a
+ * new disk read to its earlier immutable baseline.
  *
  * Sets and baseline maps live for the recorder's worker lifetime and grow with
  * observed projects and distinct inputs. A flushing delivery serializes the
@@ -1657,6 +1745,7 @@ export function createSnapshotRecorder(runId?: string): {
 } {
   const suffix = `${process.pid.toString(36)}-${randomBytes(6).toString("hex")}`;
   interface BaseState {
+    nativePredicates: Record<string, NativeInputKind[]>;
     accessibleEntries: Set<string>;
     dirty: boolean;
     files: Set<string>;
@@ -1711,6 +1800,7 @@ export function createSnapshotRecorder(runId?: string): {
     let state = states.get(base);
     if (state === undefined) {
       state = {
+        nativePredicates: {},
         accessibleEntries: new Set(),
         dirty: false,
         files: new Set(),
@@ -1729,6 +1819,7 @@ export function createSnapshotRecorder(runId?: string): {
       return;
     }
     const document: SnapshotDocument = {
+      nativePredicates: state.nativePredicates,
       accessibleEntries: [...state.accessibleEntries].sort(),
       files: [...state.files].sort(),
       tainted: state.tainted,
@@ -1799,6 +1890,21 @@ export function createSnapshotRecorder(runId?: string): {
         state.files.add(file);
         state.accessibleEntries.add(file);
         state.dirty = true;
+      }
+      if (input.evidence?.state?.codec === "predicates") {
+        const predicates = input.evidence.state.observation.nativePredicates;
+        if (predicates !== undefined && predicates.length !== 0) {
+          const previous = state.nativePredicates[file] ?? [];
+          const kinds = [...new Set([
+            ...previous,
+            ...predicates.map((predicate) => predicate.kind),
+          ])].sort();
+          if (kinds.length !== previous.length) {
+            state.files.add(file);
+            state.nativePredicates[file] = kinds;
+            state.dirty = true;
+          }
+        }
       }
     }
     // A clean empty delivery must still clear a volatile verdict from the
@@ -2156,6 +2262,7 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
   const fileSet = new Set(Array.isArray(document.files) ? document.files : []);
   const keys = Object.keys(document).sort();
   const expectedKeys = [
+    "nativePredicates",
     "accessibleEntries",
     "files",
     "tainted",
@@ -2172,6 +2279,7 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
   if (
     stableStringify(keys) !== stableStringify(expectedKeys) ||
     document.version !== SNAPSHOT_VERSION ||
+    !isNativePredicateRequests(document.nativePredicates, fileSet) ||
     !Array.isArray(document.files) ||
     document.files.some(
       (entry) =>
@@ -2215,6 +2323,7 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
     return undefined;
   }
   return {
+    nativePredicates: document.nativePredicates as Record<string, NativeInputKind[]>,
     accessibleEntries: document.accessibleEntries as string[],
     ...(Array.isArray(document.compacted)
       ? { compacted: document.compacted as string[] }
@@ -2226,6 +2335,39 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
     version: SNAPSHOT_VERSION,
     volatile: document.volatile,
   };
+}
+
+/** Union supported per-path codec requests without retaining producer digests. */
+function mergeNativePredicateRequests(
+  target: Record<string, NativeInputKind[]>,
+  source: Record<string, NativeInputKind[]>,
+): Record<string, NativeInputKind[]> {
+  for (const [file, kinds] of Object.entries(source)) {
+    target[file] = [...new Set([...(target[file] ?? []), ...kinds])].sort();
+  }
+  return target;
+}
+
+/** Validate persisted native requests against their retained file universe. */
+function isNativePredicateRequests(value: unknown, files: Set<unknown>): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  for (const [file, kinds] of Object.entries(value)) {
+    if (
+      !files.has(file) ||
+      !Array.isArray(kinds) ||
+      kinds.length === 0 ||
+      kinds.length > 4 ||
+      kinds.some((kind) =>
+        !["directory", "entry", "file", "optional-file"].includes(kind),
+      ) ||
+      stableStringify(kinds) !== stableStringify([...new Set(kinds)].sort())
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /** Write a snapshot document atomically (unique temp file, then rename). */

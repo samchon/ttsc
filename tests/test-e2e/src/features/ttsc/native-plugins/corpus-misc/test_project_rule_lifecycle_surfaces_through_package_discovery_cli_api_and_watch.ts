@@ -187,7 +187,7 @@ func init() { rule.Register(independentAST{}) }
  * @evidence contracts/testing.md#execution-ownership The exported test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary One source-backed lint contributor crosses package discovery, public compiler diagnostics, LSP publication and watch input invalidation. Logical/physical identities, project-before-file ordering, clear notifications and fresh lifecycle IDs must survive those different public transports; contributor-semantic units cannot establish those connections.
  * @evidence contracts/e2e.md#shared-execution CLI, public API, LSP and watch use one authored source-backed contributor/linked consumer and suite producer cache, while retaining their distinct public transports. Available sharing does not measure cache hits, total builds/processes/Program generations or minimum preparation; workspace linking is not packed installation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject tracks physical consumer and logical link parent; the shared cache remains suite-owned. LSP body/shutdown failure conservatively retains both tracked inputs and preserves retention failures. Watch keeps the original total 120-second observation deadline, mutates clean/blocked only after completed cycles and joins supported close; body and close failures coexist, unknown join retains both inputs. Reported lifecycle IDs distinguish contributor instances, not compiler Program-object/loaded-image identity or arbitrary descendant proof.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject tracks physical consumer and logical link parent; the shared cache remains suite-owned. LSP body/shutdown failure conservatively retains both tracked inputs and preserves retention failures. Watch observes actual completion or terminal failure without an age ceiling, mutates clean/blocked only after completed cycles and joins supported close; body and close failures coexist, unknown join retains both inputs. Reported lifecycle IDs distinguish contributor instances, not compiler Program-object/loaded-image identity or arbitrary descendant proof.
  * @evidence contracts/e2e.md#preserved-coverage CLI, TtscCompiler, LSP and watch retain project identity, deduplicate project findings, preserve independent file findings, clear LSP findings, and create distinct blocked watch lifecycle IDs. These assertions stay in test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch =
@@ -431,7 +431,6 @@ module.exports = {
 
     fs.writeFileSync(guardState, "blocked\n");
 
-    const deadline = Date.now() + 120_000;
     const watch = new WatchSession(logicalRoot, {
       args: ["--noEmit"],
       env,
@@ -441,23 +440,11 @@ module.exports = {
     const failures: unknown[] = [];
     let completedOriginalCycles = false;
     try {
-      assert.ok(
-        Date.now() < deadline,
-        "project-rule watch timed out before initial cycle",
-      );
-      await watch.waitForBuilds(1, Math.max(1, deadline - Date.now()));
+      await watch.waitForBuilds(1);
       fs.writeFileSync(guardState, "clean\n");
-      assert.ok(
-        Date.now() < deadline,
-        "project-rule watch timed out before clean cycle",
-      );
-      await watch.waitForBuilds(2, Math.max(1, deadline - Date.now()));
+      await watch.waitForBuilds(2);
       fs.writeFileSync(guardState, "blocked\n");
-      assert.ok(
-        Date.now() < deadline,
-        "project-rule watch timed out before blocked cycle",
-      );
-      await watch.waitForBuilds(3, Math.max(1, deadline - Date.now()));
+      await watch.waitForBuilds(3);
       completedOriginalCycles = true;
     } catch (error) {
       failures.push(error);

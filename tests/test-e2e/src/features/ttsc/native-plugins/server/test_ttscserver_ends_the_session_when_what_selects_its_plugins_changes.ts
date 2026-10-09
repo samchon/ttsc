@@ -5,7 +5,6 @@ import { pathToFileURL } from "node:url";
 
 import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 import {
-  PLUGIN_BUILD_TIMEOUT,
   TtscserverClient,
   assert,
   shutdownTtscserverClient,
@@ -35,8 +34,8 @@ type CascadeEdit = {
   >;
 };
 
-/** How long a session may take to act on one watched-file notification. */
-const SELECTION_TIMEOUT = 120_000;
+/** Deadline applies only to supported direct close and shutdown. */
+const CLOSE_TIMEOUT = 120_000;
 
 /**
  * Verifies a `ttscserver` session ends through the plugin-selection path when
@@ -120,7 +119,6 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
     const selection = client.waitForNotification(
       "ttsc/pluginSelectionChanged",
       () => true,
-      SELECTION_TIMEOUT,
     );
     const existed = fs.existsSync(changed);
     fs.writeFileSync(changed, text);
@@ -130,7 +128,7 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
     await selection;
     const code = await waitForTtscserverOutcome(
       client.waitForExit(),
-      SELECTION_TIMEOUT,
+      CLOSE_TIMEOUT,
       "plugin selector changed but direct child close was not joined",
     );
     activeClient = undefined;
@@ -153,7 +151,6 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
             (params.diagnostics ?? []).some(
               (diagnostic) => diagnostic.code === "no-var",
             ),
-          PLUGIN_BUILD_TIMEOUT,
         )
       : undefined;
     client.notify("textDocument/didOpen", {
@@ -201,7 +198,6 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
               },
               context: { diagnostics: [], only: ["source.fixAll.ttsc"] },
             },
-            60_000,
           );
           const action = actions.find(
             (candidate) => candidate.command?.command === "ttsc.lint.fixAll",
@@ -214,7 +210,6 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
               command: "ttsc.lint.fixAll",
               arguments: [cascadeUri],
             },
-            60_000,
           );
           const edits = edit.changes?.[cascadeUri] ?? [];
           assert.deepEqual(Object.keys(edit.changes ?? {}), [cascadeUri]);
@@ -289,7 +284,7 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
       try {
         await waitForTtscserverOutcome(
           shutdownTtscserverClient(activeClient),
-          SELECTION_TIMEOUT,
+          CLOSE_TIMEOUT,
           "failed selector session shutdown was not joined",
         );
         activeClient = undefined;

@@ -10,18 +10,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverEmitSkipsAlreadyRewrittenOutput Verifies that EmitAll preserves the rewrite sentinel and plugin.make call and excludes the registered replacement.
+// TestDriverEmitSkipsAlreadyRewrittenOutput Verifies actual rewritten output
+// remains byte-identical when the shared rewrite owner sees it again.
 //
-// This source owns the sentinel bypass; ordinary rewrite inputs execute elsewhere.
+// An authored marker comment in the statement body is inert. The initial public
+// emit must replace its live call and add the actual header marker; repeating
+// that resulting output must preserve it despite a fresh registration cursor.
 //
-// 1. Compile a source file that emits the rewrite sentinel comment.
-// 2. Register a rewrite that would otherwise replace the plugin call.
-// 3. Assert the emitted JavaScript keeps the original call.
+// 1. Emit an unmarked source containing a body marker comment and a live call.
+// 2. Require the registered replacement and canonical strict/header prefix.
+// 3. Pass those actual output bytes through the shared owner with fresh cursors.
 //
-// @evidence contracts/testing.md#behavioral-verification EmitAll preserves the rewrite sentinel and plugin.make call and excludes the registered replacement.
-// @evidence contracts/testing.md#independent-expectations The authored sentinel establishes already-rewritten output, so the supplied replacement must not occur.
-// @evidence contracts/testing.md#distinguishing-cases This source owns the sentinel bypass; ordinary rewrite inputs execute elsewhere.
-// @evidence contracts/testing.md#execution-ownership A direct Program and recording writer exercise Go emission without a CLI. Go discovers TestDriverEmitSkipsAlreadyRewrittenOutput under ./test/driver.
+// @evidence contracts/testing.md#behavioral-verification Public EmitAll transforms the registered call despite a body marker comment; applyRewrites then preserves the complete actual marked output byte-for-byte with a fresh cursor.
+// @evidence contracts/testing.md#independent-expectations The literal replacement and strict/header prefix follow the registered call and documented marker placement; unchanged actual output is the idempotency oracle after independently establishing initial correctness.
+// @evidence contracts/testing.md#distinguishing-cases An inert body marker contrasts with the genuine emitted header; fresh cursors prevent an exhausted registration list from making the idempotence assertion vacuous. Marker strings and other lexical contexts have separate public runtime coverage.
+// @evidence contracts/testing.md#execution-ownership This direct Go unit loads a Program, invokes EmitAll and the shared private rewrite owner in process; it builds no host or installed consumer.
 func TestDriverEmitSkipsAlreadyRewrittenOutput(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -55,7 +58,7 @@ export const value = plugin.make();
     File:          source,
     RootName:      "plugin",
     Method:        "make",
-    Replacement:   `"should-not-appear"`,
+    Replacement:   `"rewritten-value"`,
     ConsumeParens: true,
   })
   emitted := map[string]string{}
@@ -70,7 +73,11 @@ export const value = plugin.make();
     t.Fatalf("unexpected emit diagnostics: %#v", emitDiags)
   }
   js := emitted["index.js"]
-  if !strings.Contains(js, driver.RewriteSentinel) || !strings.Contains(js, "plugin.make") || strings.Contains(js, "should-not-appear") {
-    t.Fatalf("already-rewritten output should pass through unchanged:\n%s", js)
+  if !strings.HasPrefix(js, "\"use strict\";\n"+driver.RewriteSentinel+"\n") || strings.Contains(js, "plugin.make") || !strings.Contains(js, "rewritten-value") {
+    t.Fatalf("unmarked output must rewrite the live call despite a body marker:\n%s", js)
+  }
+  repeated, err := driverApplyRewrites(filepath.Join(root, "bin", "index.js"), js, rewrites, map[string]int{})
+  if err != nil || repeated != js {
+    t.Fatalf("genuine already-rewritten output changed: err=%v\n%s", err, repeated)
   }
 }

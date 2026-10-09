@@ -38,8 +38,8 @@ export namespace BackendActivation {
   }
 
   /**
-   * Finds the current instruction's staged claims in their prescribed order.
-   * A missing marker, owner, or instruction step refuses a vacuous walk.
+   * Finds the current instruction's staged claims in their prescribed order. A
+   * missing marker, owner, or instruction step refuses a vacuous walk.
    */
   export function claims(workspace: string, instruction: string): Claim[] {
     const steps = instruction
@@ -67,9 +67,9 @@ export namespace BackendActivation {
           const name = /^\s*name:\s*"([^"]+)"/m.exec(block)![1]!;
           if (!steps.some((step) => step.includes("`" + name + "`"))) continue;
           assert.equal(
-            block.split("\n").filter((line) =>
-              /^\s*disabled:\s*true,?\s*$/.test(line),
-            ).length,
+            block
+              .split("\n")
+              .filter((line) => /^\s*disabled:\s*true,?\s*$/.test(line)).length,
             1,
             name + " must ship staged",
           );
@@ -99,7 +99,8 @@ export namespace BackendActivation {
       return [line, steps[line]!.indexOf("`" + claim.name + "`")];
     };
     return result.sort(
-      (a, b) => position(a)[0] - position(b)[0] || position(a)[1] - position(b)[1],
+      (a, b) =>
+        position(a)[0] - position(b)[0] || position(a)[1] - position(b)[1],
     );
   }
 
@@ -127,9 +128,12 @@ export namespace BackendActivation {
   /** Parses named native obligations, refusing healthy but empty populations. */
   export function obligations(output: string, claim: string): Obligation[] {
     assert.ok(
-      !output.split("\n").some((line) =>
-        line.includes("matched no ") && line.includes("'" + claim + "'"),
-      ),
+      !output
+        .split("\n")
+        .some(
+          (line) =>
+            line.includes("matched no ") && line.includes("'" + claim + "'"),
+        ),
       "Empty reference population for " + claim,
     );
     const result: Obligation[] = [];
@@ -143,7 +147,10 @@ export namespace BackendActivation {
     }
     assert.ok(
       result.length,
-      "Enabled unacknowledged claim must demand obligations: " + claim + "\n" + output,
+      "Enabled unacknowledged claim must demand obligations: " +
+        claim +
+        "\n" +
+        output,
     );
     return result;
   }
@@ -152,9 +159,9 @@ export namespace BackendActivation {
   export function accessors(directory: string): string[] {
     const result = new Set<string>();
     for (const file of files(directory, ".ts"))
-      for (const match of fs.readFileSync(file, "utf8").matchAll(
-        /^\s*\*\s*@accessor\s+api\.(\S+)\s*$/gm,
-      ))
+      for (const match of fs
+        .readFileSync(file, "utf8")
+        .matchAll(/^\s*\*\s*@accessor\s+api\.(\S+)\s*$/gm))
         result.add(match[1]!);
     assert.ok(result.size, "The real SDK generator must publish accessors");
     return [...result].sort();
@@ -162,14 +169,16 @@ export namespace BackendActivation {
 
   /** Finds delivered H2/H3 requirement documents outside fenced examples. */
   export function requirements(workspace: string): string[] {
-    return files(path.join(workspace, "docs/analysis"), ".md").filter((file) => {
-      let fenced = false;
-      for (const line of fs.readFileSync(file, "utf8").split("\n")) {
-        if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
-        else if (!fenced && /^(##|###)\s+\S/.test(line)) return true;
-      }
-      return false;
-    }).map((file) => path.relative(workspace, file).split(path.sep).join("/"));
+    return files(path.join(workspace, "docs/analysis"), ".md")
+      .filter((file) => {
+        let fenced = false;
+        for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+          if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+          else if (!fenced && /^(##|###)\s+\S/.test(line)) return true;
+        }
+        return false;
+      })
+      .map((file) => path.relative(workspace, file).split(path.sep).join("/"));
   }
 
   /** Removes shipped acknowledgments from the copied test hosts only. */
@@ -178,22 +187,25 @@ export namespace BackendActivation {
       const source = fs.readFileSync(file, "utf8");
       fs.writeFileSync(
         file,
-        source.split("\n").filter((line) =>
-          !/^\s*\*\s*@evidence(?:Exclude)?\s/.test(line),
-        ).join("\n"),
+        source
+          .split("\n")
+          .filter((line) => !/^\s*\*\s*@evidence(?:Exclude)?\s/.test(line))
+          .join("\n"),
       );
     }
   }
 
   /** Enumerates regular authored inputs; directory links are not followed. */
   function files(directory: string, extension: string): string[] {
-    return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-      const file = path.join(directory, entry.name);
-      return entry.isDirectory()
-        ? files(file, extension)
-        : entry.isFile() && entry.name.endsWith(extension)
-          ? [file]
-          : [];
-    });
+    return fs
+      .readdirSync(directory, { withFileTypes: true })
+      .flatMap((entry) => {
+        const file = path.join(directory, entry.name);
+        return entry.isDirectory()
+          ? files(file, extension)
+          : entry.isFile() && entry.name.endsWith(extension)
+            ? [file]
+            : [];
+      });
   }
 }

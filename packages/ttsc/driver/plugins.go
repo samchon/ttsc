@@ -47,6 +47,11 @@ const PluginConfigDirEnv = "TTSC_PLUGIN_CONFIG_DIR"
 // paired with a newer host keeps working.
 const TsgoArgsEnv = "TTSC_TSGO_ARGS"
 
+// TsgoArgsCwdEnv carries the argument base paired with TsgoArgsEnv. It changes
+// upstream response/CLI option parsing, not the Program or plugin root. Hosts
+// declare compilerArgsCwd support before the launcher sends a distinct base.
+const TsgoArgsCwdEnv = "TTSC_TSGO_ARGS_CWD"
+
 // TsgoArgsFromEnv decodes the forwarded tsgo argv the launcher published in
 // TsgoArgsEnv. An absent or whitespace-only value yields a nil slice and no
 // error, so a host can call this unconditionally.

@@ -44,11 +44,14 @@ export function waitForPluginBinary(opts: {
 }): PluginBinaryWaitResult {
   const startedAt = performance.now();
   let nextStatusAt = startedAt + PLUGIN_BUILD_LOCK_STATUS_MS;
-  const protocolDir = PluginBuildLockProtocol.pluginBuildLockProtocolDir(opts.lockDir);
+  const protocolDir = PluginBuildLockProtocol.pluginBuildLockProtocolDir(
+    opts.lockDir,
+  );
   for (;;) {
     OwnedSynchronousProcess.checkpoint();
     SourceNativeRetirement.assertAvailable(protocolDir);
-    const protectedNativeInputs = SourceNativeRetirement.isProtected(protocolDir);
+    const protectedNativeInputs =
+      SourceNativeRetirement.isProtected(protocolDir);
     if (!protectedNativeInputs && fs.existsSync(opts.binaryPath)) {
       OwnedSynchronousProcess.checkpoint();
       return { outcome: "published" };

@@ -11,9 +11,10 @@ import { BatchWorkspace } from "../../../batch/BatchWorkspace";
  * The installed public SDK resolves one plugin-free authored project whose
  * nearest package manifest declares no dependencies. This real package boundary
  * prevents the shared corpus's automatic plugin markers from joining the input;
- * an empty tsconfig plugin array alone does not disable automatic discovery. One
- * isolated actor changes native environment selectors between requests to the
- * same resolver, exercising publication eligibility and retained freshness.
+ * an empty tsconfig plugin array alone does not disable automatic discovery.
+ * One isolated actor changes native environment selectors between requests to
+ * the same resolver, exercising publication eligibility and retained
+ * freshness.
  *
  * 1. Resolve a normal empty answer and invalidate its proof with a caller edit.
  * 2. Contrast uppercase/lowercase preload and runtime selectors with blank and
@@ -34,16 +35,31 @@ export function case_capability_worker_environment_preserves_runtime_authority(
   sdkModule?: string,
 ): void {
   const root = path.join(workspace.root, "tools/capability-environment");
-  const sdk = sdkModule ?? createRequire(path.join(workspace.root, "package.json")).resolve("ttsc");
-  const env: NodeJS.ProcessEnv = { TTSC_CACHE_DIR: workspace.cache, NODE_OPTIONS: undefined, TTSC_NODE_BINARY: undefined };
+  const sdk =
+    sdkModule ??
+    createRequire(path.join(workspace.root, "package.json")).resolve("ttsc");
+  const env: NodeJS.ProcessEnv = {
+    TTSC_CACHE_DIR: workspace.cache,
+    NODE_OPTIONS: undefined,
+    TTSC_NODE_BINARY: undefined,
+  };
   for (const key of Object.keys(process.env))
     if (["NODE_OPTIONS", "TTSC_NODE_BINARY"].includes(key.toUpperCase()))
       env[key] = undefined;
-  const result = TestProject.spawn(process.execPath, [path.join(root, "runner.cjs"), sdk], { cwd: root, env });
+  const result = TestProject.spawn(
+    process.execPath,
+    [path.join(root, "runner.cjs"), sdk],
+    { cwd: root, env },
+  );
   if (!result.stdout.includes("CAPABILITY_ENVIRONMENT_RESOLVER_CLOSED"))
-    BatchWorkspace.retain("capability environment actor did not certify resolver closure");
+    BatchWorkspace.retain(
+      "capability environment actor did not certify resolver closure",
+    );
   assert.equal(result.error, undefined, result.stderr);
   assert.equal(result.signal, null, result.stderr);
   assert.equal(result.status, 0, result.stderr);
-  assert.ok(result.stdout.includes("CAPABILITY_ENVIRONMENT_RESOLVER_CLOSED"), result.stdout);
+  assert.ok(
+    result.stdout.includes("CAPABILITY_ENVIRONMENT_RESOLVER_CLOSED"),
+    result.stdout,
+  );
 }

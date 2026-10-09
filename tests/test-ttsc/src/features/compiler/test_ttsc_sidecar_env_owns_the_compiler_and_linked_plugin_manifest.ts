@@ -43,27 +43,38 @@ export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest 
     try {
       const projectRoot = os.tmpdir();
       const tsconfig = path.join(projectRoot, "tsconfig.json");
+      const project = {
+        configPaths: [tsconfig],
+        compilerOptions: { plugins: [] },
+        identity: {
+          invocationCwd: projectRoot,
+          logicalConfigPath: tsconfig,
+          logicalProjectRoot: projectRoot,
+          physicalConfigPath: tsconfig,
+          physicalProjectRoot: projectRoot,
+        },
+        path: tsconfig,
+        pluginBaseDirs: [],
+        root: projectRoot,
+      };
       const execution: Parameters<
         typeof BuildExecution.composeNativePluginEnv
       >[2] = {
+        compilerSelection: {
+          args: [],
+          passthrough: [],
+          compilerArgsCwd: projectRoot,
+          inspectionError: undefined,
+          inspectedArgs: [],
+          observations: new Map(),
+          project,
+          projectGuard: [],
+        },
         cwd: projectRoot,
         nativePlugins: [],
         pluginConfigDir: undefined,
         pluginSetupFailure: undefined,
-        project: {
-          configPaths: [tsconfig],
-          compilerOptions: { plugins: [] },
-          identity: {
-            invocationCwd: projectRoot,
-            logicalConfigPath: tsconfig,
-            logicalProjectRoot: projectRoot,
-            physicalConfigPath: tsconfig,
-            physicalProjectRoot: projectRoot,
-          },
-          path: tsconfig,
-          pluginBaseDirs: [],
-          root: projectRoot,
-        },
+        project,
         projectNoEmit: false,
         projectRoot,
         rewriteRelativeImportExtensionsForEmit: false,

@@ -1,3 +1,4 @@
+import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
 import { findDeclaredValue } from "./findDeclaredValue";
 
 /**
@@ -5,8 +6,8 @@ import { findDeclaredValue } from "./findDeclaredValue";
  *
  * Own key presence is significant even for null or undefined values; the caller
  * decides whether the selected option value is usable. An optional
- * decoded-source map belongs to one caller read transaction; independent option
- * searches retain separate branch-local cycle guards.
+ * decoded-source map or graph transaction belongs to one caller read; independent
+ * option searches retain their selectors and physical ancestry contexts.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A wrapper preserves key presence through the generic selector, so the own
@@ -28,20 +29,20 @@ import { findDeclaredValue } from "./findDeclaredValue";
  *   Native paragraphs explain the declaring anchor and key-presence distinction,
  *   the facts a template-path reader needs beyond the return type.
  * @evidence contracts/performance.md#efficient-algorithms
- *   One own-key selector delegates native inheritance resolution and branch-local
- *   cycle-set copying. Search cost follows config occurrences, source bytes and
- *   visited depths; a shared source map avoids repeating decoding per option.
+ *   One own-key selector delegates contextual memoized inheritance. Acyclic
+ *   shared nodes select once per query; source/identity witnesses follow
+ *   accumulated subtree volume. A graph transaction shares native observations.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   A supplied caller transaction map shares decoded sources across option
- *   searches by lexical path. Selections remain independent; changed config
- *   inputs require a fresh transaction map.
+ *   A supplied graph transaction shares decoded sources, identities and extends
+ *   observations across keys; a legacy map shares decoding. Selections remain
+ *   query-local and ancestry-qualified; changed inputs require a fresh owner.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Its Set is local to the call.
  */
 export function findDeclaredCompilerOption(
   tsconfig: string,
   key: string,
-  configs?: Map<string, unknown>,
+  configs?: Map<string, unknown> | TsconfigReadTransaction,
 ): { baseDir: string; value: unknown } | null {
   const declared = findDeclaredValue(
     tsconfig,

@@ -1,6 +1,7 @@
 {
   "name": "ttsc-shared-boundary-corpus",
   "private": true,
+  "workspaces": ["packages/*", "tools/*"],
   "type": "commonjs",
   "exports": { ".": "./tools/native-emission/src/package-entry.ts" },
   "imports": {

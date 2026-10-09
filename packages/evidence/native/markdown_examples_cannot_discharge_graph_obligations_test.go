@@ -25,32 +25,32 @@ func TestMarkdownExamplesCannotDischargeGraphObligations(t *testing.T) {
   config := `{"claims":[{"type":"markdown","files":["claim.md"],"symbol":"h1","reference":{"type":"markdown","files":["spec.md"],"symbol":"h1"}}]}`
   reviewed := strings.Replace(config, `"symbol":"h1"}}]}`, `"symbol":"h1","requireReview":true}}]}`, 1)
   fingerprint := everyExpectedFingerprint(t, map[string]string{
-    "spec.md": "# Rule\n",
+    "spec.md":  "# Rule\n",
     "claim.md": "# Claim\n<!-- @evidence spec.md#rule Real. -->\n",
   }, reviewed)["spec.md#rule"]
   if fingerprint == "" {
     t.Fatal("the review-required reference supplied no fingerprint for fixture preparation")
   }
   wrappers := map[string]string{
-    "fence": "```md\n%s\n```\n",
-    "tilde fence": "~~~md\n%s\n~~~\n",
-    "indent": "    %s\n",
-    "tab": "\t%s\n",
-    "inline": "`%s`\n",
-    "escape": "\\%s\n",
-    "quoted fence": "> ```md\n> %s\n> ```\n",
-    "list fence": "1. ```md\n   %s\n   ```\n",
-    "quoted list fence": "> - ```md\n>   %s\n>   ```\n",
-    "quoted indent": ">     %s\n",
-    "list indent": "- item\n\n      %s\n",
-    "multiline inline": "``first\nx %s\nlast``\n",
+    "fence":              "```md\n%s\n```\n",
+    "tilde fence":        "~~~md\n%s\n~~~\n",
+    "indent":             "    %s\n",
+    "tab":                "\t%s\n",
+    "inline":             "`%s`\n",
+    "escape":             "\\%s\n",
+    "quoted fence":       "> ```md\n> %s\n> ```\n",
+    "list fence":         "1. ```md\n   %s\n   ```\n",
+    "quoted list fence":  "> - ```md\n>   %s\n>   ```\n",
+    "quoted indent":      ">     %s\n",
+    "list indent":        "- item\n\n      %s\n",
+    "multiline inline":   "``first\nx %s\nlast``\n",
     "mdx interior fence": "<Code code={`\n```md\n%s\n```\n`} />\n",
-    "pre": "<pre>\n%s\n</pre>\n",
-    "pre one line": "<pre>%s</pre>\n",
-    "pre reopening": "<pre></pre><pre>\n%s\n</pre>\n",
-    "mdx": "<Code code={`\n%s\n`} />\n",
-    "mdx reopening": "<Code code={``} /><Code code={`\n%s\n`} />\n",
-    "quoted attribute": "<span title=\"%s\">example</span>\n",
+    "pre":                "<pre>\n%s\n</pre>\n",
+    "pre one line":       "<pre>%s</pre>\n",
+    "pre reopening":      "<pre></pre><pre>\n%s\n</pre>\n",
+    "mdx":                "<Code code={`\n%s\n`} />\n",
+    "mdx reopening":      "<Code code={``} /><Code code={`\n%s\n`} />\n",
+    "quoted attribute":   "<span title=\"%s\">example</span>\n",
   }
   for name, wrapper := range wrappers {
     for _, tag := range []string{"@evidence", "@evidenceExclude"} {

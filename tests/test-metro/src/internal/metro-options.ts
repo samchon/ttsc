@@ -30,12 +30,13 @@ async function withEnv(
 
 /**
  * Asserts every option survives the config-process → worker-process env
- * round-trip intact: the ttsc overlay (project/compilerOptions/plugins) plus
+ * round-trip intact: the ttsc overlay (project/projectRoot/compilerOptions/plugins) plus
  * the Metro-specific include/exclude/upstreamTransformer.
  */
 export async function assertOptionsRoundTripThroughEnv(): Promise<void> {
   const source = {
     project: "tsconfig.json",
+    projectRoot: "../compiler-output-root",
     compilerOptions: { strict: true },
     plugins: [{ transform: "typia/lib/transform" }],
     include: ["src"],
@@ -46,6 +47,7 @@ export async function assertOptionsRoundTripThroughEnv(): Promise<void> {
   await withEnv(mod.serializeOptions(source), async (m) => {
     const resolved = m.resolveOptionsFromEnv();
     assert.equal(resolved.ttsc.project, source.project);
+    assert.equal(resolved.ttsc.projectRoot, source.projectRoot);
     assert.deepEqual(resolved.ttsc.compilerOptions, source.compilerOptions);
     assert.deepEqual(resolved.ttsc.plugins, source.plugins);
     assert.deepEqual(resolved.include, source.include);
@@ -63,6 +65,7 @@ export async function assertOptionsDefaultWhenEnvAbsent(): Promise<void> {
   await withEnv(undefined, async (mod) => {
     const resolved = mod.resolveOptionsFromEnv();
     assert.equal(resolved.ttsc.project, undefined);
+    assert.equal(resolved.ttsc.projectRoot, undefined);
     assert.equal(resolved.ttsc.plugins, undefined);
     assert.equal(resolved.upstreamTransformer, undefined);
     assert.deepEqual(resolved.include, []);

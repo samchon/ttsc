@@ -1,4 +1,8 @@
-import type { SpawnSyncOptions, SpawnSyncReturns, spawnSync } from "node:child_process";
+import type {
+  SpawnSyncOptions,
+  SpawnSyncReturns,
+  spawnSync,
+} from "node:child_process";
 
 /**
  * A synchronous resolver task's explicit cancellation and native-command seam.
@@ -35,9 +39,9 @@ export namespace OwnedSynchronousProcess {
     cancel: SharedArrayBuffer;
 
     /**
-     * Synchronous relay whose owner contains and joins the actual command.
-     * The returned spawn result describes that command's real completion;
-     * callers do not transfer closure authority merely by requesting a kill.
+     * Synchronous relay whose owner contains and joins the actual command. The
+     * returned spawn result describes that command's real completion; callers
+     * do not transfer closure authority merely by requesting a kill.
      *
      * @evidence contracts/common.md#principled-implementation This capability supplies actual synchronous command completion to the same task that owns cancellation and post-task retirement.
      * @evidence contracts/common.md#clear-and-simple-design Command, argv and Node options form one explicit relay boundary; the owning supervisor retains native process containment policy.
@@ -89,7 +93,8 @@ export namespace OwnedSynchronousProcess {
 
   /**
    * Reject cancelled payload work with AbortError. Cleanup must instead finish
-   * its ownership transitions, optionally observing cancelled without throwing.
+   * its ownership transitions, optionally observing cancelled without
+   * throwing.
    *
    * @evidence contracts/common.md#principled-implementation The shared admission state determines cancellation and produces the documented AbortError rather than a degraded plugin result.
    * @evidence contracts/common.md#clear-and-simple-design One predicate and one exception separate admission from cleanup policy.
@@ -106,8 +111,8 @@ export namespace OwnedSynchronousProcess {
   }
 
   /**
-   * Identify withdrawn payload admission without interrupting cleanup.
-   * No installed scope means ordinary synchronous work remains admitted.
+   * Identify withdrawn payload admission without interrupting cleanup. No
+   * installed scope means ordinary synchronous work remains admitted.
    *
    * @evidence contracts/common.md#principled-implementation Only an installed scope's first shared Int32 cell determines this task's cancellation; nonzero values uniformly withdraw admission.
    * @evidence contracts/common.md#clear-and-simple-design A boolean observation allows cleanup to choose its own grace without throwing midway through release.
@@ -120,13 +125,15 @@ export namespace OwnedSynchronousProcess {
    */
   export function cancelled(): boolean {
     return (
-      current !== undefined && Atomics.load(new Int32Array(current.cancel), 0) !== 0
+      current !== undefined &&
+      Atomics.load(new Int32Array(current.cancel), 0) !== 0
     );
   }
 
   /**
    * Sleep between payload attempts; a cancelling owner stores the cell and
-   * notifies it to wake the wait. Native scheduling can delay resumed execution.
+   * notifies it to wake the wait. Native scheduling can delay resumed
+   * execution.
    *
    * @evidence contracts/common.md#principled-implementation Checks before and after Atomics.wait cover cancellation before admission, during the wait and before subsequent work.
    * @evidence contracts/common.md#clear-and-simple-design The cancellation cell doubles as the wait address; ordinary callers use a fresh zero cell.
@@ -172,7 +179,8 @@ export namespace OwnedSynchronousProcess {
   /**
    * Register an original retirement promise for the asynchronous owner to join.
    * True means registration occurred, so a producer must keep that work
-   * referenced until closure; this function neither awaits nor removes entries.
+   * referenced until closure; this function neither awaits nor removes
+   * entries.
    *
    * @evidence contracts/common.md#principled-implementation The original promise is retained, including rejection, while an attached rejection handler prevents an unhandled notification before the owner joins it.
    * @evidence contracts/common.md#clear-and-simple-design The registration boolean lets producers preserve ordinary unref behavior while scoped work remains alive through joining.

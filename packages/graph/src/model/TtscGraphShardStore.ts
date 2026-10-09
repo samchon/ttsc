@@ -54,6 +54,30 @@ export class TtscGraphShardStore {
    * @evidenceExclude contracts/portability.md#os-neutral-implementation validates and assembles shard objects in memory and hashes JSON text with node:crypto; no file, path or process.
    */
   apply(transaction: ITtscGraphSnapshot.ITransaction): ITtscGraphDump {
+    return this.applyProjection(transaction, (dump) =>
+      copyGraphRecords<ITtscGraphDump>(dump),
+    );
+  }
+
+  /**
+   * Validate a staged immutable population and commit only after projection.
+   *
+   * The callback borrows store-owned frozen facts, not caller DTOs. A thrown
+   * projection leaves every committed coordinate and shard unchanged.
+   *
+   * @evidence contracts/common.md#principled-implementation Full transaction/manifest/ownership validation precedes projection and the synchronous commit; callback failure cannot publish a partial generation.
+   * @evidence contracts/common.md#clear-and-simple-design Public mutable apply and resident immutable projection share the same staged validator and commit boundary.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Immutable borrowing does not remove any digest, universe, owner or edge check; apply still returns a detached mutable DTO.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states input ownership and callback-failure atomicity.
+   * @evidence contracts/performance.md#efficient-algorithms Changed shards are cloned/hashed once; full manifest/ownership scans and deterministic sorting remain. The resident callback avoids full nested mutable materialization.
+   * @evidence contracts/performance.md#reuse-equivalent-work Retained frozen payload identities survive staged validation, qualifying downstream reuse independently of caller-owned transactions.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Commit retains only current shards; rejected staging and callback values remain local, with prior state intact.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Hashes and validates in-memory records without filesystem or process operations.
+   */
+  applyProjection<T>(
+    transaction: ITtscGraphSnapshot.ITransaction,
+    project: (dump: TtscGraphReadonly<ITtscGraphDump>) => T,
+  ): T {
     this.assertCoordinates(transaction);
     const next = new Map(this.shards);
     const touched = new Set<string>();
@@ -129,12 +153,13 @@ export class TtscGraphShardStore {
     }
 
     const dump = assemble(transaction, next);
+    const projected = project(dump);
     this.sequence = transaction.sequence;
     this.generation = transaction.generation;
     this.project = transaction.project;
     this.tsconfig = transaction.tsconfig;
     this.shards = next;
-    return dump;
+    return projected;
   }
 
   /**
@@ -217,16 +242,16 @@ function assemble(
     string,
     { digest: string; shard: TtscGraphReadonly<ITtscGraphSnapshot.IShard> }
   >,
-): ITtscGraphDump {
-  const nodes: ITtscGraphDump.INode[] = [];
-  const edges: ITtscGraphDump.IEdge[] = [];
-  const diagnostics: ITtscGraphDump.IDiagnostic[] = [];
-  const sources: ITtscGraphDump.ISourceDigest[] = [];
+): TtscGraphReadonly<ITtscGraphDump> {
+  const nodes: TtscGraphReadonly<ITtscGraphDump.INode>[] = [];
+  const edges: TtscGraphReadonly<ITtscGraphDump.IEdge>[] = [];
+  const diagnostics: TtscGraphReadonly<ITtscGraphDump.IDiagnostic>[] = [];
+  const sources: TtscGraphReadonly<ITtscGraphDump.ISourceDigest>[] = [];
   const nodeOwners = new Map<string, string>();
   const sourceFiles = new Set<string>();
   const configInputs = new Map<string, string>();
   for (const [key, value] of committed) {
-    const shard = copyGraphRecords<ITtscGraphSnapshot.IShard>(value.shard);
+    const shard = value.shard;
     if (shard.key !== key) {
       throw new Error(`@ttsc/graph: native shard key disagrees at ${key}`);
     }
@@ -258,7 +283,7 @@ function assemble(
         );
       }
       sourceFiles.add(shard.source.file);
-      sources.push({ ...shard.source });
+      sources.push(shard.source);
     }
     assertShardContents(key, shard);
     for (const node of shard.nodes) {
@@ -320,10 +345,10 @@ function assemble(
       left.code - right.code,
   );
   sources.sort((left, right) => compareText(left.file, right.file));
-  return {
+  return Object.freeze({
     project: transaction.project,
     tsconfig: transaction.tsconfig,
-    provenance: {
+    provenance: copyGraphSnapshot({
       schemaVersion: transaction.schemaVersion,
       capabilities: [...transaction.capabilities],
       producer: { ...transaction.producer },
@@ -332,16 +357,16 @@ function assemble(
         roots: transaction.universe.roots.map((root) => ({ ...root })),
       },
       sources,
-    },
-    diagnostics,
-    nodes,
-    edges,
-  };
+    }),
+    diagnostics: Object.freeze(diagnostics),
+    nodes: Object.freeze(nodes),
+    edges: Object.freeze(edges),
+  });
 }
 
 function assertShardContents(
   key: string,
-  shard: ITtscGraphSnapshot.IShard,
+  shard: TtscGraphReadonly<ITtscGraphSnapshot.IShard>,
 ): void {
   if (shard.source !== undefined) {
     for (const node of shard.nodes) {

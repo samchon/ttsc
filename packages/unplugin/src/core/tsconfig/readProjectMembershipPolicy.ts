@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { TYPESCRIPT_TRANSFORM_EXTENSIONS } from "../source/TYPESCRIPT_TRANSFORM_EXTENSIONS";
 import type { ITtscProjectMembershipPolicy } from "./ITtscProjectMembershipPolicy";
+import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
 import { JAVASCRIPT_INPUT_EXTENSIONS } from "./JAVASCRIPT_INPUT_EXTENSIONS";
 import { OUTPUT_DIRECTORY_OPTIONS } from "./OUTPUT_DIRECTORY_OPTIONS";
 import { absolutizePathsTarget } from "./absolutizePathsTarget";
@@ -38,9 +39,10 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  * costs a walk; excluding the wrong tree hides real sources, and this function
  * refuses to guess in the direction that loses correctness.
  *
- * Each config source is parsed once within this read transaction. Later calls
- * create a fresh map, so unchanged metadata cannot conceal changed source
- * text.
+ * Source, identity and extends observations share this transaction. Completed
+ * selections, including absence, require matching physical ancestry intersections.
+ * Later calls start fresh, so unchanged metadata cannot conceal changed source
+ * text or resolution.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Config-derived root specs, allowed extensions and exclusion provenance
@@ -62,19 +64,19 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain defaults, output exclusion provenance and the
- *   conservative boundary, plus the parsed-source map's per-call lifetime.
+ *   conservative boundary, plus the graph transaction's per-call lifetime.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   Parsed-source maps and source sets are local; the returned policy transfers
+ *   Graph observations and source sets are local; the returned policy transfers
  *   to its caller and this reader retains no handle or cross-call state.
  * @evidence contracts/performance.md#efficient-algorithms
- *   A per-call parsed-source map reads and parses each lexical config once
- *   across option queries, but each query repeats inheritance resolution and
- *   native identity observations. Branch ancestor copying follows the sum of
- *   visited depths; source bytes, config occurrences, spec/path lengths and
- *   flattened exclusion count drive parsing, anchoring and returned arrays.
+ *   One transaction observes each lexical config and visited extends specifier
+ *   once across keys. Query memoization prevents path-count expansion on DAGs;
+ *   source/identity witnesses follow accumulated subtree volume, potentially
+ *   quadratic on chains. Changed cycle contexts require evaluation; spec/path
+ *   lengths and exclusion count drive anchoring and returned arrays.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   Option queries share parsed source within this read transaction. Later
- *   calls use a fresh map because unchanged metadata does not prove source
+ *   Option queries share source, identity and edge observations in this read.
+ *   Later calls use a fresh owner because unchanged metadata does not prove source
  *   equivalence; the selection-entry owner validates cross-call memoization.
  */
 export function readProjectMembershipPolicy(
@@ -82,10 +84,10 @@ export function readProjectMembershipPolicy(
 ): ITtscProjectMembershipPolicy {
   const resolved = path.resolve(tsconfig);
   // Every config the chain touches, so a caller memoizing this policy can tell
-  // when it has gone stale. `findDeclaredValue` walks `extends` for each option
-  // independently, and each walk records what it read.
+  // when it has gone stale. Each query retains its selection semantics and
+  // records its inputs while graph observations share this read's transaction.
   const sources = new Set<string>();
-  const configs = new Map<string, unknown>();
+  const configs = new TsconfigReadTransaction();
   const files = findDeclaredFileSpecs(resolved, "files", sources, configs);
   const include = findDeclaredFileSpecs(resolved, "include", sources, configs);
   const configDir = path.dirname(resolved);

@@ -6,10 +6,10 @@
 // previously-recognized plugin call in the emitted JS, and replaces the call
 // expression with the JS the native consumer produced.
 //
-// The rewriter operates on the output text only — it relies on the caller
-// having already registered an ordered list of Rewrite values per source file.
-// Calls are matched by textual pattern (`<alias>.<method>(...)`), which is safe
-// because the compiler-stripped call site is distinctive.
+// The caller registers an ordered list of Rewrite values per source file.
+// The unmodified upstream JavaScript parser identifies executable calls and
+// emitted import declarations; replacements splice those original byte ranges
+// without treating literal or comment contents as executable call sites.
 package driver
 
 import (
@@ -18,16 +18,15 @@ import (
   "fmt"
   "os"
   "path/filepath"
-  "regexp"
+  "slices"
   "strings"
   "sync"
-  "unicode"
-  "unicode/utf8"
 
   "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 // Rewrite describes one emit-time patch: the replacement JS fragment a linked
@@ -120,8 +119,10 @@ func (rs *RewriteSet) Len() int {
   return n
 }
 
-// RewriteSentinel is the marker inserted at the top of a patched file so
-// re-running the emit on an already-rewritten file is a no-op.
+// RewriteSentinel is the exact header comment inserted after the directive
+// prologue, preserving a byte-order mark and interpreter directive. Re-emitting
+// output with that header marker is a no-op; application data and comments
+// outside the header do not establish already-rewritten state.
 const RewriteSentinel = "/* @ttsc-rewritten */"
 
 // EmitAll runs tsgo's emitter, patching every registered plugin-owned call in
@@ -139,9 +140,9 @@ const RewriteSentinel = "/* @ttsc-rewritten */"
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The common emit path prevents a separate whole-program shortcut from bypassing rewrites or linked hooks.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain result errors, default writer, and callback serialization following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Delegated emission uses native lexical output containment and the program's reported case policy; the default writer uses native filesystem APIs, while custom destination effects remain caller-owned.
-// @evidence contracts/performance.md#efficient-algorithms Whole-program native generation and callback source association/pattern matching process source, registered-path and output bytes. The callback mutex serializes rewriting and destination work, including arbitrary caller writer costs; diagnostic conversion adds returned findings/text work.
-// @evidence contracts/performance.md#reuse-equivalent-work Delegated emission reuses the current loaded program and generation-latched linked hooks; cursors and compiled call patterns are shared only within this emit invocation, not across subsequent emits.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Emit-local cursors and patterns grow with encountered source keys and distinct call patterns without a configured cap. Local ownership ends on return, while native program/checker state, supplied descriptors, writer effects and returned results remain with their owners; Close releases a checker lease rather than all those values or disk output.
+// @evidence contracts/performance.md#efficient-algorithms Whole-program native generation and callback source association, upstream parsing and ordered call selection process source, registered-path and output bytes. The callback mutex serializes rewriting and destination work, including arbitrary caller writer costs; diagnostic conversion adds returned findings/text work.
+// @evidence contracts/performance.md#reuse-equivalent-work Delegated emission reuses the current loaded program and generation-latched linked hooks; cursors are shared only within this emit invocation and each affected output is parsed once for call, import and marker identity, not across subsequent emits.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Emit-local cursors grow with encountered source keys; each callback temporarily owns one parsed output and its executable-call ranges without a configured byte or call cap. Local ownership ends on return, while native program/checker state, supplied descriptors, writer effects and returned results remain with their owners; Close releases a checker lease rather than all those values or disk output.
 func (p *Program) EmitAll(rs *RewriteSet, writeFile shimcompiler.WriteFile) (*shimcompiler.EmitResult, []Diagnostic, error) {
   return p.emit(rs, nil, writeFile)
 }
@@ -212,9 +213,9 @@ func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.Em
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No special single-file path bypasses registered hooks or containment.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies single-source emission and shared policy following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Delegated output containment uses native lexical compiler paths and its reported case policy; the default native writer and caller-supplied writer retain their own destination semantics.
-// @evidence contracts/performance.md#efficient-algorithms Target selection remains native; delegated source generation, output association, pattern/splice work and diagnostic conversion depend on reached inputs and emitted text. Callback serialization includes actual writer work and lock contention, without a constant-cost or target-only-computation claim.
-// @evidence contracts/performance.md#reuse-equivalent-work The current program and generation-latched hooks are reused, with cursors and call patterns shared only within this delegated emit; a later invocation owns a fresh matching cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Delegated invocation-local matching maps have no configured source/pattern cap and lose local ownership on return. Supplied descriptors, native program/checker state, returned data and writer artifacts may outlive the call under their owners; this wrapper does not release them or acquire another checker lease.
+// @evidence contracts/performance.md#efficient-algorithms Target selection remains native; delegated source generation, output association, upstream parsing/call selection/splice work and diagnostic conversion depend on reached inputs and emitted text. Callback serialization includes actual writer work and lock contention, without a constant-cost or target-only-computation claim.
+// @evidence contracts/performance.md#reuse-equivalent-work The current program and generation-latched hooks are reused, with cursors shared only within this delegated emit and one parsed tree serving each affected output; a later invocation owns fresh cursors and trees.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Delegated invocation-local source cursors and per-output parsed call ranges have no configured source/byte/call cap and lose local ownership on return. Supplied descriptors, native program/checker state, returned data and writer artifacts may outlive the call under their owners; this wrapper does not release them or acquire another checker lease.
 func (p *Program) EmitFile(rs *RewriteSet, target *ast.SourceFile, writeFile shimcompiler.WriteFile) (*shimcompiler.EmitResult, []Diagnostic, error) {
   return p.emit(rs, target, writeFile)
 }
@@ -230,7 +231,6 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
     rs = NewRewriteSet()
   }
   cursors := map[string]int{}
-  patterns := map[string]*regexp.Regexp{}
   // Native emission may invoke this WriteFile callback concurrently under its
   // selected threading policy. Serialize the
   // whole callback body under wfMu: the `cursors` map would otherwise trip
@@ -250,24 +250,15 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
       }
       return nil
     }
-    // A patched file is idempotent: once the sentinel exists, the emitted text
-    // is passed through unchanged. This matters for watch/rebuild loops and
-    // tests that re-run emit over the same output directory.
-    if strings.Contains(text, RewriteSentinel) {
-      if writeFile != nil {
-        return writeFile(fileName, text, data)
+    // Compiler-selected state keeps its native bytes even when configured with
+    // a JavaScript-looking name. Executable output uses the shared lexical owner.
+    patched := text
+    if !p.isBuildInfoOutput(fileName) {
+      var err error
+      patched, err = applyRewrites(fileName, text, rs, cursors)
+      if err != nil {
+        return err
       }
-      return DefaultWriteFile(fileName, text)
-    }
-    // Rewrites are matched after tsgo has printed JavaScript. The source-file
-    // association is recovered from the output path because WriteFile receives
-    // only the final file name and text.
-    patched, err := applyRewritesWithPatterns(fileName, text, rs, cursors, patterns)
-    if err != nil {
-      return err
-    }
-    if patched != text {
-      patched = insertSentinel(patched)
     }
     if writeFile != nil {
       return writeFile(fileName, patched, data)
@@ -291,8 +282,8 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
 // `internal/execute`, which a host constructing its Program in-process never
 // enters. Without this branch `incremental`, `composite`, and `tsBuildInfoFile`
 // would parse and resolve and then have no effect: a plugin-carrying project
-// would emit its JavaScript and no `.tsbuildinfo`. `driver/emit_containment.go`
-// exempts `.tsbuildinfo` from the outDir guard for that write.
+// would emit its JavaScript without build information. The containment guard
+// exempts the compiler-selected state artifact regardless of its extension.
 //
 // A single-file emit stays on the plain lane. Build information describes a
 // whole program, and tsgo's incremental program returns early on a
@@ -346,46 +337,210 @@ func DefaultWriteFile(fileName, text string) error {
   return os.WriteFile(fileName, []byte(text), 0o644)
 }
 
-// insertSentinel prepends RewriteSentinel to the output text. When the file
-// starts with a "use strict" directive (either quote style), the sentinel is
-// inserted after it so the directive remains the first statement — ES modules
-// and bundlers expect it at position zero.
-func insertSentinel(text string) string {
-  for _, prefix := range []string{"\"use strict\";\n", "'use strict';\n"} {
-    if strings.HasPrefix(text, prefix) {
-      return prefix + RewriteSentinel + "\n" + text[len(prefix):]
+// parseRewriteOutput uses the same unmodified upstream parser as native
+// compilation. A single tree supplies executable call ranges, emitted import
+// declarations and the directive/header boundary; inert literal and comment
+// text never becomes an executable call candidate.
+func parseRewriteOutput(outputName, text string) *ast.SourceFile {
+  parseName := filepath.ToSlash(outputName)
+  if !filepath.IsAbs(outputName) {
+    parseName = "/" + strings.TrimPrefix(parseName, "/")
+  }
+  kind := shimcore.ScriptKindJS
+  if strings.EqualFold(filepath.Ext(outputName), ".jsx") {
+    kind = shimcore.ScriptKindJSX
+  }
+  return shimparser.ParseSourceFile(ast.SourceFileParseOptions{FileName: parseName}, text, kind)
+}
+
+// rewriteHeaderStart preserves the byte-order mark and interpreter directive.
+// The upstream scanner supplies the shebang extent rather than a second lexer.
+func rewriteHeaderStart(text string) int {
+  pos := 0
+  if strings.HasPrefix(text, "\uFEFF") {
+    pos = len("\uFEFF")
+  }
+  pos += len(shimscanner.GetShebang(text[pos:]))
+  return pos
+}
+
+// rewriteDirectiveEnd returns the end of the complete directive prologue.
+// Comments do not interrupt directives, but a nonliteral statement does.
+func rewriteDirectiveEnd(file *ast.SourceFile) int {
+  pos := rewriteHeaderStart(file.Text())
+  if file.Statements != nil {
+    for _, statement := range file.Statements.Nodes {
+      if !isRewriteDirective(statement) {
+        break
+      }
+      pos = statement.End()
     }
   }
-  return RewriteSentinel + "\n" + text
+  return pos
 }
 
-// applyRewrites applies all registered rewrites for the source file that
-// corresponds to outputName. cursors tracks how many rewrites have already
-// been applied per source path across WriteFile calls in one emit.
+func isRewriteDirective(statement *ast.Node) bool {
+  return statement != nil && statement.Kind == ast.KindExpressionStatement &&
+    statement.AsExpressionStatement().Expression.Kind == ast.KindStringLiteral
+}
+
+// hasRewriteSentinel recognizes the exact first header comment, including
+// earlier outputs whose marker preceded all directives or followed use strict.
+// A string, template, line comment, larger block comment or body comment cannot
+// establish this state. Directive boundaries come from the parsed source tree.
+func hasRewriteSentinel(file *ast.SourceFile) bool {
+  text := file.Text()
+  at := func(pos int) bool {
+    pos = shimscanner.SkipTriviaEx(text, pos, &shimscanner.SkipTriviaOptions{StopAtComments: true})
+    return strings.HasPrefix(text[pos:], RewriteSentinel)
+  }
+  if at(rewriteHeaderStart(text)) {
+    return true
+  }
+  if file.Statements != nil {
+    for _, statement := range file.Statements.Nodes {
+      if !isRewriteDirective(statement) {
+        break
+      }
+      if at(statement.End()) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// insertSentinel keeps all directives, a byte-order mark and any shebang in
+// place. The original parsed tree remains valid for this header boundary:
+// directive statements contain no executable calls that rewrites can change.
+func insertSentinel(text string, file *ast.SourceFile) string {
+  if hasRewriteSentinel(file) {
+    return text
+  }
+  pos := rewriteDirectiveEnd(file)
+  if strings.HasPrefix(text[pos:], "\r\n") {
+    pos += 2
+  } else if strings.HasPrefix(text[pos:], "\n") || strings.HasPrefix(text[pos:], "\r") {
+    pos++
+  }
+  prefix := text[:pos]
+  if pos > 0 && prefix != "\uFEFF" && prefix[len(prefix)-1] != '\n' && prefix[len(prefix)-1] != '\r' {
+    prefix += "\n"
+  }
+  return prefix + RewriteSentinel + "\n" + text[pos:]
+}
+
+// emittedRewriteCall holds original-output byte ranges. Non-consuming rewrites
+// end at the callee so argument trivia and nested calls remain available;
+// consuming rewrites cover the complete native-parsed call expression.
+type emittedRewriteCall struct {
+  start     int
+  calleeEnd int
+  end       int
+  path      string
+}
+
+func collectEmittedRewriteCalls(file *ast.SourceFile) []emittedRewriteCall {
+  calls := []emittedRewriteCall{}
+  var visit func(*ast.Node)
+  visit = func(node *ast.Node) {
+    if node == nil {
+      return
+    }
+    if node.Kind == ast.KindCallExpression {
+      call := node.AsCallExpression()
+      if call.QuestionDotToken == nil {
+        if path := rewriteCallPath(call.Expression); path != "" {
+          calls = append(calls, emittedRewriteCall{
+            start: shimscanner.GetTokenPosOfNode(node, file, false),
+            calleeEnd: call.Expression.End(), end: node.End(), path: path,
+          })
+        }
+      }
+    }
+    node.ForEachChild(func(child *ast.Node) bool {
+      visit(child)
+      return false
+    })
+  }
+  file.ForEachChild(func(node *ast.Node) bool { visit(node); return false })
+  return calls
+}
+
+// rewriteCallPath compares complete identifier/property chains, so an
+// identifier substring or a property of another receiver cannot match a root.
+// The parser resolves Unicode identifiers and property-segment trivia.
+func rewriteCallPath(node *ast.Node) string {
+  segments := []string{}
+  for node != nil && node.Kind == ast.KindPropertyAccessExpression {
+    access := node.AsPropertyAccessExpression()
+    if access.QuestionDotToken != nil {
+      return ""
+    }
+    name := identifierName(access.Name())
+    if name == "" {
+      return ""
+    }
+    segments = append(segments, name)
+    node = access.Expression
+  }
+  root := identifierName(node)
+  if root == "" || len(segments) == 0 {
+    return ""
+  }
+  segments = append(segments, root)
+  for left, right := 0, len(segments)-1; left < right; left, right = left+1, right-1 {
+    segments[left], segments[right] = segments[right], segments[left]
+  }
+  return strings.Join(segments, ".")
+}
+
+func rewriteCallPaths(rewrite Rewrite, aliases []string) []string {
+  suffix := "." + rewrite.Method
+  if len(rewrite.Namespaces) != 0 {
+    suffix = "." + strings.Join(rewrite.Namespaces, ".") + suffix
+  }
+  paths := make([]string, 0, len(aliases))
+  for _, alias := range aliases {
+    paths = append(paths, alias+suffix)
+  }
+  return paths
+}
+
+// applyRewrites parses only an associated JavaScript output, then selects
+// executable calls in registration order against the original immutable text.
+// One forward traversal and builder avoid reparsing replacement fragments and
+// copying the complete output for each descriptor. A consuming replacement
+// skips its removed descendants; a callee-only replacement retains them.
 func applyRewrites(outputName, text string, rs *RewriteSet, cursors map[string]int) (string, error) {
-  return applyRewritesWithPatterns(outputName, text, rs, cursors, map[string]*regexp.Regexp{})
-}
-
-// applyRewritesWithPatterns shares compiled descriptors across one emit only.
-// A watch host may serve different projects indefinitely; retaining their
-// descriptors in a process-global cache would outlive the work that owns them.
-func applyRewritesWithPatterns(outputName, text string, rs *RewriteSet, cursors map[string]int, patterns map[string]*regexp.Regexp) (string, error) {
+  switch strings.ToLower(filepath.Ext(outputName)) {
+  case ".js", ".jsx", ".mjs", ".cjs":
+  default:
+    return text, nil
+  }
   srcPath, ok := findSourceForOutput(outputName, rs)
   if !ok || len(rs.byPath[srcPath]) == 0 {
     return text, nil
   }
   rewrites := rs.byPath[srcPath]
-  emittedBindings := map[string][]emittedImportBinding{}
-  for _, rewrite := range rewrites {
-    if _, imported := sourceImportForRoot(rewrite.File, rewrite.RootName); imported {
-      emittedBindings = collectEmittedImportBindings(outputName, text)
-      break
-    }
-  }
   pos := cursors[srcPath]
-  out := text
-  searchFrom := 0
+  if pos >= len(rewrites) {
+    return text, nil
+  }
+  file := parseRewriteOutput(outputName, text)
+  if hasRewriteSentinel(file) {
+    return text, nil
+  }
+  if len(file.Diagnostics()) != 0 {
+    return "", fmt.Errorf("driver: invalid emitted JavaScript while locating plugin call in %s", outputName)
+  }
+  calls := collectEmittedRewriteCalls(file)
+  emittedBindings := collectEmittedImportBindings(file)
   aliasesByRoot := map[string][]string{}
+  pathsByHead := map[string][]string{}
+  var out strings.Builder
+  out.Grow(len(text))
+  copiedThrough, callIndex := 0, 0
   for pos < len(rewrites) {
     r := rewrites[pos]
     aliases, cached := aliasesByRoot[r.RootName]
@@ -393,29 +548,40 @@ func applyRewritesWithPatterns(outputName, text string, rs *RewriteSet, cursors 
       aliases = rewriteAliases(r, emittedBindings)
       aliasesByRoot[r.RootName] = aliases
     }
-    key := callPatternKey(aliases, r.Namespaces, r.Method)
-    pattern, cached := patterns[key]
+    head := r.RootName + "\x00" + strings.Join(r.Namespaces, "\x00") + "\x00" + r.Method
+    paths, cached := pathsByHead[head]
     if !cached {
-      pattern = callRegexFor(aliases, r.Namespaces, r.Method)
-      patterns[key] = pattern
+      paths = rewriteCallPaths(r, aliases)
+      pathsByHead[head] = paths
     }
-    replaced, nextSearchFrom, ok, err := spliceCallWithPattern(out, r, pattern, searchFrom)
-    if err != nil {
-      return "", err
+    found := false
+    for callIndex < len(calls) {
+      call := calls[callIndex]
+      callIndex++
+      if call.start < copiedThrough || !slices.Contains(paths, call.path) {
+        continue
+      }
+      out.WriteString(text[copiedThrough:call.start])
+      out.WriteString(r.Replacement)
+      copiedThrough = call.calleeEnd
+      if r.ConsumeParens {
+        copiedThrough = call.end
+      }
+      found = true
+      break
     }
-    if !ok {
-      preview := out
+    if !found {
+      preview := text
       if len(preview) > 400 {
         preview = preview[:400] + "…"
       }
       return "", fmt.Errorf("driver: could not locate %s.%s(…) call in %s (tried roots %v; preview: %q)", joinRootAndNamespaces(r), r.Method, outputName, aliases, preview)
     }
-    out = replaced
-    searchFrom = nextSearchFrom
     pos++
   }
+  out.WriteString(text[copiedThrough:])
   cursors[srcPath] = pos
-  return out, nil
+  return insertSentinel(out.String(), file), nil
 }
 
 // findSourceForOutput recovers which registered source file produced a given
@@ -502,44 +668,6 @@ func sourceTail(srcPath, commonDir string) string {
   return strings.TrimPrefix(stem, "/")
 }
 
-// spliceCall locates the next call expression for r in text starting at
-// searchFrom and splices in r.Replacement. When ConsumeParens is true the
-// replacement covers the entire call including arguments; otherwise only the
-// head (root.namespaces.method) is replaced and the argument list is kept.
-// Returns the patched text, the byte position to resume from on the next
-// call, a found flag, and any error from the paren-matching step.
-func spliceCall(text string, r Rewrite, searchFrom int) (string, int, bool, error) {
-  emittedBindings := map[string][]emittedImportBinding{}
-  if _, imported := sourceImportForRoot(r.File, r.RootName); imported {
-    emittedBindings = collectEmittedImportBindings("/rewrite.js", text)
-  }
-  aliases := rewriteAliases(r, emittedBindings)
-  return spliceCallWithAliases(text, r, aliases, searchFrom)
-}
-
-func spliceCallWithAliases(text string, r Rewrite, aliases []string, searchFrom int) (string, int, bool, error) {
-  pattern := callRegexFor(aliases, r.Namespaces, r.Method)
-  return spliceCallWithPattern(text, r, pattern, searchFrom)
-}
-
-func spliceCallWithPattern(text string, r Rewrite, pattern *regexp.Regexp, searchFrom int) (string, int, bool, error) {
-  idx, needleLen := findCallMatch(text, pattern, searchFrom)
-  if idx < 0 {
-    return text, searchFrom, false, nil
-  }
-  parenPos := idx + needleLen
-  closePos, ok := matchParen(text, parenPos)
-  if !ok {
-    return text, searchFrom, false, errors.New("driver: unbalanced parens while locating plugin call")
-  }
-  if r.ConsumeParens {
-    replaced := text[:idx] + r.Replacement + text[closePos+1:]
-    return replaced, idx + len(r.Replacement), true, nil
-  }
-  replaced := text[:idx] + r.Replacement + text[idx+needleLen:]
-  return replaced, idx + len(r.Replacement), true, nil
-}
-
 type emittedImportKind uint8
 
 const (
@@ -560,12 +688,7 @@ type emittedImportBinding struct {
 // file. The source-level import name is not enough: the emitter owns collision
 // suffixes and may choose any free number. Parsing the emitted declarations
 // keeps alias discovery coupled to that output instead of guessing a maximum.
-func collectEmittedImportBindings(outputName, text string) map[string][]emittedImportBinding {
-  parseName := filepath.ToSlash(outputName)
-  if !filepath.IsAbs(outputName) {
-    parseName = "/" + strings.TrimPrefix(parseName, "/")
-  }
-  file := shimparser.ParseSourceFile(ast.SourceFileParseOptions{FileName: parseName}, text, shimcore.ScriptKindJS)
+func collectEmittedImportBindings(file *ast.SourceFile) map[string][]emittedImportBinding {
   bindings := map[string][]emittedImportBinding{}
   if file == nil || file.Statements == nil {
     return bindings
@@ -883,76 +1006,6 @@ func emittedNameForRoot(name, root string) bool {
   return true
 }
 
-// callRegexFor compiles the loose-match needle pattern used by spliceCall.
-//
-// tsgo's emitter preserves source line breaks in property-access chains, so a
-// source-side `typia.misc\n  .literals<T>()` lands in the output as
-// `typia_1.default.misc\n  .literals()`. A literal needle would miss it; the
-// pattern instead allows any whitespace (spaces, tabs, newlines) between
-// segments, around the trailing dot before the method, and before the opening
-// paren. Group 1 captures the trailing `(` so callers can compute the call
-// site's text length precisely (regexes can't return per-byte segment widths
-// otherwise).
-//
-// The emit owner reuses these patterns by descriptor during one invocation.
-// This compiler does not retain patterns across unrelated program lifetimes.
-func callRegexFor(aliases, namespaces []string, method string) *regexp.Regexp {
-  rootAlternation := make([]string, 0, len(aliases))
-  for _, alias := range aliases {
-    rootAlternation = append(rootAlternation, regexp.QuoteMeta(alias))
-  }
-  var b strings.Builder
-  b.WriteString(`(?:`)
-  b.WriteString(strings.Join(rootAlternation, `|`))
-  b.WriteString(`)`)
-  for _, ns := range namespaces {
-    b.WriteString(`\s*\.\s*`)
-    b.WriteString(regexp.QuoteMeta(ns))
-  }
-  b.WriteString(`\s*\.\s*`)
-  b.WriteString(regexp.QuoteMeta(method))
-  b.WriteString(`\s*(\()`)
-  // MustCompile is safe because every contributing string was QuoteMeta'd
-  // and the surrounding template is a fixed regex grammar.
-  return regexp.MustCompile(b.String())
-}
-
-func callPatternKey(aliases, namespaces []string, method string) string {
-  return strings.Join(aliases, "|") + "\x00" + strings.Join(namespaces, ".") + "\x00" + method
-}
-
-// findCallMatch scans `text` from `searchFrom` for the next call expression
-// matched by the loose-match `pattern`, applying the same "must start outside
-// an identifier" rule as a literal call-start search would, so generated locals
-// like `mytypia.foo(` don't shadow `typia.foo(`. Returns the start byte of the
-// match and the length up to (but not including) the captured `(`.
-func findCallMatch(text string, pattern *regexp.Regexp, searchFrom int) (int, int) {
-  start := searchFrom
-  if start < 0 {
-    start = 0
-  }
-  for start <= len(text) {
-    loc := pattern.FindStringSubmatchIndex(text[start:])
-    if loc == nil {
-      return -1, 0
-    }
-    matchStart := start + loc[0]
-    parenStart := start + loc[2]
-    // Decode the whole preceding rune rather than widening the single byte at
-    // text[matchStart-1]: for a multi-byte identifier char (e.g. `й`, `한`, an
-    // astral letter) that byte is a UTF-8 continuation/lead byte, not the
-    // character, so the boundary guard would be bypassed and the rewriter would
-    // splice into the middle of a larger identifier.
-    prev, _ := utf8.DecodeLastRuneInString(text[:matchStart])
-    if matchStart > 0 && isIdentifierPart(prev) {
-      start = matchStart + 1
-      continue
-    }
-    return matchStart, parenStart - matchStart
-  }
-  return -1, 0
-}
-
 // joinRootAndNamespaces returns the human-readable "root.ns1.ns2" form of
 // the rewrite's call head, used in error messages only.
 func joinRootAndNamespaces(r Rewrite) string {
@@ -960,256 +1013,4 @@ func joinRootAndNamespaces(r Rewrite) string {
     return r.RootName
   }
   return r.RootName + "." + strings.Join(r.Namespaces, ".")
-}
-
-// needleTail returns the literal suffix of a call expression head, e.g.
-// ".ns.method(". This was the original literal-search needle before the regex
-// rewriter was introduced; it is kept for potential future use by callers
-// that do a quick pre-filter before invoking the regex path.
-func needleTail(r Rewrite) string {
-  if len(r.Namespaces) == 0 {
-    return "." + r.Method + "("
-  }
-  return "." + strings.Join(r.Namespaces, ".") + "." + r.Method + "("
-}
-
-// isIdentifierPart reports whether r can appear inside a JavaScript identifier.
-// Used to ensure a regex match does not begin mid-identifier (e.g. "mytypia"
-// must not match as "typia").
-func isIdentifierPart(r rune) bool {
-  return r == '_' || r == '$' || unicode.IsLetter(r) || unicode.IsDigit(r)
-}
-
-// matchParen finds the closing ")" that matches the "(" at text[pos],
-// skipping over nested parentheses, strings, template literals, comments, and
-// regex literals. Returns the byte index of the closing ")" and true on
-// success; (0, false) when pos does not point at "(" or the text ends before
-// the paren is closed. The lastSignificant variable tracks the most recently
-// seen non-whitespace byte so canStartRegexLiteral can distinguish division
-// from a regex literal opener.
-func matchParen(text string, pos int) (int, bool) {
-  if pos >= len(text) || text[pos] != '(' {
-    return 0, false
-  }
-  depth := 1
-  lastSignificant := byte('(')
-  for i := pos + 1; i < len(text); i++ {
-    ch := text[i]
-    switch ch {
-    case ' ', '\t', '\n', '\r', '\f':
-      continue
-    case '(':
-      depth++
-      lastSignificant = ch
-    case ')':
-      depth--
-      if depth == 0 {
-        return i, true
-      }
-      lastSignificant = ch
-    case '"', '\'':
-      end, ok := skipQuoted(text, i, ch)
-      if !ok {
-        return 0, false
-      }
-      i = end
-      lastSignificant = 'x'
-    case '`':
-      end, ok := skipTemplate(text, i)
-      if !ok {
-        return 0, false
-      }
-      i = end
-      lastSignificant = 'x'
-    case '/':
-      if i+1 < len(text) {
-        switch text[i+1] {
-        case '/':
-          i = skipLineComment(text, i+2)
-          continue
-        case '*':
-          end, ok := skipBlockComment(text, i+2)
-          if !ok {
-            return 0, false
-          }
-          i = end
-          continue
-        }
-      }
-      if canStartRegexLiteral(lastSignificant) {
-        end, ok := skipRegexLiteral(text, i)
-        if !ok {
-          return 0, false
-        }
-        i = end
-        lastSignificant = 'x'
-        continue
-      }
-      lastSignificant = ch
-    default:
-      lastSignificant = ch
-    }
-  }
-  return 0, false
-}
-
-// skipQuoted advances past a single- or double-quoted string literal starting
-// at pos. Returns the index of the closing quote and true, or (0, false) on
-// unterminated literals. Newlines inside a non-template string are illegal in
-// JS and also terminate the scan as a failure.
-func skipQuoted(text string, pos int, quote byte) (int, bool) {
-  for i := pos + 1; i < len(text); i++ {
-    switch text[i] {
-    case '\\':
-      i++
-    case quote:
-      return i, true
-    case '\n', '\r':
-      return 0, false
-    }
-  }
-  return 0, false
-}
-
-// skipTemplate advances past a backtick template literal starting at pos.
-// A `${...}` expression is scanned by skipTemplateExpression so a backtick,
-// quote or brace inside it is not mistaken for the end of the literal.
-func skipTemplate(text string, pos int) (int, bool) {
-  for i := pos + 1; i < len(text); i++ {
-    switch text[i] {
-    case '\\':
-      i++
-    case '`':
-      return i, true
-    case '$':
-      if i+1 < len(text) && text[i+1] == '{' {
-        end, ok := skipTemplateExpression(text, i+2)
-        if !ok {
-          return 0, false
-        }
-        i = end
-      }
-    }
-  }
-  return 0, false
-}
-
-// skipTemplateExpression advances past the body of a `${...}` expression whose
-// first byte is at pos. Braces are balanced, and strings, nested templates and
-// comments are skipped whole. Returns the index of the closing "}" and true, or
-// (0, false) when the expression is unterminated. Regex literals are not
-// recognized here: one holding an unbalanced brace or quote inside a template
-// expression is outside what emitted plugin calls carry.
-func skipTemplateExpression(text string, pos int) (int, bool) {
-  depth := 1
-  for i := pos; i < len(text); i++ {
-    switch text[i] {
-    case '{':
-      depth++
-    case '}':
-      depth--
-      if depth == 0 {
-        return i, true
-      }
-    case '"', '\'':
-      end, ok := skipQuoted(text, i, text[i])
-      if !ok {
-        return 0, false
-      }
-      i = end
-    case '`':
-      end, ok := skipTemplate(text, i)
-      if !ok {
-        return 0, false
-      }
-      i = end
-    case '/':
-      if i+1 < len(text) {
-        switch text[i+1] {
-        case '/':
-          i = skipLineComment(text, i+2)
-        case '*':
-          end, ok := skipBlockComment(text, i+2)
-          if !ok {
-            return 0, false
-          }
-          i = end
-        }
-      }
-    }
-  }
-  return 0, false
-}
-
-// skipLineComment advances past a "//" line comment starting at pos (pos
-// should be the character after the second "/"). Returns the index of the
-// line terminator, or the last valid index when no newline is found.
-func skipLineComment(text string, pos int) int {
-  for i := pos; i < len(text); i++ {
-    if text[i] == '\n' || text[i] == '\r' {
-      return i
-    }
-  }
-  return len(text) - 1
-}
-
-// skipBlockComment advances past a "/* … */" block comment starting at pos
-// (pos should be the character after the opening "/*"). Returns the index of
-// the closing "/" and true, or (0, false) when the comment is unterminated.
-func skipBlockComment(text string, pos int) (int, bool) {
-  for i := pos; i+1 < len(text); i++ {
-    if text[i] == '*' && text[i+1] == '/' {
-      return i + 1, true
-    }
-  }
-  return 0, false
-}
-
-// canStartRegexLiteral reports whether the byte previous (the last
-// non-whitespace character seen before a "/") allows a regex literal to
-// start. This is the minimal set of characters that unambiguously precede a
-// regex in emitted CommonJS output; false positives are safe (they cause an
-// extra skipRegexLiteral attempt that quickly fails), false negatives would
-// misparse a "/" as the start of a comment or regex.
-func canStartRegexLiteral(previous byte) bool {
-  return strings.ContainsRune("([{=,:;!&|?+-*~^<>%", rune(previous))
-}
-
-// skipRegexLiteral advances past a "/" regex literal starting at pos.
-// Character classes ("[…]") are tracked so a "/" inside them is not treated
-// as the closing delimiter. Returns the index of the last flag character (or
-// the closing "/" when no flags follow) and true, or (0, false) for unterminated
-// or newline-terminated literals.
-func skipRegexLiteral(text string, pos int) (int, bool) {
-  inClass := false
-  for i := pos + 1; i < len(text); i++ {
-    switch text[i] {
-    case '\\':
-      i++
-    case '[':
-      inClass = true
-    case ']':
-      inClass = false
-    case '/':
-      if inClass {
-        continue
-      }
-      for i+1 < len(text) && isRegexFlag(text[i+1]) {
-        i++
-      }
-      return i, true
-    case '\n', '\r':
-      return 0, false
-    }
-  }
-  return 0, false
-}
-
-// isRegexFlag reports whether ch is a valid regex flag character (letter,
-// digit, "_" or "$"). ES2025 allows any IdentifierPart after the closing "/".
-func isRegexFlag(ch byte) bool {
-  return ch == '_' ||
-    ch == '$' ||
-    unicode.IsLetter(rune(ch)) ||
-    unicode.IsDigit(rune(ch))
 }

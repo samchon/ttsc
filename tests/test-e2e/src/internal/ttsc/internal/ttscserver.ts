@@ -476,12 +476,6 @@ export async function shutdownTtscserverClient(
 }
 
 /**
- * Bound for a wait that includes a cold `@ttsc/lint` build: long enough for one
- * on a developer machine, since it only bounds a failure.
- */
-export const PLUGIN_BUILD_TIMEOUT = 900_000;
-
-/**
  * Run `body` against a started session, then shut the session down, without
  * letting the shutdown's failure replace the body's.
  *

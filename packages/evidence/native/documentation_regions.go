@@ -96,7 +96,7 @@ func documentationRegions(body string, slashDecoration bool) []documentationRegi
         at = end
         continue
       }
-      if codeEnd > offset + at || tagEnd > offset + at {
+      if codeEnd > offset+at || tagEnd > offset+at {
         at++
         continue
       }

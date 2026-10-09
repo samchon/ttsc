@@ -1,143 +1,70 @@
-import fs from "node:fs";
-import path from "node:path";
-import { parseJsonc, tsconfigExtendsFileCandidates } from "ttsc/tsconfig";
-
-import { extendsSpecifiers } from "./extendsSpecifiers";
-import { resolveExtendsConfig } from "./resolveExtendsConfig";
-import { resolveRealPath } from "./resolveRealPath";
+import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
 
 /**
- * Find the nearest declaration of one config value along the `extends` chain,
- * with the directory of the config that declared it.
+ * Find the nearest selected value and its lexical declaring directory.
  *
- * TypeScript merges configs per key, so the effective value of a key is the
- * whole value from the nearest config that declares one: the config itself
- * first, then its `extends` entries in reverse priority order. The declaring
- * directory travels with the value because a path-valued option (`outDir`,
- * `exclude`) is anchored at the config that wrote it, not at the one that
- * inherited it.
+ * Own declarations win, then later extends entries are searched first. Paths
+ * remain anchored at the named config; physical identity only cuts branch
+ * cycles. Independent aliases can therefore resolve different relative bases.
+ * Missing or malformed configs remain best-effort absence; the compiler owns
+ * configuration diagnostics. Unresolved file candidates remain observed inputs.
  *
- * Paths are anchored as TypeScript anchors them: a config is read at the path
- * it was named by, a relative `extends` resolves against that config's own
- * directory, and a package `extends` at the path Node resolves it to. A project
- * reached through a link, the macOS temporary directory among them, therefore
- * keeps its own spelling in every path derived here, the spelling the walk and
- * the host compare against (samchon/ttsc#1455). Only the cycle guard compares
- * physically within a branch. Independent aliases keep their own relative
- * resolution context, even when they refer to the same physical config.
- *
- * Best-effort by design, like `readEffectiveTsconfigPaths`: a missing or
- * unparsable config in the chain yields `null` here and a real config error
- * from the compiler, which owns config diagnostics.
- *
- * An optional configs map shares source parsing within one caller-owned read
- * transaction. Do not retain it across transactions without validating inputs.
+ * A supplied transaction shares source, identity and edge observations across
+ * keys. A decoded-source map remains supported for callers that own that map;
+ * its graph/selection work is scoped to this query. Neither may outlive its
+ * caller's independent freshness observation without input validation.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Own declarations win, then later extends entries are searched first. A
- *   lexical declaring directory accompanies each value; physical identity cuts
- *   cycles and observed sources include unresolved file candidates.
- *
+ *   The shared evaluator searches own then reverse-priority bases and returns
+ *   the lexical declaring anchor. Wrapping selected values preserves null as
+ *   an actual selector value, distinct from an undefined absence.
  * @evidence contracts/common.md#clear-and-simple-design
- *   A selector separates option-specific validity from shared inheritance and
- *   provenance. Cycle state and collected input state have different owners.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Node native paths and host extends resolution keep lexical declaring
- *   directories distinct from realpath cycle identities. No full-path case
- *   folding or shell lookup replaces actual filesystem observations.
- *
+ *   This adapter keeps selector validity separate from contextual inheritance;
+ *   the transaction owns graph observations, cycle guards and completed answers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   Missing configs remain unproven; collecting their candidates allows later
- *   creation to invalidate selection instead of inventing inherited values.
- *
+ *   Missing sources stay unproven and their file candidates remain observed.
+ *   No consumer-specific declaration or physical alias merging supplies values.
  * @evidence contracts/common.md#meaningful-documentation
- *   JSDoc explains precedence, lexical anchors, physical guards and why collect
- *   cannot be reused as seen; transaction-map lifetime is stated separately.
+ *   Native paragraphs explain precedence, lexical anchors, error ownership and
+ *   the difference between a shared transaction and a decoded-source map.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The transaction uses native lexical paths and actual realpath cycle
+ *   identities; host resolution owns file and package specifier spelling.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Depth-first search stops at the winning declaration and branch-local
- *   ancestor sets stop cycles while preserving lexical alias contexts.
- *   Set copying costs the sum of visited depths; resolution and parsing follow
- *   config occurrences and source bytes. The selector's own work is additional.
+ *   The transaction memoizes selected and absent answers by lexical node and
+ *   relevant ancestry context. Acyclic shared subgraphs select once per node;
+ *   source/identity witness unions and checks follow accumulated subtree volume.
+ *   Selector cost and native source/edge/path observations remain additional.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   An optional caller-owned map shares decoded sources and failed observations
- *   by lexical path within one read transaction. Inheritance selections still
- *   retain each branch's context; reuse across changed inputs requires a new map.
+ *   The supplied transaction shares observations across queries; query-local
+ *   memo entries reuse only the same selector and matching physical ancestry
+ *   intersections. A subsequent independent read constructs a fresh owner.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   Recursive ancestor sets are temporary search state; collected paths and
- *   decoded sources transfer to their caller-owned transaction containers.
- *   No handle or task remains after the synchronous search returns.
+ *   Query state is synchronous and local; the optional transaction and source
+ *   collection remain caller-owned. No handle or cross-call state is acquired.
  */
 export function findDeclaredValue<T>(
   tsconfig: string,
   select: (parsed: object) => T | undefined,
   seen: Set<string>,
-  /**
-   * Every config this walk reads, accumulated across walks. Kept apart from
-   * `seen`, which guards one walk against an `extends` cycle and must start
-   * empty each time: sharing one set would make the second option's walk treat
-   * the leaf as already visited and answer `null` for everything.
-   */
+  /** Accumulated input observations, separate from branch-cycle ancestry. */
   collect?: Set<string>,
-  configs?: Map<string, unknown>,
+  configs?: Map<string, unknown> | TsconfigReadTransaction,
 ): { baseDir: string; value: T } | null {
-  const resolved = path.resolve(tsconfig);
-  const canonical = resolveRealPath(resolved);
-  if (seen.has(canonical)) {
-    return null;
-  }
-  const ancestors = new Set([...seen, canonical]);
-  collect?.add(resolved);
-
-  let parsed: { extends?: unknown };
-  try {
-    if (configs?.has(resolved)) {
-      parsed = configs.get(resolved) as typeof parsed;
-    } else {
-      parsed = parseJsonc(fs.readFileSync(resolved, "utf8")) as typeof parsed;
-      configs?.set(resolved, parsed);
-    }
-  } catch {
-    configs?.set(resolved, undefined);
-    return null;
-  }
-  if (typeof parsed !== "object" || parsed === null) {
-    return null;
-  }
-
-  const own = select(parsed);
-  if (own !== undefined) {
-    return { baseDir: path.dirname(resolved), value: own };
-  }
-
-  for (const specifier of extendsSpecifiers(parsed.extends).reverse()) {
-    const base = resolveExtendsConfig(resolved, specifier);
-    if (base === null) {
-      // Record where a specifier naming a file *would* have resolved, even
-      // though nothing is there. A caller stamping this policy has to notice
-      // the config appearing later, and a base config can be absent for
-      // ordinary reasons: generated during install, or missing across a branch
-      // switch. Without this the stamp never moves and a long-lived worker
-      // keeps a policy the next run's walk already disagrees with. A module
-      // specifier has no single candidate path, so it names none.
-      for (const candidate of tsconfigExtendsFileCandidates(
-        resolved,
-        specifier,
-      ) ?? []) {
-        collect?.add(candidate);
-      }
-      continue;
-    }
-    const declared = findDeclaredValue(
-      base,
-      select,
-      ancestors,
-      collect,
-      configs,
-    );
-    if (declared !== null) {
-      return declared;
-    }
-  }
-  return null;
+  const transaction =
+    configs instanceof TsconfigReadTransaction
+      ? configs
+      : new TsconfigReadTransaction(configs);
+  const declared = transaction.find(
+    tsconfig,
+    (parsed) => {
+      const value = select(parsed);
+      return value === undefined ? undefined : { value };
+    },
+    seen,
+    collect,
+  );
+  return declared === null
+    ? null
+    : { baseDir: declared.baseDir, value: declared.value.value };
 }

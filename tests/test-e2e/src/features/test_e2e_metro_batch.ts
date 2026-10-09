@@ -1,5 +1,6 @@
 import {
   FileSystemIterator,
+  TestExecutor,
   TestProject,
   TestUnpluginRuntime,
 } from "@ttsc/testing";
@@ -34,6 +35,8 @@ import {
 import { MetroResidentBoundary } from "../batch/MetroResidentBoundary";
 import { observePluginLockGraph } from "../batch/PluginLockGraph";
 import { deadCompilerClaimCorpus } from "../batch/deadCompilerClaimCorpus";
+import { loaderCommandLifetimeCorpus } from "../batch/loaderCommandLifetimeCorpus";
+import { mappedResolutionWitnessCorpus } from "../batch/mappedResolutionWitnessCorpus";
 import {
   buildSourcePlugin,
   computeCacheKey,
@@ -41,7 +44,7 @@ import {
   ensureExecutableGoToolchain,
   formatGoWorkPath,
 } from "../internal/ttsc/internal/source-build";
-import { waitFor } from "../internal/unplugin/internal/adapter-vite-serve/waitFor";
+import { waitFor } from "../../../utils/src/internal/waitFor";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
 
@@ -86,12 +89,14 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * allocation is its child so the artifact owner can collect the native
  * receipts. It retains no copied fixture or Go cache. Retention failure
  * accompanies the original error rather than replacing it. Descriptor and
- * capability reuse additionally require the selected Node evaluator's actual
- * public resolve-hook capability, independently probed by the existing
- * recorder. Supported observation retains exact cache-hit and publication
- * assertions. Missing capability instead requires fresh factory calls, explicit
- * incomplete proof and no reusable answer publication. Default maintenance
- * borrows one upfront normal package outside prior cache consumers; neither
+ * capability reuse require the owned resolver observation contract. When native
+ * require.resolve bypasses public hooks, the runtime supplies module-local
+ * require.resolve and createRequire adaptation through that resolver. The
+ * existing recorder independently contrasts the actual native hook capability;
+ * its absence does not withdraw observed reuse. Exact cache-hit and publication
+ * assertions remain, while undeclared or unproved reads require fresh factory
+ * evaluation. Default maintenance borrows one upfront normal package outside
+ * prior cache consumers; neither
  * runtime versions nor operating-system names select these assertions. The
  * existing scripted Go protocol producer also rewrites and restores its
  * selected launcher during every build. Its three bounded transactions must all
@@ -106,24 +111,72 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * quoted/bare serializer contrast. The existing captured-workspace parser
  * supplies the copied module identities without another native preparation.
  *
- * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, linked-host printed TypeScript, its owned authored map and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers while that hook writes an independently authored non-input log, whose bytes must appear without joining the declared record. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
- * @evidence contracts/testing.md#independent-expectations Independently authored source coordinates, map provenance, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables.
- * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. A new root member must replace the consumed directory generation and advance ApplyProgram; three later delete/recreate transitions inside the existing excluded outDir must retain that replacement publication and receipt.
- * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with root-membership invalidation followed by excluded output churn in the same existing two deliveries. The existing external-config epoch also changes both delivered source files while its two requests carry their original stale bytes; actual native source and executable value must follow disk. The first churn delivery replaces its publication after a new root member, and the next retains the replacement despite divergent host text, and real stderr must contain one divergent-source warning per captured generation, including rejected adoption before retry, with no additional warning during reuse of the accepted generation. The first Metro response additionally forwards one excluded source unchanged; later commands do not repeat that control. This is seventeen planned adapter transforms within sixteen worker commands. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
- * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. The existing Metro worker now exercises CJS withTtsc and requires its actual returned transformer, executes getCacheKey and retains a native-banner-shifted upstream AST identifier whose start/end must return to independently authored source coordinates. This is not a running Next or Metro server; key shape is not proof of a productive snapshot.
- * @evidence contracts/e2e.md#shared-execution One public prepare call in the initial Metro resident owns its required native installation before the graph-proof delivery deadline. This adds descriptor/admission observation without a Program, worker or transform; actual binary paths and elapsed time are reported, and later capture revalidates its selected keys instead of accepting readiness as proof. Upfront public prepare requests share the owned native source with two instance cache namespaces; plugin/Go cache admission and source/environment edits then exercise that same producer before adapter startup. These are actual build/key/native-transform phases of this experiment, not a single Program assertion or per-original fixture loop. The Metro Node caller advances one descriptor scope through nine failure inputs before its adapter admission, with real evaluator attempts and no extra worker. The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer. The existing six adapter roots and skipLibCheck=false policy are established before the first graph-proof request; imported dependencies and the later membership root remain selected, while runtime-only roots keep their separate runtime owner. This moves the existing config write without adding a request, producer, Program or warmup. Descriptor observation/search, separate project-root, replacement and moving-proof consumers share the pool's Go object storage only when their effective environment has neither a dedicated nor external cache; binary authorities and required preparations remain independent. Collection/default ownership, admission, tool-environment, ambient capability and native failure lanes retain their original cache inputs. Object sharing is delegated to Go's input validation and does not assert a cache hit or measured time reduction.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both cache-root queries use the actual platform before native admission, so their directory creation cannot introduce an extra input epoch; the selected Program independently reports that same native comparison policy. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs. The independent observation allocation is retained on every propagated pool failure, including setup or cleanup failure, with its path reported. Its identity-checked retention and any failure remain separate from native result acceptance; a successful whole pool leaves trace reclamation to the tracked exit owner. The initial adapter arms its native write only after the independent graph-proof captures and serializes that current tick immediately before delivery; its owned observation directory is outside compiler input membership and is removed after joined workers close.
- * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/authored-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/authored-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. A genuinely fresh Metro worker after both old workers close must deliver an offline-edited marker and one new real probe tick without deleting retained publications; it adds one Node worker and necessary native preparation. The same public entry independently collects deadCompilerClaimCorpus on one upfront native producer project: an actual PID-owned holder lock/native receipt precedes holder death, then a survivor must produce PROBED with a second native receipt and remove the lock. Two additional Node workers and three actual native producer invocations are costs; the survivor owns two completed five-second native holds, each with unchanged temporary environment and sub-750ms initial/intertick/terminal gaps. The resident graph startup receipt remains separate from that strict native boundary; recorded native departure is separately acquired and native preparation totals remain unmeasured. The timed holder joins before the resident pool starts, so synchronous descriptor and metadata operations cannot starve its in-flight lock polling. Both independent failures are collected; an unresolved holder retains the workspace and refuses subsequent shared reuse. A live external bundler watcher remains unproved.
+ * The normal linked probe includes excluded-tag and foreign-OS main files;
+ * its existing native output assertions must still execute. The existing
+ * public transform proof phase also links the authored banner into its explicit
+ * command host and requires both the real preamble and source-pipeline marker.
+ * This changes that phase's native source composition without adding a Program
+ * request, compiler preparation or host session.
+ *
+ * After both original residents join, the existing fresh Metro resident omits
+ * an explicit project and discovers a files-empty solution referencing the
+ * original config. Its independent compiler root must reach the actual native
+ * plugin while the host root still addresses Metro filenames. The existing
+ * offline-marker delivery retains its trace-qualified single-accepted-generation assertion; one additional
+ * delivery must reject an authored type error. A copied lint config imports an
+ * existing authored module from an exclusive tools directory outside the src
+ * host walk. After this resident joins, its real native directory evidence
+ * and persisted request must survive compaction, and adding a member must move
+ * a stable current built key while the original run baseline stays immutable.
+ * Source, config and owned directory restoration waits for
+ * actual closure; unavailable closure retains them.
+ *
+ * Ordered named phases retain each assertion and restoration failure. Both
+ * original residents close concurrently before shared-input restores are
+ * attempted independently; failed closure or restore forbids a fresh borrower.
+ * A complete current project walk must match the independently captured original
+ * selected bytes and membership, even when unrelated failed-scene evidence is
+ * retained. An isolated earlier assertion therefore remains a failure without
+ * blocking safe final controls; unavailable prerequisites produce named blocked
+ * outcomes instead of successful or silently omitted coverage.
+ * The root report matrix is rebased for the final tools cwd across its five
+ * configured contributors and automatic marker, preserving absolute addresses,
+ * duplicates and lexical aliases. Two later sequential Metro option lifetimes
+ * share that installation and session but select one static sibling source
+ * through a nested backend config. Omitted compiler root retains the backend
+ * native cwd and absolute output key; explicit common root produces relative
+ * src/main.ts. Both must transform the real sentinel and publish coupled maps
+ * under distinct root identities. Scoped reporting ends only after closure.
+ * Builtin-only real transport peers and ordinary contained-entry controls run
+ * before compiler preparation; their failures remain independently named.
+ *
+ * Existing replacement loads also publish structural source/module interests
+ * before metadata and their known external roots before admission. Mixed-package
+ * transform/check failures and an actual missing selected Go tool must retain
+ * those repair interests without reaching a native build. Their setup/removal
+ * errors remain separate, and uncertain source restoration denies shared reuse.
+ * A direct go.mod candidate reaches preliminary and final linked publication
+ * with the same directory interest, then retains the host's existing terminal
+ * file-to-directory materialization refusal; it claims no successful build.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, linked-host printed TypeScript, its owned authored map and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers while that hook writes an independently authored non-input log, whose bytes must appear without joining the declared record. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication. The final existing Metro resident must compile through an implicit referenced project with a distinct native cwd, reject an authored type error, and persist an actual native-only directory predicate whose changed membership moves a stable built key. Two sequential sibling workers additionally contrast omitted backend cwd and explicit ancestor cwd, absolute outside-root and relative inside-root output keys, real sentinel transformation and distinct root-qualified publications.
+ * @evidence contracts/testing.md#independent-expectations Independently authored source coordinates, map provenance, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables. The final native cwd is compared with the existing tools compiler root, independently of both Metro's src host root and the selected referenced config's workspace root; package resolution uses the installed ancestor. The raw directory digest comes from the authored single dependency.cjs regular-file entry, not from the producer or baseline implementation. Unchanged same-run keys and changed nonnonce current keys distinguish reuse from withdrawal; the changed state must refuse publication under the old run identity and preserve its original baseline bytes.
+ * @evidence contracts/testing.md#distinguishing-cases Excluded-tag and Plan9 main files must preserve the ordinary linked native probe, while the existing explicit public host phase must print the linked banner and transformed marker with its retained neighbor. Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. A new root member must replace the consumed directory generation and advance ApplyProgram; three later delete/recreate transitions inside the existing excluded outDir must retain that replacement publication and receipt. The final resident contrasts referenced-project success and genuine type diagnostics, then unchanged and changed native-only directory membership after joined closure. A failed positive delivery retains its actual error and explicitly blocks dependent predicate proof; every spawned resident still joins. Source/config restoration and retained uncertain ownership remain explicit failure boundaries.
+ * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with root-membership invalidation followed by excluded output churn in the same existing two deliveries. The existing external-config epoch also changes both delivered source files while its two requests carry their original stale bytes; actual native source and executable value must follow disk. The first churn delivery replaces its publication after a new root member, and the next retains the replacement despite divergent host text, and real stderr must contain one divergent-source warning per captured generation, including rejected adoption before retry, with no additional warning during reuse of the accepted generation. The first Metro response additionally forwards one excluded source unchanged; later commands do not repeat that control. The initial two residents perform seventeen planned adapter transforms within sixteen worker commands. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately. The final existing resident now owns two commands and three adapter transforms, including its existing excluded-file pass-through and one new negative delivery. Its native checks use the original installed lint contributor; no worker or preparation is added by these new controls.
+ * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. The existing Metro worker now exercises CJS withTtsc and requires its actual returned transformer, executes getCacheKey and retains a native-banner-shifted upstream AST identifier whose start/end must return to independently authored source coordinates. This is not a running Next or Metro server; key shape is not proof of a productive snapshot. Actual native cwd and type diagnostics distinguish public option transport and solution selection from a pure resolver test; actual native graph evidence reaching persistent Metro keys distinguishes the producer-to-recorder connection from authored unit envelopes.
+ * @evidence contracts/e2e.md#shared-execution The existing explicit-host transform proof phase adds one linked banner contribution and source-pipeline operation to its already required native composition; changed native inputs require that host binary, while its existing Program request/session and normal shared object cache remain the preparation owners. One public prepare call in the initial Metro resident owns its required native installation before the graph-proof delivery. This adds descriptor/admission observation without a Program, worker or transform; actual binary paths and elapsed time are reported, and later capture revalidates its selected keys instead of accepting readiness as proof. Upfront public prepare requests share the owned native source with two instance cache namespaces; plugin/Go cache admission and source/environment edits then exercise that same producer before adapter startup. These are actual build/key/native-transform phases of this experiment, not a single Program assertion or per-original fixture loop. The Metro Node caller advances one descriptor scope through nine failure inputs before its adapter admission, with real evaluator attempts and no extra worker. The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer. The existing six adapter roots and skipLibCheck=false policy are established before the first graph-proof request; imported dependencies and the later membership root remain selected, while runtime-only roots keep their separate runtime owner. This moves the existing config write without adding a request, producer, Program or warmup. Descriptor observation/search, separate project-root, replacement and moving-proof consumers share the pool's Go object storage only when their effective environment has neither a dedicated nor external cache; binary authorities and required preparations remain independent. Collection/default ownership, admission, tool-environment, ambient capability and native failure lanes retain their original cache inputs. Object sharing is delegated to Go's input validation and does not assert a cache hit or measured time reduction. The final referenced-project, compiler-root and native-predicate controls share the already-required fresh Metro resident and its installation. Their source/config changes incur real validation work; no extra contributor, Go rule or public preparation is introduced. The static sibling contrast requires two additional Metro worker lifetimes because public options are memoized per worker; both reuse the same installation, session and supported native source cache without claiming zero native admission cost.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both cache-root queries use the actual platform before native admission, so their directory creation cannot introduce an extra input epoch; the selected Program independently reports that same native comparison policy. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined separately from command rejection; unknown closure retains inputs. The independent observation allocation is retained on every propagated pool failure, including setup or cleanup failure, with its path reported. Its identity-checked retention and any failure remain separate from native result acceptance; a successful whole pool leaves trace reclamation to the tracked exit owner. The initial adapter arms its native write only after the independent graph-proof captures and serializes that current tick immediately before delivery; its owned observation directory is outside compiler input membership and is removed after joined workers close. The final copied config imports an existing authored module from an exclusively allocated tools subdirectory outside Metro's src host walk. Native graph requests are read before compaction; compaction and membership mutation wait for actual resident close. Every restoration is attempted after closure, while unresolved ownership retains all live inputs.
+ * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/authored-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/authored-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. A genuinely fresh Metro worker after both old workers close must deliver an offline-edited marker and one accepted fresh generation with trace-qualified cold alias-learning attempts without deleting retained publications; it adds one Node worker and necessary native preparation. The same public entry first collects builtin-only resident and contained-entry transport controls without a compiler preparation, then independently collects deadCompilerClaimCorpus on one upfront native producer project: an actual PID-owned holder lock/native receipt precedes holder death, then a survivor must produce PROBED with a second native receipt and remove the lock. Two additional Node workers and three actual native producer invocations are costs; the survivor owns two completed five-second native holds, each with unchanged temporary environment and separately reported initial/intertick/terminal gaps. The resident graph startup receipt remains separate from that strict native boundary; recorded native departure is separately acquired and native preparation totals remain unmeasured. The original holder joins before the resident pool starts, so synchronous descriptor and metadata operations cannot starve its in-flight lock polling. Both independent failures are collected; an unresolved holder retains the workspace and refuses subsequent shared reuse. A live external bundler watcher remains unproved. The final fresh resident preserves its offline marker and accepted-generation/native-attempt assertions while adding implicit reference selection, distinct native cwd, a real type-error rejection and native-only persistent-key invalidation. Portable four-kind codec, migration, malformed-state and recovery cases remain in their owning unplugin and Metro units.
  */
 export async function test_e2e_metro_batch(): Promise<void> {
-  const workspace = await BatchWorkspace.open();
   const failures: unknown[] = [];
   // The timed holder's lock must be observed while its native call is in flight.
   // The resident pool also performs synchronous descriptor and Go metadata
   // operations, which can prevent this parent's polling from running at all.
   // Collect both owners, but join the timed owner before starting that work.
   for (const operation of [
-    () => deadCompilerClaimCorpus(workspace),
+    loaderCommandLifetimeCorpus,
+    async () => deadCompilerClaimCorpus(await BatchWorkspace.open()),
     runResidentLoaderPool,
   ]) {
     try {
@@ -1583,6 +1636,7 @@ async function runResidentLoaderPool(): Promise<void> {
         try {
           fs.writeFileSync(replacementManifest, manifest(target));
           let reported: readonly string[] | undefined;
+          const publications: string[][] = [];
           const loaded = loadProjectPlugins({
             binary: TestProject.TSGO_BINARY,
             cwd: workspace.root,
@@ -1595,8 +1649,21 @@ async function runResidentLoaderPool(): Promise<void> {
             entries: [publicNativeProbe],
             onWatchInputs: (inputs) => {
               reported = inputs;
+              publications.push([...inputs]);
             },
           });
+          assert.deepEqual(
+            publications[0],
+            [
+              fs.realpathSync.native(replacementModule),
+              fs.realpathSync.native(publicNativeProbe.fixtureSource),
+            ].sort(),
+            "replacement discovery must follow structural watch publication: " + spelling,
+          );
+          assert.ok(
+            publications.some((inputs) => expected.every((root) => inputs.includes(root))),
+            "known external replacements must be published before admission: " + spelling,
+          );
           assert.deepEqual(
             reported,
             expected,
@@ -1640,22 +1707,253 @@ async function runResidentLoaderPool(): Promise<void> {
         }),
       );
     } finally {
-      fs.writeFileSync(replacementManifest, originalReplacementManifest);
       // All targets are literal children of this owned temporary workspace.
       // Remove aliases as single links, without recursively traversing targets.
-      for (const link of [replacementAlias, moduleAlias]) {
-        if (fs.existsSync(link)) {
-          assert.equal(fs.lstatSync(link).isSymbolicLink(), true);
-          fs.unlinkSync(link);
+      const restored = await TestExecutor.collectPhases([
+        {
+          name: "restore replacement manifest",
+          run: () => fs.writeFileSync(replacementManifest, originalReplacementManifest),
+        },
+        ...[replacementAlias, moduleAlias].map((link) => ({
+          name: "remove replacement link " + link,
+          run: () => {
+            let stat: fs.Stats;
+            try {
+              stat = fs.lstatSync(link);
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+              throw error;
+            }
+            assert.equal(stat.isSymbolicLink(), true);
+            fs.unlinkSync(link);
+          },
+        })),
+        ...[replacementInput, internalReplacement].map((owned) => ({
+          name: "remove replacement target " + owned,
+          run: () => {
+            assert.equal(
+              path.relative(workspace.root, owned).startsWith(".."),
+              false,
+            );
+            fs.rmSync(owned, { recursive: true, force: true });
+          },
+        })),
+      ]);
+      for (const result of restored) {
+        if (result.status === "failed")
+          publicApiFailures.push(new Error(result.name, { cause: result.error }));
+      }
+      if (restored.some((result) => result.status !== "returned")) {
+        BatchWorkspace.retain("replacement source restoration failed");
+        throw new AggregateError(publicApiFailures, "unsafe replacement source reuse");
+      }
+    }
+    // Rejected source metadata still publishes structural repair interests;
+    // these existing source owners never reach a native build in this epoch.
+    const watchFailurePackage = publicNativeProbe.fixtureSource;
+    const watchFailureMain = path.join(watchFailurePackage, "main.go");
+    const watchFailureConflict = path.join(
+      watchFailurePackage,
+      "zz_watch_metadata_failure.go",
+    );
+    const watchFailureRoots = [
+      fs.realpathSync.native(replacementModule),
+      fs.realpathSync.native(watchFailurePackage),
+    ].sort();
+    let watchFailureAllocated = false;
+    let watchFailureRestored = true;
+    try {
+      const original = fs.readFileSync(watchFailureMain, "utf8");
+      const conflicting = original.replace(
+        /^package main\r?$/m,
+        "package watch_metadata_conflict",
+      );
+      assert.notEqual(conflicting, original);
+      const descriptor = fs.openSync(watchFailureConflict, "wx");
+      watchFailureAllocated = true;
+      const setup = await TestExecutor.collectPhases([
+        {
+          name: "write metadata watch fixture",
+          run: () => fs.writeFileSync(descriptor, conflicting),
+        },
+        {
+          name: "close metadata watch fixture",
+          run: () => fs.closeSync(descriptor),
+        },
+      ]);
+      watchFailureRestored = setup[1]!.status === "returned";
+      const setupErrors = setup.flatMap((result) =>
+        result.status === "failed"
+          ? [new Error(result.name, { cause: result.error })]
+          : [],
+      );
+      if (setupErrors.length)
+        throw new AggregateError(setupErrors, "metadata watch fixture write/close");
+      for (const stage of ["transform", "check"] as const) {
+        try {
+          const publications: string[][] = [];
+          assert.throws(
+            () => loadProjectPlugins({
+              binary: TestProject.TSGO_BINARY,
+              cwd: workspace.root,
+              tsconfig: configPath,
+              cacheDir: workspace.cache,
+              env: withSharedDefaultObjects(descriptorEnv),
+              entries: [{ ...publicNativeProbe, stage }],
+              onWatchInputs: (inputs) => publications.push([...inputs]),
+            }),
+            /Go package selection failed: found packages main .* and watch_metadata_conflict/,
+          );
+          assert.deepEqual(
+            publications[0],
+            watchFailureRoots,
+            stage + " metadata rejection lost its pre-admission repair interests",
+          );
+          assert.ok(
+            publications.every((inputs) =>
+              watchFailureRoots.every((root) => inputs.includes(root)),
+            ),
+            "a rejected candidate must not clear or narrow its repair interests",
+          );
+        } catch (cause) {
+          publicApiFailures.push(new Error(
+            "cold metadata watch publication: " + stage,
+            { cause },
+          ));
         }
       }
-      for (const owned of [replacementInput, internalReplacement]) {
-        assert.equal(
-          path.relative(workspace.root, owned).startsWith(".."),
-          false,
-        );
-        fs.rmSync(owned, { recursive: true, force: true });
+    } catch (cause) {
+      publicApiFailures.push(new Error("metadata watch fixture setup", { cause }));
+    } finally {
+      if (watchFailureAllocated && watchFailureRestored) {
+        try {
+          fs.unlinkSync(watchFailureConflict);
+        } catch (cause) {
+          watchFailureRestored = false;
+          publicApiFailures.push(new Error("metadata watch fixture restore", { cause }));
+          BatchWorkspace.retain("metadata watch source fixture restoration failed");
+        }
       }
+    }
+    if (!watchFailureRestored) {
+      BatchWorkspace.retain("metadata watch fixture closure or restoration uncertain");
+      throw new AggregateError(publicApiFailures, "unsafe metadata watch fixture reuse");
+    }
+    try {
+      const missingWatchTool = path.join(workspace.root, "tools/missing-watch-go");
+      assert.equal(fs.existsSync(missingWatchTool), false);
+      const publications: string[][] = [];
+      assert.throws(
+        () => loadProjectPlugins({
+          binary: TestProject.TSGO_BINARY,
+          cwd: workspace.root,
+          tsconfig: configPath,
+          cacheDir: workspace.cache,
+          env: {
+            ...withSharedDefaultObjects(descriptorEnv),
+            TTSC_GO_BINARY: missingWatchTool,
+          },
+          entries: [publicNativeProbe],
+          onWatchInputs: (inputs) => publications.push([...inputs]),
+        }),
+        (error: unknown) => {
+          assert.match(
+            String(error),
+            /Go toolchain was not found|missing-watch-go/,
+            "the actual selected-tool diagnostic must distinguish metadata/package failures",
+          );
+          return true;
+        },
+      );
+      assert.deepEqual(
+        publications[0],
+        watchFailureRoots,
+        "selected-tool failure must retain source/module repair interests",
+      );
+    } catch (cause) {
+      publicApiFailures.push(new Error("selected-tool watch publication", { cause }));
+    }
+    // A direct go.mod candidate can reach final-kind publication before the
+    // existing host refuses file-to-directory materialization. Its repair
+    // interests must still remain the selected source directory throughout.
+    const directModuleGo = path.join(
+      replacementModule,
+      "zz_watch_direct_module.go",
+    );
+    let directModuleAllocated = false;
+    let directModuleRestored = true;
+    try {
+      const original = fs.readFileSync(path.join(replacementFixture, "dep.go"));
+      const descriptor = fs.openSync(directModuleGo, "wx");
+      directModuleAllocated = true;
+      const setup = await TestExecutor.collectPhases([
+        {
+          name: "write direct module fixture",
+          run: () => fs.writeFileSync(descriptor, original),
+        },
+        {
+          name: "close direct module fixture",
+          run: () => fs.closeSync(descriptor),
+        },
+      ]);
+      directModuleRestored = setup[1]!.status === "returned";
+      const setupErrors = setup.flatMap((result) =>
+        result.status === "failed"
+          ? [new Error(result.name, { cause: result.error })]
+          : [],
+      );
+      if (setupErrors.length)
+        throw new AggregateError(setupErrors, "direct module fixture write/close");
+      const publications: string[][] = [];
+      assert.throws(
+        () => loadProjectPlugins({
+          binary: TestProject.TSGO_BINARY,
+          cwd: workspace.root,
+          tsconfig: configPath,
+          cacheDir: workspace.cache,
+          env: withSharedDefaultObjects(descriptorEnv),
+          entries: [{
+            ...publicNativeProbe,
+            fixtureSource: replacementManifest,
+            stage: "transform",
+          }],
+          onWatchInputs: (inputs) => publications.push([...inputs]),
+        }),
+        (error: unknown) => {
+          assert.equal(
+            (error as NodeJS.ErrnoException).code,
+            "ERR_FS_CP_NON_DIR_TO_DIR",
+            "existing file-to-contributor materialization must remain terminal",
+          );
+          return true;
+        },
+      );
+      assert.ok(
+        publications.length >= 2,
+        "direct go.mod must reach preliminary and final-kind publication before host refusal",
+      );
+      const expected = [fs.realpathSync.native(replacementModule)];
+      assert.deepEqual(publications[0], expected);
+      assert.deepEqual(
+        publications.at(-1),
+        expected,
+        "final linked watch projection must retain the directory baseline rather than go.mod bytes",
+      );
+    } catch (cause) {
+      publicApiFailures.push(new Error("direct module watch publication", { cause }));
+    } finally {
+      if (directModuleAllocated && directModuleRestored) {
+        try {
+          fs.unlinkSync(directModuleGo);
+        } catch (cause) {
+          directModuleRestored = false;
+          publicApiFailures.push(new Error("direct module fixture restore", { cause }));
+        }
+      }
+    }
+    if (!directModuleRestored) {
+      BatchWorkspace.retain("direct module fixture closure or restoration uncertain");
+      throw new AggregateError(publicApiFailures, "unsafe direct module fixture reuse");
     }
     // The same module also supplies the controlled Go process protocol. Its
     // scripted child is an orchestration oracle, never a native compiler claim.
@@ -3251,6 +3549,15 @@ async function runResidentLoaderPool(): Promise<void> {
       );
       fs.rmSync(toolProtocol, { recursive: true, force: true });
     }
+    try {
+      mappedResolutionWitnessCorpus({
+        workspace,
+        fixtureSource: publicNativeProbe.fixtureSource,
+        env: baselineBuildEnv,
+      });
+    } catch (cause) {
+      publicApiFailures.push(new Error("mapped descriptor resolution witness authority", { cause }));
+    }
     const capabilityCache = path.join(
       workspace.cache,
       "capability-source-flow",
@@ -3767,8 +4074,12 @@ async function runResidentLoaderPool(): Promise<void> {
               raceContent: "new\n",
               ...(stage === "check"
                 ? { reportedFiles: ["src/missing-proof-control.ts"] }
-                : {}),
+                : { operation: "source-pipeline" }),
             },
+            ...(stage === "transform" ? [{
+              transform: "@ttsc/banner",
+              configFile: "./config/banner.config.json",
+            }] : []),
           ],
           env: withSharedDefaultObjects({
             TTSC_CACHE_DIR: path.join(workspace.cache, "moving-native-inputs"),
@@ -3780,6 +4091,21 @@ async function runResidentLoaderPool(): Promise<void> {
           stage === "transform" ? "success" : "failure",
           JSON.stringify(result),
         );
+        if (stage === "transform") {
+          assert.equal(result.type, "success");
+          if (result.type !== "success") throw new Error("explicit linked host failed");
+          const printed = Object.entries(result.typescript).find(
+            ([file]) => path.basename(file) === "native-pipeline.ts",
+          )?.[1];
+          assert.equal(typeof printed, "string");
+          assert.ok(printed!.includes("Shared boundary corpus"),
+            "the existing explicit native host must execute its linked banner contribution");
+          assert.ok(printed!.includes("Authored source positions remain observable"));
+          assert.ok(printed!.includes("A:PLUGIN:z"),
+            "the explicit host must also execute the real source pipeline probe");
+          assert.equal(printed!.includes("__TTSC_NATIVE_PIPELINE__"), false);
+          assert.ok(printed!.includes("native-neighbor-retained"));
+        }
         assert.equal(result.hostInputs?.includes(descriptorSettings), true);
         assert.equal(
           Object.hasOwn(result.hostInputHashes ?? {}, descriptorSettings),
@@ -3903,6 +4229,19 @@ async function runResidentLoaderPool(): Promise<void> {
           input,
       );
     };
+    const projectInputs = createRequire(import.meta.url)(
+      path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/lib/core/index.js"),
+    ) as typeof import("../../../../packages/unplugin/lib/core");
+    assert.deepEqual(fs.readFileSync(configPath), originalConfig);
+    const originalMembershipPolicy =
+      projectInputs.readProjectMembershipPolicy(configPath);
+    const originalProjectInputs = projectInputs.collectProjectInputHashSnapshot(
+      workspace.root,
+      undefined,
+      undefined,
+      originalMembershipPolicy,
+    );
+    assert.ok(originalProjectInputs.complete);
     const rootCase = compilerUsesCaseSensitiveFileNames({
       cacheDir: workspace.cache,
       projectRoot: workspace.root,
@@ -3950,6 +4289,7 @@ async function runResidentLoaderPool(): Promise<void> {
     );
     let finalRecord: string | undefined;
     let bodyFailure: unknown;
+    let bodyCompleted = false;
     let joinedWarningCounts: number[] | undefined;
     try {
       await MetroResidentBoundary.observeGraphProof(
@@ -4020,7 +4360,7 @@ async function runResidentLoaderPool(): Promise<void> {
         );
         // This receipt includes the full shared graph's synchronous startup.
         // deadCompilerClaimCorpus separately owns two actual native holds and
-        // keeps the original strict 750ms initial/intertick/terminal oracle.
+        // reports actual elapsed/gap samples separately from completed native results.
       };
       const failures = outcomes.filter(
         (outcome): outcome is PromiseRejectedResult =>
@@ -4431,15 +4771,25 @@ async function runResidentLoaderPool(): Promise<void> {
       await waitFor(
         () => signal() !== signalBeforeEdit,
         "the resident record to move for the combined native input epoch",
+        { check: () => assert.equal(workers.some((worker) => worker.joined), false,
+          "resident owner closed before the combined input publication") },
       );
       const firstSignal = signal();
       await waitFor(
         () => signal() !== firstSignal,
         "the same resident record to repeat its unacknowledged move",
+        { check: () => assert.equal(workers.some((worker) => worker.joined), false,
+          "resident owner closed before its repeated publication") },
       );
       const metadataDelivery = await Promise.all(
         workers.map((worker) =>
-          worker.request("", undefined, undefined, undefined, "metadata-inputs"),
+          worker.request(
+            "",
+            undefined,
+            undefined,
+            undefined,
+            "metadata-inputs",
+          ),
         ),
       );
       for (const reply of metadataDelivery) assertHostObservation(reply);
@@ -5021,6 +5371,7 @@ async function runResidentLoaderPool(): Promise<void> {
         fs.statSync(workspace.programRunLog).size,
         afterRootMembershipPrograms,
       );
+      bodyCompleted = true;
     } catch (error) {
       bodyFailure = error;
     } finally {
@@ -5034,49 +5385,132 @@ async function runResidentLoaderPool(): Promise<void> {
         ...publicApiFailures,
         ...failedCloses.map((entry) => entry.reason),
       ];
-      if (failedCloses.length === 0) {
-        // A timed-out delivery may still be reading these inputs. Restore only
-        // after both real adapter owners have joined; uncertain closure retains
-        // the epoch and its original failure instead of changing live inputs.
-        fs.writeFileSync(contractPath, originalContract);
-        fs.writeFileSync(bannerPath, originalBanner);
-        for (let index = 0; index < deliveredPaths.length; index++)
-          fs.writeFileSync(deliveredPaths[index]!, originalDelivered[index]!);
-        fs.writeFileSync(declaration, originalDeclaration);
-        for (const owned of [candidate, unrelatedPackageFile, addedRoot])
-          fs.rmSync(owned, { force: true });
-        fs.rmSync(unrelatedPath, { force: true });
-        fs.rmSync(ignoredOutput, { force: true });
-        fs.rmSync(recreatedOutputDirectory, { recursive: true, force: true });
-        if (bodyFailure === undefined)
-          fs.rmSync(pluginLockRoot, { recursive: true });
-        try {
-          MetroResidentBoundary.assertDiagnostics(workers[0]!);
-        } catch (error) {
-          failures.push(error);
+      const recordPhases = (results: readonly TestExecutor.PhaseResult[]): void => {
+        for (const result of results) {
+          if (result.status === "failed")
+            failures.push(new Error(result.name, { cause: result.error }));
+          else if (result.status === "blocked")
+            failures.push(
+              new Error("Blocked Metro phase: " + result.name, {
+                cause: { blockedBy: result.blockedBy },
+              }),
+            );
         }
-        assert.equal(path.dirname(descriptorFailureRoot), workspace.root);
-        if (bodyFailure === undefined && failures.length === 0) {
-          fs.rmSync(descriptorFailureRoot, { recursive: true });
-          // The joined offline-restart phase keeps this same trace epoch.
-        }
-        fs.writeFileSync(configPath, originalConfig);
-        fs.rmSync(nonInputRaceRoot, { recursive: true, force: true });
-        fs.rmSync(optionalDescriptor, { force: true });
-        fs.writeFileSync(installedDescriptor, originalInstalledDescriptor);
-      }
-      if (bodyFailure === undefined && failedCloses.length === 0)
-        try {
-          assert.ok(
-            finalRecord !== undefined && fs.existsSync(finalRecord),
-            "joined worker close retains the real record for later sessions",
-          );
-        } catch (error) {
-          failures.push(error);
-        }
-      if (bodyFailure === undefined && failedCloses.length === 0)
-        for (const [index, worker] of workers.entries()) {
-          try {
+      };
+      const closeRestrictions =
+        failedCloses.length === 0
+          ? []
+          : ["original resident closure is unresolved"];
+      // Both real owners have been attempted concurrently above. A failed close
+      // denies every shared-input mutation, but one safe restoration failure
+      // must not prevent attempts to restore the other independent inputs.
+      const restorations = await TestExecutor.collectPhases([
+        {
+          name: "restore contract",
+          run: () => fs.writeFileSync(contractPath, originalContract),
+        },
+        {
+          name: "restore banner",
+          run: () => fs.writeFileSync(bannerPath, originalBanner),
+        },
+        ...deliveredPaths.map((file, index) => ({
+          name: "restore delivered source " + index,
+          run: () => fs.writeFileSync(file, originalDelivered[index]!),
+        })),
+        {
+          name: "restore declaration",
+          run: () => fs.writeFileSync(declaration, originalDeclaration),
+        },
+        ...[
+          candidate,
+          unrelatedPackageFile,
+          addedRoot,
+          unrelatedPath,
+          ignoredOutput,
+        ].map((file) => ({
+          name: "remove owned input " + file,
+          run: () => fs.rmSync(file, { force: true }),
+        })),
+        {
+          name: "remove recreated output",
+          run: () => fs.rmSync(recreatedOutputDirectory, {
+            recursive: true,
+            force: true,
+          }),
+        },
+        {
+          name: "restore config",
+          run: () => fs.writeFileSync(configPath, originalConfig),
+        },
+        {
+          name: "remove non-input race",
+          run: () => fs.rmSync(nonInputRaceRoot, { recursive: true, force: true }),
+        },
+        {
+          name: "remove optional descriptor",
+          run: () => fs.rmSync(optionalDescriptor, { force: true }),
+        },
+        {
+          name: "restore installed descriptor",
+          run: () => fs.writeFileSync(installedDescriptor, originalInstalledDescriptor),
+        },
+        ...(bodyCompleted
+          ? [{
+              name: "remove completed plugin lock evidence",
+              run: () => fs.rmSync(pluginLockRoot, { recursive: true }),
+            }]
+          : []),
+      ].map((phase) => ({ ...phase, blockedBy: closeRestrictions })));
+      recordPhases(restorations);
+      const restorationRestrictions = restorations.flatMap((result) =>
+        result.status === "returned" ? [] : [result.name],
+      );
+      if (failedCloses.length || restorationRestrictions.length)
+        BatchWorkspace.retain(
+          "resident closure or shared-input restoration failed",
+        );
+      // Retain failed descriptor evidence. The final selected-input proof below
+      // establishes whether that directory affects the restored project; its
+      // deletion is not authority to admit a new borrower.
+      const proofRestrictions = [
+        ...closeRestrictions,
+        ...restorationRestrictions,
+      ];
+      const proofs = await TestExecutor.collectPhases([
+        {
+          name: "joined resident diagnostics",
+          blockedBy: closeRestrictions,
+          run: () => MetroResidentBoundary.assertDiagnostics(workers[0]!, false),
+        },
+        {
+          name: "joined descriptor marker population",
+          blockedBy: [
+            ...closeRestrictions,
+            ...(workers[0]!.descriptorCommandCompleted
+              ? [] : ["descriptor command has no successful completion reply"]),
+          ],
+          run: () => MetroResidentBoundary.assertDiagnostics(workers[0]!),
+        },
+        {
+          name: "retained publication",
+          blockedBy: [
+            ...proofRestrictions,
+            ...(finalRecord === undefined ? ["no earned resident publication"] : []),
+          ],
+          run: () => {
+            assert.ok(
+              finalRecord !== undefined && fs.existsSync(finalRecord),
+              "joined worker close retains the real record for later sessions",
+            );
+          },
+        },
+        ...workers.map((worker, index) => ({
+          name: "joined warning population " + index,
+          blockedBy: [
+            ...proofRestrictions,
+            ...(joinedWarningCounts === undefined ? ["warning commands did not complete"] : []),
+          ],
+          run: () => {
             assert.ok(joinedWarningCounts !== undefined);
             assert.equal(
               worker.diagnostics().split("differs from the file on disk")
@@ -5084,82 +5518,612 @@ async function runResidentLoaderPool(): Promise<void> {
               joinedWarningCounts[index],
               "joined stderr reports exactly once per verified capture, with none added by same-generation reuse or close",
             );
-          } catch (error) {
-            failures.push(error);
-          }
-        }
-      if (bodyFailure === undefined && failures.length === 0) {
-        // Reuse the retained publication without any live former adapter owner.
-        // An offline edit must defeat its stale content in a genuinely fresh
-        // Metro worker, not merely the old worker's in-memory revalidation.
-        const source = deliveredPaths[0]!;
-        const original = originalDelivered[0]!;
-        assert.match(original, /"authored-marker"/);
-        const ticksBeforeRestart = fs.statSync(workspace.programRunLog).size;
-        fs.writeFileSync(
-          source,
-          original.replace('"authored-marker"', '"offline-restart-marker"'),
-        );
-        fs.mkdirSync(traceRoot, { recursive: true });
-        let restarted: ReturnType<typeof createLoaderPoolWorker> | undefined;
-        let restartJoined = false;
-        try {
-          restarted = createLoaderPoolWorker({
-            mode: "metro",
-            root: workspace.root,
-            cache: workspace.cache,
-            session: session + "-offline-restart",
-            traceRoot,
-            metro: pathToFileURL(path.join(lib, "transformer.js")).href,
-            turbopack: TestUnpluginRuntime.libUrl("turbopack"),
-          });
-          const reply = await restarted.request(
-            "",
-            undefined,
-            undefined,
-            undefined,
-            "fresh-resident-offline-edit",
-          );
-          assert.equal(reply.error, undefined);
-          assert.ok(reply.value !== undefined);
-          assert.match(reply.value.ast.source, /offline-restart-marker/);
-          assert.doesNotMatch(
-            reply.value.ast.source,
-            /["']authored-marker["']/,
-          );
-          assert.equal(
-            fs.statSync(workspace.programRunLog).size,
-            ticksBeforeRestart + 1,
-            "one fresh native probe invocation must validate the offline-edited generation",
-          );
-        } catch (error) {
-          failures.push(error);
-        } finally {
-          try {
-            if (restarted !== undefined) {
-              await restarted.close();
-              restartJoined = true;
-            }
-          } catch (error) {
-            failures.push(error);
-          }
-          if (restartJoined) {
+          },
+        })),
+        {
+          name: "restored selected inputs and workspace authority",
+          blockedBy: [...closeRestrictions, ...restorationRestrictions],
+          run: async () => {
+            assert.equal(await BatchWorkspace.open(), workspace);
+            assert.equal(path.dirname(descriptorFailureRoot), workspace.root);
+            assert.deepEqual(fs.readFileSync(configPath), originalConfig);
+            assert.deepEqual(fs.readFileSync(contractPath), originalContract);
+            assert.deepEqual(fs.readFileSync(bannerPath), originalBanner);
+            assert.deepEqual(fs.readFileSync(declaration), originalDeclaration);
+            assert.deepEqual(
+              fs.readFileSync(installedDescriptor),
+              originalInstalledDescriptor,
+            );
+            const current = projectInputs.collectProjectInputHashSnapshot(
+              workspace.root,
+              undefined,
+              undefined,
+              projectInputs.readProjectMembershipPolicy(configPath),
+            );
+            assert.ok(current.complete);
+            assert.deepEqual(
+              current,
+              originalProjectInputs,
+              "retained failure evidence must not alter restored selected membership or bytes",
+            );
+          },
+        },
+      ]);
+      recordPhases(proofs);
+      const finalRestrictions = [
+        ...proofRestrictions,
+        ...proofs.filter((result) =>
+          result.name === "restored selected inputs and workspace authority",
+        ).flatMap((result) =>
+          result.status === "returned" ? [] : [result.name],
+        ),
+      ];
+      let finalInputsRestored = false;
+      const finalPhases = await TestExecutor.collectPhases([
+        {
+          name: "fresh referenced-project delivery, type rejection and native predicates",
+          blockedBy: finalRestrictions,
+          run: async () => {
+            // This cold owner is independent of unearned warm-record proofs.
+            // When the original publication exists, the offline edit also
+            // contrasts with that retained generation without deleting it.
+            const source = deliveredPaths[0]!;
+            const original = originalDelivered[0]!;
+            assert.match(original, /"authored-marker"/);
+            const ticksBeforeRestart = fs.statSync(workspace.programRunLog).size;
+            const nestedProject = path.join(workspace.root, "src/tsconfig.json");
+            const originalNestedProject = fs.existsSync(nestedProject)
+              ? fs.readFileSync(nestedProject)
+              : undefined;
+            const lintConfig = path.join(workspace.root, "lint.config.cjs");
+            const originalLintConfig = fs.readFileSync(lintConfig);
+            // Three independent roots distinguish the explicit compiler override
+            // from both Metro's host and the selected config's default native cwd.
+            // The existing tools directory inherits the installed package owner.
+            const compilerRoot = path.join(workspace.root, "tools");
+            const automaticManifestFile = path.join(
+              workspace.root, "packages/batch-auto-discovery/package.json",
+            );
+            const originalAutomaticManifest = fs.readFileSync(automaticManifestFile);
+            const finalConfig = JSON.parse(originalConfig.toString("utf8"));
+            const automaticManifest = JSON.parse(originalAutomaticManifest.toString("utf8"));
+            // Report addresses belong to the Program's original root, not the
+            // independent native compiler cwd. Preserve absolute and alias
+            // spellings, order and duplicates while rebasing relative addresses.
+            const rebaseReports = (entry: {
+              reportedFiles?: string[];
+              reportedDependencies?: string[];
+            }): void => {
+              for (const key of ["reportedFiles", "reportedDependencies"] as const)
+                if (entry[key] !== undefined)
+                  entry[key] = entry[key]!.map((file) => path.isAbsolute(file)
+                    ? file : path.relative(compilerRoot, workspace.root) + path.sep + file);
+            };
+            const configuredReporters = finalConfig.compilerOptions.plugins.filter(
+              (entry: { fixtureSource?: string; enabled?: boolean }) =>
+                entry.fixtureSource === nativeProbe.fixtureSource && entry.enabled !== false,
+            );
+            assert.equal(configuredReporters.length, 5);
+            configuredReporters.forEach(rebaseReports);
+            rebaseReports(automaticManifest.ttsc.plugin);
+            const metroHostRoot = path.join(workspace.root, "src");
+            assert.notEqual(compilerRoot, workspace.root);
+            assert.notEqual(compilerRoot, metroHostRoot);
+            assert.ok(fs.statSync(compilerRoot).isDirectory());
+            const finalSession = session + "-offline-restart";
+            const nativeDirectory = fs.mkdtempSync(
+              path.join(compilerRoot, "metro-native-kind-"),
+            );
+            const nativeHelper = path.join(nativeDirectory, "dependency.cjs");
+            const configReceiptOffset =
+              BatchWorkspace.readConfigPathReceipts(workspace).length;
+            let restarted: ReturnType<typeof createLoaderPoolWorker> | undefined;
+            let restartJoined = true;
+            let freshDeliveryAccepted = false;
             try {
-              fs.writeFileSync(source, original);
-              // Exit cleanup releases successful traces after the entire batch.
+              assert.equal(fs.existsSync(finalSession), false);
+              fs.mkdirSync(finalSession);
+              fs.writeFileSync(configPath, JSON.stringify(finalConfig));
+              fs.writeFileSync(automaticManifestFile, JSON.stringify(automaticManifest));
+              // Reuse an existing authored module as a real lint-config dependency.
+              // Its raw parent listing is outside Metro's source-host walk and is
+              // observed by the lint evaluator's supported module-resolution hooks.
+              // Keep executable dependencies on the installed project's volume so
+              // the evaluator's ordinary rootDir/outDir mapping can emit them.
+              fs.copyFileSync(path.join(workspace.root, "upstream.cjs"), nativeHelper);
+              fs.writeFileSync(
+                lintConfig,
+                `require(${JSON.stringify(nativeHelper)});\n` + originalLintConfig,
+              );
+              fs.writeFileSync(
+                nestedProject,
+                JSON.stringify({ files: [], references: [{ path: "../tsconfig.json" }] }),
+              );
+              fs.writeFileSync(
+                source,
+                original.replace('"authored-marker"', '"offline-restart-marker"'),
+              );
+              fs.mkdirSync(traceRoot, { recursive: true });
+              const readFreshTrace = () => Object.fromEntries(
+                fs.readdirSync(traceRoot).filter((name) => name.endsWith(".jsonl")).map((name) => [
+                  name,
+                  fs.readFileSync(path.join(traceRoot, name), "utf8").split(/\r?\n/).filter(Boolean)
+                    .map((line): Record<string, unknown> => {
+                      const row: unknown = JSON.parse(line);
+                      assert.ok(row !== null && typeof row === "object");
+                      return row as Record<string, unknown>;
+                    }),
+                ]),
+              ) as Record<string, Record<string, unknown>[]>;
+              const freshCursor = Object.fromEntries(
+                Object.entries(readFreshTrace()).map(([name, rows]) => [name, rows.length]),
+              );
+              restarted = createLoaderPoolWorker({
+                mode: "metro",
+                root: workspace.root,
+                cache: workspace.cache,
+                session: finalSession,
+                traceRoot,
+                metro: pathToFileURL(path.join(lib, "transformer.js")).href,
+                turbopack: TestUnpluginRuntime.libUrl("turbopack"),
+                metroProjectView: {
+                  hostRoot: metroHostRoot,
+                  implicitProject: true,
+                  projectRoot: compilerRoot,
+                },
+              });
+              restartJoined = false;
+              const reply = await restarted.request(
+                "",
+                undefined,
+                undefined,
+                undefined,
+                "fresh-resident-offline-edit",
+              );
+              assert.equal(reply.error, undefined);
+              assert.ok(reply.value !== undefined);
+              assert.match(reply.value.ast.source, /offline-restart-marker/);
+              assert.doesNotMatch(
+                reply.value.ast.source,
+                /["']authored-marker["']/,
+              );
+              assert.equal(reply.value.requestedOptions.project, undefined);
+              assert.equal(reply.value.requestedOptions.projectRoot, compilerRoot);
+              assert.equal(reply.value.metroConfiguration.hostRoot, metroHostRoot);
+              assert.notEqual(metroHostRoot, compilerRoot);
+              const nativeContexts = BatchWorkspace.readConfigPathReceipts(
+                workspace,
+              ).slice(configReceiptOffset);
+              assert.ok(
+                nativeContexts.some(
+                  (entry) =>
+                    entry.name === "shared-real-program-probe" &&
+                    typeof entry.cwd === "string" &&
+                    fs.realpathSync.native(entry.cwd) === fs.realpathSync.native(compilerRoot),
+                ),
+                "the actual native plugin must receive the distinct compiler root while Metro filenames retain the host root",
+              );
+              // The new compiler-root namespace can first learn the fixture's
+              // two opaque alias dependencies from the native envelope. One
+              // accepted generation is required; a prior attempt is permitted
+              // only with that exact, independently authored missing witness.
+              const freshRows = Object.entries(readFreshTrace()).flatMap(([name, rows]) =>
+                rows.slice(freshCursor[name] ?? 0).map((row) => {
+                  assert.ok(row.data !== null && typeof row.data === "object");
+                  return { name, row, data: row.data as Record<string, unknown> };
+                }),
+              );
+              const commandFile = path.basename(restarted.diagnosticsFile.replace(/-stderr\.bin$/, ".jsonl"));
+              const commandRows = freshRows.filter(({ name, row, data }) =>
+                name === commandFile && row.event === "loader-pool-command" &&
+                data.phase === "fresh-resident-offline-edit",
+              );
+              assert.equal(commandRows.length, 2);
+              const [sent, replied] = commandRows;
+              assert.equal(sent!.data.state, "sent");
+              assert.equal(replied!.data.state, "replied");
+              assert.equal(replied!.data.failed, false);
+              assert.equal(sent!.data.id, replied!.data.id);
+              const actorPid = sent!.data.childPid;
+              assert.ok(typeof actorPid === "number" && Number.isSafeInteger(actorPid) && actorPid > 0);
+              assert.equal(replied!.data.childPid, actorPid);
+              const proofs = freshRows.filter(({ row, data }) =>
+                row.pid === actorPid && row.event === "bridge-generation-proof" && data.currentFile === source,
+              );
+              const accepted = proofs.filter(({ data }) => data.stableProjectSnapshot === true);
+              assert.equal(accepted.length, 1, "one accepted offline generation owns publication");
+              const selectedState = accepted[0]!.data.state;
+              assert.ok(typeof selectedState === "string" && selectedState.length > 0);
+              const learnedAliases = ["native-source-first", "native-source-second"]
+                .map((alias) => path.join(workspace.root, alias, "map.ts")).sort();
+              const refusals = proofs.filter(({ data }) => data.stableProjectSnapshot !== true);
+              assert.ok(refusals.length <= 1, "the same two alias facts can be learned only once");
+              for (const proof of proofs) {
+                assert.equal(proof.data.state, selectedState, "no intervening selected input state is excused");
+                assert.equal(proof.data.claimKind, "compile", "cold learning cannot excuse stale adoption");
+                assert.equal(proof.data.configStateComplete, true);
+                assert.equal(proof.data.resultType, "success");
+                assert.equal(proof.data.adoptionFailure, null);
+                const complete = proof.data.stableProjectSnapshot === true;
+                assert.equal(typeof proof.data.stableProjectSnapshot, "boolean");
+                const failures = proof.data.failures;
+                assert.ok(failures !== null && typeof failures === "object" &&
+                  "omitted" in failures && "entries" in failures && Array.isArray(failures.entries));
+                assert.equal(failures.omitted, 0);
+                if (complete) {
+                  assert.deepEqual(failures.entries, []);
+                  assert.equal(proof.data.projectHeldStill, true);
+                  assert.equal(proof.data.dependenciesProven, true);
+                  assert.equal(proof.data.externalSnapshotComplete, true);
+                } else {
+                  const missing = failures.entries.map((failure: unknown) => {
+                    assert.ok(failure !== null && typeof failure === "object" && "path" in failure &&
+                      "kind" in failure && "domain" in failure);
+                    assert.equal(failure.domain, "external");
+                    assert.equal(failure.kind, "dependency-unwitnessed");
+                    assert.equal(typeof failure.path, "string");
+                    return failure.path;
+                  });
+                  assert.deepEqual(missing.sort(), learnedAliases);
+                }
+                const dispositions: typeof freshRows = freshRows.filter(({ row, data }) =>
+                  row.pid === actorPid && row.event === "bridge-attempt-disposition" &&
+                  data.currentFile === source && data.scratchDirectory === proof.data.scratchDirectory,
+                );
+                assert.equal(dispositions.length, 1);
+                assert.equal(dispositions[0]!.data.attempt, complete ? refusals.length : 0);
+                assert.equal(dispositions[0]!.data.kind, complete ? "accepted" : "retry");
+                assert.equal(dispositions[0]!.data.movedBefore, 0);
+                assert.equal(dispositions[0]!.data.freshDeliveryOnly, false);
+                if (!complete) assert.equal(dispositions[0]!.data.movedAfter, 0);
+                const publications: typeof freshRows = freshRows.filter(({ row }) =>
+                  row.pid === actorPid && row.event === "bridge-publication" && row.invocation === proof.row.invocation,
+                );
+                assert.equal(publications.length, 1);
+                assert.equal(publications[0]!.data.action, complete ? "publish-attempt" : "withheld");
+              }
+              assert.equal(fs.statSync(workspace.programRunLog).size - ticksBeforeRestart, proofs.length,
+                "every fresh native invocation has its individually qualified capture/disposition");
+              freshDeliveryAccepted = true;
+              const invalidSource =
+                fs.readFileSync(source, "utf8") +
+                '\nconst __TTSC_METRO_BAD_TYPE__: number = "not-a-number";\n';
+              fs.writeFileSync(source, invalidSource);
+              const rejected = await restarted.request(
+                "",
+                undefined,
+                undefined,
+                undefined,
+                "referenced-project-type-error",
+              );
+              assert.equal(typeof rejected.error, "string");
+              assert.match(rejected.error!, /not assignable|TS2322/);
             } catch (error) {
               failures.push(error);
-              BatchWorkspace.retain(
-                "fresh Metro restoration failed after closure",
-              );
+            } finally {
+              try {
+                if (restarted !== undefined) {
+                  await restarted.close();
+                  restartJoined = true;
+                }
+              } catch (error) {
+                failures.push(error);
+              }
+              if (restartJoined) {
+                if (restarted !== undefined)
+                  try {
+                    assert.equal(
+                      fs.readFileSync(restarted.diagnosticsFile, "utf8"),
+                      restarted.diagnostics(),
+                      "joined final resident retains its complete stderr independently of delivery success",
+                    );
+                  } catch (error) {
+                    failures.push(error);
+                  }
+                if (restarted !== undefined && freshDeliveryAccepted) {
+                  try {
+                    const fingerprint = createRequire(import.meta.url)(
+                      path.join(lib, "core/fingerprint.js"),
+                    ) as typeof import("../../../../packages/metro/lib/core/fingerprint");
+                    const retained = fingerprint.readSnapshotState(metroHostRoot);
+                    assert.ok(retained !== undefined);
+                    assert.ok(
+                      retained.nativePredicates[nativeDirectory]?.includes(
+                        "directory",
+                      ),
+                      "the real public Metro delivery must persist its native config-directory request",
+                    );
+                    assert.equal(
+                      retained.accessibleEntries.includes(nativeDirectory),
+                      false,
+                      "compiler-visible listings must not supply this native-only proof",
+                    );
+                    const nativePredicates = fs
+                      .readdirSync(finalSession)
+                      .filter((name) => name.endsWith(".json"))
+                      .flatMap((name) => {
+                        const publication = JSON.parse(
+                          fs.readFileSync(path.join(finalSession, name), "utf8"),
+                        );
+                        return Object.entries(
+                          publication.result.graph?.inputObservations ?? {},
+                        ).flatMap(([file, observation]) =>
+                          path.resolve(compilerRoot, file) === nativeDirectory
+                            ? (observation as { nativePredicates?: unknown[] })
+                                .nativePredicates ?? []
+                            : [],
+                        );
+                      }) as {
+                      version: number;
+                      kind: string;
+                      digest: string;
+                      identityStable: boolean;
+                      realpath: string | null;
+                    }[];
+                    const expectedDirectoryDigest = crypto
+                      .createHash("sha256")
+                      .update("dependency.cjs\0file\0")
+                      .digest("hex");
+                    assert.ok(
+                      nativePredicates.some(
+                        (predicate) =>
+                          predicate.version === 1 &&
+                          predicate.kind === "directory" &&
+                          predicate.identityStable &&
+                          predicate.digest === expectedDirectoryDigest &&
+                          predicate.realpath !== null &&
+                          fs.realpathSync.native(predicate.realpath) ===
+                            fs.realpathSync.native(nativeDirectory),
+                      ),
+                      "the actual native envelope must carry the independently authored raw directory bytes and physical target",
+                    );
+                    const runId = fingerprint.prepareSnapshot(metroHostRoot);
+                    assert.doesNotMatch(runId, /^nonce:/);
+                    const keyOptions = { projectRoot: metroHostRoot, runId };
+                    const before = fingerprint.computeProjectFingerprint(keyOptions);
+                    assert.doesNotMatch(before, /^nonce:/);
+                    assert.equal(
+                      fingerprint.computeProjectFingerprint(keyOptions),
+                      before,
+                      "an unchanged persisted native input must produce the same key",
+                    );
+                    const baselinePath = path.join(
+                      metroHostRoot,
+                      "node_modules/.cache/ttsc-metro",
+                      `key-baseline-${runId}.json`,
+                    );
+                    const baselineBytes = fs.readFileSync(baselinePath);
+                    fs.writeFileSync(
+                      path.join(nativeDirectory, "new-member"),
+                      "member\n",
+                    );
+                    const refused = fingerprint.computeProjectFingerprint(keyOptions);
+                    assert.match(
+                      refused,
+                      /^nonce:/,
+                      "changed inputs cannot replace the original run's immutable baseline",
+                    );
+                    assert.deepEqual(
+                      fs.readFileSync(baselinePath),
+                      baselineBytes,
+                      "refused same-run publication must preserve the original baseline bytes",
+                    );
+                    const currentOptions = { projectRoot: metroHostRoot };
+                    const after = fingerprint.computeProjectFingerprint(currentOptions);
+                    assert.doesNotMatch(after, /^nonce:/);
+                    assert.notEqual(
+                      after,
+                      before,
+                      "native-only membership outside the project walk must change the built Metro key",
+                    );
+                    assert.equal(
+                      fingerprint.computeProjectFingerprint(currentOptions),
+                      after,
+                      "the changed key must remain stable rather than withdrawing with a nonce",
+                    );
+                    fs.writeFileSync(
+                      path.join(traceRoot, "native-project-view-acceptance.json"),
+                      JSON.stringify({
+                        compilerRoot,
+                        metroHostRoot,
+                        nestedProject,
+                        nativeDirectory,
+                        expectedDirectoryDigest,
+                        nativePredicates,
+                        before,
+                        refused,
+                        after,
+                      }),
+                    );
+                  } catch (error) {
+                    failures.push(error);
+                  }
+                } else
+                  recordPhases([{
+                    name: "native-only predicate persisted-key checks",
+                    status: "blocked",
+                    blockedBy: ["no validated fresh delivery"],
+                  }]);
+                const restored = await TestExecutor.collectPhases([
+                  {
+                    name: "restore final report config",
+                    run: () => fs.writeFileSync(configPath, originalConfig),
+                  },
+                  {
+                    name: "restore automatic report manifest",
+                    run: () => fs.writeFileSync(automaticManifestFile, originalAutomaticManifest),
+                  },
+                  {
+                    name: "restore final source",
+                    run: () => fs.writeFileSync(source, original),
+                  },
+                  {
+                    name: "restore final lint config",
+                    run: () => fs.writeFileSync(lintConfig, originalLintConfig),
+                  },
+                  {
+                    name: "restore nested project",
+                    run: () => originalNestedProject === undefined
+                      ? fs.rmSync(nestedProject, { force: true })
+                      : fs.writeFileSync(nestedProject, originalNestedProject),
+                  },
+                  {
+                    name: "remove final native fixture",
+                    run: () => fs.rmSync(nativeDirectory, { recursive: true }),
+                  },
+                ]);
+                recordPhases(restored);
+                finalInputsRestored = restored.every((result) => result.status === "returned");
+                if (restored.some((result) => result.status !== "returned"))
+                  BatchWorkspace.retain(
+                    "fresh Metro restoration failed after closure",
+                  );
+              } else
+                BatchWorkspace.retain(
+                  "fresh Metro adapter closure unresolved; offline input retained",
+                );
             }
-          } else
-            BatchWorkspace.retain(
-              "fresh Metro adapter closure unresolved; offline input retained",
+          },
+        },
+      ]);
+      recordPhases(finalPhases);
+      const siblingPhases = await TestExecutor.collectPhases([{
+        name: "nested Metro project with sibling source and default versus explicit roots",
+        blockedBy: [
+          ...finalRestrictions,
+          ...(finalInputsRestored ? [] : ["final resident inputs were not safely restored"]),
+        ],
+        run: async () => {
+          const siblingRoot = fs.mkdtempSync(path.join(workspace.root, "tools/metro-project-siblings-"));
+          const siblingProject = path.join(siblingRoot, "backend/tsconfig.json");
+          const siblingSource = path.join(siblingRoot, "src/main.ts");
+          const hostRoot = path.join(workspace.root, "src");
+          const automaticFile = path.join(workspace.root, "packages/batch-auto-discovery/package.json");
+          const originalAutomatic = fs.readFileSync(automaticFile);
+          const siblingSession = session + "-offline-restart";
+          const siblingFailures: unknown[] = [];
+          let allJoined = true;
+          try {
+            TestProject.copyDirectory(
+              path.join(TestProject.WORKSPACE_ROOT, "tests/test-e2e/fixtures/metro/project-root-siblings"),
+              siblingRoot,
             );
-        }
-      }
-      if (bodyFailure !== undefined) failures.unshift(bodyFailure);
+            const siblingConfig = JSON.parse(fs.readFileSync(siblingProject, "utf8"));
+            const configured = JSON.parse(originalConfig.toString("utf8")).compilerOptions.plugins.find(
+              (entry: { name?: string }) => entry.name === "shared-real-program-probe",
+            );
+            siblingConfig.compilerOptions.plugins = [{
+              ...configured,
+              transform: path.join(workspace.root, "compile-probe.cjs"),
+              operation: "source-pipeline",
+              // This source-pipeline probe does not consume a banner config.
+              // Do not inherit a deferred native config witness without its producer.
+              reportedFiles: [siblingSource],
+              reportedDependencies: [],
+            }];
+            delete siblingConfig.compilerOptions.plugins[0].config;
+            delete siblingConfig.compilerOptions.plugins[0].configFile;
+            fs.writeFileSync(siblingProject, JSON.stringify(siblingConfig));
+            const automatic = JSON.parse(originalAutomatic.toString("utf8"));
+            automatic.ttsc.plugin.reportedFiles = [siblingSource];
+            automatic.ttsc.plugin.reportedDependencies = [];
+            delete automatic.ttsc.plugin.reportedProgramSources;
+            fs.writeFileSync(automaticFile, JSON.stringify(automatic));
+            const actualSource = fs.realpathSync.native(siblingSource);
+            const publications: { root: string; identity: string; outputKey: string }[] = [];
+            for (const explicit of [false, true]) {
+              let worker: ReturnType<typeof createLoaderPoolWorker> | undefined;
+              try {
+                const before = new Set(fs.readdirSync(siblingSession));
+                const receiptOffset = BatchWorkspace.readConfigPathReceipts(workspace).length;
+                const requestedRoot = path.relative(workspace.root, siblingRoot);
+                worker = createLoaderPoolWorker({
+                  mode: "metro", root: workspace.root, cache: workspace.cache,
+                  session: siblingSession, traceRoot,
+                  metro: pathToFileURL(path.join(lib, "transformer.js")).href,
+                  turbopack: TestUnpluginRuntime.libUrl("turbopack"),
+                  metroProjectView: {
+                    hostRoot, implicitProject: false,
+                    project: siblingProject, resourceFile: siblingSource,
+                    ...(explicit ? { projectRoot: requestedRoot } : {}),
+                  },
+                });
+                allJoined = false;
+                for (const phase of ["first", "repeat"]) {
+                  const reply = await worker.request("", undefined, undefined, undefined, `sibling-${explicit}-${phase}`);
+                  assert.equal(reply.error, undefined, reply.error);
+                  assert.match(reply.value.ast.source, /["']A:PLUGIN:z["']/);
+                  assert.doesNotMatch(reply.value.ast.source, /__TTSC_NATIVE_PIPELINE__/);
+                  assert.equal(reply.value.ast.filename, path.relative(hostRoot, siblingSource).split(path.sep).join("/"));
+                  assert.equal(reply.value.requestedOptions.project, siblingProject);
+                  assert.equal(reply.value.requestedOptions.projectRoot, explicit ? requestedRoot : undefined);
+                  assert.equal(reply.value.metroConfiguration.hostRoot, hostRoot);
+                }
+                const expectedCwd = fs.realpathSync.native(explicit ? siblingRoot : path.dirname(siblingProject));
+                const contexts = BatchWorkspace.readConfigPathReceipts(workspace).slice(receiptOffset);
+                assert.ok(contexts.some((entry) =>
+                  entry.name === "shared-real-program-probe" && typeof entry.cwd === "string" &&
+                  fs.realpathSync.native(entry.cwd) === expectedCwd,
+                ));
+                const generated = fs.readdirSync(siblingSession).filter((file) => file.endsWith(".json") && !before.has(file));
+                const matching = generated.flatMap((file) => {
+                  const publication = JSON.parse(fs.readFileSync(path.join(siblingSession, file), "utf8"));
+                  if (publication.result.type !== "success") return [];
+                  return Object.entries(publication.result.typescript).flatMap(([key, text]) => {
+                    const sourcePath = path.isAbsolute(key) ? key : path.resolve(expectedCwd, key);
+                    if (!fs.existsSync(sourcePath) || fs.realpathSync.native(sourcePath) !== actualSource) return [];
+                    assert.match(String(text), /["']A:PLUGIN:z["']/);
+                    assert.ok(Object.hasOwn(publication.result.sourceMaps ?? {}, key));
+                    if (explicit) assert.equal(key, "src/main.ts");
+                    else assert.equal(path.isAbsolute(key), true);
+                    return [{ root: expectedCwd, identity: file.slice(0, file.indexOf("-")), outputKey: key }];
+                  });
+                });
+                assert.ok(matching.length > 0, "each distinct compiler root must earn its own coupled source/map publication");
+                publications.push(...matching);
+              } catch (error) {
+                siblingFailures.push(error);
+              } finally {
+                if (worker) {
+                  try {
+                    await worker.close();
+                    allJoined = true;
+                    assert.equal(fs.readFileSync(worker.diagnosticsFile, "utf8"), worker.diagnostics());
+                  } catch (error) {
+                    siblingFailures.push(error);
+                  }
+                }
+              }
+              if (!allJoined) {
+                siblingFailures.push(new Error("Blocked sibling root contrast: prior original closure unknown"));
+                break;
+              }
+            }
+            if (publications.length) {
+              const defaultPublications = publications.filter((entry) => entry.root === fs.realpathSync.native(path.dirname(siblingProject)));
+              const explicitPublications = publications.filter((entry) => entry.root === fs.realpathSync.native(siblingRoot));
+              assert.ok(defaultPublications.length && explicitPublications.length);
+              assert.equal(defaultPublications.some((left) => explicitPublications.some((right) => left.identity === right.identity)), false);
+              fs.writeFileSync(path.join(traceRoot, "metro-sibling-project-acceptance.json"), JSON.stringify({ siblingRoot, siblingProject, siblingSource, hostRoot, publications }));
+            }
+          } catch (error) {
+            siblingFailures.push(error);
+          } finally {
+            if (allJoined) {
+              const restored = await TestExecutor.collectPhases([
+                { name: "restore sibling automatic marker", run: () => fs.writeFileSync(automaticFile, originalAutomatic) },
+                { name: "remove owned sibling project", run: () => fs.rmSync(siblingRoot, { recursive: true }) },
+              ]);
+              recordPhases(restored);
+              if (restored.some((result) => result.status !== "returned"))
+                BatchWorkspace.retain("sibling reporting restoration failed");
+            } else BatchWorkspace.retain("sibling worker closure unknown; scoped reporting retained");
+          }
+          if (siblingFailures.length) throw new AggregateError(siblingFailures, "Metro sibling root contrast");
+        },
+      }]);
+      recordPhases(siblingPhases);
+      if (!bodyCompleted) failures.unshift(bodyFailure);
       if (failures.length)
         throw new AggregateError(
           failures,
