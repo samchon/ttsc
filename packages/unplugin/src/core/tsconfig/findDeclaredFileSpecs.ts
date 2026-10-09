@@ -1,163 +1,86 @@
-import fs from "node:fs";
 import path from "node:path";
-import { parseJsonc, tsconfigExtendsFileCandidates } from "ttsc/tsconfig";
 
-import { extendsSpecifiers } from "./extendsSpecifiers";
-import { resolveExtendsConfig } from "./resolveExtendsConfig";
-import { resolveRealPath } from "./resolveRealPath";
+import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
 
 /**
- * Resolve an effective `files`, `include` or `exclude` list the way
- * TypeScript-Go merges them across `extends`.
+ * Resolve effective files/include/exclude lists with their lexical origins.
  *
- * A config that declares the key owns it, whatever the value: an array is the
- * list, and `null` or any other value leaves the key unset while still hiding
- * every inherited list. A config that does not declare it takes the list of the
- * last `extends` entry that resolves to an array, so a later entry holding
- * `null` does not erase an earlier entry's list (`tsconfigparsing.go`,
- * `applyExtendedConfig`). `findDeclaredValue` stops at the first config that
- * supplies a selected declaration, whereas inherited non-arrays must not erase
- * an earlier array here, so this list is resolved on its own.
+ * Own key presence masks inherited lists, including null and invalid values.
+ * Without an own key, the last inherited array wins; an inherited non-array
+ * does not erase an earlier array (TypeScript-Go's applyExtendedConfig).
+ * Non-string elements are removed from specs and retained in rawSpecs so
+ * generated overlays preserve compiler diagnostics. Relative entries remain
+ * anchored at the named declaring config, including independent link aliases.
  *
- * `specs` drops non-string entries, as `validateSpecs` does. `rawSpecs` keeps
- * them for generated overlays that must preserve compiler diagnostics. The
- * declaring directory travels with the list because relative entries are
- * anchored there, in the spelling the config was named by, as
- * `findDeclaredValue` anchors every path (samchon/ttsc#1455).
- *
- * @returns The list and its declaring directory, `undefined` when no config in
- *   the chain supplies an array, or `null` when `tsconfig` itself cannot be
- *   read, which leaves the caller without any configuration to model.
+ * @returns The list and its directory, undefined when no array is selected, or
+ *   null when the root config cannot be read as an object. A supplied transaction
+ *   belongs to this freshness observation; later reads require a fresh owner.
  * @evidence contracts/common.md#principled-implementation
- *   Own key presence masks inherited lists even for invalid values; inherited
- *   arrays replace earlier bases in declaration order. Each list keeps its
- *   lexical declaring anchor and invalid elements do not become path specs.
- *
+ *   Own invalid values stop inheritance at that node. Forward inherited
+ *   traversal keeps the last array and ignores empty selections, preserving
+ *   the compiler's distinct own-null and inherited-null rules and lexical origin.
  * @evidence contracts/common.md#clear-and-simple-design
- *   This list-specific reader owns the null-versus-inherited-array rule that
- *   differs from ordinary nearest-value selection; readConfig owns input shape.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Relative specs retain the native declaring directory, while realpath only
- *   guards branch cycles. Host extends resolution and candidate APIs own native
- *   package and file naming; missing candidates retain their lexical paths.
- *
+ *   This adapter owns list validity and raw/usable projections. The transaction
+ *   owns shared inheritance, physical cycle decisions and ordered input replay.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The exception comes from compiler merge semantics, not a particular preset.
- *   Missing candidate inputs remain collected for future invalidation.
- *
+ *   List differences follow compiler merge semantics. Missing candidates remain
+ *   observed, and invalid elements survive in rawSpecs for compiler diagnostics.
  * @evidence contracts/common.md#meaningful-documentation
- *   Native prose explains own versus inherited null and the three return states;
- *   the distinction has a compiler basis and a documented consequence.
+ *   Native paragraphs explain precedence, origin and raw elements; returns
+ *   documentation distinguishes unreadable roots from absent usable arrays.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Native lexical config directories anchor specs; transaction realpaths only
+ *   guard cycles, and host resolver/candidate APIs own native file/package lookup.
  * @evidence contracts/performance.md#efficient-algorithms
- *   The recursive search visits inherited branches until their last usable
- *   array is known. Resolution/parsing follows config occurrences and source
- *   bytes; copied ancestor sets cost the sum of depths, and array filtering
- *   and raw copying follow the winning and intermediate list lengths.
+ *   Query memoization avoids repeating acyclic shared subgraphs, including
+ *   absent lists. Filtering/copying follows declared list length; ordered source
+ *   and identity witness unions/checks follow accumulated subtree volume and
+ *   changed cycle contexts require re-evaluation. Native observations are shared.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   An optional lexical-keyed configs map shares decoded and failed source
- *   observations within the caller's read transaction; selections and anchors
- *   remain branch-specific. Changed inputs require a new transaction map.
+ *   A supplied transaction shares source, failed reads, identity and edge
+ *   observations across keys. List selections share only matching ancestry
+ *   intersections within this query. Independent freshness reads use new owners.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   The ancestor set is local to the call; the collect and configs maps
- *   belong to the caller.
+ *   The synchronous query releases its memo after return; the transaction and
+ *   optional observed-source set belong to the caller. No handle is retained.
  */
 export function findDeclaredFileSpecs(
   tsconfig: string,
   key: "files" | "include" | "exclude",
   collect?: Set<string>,
-  /** Optional parsed-source map scoped to one caller-owned read transaction. */
-  configs?: Map<string, unknown>,
+  configs?: Map<string, unknown> | TsconfigReadTransaction,
 ):
   | { baseDir: string; specs: string[]; rawSpecs: readonly unknown[] }
   | undefined
   | null {
   const resolved = path.resolve(tsconfig);
   collect?.add(resolved);
-  const parsed = readConfig(resolved, configs);
-  if (parsed === undefined) return null;
-  return resolve(
+  const transaction =
+    configs instanceof TsconfigReadTransaction
+      ? configs
+      : new TsconfigReadTransaction(configs);
+  const root = transaction.read(resolved);
+  if (root === null || Array.isArray(root)) return null;
+  const declared = transaction.find(
     resolved,
-    parsed,
-    key,
-    new Set([resolveRealPath(resolved)]),
+    (parsed) => {
+      if (Array.isArray(parsed)) return null;
+      if (!Object.prototype.hasOwnProperty.call(parsed, key)) return undefined;
+      const value = (parsed as Record<string, unknown>)[key];
+      return Array.isArray(value)
+        ? {
+            rawSpecs: value.slice(),
+            specs: value.filter(
+              (entry): entry is string => typeof entry === "string",
+            ),
+          }
+        : null;
+    },
+    new Set(),
     collect,
-    configs,
+    "last",
   );
-}
-
-function resolve(
-  resolved: string,
-  parsed: Record<string, unknown>,
-  key: "files" | "include" | "exclude",
-  seen: Set<string>,
-  collect: Set<string> | undefined,
-  configs: Map<string, unknown> | undefined,
-):
-  | { baseDir: string; specs: string[]; rawSpecs: readonly unknown[] }
-  | undefined {
-  if (Object.prototype.hasOwnProperty.call(parsed, key)) {
-    const value = parsed[key];
-    return Array.isArray(value)
-      ? {
-          baseDir: path.dirname(resolved),
-          rawSpecs: value.slice(),
-          specs: value.filter(
-            (entry): entry is string => typeof entry === "string",
-          ),
-        }
-      : undefined;
-  }
-  let inherited:
-    | { baseDir: string; specs: string[]; rawSpecs: readonly unknown[] }
-    | undefined;
-  for (const specifier of extendsSpecifiers(parsed.extends)) {
-    const base = resolveExtendsConfig(resolved, specifier);
-    if (base === null) {
-      // Record where the base would resolve, so a caller memoizing the policy
-      // notices it appearing; see `findDeclaredValue`.
-      for (const candidate of tsconfigExtendsFileCandidates(
-        resolved,
-        specifier,
-      ) ?? []) {
-        collect?.add(candidate);
-      }
-      continue;
-    }
-    collect?.add(base);
-    const baseCanonical = resolveRealPath(base);
-    if (seen.has(baseCanonical)) continue;
-    const baseParsed = readConfig(base, configs);
-    if (baseParsed === undefined) continue;
-    const declared = resolve(
-      base,
-      baseParsed,
-      key,
-      new Set([...seen, baseCanonical]),
-      collect,
-      configs,
-    );
-    if (declared !== undefined) inherited = declared;
-  }
-  return inherited;
-}
-
-function readConfig(
-  file: string,
-  configs: Map<string, unknown> | undefined,
-): Record<string, unknown> | undefined {
-  try {
-    const parsed = configs?.has(file)
-      ? configs.get(file)
-      : parseJsonc(fs.readFileSync(file, "utf8"));
-    configs?.set(file, parsed);
-    return typeof parsed === "object" &&
-      parsed !== null &&
-      !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : undefined;
-  } catch {
-    configs?.set(file, undefined);
-    return undefined;
-  }
+  return declared === null
+    ? undefined
+    : { baseDir: declared.baseDir, ...declared.value };
 }

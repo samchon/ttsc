@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
 import { absolutizePathsTarget } from "./absolutizePathsTarget";
 import { findDeclaredFileSpecs } from "./findDeclaredFileSpecs";
 import { startsWithConfigDirTemplate } from "./startsWithConfigDirTemplate";
@@ -14,7 +15,7 @@ const CONFIG_DIR_TEMPLATE_FILE_SPECS = ["exclude", "files", "include"] as const;
  * Lists use the compiler's last-inherited-array rule: a later base declaring
  * null cannot erase an earlier array. Invalid elements are preserved so this
  * overlay does not hide the compiler's configuration diagnostics. The three
- * list searches share decoded sources only within this call; a later call reads
+ * list searches share graph observations only within this call; a later call reads
  * current bytes in a fresh transaction.
  *
  * @param configDir The directory `${configDir}` stands for, as
@@ -40,14 +41,15 @@ const CONFIG_DIR_TEMPLATE_FILE_SPECS = ["exclude", "files", "include"] as const;
  *   The native description explains wrapper relocation and configDir ownership;
  *   argument prose remains separate from acknowledgment tags.
  * @evidence contracts/performance.md#efficient-algorithms
- *   The three key queries share one lexical parsed-source map. Inheritance
- *   occurrences, ancestor-depth copying and native resolution still repeat;
- *   source bytes, raw-list scans/copies and anchored path lengths drive work.
+ *   Three key queries share lexical source, identity and extends observations.
+ *   Query memoization prevents DAG path expansion; source/identity witnesses
+ *   follow accumulated subtree volume and changed cycle contexts recompute.
+ *   Source bytes, raw-list scans/copies and anchored path lengths drive work.
  *   Only lists containing a template receive the materialized output copy.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   Queries share decoded sources and failed observations by lexical config
- *   within this transaction, preserving each list's precedence and anchors.
- *   Later calls create a fresh map; old metadata cannot prove unchanged bytes.
+ *   Queries share source, failed reads, identities and edges by lexical config;
+ *   selected values require matching ancestry intersections and preserve list
+ *   precedence/anchors. Later calls use a fresh owner to read current inputs.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Acquires no handle, timer or retained state of its own.
  */
@@ -57,7 +59,7 @@ export function readEffectiveTsconfigTemplateFileSpecs(
 ): Record<string, unknown> {
   const resolved = path.resolve(tsconfig);
   const output: Record<string, unknown> = {};
-  const configs = new Map<string, unknown>();
+  const configs = new TsconfigReadTransaction();
   for (const key of CONFIG_DIR_TEMPLATE_FILE_SPECS) {
     const declared = findDeclaredFileSpecs(resolved, key, undefined, configs);
     if (
