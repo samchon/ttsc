@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
+import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import vm from "node:vm";
@@ -401,10 +402,8 @@ export namespace BatchWorkspace {
   async function prepare(): Promise<Workspace> {
     // Choose one native spelling before authoring absolute config/cwd inputs.
     // Intentional project aliases below remain separately authored inputs.
-    const temporaryParent = path.join(
-      path.dirname(TestProject.WORKSPACE_ROOT),
-      ".ttsc-e2e-projects",
-    );
+    // The entry's initial TEMP/TMP/TMPDIR owns every sibling allocation.
+    const temporaryParent = os.tmpdir();
     const cache = TestProject.sharedPluginCache(temporaryParent);
     const allocatedRoot = TestProject.tmpdir(
       "ttsc-shared-boundaries-",
@@ -575,8 +574,8 @@ export namespace BatchWorkspace {
         path.join(root, "tools/descriptor-collection"),
       ),
     );
-    // The native default-cache resolver recognizes this real installation
-    // boundary. No package is installed in the graph-negative root itself.
+    // This copied package declares its own workspace, independently of the
+    // checkout's ancestors. No package is installed in the graph-negative root.
     fs.mkdirSync(path.join(descriptorCollectionRoot, "node_modules"));
     await FileSystemIterator.write(
       path.join(root, "tools/public-lint"),
@@ -1269,6 +1268,16 @@ export namespace BatchWorkspace {
         recursive: true,
         filter: (location) => copiesPluginSourceEntry(fixture, location),
       });
+      // The source publication owns its default cache as an independent local
+      // workspace even when this experiment lives below another workspace.
+      // Unmarked installation fallback remains with the direct cache units.
+      fs.copyFileSync(
+        path.join(
+          TestProject.WORKSPACE_ROOT,
+          "tests/test-e2e/fixtures/ttsc/source-plugin/source-publication-workspace.yaml",
+        ),
+        path.join(source, "pnpm-workspace.yaml"),
+      );
       const materializationInputs = path.join(
         TestProject.WORKSPACE_ROOT,
         "packages/ttsc/test/fixtures/e2e",
