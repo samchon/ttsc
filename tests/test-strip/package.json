@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-strip",
-  "version": "0.30.4",
+  "version": "0.31.0",
   "description": "Unit tests for @ttsc/strip.",
   "type": "module",
   "scripts": {
