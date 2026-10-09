@@ -5,6 +5,7 @@ import path from "node:path";
 
 import {
   captureNativeLintProducer,
+  decodeNativeLintGoSelection,
   linkNativeLintPackage,
   selectNativeLintSourceFiles,
 } from "../../../../utils/src/NativeLintProducer";
@@ -27,11 +28,13 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 3. Corrupt the copy, edit the source during capture, add an unaccounted source
  *    link, change the package identity and reuse a destination, requiring each
  *    to be refused.
+ * 4. Decode successful Go selection with download progress on stderr, and
+ *    refuse failed or signaled processes and malformed or truncated metadata.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls the owning snapshot capture against authored file fixtures, requiring exact Go/descriptor/embedded/nested-cache bytes, a signed sorted manifest and the real installation link; corrupt copy, concurrent source edit, unexpected source link, wrong package metadata and a preexisting link to a foreign producer must refuse publication or reuse.
- * @evidence contracts/testing.md#independent-expectations Literal distinct file contents and independently calculated SHA-256 values establish the copied population and manifest signature; expected refusal messages are literal contracts rather than values derived from capture output.
- * @evidence contracts/testing.md#distinguishing-cases Compares complete regular assets and a nested .cache asset against root installation/cache boundaries, positive copy against corrupted destination and changed source, and an owned package against an external source link, non-lint metadata, exact selected test declarations versus embedded test declarations, and same-target links versus foreign or regular occupants.
- * @evidence contracts/testing.md#execution-ownership The named utility unit exercises the real filesystem-copy owner with an explicit copier boundary, without building Go, spawning product CLIs or replacing filesystem globals; TestProject owns all temporary fixture roots.
+ * @evidence contracts/testing.md#behavioral-verification Calls the owning snapshot capture against authored file fixtures, requiring exact bytes, a signed sorted manifest and the real installation link; corrupt, moved, foreign or occupied inputs refuse publication or reuse. The real subprocess-result decoder accepts successful metadata with progress stderr and refuses launch, status, signal and authored malformed/truncated metadata failures.
+ * @evidence contracts/testing.md#independent-expectations Literal distinct file contents and independently calculated SHA-256 values establish the copied population and manifest signature; authored terminal observations and package records establish decoder outcomes independently of its output, with literal diagnostic retention and refusal contracts.
+ * @evidence contracts/testing.md#distinguishing-cases Compares regular and nested-cache assets with root cache boundaries, positive copy with corrupt or changed input, owned with foreign installations, selected with embedded tests, and same-target with conflicting links. Successful selection with progress stderr contrasts with empty stderr, error/nonzero/absent status/signal termination and malformed/truncated/empty metadata.
+ * @evidence contracts/testing.md#execution-ownership The named utility unit exercises the real filesystem-copy owner with an explicit copier boundary and the maintained Go-result decoder with authored process observations, without building Go, mocking process execution, spawning product CLIs or replacing filesystem globals; TestProject owns all temporary fixture roots.
  */
 export function test_native_lint_producer_snapshot_preserves_bytes_and_refuses_moved_capture(): void {
   const seed = () => {
@@ -125,6 +128,50 @@ export function test_native_lint_producer_snapshot_preserves_bytes_and_refuses_m
   ];
   const selection = selectNativeLintSourceFiles(selected.sourceRoot, records);
   assert.deepEqual(selection.excludedGoTestFiles, ["plugin/semantic_test.go"]);
+  const observation = {
+    error: undefined,
+    status: 0,
+    signal: null,
+    stdout: records.map((record) => JSON.stringify(record)).join("\n"),
+    stderr: "go: downloading example.test/dependency v1.0.0\n",
+  } as const;
+  assert.deepEqual(decodeNativeLintGoSelection(observation), records);
+  assert.deepEqual(
+    decodeNativeLintGoSelection({ ...observation, stderr: "" }),
+    records,
+  );
+  assert.deepEqual(
+    selectNativeLintSourceFiles(
+      selected.sourceRoot,
+      decodeNativeLintGoSelection(observation),
+    ),
+    selection,
+  );
+  for (const failure of [
+    { status: 1 },
+    { status: null },
+    { signal: "SIGTERM" as const },
+    { error: new Error("spawn unavailable") },
+  ])
+    assert.throws(
+      () => decodeNativeLintGoSelection({ ...observation, ...failure }),
+      (error: unknown) =>
+        error instanceof Error &&
+        error.message.includes("Go selection failed") &&
+        error.message.includes(observation.stderr),
+    );
+  for (const stdout of ["not JSON", "}", '{"Dir":}', "{"])
+    assert.throws(() =>
+      decodeNativeLintGoSelection({ ...observation, stdout }),
+    );
+  assert.throws(
+    () =>
+      selectNativeLintSourceFiles(
+        selected.sourceRoot,
+        decodeNativeLintGoSelection({ ...observation, stdout: " \n" }),
+      ),
+    /selection has no packages/,
+  );
   const selectedResult = captureNativeLintProducer({ ...selected, selection });
   assert.equal(
     fs.existsSync(
