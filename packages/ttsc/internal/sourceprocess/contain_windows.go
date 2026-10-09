@@ -4,6 +4,7 @@ package sourceprocess
 
 import (
   "encoding/json"
+  "errors"
   "fmt"
   "io"
   "os"
@@ -17,8 +18,8 @@ import (
 
 // runCommand owns a named Windows job. Its helper joins the job before the
 // START handshake permits suspended target creation. A second RUN handshake
-// permits execution only after the outer knows the selected target's PID, so
-// output-triggered cancellation cannot lose that PID. Cancellation before RUN
+// permits execution only after the outer retains the original suspended target
+// by creation identity and job membership. Cancellation before RUN
 // never admits target code. Normal target completion also terminates
 // surviving descendants before reporting a proven empty boundary.
 // The job contains CreateProcess descendants without breakaway permission;
@@ -42,7 +43,8 @@ import (
 // source artifact caching belongs to the caller.
 //
 // Each call owns one helper, control pipe and private directory. Retirement
-// joins the helper and observes zero active processes before releasing private
+// joins the helper, waits its retained original target after successful job
+// termination, and observes zero active processes before releasing private
 // files. Kernel termination or accounting failure reports an unproven boundary
 // and retains its directory; job and control handles close on return.
 func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (completed result) {
@@ -52,7 +54,7 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
   }
   boundaryAcquired := false
   defer func() {
-    if boundaryAcquired && !completed.Cleanup.BoundaryEmpty {
+    if boundaryAcquired && (!completed.Cleanup.BoundaryEmpty || !completed.Cleanup.DirectChildJoined) {
       return
     }
     if cleanupErr := os.RemoveAll(dir); cleanupErr != nil {
@@ -121,6 +123,32 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
   value := failure("EPROTOCOL", "source process helper ended without a result")
   started, running, finished, cancelled, helperJoined := false, false, false, false, false
   targetPid := 0
+  targetHandle := windows.Handle(0)
+  var targetErr error
+  innerResult := false
+  defer func() {
+    if targetHandle != 0 {
+      if closeErr := windows.CloseHandle(targetHandle); closeErr != nil {
+        completed = windowsCleanupFailure(completed, "EPROCESS", closeErr)
+      }
+    }
+  }()
+  retainTarget := func() error {
+    data, readErr := os.ReadFile(filepath.Join(dir, "started.json"))
+    if readErr != nil {
+      return readErr
+    }
+    var target windowsStarted
+    if decodeErr := json.Unmarshal(data, &target); decodeErr != nil {
+      return decodeErr
+    }
+    retained, retainErr := retainWindowsTarget(target, job)
+    if retainErr != nil {
+      return retainErr
+    }
+    targetHandle, targetPid = retained, int(target.Pid)
+    return nil
+  }
   for !finished {
     select {
     case <-cancel:
@@ -133,9 +161,12 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
       if readErr := readWindowsResult(dir, &value); readErr != nil {
         value = commandResult(cmd, waitErr)
         value.Error = &processError{Code: "EPROTOCOL", Message: readErr.Error()}
+      } else {
+        innerResult = true
       }
     case <-ticker.C:
       if readWindowsResult(dir, &value) == nil {
+        innerResult = true
         finished = true
         break
       }
@@ -155,18 +186,22 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
           if finished {
             break
           }
+          // A failed write may still have delivered START. From this point a
+          // missing publication cannot certify that no target was created.
+          started = true
           if _, err = control.Write([]byte{1}); err != nil {
             value = failure("EPIPE", err.Error())
             finished = true
-          } else {
-            started = true
           }
         }
       }
       if started && !running && !finished {
-        var target result
-        if readWindowsRecord(filepath.Join(dir, "started.json"), &target) == nil && target.Version == 1 && target.Pid > 0 {
-          targetPid = target.Pid
+        targetErr = retainTarget()
+        if targetErr != nil && !os.IsNotExist(targetErr) {
+          value = failure("EPROCESS", targetErr.Error())
+          finished = true
+        }
+        if targetErr == nil {
           select {
           case <-cancel:
             cancelled, finished = true, true
@@ -193,36 +228,64 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
   if !started && !helperJoined {
     _ = cmd.Process.Kill()
   }
-  terminationErr := windows.TerminateJobObject(job, 1)
-  if !helperJoined {
-    <-joined
-    helperJoined = true
+  // This single owner never kills the inner during synchronous enrollment.
+  // If cancellation won before enrollment, only an already-published original
+  // identity can still be retained here, before termination. Missing identity
+  // after START is unknown, even if the job subsequently becomes empty.
+  noTarget := !started || (innerResult && value.Version == 1 && value.Pid == 0 && value.Error != nil)
+  if started && targetHandle == 0 && !noTarget && (targetErr == nil || os.IsNotExist(targetErr)) {
+    targetErr = retainTarget()
   }
+  originalJoined := innerResult && targetPid > 0 && value.Pid == targetPid && value.Cleanup.DirectChildJoined
   value.Cancelled = cancelled
   if cancelled && value.Error != nil && value.Error.Code == "EPROTOCOL" {
     value = failure("ECANCELED", "source command cancelled")
     value.Cancelled = true
   }
-  if value.Pid == 0 {
-    if targetPid == 0 {
-      var target result
-      if readWindowsRecord(filepath.Join(dir, "started.json"), &target) == nil && target.Version == 1 {
-        targetPid = target.Pid
+  value.Pid = targetPid
+  value.Cleanup.DirectChildJoined = helperJoined && (noTarget || originalJoined)
+  value.Cleanup.OrphanReaping = "windows-job"
+  terminationErr := windows.TerminateJobObject(job, 1)
+  // Failed termination cannot justify waiting on either the target or the
+  // helper's copy pipes, which a surviving target may still hold. Request
+  // helper retirement and collect an already-available join; otherwise retain
+  // unknown authority and private inputs rather than blocking on a live tree.
+  if terminationErr != nil {
+    if !helperJoined {
+      if killErr := cmd.Process.Kill(); killErr != nil && !errors.Is(killErr, os.ErrProcessDone) {
+        terminationErr = errors.Join(terminationErr, killErr)
+      }
+      select {
+      case <-joined:
+        helperJoined = true
+      default:
       }
     }
-    value.Pid = targetPid
+    value.Cleanup.DirectChildJoined = helperJoined && (noTarget || originalJoined)
+    return windowsCleanupFailure(value, "EJOB", terminationErr)
   }
-  value.Cleanup.DirectChildJoined = helperJoined
-  value.Cleanup.OrphanReaping = "windows-job"
-  if terminationErr != nil {
-    value.Error = &processError{Code: "EJOB", Message: terminationErr.Error()}
-    return value
+  if !helperJoined {
+    <-joined
+    helperJoined = true
+  }
+  value.Cleanup.DirectChildJoined = helperJoined && (noTarget || originalJoined)
+  if targetHandle != 0 {
+    if waitErr := waitWindowsTarget(targetHandle, windows.INFINITE); waitErr != nil {
+      value = windowsCleanupFailure(value, "EPROCESS", waitErr)
+      value.Cleanup.DirectChildJoined = false
+    } else {
+      value.Cleanup.DirectChildJoined = helperJoined
+    }
+  } else if !noTarget {
+    if targetErr == nil {
+      targetErr = fmt.Errorf("original target join authority is unavailable")
+    }
+    value = windowsCleanupFailure(value, "EPROCESS", targetErr)
   }
   for {
     active, queryErr := windowsJobActive(job)
     if queryErr != nil {
-      value.Error = &processError{Code: "EJOB", Message: queryErr.Error()}
-      return value
+      return windowsCleanupFailure(value, "EJOB", queryErr)
     }
     if active == 0 {
       value.Cleanup.BoundaryEmpty = true
@@ -294,7 +357,18 @@ func runInner(args []string, in io.Reader, out, errOut io.Writer) int {
   }
   defer owner.close()
   value := result{Version: 1, Pid: int(owner.info.ProcessId)}
-  if err = writeResult(filepath.Join(dir, "started.json"), value); err != nil {
+  target, err := owner.started()
+  if err == nil {
+    var publication []byte
+    publication, err = json.Marshal(target)
+    if err == nil {
+      err = os.WriteFile(filepath.Join(dir, "started.pending"), publication, 0600)
+    }
+    if err == nil {
+      err = os.Rename(filepath.Join(dir, "started.pending"), filepath.Join(dir, "started.json"))
+    }
+  }
+  if err != nil {
     fmt.Fprintln(errOut, err)
     _ = input.Close()
     return 2
@@ -319,6 +393,17 @@ func runInner(args []string, in io.Reader, out, errOut io.Writer) int {
     return 2
   }
   return 0
+}
+
+// Cleanup failure preserves the command's existing diagnostic and status; it
+// does not turn an unproved lifetime into a joined command.
+func windowsCleanupFailure(value result, code string, err error) result {
+  message := err.Error()
+  if value.Error != nil {
+    message = value.Error.Code + ": " + value.Error.Message + "; " + message
+  }
+  value.Error = &processError{Code: code, Message: message}
+  return value
 }
 
 func readWindowsResult(dir string, value *result) error {

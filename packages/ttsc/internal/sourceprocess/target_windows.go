@@ -35,6 +35,67 @@ import (
 // process/thread handles until target wait and result publication or inner exit.
 type windowsTarget struct{ info windows.ProcessInformation }
 
+// windowsStarted binds admission to the original suspended process. The inner
+// holds its creation handles until RUN or helper exit; the outer acquires and
+// validates its own non-inheritable wait handle before authorizing execution.
+type windowsStarted struct {
+  Version int    `json:"version"`
+  Pid     uint32 `json:"pid"`
+  Created uint64 `json:"created"`
+}
+
+func (owner *windowsTarget) started() (windowsStarted, error) {
+  created, err := windowsProcessCreation(owner.info.Process)
+  return windowsStarted{Version: 1, Pid: owner.info.ProcessId, Created: created}, err
+}
+
+// retainWindowsTarget runs while the inner still holds the suspended original.
+// PID is only an enrollment coordinate: creation and job membership must match,
+// and subsequent retirement waits use this retained object without a lookup.
+// Failure closes the newly acquired handle and never authorizes RUN.
+func retainWindowsTarget(started windowsStarted, job windows.Handle) (windows.Handle, error) {
+  if started.Version != 1 || started.Pid == 0 || started.Created == 0 || job == 0 || job == windows.InvalidHandle {
+    return 0, fmt.Errorf("invalid suspended target identity or job")
+  }
+  handle, err := windows.OpenProcess(windows.SYNCHRONIZE|windows.PROCESS_QUERY_LIMITED_INFORMATION, false, started.Pid)
+  if err != nil {
+    return 0, err
+  }
+  pid, identityErr := windows.GetProcessId(handle)
+  created, creationErr := windowsProcessCreation(handle)
+  var member int32
+  isProcessInJob := windows.NewLazySystemDLL("kernel32.dll").NewProc("IsProcessInJob")
+  ok, _, membershipErr := isProcessInJob.Call(uintptr(handle), uintptr(job), uintptr(unsafe.Pointer(&member)))
+  if identityErr != nil || creationErr != nil || pid != started.Pid || created != started.Created || ok == 0 || member == 0 {
+    err = errors.Join(identityErr, creationErr)
+    if ok == 0 {
+      err = errors.Join(err, membershipErr)
+    }
+    return 0, errors.Join(fmt.Errorf("suspended target identity or job membership differs: %v", err), windows.CloseHandle(handle))
+  }
+  return handle, nil
+}
+
+func windowsProcessCreation(handle windows.Handle) (uint64, error) {
+  var created, exited, kernel, user windows.Filetime
+  err := windows.GetProcessTimes(handle, &created, &exited, &kernel, &user)
+  return uint64(created.HighDateTime)<<32 | uint64(created.LowDateTime), err
+}
+
+// waitWindowsTarget distinguishes completed original-object waiting from job
+// accounting. Callers use INFINITE only after successful owned termination or
+// normal original completion; failed termination must not hang on a live target.
+func waitWindowsTarget(handle windows.Handle, milliseconds uint32) error {
+  state, err := windows.WaitForSingleObject(handle, milliseconds)
+  if err != nil {
+    return err
+  }
+  if state != windows.WAIT_OBJECT_0 {
+    return fmt.Errorf("unexpected native target wait state %d", state)
+  }
+  return nil
+}
+
 func startWindowsTarget(req request, input *os.File) (*windowsTarget, error) {
   selected := exec.Command(req.Command, req.Args...)
   if selected.Err != nil {
@@ -130,13 +191,8 @@ func (owner *windowsTarget) resume() error {
 
 func (owner *windowsTarget) wait() result {
   value := result{Version: 1, Pid: int(owner.info.ProcessId)}
-  state, err := windows.WaitForSingleObject(owner.info.Process, windows.INFINITE)
-  if err != nil {
+  if err := waitWindowsTarget(owner.info.Process, windows.INFINITE); err != nil {
     value.Error = &processError{Code: "EPROCESS", Message: err.Error()}
-    return value
-  }
-  if state != windows.WAIT_OBJECT_0 {
-    value.Error = &processError{Code: "EPROCESS", Message: fmt.Sprintf("unexpected native target wait state %d", state)}
     return value
   }
   value.Cleanup.DirectChildJoined = true
