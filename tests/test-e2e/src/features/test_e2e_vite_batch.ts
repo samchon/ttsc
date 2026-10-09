@@ -162,12 +162,14 @@ async function runViteBuildActor(
     assert.equal(stat.isFile() && !stat.isSymbolicLink(), true);
   }
   const fallbackBytes = fs.existsSync(fallback) ? fs.readFileSync(fallback) : undefined;
-  const control = path.join(TestProject.WORKSPACE_ROOT, ".wiki", "unplugin-discovery-20261008", "vite-build-control-" + randomUUID());
+  const controlParent = path.join(TestProject.WORKSPACE_ROOT, ".wiki", "unplugin-discovery-20261008");
+  const control = path.join(controlParent, "vite-build-control-" + randomUUID());
   const requestFile = path.join(control, "request.json");
   const journal = path.join(control, "record-transition.json");
   const resultFile = path.join(control, "result.json");
-  for (const file of [control, requestFile, journal, resultFile])
+  for (const file of [controlParent, control, requestFile, journal, resultFile])
     execFileSync("git", ["check-ignore", "--quiet", "--", file], { cwd: TestProject.WORKSPACE_ROOT });
+  fs.mkdirSync(controlParent, { recursive: true });
   fs.mkdirSync(control);
   const request: ViteBuildRequest = {
     workspace: { root: workspace.root, cache: workspace.cache, contextReceipt: workspace.contextReceipt, pathsReceipt: workspace.pathsReceipt, expected: workspace.expected },
