@@ -25,9 +25,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 4. Publish provisional module/package roots, then verify narrowing, repeated
  *    publication, a selection switch, removal/recreation and explicit clearing.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual WatchTopology classifies config and plugin changes, suppresses unchanged/pruned notifications and discovers new package files. Provisional module/package publication retains pre-read byte baselines through linked/executable narrowing and repeated publication; a new selection and recreated source remain observable, while [] clears plugin interests. Each topology closes its recorded handles.
+ * @evidence contracts/testing.md#behavioral-verification Actual WatchTopology classifies config and plugin changes, suppresses unchanged/pruned notifications and discovers new package files. Provisional module/package publication retains pre-read byte baselines through linked/executable narrowing and repeated publication; a new selection and recreated source remain observable. Clearing closes plugin registrations and suppresses their queued work while the selected TypeScript input still reports compiler changes. Each topology closes its recorded handles.
  * @evidence contracts/testing.md#independent-expectations Literal authored byte transitions and the declared config/plugin roles establish expected event kinds and paths. Notifications are supplied as stimuli, never as expected topology output.
- * @evidence contracts/testing.md#distinguishing-cases Unchanged root attention, pruned-directory attention, module/source edits and populated newly created directories distinguish attention from keyed source movement. Fresh initial bytes stay quiet. Six independent publication cases contrast retained package versus module baselines, same-root repetition, a new selected root, a removed/recreated package and successful empty selection; loader metadata ordering and actual native delivery belong to maintained Metro/esbuild boundary callers.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged root attention, pruned-directory attention, module/source edits and populated newly created directories distinguish attention from keyed source movement. Fresh initial bytes stay quiet. Six independent publication cases contrast retained package versus module baselines, same-root repetition, a new selected root, a removed/recreated package and successful empty selection. The clear case queues an event before withdrawing its real registration, then contrasts suppressed plugin work with a surviving selected compiler input; it does not require a recursive ancestor to deliver through retired scopes. Loader metadata ordering and actual native delivery belong to maintained Metro/esbuild boundary callers.
  * @evidence contracts/testing.md#execution-ownership The source unit calls actual WatchTopology, source digest and directory adapter operations with explicitly recorded subscriptions. A positional source requires no compiler-list process; no native subscription, installation or build runs here. The retained native watcher E2E population owns actual delivery.
  */
 export async function test_watch_plugin_notifications_report_only_keyed_source_changes(): Promise<void> {
@@ -252,12 +252,34 @@ async function verifyPublicationHandoffs(): Promise<void> {
       if (scenario === "linked") topology.setExtraInputs([packageDir]);
       if (scenario === "executable") topology.setExtraInputs([module]);
       if (scenario === "repeat") topology.setExtraInputs([module, packageDir]);
-      if (scenario === "clear") topology.setExtraInputs([]);
-      deliverWatchEvent(observed.watchers, edited, "change");
-      await settleWatchEvents();
-      if (scenario === "clear") assert.deepEqual([...changes], [], "empty selection retained plugin interests");
-      else assert.ok(changes.some((change) => change.kind === "plugin" && change.path === edited),
-        `${scenario} absorbed or lost the pre-read source change`);
+      if (scenario === "clear") {
+        const pluginWatchers = observed.watchers.filter((watcher) => {
+          const relative = path.relative(module, watcher.location);
+          return watcher.active && (relative === "" ||
+            (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative)));
+        });
+        assert.ok(pluginWatchers.some((watcher) => watcher.location === path.dirname(edited)),
+          "the changed Go input must have a real plugin registration before clearing");
+        // Queue through a live scope, then withdraw before the topology decides
+        // that delivery. A retired scope cannot receive a later authored event.
+        deliverWatchEvent(observed.watchers, edited, "change");
+        topology.setExtraInputs([]);
+        assert.ok(pluginWatchers.every((watcher) => !watcher.active),
+          "empty selection did not close its plugin registrations");
+        await settleWatchEvents();
+        assert.deepEqual([...changes], [], "empty selection retained queued plugin work");
+        fs.appendFileSync(source, "// compiler input survives plugin withdrawal\n");
+        deliverWatchEvent(observed.watchers, source, "change");
+        await settleWatchEvents();
+        assert.ok(changes.length > 0 && changes.every((change) =>
+          change.kind === "compiler" && change.path === source),
+        "clearing plugin interests lost the selected compiler input or reported plugin work");
+      } else {
+        deliverWatchEvent(observed.watchers, edited, "change");
+        await settleWatchEvents();
+        assert.ok(changes.some((change) => change.kind === "plugin" && change.path === edited),
+          `${scenario} absorbed or lost the pre-read source change`);
+      }
     } catch (cause) {
       failures.push(new Error(scenario, { cause }));
     } finally {
