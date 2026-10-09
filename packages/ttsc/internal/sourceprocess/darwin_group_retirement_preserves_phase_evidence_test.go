@@ -6,6 +6,7 @@ import (
   "bytes"
   "encoding/json"
   "errors"
+  "fmt"
   "io"
   "os"
   "os/exec"
@@ -26,10 +27,10 @@ import (
 // 2. Record every original receipt before checking command and cleanup results.
 // 3. Repeat the native signal/Wait/group observations as independent OS controls.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual Run entry owns authored native test children and must publish their original status and joined, empty-boundary cleanup. Independent Darwin controls retain the pre-Wait signal errno, original Wait outcome and post-Wait group observation in failure output.
+// @evidence contracts/testing.md#behavioral-verification The actual Run entry owns authored native test children and must publish their original status and joined, empty-boundary cleanup. Readiness observes actual publication, filesystem failure or original completion without imposing a successful-work deadline. Independent Darwin controls retain the pre-Wait signal errno, original Wait outcome and post-Wait group observation in failure output.
 // @evidence contracts/testing.md#independent-expectations Authored children exit zero or seven; EOF must cancel an admitted parent and descendant. Original exec.Cmd.Wait and ESRCH from a separate post-Wait group query provide distinct direct-child and group evidence. No EPERM is treated as absence, and these controls do not reproduce cross-UID permission refusal.
 // @evidence contracts/testing.md#distinguishing-cases Natural zero and nonzero exits contrast with a surviving descendant and EOF while both processes are active. Every row runs independently, so one unknown receipt cannot hide later native controls. Installed SDK interpretation remains with the runtime E2E population.
-// @evidence contracts/testing.md#execution-ownership This package unit directly calls Run and native process primitives using only its existing test executable as authored input. It builds no artifact or consumer, preserves original child ownership through Wait, sends no destructive group signal after Wait and retains directories when boundary retirement is unproved.
+// @evidence contracts/testing.md#execution-ownership This package unit directly calls Run and native process primitives using only its existing test executable as authored input. It builds no artifact or consumer. Original Run completion, unreaped direct-child exit observation and the authored grandchild's Wait terminate their own readiness observations; no request timeout cuts off ordinary work. The direct control preserves its original wait status until the final group signal, sends no destructive group signal after Wait and retains directories when boundary retirement is unproved. The existing post-Wait five-second absence budget remains an explicit shutdown/UNKNOWN policy.
 func TestDarwinGroupRetirementPreservesPhaseEvidence(t *testing.T) {
   if role := os.Getenv("TTSC_DARWIN_RETIREMENT_ROLE"); role != "" {
     darwinRetirementChild(role)
@@ -48,21 +49,27 @@ func TestDarwinGroupRetirementPreservesPhaseEvidence(t *testing.T) {
         t.Fatal(err)
       }
       reader, writer := io.Pipe()
-      completed := make(chan int, 1)
+      completed := make(chan struct{})
+      var code int
       go func() {
-        completed <- Run([]string{"--result", filepath.Join(directory, "result.json")}, reader, io.Discard, io.Discard)
+        code = Run([]string{"--result", filepath.Join(directory, "result.json")}, reader, io.Discard, io.Discard)
+        close(completed)
       }()
       if _, err = writer.Write(append(data, '\n')); err != nil {
         t.Fatal(err)
       }
-      ready := darwinRetirementReady(t, directory)
+      readyErr := darwinRetirementReady(filepath.Join(directory, "ready"), completed)
+      ready := readyErr == nil
+      if readyErr != nil {
+        t.Error(readyErr)
+      }
       if !ready || mode == "eof" {
         _ = writer.Close()
       } else if err := os.WriteFile(filepath.Join(directory, "release"), nil, 0600); err != nil {
         t.Error(err)
         _ = writer.Close()
       }
-      code := <-completed
+      <-completed
       _ = writer.Close()
       _ = reader.Close()
       raw, err := os.ReadFile(filepath.Join(directory, "result.json"))
@@ -107,15 +114,23 @@ func TestDarwinGroupRetirementPreservesPhaseEvidence(t *testing.T) {
         t.Fatal(err)
       }
       originalPID := cmd.Process.Pid
-      exited := observeExit(originalPID)
-      ready := darwinRetirementReady(t, directory)
+      exited := make(chan struct{})
       var observeErr error
+      go func() {
+        observeErr = <-observeExit(originalPID)
+        close(exited)
+      }()
+      readyErr := darwinRetirementReady(filepath.Join(directory, "ready"), exited)
+      ready := readyErr == nil
+      if readyErr != nil {
+        t.Error(readyErr)
+      }
       observed := false
       if ready && mode != "eof" {
         if err := os.WriteFile(filepath.Join(directory, "release"), nil, 0600); err != nil {
           t.Error(err)
         } else {
-          observeErr = <-exited
+          <-exited
           observed = true
         }
       }
@@ -123,7 +138,7 @@ func TestDarwinGroupRetirementPreservesPhaseEvidence(t *testing.T) {
       before := syscall.Kill(-originalPID, 0)
       finalSignal := syscall.Kill(-originalPID, syscall.SIGKILL)
       if !observed {
-        observeErr = <-exited
+        <-exited
       }
       waitErr := cmd.Wait()
       post := syscall.Kill(-originalPID, 0)
@@ -181,20 +196,29 @@ func darwinRetirementRequest(t *testing.T, executable, mode string) (string, req
   }
   env["TTSC_DARWIN_RETIREMENT_ROLE"] = mode
   env["TTSC_DARWIN_RETIREMENT_DIRECTORY"] = directory
-  return directory, request{Version: 1, Command: executable, Args: []string{"-test.run=^TestDarwinGroupRetirementPreservesPhaseEvidence$"}, Cwd: directory, Env: env, TimeoutMs: 10_000}
+  return directory, request{Version: 1, Command: executable, Args: []string{"-test.run=^TestDarwinGroupRetirementPreservesPhaseEvidence$"}, Cwd: directory, Env: env}
 }
 
-func darwinRetirementReady(t *testing.T, directory string) bool {
-  t.Helper()
-  deadline := time.Now().Add(5 * time.Second)
-  for time.Now().Before(deadline) {
-    if data, err := os.ReadFile(filepath.Join(directory, "ready")); err == nil && len(bytes.TrimSpace(data)) > 0 {
-      return true
+// Readiness belongs to the original producer, not to elapsed scheduler time.
+// The caller retains its completion result; closing completed reports actual
+// completion or observation failure without reaping the control's direct child.
+func darwinRetirementReady(file string, completed <-chan struct{}) error {
+  ticker := time.NewTicker(5 * time.Millisecond)
+  defer ticker.Stop()
+  for {
+    data, err := os.ReadFile(file)
+    if err == nil && len(bytes.TrimSpace(data)) > 0 {
+      return nil
     }
-    time.Sleep(5 * time.Millisecond)
+    if err != nil && !errors.Is(err, os.ErrNotExist) {
+      return fmt.Errorf("authored native readiness %s: %w", file, err)
+    }
+    select {
+    case <-completed:
+      return fmt.Errorf("authored native command completed before readiness: %s", file)
+    case <-ticker.C:
+    }
   }
-  t.Error("authored native command did not publish readiness")
-  return false
 }
 
 func darwinRetirementChild(role string) {
@@ -217,15 +241,20 @@ func darwinRetirementChild(role string) {
     if err := cmd.Start(); err != nil {
       os.Exit(92)
     }
-    deadline := time.Now().Add(5 * time.Second)
-    for {
-      if _, err := os.Stat(filepath.Join(directory, "grandchild")); err == nil {
-        break
+    completed := make(chan struct{})
+    var waitErr error
+    go func() {
+      waitErr = cmd.Wait()
+      close(completed)
+    }()
+    if err := darwinRetirementReady(filepath.Join(directory, "grandchild"), completed); err != nil {
+      fmt.Fprintln(os.Stderr, err)
+      select {
+      case <-completed:
+        fmt.Fprintf(os.Stderr, "original grandchild Wait: %v\n", waitErr)
+      default:
       }
-      if !time.Now().Before(deadline) {
-        os.Exit(94)
-      }
-      time.Sleep(5 * time.Millisecond)
+      os.Exit(94)
     }
   }
   if err := os.WriteFile(filepath.Join(directory, "ready"), []byte(strconv.Itoa(os.Getpid())), 0600); err != nil {
