@@ -184,7 +184,7 @@ func unicornNoTypeofUndefinedIsGlobal(ctx *Context, operand *shimast.Node) bool 
   if symbol == nil {
     return true
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range symbol.Declarations() {
     if declaration == nil {
       continue
     }

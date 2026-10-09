@@ -572,7 +572,7 @@ func collectUnicornPreventAbbreviationsBindings(
     bindings = append(bindings, binding)
     bySymbol[symbol] = binding
     byDeclaration[node] = binding
-    for _, declaration := range symbol.Declarations {
+    for _, declaration := range symbol.Declarations() {
       byDeclaration[declaration] = binding
     }
   })
@@ -918,7 +918,7 @@ func collectUnicornPreventAbbreviationsReferences(
     }
     binding := bySymbol[symbol]
     if binding == nil {
-      for _, declaration := range symbol.Declarations {
+      for _, declaration := range symbol.Declarations() {
         if candidate := byDeclaration[declaration]; candidate != nil {
           binding = candidate
           break
@@ -1168,7 +1168,7 @@ func unicornPreventAbbreviationsCanRenameBinding(
   if binding == nil || len(binding.references) == 0 || unicornPreventAbbreviationsBindingIsExternallyVisible(ctx, binding) {
     return false
   }
-  if strings.EqualFold(filepath.Ext(ctx.File.FileName()), ".vue") {
+  if strings.EqualFold(filepath.Ext(ctx.File.FileName().AsString()), ".vue") {
     return false
   }
   parameter := unicornPreventAbbreviationsEnclosingParameter(binding.declaration)
@@ -1196,9 +1196,9 @@ func unicornPreventAbbreviationsBindingIsExternallyVisible(
   if ctx == nil || ctx.File == nil || binding == nil || binding.symbol == nil || ctx.File.IsDeclarationFile {
     return true
   }
-  declarations := make([]*shimast.Node, 0, len(binding.symbol.Declarations)+1)
+  declarations := make([]*shimast.Node, 0, len(binding.symbol.Declarations())+1)
   declarations = append(declarations, binding.declaration)
-  declarations = append(declarations, binding.symbol.Declarations...)
+  declarations = append(declarations, binding.symbol.Declarations()...)
   seen := make(map[*shimast.Node]struct{}, len(declarations))
   for _, declaration := range declarations {
     if declaration == nil {
@@ -1704,10 +1704,10 @@ func reportUnicornPreventAbbreviationsFilename(
   options unicornPreventAbbreviationsOptions,
 ) {
   filenameWithPath := ctx.File.FileName()
-  if filenameWithPath == "" || unicornPreventAbbreviationsIsVirtualFilename(filenameWithPath) {
+  if filenameWithPath == "" || unicornPreventAbbreviationsIsVirtualFilename(filenameWithPath.AsString()) {
     return
   }
-  filename := filepath.Base(filenameWithPath)
+  filename := filepath.Base(filenameWithPath.AsString())
   extension := unicornPreventAbbreviationsFilenameExtension(filename)
   basename := strings.TrimSuffix(filename, extension)
   replacements := getUnicornPreventAbbreviationsNameReplacements(basename, options, 3)

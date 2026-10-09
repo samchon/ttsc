@@ -64,17 +64,17 @@ export function outerB(): number {
   path := sourceFile(t, prog, "main.ts").FileName()
 
   for _, owner := range []string{"outerA", "outerB"} {
-    localID := nodeID(path, owner+".inner", NodeFunction)
+    localID := nodeID(path.AsString(), owner+".inner", NodeFunction)
     if local := graph.Nodes[localID]; local == nil || local.Name != owner+".inner" {
       t.Fatalf("missing scoped local %s.inner; nodes: %v", owner, nodeIDSet(graph))
     }
-    if !hasEdge(graph, nodeID(path, owner, NodeFunction), localID, EdgeValueCall) {
+    if !hasEdge(graph, nodeID(path.AsString(), owner, NodeFunction), localID, EdgeValueCall) {
       t.Fatalf("missing %s -> %s.inner call; edges: %v", owner, owner, graph.Edges)
     }
   }
 
   // No unqualified function-local node is minted...
-  if _, ok := graph.Nodes[nodeID(path, "inner", NodeFunction)]; ok {
+  if _, ok := graph.Nodes[nodeID(path.AsString(), "inner", NodeFunction)]; ok {
     t.Fatalf("a function-local 'inner' was minted as a node (would collide across scopes)")
   }
   // ...so no edge points at a phantom shared 'inner'.

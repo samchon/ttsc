@@ -7,11 +7,13 @@ description: Defines how packages/ttsc/shim stays synchronized with typescript-g
 
 ## Why the shim exists
 
-`ttsc` is built on typescript-go, the Go port of `tsc` at module `github.com/microsoft/typescript-go`. Most compiler APIs live under that module's `internal/*` tree, which another Go module cannot import directly.
+`ttsc` is built on TypeScript-Go, the Go implementation of `tsc` at module `github.com/microsoft/TypeScript/tsc` (the `tsc/` directory of microsoft/TypeScript; the archived `github.com/microsoft/typescript-go` repository moved there). Most compiler APIs live under that module's `internal/*` tree, which Go admits only from an import path rooted at `github.com/microsoft/TypeScript/tsc`.
 
-`packages/ttsc/shim/<name>` is the legal bridge. Each shim directory (`ast`, `checker`, `compiler`, `core`, `printer`, `scanner`, `parser`, `tsoptions`, `tspath`, `vfs`, and others) is its own Go module wrapping the matching `internal/<name>` package.
+`packages/ttsc/shim/<name>` is the legal bridge. Each bridge directory (`ast`, `checker`, `compiler`, `core`, `printer`, `scanner`, `parser`, `tsoptions`, `tspath`, `vfs`, and others) is its own Go module, `github.com/microsoft/TypeScript/tsc/shim/<name>`, wrapping the matching `internal/<name>` package.
 
-The shim is the only typescript-go surface available to source-plugin authors such as typia, nestia, and third-party rules. Keep it synchronized with the AST, transform, printer, checker and emit APIs present in unmodified upstream, under [AGENTS.md's compiler boundary](../../../AGENTS.md#attitude). A missing re-export of an existing upstream API is a ttsc bug, not a plugin bug.
+`packages/ttsc/shim/typescript-go/<name>` is the documented plugin import path, the module `github.com/microsoft/typescript-go/shim/<name>`. It is a facade generated from the bridge: it aliases every exported bridge type and forwards every exported bridge function, so both paths name one compiler's identities. Never edit a facade by hand.
+
+The shim is the only TypeScript-Go surface available to source-plugin authors such as typia, nestia, and third-party rules. Keep it synchronized with the AST, transform, printer, checker and emit APIs present in unmodified upstream, under [AGENTS.md's compiler boundary](../../../AGENTS.md#attitude). A missing re-export of an existing upstream API is a ttsc bug, not a plugin bug.
 
 ## Shim structure
 
@@ -20,6 +22,7 @@ Each `shim/<name>/` directory has generated and hand-maintained files:
 - **Generated `shim.go`, do not edit.** From `packages/ttsc`, `go run '-modfile=tools/gen_shims/go.mod' ./tools/gen_shims/main.go` writes the exported aliases and linkname declarations for shim packages whose `shim.go` does not opt out of generation. The generator owns a separate Go module; the file-list invocation preserves its dependencies and the compiler-relative source/output roots.
 - **Hand-maintained files.** A `shim.go` that starts with `// gen_shims:hand-maintained` is not regenerated. Keep wrappers and `//go:linkname` declarations there or in another hand-maintained file such as `ast/parent.go`.
 - **Package-specific generated support files.** Some packages also have files such as `surface.go` or `enums_gen.go`. Follow their generated-file header and regenerate them with their owning command; do not create one merely to expose a symbol.
+- **Generated facade.** After any bridge change, regenerate the facades from `packages/ttsc` with `pnpm shim:facade` (`go -C tools/gen_facade run .`). `pnpm test:go` fails while a committed `facade_gen.go` differs from its bridge. A bridge function whose signature names an internal type no bridge aliases becomes a facade variable holding the function; alias the type in its bridge to restore a forwarding function. A generic function of that kind cannot be expressed and fails generation. A facade imports another bridge only to spell its types; add that bridge to the facade's `go.mod` requirements and relative replacements.
 
 Per-directory `extra-shim.json` feeds the generator the symbols it cannot derive on its own: `ExtraFunctions` (unexported funcs to linkname), `ExtraMethods`, `ExtraFields`, and `IgnoreFunctions` (exported funcs the generator should skip because a hand-written variant exists).
 
@@ -35,19 +38,20 @@ Pick the mechanism by what the symbol is:
 
 The common task: a plugin needs a typescript-go symbol that the shim does not yet re-export.
 
-1. Find the symbol in the pinned typescript-go source under the module cache: `go env GOMODCACHE`/`github.com/microsoft/typescript-go@<version>/internal/<pkg>/`. Confirm its exact name, signature, and whether it is exported.
+1. Find the symbol in the pinned compiler source under the module cache: `go env GOMODCACHE`/`github.com/microsoft/!type!script/tsc@<version>/internal/<pkg>/`. Confirm its exact name, signature, and whether it is exported.
 2. Add the re-export to the matching `shim/<pkg>/` with the mechanism [Shim structure](#shim-structure) assigns to that kind of symbol: the compiler-relative generator command above for what the generator derives, a hand-maintained file for an exported symbol it cannot derive, or a `//go:linkname` declaration for an unexported symbol.
-3. Build the shim module and `packages/ttsc` to verify it links.
+3. Regenerate the facades, then build the bridge module and `packages/ttsc` to verify it links.
 
-## Bumping the pinned typescript-go version
+## Bumping the pinned compiler version
 
-The version is pinned per shim module: `require github.com/microsoft/typescript-go v0.0.0-<timestamp>-<hash>` in every shim `go.mod`, kept identical with `packages/ttsc/go.mod` and the consumer modules that pin upstream directly. The compiler module's local `replace` directives resolve maintained shims; source-plugin consumers receive their modules through the generated workspace. A local upstream checkout is not required.
+The version is pinned per bridge module: `require github.com/microsoft/TypeScript/tsc v0.0.0-<timestamp>-<hash>` in every bridge `go.mod`, kept identical with `packages/ttsc/go.mod` and the consumer modules that pin upstream directly. Select a commit of microsoft/TypeScript; its pseudo-version comes from `go list -m github.com/microsoft/TypeScript/tsc@<commit>`. The compiler module's local `replace` directives resolve maintained bridges and facades; source-plugin consumers receive their modules through the generated workspace. A local upstream checkout is not required.
 
 To bump:
 
-1. Update the `require` line in every shim, the compiler module and each directly pinned consumer module, then refresh their sums using their actual module or generated workspace resolution. Placeholder shim versions cannot be resolved from the public proxy; do not add permanent absolute replacements to make standalone tidy succeed. Verify the resulting module files and effective workspace build list: `go work sync` can finish successfully while leaving a module unchanged when its standalone dependency resolution fails. Refresh that module's existing external requirements from the verified build list with `go mod edit -require`, then record their checksums with `go mod download`; distinguish this from a successful standalone tidy.
+1. Update the `require` line in every bridge, the compiler module and each directly pinned consumer module, then refresh their sums using their actual module or generated workspace resolution. Placeholder shim versions cannot be resolved from the public proxy; do not add permanent absolute replacements to make standalone tidy succeed. Verify the resulting module files and effective workspace build list: `go work sync` can finish successfully while leaving a module unchanged when its standalone dependency resolution fails. Refresh that module's existing external requirements from the verified build list with `go mod edit -require`, then record their checksums with `go mod download`; distinguish this from a successful standalone tidy.
 2. Run the generator from `packages/ttsc` with `GOWORK=off`: `go run '-modfile=tools/gen_shims/go.mod' ./tools/gen_shims/main.go`.
-3. Re-check the hand-maintained `shim.go` files and `extra-shim.json` entries: an upstream rename, signature change, or export/unexport flip can break a wrapper or linkname. Build `packages/ttsc` and fix the fallout.
+3. Re-check the hand-maintained `shim.go` files and `extra-shim.json` entries: an upstream rename, signature change, or export/unexport flip can break a wrapper or linkname. Build every bridge and fix the fallout.
+4. Regenerate the facades with `pnpm shim:facade`, then build `packages/ttsc` and every consumer module and fix the fallout.
 
 Document public signature migrations and borrowed-state lifetimes in the [AST and Checker guide](../../../website/src/content/docs/development/concepts/tsgo.mdx). Preserve previously exported enum families when regenerating: existing generated constants identify a public family, while its required members come from the current upstream type. Exclude previous generated members from the calculation of replacement contents, verify repeated generation is idempotent, and remove obsolete output only after authored exports own every member. Trace an actual upstream removal before deciding its compatibility treatment.
 

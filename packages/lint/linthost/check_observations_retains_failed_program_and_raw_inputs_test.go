@@ -11,6 +11,7 @@ import (
   "reflect"
   "testing"
 
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
@@ -125,7 +126,7 @@ func TestCheckObservationsRetainsFailedProgramAndRawInputs(t *testing.T) {
   if err != nil || !bytes.Equal(actual, raw) {
     t.Fatalf("raw reader changed bytes: %x %v", actual, err)
   }
-  decoded, ok := prog.inputObserver.ReadFile(document)
+  decoded, ok := prog.inputObserver.ReadFile(shimtspath.RootedFilePathFromAbsolute(document))
   if !ok || decoded != "# Before\n" {
     t.Fatalf("compiler text changed its decoder contract: %q %v", decoded, ok)
   }
@@ -191,7 +192,7 @@ func TestCheckObservationsRetainsFailedProgramAndRawInputs(t *testing.T) {
   if directory.Kind != "directory" || directory.Version != 1 || directory.Digest != hex.EncodeToString(directorySum[:]) || !directory.IdentityStable {
     t.Fatalf("native listing lost authored membership proof: %#v", directory)
   }
-  compilerListing := prog.inputObserver.GetAccessibleEntries(tree)
+  compilerListing := prog.inputObserver.GetAccessibleEntries(shimtspath.RootedDirectoryPathFromAbsolute(tree))
   if !reflect.DeepEqual(compilerListing.Files, []string{"a"}) || !reflect.DeepEqual(compilerListing.Directories, []string{"skip"}) {
     t.Fatalf("compiler listing changed: %#v", compilerListing)
   }

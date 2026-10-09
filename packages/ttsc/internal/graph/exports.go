@@ -42,7 +42,7 @@ func (g *Graph) markExports(checker *shimchecker.Checker, file *shimast.SourceFi
     // A re-export is an alias; unwrap it to the declaration it points at so the
     // exported flag lands on the real node, not a re-exporting index file's
     // local alias symbol (which has no node of its own).
-    if symbol.Flags&shimast.SymbolFlagsAlias != 0 {
+    if symbol.Flags()&shimast.SymbolFlagsAlias != 0 {
       if aliased := shimchecker.Checker_getAliasedSymbol(checker, symbol); aliased != nil {
         symbol = aliased
       }
@@ -64,16 +64,16 @@ func (g *Graph) markExports(checker *shimchecker.Checker, file *shimast.SourceFi
 // test suite would leave no trace in the graph.
 func (g *Graph) putModuleNode(file *shimast.SourceFile) *Node {
   path := file.FileName()
-  id := nodeID(path, path, NodeModule)
+  id := nodeID(path.AsString(), path.AsString(), NodeModule)
   if existing, ok := g.Nodes[id]; ok {
     return existing
   }
   node := &Node{
     ID:     id,
-    Name:   path,
-    Simple: path,
+    Name:   path.AsString(),
+    Simple: path.AsString(),
     Kind:   NodeModule,
-    File:   path,
+    File:   path.AsString(),
     // A module that exports is by definition part of some surface; whether it is
     // the package's front door is the package.json's to say, not the graph's.
     Exported: true,
@@ -106,7 +106,7 @@ func (g *Graph) markExportedSymbol(symbol *shimast.Symbol) (string, bool) {
   if name == "" {
     return "", false
   }
-  node, ok := g.lookupNode(nodeID(file.FileName(), name, kind))
+  node, ok := g.lookupNode(nodeID(file.FileName().AsString(), name, kind))
   if !ok {
     return "", false
   }

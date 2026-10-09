@@ -266,9 +266,14 @@ export function test_descriptor_validation_preserves_source_and_contributor_reje
 
   for (const [modulePath, expected] of [
     ["github.com/samchon/ttsc/packages/ttsc", true],
-    ["github.com/microsoft/typescript-go", true],
+    ["github.com/microsoft/TypeScript/tsc", true],
+    ["github.com/microsoft/TypeScript/tsc/shim/printer", true],
+    ["github.com/microsoft/TypeScript/tsc/shim", false],
+    ["github.com/microsoft/TypeScript/tsc-extra", false],
+    ["github.com/microsoft/TypeScript", false],
     ["github.com/microsoft/typescript-go/shim/printer", true],
     ["github.com/microsoft/typescript-go/shim", false],
+    ["github.com/microsoft/typescript-go", false],
     ["github.com/microsoft/typescript-go-extra", false],
     ["example.com/ordinary", false],
   ] as const)
@@ -283,12 +288,13 @@ export function test_descriptor_validation_preserves_source_and_contributor_reje
   SourcePluginAdmission.requireSourceReplacements([], overlays, "host");
   for (const forbidden of [
     "github.com/microsoft/typescript-go/shim/printer",
+    "github.com/microsoft/TypeScript/tsc/shim/printer",
     "example.com/overlay",
   ]) {
     const replacements = [
       ...ordinaryReplacements,
       { modulePath: forbidden },
-      { modulePath: "github.com/microsoft/typescript-go" },
+      { modulePath: "github.com/microsoft/TypeScript/tsc" },
     ];
     assert.throws(
       () =>
@@ -304,7 +310,7 @@ export function test_descriptor_validation_preserves_source_and_contributor_reje
     assert.deepEqual(replacements, [
       { modulePath: "example.com/ordinary" },
       { modulePath: forbidden },
-      { modulePath: "github.com/microsoft/typescript-go" },
+      { modulePath: "github.com/microsoft/TypeScript/tsc" },
     ]);
   }
   assert.deepEqual([...overlays], ["example.com/overlay"]);

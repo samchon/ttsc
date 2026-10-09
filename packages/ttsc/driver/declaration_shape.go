@@ -35,9 +35,12 @@ func (p *Program) DeclarationShapeDigest(file *ast.SourceFile) (string, error) {
   var signature strings.Builder
   emitted := false
   p.TSProgram.Emit(context.Background(), shimcompiler.EmitOptions{
-    TargetSourceFile: file,
-    EmitOnly:         shimcompiler.EmitOnlyForcedDts,
-    WriteFile: func(_ string, text string, data *shimcompiler.WriteFileData) error {
+    TargetSourceFiles: []*ast.SourceFile{file},
+    // The builder-signature mode is upstream's forced declaration emit for
+    // incremental signatures: it ignores noEmit, blocked outputs and
+    // declaration diagnostics, and omits declaration maps.
+    EmitOnly: shimcompiler.EmitOnlyBuilderSignature,
+    WriteFile: func(_ shimtspath.RootedFilePath, text string, data *shimcompiler.WriteFileData) error {
       emitted = true
       if data != nil && data.SourceMapUrlPos >= 0 && data.SourceMapUrlPos <= len(text) {
         text = text[:data.SourceMapUrlPos]
@@ -68,11 +71,13 @@ func appendDeclarationShapeDiagnostic(builder *strings.Builder, source *ast.Sour
   builder.WriteString("\n")
   diagnosticFile := diagnostic.File()
   if diagnosticFile != nil && diagnosticFile != source {
-    builder.WriteString(shimtspath.EnsurePathIsNonModuleName(shimtspath.GetRelativePathFromDirectory(
-      shimtspath.GetDirectoryPath(string(source.Path())),
-      string(diagnosticFile.Path()),
-      shimtspath.ComparePathsOptions{},
-    )))
+    // Mirrors upstream incremental diagnosticToStringBuilder: a relative
+    // module specifier when both files share a root, else the file name.
+    if relative, ok := shimtspath.CaseInsensitive.RelativePathFromFile(source.FileName(), diagnosticFile.FileName()); ok {
+      builder.WriteString(relative.AsModuleSpecifier().AsString())
+    } else {
+      builder.WriteString(diagnosticFile.FileName().AsString())
+    }
   }
   if diagnosticFile != nil {
     builder.WriteString(fmt.Sprintf("(%d,%d): ", diagnostic.Pos(), diagnostic.Len()))

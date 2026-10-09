@@ -150,7 +150,7 @@ func NewLintDiagnostic(
   }
   if file != nil {
     pos = lint.Pos()
-    d.File = file.FileName()
+    d.File = file.FileName().AsString()
     length := lint.Len()
     d.Start = &pos
     d.Length = &length
@@ -186,7 +186,10 @@ func (p *Program) SourceFile(filename string) *ast.SourceFile {
   // for an apply failure, and growing one would ripple through every caller.
   // `Diagnostics` reports it, and the emit path checks the error directly.
   _ = p.ApplyLinkedPlugins()
-  return p.TSProgram.GetSourceFile(filename)
+  if filename == "" {
+    return nil
+  }
+  return p.TSProgram.GetSourceFile(tspath.ToRootedFilePath(filename, p.TSProgram.GetCurrentDirectory()))
 }
 
 // String returns message alone without File, file/message without a positive
@@ -443,14 +446,21 @@ func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.Compil
 // config's own location survives. ttsc forwards exactly these resets to keep a
 // private build's outputs in one directory (`isolatedTsgoOutputArgs`).
 func parseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.CompilerHost, cliOptions *core.CompilerOptions, commandLine *tsoptions.ParsedCommandLine) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
-  resolved := tspath.ResolvePath(cwd, tsconfigPath)
+  directory, err := rootedWorkingDirectory(cwd)
+  if err != nil {
+    return nil, nil, err
+  }
+  if tsconfigPath == "" {
+    return nil, nil, fmt.Errorf("tsconfig not found: %s", directory.AsString())
+  }
+  resolved := tspath.ToRootedFilePath(tsconfigPath, directory)
   if !fs.FileExists(resolved) {
-    return nil, nil, fmt.Errorf("tsconfig not found: %s", resolved)
+    return nil, nil, fmt.Errorf("tsconfig not found: %s", resolved.AsString())
   }
   if cliOptions == nil {
     cliOptions = &core.CompilerOptions{}
   }
-  parsed, diags := tsoptions.GetParsedCommandLineOfConfigFile(resolved, cliOptions, tsoptions.CommandLineRawOptions(commandLine), host, nil)
+  parsed, diags := tsoptions.GetParsedCommandLineOfConfigFile(resolved, cliOptions, tsoptions.CommandLineRawOptions(commandLine), host.FS(), nil)
   allDiags := diags
   if parsed != nil {
     // Read failures are returned separately; recoverable JSON syntax errors
@@ -486,11 +496,11 @@ func resolveTsgoArgs(explicit []string) ([]string, error) {
 // constructs its Program in-process rather than shelling out to `tsgo` — still
 // honors flags like `ttsc --strict`. Returns (nil, nil, nil) when there are no
 // forwarded flags.
-func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
+func parseTsgoArgs(args []string, host shimcompiler.CompilerHost, cwd tspath.RootedDirectoryPath) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
   if len(args) == 0 {
     return nil, nil, nil
   }
-  cli := tsoptions.ParseCommandLine(args, host)
+  cli := tsoptions.ParseCommandLine(args, host.FS(), cwd)
   if cli == nil {
     return nil, nil, fmt.Errorf("driver: tsgo argument parser returned nil")
   }
@@ -583,6 +593,10 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
     }
   }
   cwd = tspath.ResolvePath(cwd)
+  directory, err := rootedWorkingDirectory(cwd)
+  if err != nil {
+    return nil, nil, err
+  }
   pluginState, err := loadLinkedPluginState(cwd, tsconfigPath)
   if err != nil {
     return nil, nil, err
@@ -606,7 +620,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
       preamble: options.SourcePreamble,
     }
   }
-  host := DefaultHost(cwd, fs)
+  host := DefaultHost(fs)
 
   tsgoArgs, err := resolveTsgoArgs(options.TsgoArgs)
   if err != nil {
@@ -616,14 +630,13 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   if argumentCwd == "" && options.TsgoArgs == nil && len(tsgoArgs) != 0 {
     argumentCwd = os.Getenv(TsgoArgsCwdEnv)
   }
-  argumentHost := host
+  // Forwarded flags convert relative values against their own argv base; the
+  // host is cwd-less, so only the parser's directory changes.
+  argumentDirectory := directory
   if argumentCwd != "" {
-    argumentCwd = tspath.ResolvePath(cwd, argumentCwd)
-    if argumentCwd != cwd {
-      argumentHost = DefaultHost(argumentCwd, fs)
-    }
+    argumentDirectory = tspath.ToRootedDirectoryPath(argumentCwd, directory)
   }
-  commandLine, cliDiags, err := parseTsgoArgs(tsgoArgs, argumentHost)
+  commandLine, cliDiags, err := parseTsgoArgs(tsgoArgs, host, argumentDirectory)
   if err != nil {
     return nil, nil, err
   }
@@ -633,16 +646,24 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
 
   // Config identity is explicit; argument conversion uses the original argv
   // base, while the Program and linked plugin state retain their selected cwd.
-  selectedConfig := tspath.ResolvePath(cwd, tsconfigPath)
-  parsed, diags, err := parseTSConfig(fs, cwd, selectedConfig, argumentHost, commandLine.CompilerOptions(), commandLine)
+  semanticConfig, err := semanticConfigFile(options.SemanticConfigPath)
+  if err != nil {
+    return nil, nil, err
+  }
+  parsed, diags, err := parseTSConfig(fs, cwd, tsconfigPath, host, commandLine.CompilerOptions(), commandLine)
   if err != nil {
     return nil, nil, err
   }
   if len(diags) > 0 {
     return nil, diags, nil
   }
-  if err := applySemanticConfigPath(parsed, options.SemanticConfigPath); err != nil {
-    return nil, nil, err
+  if semanticConfig != "" {
+    if parsed, diags, err = parseSemanticConfig(fs, cwd, semanticConfig, host, parsed, commandLine); err != nil {
+      return nil, nil, err
+    }
+    if len(diags) > 0 {
+      return nil, diags, nil
+    }
   }
   if options.ForceNoEmit {
     forceNoEmit(parsed)
@@ -651,7 +672,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
     forceEmit(parsed)
   }
   if options.OutDir != "" {
-    overrideOutDir(cwd, parsed, options.OutDir)
+    overrideOutDir(directory, parsed, options.OutDir)
   }
   applyThreadingOptions(parsed, options.SingleThreaded, options.Checkers)
 
@@ -673,16 +694,34 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   return prog, nil, nil
 }
 
-func applySemanticConfigPath(parsed *tsoptions.ParsedCommandLine, semanticConfigPath string) error {
+// parseSemanticConfig makes the user-authored config the parsed project. A
+// generated wrapper extends it from a scratch directory to add a compiler
+// option overlay; TypeScript-Go anchors resolution, automatic type discovery
+// and the Program's current directory at the directory of the config file it
+// parsed, so the wrapper itself must not become the project. The wrapper's
+// merged options, which already carry the user config's own options, the
+// overlay and the command line, take command-line precedence over a fresh
+// parse of the user config; the command line's raw options keep its resets.
+func parseSemanticConfig(fs vfs.FS, cwd string, semanticConfig tspath.RootedFilePath, host shimcompiler.CompilerHost, wrapper *tsoptions.ParsedCommandLine, commandLine *tsoptions.ParsedCommandLine) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
+  caseSensitivity := fs.CaseSensitivity()
+  wrapperConfig := wrapper.CompilerOptions().ConfigFilePath
+  if wrapperConfig != "" && caseSensitivity.CompareFilePaths(wrapperConfig, semanticConfig) == 0 {
+    return wrapper, nil, nil
+  }
+  return parseTSConfig(fs, cwd, semanticConfig.AsString(), host, wrapper.CompilerOptions().Clone(), commandLine)
+}
+
+// semanticConfigFile validates the user-authored config a generated wrapper
+// stands for; an empty path means the parsed config is its own semantic owner.
+func semanticConfigFile(semanticConfigPath string) (tspath.RootedFilePath, error) {
   configured := strings.TrimSpace(semanticConfigPath)
   if configured == "" {
-    return nil
+    return "", nil
   }
   if !filepath.IsAbs(configured) {
-    return fmt.Errorf("driver: semantic config path must be absolute: %s", configured)
+    return "", fmt.Errorf("driver: semantic config path must be absolute: %s", configured)
   }
-  parsed.ParsedConfig.CompilerOptions.ConfigFilePath = tspath.ResolvePath(configured)
-  return nil
+  return tspath.RootedFilePathFromAbsolute(configured), nil
 }
 
 // forceEmit clears noEmit and emitDeclarationOnly so the program always
@@ -700,8 +739,19 @@ func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
 
 // overrideOutDir resolves outDir against cwd and applies it to the parsed
 // config, replacing any outDir already set in tsconfig.json.
-func overrideOutDir(cwd string, parsed *tsoptions.ParsedCommandLine, outDir string) {
-  parsed.ParsedConfig.CompilerOptions.OutDir = tspath.ResolvePath(cwd, outDir)
+func overrideOutDir(cwd tspath.RootedDirectoryPath, parsed *tsoptions.ParsedCommandLine, outDir string) {
+  parsed.ParsedConfig.CompilerOptions.OutDir = tspath.ToRootedDirectoryPath(outDir, cwd)
+}
+
+// rootedWorkingDirectory converts the caller's working directory to the
+// rooted directory the compiler's command-line and tsconfig parsers resolve
+// against. A relative or empty directory has no such anchor and is an error.
+func rootedWorkingDirectory(cwd string) (tspath.RootedDirectoryPath, error) {
+  path, ok := tspath.TryRootedPathFromAbsolute(cwd)
+  if !ok {
+    return "", fmt.Errorf("driver: working directory must be absolute: %q", cwd)
+  }
+  return tspath.RootedDirectoryPathFromPath(path), nil
 }
 
 // applyThreadingOptions forwards the CLI threading knobs onto the parsed
@@ -734,12 +784,12 @@ type sourcePreambleFS struct {
   preamble string
 }
 
-func (fs sourcePreambleFS) ReadFile(filePath string) (string, bool) {
+func (fs sourcePreambleFS) ReadFile(filePath tspath.RootedFilePath) (string, bool) {
   contents, ok := fs.FS.ReadFile(filePath)
   if !ok {
     return contents, ok
   }
-  return ApplySourcePreambleToFile(filePath, contents, fs.preamble), true
+  return ApplySourcePreambleToFile(filePath.AsString(), contents, fs.preamble), true
 }
 
 // isSourcePreambleTarget reports whether the preamble should be injected into
@@ -1065,7 +1115,7 @@ func (p *Program) diagnostics(files []*ast.SourceFile) []Diagnostic {
       raw = append(raw, shimcompiler.GetDiagnosticsOfAnyProgram(
         ctx,
         p.TSProgram,
-        file,
+        []*ast.SourceFile{file},
         false,
         p.TSProgram.GetBindDiagnostics,
         p.TSProgram.GetSemanticDiagnostics,
@@ -1142,7 +1192,7 @@ func convertDiagnostics(in []*ast.Diagnostic) []Diagnostic {
 func convertDiagnostic(d *ast.Diagnostic) Diagnostic {
   diag := Diagnostic{Code: d.Code(), Message: d.String(), raw: d}
   if file := d.File(); file != nil {
-    diag.File = file.FileName()
+    diag.File = file.FileName().AsString()
     if pos := d.Pos(); pos >= 0 {
       length := d.Len()
       diag.Start = &pos

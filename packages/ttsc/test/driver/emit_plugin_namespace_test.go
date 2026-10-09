@@ -4,6 +4,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/samchon/ttsc/packages/ttsc/driver"
   "path/filepath"
   "strings"
@@ -45,8 +46,8 @@ func TestEmitWithPluginTransformerNamespace(t *testing.T) {
     return v.VisitSourceFile(sf)
   }
   emitted := map[string]string{}
-  diagnostics, err = prog.EmitWithPluginTransformer(transform, func(fn, text string, _ *shimcompiler.WriteFileData) error {
-    emitted[filepath.Base(fn)] = text
+  diagnostics, err = prog.EmitWithPluginTransformer(transform, func(fn shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[filepath.Base(fn.AsString())] = text
     return nil
   })
   if err != nil || len(diagnostics) != 0 {

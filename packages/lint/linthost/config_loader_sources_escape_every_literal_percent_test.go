@@ -7,6 +7,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // TestConfigLoaderSourcesEscapeEveryLiteralPercent verifies generated loader syntax
@@ -67,7 +68,7 @@ func TestConfigLoaderSourcesEscapeEveryLiteralPercent(t *testing.T) {
       )
     }
     parsed := shimparser.ParseSourceFile(
-      shimast.SourceFileParseOptions{FileName: "/virtual/" + generated.name + map[shimcore.ScriptKind]string{shimcore.ScriptKindJS: ".js", shimcore.ScriptKindTS: ".ts"}[generated.kind]},
+      shimast.SourceFileParseOptions{FileName: shimtspath.RootedFilePathFromAbsolute("/virtual/" + generated.name + map[shimcore.ScriptKind]string{shimcore.ScriptKindJS: ".js", shimcore.ScriptKindTS: ".ts"}[generated.kind])},
       generated.source,
       generated.kind,
     )

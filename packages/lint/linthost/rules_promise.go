@@ -389,7 +389,7 @@ func isCallableCallbackParameter(
   if callbackType == nil {
     return false
   }
-  if declaration := parameter.ValueDeclaration; declaration != nil {
+  if declaration := parameter.ValueDeclaration(); declaration != nil {
     if parameterDeclaration := declaration.AsParameterDeclaration(); parameterDeclaration != nil && parameterDeclaration.DotDotDotToken != nil {
       callbackType = checker.GetNumberIndexType(callbackType)
       if callbackType == nil {
@@ -540,7 +540,7 @@ func isNativePromiseConstructorLikeSeen(
   if symbol == nil {
     return false
   }
-  if symbol.Name == "PromiseConstructor" && checker.IsLibSymbolForHoverVerbosity(symbol) {
+  if symbol.Name() == "PromiseConstructor" && checker.IsLibSymbolForHoverVerbosity(symbol) {
     return true
   }
   declared := checker.GetDeclaredTypeOfSymbol(symbol)
@@ -1529,15 +1529,15 @@ func floatingPromiseCallableArgumentApplicability(
     return floatingPromiseCallUncertain
   }
   for _, expectedProperty := range shimchecker.Checker_getPropertiesOfType(checker, expectedType) {
-    expectedOptional := expectedProperty.Flags&shimast.SymbolFlagsOptional != 0
-    actualProperty := checker.GetPropertyOfType(actualType, expectedProperty.Name)
+    expectedOptional := expectedProperty.Flags()&shimast.SymbolFlagsOptional != 0
+    actualProperty := checker.GetPropertyOfType(actualType, expectedProperty.Name())
     if actualProperty == nil {
       if expectedOptional {
         continue
       }
       return floatingPromiseCallIncompatible
     }
-    if !expectedOptional && actualProperty.Flags&shimast.SymbolFlagsOptional != 0 {
+    if !expectedOptional && actualProperty.Flags()&shimast.SymbolFlagsOptional != 0 {
       return floatingPromiseCallIncompatible
     }
     if floatingPromiseSymbolHasNonPublicDeclaration(expectedProperty) ||
@@ -1672,10 +1672,10 @@ func floatingPromiseSymbolHasNonPublicDeclaration(symbol *shimast.Symbol) bool {
     return declaration != nil &&
       declaration.ModifierFlags()&(shimast.ModifierFlagsPrivate|shimast.ModifierFlagsProtected) != 0
   }
-  if hasNonPublicModifier(symbol.ValueDeclaration) {
+  if hasNonPublicModifier(symbol.ValueDeclaration()) {
     return true
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range symbol.Declarations() {
     if hasNonPublicModifier(declaration) {
       return true
     }
@@ -2409,7 +2409,7 @@ func isNativePromiseInstanceLikeSeen(
   if symbol == nil {
     return false
   }
-  if symbol.Name == "Promise" && checker.IsLibSymbolForHoverVerbosity(symbol) {
+  if symbol.Name() == "Promise" && checker.IsLibSymbolForHoverVerbosity(symbol) {
     return true
   }
   declared := checker.GetDeclaredTypeOfSymbol(symbol)
@@ -2497,7 +2497,7 @@ func promiseValueNameAndSymbol(
     }
   }
   symbol := checker.GetSymbolAtLocation(nameNode)
-  if symbol != nil && symbol.Flags&shimast.SymbolFlagsAlias != 0 {
+  if symbol != nil && symbol.Flags()&shimast.SymbolFlagsAlias != 0 {
     symbol = checker.GetAliasedSymbol(symbol)
   }
   return staticName, symbol
@@ -2541,7 +2541,7 @@ func typeMatchesPromiseSpecifier(
   if symbol == nil {
     symbol = t.Symbol()
   }
-  if symbol != nil && symbol.Flags&shimast.SymbolFlagsAlias != 0 {
+  if symbol != nil && symbol.Flags()&shimast.SymbolFlagsAlias != 0 {
     symbol = ctx.Checker.GetAliasedSymbol(symbol)
   }
   if promiseSpecifierMatchesSymbol(ctx, specifier, "", symbol) {
@@ -2565,7 +2565,7 @@ func promiseSpecifierMatchesSymbol(
 ) bool {
   symbolName := ""
   if symbol != nil {
-    symbolName = symbol.Name
+    symbolName = symbol.Name()
   }
   if !promiseSpecifierNameMatches(specifier.Names, staticName, symbolName) {
     return false
@@ -2600,18 +2600,18 @@ func promiseSymbolDeclaredInFile(ctx *Context, symbol *shimast.Symbol, configure
   if ctx == nil || ctx.File == nil || symbol == nil {
     return false
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range symbol.Declarations() {
     source := sourceFileForPromiseDeclaration(declaration)
     if source == nil || ctx.Checker.IsLibSymbolForHoverVerbosity(symbol) {
       continue
     }
     if configuredPath == "" {
-      if ctx.CurrentDirectory == "" || promisePathWithin(ctx.CurrentDirectory, source.FileName()) {
+      if ctx.CurrentDirectory == "" || promisePathWithin(ctx.CurrentDirectory, source.FileName().AsString()) {
         return true
       }
       continue
     }
-    if promiseDeclarationPathMatches(ctx.CurrentDirectory, source.FileName(), configuredPath) {
+    if promiseDeclarationPathMatches(ctx.CurrentDirectory, source.FileName().AsString(), configuredPath) {
       return true
     }
   }
@@ -2652,7 +2652,7 @@ func promiseSymbolDeclaredInPackage(symbol *shimast.Symbol, packageName string) 
   typesName := strings.TrimPrefix(packageName, "@")
   typesName = strings.Replace(typesName, "/", "__", 1)
   typesPath := "/node_modules/@types/" + typesName + "/"
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range symbol.Declarations() {
     for parent := declaration; parent != nil; parent = parent.Parent {
       if parent.Kind == shimast.KindModuleDeclaration {
         if name := parent.Name(); name != nil && stringLiteralText(name) == packageName {
@@ -2664,7 +2664,7 @@ func promiseSymbolDeclaredInPackage(symbol *shimast.Symbol, packageName string) 
         if source == nil {
           break
         }
-        fileName := "/" + strings.TrimLeft(filepath.ToSlash(source.FileName()), "/")
+        fileName := "/" + strings.TrimLeft(filepath.ToSlash(source.FileName().AsString()), "/")
         if strings.Contains(fileName, packagePath) || strings.Contains(fileName, typesPath) {
           return true
         }

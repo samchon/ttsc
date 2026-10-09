@@ -4,7 +4,6 @@ import (
   "encoding/base64"
   "encoding/json"
   "fmt"
-  "path"
   "strings"
   "unicode/utf16"
 
@@ -45,20 +44,20 @@ func (p *Program) AuthoredSourceMap(file *ast.SourceFile, sourceMap string) (aut
     return file.Text(), sourceMap, true
   }
   authored = file.Text()
-  if start, length, found := sourcePreambleRegion(file.FileName(), authored, p.SourcePreamble); found {
+  if start, length, found := sourcePreambleRegion(file.FileName().AsString(), authored, p.SourcePreamble); found {
     authored = authored[:start] + authored[start+length:]
   }
-  directory := path.Dir(file.FileName())
+  directory := file.FileName().Directory()
   corrected, ok = correctAuthoredSourceMap(sourceMap, func(source string) *authoredRegion {
     name := sourceMapFileName(source, directory)
     target := file
-    if name != file.FileName() {
+    if name != file.FileName().AsString() {
       target = p.SourceFile(name)
     }
     if target == nil {
       return nil
     }
-    return newAuthoredRegion(target.FileName(), target.Text(), p.SourcePreamble)
+    return newAuthoredRegion(target.FileName().AsString(), target.Text(), p.SourcePreamble)
   })
   return authored, corrected, ok
 }
@@ -99,40 +98,42 @@ func (p *Program) NewSourceMapCorrector() func(fileName, text string) (string, e
   if !options.SourceMap.IsTrue() && !options.InlineSourceMap.IsTrue() && !options.GetAreDeclarationMapsEnabled() {
     return func(_ string, text string) (string, error) { return text, nil }
   }
-  directories := map[shimtspath.Path]string{}
-  outputKey := func(name string) shimtspath.Path {
-    return shimtspath.ToPath(name, program.GetCurrentDirectory(), program.UseCaseSensitiveFileNames())
-  }
-  register := func(output, mapOutput string, source *ast.SourceFile) {
+  directories := map[shimtspath.PathKey]shimtspath.RootedDirectoryPath{}
+  register := func(output, mapOutput shimtspath.RootedFilePath, source *ast.SourceFile) {
     if output == "" {
       return
     }
     directory := shimcompiler.SourceMapDirectory(options, host, output, source)
-    directories[outputKey(output)] = directory
+    directories[program.PathKeyForFileName(output)] = directory
     if mapOutput != "" {
-      directories[outputKey(mapOutput)] = directory
+      directories[program.PathKeyForFileName(mapOutput)] = directory
     }
   }
-  for _, source := range shimcompiler.GetSourceFilesToEmit(host, nil, false) {
-    outputs := shimcompiler.GetOutputPathsFor(source, options, host, false)
+  for _, source := range shimcompiler.GetSourceFilesToEmit(host, nil, false, false) {
+    outputs := shimcompiler.GetOutputPathsFor(source, options, host, shimcompiler.ForceEmitPaths{})
     register(outputs.JsFilePath(), outputs.SourceMapFilePath(), source)
     register(outputs.DeclarationFilePath(), outputs.DeclarationMapPath(), source)
   }
   regions := map[*ast.SourceFile]*authoredRegion{}
-  resolve := func(source, directory string) *authoredRegion {
-    target := program.GetSourceFile(sourceMapFileName(source, directory))
+  resolve := func(source string, directory shimtspath.RootedDirectoryPath) *authoredRegion {
+    name, rooted := shimtspath.TryRootedFilePathFromAbsolute(sourceMapFileName(source, directory))
+    if !rooted {
+      return nil
+    }
+    target := program.GetSourceFile(name)
     if target == nil {
       return nil
     }
     region, found := regions[target]
     if !found {
-      region = newAuthoredRegionWithText(target.FileName(), target.Text(), preamble, options.InlineSources.IsTrue())
+      region = newAuthoredRegionWithText(target.FileName().AsString(), target.Text(), preamble, options.InlineSources.IsTrue())
       regions[target] = region
     }
     return region
   }
   return func(fileName, text string) (string, error) {
-    if p.isBuildInfoOutput(fileName) {
+    output := shimtspath.ToRootedFilePath(fileName, program.GetCurrentDirectory())
+    if p.isBuildInfoOutput(output) {
       return text, nil
     }
     lower := strings.ToLower(fileName)
@@ -140,7 +141,7 @@ func (p *Program) NewSourceMapCorrector() func(fileName, text string) (string, e
     if !external && !isInlineSourceMapCarrier(lower) {
       return text, nil
     }
-    directory, known := directories[outputKey(fileName)]
+    directory, known := directories[program.PathKeyForFileName(output)]
     if !known {
       return "", fmt.Errorf("driver: source map output has no compiler source directory: %s", fileName)
     }
@@ -176,7 +177,7 @@ func (p *Program) NewSourceMapCorrector() func(fileName, text string) (string, e
 // sourceMapFileName reverses the pinned generator's raw file-URL spelling.
 // GetRelativePathToDirectoryOrUrl does not percent-encode source names, so a
 // literal '%' remains filename data and must not undergo URL unescaping.
-func sourceMapFileName(source, directory string) string {
+func sourceMapFileName(source string, directory shimtspath.RootedDirectoryPath) string {
   name := shimtspath.GetNormalizedAbsolutePath(source, directory)
   if strings.HasPrefix(name, "file:///") {
     drive := strings.TrimPrefix(name, "file:///")

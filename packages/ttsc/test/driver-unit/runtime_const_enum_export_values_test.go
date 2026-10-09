@@ -10,6 +10,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
@@ -101,7 +102,8 @@ func TestRuntimeConstEnumExportValues(t *testing.T) {
         t.Fatalf("%s program diagnostics: %#v", profile.name, diagnostics)
       }
       modules := map[string]string{}
-      _, diagnostics, err := prog.EmitAllRaw(func(name, text string, _ *shimcompiler.WriteFileData) error {
+      _, diagnostics, err := prog.EmitAllRaw(func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+        name := fileName.AsString()
         if filepath.Ext(name) == ".js" {
           modules[filepath.Base(name)] = text
         }

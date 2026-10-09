@@ -75,12 +75,15 @@ export namespace SourcePluginAdmission {
 
   /**
    * Identify compiler/shim module names whose replacement ttsc owns. This is
-   * module-name policy, not a lookup of a physical Go module.
+   * module-name policy, not a lookup of a physical Go module. The compiler is
+   * `github.com/microsoft/TypeScript/tsc`; its bridges live beneath that root
+   * and the documented plugin facades beneath the former
+   * `github.com/microsoft/typescript-go/shim/` namespace.
    *
-   * @evidence contracts/common.md#principled-implementation Exact ttsc/compiler roots and the compiler shim namespace retain the existing managed-module discriminants.
+   * @evidence contracts/common.md#principled-implementation Exact ttsc/compiler roots and both ttsc-supplied shim namespaces retain the managed-module discriminants.
    * @evidence contracts/common.md#clear-and-simple-design Both replacement rejection and workspace filtering use this same predicate.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Module-name policy does not fabricate filesystem module identity or compiled provenance.
-   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes module-name classification from physical lookup.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes module-name classification from physical lookup and names each managed namespace.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation Go module identifiers are supplied strings, not native filesystem paths.
    * @evidenceExclude contracts/performance.md#efficient-algorithms Exact/prefix string comparisons own no population-processing strategy.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current module text is classified without retained lookup results.
@@ -89,7 +92,8 @@ export namespace SourcePluginAdmission {
   export function isManagedModule(modulePath: string): boolean {
     return (
       modulePath === "github.com/samchon/ttsc/packages/ttsc" ||
-      modulePath === "github.com/microsoft/typescript-go" ||
+      modulePath === "github.com/microsoft/TypeScript/tsc" ||
+      modulePath.startsWith("github.com/microsoft/TypeScript/tsc/shim/") ||
       modulePath.startsWith("github.com/microsoft/typescript-go/shim/")
     );
   }

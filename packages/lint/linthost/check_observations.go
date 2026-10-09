@@ -10,7 +10,6 @@ import (
   "strings"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
-  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // nativeInputPredicate retains the actual config loader's fingerprint semantics.
@@ -60,22 +59,22 @@ func (p *program) checkGraph() *lintCheckGraph {
   graph := &lintCheckGraph{Edges: map[string][]string{}, Globals: []string{}, Configs: []string{}, ResolutionInputs: []string{}, InputObservations: map[string]transformInputObservation{}, InputHashes: map[string]*string{}, InputRealpaths: map[string]*string{}, InputProofFailures: map[string]string{}, UseCaseSensitiveFileNames: p.tsProgram.UseCaseSensitiveFileNames()}
   realized := map[string]bool{}
   for _, file := range p.tsProgram.SourceFiles() {
-    if file == nil || strings.HasPrefix(file.FileName(), "bundled:///") {
+    if file == nil || strings.HasPrefix(file.FileName().AsString(), "bundled:///") {
       continue
     }
-    key := lintInputKey(p.cwd, file.FileName())
-    realized[file.FileName()] = true
+    key := lintInputKey(p.cwd, file.FileName().AsString())
+    realized[file.FileName().AsString()] = true
     targets := []string{}
-    // The shim returns canonical tspath.Path values encoded as strings, not
-    // filenames. Preserve that exact identity and recover this Program's
-    // resident source spelling; unresolved candidates are not realized edges.
+    // The shim returns canonical tspath.PathKey values, not filenames. Preserve
+    // that exact key and recover this Program's resident source spelling;
+    // unresolved candidates are not realized edges.
     for _, referenced := range shimcompiler.GetReferencedFilePaths(p.tsProgram, file) {
-      source := p.tsProgram.GetSourceFileByPath(shimtspath.Path(referenced))
-      if source == nil || source == file || strings.HasPrefix(source.FileName(), "bundled:///") {
+      source := p.tsProgram.GetSourceFileByPath(referenced)
+      if source == nil || source == file || strings.HasPrefix(source.FileName().AsString(), "bundled:///") {
         continue
       }
-      realized[source.FileName()] = true
-      targets = append(targets, lintInputKey(p.cwd, source.FileName()))
+      realized[source.FileName().AsString()] = true
+      targets = append(targets, lintInputKey(p.cwd, source.FileName().AsString()))
     }
     sort.Strings(targets)
     graph.Edges[key] = targets
@@ -86,12 +85,12 @@ func (p *program) checkGraph() *lintCheckGraph {
   sort.Strings(graph.Globals)
   if p.parsed != nil && p.parsed.ConfigFile != nil {
     if file := p.parsed.ConfigFile.SourceFile; file != nil {
-      realized[file.FileName()] = true
-      graph.Configs = append(graph.Configs, lintInputKey(p.cwd, file.FileName()))
+      realized[file.FileName().AsString()] = true
+      graph.Configs = append(graph.Configs, lintInputKey(p.cwd, file.FileName().AsString()))
     }
     for _, file := range p.parsed.ExtendedSourceFiles() {
-      realized[file] = true
-      graph.Configs = append(graph.Configs, lintInputKey(p.cwd, file))
+      realized[file.AsString()] = true
+      graph.Configs = append(graph.Configs, lintInputKey(p.cwd, file.AsString()))
     }
   }
   // Conservatively universalize actual compiler predicates. This needs no

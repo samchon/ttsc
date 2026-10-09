@@ -71,10 +71,10 @@ func TestLoadProgramPreservesCompilerArgumentCwd(t *testing.T) {
 			}
 			opts := prog.ParsedConfig.ParsedConfig.CompilerOptions
 			normalized := func(value string) string { return filepath.ToSlash(filepath.Clean(value)) }
-			if normalized(opts.OutDir) != normalized(c.outDir) || normalized(opts.RootDir) != normalized(b) || normalized(opts.ConfigFilePath) != normalized(filepath.Join(b, "tsconfig.json")) {
+			if normalized(opts.OutDir.AsString()) != normalized(c.outDir) || normalized(opts.RootDir.AsString()) != normalized(b) || normalized(opts.ConfigFilePath.AsString()) != normalized(filepath.Join(b, "tsconfig.json")) {
 				t.Fatalf("wrong parsed paths: out=%q root=%q config=%q", opts.OutDir, opts.RootDir, opts.ConfigFilePath)
 			}
-			if normalized(prog.TSProgram.GetCurrentDirectory()) != normalized(b) || prog.SourceFile(filepath.Join(b, "main.ts")) == nil || prog.SourceFile(filepath.Join(a, "main.ts")) != nil {
+			if normalized(prog.TSProgram.GetCurrentDirectory().AsString()) != normalized(b) || prog.SourceFile(filepath.Join(b, "main.ts")) == nil || prog.SourceFile(filepath.Join(a, "main.ts")) != nil {
 				t.Fatal("argument base replaced selected Program root or membership")
 			}
 		})
@@ -85,7 +85,7 @@ func TestLoadProgramPreservesCompilerArgumentCwd(t *testing.T) {
 		t.Fatalf("absent payload: %v / %#v", err, diags)
 	}
 	defer prog.Close()
-	if filepath.Clean(prog.ParsedConfig.ParsedConfig.CompilerOptions.OutDir) != filepath.Join(b, "configured") {
+	if filepath.Clean(prog.ParsedConfig.ParsedConfig.CompilerOptions.OutDir.AsString()) != filepath.Join(b, "configured") {
 		t.Fatal("cwd companion applied without a payload")
 	}
 }

@@ -15,6 +15,7 @@ import (
   "path/filepath"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -92,8 +93,8 @@ func writeBuildProgramResponse(prog *driver.Program, diags []driver.Diagnostic, 
     // wraps only the final WriteFile step so native rewrites and custom output
     // capture share the same path.
     writeFile := shimcompiler.WriteFile(
-      func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-        return driver.DefaultWriteFile(fileName, text)
+      func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+        return driver.DefaultWriteFile(fileName.AsString(), text)
       },
     )
     var snapshot func() map[string][]string
@@ -130,8 +131,8 @@ func writeBuildProgramResponse(prog *driver.Program, diags []driver.Diagnostic, 
     if !request.quiet {
       fmt.Fprintf(stdout, "// ttsc: emitted=%d files\n", len(res.EmittedFiles))
       for _, f := range res.EmittedFiles {
-        rel := f
-        if abs, err := filepath.Rel(request.cwd, f); err == nil {
+        rel := f.AsString()
+        if abs, err := filepath.Rel(request.cwd, f.AsString()); err == nil {
           rel = abs
         }
         fmt.Fprintln(stdout, "  +", rel)

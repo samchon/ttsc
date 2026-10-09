@@ -80,7 +80,7 @@ func (noDeprecated) Check(ctx *Context, node *shimast.Node) {
   }
   name := identifierText(node)
   if name == "" {
-    name = symbol.Name
+    name = symbol.Name()
   }
   message := "`" + name + "` is deprecated."
   if comment := jsdocDeprecatedComment(tag); comment != "" {
@@ -120,7 +120,7 @@ func noDeprecatedLocationIsDeclarationName(loc *shimast.Node, symbol *shimast.Sy
   if loc == nil || symbol == nil {
     return false
   }
-  for _, decl := range symbol.Declarations {
+  for _, decl := range symbol.Declarations() {
     if decl == nil {
       continue
     }
@@ -141,7 +141,7 @@ func findDeprecatedJSDocTag(symbol *shimast.Symbol) *shimast.Node {
   if symbol == nil {
     return nil
   }
-  for _, decl := range symbol.Declarations {
+  for _, decl := range symbol.Declarations() {
     if tag := deprecatedJSDocTagOnNodeOrAncestors(decl); tag != nil {
       return tag
     }

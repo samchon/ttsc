@@ -57,8 +57,8 @@ export function caller(): void {
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  deep := nodeID(path, "A.B.C.deep", NodeFunction)
-  caller := nodeID(path, "caller", NodeFunction)
+  deep := nodeID(path.AsString(), "A.B.C.deep", NodeFunction)
+  caller := nodeID(path.AsString(), "caller", NodeFunction)
 
   if _, ok := graph.Nodes[deep]; !ok {
     t.Fatalf("missing deeply-namespaced node %q; nodes: %v", deep, graph.Nodes)

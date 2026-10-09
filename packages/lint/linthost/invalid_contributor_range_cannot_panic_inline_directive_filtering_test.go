@@ -21,7 +21,7 @@ func TestInvalidContributorRangeCannotPanicInlineDirectiveFiltering(t *testing.T
 const value = 1;
 `)
   contributor := &boundedDiagnosticRangeContributor{
-    spans: map[string][2]int{file.FileName(): {999, 1200}},
+    spans: map[string][2]int{file.FileName().AsString(): {999, 1200}},
   }
   metadata, err := inspectContributor(contributor)
   if err != nil {

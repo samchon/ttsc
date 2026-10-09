@@ -632,8 +632,8 @@ func missingRootInputs(configs []*shimtsoptions.ParsedCommandLine, sourceHashes 
   missing := []string{}
   for _, parsed := range configs {
     for _, file := range parsed.FileNames() {
-      if _, tracked := sourceHashes[file]; !tracked {
-        missing = append(missing, file)
+      if _, tracked := sourceHashes[file.AsString()]; !tracked {
+        missing = append(missing, file.AsString())
       }
     }
   }
@@ -678,8 +678,10 @@ func serveProducer() graph.Producer {
 func configFiles(configs []*shimtsoptions.ParsedCommandLine) []string {
   files := []string{}
   for _, parsed := range configs {
-    files = append(files, parsed.ConfigName())
-    files = append(files, parsed.ExtendedSourceFiles()...)
+    files = append(files, parsed.ConfigName().AsString())
+    for _, extended := range parsed.ExtendedSourceFiles() {
+      files = append(files, extended.AsString())
+    }
   }
   return compactSortedStrings(files)
 }
@@ -699,9 +701,9 @@ func projectRootFilesFromConfigs(configs []*shimtsoptions.ParsedCommandLine, rel
     if reload {
       current = parsed.ReloadFileNamesOfParsedCommandLine(driver.DefaultFS())
     }
-    config := current.ConfigName()
+    config := current.ConfigName().AsString()
     for _, file := range current.FileNames() {
-      roots = append(roots, config+"\x00"+file)
+      roots = append(roots, config+"\x00"+file.AsString())
     }
   }
   return compactSortedStrings(roots)
@@ -714,7 +716,7 @@ func parsedConfigs(program *driver.Program) ([]*shimtsoptions.ParsedCommandLine,
   resolved := make(map[string]*shimtsoptions.ParsedCommandLine)
   for _, parsed := range program.TSProgram.GetResolvedProjectReferences() {
     if parsed != nil {
-      resolved[shimtspath.ResolvePath(parsed.ConfigName())] = parsed
+      resolved[shimtspath.ResolvePath(parsed.ConfigName().AsString())] = parsed
     }
   }
   configs := []*shimtsoptions.ParsedCommandLine{}
@@ -723,21 +725,21 @@ func parsedConfigs(program *driver.Program) ([]*shimtsoptions.ParsedCommandLine,
   for len(pending) > 0 {
     parsed := pending[0]
     pending = pending[1:]
-    config := shimtspath.ResolvePath(parsed.ConfigName())
+    config := shimtspath.ResolvePath(parsed.ConfigName().AsString())
     if _, exists := seen[config]; exists {
       continue
     }
     seen[config] = struct{}{}
     configs = append(configs, parsed)
-    for _, reference := range parsed.ResolvedProjectReferencePaths() {
-      reference = shimtspath.ResolvePath(reference)
+    for _, referencePath := range parsed.ResolvedProjectReferencePaths() {
+      reference := shimtspath.ResolvePath(referencePath.AsString())
       child := resolved[reference]
       if child == nil {
         fs := program.FS
         cwd := filepath.Dir(reference)
         var diags []driver.Diagnostic
         var err error
-        child, diags, err = driver.ParseTSConfig(fs, cwd, reference, driver.DefaultHost(cwd, fs), nil)
+        child, diags, err = driver.ParseTSConfig(fs, cwd, reference, driver.DefaultHost(fs), nil)
         if err != nil {
           return nil, err
         }
@@ -783,23 +785,23 @@ func hashProgramSources(program *driver.Program) (map[string][sha256.Size]byte, 
   for _, source := range program.TSProgram.SourceFiles() {
     // Virtual sources (tsgo's `bundled:///` libs) have no on-disk identity;
     // real project files always carry an absolute path.
-    if source == nil || !filepath.IsAbs(source.FileName()) {
+    if source == nil || !filepath.IsAbs(source.FileName().AsString()) {
       continue
     }
-    info, err := os.Stat(source.FileName())
+    info, err := os.Stat(source.FileName().AsString())
     if err != nil {
       if errors.Is(err, os.ErrNotExist) {
         // The file vanished while the compiler session was loading. Hash the
         // resident text so the next snapshot revisits the path, observes the
         // deletion, and reloads instead of serving the vanished file forever.
-        hashes[source.FileName()] = sha256.Sum256([]byte(source.Text()))
+        hashes[source.FileName().AsString()] = sha256.Sum256([]byte(source.Text()))
       }
       continue
     }
     if info.IsDir() {
       continue
     }
-    content, err := os.ReadFile(source.FileName())
+    content, err := os.ReadFile(source.FileName().AsString())
     if err != nil {
       return nil, nil, fmt.Errorf("ttscgraph: read %s: %w", source.FileName(), err)
     }
@@ -807,22 +809,22 @@ func hashProgramSources(program *driver.Program) (map[string][sha256.Size]byte, 
     // The bytes were read, so their digest is a fact regardless of whether they
     // match what the checker holds. When they do not, the manifest's text and
     // disk digests disagree, which is precisely what a consumer needs to see.
-    digests[source.FileName()] = graph.Digest(rawHash)
+    digests[source.FileName().AsString()] = graph.Digest(rawHash)
     // Disk identity and checker text come from the same captured bytes. The
     // compiler filesystem strips BOMs and decodes UTF-16 before parsing.
     decoded, ok := shimvfs.DecodeBytes(string(content))
     if !ok {
       return nil, nil, fmt.Errorf("ttscgraph: decode %s", source.FileName())
     }
-    expected := driver.ApplySourcePreambleToFile(source.FileName(), decoded, program.SourcePreamble)
+    expected := driver.ApplySourcePreambleToFile(source.FileName().AsString(), decoded, program.SourcePreamble)
     if source.Text() == expected {
-      hashes[source.FileName()] = rawHash
+      hashes[source.FileName().AsString()] = rawHash
     } else {
       // Force the next snapshot to revisit a file that changed while the
       // compiler session was loading instead of blessing mismatched disk text.
       mismatchHash := rawHash
       mismatchHash[0] ^= 0xff
-      hashes[source.FileName()] = mismatchHash
+      hashes[source.FileName().AsString()] = mismatchHash
     }
   }
   return hashes, digests, nil
@@ -962,10 +964,10 @@ func auxiliaryInputs(program *driver.Program, cwd string) []auxiliaryInput {
   }
   for _, source := range program.TSProgram.SourceFiles() {
     file := source.FileName()
-    if file == "" || strings.HasPrefix(file, "bundled:///") {
+    if file == "" || strings.HasPrefix(file.AsString(), "bundled:///") {
       continue
     }
-    directory := filepath.Dir(file)
+    directory := filepath.Dir(file.AsString())
     for _, path := range appendAncestorInputs(nil, directory, cwd) {
       inputs = append(inputs, auxiliaryInput{path: path})
     }

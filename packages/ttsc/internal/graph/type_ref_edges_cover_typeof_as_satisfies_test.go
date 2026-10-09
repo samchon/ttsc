@@ -73,12 +73,12 @@ export const config = { a: 1 } satisfies Config;
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  settingsShape := nodeID(path, "SettingsShape", NodeTypeAlias)
-  settings := nodeID(path, "settings", NodeVariable)
-  coerce := nodeID(path, "coerce", NodeFunction)
-  target := nodeID(path, "Target", NodeInterface)
-  config := nodeID(path, "config", NodeVariable)
-  configType := nodeID(path, "Config", NodeInterface)
+  settingsShape := nodeID(path.AsString(), "SettingsShape", NodeTypeAlias)
+  settings := nodeID(path.AsString(), "settings", NodeVariable)
+  coerce := nodeID(path.AsString(), "coerce", NodeFunction)
+  target := nodeID(path.AsString(), "Target", NodeInterface)
+  config := nodeID(path.AsString(), "config", NodeVariable)
+  configType := nodeID(path.AsString(), "Config", NodeInterface)
 
   if !hasEdge(graph, settingsShape, settings, EdgeTypeRef) {
     t.Errorf("missing type-ref edge SettingsShape -> settings (typeof query)")
@@ -86,7 +86,7 @@ export const config = { a: 1 } satisfies Config;
   if !hasEdge(graph, coerce, target, EdgeTypeRef) {
     t.Errorf("missing type-ref edge coerce -> Target (as assertion)")
   }
-  if !hasEdge(graph, nodeID(path, "assertionOnly", NodeFunction), target, EdgeTypeRef) {
+  if !hasEdge(graph, nodeID(path.AsString(), "assertionOnly", NodeFunction), target, EdgeTypeRef) {
     t.Errorf("missing type-ref edge assertionOnly -> Target without a return annotation")
   }
   if !hasEdge(graph, config, configType, EdgeTypeRef) {

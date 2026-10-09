@@ -9,6 +9,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // TestBuildInformationUsesSelectedOutputIdentity Verifies incremental metadata
@@ -76,11 +77,11 @@ func TestBuildInformationUsesSelectedOutputIdentity(t *testing.T) {
         state = "tsconfig.tsbuildinfo"
       }
       expected := filepath.ToSlash(filepath.Join(root, state))
-      if escaped := p.outputEscapesOutDir(expected); escaped == c.incremental {
+      if escaped := p.outputEscapesOutDir(shimtspath.RootedFilePathFromAbsolute(expected)); escaped == c.incremental {
         t.Errorf("selected state containment: escaped=%v incremental=%v", escaped, c.incremental)
       }
       for _, decoy := range []string{"cache/unrelated.tsbuildinfo", "cache/unrelated.map"} {
-        if !p.outputEscapesOutDir(filepath.ToSlash(filepath.Join(root, decoy))) {
+        if !p.outputEscapesOutDir(shimtspath.RootedFilePathFromAbsolute(filepath.ToSlash(filepath.Join(root, decoy)))) {
           t.Errorf("unselected output escaped containment: %s", decoy)
         }
       }
@@ -105,8 +106,8 @@ func TestBuildInformationUsesSelectedOutputIdentity(t *testing.T) {
       for _, lane := range []string{"raw", "rewrite", "plugin"} {
         t.Run(lane, func(t *testing.T) {
           writes := map[string]string{}
-          writer := func(file, text string, _ *shimcompiler.WriteFileData) error {
-            writes[filepath.ToSlash(file)] = text
+          writer := func(file shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+            writes[filepath.ToSlash(file.AsString())] = text
             return nil
           }
           var emitted []Diagnostic

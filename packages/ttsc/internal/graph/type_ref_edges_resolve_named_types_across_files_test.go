@@ -45,8 +45,8 @@ export function use(c: Config): string {
   defer func() { _ = prog.Close() }()
 
   graph := Build(prog)
-  use := nodeID(sourceFile(t, prog, "main.ts").FileName(), "use", NodeFunction)
-  config := nodeID(sourceFile(t, prog, "types.ts").FileName(), "Config", NodeInterface)
+  use := nodeID(sourceFile(t, prog, "main.ts").FileName().AsString(), "use", NodeFunction)
+  config := nodeID(sourceFile(t, prog, "types.ts").FileName().AsString(), "Config", NodeInterface)
 
   if !hasEdge(graph, use, config, EdgeTypeRef) {
     t.Fatalf("missing type-ref edge use -> Config; edges: %v", graph.Edges)

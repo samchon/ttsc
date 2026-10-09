@@ -12,6 +12,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -70,8 +71,8 @@ func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
   defer prog.Close()
 
   raw := map[string]string{}
-  if _, emitDiags, err := prog.EmitAllRaw(func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    raw[filepath.Base(fileName)] = text
+  if _, emitDiags, err := prog.EmitAllRaw(func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    raw[filepath.Base(fileName.AsString())] = text
     return nil
   }); err != nil || len(emitDiags) != 0 {
     t.Fatalf("raw emit mismatch: diags=%#v err=%v", emitDiags, err)
@@ -104,8 +105,8 @@ func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
   }
 
   plugin := map[string]string{}
-  if emitDiags, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{transform}, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    plugin[filepath.Base(fileName)] = text
+  if emitDiags, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{transform}, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    plugin[filepath.Base(fileName.AsString())] = text
     return nil
   }); err != nil || len(emitDiags) != 0 {
     t.Fatalf("plugin emit mismatch: diags=%#v err=%v", emitDiags, err)
@@ -232,8 +233,8 @@ func TestEmitWithPluginTransformerEmitDeclarationOnlyOutputs(t *testing.T) {
   defer prog.Close()
 
   raw := map[string]string{}
-  if _, emitDiags, err := prog.EmitAllRaw(func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    raw[filepath.Base(fileName)] = text
+  if _, emitDiags, err := prog.EmitAllRaw(func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    raw[filepath.Base(fileName.AsString())] = text
     return nil
   }); err != nil || len(emitDiags) != 0 {
     t.Fatalf("raw emit mismatch: diags=%#v err=%v", emitDiags, err)
@@ -245,8 +246,8 @@ func TestEmitWithPluginTransformerEmitDeclarationOnlyOutputs(t *testing.T) {
     transformCalled = true
     return sf
   }
-  if emitDiags, err := prog.EmitWithPluginTransformer(transform, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    plugin[filepath.Base(fileName)] = text
+  if emitDiags, err := prog.EmitWithPluginTransformer(transform, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    plugin[filepath.Base(fileName.AsString())] = text
     return nil
   }); err != nil || len(emitDiags) != 0 {
     t.Fatalf("plugin emit mismatch: diags=%#v err=%v", emitDiags, err)
@@ -319,9 +320,9 @@ func TestEmitWithPluginTransformerDeclarationWriteCallbackSerialized(t *testing.
   const iterations = 100
   for iter := 0; iter < iterations; iter++ {
     emitted := map[string]int{}
-    emitDiags, err := prog.EmitWithPluginTransformers(nil, func(fileName, _ string, _ *shimcompiler.WriteFileData) error {
+    emitDiags, err := prog.EmitWithPluginTransformers(nil, func(fileName shimtspath.RootedFilePath, _ string, _ *shimcompiler.WriteFileData) error {
       _ = len(emitted)
-      emitted[filepath.Base(fileName)]++
+      emitted[filepath.Base(fileName.AsString())]++
       return nil
     })
     if err != nil {
@@ -385,8 +386,8 @@ func TestEmitPluginTransformersDeclarationDirOutputsSurviveOutDirContainment(t *
   defer prog.Close()
 
   written := map[string]bool{}
-  emitDiags, err := prog.EmitWithPluginTransformers(nil, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    written[filepath.ToSlash(fileName)] = true
+  emitDiags, err := prog.EmitWithPluginTransformers(nil, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    written[filepath.ToSlash(fileName.AsString())] = true
     return nil
   })
   if err != nil {

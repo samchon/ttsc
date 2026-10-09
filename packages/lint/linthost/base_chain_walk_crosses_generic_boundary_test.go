@@ -111,7 +111,7 @@ func classSymbol(t *testing.T, prog *program, name string) *shimast.Symbol {
       continue
     }
     for _, stmt := range file.Statements.Nodes {
-      if sym := stmt.Symbol(); sym != nil && sym.Name == name {
+      if sym := stmt.Symbol(); sym != nil && sym.Name() == name {
         return sym
       }
     }
@@ -137,7 +137,7 @@ func collectAncestorNames(c *shimchecker.Checker, start *shimchecker.Type, bridg
     }
     seen[t] = true
     if sym := shimchecker.Type_getTypeNameSymbol(t); sym != nil {
-      found[sym.Name] = true
+      found[sym.Name()] = true
     }
     if t.ObjectFlags()&shimchecker.ObjectFlagsClassOrInterface == 0 {
       return // not safe to feed to getBaseTypes
@@ -153,7 +153,7 @@ func collectAncestorNames(c *shimchecker.Checker, start *shimchecker.Type, bridg
       // base is a generic Reference: record the boundary name, then cross it
       // only when bridging is allowed.
       if sym := shimchecker.Type_getTypeNameSymbol(base); sym != nil {
-        found[sym.Name] = true
+        found[sym.Name()] = true
         if bridge {
           visit(shimchecker.Checker_getDeclaredTypeOfSymbol(c, sym))
         }

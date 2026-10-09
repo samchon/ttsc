@@ -123,7 +123,7 @@ func noUnnecessaryQualifierIsUnnecessary(ctx *Context, node *shimast.Node, head 
   if accessedSymbol == nil {
     return false
   }
-  fromScope := noUnnecessaryQualifierSymbolInScope(ctx, head, accessedSymbol.Flags, identifierText(name))
+  fromScope := noUnnecessaryQualifierSymbolInScope(ctx, head, accessedSymbol.Flags(), identifierText(name))
   if fromScope == nil {
     return false
   }
@@ -158,14 +158,14 @@ func noUnnecessaryQualifierSymbolIsNamespaceInScope(ctx *Context, enclosing []*s
   if symbol == nil || depth > 16 {
     return false
   }
-  for _, decl := range symbol.Declarations {
+  for _, decl := range symbol.Declarations() {
     for _, ns := range enclosing {
       if decl == ns {
         return true
       }
     }
   }
-  if symbol.Flags&shimast.SymbolFlagsAlias != 0 {
+  if symbol.Flags()&shimast.SymbolFlagsAlias != 0 {
     alias := ctx.Checker.GetAliasedSymbol(symbol)
     if alias != nil && alias != symbol {
       return noUnnecessaryQualifierSymbolIsNamespaceInScope(ctx, enclosing, alias, depth+1)
@@ -183,7 +183,7 @@ func noUnnecessaryQualifierSymbolInScope(ctx *Context, head *shimast.Node, flags
     return nil
   }
   for _, symbol := range ctx.Checker.GetSymbolsInScope(head, flags) {
-    if symbol != nil && symbol.Name == name {
+    if symbol != nil && symbol.Name() == name {
       return symbol
     }
   }

@@ -8,6 +8,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -67,8 +68,8 @@ func TestEmitWithSyntheticMemberAccessDoesNotPanicWithConstEnum(t *testing.T) {
   // An unhandled emit panic fails this test; the output checks below also
   // require genuine enum inlining and intact generated accesses. The unit
   // does not remove the resolver guard or observe individual checker calls.
-  if diagnostics, err := prog.EmitWithPluginTransformer(transform, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    emitted[filepath.Base(fileName)] = text
+  if diagnostics, err := prog.EmitWithPluginTransformer(transform, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[filepath.Base(fileName.AsString())] = text
     return nil
   }); err != nil || len(diagnostics) != 0 {
     t.Fatalf("emit: %v %v", err, diagnostics)

@@ -9,6 +9,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
@@ -95,7 +96,8 @@ func TestRuntimeJsxProfiles(t *testing.T) {
         t.Fatalf("program diagnostics: %#v", diagnostics)
       }
       var output string
-      _, diagnostics, err = program.EmitAllRaw(func(name, text string, _ *shimcompiler.WriteFileData) error {
+      _, diagnostics, err = program.EmitAllRaw(func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+        name := fileName.AsString()
         if filepath.Base(name) == "view.js" {
           output = text
         }

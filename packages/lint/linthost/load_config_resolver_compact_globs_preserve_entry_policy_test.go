@@ -79,7 +79,7 @@ func TestLoadConfigResolverCompactGlobsPreserveEntryPolicy(t *testing.T) {
   scoped := filepath.Join(root, "scoped.config.json")
   writeFile(t, scoped, `{"files":["{src,test}/**/{main,unit}.ts"],"ignores":["src/{local,other}/**"],"format":{"severity":"off","semi":false}}`)
   scopedResolver := load(scoped)
-  selected := (formatCommandResolver{inner: scopedResolver}).ResolveRules(main.FileName())
+  selected := (formatCommandResolver{inner: scopedResolver}).ResolveRules(main.FileName().AsString())
   if selected.OutOfScope || selected.Ignored || selected.Rules.Severity("format/semi") != SeverityWarn || string(selected.RuleOptions("format/semi")) != `{"prefer":"never"}` {
     t.Errorf("scoped formatter positive did not execute its selected policy: %+v options=%s", selected, selected.RuleOptions("format/semi"))
   }
@@ -91,7 +91,7 @@ func TestLoadConfigResolverCompactGlobsPreserveEntryPolicy(t *testing.T) {
   }
   writeFile(t, base, `{"rules":{"no-var":"error"}}`)
   reloaded := load(final)
-  if got := reloaded.ResolveRules(ignored.FileName()); got.Ignored || got.Rules.Severity("no-var") != SeverityError {
+  if got := reloaded.ResolveRules(ignored.FileName().AsString()); got.Ignored || got.Rules.Severity("no-var") != SeverityError {
     t.Errorf("changed global ignore did not refresh: %+v", got)
   }
 }

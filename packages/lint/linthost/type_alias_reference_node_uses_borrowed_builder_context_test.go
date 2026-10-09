@@ -48,10 +48,10 @@ func TestTypeAliasReferenceNodeUsesBorrowedBuilderContext(t *testing.T) {
     t.Fatal("Pair<string> alias metadata missing")
   }
   alias := value.Alias()
-  if alias.Symbol() == nil || alias.Symbol().Name != "Pair" || len(alias.TypeArguments()) != 1 || prog.checker.TypeToString(alias.TypeArguments()[0]) != "string" {
+  if alias.Symbol() == nil || alias.Symbol().Name() != "Pair" || len(alias.TypeArguments()) != 1 || prog.checker.TypeToString(alias.TypeArguments()[0]) != "string" {
     t.Fatal("authored alias identity or argument missing")
   }
-  enclosing := classSymbol(t, prog, "Holder").Declarations[0]
+  enclosing := classSymbol(t, prog, "Holder").Declarations()[0]
   emit := shimprinter.NewEmitContext()
   assertReference := func(node *shimast.Node) {
     t.Helper()

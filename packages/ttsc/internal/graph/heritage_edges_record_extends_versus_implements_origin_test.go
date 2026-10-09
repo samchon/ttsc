@@ -47,9 +47,9 @@ export class Sub extends Sup implements Iface {}
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  sub := nodeID(path, "Sub", NodeClass)
-  sup := nodeID(path, "Sup", NodeClass)
-  iface := nodeID(path, "Iface", NodeInterface)
+  sub := nodeID(path.AsString(), "Sub", NodeClass)
+  sup := nodeID(path.AsString(), "Sup", NodeClass)
+  iface := nodeID(path.AsString(), "Iface", NodeInterface)
 
   if got := edgeOrigin(graph, sub, sup, EdgeHeritage); got != "extends" {
     t.Fatalf("Sub -> Sup: want heritage Origin \"extends\", got %q; edges: %v", got, graph.Edges)

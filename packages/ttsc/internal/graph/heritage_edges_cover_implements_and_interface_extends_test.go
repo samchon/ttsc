@@ -58,11 +58,11 @@ export class Unrelated {
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  base := nodeID(path, "Base", NodeInterface)
-  derived := nodeID(path, "Derived", NodeInterface)
-  impl := nodeID(path, "Impl", NodeClass)
-  unrelated := nodeID(path, "Unrelated", NodeClass)
-  greet := nodeID(path, "Unrelated.greet", NodeMethod)
+  base := nodeID(path.AsString(), "Base", NodeInterface)
+  derived := nodeID(path.AsString(), "Derived", NodeInterface)
+  impl := nodeID(path.AsString(), "Impl", NodeClass)
+  unrelated := nodeID(path.AsString(), "Unrelated", NodeClass)
+  greet := nodeID(path.AsString(), "Unrelated.greet", NodeMethod)
 
   // Interface `extends`: Derived inherits Base.
   if !hasEdge(graph, derived, base, EdgeHeritage) {

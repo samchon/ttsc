@@ -19,7 +19,7 @@ overrides:
   "@xmldom/xmldom": 0.9.12
 catalogs:
   typescript:
-    typescript: ^7.0.2
+    typescript: 7.1.0-dev.20261009.1
     # Native TypeScript 7 drops the classic JS compiler API, so the legacy v6
     # compiler is retained under the `ts-legacy` alias for
     # `@rollup/plugin-typescript`, `typescript-eslint`, and the factory parity

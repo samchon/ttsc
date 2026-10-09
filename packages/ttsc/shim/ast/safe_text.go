@@ -14,7 +14,7 @@ package ast
 import (
   "strings"
 
-  innerast "github.com/microsoft/typescript-go/internal/ast"
+  innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
 )
 
 // NodeText returns the identifier-like text of a node. It mirrors

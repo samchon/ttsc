@@ -7,6 +7,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   shimvfs "github.com/microsoft/typescript-go/shim/vfs"
 
   _ "github.com/samchon/ttsc/packages/paths/driver"
@@ -56,15 +57,15 @@ export const value = exact + extensionless + explicit + directory;`,
         t.Fatalf("load: program=%v diagnostics=%v error=%v", prog != nil, diagnostics, err)
       }
       defer prog.Close()
-      if prog.FS.UseCaseSensitiveFileNames() != sensitive {
+      if prog.FS.CaseSensitivity().IsCaseSensitive() != sensitive {
         t.Fatal("loaded program lost its supplied filesystem policy")
       }
       if err := prog.ApplyLinkedPlugins(); err != nil {
         t.Fatal(err)
       }
       written := map[string]string{}
-      _, diagnostics, err = prog.EmitAllRaw(func(name, contents string, _ *shimcompiler.WriteFileData) error {
-        written[filepath.ToSlash(name)] = contents
+      _, diagnostics, err = prog.EmitAllRaw(func(name shimtspath.RootedFilePath, contents string, _ *shimcompiler.WriteFileData) error {
+        written[filepath.ToSlash(name.AsString())] = contents
         return nil
       })
       if err != nil || len(diagnostics) != 0 {
@@ -104,7 +105,12 @@ type pathsCaseFixtureFS struct {
   files     map[string]string
 }
 
-func (fs *pathsCaseFixtureFS) UseCaseSensitiveFileNames() bool { return fs.sensitive }
+func (fs *pathsCaseFixtureFS) CaseSensitivity() shimtspath.CaseSensitivity {
+  if fs.sensitive {
+    return shimtspath.CaseSensitive
+  }
+  return shimtspath.CaseInsensitive
+}
 
 func (fs *pathsCaseFixtureFS) fixturePath(name string) (string, bool) {
   name = filepath.ToSlash(filepath.Clean(name))
@@ -121,27 +127,27 @@ func (fs *pathsCaseFixtureFS) owns(name string) bool {
   return strings.EqualFold(name, fs.root) || strings.HasPrefix(strings.ToLower(name), strings.ToLower(fs.root)+"/")
 }
 
-func (fs *pathsCaseFixtureFS) FileExists(name string) bool {
-  if fs.owns(name) {
-    _, ok := fs.fixturePath(name)
+func (fs *pathsCaseFixtureFS) FileExists(name shimtspath.RootedFilePath) bool {
+  if fs.owns(name.AsString()) {
+    _, ok := fs.fixturePath(name.AsString())
     return ok
   }
   return fs.FS.FileExists(name)
 }
 
-func (fs *pathsCaseFixtureFS) ReadFile(name string) (string, bool) {
-  if fs.owns(name) {
-    file, ok := fs.fixturePath(name)
+func (fs *pathsCaseFixtureFS) ReadFile(name shimtspath.RootedFilePath) (string, bool) {
+  if fs.owns(name.AsString()) {
+    file, ok := fs.fixturePath(name.AsString())
     return fs.files[file], ok
   }
   return fs.FS.ReadFile(name)
 }
 
-func (fs *pathsCaseFixtureFS) DirectoryExists(name string) bool {
-  if !fs.owns(name) {
+func (fs *pathsCaseFixtureFS) DirectoryExists(name shimtspath.RootedDirectoryPath) bool {
+  if !fs.owns(name.AsString()) {
     return fs.FS.DirectoryExists(name)
   }
-  _, ok := fs.fixtureDirectory(name)
+  _, ok := fs.fixtureDirectory(name.AsString())
   return ok
 }
 
@@ -160,36 +166,36 @@ func (fs *pathsCaseFixtureFS) fixtureDirectory(name string) (string, bool) {
   return "", false
 }
 
-func (fs *pathsCaseFixtureFS) GetAccessibleEntries(name string) shimvfs.Entries {
-  if !fs.owns(name) {
+func (fs *pathsCaseFixtureFS) GetAccessibleEntries(name shimtspath.RootedDirectoryPath) shimvfs.Entries {
+  if !fs.owns(name.AsString()) {
     return fs.FS.GetAccessibleEntries(name)
   }
-  if directory, ok := fs.fixtureDirectory(name); ok {
-    return fs.FS.GetAccessibleEntries(directory)
+  if directory, ok := fs.fixtureDirectory(name.AsString()); ok {
+    return fs.FS.GetAccessibleEntries(shimtspath.RootedDirectoryPathFromNormalized(directory))
   }
   return shimvfs.Entries{}
 }
 
-func (fs *pathsCaseFixtureFS) Stat(name string) shimvfs.FileInfo {
-  if !fs.owns(name) {
+func (fs *pathsCaseFixtureFS) Stat(name shimtspath.RootedPath) shimvfs.FileInfo {
+  if !fs.owns(name.AsString()) {
     return fs.FS.Stat(name)
   }
-  if file, ok := fs.fixturePath(name); ok {
-    return fs.FS.Stat(file)
+  if file, ok := fs.fixturePath(name.AsString()); ok {
+    return fs.FS.Stat(shimtspath.RootedPathFromNormalized(file))
   }
-  if directory, ok := fs.fixtureDirectory(name); ok {
-    return fs.FS.Stat(directory)
+  if directory, ok := fs.fixtureDirectory(name.AsString()); ok {
+    return fs.FS.Stat(shimtspath.RootedPathFromNormalized(directory))
   }
   return nil
 }
 
-func (fs *pathsCaseFixtureFS) Realpath(name string) string {
-  if fs.owns(name) {
-    if file, ok := fs.fixturePath(name); ok {
-      return file
+func (fs *pathsCaseFixtureFS) Realpath(name shimtspath.RootedPath) shimtspath.RootedPath {
+  if fs.owns(name.AsString()) {
+    if file, ok := fs.fixturePath(name.AsString()); ok {
+      return shimtspath.RootedPathFromNormalized(file)
     }
-    if directory, ok := fs.fixtureDirectory(name); ok {
-      return fs.FS.Realpath(directory)
+    if directory, ok := fs.fixtureDirectory(name.AsString()); ok {
+      return fs.FS.Realpath(shimtspath.RootedPathFromNormalized(directory))
     }
     return ""
   }

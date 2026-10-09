@@ -54,9 +54,9 @@ export class Controller {
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  handle := nodeID(path, "Controller.handle", NodeMethod)
-  run := nodeID(path, "Service.run", NodeMethod)
-  service := nodeID(path, "Service", NodeClass)
+  handle := nodeID(path.AsString(), "Controller.handle", NodeMethod)
+  run := nodeID(path.AsString(), "Service.run", NodeMethod)
+  service := nodeID(path.AsString(), "Service", NodeClass)
 
   // The callee method node both endpoints need must exist as a real node.
   if _, ok := graph.Nodes[run]; !ok {

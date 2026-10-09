@@ -5,6 +5,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -41,8 +42,8 @@ func TestEmitAllSkipsOutputsOutsideOutDir(t *testing.T) {
   }
   defer prog.Close()
   written := []string{}
-  _, emitDiags, err := prog.EmitAll(nil, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    written = append(written, filepath.ToSlash(fileName))
+  _, emitDiags, err := prog.EmitAll(nil, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    written = append(written, filepath.ToSlash(fileName.AsString()))
     return nil
   })
   if err != nil {

@@ -163,7 +163,7 @@ export const value = true;
       t.Fatalf("resolveJsonModule=%t JSON candidates = %v", resolveJSON, jsonReferenceGraph.Candidates[jsonReferenceSource])
     }
     containsUppercaseCandidate := slices.Contains(jsonReferenceGraph.Candidates[jsonReferenceSource], uppercaseJSONCandidate)
-    expectsUppercaseCandidate := resolveJSON && !jsonReferenceProgram.FS.UseCaseSensitiveFileNames()
+    expectsUppercaseCandidate := resolveJSON && !jsonReferenceProgram.FS.CaseSensitivity().IsCaseSensitive()
     if containsUppercaseCandidate != expectsUppercaseCandidate {
       t.Fatalf("resolveJsonModule=%t uppercase JSON candidates = %v", resolveJSON, jsonReferenceGraph.Candidates[jsonReferenceSource])
     }
@@ -340,7 +340,7 @@ export const parent = true;`,
     t.Fatalf("unexpected generated-wrapper diagnostics: %#v", semanticDiagnostics)
   }
   defer semanticProgram.Close()
-  if got := semanticProgram.TSProgram.Options().ConfigFilePath; got != filepath.ToSlash(semanticConfig) {
+  if got := semanticProgram.TSProgram.Options().ConfigFilePath; got.AsString() != filepath.ToSlash(semanticConfig) {
     t.Fatalf("generated wrapper semantic config = %q, want %q", got, filepath.ToSlash(semanticConfig))
   }
   semanticGraph := NewTransformGraph(semanticProgram, semanticRoot)
@@ -356,7 +356,7 @@ export const parent = true;`,
     t.Fatalf("unexpected unmarked-wrapper diagnostics: %#v", unmarkedDiagnostics)
   }
   defer unmarkedProgram.Close()
-  if got := unmarkedProgram.TSProgram.Options().ConfigFilePath; got != filepath.ToSlash(generatedConfig) {
+  if got := unmarkedProgram.TSProgram.Options().ConfigFilePath; got.AsString() != filepath.ToSlash(generatedConfig) {
     t.Fatalf("unmarked wrapper inherited ambient semantic config = %q, want %q", got, filepath.ToSlash(generatedConfig))
   }
   invalidProgram, _, err := LoadProgram(semanticRoot, generatedConfig, LoadProgramOptions{SemanticConfigPath: "relative.json"})

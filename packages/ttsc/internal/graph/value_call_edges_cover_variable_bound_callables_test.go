@@ -43,8 +43,8 @@ export const handler = (): void => {
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  handler := nodeID(path, "handler", NodeVariable)
-  helper := nodeID(path, "helper", NodeFunction)
+  handler := nodeID(path.AsString(), "handler", NodeVariable)
+  helper := nodeID(path.AsString(), "helper", NodeFunction)
 
   if !hasEdge(graph, handler, helper, EdgeValueCall) {
     t.Fatalf("missing value-call edge handler -> helper (variable-bound callable body); edges: %v", graph.Edges)

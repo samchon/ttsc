@@ -399,7 +399,7 @@ func jsGetSourceFiles(this js.Value, args []js.Value) any {
     files := entry.prog.SourceFiles()
     out := make([]string, 0, len(files))
     for _, f := range files {
-      out = append(out, snapshotFileKey(entry.cwd, f.FileName()))
+      out = append(out, snapshotFileKey(entry.cwd, f.FileName().AsString()))
     }
     return fountainOK(GetSourceFilesResult{Files: out})
   })
@@ -654,13 +654,13 @@ func symbolInfoOf(entry *snapshotEntry, sym *ast.Symbol) *SymbolInfo {
     return nil
   }
   info := &SymbolInfo{
-    Name:  sym.Name,
-    Flags: int(sym.Flags),
+    Name:  sym.Name(),
+    Flags: int(sym.Flags()),
   }
   if entry.prog.Checker != nil {
     info.Text = entry.prog.Checker.SymbolToString(sym)
   }
-  decls := sym.Declarations
+  decls := sym.Declarations()
   if len(decls) > 0 {
     // Cap at 16 to keep merged-namespace symbols (e.g. global lib types)
     // from ballooning the response.
@@ -678,7 +678,7 @@ func symbolInfoOf(entry *snapshotEntry, sym *ast.Symbol) *SymbolInfo {
       item := SymbolDeclaration{Pos: d.Pos(), End: d.End()}
       if file := ast.GetSourceFileOfNode(d); file != nil {
         item.Pos = tokenStart(file, d)
-        key := snapshotFileKey(entry.cwd, file.FileName())
+        key := snapshotFileKey(entry.cwd, file.FileName().AsString())
         item.File = &key
       }
       out = append(out, item)

@@ -54,24 +54,24 @@ export enum Implicit {
   path := sourceFile(t, prog, "main.ts").FileName()
 
   // Multiline declaration with independent literal expected values.
-  wrapped := literalsOf(t, graph, nodeID(path, "Wrapped", NodeEnum))
+  wrapped := literalsOf(t, graph, nodeID(path.AsString(), "Wrapped", NodeEnum))
   if want := []string{`"a"`, `"b"`, `"c"`}; !slices.Equal(wrapped, want) {
     t.Fatalf("multi-line enum under-reported its members: got %v, want %v", wrapped, want)
   }
   // Layout is not the fact; the single-line twin must agree exactly.
-  flat := literalsOf(t, graph, nodeID(path, "Flat", NodeEnum))
+  flat := literalsOf(t, graph, nodeID(path.AsString(), "Flat", NodeEnum))
   if !slices.Equal(flat, wrapped) {
     t.Fatalf("enum layout changed the value set: wrapped %v, flat %v", wrapped, flat)
   }
   // Implicitly numbered members have literal semantic expectations; no numeric
   // initializers are written, but this does not certify the acquisition method.
-  implicit := literalsOf(t, graph, nodeID(path, "Implicit", NodeEnum))
+  implicit := literalsOf(t, graph, nodeID(path.AsString(), "Implicit", NodeEnum))
   if want := []string{"0", "1"}; !slices.Equal(implicit, want) {
     t.Fatalf("implicitly numbered enum did not report its resolved values: got %v, want %v", implicit, want)
   }
   // Reject this particular method-node identity; other enum detail fields and
   // member-node spellings are not examined.
-  if node, ok := graph.Nodes[nodeID(path, "Wrapped.A", NodeMethod)]; ok {
+  if node, ok := graph.Nodes[nodeID(path.AsString(), "Wrapped.A", NodeMethod)]; ok {
     t.Fatalf("enum member unexpectedly modeled as a node (%v); literals may no longer be the only carrier", node.ID)
   }
 }

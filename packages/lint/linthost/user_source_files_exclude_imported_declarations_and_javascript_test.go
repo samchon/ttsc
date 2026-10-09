@@ -52,7 +52,7 @@ func TestUserSourceFilesExcludeImportedDeclarationsAndJavaScript(t *testing.T) {
   defer prog.close()
   imported := map[string]int{"src/helper.js": 0, "src/shapes.d.ts": 0}
   for _, file := range prog.tsProgram.SourceFiles() {
-    name := filepath.ToSlash(filepath.Clean(file.FileName()))
+    name := filepath.ToSlash(filepath.Clean(file.FileName().AsString()))
     for expected := range imported {
       if name == filepath.ToSlash(filepath.Join(root, expected)) {
         imported[expected]++
@@ -67,7 +67,7 @@ func TestUserSourceFilesExcludeImportedDeclarationsAndJavaScript(t *testing.T) {
 
   names := make([]string, 0)
   for _, file := range prog.userSourceFiles() {
-    rel, err := filepath.Rel(root, file.FileName())
+    rel, err := filepath.Rel(root, file.FileName().AsString())
     if err != nil {
       t.Fatal(err)
     }

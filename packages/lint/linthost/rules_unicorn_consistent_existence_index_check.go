@@ -197,10 +197,10 @@ func unicornConsistentExistenceIndexCheckIsIndexBinding(
   identifier *shimast.Node,
 ) bool {
   symbol := canonicalValueSymbol(ctx, identifier)
-  if symbol == nil || symbol.ValueDeclaration == nil {
+  if symbol == nil || symbol.ValueDeclaration() == nil {
     return false
   }
-  declaration := symbol.ValueDeclaration
+  declaration := symbol.ValueDeclaration()
   if declaration.Kind != shimast.KindVariableDeclaration ||
     declaration.Parent == nil ||
     declaration.Parent.Kind != shimast.KindVariableDeclarationList {

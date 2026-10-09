@@ -4,9 +4,9 @@
 package printer
 
 import (
-  "github.com/microsoft/typescript-go/internal/ast"
-  "github.com/microsoft/typescript-go/internal/core"
-  innerprinter "github.com/microsoft/typescript-go/internal/printer"
+  "github.com/microsoft/TypeScript/tsc/internal/ast"
+  "github.com/microsoft/TypeScript/tsc/internal/core"
+  innerprinter "github.com/microsoft/TypeScript/tsc/internal/printer"
 )
 
 // PrintHandlers supplies the pinned printer's global-name collision hook and

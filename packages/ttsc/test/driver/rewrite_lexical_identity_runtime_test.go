@@ -8,6 +8,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -55,8 +56,8 @@ func TestDriverRewriteLexicalIdentityRuntime(t *testing.T) {
   rewrites.Add(driver.Rewrite{File: contexts, RootName: "플러그인", Namespaces: []string{"네임"}, Method: "만들기", Replacement: `"unicode-replaced"`, ConsumeParens: true})
 
   raw := map[string]string{}
-  _, rawDiagnostics, rawErr := program.EmitAllRaw(func(name, text string, _ *shimcompiler.WriteFileData) error {
-    raw[filepath.Base(name)] = text
+  _, rawDiagnostics, rawErr := program.EmitAllRaw(func(name shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    raw[filepath.Base(name.AsString())] = text
     return nil
   })
   if rawErr != nil || len(rawDiagnostics) != 0 {
@@ -69,8 +70,8 @@ func TestDriverRewriteLexicalIdentityRuntime(t *testing.T) {
   inputs := []rewriteRuntimeInput{}
   for _, mode := range []string{"all", "file"} {
     emitted := map[string]string{}
-    writer := func(name, text string, _ *shimcompiler.WriteFileData) error {
-      base := filepath.Base(name)
+    writer := func(name shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+      base := filepath.Base(name.AsString())
       emitted[base] = text
       return driver.DefaultWriteFile(filepath.Join(root, mode, base), text)
     }
@@ -111,7 +112,7 @@ func TestDriverRewriteLexicalIdentityRuntime(t *testing.T) {
       })
     }
   }
-  _, diagnostics, err = program.EmitFile(rewrites, marker, func(string, string, *shimcompiler.WriteFileData) error {
+  _, diagnostics, err = program.EmitFile(rewrites, marker, func(shimtspath.RootedFilePath, string, *shimcompiler.WriteFileData) error {
     return fmt.Errorf("lexical writer failure")
   })
   writerFailure := false

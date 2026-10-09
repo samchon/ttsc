@@ -3,7 +3,7 @@
 package checker
 
 import (
-  checker "github.com/microsoft/typescript-go/internal/checker"
+  checker "github.com/microsoft/TypeScript/tsc/internal/checker"
   unsafe "unsafe"
 )
 

@@ -8,10 +8,11 @@
 
 package ast
 
-import innerast "github.com/microsoft/typescript-go/internal/ast"
+import innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
 
 const (
   CommentDirectiveKindUnknown                    = innerast.CommentDirectiveKindUnknown
+  KindSourceKeyword                              = innerast.KindSourceKeyword
   ModifierFlagsAbstract                          = innerast.ModifierFlagsAbstract
   ModifierFlagsAccessibilityModifier             = innerast.ModifierFlagsAccessibilityModifier
   ModifierFlagsAccessor                          = innerast.ModifierFlagsAccessor
@@ -74,6 +75,7 @@ const (
   NodeFlagsReachabilityAndEmitFlags              = innerast.NodeFlagsReachabilityAndEmitFlags
   NodeFlagsReachabilityCheckFlags                = innerast.NodeFlagsReachabilityCheckFlags
   NodeFlagsReparsed                              = innerast.NodeFlagsReparsed
+  NodeFlagsReparserTransformedLiteral            = innerast.NodeFlagsReparserTransformedLiteral
   NodeFlagsThisNodeHasError                      = innerast.NodeFlagsThisNodeHasError
   NodeFlagsThisNodeOrAnySubNodesHasError         = innerast.NodeFlagsThisNodeOrAnySubNodesHasError
   NodeFlagsTypeExcludesFlags                     = innerast.NodeFlagsTypeExcludesFlags
@@ -91,7 +93,6 @@ const (
   SymbolFlagsClass                               = innerast.SymbolFlagsClass
   SymbolFlagsClassExcludes                       = innerast.SymbolFlagsClassExcludes
   SymbolFlagsClassMember                         = innerast.SymbolFlagsClassMember
-  SymbolFlagsClassifiable                        = innerast.SymbolFlagsClassifiable
   SymbolFlagsConstEnum                           = innerast.SymbolFlagsConstEnum
   SymbolFlagsConstEnumExcludes                   = innerast.SymbolFlagsConstEnumExcludes
   SymbolFlagsConstEnumOnlyModule                 = innerast.SymbolFlagsConstEnumOnlyModule

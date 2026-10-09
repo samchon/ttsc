@@ -38,7 +38,7 @@ func (boundariesElementTypes) Check(ctx *Context, node *shimast.Node) {
   if len(opts.Elements) == 0 {
     return
   }
-  source := classifyBoundaryFile(ctx.File.FileName(), opts.Elements)
+  source := classifyBoundaryFile(ctx.File.FileName().AsString(), opts.Elements)
   if source == nil {
     return
   }
@@ -46,7 +46,7 @@ func (boundariesElementTypes) Check(ctx *Context, node *shimast.Node) {
     if !dep.relative {
       continue
     }
-    targetPath, ok := resolveBoundaryImport(ctx.File.FileName(), dep.specifier)
+    targetPath, ok := resolveBoundaryImport(ctx.File.FileName().AsString(), dep.specifier)
     if !ok {
       continue
     }
@@ -96,12 +96,12 @@ func (boundariesEntryPoint) Check(ctx *Context, node *shimast.Node) {
   if len(opts.Elements) == 0 {
     return
   }
-  source := classifyBoundaryFile(ctx.File.FileName(), opts.Elements)
+  source := classifyBoundaryFile(ctx.File.FileName().AsString(), opts.Elements)
   for _, dep := range collectBoundaryDependencies(node) {
     if !dep.relative {
       continue
     }
-    targetPath, ok := resolveBoundaryImport(ctx.File.FileName(), dep.specifier)
+    targetPath, ok := resolveBoundaryImport(ctx.File.FileName().AsString(), dep.specifier)
     if !ok {
       continue
     }
@@ -128,7 +128,7 @@ func (boundariesNoPrivate) Check(ctx *Context, node *shimast.Node) {
   if len(opts.Elements) == 0 {
     return
   }
-  source := classifyBoundaryFile(ctx.File.FileName(), opts.Elements)
+  source := classifyBoundaryFile(ctx.File.FileName().AsString(), opts.Elements)
   if source == nil {
     return
   }
@@ -136,7 +136,7 @@ func (boundariesNoPrivate) Check(ctx *Context, node *shimast.Node) {
     if !dep.relative {
       continue
     }
-    targetPath, ok := resolveBoundaryImport(ctx.File.FileName(), dep.specifier)
+    targetPath, ok := resolveBoundaryImport(ctx.File.FileName().AsString(), dep.specifier)
     if !ok {
       continue
     }
@@ -160,7 +160,7 @@ func (boundariesNoUnknown) Check(ctx *Context, node *shimast.Node) {
     if !dep.relative {
       continue
     }
-    targetPath, ok := resolveBoundaryImport(ctx.File.FileName(), dep.specifier)
+    targetPath, ok := resolveBoundaryImport(ctx.File.FileName().AsString(), dep.specifier)
     if !ok {
       continue
     }

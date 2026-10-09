@@ -56,7 +56,7 @@ func reactPerfIsTSXFile(ctx *Context) bool {
   if ctx == nil || ctx.File == nil {
     return false
   }
-  return strings.EqualFold(filepath.Ext(ctx.File.FileName()), ".tsx")
+  return strings.EqualFold(filepath.Ext(ctx.File.FileName().AsString()), ".tsx")
 }
 
 func reactPerfAttributeExpression(initializer *shimast.Node) *shimast.Node {

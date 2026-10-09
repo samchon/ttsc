@@ -40,7 +40,7 @@ func TestFileDiagnosticsMatchTsgoCodeAndLocation(t *testing.T) {
   defer func() { _ = prog.Close() }()
 
   main := sourceFile(t, prog, "main.ts").FileName()
-  got := FileDiagnostics(prog, main)
+  got := FileDiagnostics(prog, main.AsString())
 
   var match *driver.Diagnostic
   for i := range got {
@@ -55,7 +55,7 @@ func TestFileDiagnosticsMatchTsgoCodeAndLocation(t *testing.T) {
   if match.Line != 1 {
     t.Fatalf("TS2322 reported on line %d, expected line 1", match.Line)
   }
-  if match.File != main {
+  if match.File != main.AsString() {
     t.Fatalf("diagnostic file %q is not the queried file %q", match.File, main)
   }
   if other := FileDiagnostics(prog, filepath.Join(root, "src", "absent.ts")); len(other) != 0 {

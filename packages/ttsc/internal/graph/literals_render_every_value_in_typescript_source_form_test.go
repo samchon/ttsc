@@ -69,7 +69,7 @@ export type Mixed = 'a' | 1 | true;
     // Kinds mix in one union, and source form is what keeps them apart.
     {"Mixed", []string{`"a"`, "1", "true"}},
   } {
-    got := literalsOf(t, graph, nodeID(path, testCase.name, NodeTypeAlias))
+    got := literalsOf(t, graph, nodeID(path.AsString(), testCase.name, NodeTypeAlias))
     if !slices.Equal(got, testCase.want) {
       t.Fatalf("%s rendered %v, want %v", testCase.name, got, testCase.want)
     }

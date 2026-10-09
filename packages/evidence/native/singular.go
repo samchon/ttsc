@@ -66,7 +66,7 @@ func (singularRule) Check(ctx *rule.Context, node *shimast.Node) {
     return
   }
 
-  base, extension := splitModuleBaseName(ctx.File.FileName())
+  base, extension := splitModuleBaseName(ctx.File.FileName().AsString())
   if base == "index" {
     return
   }

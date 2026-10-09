@@ -7,7 +7,6 @@ import (
 
   "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
-  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // bundledScheme prefixes the virtual paths of the TypeScript-Go standard
@@ -103,10 +102,10 @@ func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
   }
   for _, file := range prog.TSProgram.SourceFiles() {
     fileName := file.FileName()
-    if strings.HasPrefix(fileName, bundledScheme) {
+    if strings.HasPrefix(fileName.AsString(), bundledScheme) {
       continue
     }
-    key := TransformOutputKey(cwd, fileName)
+    key := TransformOutputKey(cwd, fileName.AsString())
     if shimcompiler.FileAffectsGlobalScope(file) {
       graph.Globals = append(graph.Globals, key)
     }
@@ -216,17 +215,17 @@ func referenceTargets(prog *Program, cwd string, file *ast.SourceFile) []string 
   paths := shimcompiler.GetReferencedFilePaths(prog.TSProgram, file)
   targets := make([]string, 0, len(paths))
   for _, referencedPath := range paths {
-    // Referenced paths are case-canonicalized tspath.Path values; recover the
+    // Referenced paths are case-canonicalized tspath.PathKey values; recover the
     // resident source and its real spelling from the Program. The incremental
     // helper can retain a raw extensionless project-reference directive even
     // when no corresponding source became resident. That spelling is a
     // resolver candidate, not a realized graph edge, and has no compiler-time
     // content proof.
-    resolved := prog.TSProgram.GetSourceFileByPath(shimtspath.Path(referencedPath))
-    if resolved == nil || resolved == file || strings.HasPrefix(resolved.FileName(), bundledScheme) {
+    resolved := prog.TSProgram.GetSourceFileByPath(referencedPath)
+    if resolved == nil || resolved == file || strings.HasPrefix(resolved.FileName().AsString(), bundledScheme) {
       continue
     }
-    targets = append(targets, TransformOutputKey(cwd, resolved.FileName()))
+    targets = append(targets, TransformOutputKey(cwd, resolved.FileName().AsString()))
   }
   sort.Strings(targets)
   return targets
@@ -241,10 +240,10 @@ func configChain(prog *Program, cwd string) []string {
     return configs
   }
   if source := parsed.ConfigFile.SourceFile; source != nil {
-    configs = append(configs, TransformOutputKey(cwd, source.FileName()))
+    configs = append(configs, TransformOutputKey(cwd, source.FileName().AsString()))
   }
   for _, extended := range parsed.ExtendedSourceFiles() {
-    configs = append(configs, TransformOutputKey(cwd, extended))
+    configs = append(configs, TransformOutputKey(cwd, extended.AsString()))
   }
   return configs
 }

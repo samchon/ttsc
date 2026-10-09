@@ -5,6 +5,7 @@ import (
   "testing"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // TestRewriterHelpersCoverResolutionEdges verifies path matching and output math.
@@ -146,13 +147,13 @@ func TestRewriterHelpersCoverResolutionEdges(t *testing.T) {
   if got := pathsOptionalPath("src", root); got != src {
     t.Fatalf("relative optional path mismatch: %q", got)
   }
-  if got := pathsCommonSourceDir(nil, "/", true); got != "" {
+  if got := pathsCommonSourceDir(nil, "/", shimtspath.CaseSensitive); got != "" {
     t.Fatalf("empty common source dir mismatch: %q", got)
   }
-  if got := pathsInferredRootDir(root+"/tsconfig.json", nil, root, true); got != root {
+  if got := pathsInferredRootDir(root+"/tsconfig.json", nil, root, shimtspath.CaseSensitive); got != root {
     t.Fatalf("config-anchored root dir mismatch: %q", got)
   }
-  if got := pathsInferredRootDir("", []string{src + "/main.ts", src + "/lib/message.ts"}, root, true); got != src {
+  if got := pathsInferredRootDir("", []string{src + "/main.ts", src + "/lib/message.ts"}, root, shimtspath.CaseSensitive); got != src {
     t.Fatalf("computed root dir mismatch: %q", got)
   }
   if got := pathsNormalizePath(""); got != "" {

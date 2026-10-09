@@ -7,6 +7,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -39,8 +40,8 @@ func TestEmitPluginNoEmitPreservesBuildInformation(t *testing.T) {
   diagnostics, err = p.EmitWithPluginTransformer(func(_ *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     called = true
     return sf
-  }, func(name, _ string, _ *shimcompiler.WriteFileData) error {
-    writes = append(writes, name)
+  }, func(name shimtspath.RootedFilePath, _ string, _ *shimcompiler.WriteFileData) error {
+    writes = append(writes, name.AsString())
     return nil
   })
   if called || err != nil || len(diagnostics) != 0 {

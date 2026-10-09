@@ -58,7 +58,7 @@ export enum Computed {
 
   // A nonempty control detects omission of the entire literal pass; this count
   // does not independently check the control's four values.
-  if got := literalsOf(t, graph, nodeID(path, "Narrow", NodeTypeAlias)); len(got) != 4 {
+  if got := literalsOf(t, graph, nodeID(path.AsString(), "Narrow", NodeTypeAlias)); len(got) != 4 {
     t.Fatalf("control union did not report its four members: got %v", got)
   }
 
@@ -72,7 +72,7 @@ export enum Computed {
     {"Primitive", NodeTypeAlias, "a primitive is not a value set"},
     {"Computed", NodeEnum, "a computed enum member has a value nothing here can name"},
   } {
-    if got := literalsOf(t, graph, nodeID(path, testCase.name, testCase.kind)); len(got) != 0 {
+    if got := literalsOf(t, graph, nodeID(path.AsString(), testCase.name, testCase.kind)); len(got) != 0 {
       t.Fatalf("%s reported a partial value set %v: %s", testCase.name, got, testCase.why)
     }
   }

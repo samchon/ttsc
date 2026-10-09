@@ -7,8 +7,8 @@
 package core
 
 import (
-  innercore "github.com/microsoft/typescript-go/internal/core"
-  innersemver "github.com/microsoft/typescript-go/internal/semver"
+  innercore "github.com/microsoft/TypeScript/tsc/internal/core"
+  innersemver "github.com/microsoft/TypeScript/tsc/internal/semver"
 )
 
 // CompilerOptions holds the parsed tsconfig compiler options passed to the
@@ -134,14 +134,12 @@ const (
   TSTrue  = innercore.TSTrue
 
   // ScriptKind* constants enumerate the file flavours typescript-go recognises.
-  ScriptKindUnknown  = innercore.ScriptKindUnknown
-  ScriptKindJS       = innercore.ScriptKindJS
-  ScriptKindJSX      = innercore.ScriptKindJSX
-  ScriptKindTS       = innercore.ScriptKindTS
-  ScriptKindTSX      = innercore.ScriptKindTSX
-  ScriptKindExternal = innercore.ScriptKindExternal
-  ScriptKindJSON     = innercore.ScriptKindJSON
-  ScriptKindDeferred = innercore.ScriptKindDeferred
+  ScriptKindUnknown = innercore.ScriptKindUnknown
+  ScriptKindJS      = innercore.ScriptKindJS
+  ScriptKindJSX     = innercore.ScriptKindJSX
+  ScriptKindTS      = innercore.ScriptKindTS
+  ScriptKindTSX     = innercore.ScriptKindTSX
+  ScriptKindJSON    = innercore.ScriptKindJSON
 
   // JsxEmit* constants enumerate compilerOptions.jsx modes.
   JsxEmitNone        = innercore.JsxEmitNone

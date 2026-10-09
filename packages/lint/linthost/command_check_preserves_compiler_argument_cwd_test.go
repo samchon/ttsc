@@ -55,7 +55,7 @@ func TestCommandCheckPreservesCompilerArgumentCwd(t *testing.T) {
 			defer prog.close()
 			normalized := func(value string) string { return filepath.ToSlash(filepath.Clean(value)) }
 			options := prog.parsed.CompilerOptions()
-			if normalized(options.OutDir) != normalized(c.out) || normalized(options.RootDir) != normalized(b) || normalized(options.ConfigFilePath) != normalized(filepath.Join(b, "tsconfig.json")) {
+			if normalized(options.OutDir.AsString()) != normalized(c.out) || normalized(options.RootDir.AsString()) != normalized(b) || normalized(options.ConfigFilePath.AsString()) != normalized(filepath.Join(b, "tsconfig.json")) {
 				t.Fatalf("wrong native options: out=%q root=%q config=%q", options.OutDir, options.RootDir, options.ConfigFilePath)
 			}
 			expectedRoot, err := os.Stat(b)
@@ -66,7 +66,7 @@ func TestCommandCheckPreservesCompilerArgumentCwd(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if prog.cwd != b || normalized(prog.tsProgram.GetCurrentDirectory()) != normalized(b) || prog.findSourceFile(filepath.Join(b, "main.ts")) == nil || prog.findSourceFile(filepath.Join(a, "main.ts")) != nil || !os.SameFile(expectedRoot, physicalRoot) {
+			if prog.cwd != b || normalized(prog.tsProgram.GetCurrentDirectory().AsString()) != normalized(b) || prog.findSourceFile(filepath.Join(b, "main.ts")) == nil || prog.findSourceFile(filepath.Join(a, "main.ts")) != nil || !os.SameFile(expectedRoot, physicalRoot) {
 				t.Fatalf("compiler argument base replaced Program/rule identity: cwd=%q TypeScriptCwd=%q physicalRoot=%q expectedB=%q Bsource=%t Asource=%t", prog.cwd, prog.tsProgram.GetCurrentDirectory(), prog.identity.PhysicalProjectRoot, b, prog.findSourceFile(filepath.Join(b, "main.ts")) != nil, prog.findSourceFile(filepath.Join(a, "main.ts")) != nil)
 			}
 		})

@@ -28,7 +28,7 @@ func (g *Graph) collectLiterals(checker *shimchecker.Checker, file *shimast.Sour
   if file.Statements == nil {
     return
   }
-  g.collectLiteralsIn(checker, file.FileName(), file.Statements.Nodes)
+  g.collectLiteralsIn(checker, file.FileName().AsString(), file.Statements.Nodes)
 }
 
 // collectLiteralsIn walks a statement list — a file's top level, or a namespace
@@ -54,7 +54,7 @@ func (g *Graph) collectLiteralsIn(checker *shimchecker.Checker, path string, sta
 // left alone rather than given a partial one.
 func (g *Graph) putLiterals(checker *shimchecker.Checker, path string, statement *shimast.Node, kind NodeKind) {
   symbol := statement.Symbol()
-  if symbol == nil || symbol.Name == "" {
+  if symbol == nil || symbol.Name() == "" {
     return
   }
   node, ok := g.Nodes[nodeID(path, qualifiedName(symbol), kind)]
@@ -103,7 +103,7 @@ func enumMembers(checker *shimchecker.Checker, statement *shimast.Node) []EnumMe
     if symbol == nil {
       continue
     }
-    member := EnumMember{Name: symbol.Name}
+    member := EnumMember{Name: symbol.Name()}
     if t := shimchecker.Checker_getTypeOfSymbol(checker, symbol); t != nil {
       if value, ok := literalValue(t); ok {
         member.Value = value

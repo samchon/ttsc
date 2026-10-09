@@ -42,8 +42,8 @@ export { Service };
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  service := graph.Nodes[nodeID(path, "Service", NodeClass)]
-  internal := graph.Nodes[nodeID(path, "Internal", NodeClass)]
+  service := graph.Nodes[nodeID(path.AsString(), "Service", NodeClass)]
+  internal := graph.Nodes[nodeID(path.AsString(), "Internal", NodeClass)]
   if service == nil || internal == nil {
     t.Fatalf("Build did not record both classes; have %v", nodeIDSet(graph))
   }

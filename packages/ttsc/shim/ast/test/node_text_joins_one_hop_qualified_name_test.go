@@ -3,7 +3,7 @@ package ast_test
 import (
   "testing"
 
-  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/TypeScript/tsc/shim/ast"
 )
 
 // TestNodeTextJoinsOneHopQualifiedName verifies NodeText joins a one-hop
