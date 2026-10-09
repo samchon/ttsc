@@ -4,12 +4,12 @@ import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { ColdGraphActorLifecycle } from "../../../../../utils/src/ColdGraphActorLifecycle";
 import { preserveColdRowDiagnostics } from "../../../../../utils/src/preserveColdRowDiagnostics";
 import { BatchWorkspace } from "../../../batch/BatchWorkspace";
 import {
   ColdArtifactObservation,
   artifactExchanges,
-  bounded,
 } from "../../../internal/graph/internal/ColdArtifactObservation";
 import {
   TtsgraphClient,
@@ -253,11 +253,7 @@ export async function observeColdMcpEof(
     try {
       client.endStdin();
       assert.deepEqual(
-        await bounded(
-          completion,
-          30_000,
-          "Cold MCP original close remained unresolved",
-        ),
+        await completion,
         { code: 0, signal: null },
         "MCP EOF did not acknowledge successful session closure",
       );
@@ -317,14 +313,14 @@ export async function observeColdMcpEof(
  * batch keeps its acquisition fence; this shared body owns original actors,
  * guarded cold preparation, queued recovery and terminal session closure.
  *
- * @evidence contracts/testing.md#behavioral-verification The built public Session actor aborts an independently admitted cold producer, recovers through its real queue, reuses the resulting graph and refuses admission after terminal close. Passive operation/close failure messages are preserved from IPC before resource waits or close acknowledgment, without reading unjoined inputs.
+ * @evidence contracts/testing.md#behavioral-verification The built public Session actor aborts an independently admitted cold producer, recovers through its real queue, reuses the resulting graph and refuses admission after terminal close. Parent progress and original close settle from actual messages/errors/completion rather than elapsed test deadlines. Passive operation/close failure messages are preserved from IPC before resource waits or close acknowledgment, without reading unjoined inputs.
  * @evidence contracts/testing.md#independent-expectations Authored AbortError/reason and Markdown node address define cancellation and recovery; source/process identities, guard release and native spawn/close receipts independently establish lifetime outcomes.
  * @evidence contracts/testing.md#distinguishing-cases Abort differs from EOF; queued recovery must start a new preparation while preserving no late artifacts from the old one, unchanged warm identity and closed-session rejection.
- * @evidence contracts/testing.md#execution-ownership Ordinary and narrow callers share this exact public actor/OS observation/assertion body; no caller replaces the product resolver or native worker.
+ * @evidence contracts/testing.md#execution-ownership Ordinary and narrow callers share this exact public actor/OS observation/assertion body; no caller replaces the product resolver or native worker. The actor's explicit authored-TypeScript loader imports the shared test-only lifecycle helper before using its built public Session; the native observation preload remains enabled.
  * @evidence contracts/e2e.md#necessary-boundary Public AbortSignal propagation, actual producer containment, queued recovery and guarded source lifetime require real SDK/native execution.
  * @evidence contracts/e2e.md#shared-execution Reuses supplied publisher sources/dependencies and ordinary Go object storage; only the conflicting cold profile and public actor are isolated, with recovery sharing that actor's cache.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Empty unique source cache and old-work exclusion distinguish first cancellation from recovery. Original session/observer joins, input release and stable post-close work are required; unproved rows remain retained.
- * @evidence contracts/e2e.md#preserved-coverage The existing public cancellation body and every assertion remain shared; ordinary batch acquisition is unchanged and narrow input binding remains the caller's explicit responsibility.
+ * @evidence contracts/e2e.md#preserved-coverage Public cancellation, actual source retirement, recovery artifact, warm identity, native admission and successful original close remain required. The shared helper's portable ordering/error matrix is owned by the direct graph unit; the unsupported elapsed progress/close oracle is removed. Ordinary batch acquisition and narrow input binding retain their owners.
  */
 export async function observeColdPublicSessionCancellation(
   workspace: Pick<BatchWorkspace.Workspace, "graphRoot">,
@@ -336,6 +332,11 @@ export async function observeColdPublicSessionCancellation(
   const child = spawn(
     process.execPath,
     [
+      "--import",
+      new URL(
+        "../../../../../../config/register-typescript-loader.mjs",
+        import.meta.url,
+      ).href,
       "--import",
       new URL(
         "../../../internal/graph/internal/nativeSpawnObserver.mjs",
@@ -357,7 +358,8 @@ export async function observeColdPublicSessionCancellation(
     },
   );
   const completion = closeReceipt(child);
-  const events = new Set<string>();
+  const progress = ColdGraphActorLifecycle.observe(child);
+  const events = progress.events;
   const failures: unknown[] = [];
   let stderr = "";
   child.stdout!.on("data", (chunk) => {
@@ -376,7 +378,6 @@ export async function observeColdPublicSessionCancellation(
     }
   });
   child.on("message", (message: { event?: string; diagnostic?: string }) => {
-    if (message.event) events.add(message.event);
     if (message.event === "failed" || message.event === "close-failed") {
       try {
         // IPC has already detached this plain diagnostic record. Export it
@@ -387,26 +388,6 @@ export async function observeColdPublicSessionCancellation(
       }
     }
   });
-  let exited = false;
-  child.once("close", () => {
-    exited = true;
-  });
-  const wait = async (event: string, milliseconds = 120_000) => {
-    const deadline = Date.now() + milliseconds;
-    while (!events.has(event)) {
-      if (events.has("failed"))
-        throw new Error(
-          `Public session actor failed: ${fs.readFileSync(report, "utf8")} ${stderr}`,
-        );
-      if (exited)
-        throw new Error(
-          `Public session actor exited before ${event}: ${stderr}`,
-        );
-      if (Date.now() >= deadline)
-        throw new Error(`Public session ${event} exceeded ${milliseconds}ms`);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-  };
   const observed = new ColdArtifactObservation(child.pid!, row.root);
   let joined = false;
   let observerJoined = false;
@@ -414,11 +395,11 @@ export async function observeColdPublicSessionCancellation(
   let retiredWork: string[] | undefined;
   try {
     await observed.ready();
-    await wait("ready");
-    child.send("start");
+    await progress.wait("ready");
+    await ColdGraphActorLifecycle.send(child, "start");
     const first = await observed.build(row.trace, row.cache, row.goTmp);
     releaseConfirmed = false;
-    child.send("abort");
+    await ColdGraphActorLifecycle.send(child, "abort");
     await observed.absent(first);
     assert.deepEqual(
       artifactExchanges(child.pid!),
@@ -431,24 +412,24 @@ export async function observeColdPublicSessionCancellation(
       "cancelled preparation admitted native graph",
     );
     const oldWork = new Set(fs.readdirSync(row.goTmp));
-    child.send("recover");
+    await ColdGraphActorLifecycle.send(child, "recover");
     await observed.build(row.trace, row.cache, row.goTmp, first, oldWork);
     // New preparation runs behind the canceled refresh in the public queue.
     // Native absence alone does not acknowledge the old SDK input lease.
     await observed.retired(first);
     releaseConfirmed = true;
-    await wait("cancelled");
-    await wait("recovered");
+    await progress.wait("cancelled");
+    await progress.wait("recovered");
     const published = artifactExchanges(child.pid!);
     assert.equal(
       nativeReceipts(nativeReceipt).filter((entry) => entry.event === "spawned")
         .length,
       1,
     );
-    child.send("close");
-    await wait("closed", 30_000);
+    await ColdGraphActorLifecycle.send(child, "close");
+    await progress.wait("closed");
     assert.deepEqual(
-      await bounded(completion, 30_000, "Public session actor did not close"),
+      await completion,
       { code: 0, signal: null },
     );
     await observed.joined();
@@ -472,14 +453,14 @@ export async function observeColdPublicSessionCancellation(
   } finally {
     try {
       if (child.connected) {
-        child.send("abort");
-        child.send("close");
+        await ColdGraphActorLifecycle.send(child, "abort");
+        await ColdGraphActorLifecycle.send(child, "close");
       }
-      await bounded(
-        completion,
-        30_000,
-        "Public session original close remained unresolved",
-      );
+    } catch (error) {
+      failures.push(error);
+    }
+    try {
+      await completion;
       assert.ok(
         events.has("closed") || events.has("closed-after-failure"),
         "Public session did not acknowledge fulfilled original close",
@@ -528,6 +509,7 @@ export async function observeColdPublicSessionCancellation(
         "Cold public session diagnostics could not be preserved",
       );
     }
+    progress.dispose();
   }
   if (failures.length)
     throw new AggregateError(
