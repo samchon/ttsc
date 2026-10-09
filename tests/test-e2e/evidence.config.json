@@ -11,7 +11,8 @@
         "src/batch/loaderCommandLifetimeCorpus.ts",
         "src/batch/deadCompilerClaimCorpus.ts",
         "src/batch/OwnedE2eEntry.ts",
-        "src/batch/mappedResolutionWitnessCorpus.ts"
+        "src/batch/mappedResolutionWitnessCorpus.ts",
+        "src/batch/viteBuildCorpus.ts"
       ],
       "symbol": "function",
       "reference": {

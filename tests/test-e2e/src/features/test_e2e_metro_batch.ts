@@ -122,7 +122,7 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * an explicit project and discovers a files-empty solution referencing the
  * original config. Its independent compiler root must reach the actual native
  * plugin while the host root still addresses Metro filenames. The existing
- * offline-marker delivery retains its one-probe assertion; one additional
+ * offline-marker delivery retains its trace-qualified single-accepted-generation assertion; one additional
  * delivery must reject an authored type error. A copied lint config imports an
  * existing authored module from an exclusive tools directory outside the src
  * host walk. After this resident joins, its real native directory evidence

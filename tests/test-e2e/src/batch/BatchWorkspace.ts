@@ -194,7 +194,7 @@ export namespace BatchWorkspace {
 
   /** Read native ApplyProgram admission receipts, never emitted-value evidence. */
   export function readContextReceipts(
-    workspace: Workspace,
+    workspace: Pick<Workspace, "contextReceipt">,
   ): Record<string, unknown>[] {
     if (!fs.existsSync(workspace.contextReceipt)) return [];
     return fs
@@ -225,7 +225,7 @@ export namespace BatchWorkspace {
    * @evidence contracts/common.md#meaningful-documentation The headline distinguishes actual parsed Program options from config-file interpretation; the return type preserves null versus keyed targets for the caller's literal assertions.
    */
   export function readPathsReceipts(
-    workspace: Workspace,
+    workspace: Pick<Workspace, "pathsReceipt">,
   ): { name: string; paths: Record<string, string[]> | null }[] {
     if (!fs.existsSync(workspace.pathsReceipt)) return [];
     return fs
