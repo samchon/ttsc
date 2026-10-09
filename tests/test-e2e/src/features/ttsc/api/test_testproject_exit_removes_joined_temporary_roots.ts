@@ -65,7 +65,6 @@ export const test_testproject_exit_removes_joined_temporary_roots = () => {
         cwd: TestProject.WORKSPACE_ROOT,
         env,
         encoding: "utf8",
-        timeout: 30_000,
         windowsHide: true,
       },
     );

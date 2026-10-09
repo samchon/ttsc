@@ -48,7 +48,7 @@ export function test_testproject_temporary_environment_preserves_owned_physical_
       [missing, fallback],
       [file, fallback],
       [path.join(file, "child"), fallback],
-    ]) {
+    ] as const) {
       const env: NodeJS.ProcessEnv = {
         TEMP: "prior-temp",
         TMP: "prior-tmp",
@@ -63,6 +63,7 @@ export function test_testproject_temporary_environment_preserves_owned_physical_
         TEMP: expected,
         TMP: expected,
         TMPDIR: expected,
+        GIT_CEILING_DIRECTORIES: expected.split(path.sep).join("/"),
         TTSC_TEMPORARY_CONTROL: "unchanged",
       });
     }

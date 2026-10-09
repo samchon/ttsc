@@ -4,6 +4,8 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
+import { SidecarEnvironment } from "../../../packages/ttsc/src/compiler/internal/sharedHost/SidecarEnvironment";
+
 import { E2eProcessTrace } from "./E2eProcessTrace";
 
 // Every temp dir handed out by this module is tracked here for process-exit
@@ -109,15 +111,18 @@ export namespace TestProject {
    * An already ignored repository parent retains its authority. Other inherited
    * roots select the checkout's ignored cache directory, keeping junctioned
    * workspace declarations on the same filesystem root as their consumers.
+   * The physical parent also fences implicit Git discovery so standalone
+   * fixtures do not inherit the checkout's ignore rules. Existing ceiling
+   * entries and explicit Git directory/work-tree selectors retain authority.
    * Individual allocations retain their existing cleanup and retention owners;
    * this operation does not remove the shared cache infrastructure directory.
    *
-   * @evidence contracts/common.md#principled-implementation Native realpath and relative containment validate physical coordinates, and Git verifies ignore policy before fallback creation. TEMP, TMP and TMPDIR bind before child inheritance so native and Node allocations share one initial parent.
+   * @evidence contracts/common.md#principled-implementation Native realpath and relative containment validate physical coordinates, and Git verifies ignore policy before fallback creation. Temporary names and a supported Git discovery ceiling bind before child inheritance; explicit Git selectors remain caller-owned.
    * @evidence contracts/common.md#clear-and-simple-design The existing temporary allocation owner selects one parent; startup delegates here without adding an allocation registry or changing fixture populations.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Physical containment and actual Git ignore results govern selection without drive, dependency or fixture exceptions. Graph path semantics and real imported declarations are unchanged.
    * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain startup ordering, inherited authority, fallback and the retained per-allocation cleanup ownership.
-   * @evidence contracts/portability.md#os-neutral-implementation Native realpath observes aliases and junctions, path.relative checks actual checkout containment, and separate Git arguments avoid shell interpretation. All three temporary environment names carry the same physical directory without inferring filesystem case policy.
-   * @evidence contracts/performance.md#efficient-algorithms Startup resolves at most two candidate paths and runs bounded-output Git ignore queries; no fixture tree is traversed.
+   * @evidence contracts/portability.md#os-neutral-implementation Native realpath observes aliases and junctions, path.relative checks checkout containment, and separate Git arguments avoid shell interpretation. The new Git-owned entry uses forward separators even after a caller's empty no-realpath sentinel, while POSIX literal backslashes remain unchanged. Native path.delimiter preserves list boundaries and the shared environment owner handles Windows name aliases without inferring filesystem case policy.
+   * @evidence contracts/performance.md#efficient-algorithms Startup resolves at most two candidate paths and runs bounded-output Git ignore queries without traversing a fixture tree. Ceiling lookup visits environment names and list text; exact-entry membership prevents repeated calls from growing the list with the same physical parent.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Selection observes the current inherited parent and ignore policy on each call and caches no validity claim.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous filesystem and Git observations settle before environment publication. The shared ignored cache directory remains infrastructure; children stay with their existing allocation and native retirement owners.
    */
@@ -180,6 +185,17 @@ export namespace TestProject {
     env.TEMP = parent;
     env.TMP = parent;
     env.TMPDIR = parent;
+    const gitParent = parent.split(path.sep).join("/");
+    const ceiling = SidecarEnvironment.read(env, "GIT_CEILING_DIRECTORIES");
+    SidecarEnvironment.write(
+      env,
+      "GIT_CEILING_DIRECTORIES",
+      ceiling === undefined
+        ? gitParent
+        : ceiling.split(path.delimiter).includes(gitParent)
+          ? ceiling
+          : ceiling + path.delimiter + gitParent,
+    );
     return parent;
   }
 
