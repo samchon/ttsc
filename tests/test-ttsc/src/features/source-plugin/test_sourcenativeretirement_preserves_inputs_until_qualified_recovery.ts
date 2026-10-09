@@ -31,9 +31,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 3. Join the original reader and recover only its exact retained boundary.
  *
  * @evidence contracts/testing.md#behavioral-verification Real source lock/Go lease owners and central admission protect an actual reader's file. Unknown retirement must preserve bytes, the exact key generation and Go lease against direct release/reclaim, old-owner PID data, expired metadata, collector pressure and whole-root clean. Qualified recovery after actual child close executes deferred cleanup and permits reacquisition.
- * @evidence contracts/testing.md#independent-expectations A still-live reader's input must remain readable, and a termination request alone cannot authorize deletion. Literal reader bytes, observed current generation, literal object payload and the child's external ENOENT marker distinguish preserved ownership from a passing error wrapper.
+ * @evidence contracts/testing.md#independent-expectations A still-live reader's input must remain readable, and a termination request alone cannot authorize deletion. An IPC acknowledgment of an actual post-maintenance read, literal reader bytes, observed current generation, literal object payload and the child's external ENOENT marker distinguish preserved ownership from a passing error wrapper.
  * @evidence contracts/testing.md#distinguishing-cases Pending guard publication precedes reader startup; unknown contrasts with joined recovery, wrong boundary and fresh admission. Independently collected reclamation attempts cover key completion/stealing, plugin and Go GC, PID absence, clock expiry and recursive clean. Ordinary and not-started paths have separate source units.
- * @evidence contracts/testing.md#execution-ownership One source-unit entry owns actual temporary files, source lock/lease operations and one real Node reader without Go or an installed host. Original process close and all heartbeat retirement promises are joined. The explicit classification seam does not claim OS cleanup-refusal or actual cold MCP validation; unconfirmed closure retains the root.
+ * @evidence contracts/testing.md#execution-ownership One source-unit entry owns actual temporary files, source lock/lease operations and one real Node reader without Go or an installed host. Errors are collected independently of original process CLOSE and all heartbeat retirement promises; cleanup does not discard rejected retirements. The explicit classification seam does not claim OS cleanup-refusal or actual cold MCP validation; unconfirmed closure or unrecovered guards retain the root.
  */
 export async function test_sourcenativeretirement_preserves_inputs_until_qualified_recovery(): Promise<void> {
   const root = TestProject.physicalPath(
@@ -60,9 +60,19 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
   const retirements = new Set<Promise<unknown>>();
   let child: ReturnType<typeof spawn> | undefined;
   let closed: Promise<number | null> | undefined;
+  let readerReady: Promise<void> | undefined;
   let joined = false;
   let generation = "";
   const failures: unknown[] = [];
+  const record = (error: unknown): void => {
+    if (!failures.includes(error)) failures.push(error);
+  };
+  const joinRetirements = async (): Promise<void> => {
+    const owned = [...retirements];
+    retirements.clear();
+    for (const result of await Promise.allSettled(owned))
+      if (result.status === "rejected") record(result.reason);
+  };
   const check = (name: string, task: () => void): void => {
     try {
       task();
@@ -73,7 +83,7 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
   try {
     SourceNativeRetirement.run(scope, () =>
       OwnedSynchronousProcess.run(
-        { cancel: new SharedArrayBuffer(4), retirements },
+        { cancel: new SharedArrayBuffer(4), retirements, failures },
         () => {
           const lease = acquirePluginBuildLock(lock);
           assert.ok(lease);
@@ -99,29 +109,28 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
                   process.execPath,
                   [
                     "-e",
-                    `const fs=require('node:fs'); const [input,ready,lost]=process.argv.slice(1); fs.readFileSync(input); fs.writeFileSync(ready,String(process.pid)); setInterval(()=>{try{fs.readFileSync(input);}catch(error){fs.writeFileSync(lost,error.code);}},5);`,
+                    `const fs=require('node:fs'); const [input,ready,lost]=process.argv.slice(1); fs.readFileSync(input); fs.writeFileSync(ready,String(process.pid)); process.send({event:'ready',file:ready,pid:process.pid}); process.on('message',message=>{if(message!=='read')throw new Error('unexpected reader request'); process.send({event:'read',pid:process.pid,bytes:fs.readFileSync(input,'utf8')});}); setInterval(()=>{try{fs.readFileSync(input);}catch(error){fs.writeFileSync(lost,error.code);}},5);`,
                     input,
                     ready,
                     lost,
                   ],
-                  { stdio: "ignore", windowsHide: true },
+                  { stdio: ["ignore", "ignore", "ignore", "ipc"], windowsHide: true },
                 );
-                closed = new Promise((resolve) =>
-                  child!.once("close", resolve),
-                );
-                const deadline = performance.now() + 5_000;
-                while (!fs.existsSync(ready)) {
-                  assert.ok(
-                    performance.now() < deadline,
-                    "Actual reader must publish readiness",
-                  );
-                  Atomics.wait(
-                    new Int32Array(new SharedArrayBuffer(4)),
-                    0,
-                    0,
-                    10,
-                  );
-                }
+                child.on("error", record);
+                readerReady = new Promise<void>((resolve, reject) => {
+                  child!.once("message", (value) => {
+                    try {
+                      assert.deepEqual(value, { event: "ready", file: ready, pid: child!.pid });
+                      resolve();
+                    } catch (error) { reject(error); }
+                  });
+                  child!.once("error", reject);
+                  child!.once("close", () => reject(new Error("reader closed before readiness")));
+                });
+                void readerReady.catch(() => undefined);
+                closed = new Promise((resolve) => {
+                  child!.once("close", (code) => { joined = true; resolve(code); });
+                });
                 SourceNativeRetirement.settle(
                   "actual-reader-boundary",
                   "unknown",
@@ -141,8 +150,11 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
         },
       ),
     );
-    await Promise.allSettled(retirements);
+    await joinRetirements();
+    assert.ok(readerReady);
+    await readerReady;
     assert.ok(child?.pid);
+    assert.equal(fs.readFileSync(ready, "utf8"), String(child.pid));
     process.kill(child.pid, 0);
     const protocol = PluginBuildLockProtocol.pluginBuildLockProtocolDir(lock);
     const current = path.join(protocol, "current");
@@ -280,7 +292,8 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
         "independent-key-task",
       );
       const otherLock = `${path.join(plugins, "independent")}.lock`;
-      SourceNativeRetirement.run(otherScope, () => {
+      SourceNativeRetirement.run(otherScope, () => OwnedSynchronousProcess.run(
+        { cancel: new SharedArrayBuffer(4), retirements, failures }, () => {
         const other = acquirePluginBuildLock(otherLock);
         assert.ok(other);
         try {
@@ -292,7 +305,7 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
         } finally {
           releasePluginBuildLock(otherLock, other);
         }
-      });
+      }));
       assert.equal(SourceNativeRetirement.isProtected(go), true);
       assert.equal(
         GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(
@@ -342,7 +355,15 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
         /unresolved/,
       ),
     );
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    const reader = child;
+    const read = new Promise<unknown>((resolve, reject) => {
+      reader.once("message", resolve);
+      reader.once("error", reject);
+      reader.once("close", () => reject(new Error("reader closed before its post-maintenance read")));
+    });
+    void read.catch(() => undefined);
+    child.send("read");
+    assert.deepEqual(await read, { event: "read", pid: child.pid, bytes: "reader input" });
     check("reader still owns input", () => {
       process.kill(child!.pid!, 0);
       assert.equal(fs.readFileSync(input, "utf8"), "reader input");
@@ -365,7 +386,6 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
     );
     assert.equal(child.kill(), true);
     await closed;
-    joined = true;
     SourceNativeRetirement.recover(scope, "actual-reader-boundary", "joined");
     assert.equal(fs.existsSync(scratch), false);
     assert.equal(fs.existsSync(current), false);
@@ -391,13 +411,16 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
         subsequentKeyAdmissionCompleted: true,
       }),
     );
+  } catch (error) {
+    record(error);
   } finally {
     if (child !== undefined && !joined) {
-      child.kill();
-      await closed;
-      joined = true;
+      try { child.kill(); } catch (error) { record(error); }
+      if (closed === undefined)
+        record(new Error("reader admission has no original CLOSE observation"));
+      else await closed;
     }
-    await Promise.allSettled(retirements);
+    await joinRetirements();
     if (
       !joined ||
       SourceNativeRetirement.isProtected(
