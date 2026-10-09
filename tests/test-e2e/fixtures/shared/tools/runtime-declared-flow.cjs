@@ -4,6 +4,17 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const actorController = require("./runtime-owned-descendant.cjs");
+const actorFacts = { finished: false, success: false, actors: {}, inputsRestored: false, registerRestorationRequired: false, registerRestored: false, mainReportingAttempted: false, semanticErrors: [] };
+const receiptFailures = [];
+const saveActor = () => {
+  try { actorController.publishOutcome("declared", actorFacts); }
+  catch (cause) { receiptFailures.push(cause); }
+};
+let actorFailure;
+let verifyActorInputs;
+saveActor();
+try {
 const root = path.dirname(__dirname);
 const launcher = path.dirname(process.env.TTSC_E2E_INSTALLED_TTSX);
 const { TtscCompiler } = require(path.join(launcher, "../TtscCompiler.js"));
@@ -152,6 +163,7 @@ const unchanged = () => {
   for (const relative of ["src/runtime-corpus/native-factory.js", "src/runtime-corpus/declared-owned.cjs", "src/runtime-corpus/declaration-entry.cjs", "tools/runtime-declared-script.js", "tools/runtime-placement.js"])
     assert.equal(fs.existsSync(path.join(root, relative)), false, "runtime delivery must not emit beside its authored input");
 };
+verifyActorInputs = unchanged;
 assert.deepEqual(require(path.join(root, "src/runtime-corpus/native-factory.ts")).observed,
   { generated: 42, neighbor: 43, payload: 42 });
 assert.equal(require(path.join(root, "src/runtime-corpus/declared-owned.cts")).value, "entry");
@@ -267,10 +279,15 @@ const registerBefore = receiptCount();
 const rejectedEnv = { ...process.env };
 for (const name of ["TTSX_RUNTIME_MANIFEST", "TTSX_RUNTIME_CACHE_DIR", "TTSX_RUNTIME_RUN_DIR", "TTSX_RUNTIME_RUNS_DIR"])
   delete rejectedEnv[name];
+actorFacts.actors.rejection = { attempted: true, closed: false };
+saveActor();
 const rejected = spawnSync(process.execPath, [
   "--require", path.join(__dirname, "runtime-negative/preload.cjs"), process.env.TTSC_E2E_INSTALLED_TTSX,
   "--cwd", root, "--strict", "-P", "runtime-owned.json", "--no-plugins", "@tools/runtime-negative/args.txt", "tools/runtime-negative/script.js",
 ], { cwd: root, env: rejectedEnv, encoding: "utf8", windowsHide: true });
+Object.assign(actorFacts.actors.rejection, { pid: rejected.pid, status: rejected.status, signal: rejected.signal, error: rejected.error ? String(rejected.error) : null,
+  closed: !rejected.error && rejected.pid > 0 && (rejected.status !== null || rejected.signal !== null) });
+saveActor();
 if (rejected.error || rejected.signal !== null || rejected.status === null || !(rejected.pid > 0))
   throw new Error("rejection actor closure remained unresolved", { cause: rejected.error ?? new Error(JSON.stringify({ signal: rejected.signal, status: rejected.status, pid: rejected.pid })) });
 assert.equal(rejected.error, undefined);
@@ -384,6 +401,8 @@ const descendantController = require("./runtime-owned-descendant.cjs");
 const descendant = path.join(__dirname, "runtime-descendant");
 let registerFailure;
 try {
+actorFacts.registerRestorationRequired = true;
+saveActor();
 fs.writeFileSync(registerBaseFile, JSON.stringify(registerOptions));
 fs.writeFileSync(automaticManifestFile, JSON.stringify(registerAutomatic));
 fs.copyFileSync(registerBaseFile, configuration);
@@ -396,9 +415,14 @@ try {
   delete env.TTSC_CACHE_DIR;
   env.TTSC_E2E_CONFIGLESS_PLACEMENT = configlessPlacement;
   env.TEMP = env.TMP = env.TMPDIR = temporary;
+  actorFacts.actors.registered = { attempted: true, closed: false };
+  saveActor();
   registered = spawnSync(process.execPath,
     ["--require", path.join(launcher, "../register.js"), path.join(root, "tools/configured-owners/legacy/src/register-entry.tsx")],
     { cwd: root, env, encoding: "utf8", windowsHide: true });
+  Object.assign(actorFacts.actors.registered, { pid: registered.pid, status: registered.status, signal: registered.signal, error: registered.error ? String(registered.error) : null,
+    closed: !registered.error && registered.pid > 0 && (registered.status !== null || registered.signal !== null) });
+  saveActor();
 } finally {
   fs.unlinkSync(configuration);
 }
@@ -480,10 +504,14 @@ finally {
   }
   if (restorationFailures.length)
     throw new AggregateError([...(registerFailure === undefined ? [] : [registerFailure]), ...restorationFailures], "registered preparation and independent restoration failures");
+  actorFacts.registerRestored = true;
+  saveActor();
 }
 if (registerFailure !== undefined) throw registerFailure;
 assert.deepEqual(fs.readFileSync(automaticManifestFile), automaticManifestBytes, "register reporting must restore the root discovery contributor after its descendant closes");
 unchanged();
+actorFacts.inputsRestored = true;
+saveActor();
 const registerCompletedAt = new Date().toISOString();
 fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ apiEnvironmentBefore: apiEnvironmentReceipts.before, apiEnvironmentAfter: apiEnvironmentReceipts.after, apiFailures: apiFailures.map((error) => ({ name: error.message, detail: String(error.cause), stack: error.cause?.stack })), produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, driverEmitBefore, driverEmitAfter, driverEmitStatus, driverEmitStderr, rejectedOutputAbsent: !fs.existsSync(rejectedOutput), emitManifestAbsent: !fs.existsSync(emitManifest), registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: childJoined, descendantAdmission, descendantRelease, descendantJoin, registerBefore, registerAfter: receiptCount(), registerCompletedAt, mainEpochOwner: process.pid }));
 
@@ -494,5 +522,20 @@ const mainOptions = JSON.parse(registerBaseBytes);
 mainOptions.compilerOptions.plugins = mainOptions.compilerOptions.plugins.map(registerReports);
 const mainAutomatic = JSON.parse(automaticManifestBytes);
 mainAutomatic.ttsc.plugin = registerReports(mainAutomatic.ttsc.plugin);
+actorFacts.mainReportingAttempted = true;
+saveActor();
 fs.writeFileSync(registerBaseFile, JSON.stringify(mainOptions));
 fs.writeFileSync(automaticManifestFile, JSON.stringify(mainAutomatic));
+} catch (cause) { actorFailure = cause; }
+finally {
+  if (!actorFacts.mainReportingAttempted && verifyActorInputs) {
+    try { verifyActorInputs(); actorFacts.inputsRestored = true; }
+    catch (cause) { receiptFailures.push(cause); }
+  }
+  actorFacts.finished = true;
+  actorFacts.success = actorFailure === undefined && receiptFailures.length === 0;
+  actorFacts.semanticErrors = [actorFailure, ...receiptFailures].filter((cause) => cause !== undefined).map(String);
+  saveActor();
+}
+if (actorFailure !== undefined || receiptFailures.length)
+  throw new AggregateError([...(actorFailure === undefined ? [] : [actorFailure]), ...receiptFailures], "declared runtime observations and receipt publication");

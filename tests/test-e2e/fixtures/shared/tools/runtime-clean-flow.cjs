@@ -5,6 +5,16 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const actorController = require("./runtime-owned-descendant.cjs");
+const actorFacts = { finished: false, success: false, actors: {}, emittedRestored: true, inputsRestored: false, environmentRestored: false, semanticErrors: [] };
+const receiptFailures = [];
+const saveActor = () => {
+  try { actorController.publishOutcome("clean", actorFacts); }
+  catch (cause) { receiptFailures.push(cause); }
+};
+let actorFailure;
+saveActor();
+try {
 
 // These are the installed CLI's production dispatch and lock operations. The
 // existing runtime owns their real filesystem/status/stdio effects; no clean
@@ -44,7 +54,11 @@ try {
   const ownedBytes = fs.readFileSync(owned.emittedFile);
   let seed;
   try {
+    actorFacts.emittedRestored = false;
+    saveActor();
     fs.unlinkSync(owned.emittedFile);
+    actorFacts.actors.seed = { attempted: true, closed: false };
+    saveActor();
     seed = spawnSync(process.execPath, [path.join(__dirname, "runtime-lock-seed.cjs")], {
       cwd: root, encoding: "utf8", windowsHide: true,
       env: { ...process.env, TTSC_E2E_LOCK_DIRECTORY: lockDirectory,
@@ -54,8 +68,14 @@ try {
         TTSC_E2E_MISSING_OWNED_SOURCE: missingSource,
         TTSC_E2E_LOCK_IMPLEMENTATION: path.join(launcher, "internal/runtime/acquireDependencyBuildLock.js") },
     });
+    Object.assign(actorFacts.actors.seed, { pid: seed.pid, status: seed.status, signal: seed.signal, error: seed.error ? String(seed.error) : null,
+      closed: !seed.error && seed.pid > 0 && (seed.status !== null || seed.signal !== null) });
+    saveActor();
   } finally {
     fs.writeFileSync(owned.emittedFile, ownedBytes);
+    assert.deepEqual(fs.readFileSync(owned.emittedFile), ownedBytes);
+    actorFacts.emittedRestored = true;
+    saveActor();
   }
   assert.equal(seed.error, undefined);
   assert.equal(seed.signal, null);
@@ -104,4 +124,17 @@ try {
     if (previous[name] === undefined) delete process.env[name];
     else process.env[name] = previous[name];
   }
+  actorFacts.environmentRestored = true;
+  assert.deepEqual(fs.readFileSync(registerSource), registerSourceBytes);
+  actorFacts.inputsRestored = true;
+  saveActor();
 }
+} catch (cause) { actorFailure = cause; }
+finally {
+  actorFacts.finished = true;
+  actorFacts.success = actorFailure === undefined && receiptFailures.length === 0;
+  actorFacts.semanticErrors = [actorFailure, ...receiptFailures].filter((cause) => cause !== undefined).map(String);
+  saveActor();
+}
+if (actorFailure !== undefined || receiptFailures.length)
+  throw new AggregateError([...(actorFailure === undefined ? [] : [actorFailure]), ...receiptFailures], "runtime clean observations and receipt publication");

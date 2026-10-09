@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { E2ETrace } from "../../../internal/E2ETrace";
 import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBuildCacheLayout";
 import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
 
@@ -23,7 +24,7 @@ import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
  * @param cacheRoot The resolved cache root.
  * @returns The directories to remove, and the run directories kept.
  * @evidence contracts/common.md#principled-implementation Under the root lock, only provably abandoned owner sets become removal targets; live, unknown and unowned runs are preserved, and the physical run index pins external targets before unlinking an empty runtime tree.
- * @evidence contracts/common.md#clear-and-simple-design The function plans targets and kept runs without performing deletion, separating ownership classification from the clean command's removal effects.
+ * @evidence contracts/common.md#clear-and-simple-design The function plans targets and kept runs without performing deletion, separating ownership classification from the clean command's removal effects. Optional observations report the same scan/probe and selected branch to the existing private writer; selection is not a removal receipt.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No unreadable-owner or legacy unowned run is treated as abandoned merely to make clean remove more directories; physical target selection corrects alias identity rather than compensating with lexical retries.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain kept ownership, the required lock and whole-tree removal, with parameters and return fields documented following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native realpath pins a linked run index; path joins retain host spelling and ProcessOwnedDirectory uses conservative local process evidence instead of OS-name case or signal assumptions.
@@ -66,9 +67,21 @@ export function resolveRuntimeCleanTargets(cacheRoot: string): {
   const removable: string[] = [];
   for (const entry of entries) {
     const directory = path.join(physicalRuns, entry);
-    const ownership = ProcessOwnedDirectory.ownership(directory);
+    const observe = E2ETrace.runtimeCleanup(directory, runtime, "runtime-clean-selection");
+    observe?.("selection-started");
+    let ownership: ReturnType<typeof ProcessOwnedDirectory.ownership>;
+    try {
+      ownership = ProcessOwnedDirectory.ownership(directory, false,
+        observe === undefined ? undefined : (observation) =>
+          observe("owner-observation", undefined, undefined, observation));
+    } catch (cause) {
+      observe?.("selection-failed", undefined, cause);
+      throw cause;
+    }
+    observe?.("ownership", ownership);
     if (ownership !== "abandoned") kept.push(directory);
     else removable.push(directory);
+    observe?.(ownership === "abandoned" ? "removal-selected" : "retention-selected", ownership);
   }
   return {
     kept,

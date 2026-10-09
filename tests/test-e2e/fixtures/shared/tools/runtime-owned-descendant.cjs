@@ -93,6 +93,16 @@ function connect(role, details, ready, release) {
   });
 }
 
+function publishOutcome(name, facts) {
+  if (name !== "owned" && name !== "declared" && name !== "clean") throw new Error("unknown runtime actor receipt");
+  const directory = process.env.TTSC_E2E_DESCENDANT_ROOT;
+  const nonce = process.env.TTSC_E2E_DESCENDANT_NONCE;
+  if (!directory || !nonce) throw new Error("missing runtime actor receipt owner");
+  const file = path.join(directory, name + "-outcome.json");
+  fs.writeFileSync(file + ".tmp", JSON.stringify({ ...facts, nonce, owner: process.pid }));
+  fs.renameSync(file + ".tmp", file);
+}
+
 module.exports = async function observeOwnedDescendant() {
   const assert = require("node:assert/strict");
   const os = require("node:os");
@@ -112,15 +122,29 @@ module.exports = async function observeOwnedDescendant() {
   let siblingAbandoned = false;
   let descendantRetired = false;
   let cleanResult;
+  const facts = { finished: false, actors: {}, semanticErrors: [] };
+  const save = () => {
+    try { publishOutcome("owned", facts); }
+    catch (cause) { failures.push(new Error("owned runtime actor receipt failed", { cause })); }
+  };
+  save();
   const nonce = crypto.randomBytes(16).toString("hex");
-  const launch = (args, options) => {
+  const launch = (name, args, options) => {
+    facts.actors[name] = { attempted: true, closed: false, at: new Date().toISOString() };
+    save();
     const child = spawn(process.execPath, args, options);
+    facts.actors[name].pid = child.pid;
+    save();
     const output = { stdout: "", stderr: "" };
     child.stdout?.on("data", (chunk) => { output.stdout += chunk; });
     child.stderr?.on("data", (chunk) => { output.stderr += chunk; });
     const closed = new Promise((resolve) => {
       child.once("error", (error) => { output.error = error; });
-      child.once("close", (status, signal) => resolve({ ...output, status, signal, pid: child.pid }));
+      child.once("close", (status, signal) => {
+        Object.assign(facts.actors[name], { closed: true, status, signal, error: output.error ? String(output.error) : null, closedAt: new Date().toISOString() });
+        save();
+        resolve({ ...output, status, signal, pid: child.pid });
+      });
     });
     return { child, closed };
   };
@@ -128,26 +152,35 @@ module.exports = async function observeOwnedDescendant() {
     if (siblingRetired || !sibling) return;
     // The actual direct launcher must retire before its program is killed,
     // otherwise normal launcher cleanup can remove the abandoned generation.
-    if (sibling.child.exitCode === null && sibling.child.signalCode === null)
-      sibling.child.kill("SIGKILL");
+    if (sibling.child.exitCode === null && sibling.child.signalCode === null) {
+      facts.actors.sibling.killRequestedAt = new Date().toISOString();
+      save();
+      facts.actors.sibling.killAccepted = sibling.child.kill("SIGKILL");
+      save();
+    }
     if (!abandoned) throw new Error("owned runtime sibling closure remained unresolved: no authenticated admission");
     // Kernel retirement precedes the sibling kill; output/close drains after
     // descendant departure so inherited handles cannot make a circular gate.
-    await requestAsync("sibling", "parent-joined");
+    facts.siblingParentJoin = await requestAsync("sibling", "parent-joined");
+    save();
     if (!siblingAbandoned) {
-      await requestAsync("sibling", "abandon");
+      facts.siblingAbandon = await requestAsync("sibling", "abandon");
+      save();
       siblingAbandoned = true;
     }
-    await requestAsync("sibling", "joined");
+    facts.siblingJoin = await requestAsync("sibling", "joined");
+    save();
     await sibling.closed;
     siblingRetired = true;
   };
   try {
-    const parent = await launch([launcher, "--cwd", root, "--no-plugins", "src/main.ts"], { cwd: root, env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true }).closed;
+    const parent = await launch("parent", [launcher, "--cwd", root, "--no-plugins", "src/main.ts"], { cwd: root, env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true }).closed;
     if (parent.error || parent.signal !== null || parent.status === null) throw new Error("owned runtime parent closure remained unresolved", { cause: parent.error ?? new Error(JSON.stringify(parent)) });
     parentClosed = true;
     assert.equal(parent.status, 0, parent.stderr);
     const admission = await requestAsync("descendant", "ready");
+    facts.descendantAdmission = admission;
+    save();
     ready = admission.announcement;
     await requestAsync("descendant", "parent-joined");
     const report = JSON.parse(parent.stdout.trim());
@@ -164,7 +197,7 @@ module.exports = async function observeOwnedDescendant() {
     const siblingStderr = path.join(root, "sibling-" + nonce + ".stderr");
     const descriptor = fs.openSync(siblingStderr, "wx");
     try {
-      sibling = launch([launcher, "--cwd", root, "--no-plugins", "src/abandoned.ts"], {
+      sibling = launch("sibling", [launcher, "--cwd", root, "--no-plugins", "src/abandoned.ts"], {
         cwd: root, env: { ...env, TTSC_E2E_ABANDONED_NONCE: nonce },
         stdio: ["ignore", "ignore", descriptor], windowsHide: true,
       });
@@ -177,6 +210,8 @@ module.exports = async function observeOwnedDescendant() {
       await delay(10);
     }
     const siblingAdmission = await requestAsync("sibling", "ready");
+    facts.siblingAdmission = siblingAdmission;
+    save();
     abandoned = siblingAdmission.announcement;
     assert.equal(abandoned.parentPid, sibling.child.pid);
     assert.equal(abandoned.abandonedNonce, nonce);
@@ -186,9 +221,11 @@ module.exports = async function observeOwnedDescendant() {
     await retireSibling();
     assert.equal(fs.existsSync(abandoned.run), true, "killed sibling must leave its actual generation for clean");
     await requestAsync("descendant", "live");
-    const cleaned = await launch([path.join(path.dirname(launcher), "ttsc.js"), "clean", "--cwd", root], {
+    const cleaned = await launch("clean", [path.join(path.dirname(launcher), "ttsc.js"), "clean", "--cwd", root], {
       cwd: root, env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true,
     }).closed;
+    facts.cliClean = { status: cleaned.status, signal: cleaned.signal, stdout: cleaned.stdout, stderr: cleaned.stderr };
+    save();
     if (cleaned.error || cleaned.signal !== null || cleaned.status === null) throw new Error("owned runtime sibling closure remained unresolved: clean launcher", { cause: cleaned.error ?? new Error(JSON.stringify(cleaned)) });
     assert.equal(cleaned.status, 0, cleaned.stderr);
     cleanResult = cleaned;
@@ -204,20 +241,28 @@ module.exports = async function observeOwnedDescendant() {
       if (!ready) ready = (await requestAsync("descendant", "ready")).announcement;
       await requestAsync("descendant", "release");
       const joined = await requestAsync("descendant", "joined");
+      facts.descendantJoin = joined;
+      save();
       descendantRetired = joined.retired;
       assert.equal(joined.completion.value, "owned-descendant-ready");
       assert.equal(fs.readFileSync(path.join(root, "result"), "utf8"), "owned-descendant-ready");
       if (parentClosed && descendantRetired && (!sibling || siblingRetired)) {
         const physicalRuntime = fs.realpathSync.native(path.join(root, "node_modules/.cache/ttsc/ttsx"));
         const removed = new TtscCompiler({ cwd: root, env: { ...env, TTSC_CACHE_DIR: undefined, TTSC_GO_CACHE_DIR: undefined } }).clean();
+        facts.apiClean = { removed, physicalRuntime };
+        save();
         assert.ok(removed.some((name) => name === physicalRuntime), JSON.stringify(removed));
         assert.equal(fs.existsSync(path.join(root, "node_modules/.cache/ttsc/ttsx")), false, "default clean must remove the completed inherited generation");
         console.info("TTSC_RUNTIME_CLEAN_OBSERVATION:" + JSON.stringify({ liveProgram: ready.pid, abandonedLauncher: sibling?.child.pid, abandonedProgram: abandoned?.pid, abandonedRun: abandoned?.run, keptRun: ready.run, cliStatus: cleanResult?.status, cliStdout: cleanResult?.stdout, cliStderr: cleanResult?.stderr, removed, physicalRuntime }));
       }
     } catch (error) { failures.push(new Error("owned runtime descendant closure remained unresolved", { cause: error })); }
   }
+  facts.finished = true;
+  facts.semanticErrors = failures.map(String);
+  save();
   if (failures.length) throw new AggregateError(failures, "owned runtime descendant protection and completed cleanup");
 };
 module.exports.request = request;
 module.exports.requestAsync = requestAsync;
 module.exports.connect = connect;
+module.exports.publishOutcome = publishOutcome;

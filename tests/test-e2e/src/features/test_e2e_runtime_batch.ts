@@ -194,6 +194,13 @@ import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/
  * its output/close drains after descendant retirement. EOF is not departure
  * proof. API cleanup explicitly
  * removes ambient cache selectors while retaining the caller's Go cache.
+ * Actual nested launcher closes and source/environment restoration publish
+ * nonce-bound receipts outside every project walk. Parent cleanup settles the
+ * admitted role phase without weakening strict release requests, then checks
+ * original retirement independently of protocol or clean assertions. A failed
+ * clean assertion remains a failure after proven joins; missing borrower or
+ * restoration facts retain the shared inputs. CLI/API selection tracing uses
+ * the existing ownership scan and never changes its conservative policy.
  *
  * @evidence contracts/testing.md#execution-ownership Both new families borrow the existing main ttsx host, installed consumer, upfront Program and retained register actor. Source-only package compilation, two configless isolated emits, package-own and consumer/workspace Programs are real internal work in each process that reaches them; this test does not claim one Program or measure their counts. No new installation, native plugin producer or host is added. The main graph invokes TestProject.spawnAsync once while its outer event loop owns authenticated descendant control. The existing native-process controls borrow that same observer only after controller requests and roles join; the outer Runtime closes the session once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering, the four retained actor lifetimes (including the detached registered descendant), one abandoned sibling launcher/program pair, its clean launcher and two readonly entry children are explicit costs, not one-process or one-Program claims. The upfront frontdoor corpus separately restores eight actual startup/terminal launcher requests and their four CLI entry children. runtimeMapsCorpus additionally uses two root-option launcher lifetimes to combine native V8 coverage and stack consumers; real native preparations remain additional work. Independent failures collect together.
  * @evidence contracts/e2e.md#necessary-boundary Static name units cannot establish native ESM linking and shared CommonJS evaluation through served compiler output. Ownership units cannot establish which installed transform actually runs through ttsx and register. Public ttsx connects native transforms, source publication and actual Node loading. Go rule units cannot establish the loaded graph's observed values or source preservation.
@@ -322,6 +329,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   let mainJoined = false;
   let mainJoinedAt: string | undefined;
   let allRoleAdmissionsKnown = workspace.installationOnly;
+  let nestedBorrowersKnown = workspace.installationOnly;
   let mainRuntimeAfter: number | undefined;
   let mainContextReceipts: Record<string, unknown>[] | undefined;
   let observer: Awaited<ReturnType<ReturnType<typeof NativeProcessObserver.prepare>["open"]>> | undefined;
@@ -476,7 +484,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         },
       },
     );
-    mainJoined = true;
+    mainJoined = result.error === undefined && (result.pid ?? 0) > 0 &&
+      (result.status !== null || result.signal !== null);
     mainJoinedAt = new Date().toISOString();
     mainContextReceipts = BatchWorkspace.readContextReceipts(workspace);
     mainRuntimeAfter = mainContextReceipts.length;
@@ -484,29 +493,66 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     combinedFailures.push(cause);
   } finally {
     if (controller) {
-      allRoleAdmissionsKnown = true;
-      for (const role of ["registered", "descendant", "sibling"]) {
-        try { await controller.request(role, "ready"); }
-        catch (cause) {
-          allRoleAdmissionsKnown = false;
-          combinedFailures.push(new Error("Runtime role admission unavailable: " + role, { cause }));
-        }
-        if (result?.status !== 0) {
-          // Scenario cleanup normally releases every role. A failed main may
-          // leave a held role: ask that authenticated original to abort, then
-          // request its original-target join. A non-held role needs no new kill.
-          try {
-            await controller.request(role, "live");
-            await controller.request(role, "abort");
-          } catch (cause) {
-            combinedFailures.push(new Error("Runtime failed-main cancellation observation: " + role, { cause }));
-          }
-          try { await controller.request(role, "joined"); }
-          catch (cause) { combinedFailures.push(new Error("Runtime failed-main role join: " + role, { cause })); }
-        }
+      // Admission survives later protocol failure. Cleanup chooses the actual
+      // admitted phase atomically; strict scenario requests remain unchanged.
+      for (const receipt of controller.snapshot()) {
+        try { await controller.settle(receipt.role); }
+        catch (cause) { combinedFailures.push(new Error("Runtime role cleanup settlement: " + receipt.role, { cause })); }
       }
       try { await controller.close(); }
       catch (cause) { combinedFailures.push(cause); }
+      try {
+        const outcomes = new Map<string, Record<string, any>>();
+        let owner: number | undefined;
+        // Preloads execute in order. A final failed earlier preload explicitly
+        // excludes later actors; a missing receipt after success proves nothing.
+        for (const name of ["declared", "clean", "owned"]) {
+          const outcome = JSON.parse(fs.readFileSync(path.join(controllerRoot!, name + "-outcome.json"), "utf8"));
+          assert.equal(outcome.nonce, controller.nonce, "nested actor receipt must belong to this original controller");
+          assert.equal(Number.isSafeInteger(outcome.owner) && outcome.owner > 0, true);
+          if (owner === undefined) owner = outcome.owner;
+          else assert.equal(outcome.owner, owner, "all preload/entry receipts must identify their actual common main actor");
+          assert.equal(outcome.finished, true, "nested actor must finish publishing its borrower population");
+          assert.equal(outcome.actors !== null && typeof outcome.actors === "object" && !Array.isArray(outcome.actors), true);
+          for (const actor of Object.values(outcome.actors) as Record<string, any>[]) {
+            assert.equal(actor.attempted, true);
+            assert.equal(actor.closed, true, "each attempted nested launcher must have its actual original close");
+            assert.equal(Number.isSafeInteger(actor.pid) && actor.pid > 0, true);
+            assert.equal(typeof actor.status === "number" || typeof actor.signal === "string", true, "a close without an original terminal outcome cannot certify the borrower");
+          }
+          if (name === "declared") {
+            assert.equal(outcome.inputsRestored, true);
+            if (outcome.registerRestorationRequired) assert.equal(outcome.registerRestored, true);
+          } else if (name === "clean") {
+            assert.equal(outcome.emittedRestored, true);
+            assert.equal(outcome.inputsRestored, true);
+            assert.equal(outcome.environmentRestored, true);
+          }
+          outcomes.set(name, outcome);
+          if (name !== "owned") {
+            assert.equal(typeof outcome.success, "boolean");
+            if (!outcome.success) break;
+          }
+        }
+        const required = new Map([
+          ["registered", outcomes.get("declared")?.actors.registered !== undefined],
+          ["descendant", outcomes.get("owned")?.actors.parent !== undefined],
+          ["sibling", outcomes.get("owned")?.actors.sibling !== undefined],
+        ]);
+        const roles = controller.snapshot();
+        for (const [role, attempted] of required) {
+          const receipt = roles.find((candidate) => candidate.role === role);
+          if (!attempted) assert.equal(receipt, undefined, "an unattempted nested actor cannot own an admitted role");
+          else {
+            assert.ok(receipt?.parent && receipt.target, "attempted descendant must retain its authenticated original admission");
+            assert.equal(receipt.parentRetired && receipt.childRetired, true, "both admitted original kernel targets must retire");
+          }
+        }
+        allRoleAdmissionsKnown = true;
+        nestedBorrowersKnown = true;
+      } catch (cause) {
+        combinedFailures.push(new Error("Runtime nested borrower or restoration acknowledgement unavailable", { cause }));
+      }
     }
     const permissionFailures: unknown[] = [];
     for (const restore of readonlyRestorations.reverse())
@@ -527,46 +573,13 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       BatchWorkspace.retain(
         "readonly input permissions could not be restored and acknowledged by actual writes",
       );
-    const lifetimeKnown = mainJoined && allRoleAdmissionsKnown &&
+    const lifetimeKnown = mainJoined && nestedBorrowersKnown && allRoleAdmissionsKnown &&
       (workspace.installationOnly || controller?.joined() === true);
     if (!lifetimeKnown && !workspace.installationOnly) {
       BatchWorkspace.retain("original Runtime parent or descendant lifetime remains unresolved");
       if (controllerRoot) TestProject.retainTemporaryDirectory(controllerRoot, "Runtime original targets unresolved");
     }
-    if (
-      result?.stderr.includes(
-        "owned runtime descendant closure remained unresolved",
-      ) ||
-      result?.stderr.includes(
-        "owned runtime parent closure remained unresolved",
-      )
-    )
-      BatchWorkspace.retain(
-        "the inherited runtime actor has no actual closure acknowledgement; refuse shared consumers",
-      );
-    else if (
-      result?.stderr.includes("rejection actor closure remained unresolved")
-    )
-      BatchWorkspace.retain(
-        "the rejection actor has no actual closure acknowledgement; keep its held configuration and refuse later shared consumers",
-      );
-    else if (
-      result?.stderr.includes(
-        "owned runtime sibling closure remained unresolved",
-      )
-    )
-      BatchWorkspace.retain(
-        "the sibling or clean launcher has no actual closure acknowledgement; keep shared runtime inputs and refuse later consumers",
-      );
-    else if (
-      result?.stderr.includes(
-        "registered descendant closure remained unresolved",
-      )
-    )
-      BatchWorkspace.retain(
-        "the registered descendant has no original-kernel departure acknowledgement; keep its held configuration and refuse later shared consumers",
-      );
-    else if (!workspace.installationOnly && lifetimeKnown) {
+    if (!workspace.installationOnly && lifetimeKnown) {
       try { fs.writeFileSync(path.join(workspace.root, "tsconfig.json"), config); }
       catch (cause) { permissionFailures.push(cause); }
       try { fs.writeFileSync(automaticManifest, automaticBytes!); }

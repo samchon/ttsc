@@ -51,6 +51,7 @@ export namespace E2ETrace {
   export function runtimeCleanup(
     directory: string,
     runtimeCacheDir: string,
+    origin: "ttsx-runtime-cleanup" | "runtime-clean-selection" = "ttsx-runtime-cleanup",
   ):
     | ((
         phase: string,
@@ -73,7 +74,7 @@ export namespace E2ETrace {
         argv: [...process.argv],
         cwd: process.cwd(),
         lower: new Date().toISOString(),
-        origin: "ttsx-runtime-cleanup",
+        origin,
         argv0: null,
       };
       const record = (
