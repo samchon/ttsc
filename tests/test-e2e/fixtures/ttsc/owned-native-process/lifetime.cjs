@@ -26,10 +26,8 @@ function publish(role, event, body) {
 
 function awaitAck(role, event, pid = process.pid) {
   const target = location(role, event);
-  const until = Date.now() + 5000;
   const cell = new Int32Array(new SharedArrayBuffer(4));
   while (!fs.existsSync(target)) {
-    assert.ok(Date.now() < until, "original lifetime acknowledgement deadline");
     Atomics.wait(cell, 0, 0, 10);
   }
   const ack = JSON.parse(fs.readFileSync(target, "utf8"));

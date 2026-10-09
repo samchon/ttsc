@@ -29,8 +29,8 @@ import { FixtureFiles } from "../../../internal/FixtureFiles";
  * @evidence contracts/testing.md#execution-ownership The runtime experiment admits this scenario, loads its installed SDK and executes its platform helper plus a separately prepared test-only native observer. The standalone observer fixture remains under the owning package's test tree. Explicit SDK/platform/observer paths allow separately reported workspace/private probes, which do not certify installed packaging. No TypeScript compiler or installation is added.
  * @evidence contracts/e2e.md#necessary-boundary Native containment and the SDK's control pipe/result receipt must retire a real Node descendant tree; pure parsing or synthetic promise settlement cannot establish that connection.
  * @evidence contracts/e2e.md#shared-execution One existing runtime consumer supplies the SDK installation and already built product helper. The Runtime caller lends its ready observer after all descendant controller requests settle; standalone callers prepare one isolated test observer/session. The lender owns its one final close. Separate command lifetimes distinguish nonzero, missing target, overflow and cancellation. Three resolver actors require conflicting helper/preload environments or queued-admission scheduling and separate workers, while sharing the SDK and observer without another installation or TypeScript Program. Actual configured-plugin runtime probing precedes descriptor preparation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One copied fixture owns unique role/session publications and markers. Live target gates precede effects; grandchild enrollment leaves its timer and interval unchanged. Nonce, role, PID and opaque target acknowledgements must match. Inner actors request original-lifetime retirement proof before success; outer cancellation/finally awaits every operation and closes the observer through actual process exit. Only actor options.env changes isolated authority, never the test environment. Unknown observer or product retirement retains exact allocations and blocks unsafe later target work; observed incompatible-helper exit cannot certify its unknown SDK tree. Fixed actor error receipts are atomic diagnostic snapshots checked against the current session and role, and the enrolled PID when enrollment was observed; missing, partial or foreign snapshots cannot certify closure or erase the original failure, and late publication remains unknown. Actual SDK serialization preserves causes and aggregates without a second serializer. Normal roots remain exit-tracked.
- * @evidence contracts/e2e.md#preserved-coverage The original thirteen transport, input, missing-target, overflow, tree, recovery, RPC and supervisor-refusal rows retain their failure identities and collect outcomes. An additional queued-command row blocks only the main dispatcher until the real worker command publication, then explicit close must cancel without retained ownership failures and its actor must retire on the original lifetime. Original lifetime checks replace ambiguous numeric PID absence, while actual admitted PID equality, no late effect and recovery remain explicit. RPC cancellation retains the original Error through worker close; unknown proof retains first/queued rejection, one actual helper admission and exact retained-result directory. The existing invalid row independently collects null, unproved object and malformed field cases with distinct helper lifetimes; an earlier failed assertion cannot skip the later cases. Its direct SDK diagnostic assertions do not claim to test the worker's serialization boundary. Missing target/supervisor rows assert no target admission without inventing a lifetime. Native platform units, cold publication and MCP EOF coverage remain separate.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One copied fixture owns unique role/session publications and markers. Live target gates precede effects; grandchild enrollment leaves its timer and interval unchanged. Nonce, role, PID and opaque target acknowledgements must match. Inner actors request original-lifetime retirement proof before success; the containing E2E native owner supplies operator cancellation, and finally awaits every operation and closes the observer through its explicit closed acknowledgement and actual original process close. Positive readiness and completion have no test-authored expiry; actual operation settlement, protocol failure and supported cancellation remain distinct. Only actor options.env changes isolated authority, never the test environment. Unknown observer or product retirement retains exact allocations and blocks unsafe later target work; observed incompatible-helper exit cannot certify its unknown SDK tree. Fixed actor error receipts are atomic diagnostic snapshots checked against the current session and role, and the enrolled PID when enrollment was observed; missing, partial or foreign snapshots cannot certify closure or erase the original failure, and late publication remains unknown. Actual SDK serialization preserves causes and aggregates without a second serializer. Normal roots remain exit-tracked.
+ * @evidence contracts/e2e.md#preserved-coverage The original thirteen transport, input, missing-target, overflow, tree, recovery, RPC and supervisor-refusal rows retain their failure identities and collect outcomes. An additional queued-command row blocks only the main dispatcher until the real worker command publication, then explicit close must cancel without retained ownership failures and its actor must retire on the original lifetime. While blocked, ordinary worker reply/error/exit callbacks cannot run and no independent pre-queue terminal file receipt exists; unavailable publication remains pending for the containing native owner's operator cancellation. Its original closure adjudication, rather than this publication loop, controls input release or retention. Original lifetime checks replace ambiguous numeric PID absence, while actual admitted PID equality, no late effect and recovery remain explicit. RPC cancellation retains the original Error through worker close; unknown proof retains first/queued rejection, one actual helper admission and exact retained-result directory. The existing invalid row independently collects null, unproved object and malformed field cases with distinct helper lifetimes; an earlier failed assertion cannot skip the later cases. Its direct SDK diagnostic assertions do not claim to test the worker's serialization boundary. Missing target/supervisor rows assert no target admission without inventing a lifetime. Native platform units, cold publication and MCP EOF coverage remain separate.
  */
 export async function test_owned_native_process_joins_cancelled_command_trees(
   consumerRoot: string,
@@ -194,7 +194,6 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
         settled = true;
         wakePublicationPoll?.();
       });
-    const until = Date.now() + 5000;
     const certified = new Set<string>();
     try {
       while (!settled) {
@@ -254,7 +253,6 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
             certified.add(role);
           }
         }
-        assert.ok(Date.now() < until, "original lifetime rendezvous deadline");
         if (!settled)
           await new Promise<void>((resolve) => {
             const finish = (): void => {
@@ -373,7 +371,6 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
           {
             cwd: root,
             encoding: "utf8",
-            timeout: 5000,
             ...settings,
             env: { ...env, TTSC_LIFETIME_ROLE: role, ...settings.env },
           },
@@ -478,7 +475,7 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
       const result = await owner.OwnedNativeProcess.run(
         path.join(root, "absent-command"),
         [],
-        { env, timeout: 5000 },
+        { env },
         undefined,
         (state, reason) => {
           observed.push(state);
@@ -537,14 +534,12 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
       let failed = false;
       let originalFailure: unknown;
       try {
-        const until = Date.now() + 5000;
         while (!targets.has("tree-grandchild")) {
           assert.equal(
             settled,
             false,
             "command ended before descendant readiness",
           );
-          assert.ok(Date.now() < until, "descendant readiness deadline");
           await new Promise((resolve) => setTimeout(resolve, 10));
         }
         const publication: unknown = JSON.parse(
@@ -629,7 +624,6 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
                   "--require " + JSON.stringify(path.join(root, "plugin.cjs")),
               },
               encoding: "utf8",
-              timeout: 5000,
             },
             signal,
             (state, reason) => record("product-retirement", { state, reason }),
@@ -657,7 +651,6 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
                 NODE_OPTIONS: undefined,
               },
               encoding: "utf8",
-              timeout: 5000,
             },
             signal,
             (state, reason) => record("product-retirement", { state, reason }),
@@ -694,7 +687,6 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
                   "--require " + JSON.stringify(path.join(root, "plugin.cjs")),
               },
               encoding: "utf8",
-              timeout: 5000,
             },
             signal,
             (state, reason) => record("product-retirement", { state, reason }),
