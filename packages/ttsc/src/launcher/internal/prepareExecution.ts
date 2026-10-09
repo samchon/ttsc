@@ -51,7 +51,7 @@ import { runtimeEmitProfile } from "./runtimeEmitProfile";
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain discovery, cleanup and mandatory producer provenance; result members distinguish relative output-list paths from absolute output-to-source records without property acknowledgments.
  * @evidence contracts/portability.md#os-neutral-implementation Native path/identity helpers preserve lexical discovery separately from best-effort native source/cache coordinates. Cooperating directory locks serialize ownership mutations without pinning filesystem objects; virtual layout encodes distinct volume roots through native path operations rather than shell commands.
  * @evidence contracts/performance.md#efficient-algorithms Delegated config discovery, effective-options preparation and compilation precede native output inventory and provenance-shape inspection. Each nonempty entry lookup builds an EmitOwnershipIndex with record/path/identity costs; an empty inventory or unowned entry selects the additional checked build. Native virtual linking and bounded ancestor traversal add their own entry and byte costs, so entry counts alone do not bound this operation.
- * @evidence contracts/performance.md#reuse-equivalent-work A context retains the accepted producer record and output inventory for lookup and transfer, without synthesizing ownership or re-reading producer observations. Lookup indexes are constructed per lookup; project lowering prepares its effective reader independently of the stored profile, while checked fallback shares its overlay reader within that build and then replaces the generation and recomputes the context profile.
+ * @evidence contracts/performance.md#reuse-equivalent-work A context retains the accepted producer record and output inventory for lookup and transfer, without synthesizing ownership or re-reading producer observations. Lookup indexes are constructed per lookup. One original-request reader serves source-root selection, the profile and argument lowering within this context; changed lowered arguments and completed-emit provenance keep their separate observations. Checked fallback shares its own overlay reader within that build and then replaces the generation and recomputes the context profile.
  * @evidence contracts/performance.md#bound-retention-and-release-resources A returned context owns one claimed generation at the resolved cache coordinate. Later failures attempt relinquishment and recursive removal under its cooperative lock; cleanup errors are swallowed to preserve the initiating failure and can retain storage. Success transfers cleanupDir and runtimeCacheDir to the caller, while delegated compilers, identity contexts and construction failures retain their own lifecycle responsibilities.
  */
 export function prepareExecution(
@@ -280,8 +280,9 @@ function resolveRuntimeCacheKey(runtimeCacheKey: string | undefined): string {
 
 /**
  * Discover the project and acquire a pinned, process-owned runtime generation.
- * Emit profile and source-root observations are shared by the initial project
- * build and any required single-entry fallback.
+ * One effective-options reader serves source-root selection, emit profile and
+ * argument lowering for the initial project request. A single-entry fallback
+ * prepares its own changed request; no reader is reused across invocations.
  *
  * The cache-root identity is fixed before descriptor execution can retarget a
  * lexical alias. Under its directory lock, abandoned generations are swept and
@@ -317,9 +318,16 @@ function createProjectContext(
       : undefined;
   const cacheDirSpelling = explicitCacheDir ?? defaultCache!.runtime;
   const runtimeCacheKey = resolveRuntimeCacheKey(options.runtimeCacheKey);
+  // These adapters consume one original compiler request before generation
+  // acquisition. Native expansion remains owned by the upstream compiler.
+  const effectiveOptions = readEffectiveCompilerOptions(
+    project,
+    options.passthrough,
+    options.binary,
+  );
+  const privateEmitRootDir = resolveRuntimeSourceRoot(project, effectiveOptions);
   // Resolved once: resolution costs a realpath (and, for a missing directory on
   // Windows, a case-sensitivity probe).
-  const privateEmitRootDir = resolveRuntimeSourceRoot(project, options);
   const runtimeRootDir = createFilesystemPathIdentityContext({
     throwOnRealpathError: false,
   }).resolve(privateEmitRootDir).path;
@@ -327,6 +335,13 @@ function createProjectContext(
     project,
     options.passthrough,
     options.binary,
+    effectiveOptions,
+  );
+  const runtimePassthrough = runtimeCompilerArgs(
+    project,
+    options.passthrough,
+    options.binary,
+    effectiveOptions,
   );
   fs.mkdirSync(cacheDirSpelling, { recursive: true });
   // Pin the cache parent before deriving a generation path. Descriptors run
@@ -355,6 +370,9 @@ function createProjectContext(
   );
   return {
     project,
+    // Lowered argv is build input, not authority for another effective-options
+    // or completed-emit provenance observation. The reader remains call-local.
+    runtimePassthrough,
     tsconfig,
     root,
     cacheDir,
@@ -460,18 +478,13 @@ function discoverOwningProject(
  */
 function resolveRuntimeSourceRoot(
   project: ReturnType<typeof readProjectConfig>,
-  options: NonNullable<Parameters<typeof prepareExecution>[1]>,
+  effective: ReturnType<typeof readEffectiveCompilerOptions>,
 ): string {
   // A `--rootDir` forwarded before the entry reaches the compiler after the
   // config, so it is the root the outputs are laid out against. Invalid
   // arguments fail the build on their own; an unreadable effective config keeps
   // the declared root until then. A readable explicit reset uses the project
   // private default instead of reviving the declared root.
-  const effective = readEffectiveCompilerOptions(
-    project,
-    options.passthrough,
-    options.binary,
-  );
   const rootDir =
     effective === null ? project.compilerOptions.rootDir : effective("rootDir");
   return privateRuntimeRootDir(
@@ -515,11 +528,7 @@ function buildProject(
     // output location forwarded on the command line, would otherwise land in
     // the user's tree.
     isolateOutputsTo: context.emitDir,
-    passthrough: runtimeCompilerArgs(
-      context.project,
-      options.passthrough,
-      options.binary,
-    ),
+    passthrough: context.runtimePassthrough,
     // `context.emitDir` is ttsx's own temp directory, not an output the project
     // asked for. A private ordinary volume-root layout permits the full input
     // graph without adding config-directory containment to a check-only

@@ -6,24 +6,23 @@ import ts from "ts-legacy";
 import { privateRuntimeRootDir } from "../../../../../packages/ttsc/src/compiler/internal/build/privateRuntimeRootDir";
 import { readProjectConfig } from "../../../../../packages/ttsc/src/compiler/internal/project/readProjectConfig";
 import { readEffectiveCompilerOptions } from "../../../../../packages/ttsc/src/compiler/internal/readEffectiveCompilerOptions";
-import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createFilesystemPathIdentityContext";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies runtime source-root metadata before any project build executes.
  *
  * The private authored operation is extracted as an AST declaration and bound
- * to its actual option reader and filesystem identity owner. A separate null
- * reader seam exercises only the documented rejected-response outcome; it does
+ * to its actual private layout owner and receives the prepared option reader.
+ * A separate null value exercises the documented rejected-response outcome; it does
  * not manufacture a compiler rejection or certify emitted artifacts.
  *
  * 1. Resolve configured, explicit-reset, overridden and absent roots with the real
  *    reader.
  * 2. Verify the unreadable-reader fallback separately from a readable missing
  *    value.
- * 3. Preserve physical directory identity and the project's config metadata.
+ * 3. Preserve selected directory coordinates and the project's config metadata.
  *
- * @evidence contracts/testing.md#behavioral-verification Executes the exact private resolveRuntimeSourceRoot declaration from prepareExecution with actual readProjectConfig, readEffectiveCompilerOptions, privateRuntimeRootDir and filesystem identity resolution; a separately bound null-return reader verifies the rejected-reader branch only, without a compiler build.
+ * @evidence contracts/testing.md#behavioral-verification Executes the exact private resolveRuntimeSourceRoot declaration from prepareExecution with actual readProjectConfig, readEffectiveCompilerOptions and privateRuntimeRootDir; supplying null verifies the rejected-reader branch only, without a compiler build.
  * @evidence contracts/testing.md#independent-expectations Literal rootDir null clears the configured root and selects the physical native volume root for ordinary projects; explicit path values select their physical directories, absent ordinary rootDir selects the volume root while composite true retains the project directory, and a wholly unreadable reader retains declared config. Expectations use independently named native realpath directories, not the option projection or extracted function.
  * @evidence contracts/testing.md#distinguishing-cases Configured src, CLI null reset, CLI other override, CLI normalized other/../src spelling, absent config root and an explicitly unreadable reader distinguish valid null/missing values from whole-reader failure. A readable reader returning undefined against a declared root verifies that missing effective metadata cannot revive stale config; config bytes and project metadata remain unchanged.
  * @evidence contracts/testing.md#execution-ownership Source unit discovered under ttsx-runtime extracts one authored private declaration with ts-legacy and executes it through a call-local binding; TestProject owns temporary real directories and process-exit cleanup. No prepareExecution build, launcher, native compiler, response-file expansion or emitted-artifact success is claimed.
@@ -53,22 +52,20 @@ export function test_runtime_source_root_preserves_explicit_compiler_resets(): v
   }).outputText;
   type RootOperation = (
     project: ReturnType<typeof readProjectConfig>,
-    options: { passthrough: readonly string[] },
+    effective: ReturnType<typeof readEffectiveCompilerOptions>,
   ) => string;
-  const bind = (reader: typeof readEffectiveCompilerOptions): RootOperation =>
-    new Function(
-      "readEffectiveCompilerOptions",
-      "createFilesystemPathIdentityContext",
-      "privateRuntimeRootDir",
-      "path",
-      javascript + "\nreturn resolveRuntimeSourceRoot;",
-    )(
-      reader,
-      createFilesystemPathIdentityContext,
-      privateRuntimeRootDir,
-      path,
-    ) as RootOperation;
-  const resolveRoot = bind(readEffectiveCompilerOptions);
+  const resolvePreparedRoot = new Function(
+    "privateRuntimeRootDir",
+    javascript + "\nreturn resolveRuntimeSourceRoot;",
+  )(privateRuntimeRootDir) as RootOperation;
+  const resolveRoot = (
+    project: ReturnType<typeof readProjectConfig>,
+    options: { passthrough: readonly string[] },
+  ): string =>
+    resolvePreparedRoot(
+      project,
+      readEffectiveCompilerOptions(project, options.passthrough),
+    );
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-runtime-root-reset-"),
   );
@@ -106,13 +103,13 @@ export function test_runtime_source_root_preserves_explicit_compiler_resets(): v
     );
   check("unreadable reader preserves provisional config", () =>
     assert.equal(
-      bind(() => null)(project, { passthrough: [] }),
+      resolvePreparedRoot(project, null),
       fs.realpathSync.native(path.join(root, "src")),
     ),
   );
   check("readable missing effective value does not revive config", () =>
     assert.equal(
-      bind(() => () => undefined)(project, { passthrough: [] }),
+      resolvePreparedRoot(project, () => undefined),
       volumeRoot,
     ),
   );
