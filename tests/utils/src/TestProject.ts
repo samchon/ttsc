@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
-import { SidecarEnvironment } from "../../../packages/ttsc/src/compiler/internal/sharedHost/SidecarEnvironment";
+import { SidecarEnvironment } from "../../../packages/ttsc/lib/compiler/internal/sharedHost/SidecarEnvironment.js";
 
 import { E2eProcessTrace } from "./E2eProcessTrace";
 
