@@ -13,9 +13,9 @@ import path from "node:path";
  *    retain acquisition and cleanup failures independently. Exercise the shared
  *    async launcher with one real Node child and an absent executable.
  *
- * @evidence contracts/testing.md#behavioral-verification Public controller receive/request/settle/snapshot/close operations process actual authored frames and supplied observer responses. Assertions inspect emitted commands, result/error payloads, request order, original-target waits and unresolved-close failures. Concurrent held cleanup emits one abort; released cleanup emits none; protocol failure preserves admitted targets and later actual retirement without manufacturing semantic success.
+ * @evidence contracts/testing.md#behavioral-verification Public controller receive/request/settle/snapshot/close and transportError operations process actual authored frames, transport failures and supplied observer responses. Assertions inspect emitted commands, result/error payloads, request order, original-target waits and unresolved-close failures. Concurrent held cleanup emits one abort; released cleanup emits none; protocol failure preserves admitted targets and later actual retirement without manufacturing semantic success. Prepared parent death distinguishes an already-retired original child from a surviving child requiring one self-kill, preserves raw transport causes and still refuses unknown retirement.
  * @evidence contracts/testing.md#independent-expectations Literal protocol phases and authored kernel responses distinguish admission, release and departure. Explicit pending promises independently expose overlapping requests; a transport close is deliberately followed by a live original target.
- * @evidence contracts/testing.md#distinguishing-cases Covers normal lazy completion, structured lazy error, self-abandonment without completion, foreign nonce/role/transport, invalid PID, duplicate role/completion, premature completion, acquisition refusal, connection loss, concurrent admissions across roles and an authenticated final frame during close while new requests/enrollment and post-close frames remain refused. Cleanup contrasts held with released, duplicate strict release/abort and live refusal, missing normal completion, independently retired failed transport and close during admitted cleanup.
+ * @evidence contracts/testing.md#distinguishing-cases Covers normal lazy completion, structured lazy error, self-abandonment without completion, foreign nonce/role/transport, invalid PID, duplicate role/completion, premature completion, acquisition refusal, connection loss, concurrent admissions across roles and an authenticated final frame during close while new requests/enrollment and post-close frames remain refused. Cleanup contrasts held with released, duplicate strict release/abort and live refusal, missing normal completion, independently retired failed transport and close during admitted cleanup. Parent-death intent contrasts live/dead originals, earlier and in-flight unsolicited failure, duplicate/out-of-phase requests, coupled versus surviving child departure, transport failure during self-kill dispatch, unknown observer response and close overlapping one admitted abandonment.
  * @evidence contracts/testing.md#execution-ownership Existing test-ttsc utility discovery owns this export, importing public @ttsc/testing only. Controller callbacks start no socket or native observer. Launcher cases start one plain Node child and one failing executable attempt, with no compiler, Go build or installation; real descendant transport/kernel proofs remain Runtime E2E.
  */
 export async function test_runtime_descendant_controller_authenticates_and_joins(): Promise<void> {
@@ -132,6 +132,160 @@ export async function test_runtime_descendant_controller_authenticates_and_joins
     const joined = await f.controller.request("child", "joined") as any;
     assert.equal(joined.completion, null);
     await f.controller.close();
+  });
+  await check("prepared parent death can retire the original child without another command", async () => {
+    const f = fixture();
+    await f.controller.receive(f.announce(), f.transport);
+    const prepared = await f.controller.request("child", "prepare-abandon") as any;
+    assert.equal(prepared.prepared, true);
+    assert.equal(f.controller.snapshot()[0]!.phase, "abandoning");
+    assert.equal(f.sent.length, 1, "preparing intent must not kill the child before its parent");
+    f.controller.transportError(f.transport, new Error("authored abrupt reset"));
+    f.controller.disconnected(f.transport);
+    f.retired.add(11); f.retired.add(12);
+    const abandoned = await f.controller.request("child", "abandon") as any;
+    assert.equal(abandoned.alreadyRetired, true);
+    assert.equal(f.sent.length, 1, "an original already retired cannot receive self-kill");
+    const joined = await f.controller.request("child", "joined") as any;
+    assert.equal(joined.completion, null);
+    const receipt = f.controller.snapshot()[0]!;
+    assert.equal(receipt.parentRetired, true);
+    assert.equal(receipt.childRetired, true);
+    assert.deepEqual(receipt.errors, []);
+    assert.deepEqual(receipt.transportErrors, ["Error: authored abrupt reset"]);
+    await f.controller.close();
+  });
+  await check("prepared surviving child receives one authenticated self-kill after parent retirement", async () => {
+    const f = fixture();
+    await f.controller.receive(f.announce(), f.transport);
+    await f.controller.request("child", "prepare-abandon");
+    await assert.rejects(f.controller.request("child", "prepare-abandon"), /not held/);
+    await assert.rejects(f.controller.request("child", "live"), /not held/);
+    await assert.rejects(f.controller.request("child", "release"), /already released/);
+    await assert.rejects(f.controller.receive(f.complete(), f.transport), /phase/);
+    f.retired.add(11);
+    const abandoned = await f.controller.request("child", "abandon") as any;
+    assert.equal(abandoned.alreadyRetired, false);
+    assert.deepEqual(f.sent.map((row) => row.operation).filter(Boolean), ["abandon"]);
+    assert.equal(f.controller.snapshot()[0]!.parentRetired, true);
+    assert.equal(f.controller.snapshot()[0]!.childRetired, false);
+    await assert.rejects(f.controller.request("child", "abandon"), /already released/);
+    await assert.rejects(f.controller.request("child", "abort"), /already released/);
+    f.controller.transportError(f.transport, new Error("authored self-kill reset"));
+    f.controller.disconnected(f.transport);
+    f.retired.add(12);
+    const receipt = await f.controller.settle("child");
+    assert.equal(receipt.completion, null);
+    assert.deepEqual(receipt.errors, []);
+    assert.deepEqual(receipt.transportErrors, ["Error: authored self-kill reset"]);
+    assert.deepEqual(f.sent.map((row) => row.operation).filter(Boolean), ["abandon"]);
+    await f.controller.close();
+  });
+  await check("abrupt intent cannot turn connection closure into native retirement", async () => {
+    const f = fixture();
+    await f.controller.receive(f.announce(), f.transport);
+    await f.controller.request("child", "prepare-abandon");
+    f.controller.transportError(f.transport, new Error("authored reset with unknown original"));
+    f.controller.disconnected(f.transport);
+    f.retired.add(11);
+    await f.controller.request("child", "abandon");
+    await assert.rejects(f.controller.close(), /controller closure/);
+    assert.equal(f.controller.joined(), false);
+    assert.equal(f.controller.snapshot()[0]!.childRetired, false);
+  });
+  await check("child retirement racing self-kill dispatch retains the actual transport cause", async () => {
+    const f = fixture();
+    await f.controller.receive(f.announce(), f.transport);
+    await f.controller.request("child", "prepare-abandon");
+    f.retired.add(11);
+    f.transport.send = (row) => {
+      f.sent.push(row);
+      f.retired.add(12);
+      throw new Error("authored transport write refusal");
+    };
+    const abandoned = await f.controller.request("child", "abandon") as any;
+    assert.equal(abandoned.alreadyRetired, false);
+    f.controller.disconnected(f.transport);
+    const joined = await f.controller.request("child", "joined") as any;
+    assert.equal(joined.retired, true);
+    assert.deepEqual(f.controller.snapshot()[0]!.transportErrors, ["Error: authored transport write refusal"]);
+    assert.deepEqual(f.controller.snapshot()[0]!.errors, []);
+    assert.deepEqual(f.sent.map((row) => row.operation).filter(Boolean), ["abandon"]);
+    await f.controller.close();
+  });
+  await check("unknown observer retirement remains a failure after abrupt intent", async () => {
+    const f = fixture();
+    await f.controller.receive(f.announce(), f.transport);
+    await f.controller.request("child", "prepare-abandon");
+    f.observer.retired = async () => { throw new Error("authored original wait refusal"); };
+    await assert.rejects(f.controller.request("child", "abandon"), /wait refusal/);
+    await assert.rejects(f.controller.close(), /controller closure/);
+    assert.equal(f.controller.joined(), false);
+    assert.equal(f.controller.snapshot()[0]!.parent!.targetId, "original-11");
+    assert.equal(f.controller.snapshot()[0]!.target!.targetId, "original-12");
+  });
+  await check("preparation refuses dead originals and cannot erase an earlier failure", async () => {
+    for (const dead of [11, 12]) {
+      const f = fixture();
+      await f.controller.receive(f.announce(), f.transport);
+      f.retired.add(dead);
+      await assert.rejects(f.controller.request("child", "prepare-abandon"), /live original/);
+      assert.equal(f.sent.length, 1);
+      f.retired.add(11); f.retired.add(12);
+      const receipt = await f.controller.settle("child");
+      assert.match(receipt.errors[0]!, /live original/);
+      await assert.rejects(f.controller.close(), /controller closure/);
+    }
+    const f = fixture();
+    await f.controller.receive(f.announce(), f.transport);
+    f.controller.transportError(f.transport, new Error("authored unsolicited transport failure"));
+    f.controller.disconnected(f.transport);
+    await assert.rejects(f.controller.request("child", "prepare-abandon"), /unsolicited/);
+    f.retired.add(11); f.retired.add(12);
+    const receipt = await f.controller.settle("child");
+    assert.match(receipt.errors[0]!, /unsolicited/);
+    assert.deepEqual(receipt.transportErrors, ["Error: authored unsolicited transport failure"]);
+    await assert.rejects(f.controller.close(), /controller closure/);
+  });
+  await check("a disconnect during native admission checks is not retrospective intent", async () => {
+    const f = fixture();
+    await f.controller.receive(f.announce(), f.transport);
+    f.observer.retired = async (target) => {
+      f.calls.push("wait:" + target.targetId);
+      f.controller.disconnected(f.transport);
+      await Promise.resolve();
+      return f.retired.has(target.pid);
+    };
+    await assert.rejects(f.controller.request("child", "prepare-abandon"), /connection ended/);
+    assert.equal(f.controller.snapshot()[0]!.phase, "preparing-abandon");
+    f.retired.add(11); f.retired.add(12);
+    const receipt = await f.controller.settle("child");
+    assert.match(receipt.errors[0]!, /connection ended/);
+    await assert.rejects(f.controller.close(), /controller closure/);
+  });
+  await check("close drains admitted abandonment and cleanup shares its one command", async () => {
+    const f = fixture();
+    await f.controller.receive(f.announce(), f.transport);
+    await f.controller.request("child", "prepare-abandon");
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const waiting = new Promise<void>((resolve) => { entered = resolve; });
+    f.observer.retired = async (target) => {
+      f.calls.push("wait:" + target.targetId);
+      if (target.pid === 11) { entered(); await gate; }
+      return f.retired.has(target.pid);
+    };
+    const abandoning = f.controller.request("child", "abandon");
+    const settling = f.controller.settle("child");
+    await waiting;
+    assert.equal(f.sent.length, 1, "the child command waits for original parent retirement");
+    const closing = f.controller.close();
+    f.retired.add(11); f.retired.add(12);
+    release();
+    await abandoning; await settling; await closing;
+    assert.equal(f.sent.length, 1);
+    assert.equal(f.controller.joined(), true);
   });
   await check("premature EOF remains a failure even when the target later retires", async () => {
     const f = fixture();

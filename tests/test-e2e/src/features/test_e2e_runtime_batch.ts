@@ -190,8 +190,11 @@ import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/
  * authenticated controller holds the detached worker until explicit release.
  * One borrowed native observer serializes original-target acquisition and
  * retirement for registered, inherited and abandoned roles. The direct sibling
- * launcher's original kernel target retires before authenticated self-SIGKILL;
- * its output/close drains after descendant retirement. EOF is not departure
+ * launcher is killed only after authenticated abrupt intent while both
+ * originals are live. Its original kernel target retires before requesting
+ * self-SIGKILL of a surviving child; an already-retired child needs no command.
+ * Raw abrupt transport errors remain receipts, and both original kernel
+ * lifetimes must retire. Output/close drains after child retirement. EOF is not departure
  * proof. API cleanup explicitly
  * removes ambient cache selectors while retaining the caller's Go cache.
  * Actual nested launcher closes and source/environment restoration publish

@@ -34,9 +34,13 @@ export namespace RuntimeDescendantController {
    * adapters, checks every admitted original lifetime and reports all errors.
    * `settle` owns failed-caller cleanup without weakening strict commands;
    * `snapshot` keeps admission, native retirement and semantic errors separate.
+   * `prepare-abandon` reserves intentional parent death while both originals
+   * are live. Finishing abandonment first joins that parent, then commands a
+   * surviving child only. Transport errors remain observable; expected abrupt
+   * closure supplies neither a lazy result nor original-kernel retirement.
    * The observer session remains the caller's responsibility.
    *
-   * @evidence contracts/common.md#principled-implementation Per-role phases reject duplicate/foreign admission and completion before release; a shared promise queue serializes every acquire/retired call and kernel results alone establish departure.
+   * @evidence contracts/common.md#principled-implementation Per-role phases reject duplicate/foreign admission and completion before release; intentional parent death is reserved before destructive action while both originals are live, with prior failure rechecked after observer awaits. The finishing operation joins the original parent and only commands a surviving original child. A shared promise queue serializes every acquire/retired call and kernel results alone establish departure.
    * @evidence contracts/common.md#clear-and-simple-design The same receive/request operations serve real adapters and direct tests; cleanup settlement selects the actual admitted phase once, while snapshots preserve independent identity, kernel and protocol facts.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit callback injection is the actual transport boundary; no expected process result, PID absence or socket close replaces an observer response.
    * @evidence contracts/common.md#meaningful-documentation States that construction is inert, adapters are opt-in, and close owns transport rather than the borrowed native session.
@@ -115,7 +119,7 @@ export namespace RuntimeDescendantController {
         if (pid === parentPid) throw new Error("Descendant cannot be its parent");
         const current: Role = {
           transport, announcement: frame, phase: "enrolling",
-          admission: Promise.resolve(),
+          admission: Promise.resolve(), transportErrors: [],
         };
         roles.set(role, current);
         record(role, "announced", { announcement: frame });
@@ -150,7 +154,40 @@ export namespace RuntimeDescendantController {
       childRetired: current.childRetired === true,
       completion: current.completion ?? null,
       errors: current.failure === undefined ? [] : [String(current.failure)],
+      transportErrors: [...current.transportErrors],
     }));
+    const transportError = (transport: Transport, cause: unknown): void => {
+      let owned = false;
+      for (const [role, current] of roles) {
+        if (current.transport !== transport) continue;
+        owned = true;
+        current.transportErrors.push(String(cause));
+        record(role, "transport-error", { phase: current.phase, error: String(cause) });
+        if (current.phase !== "abandoning" &&
+            !(current.abrupt && (current.phase === "abandoned" || current.phase === "retired")))
+          current.failure ??= cause;
+      }
+      if (!owned) failures.push(cause);
+    };
+    const finishAbandon = (role: string, current: Role): Promise<unknown> => {
+      current.phase = "abandoned";
+      record(role, "abandon-started", { parent: current.parent, target: current.target });
+      return current.abandonment = (async () => {
+        await wait(current.parent!);
+        const alreadyRetired = await retired(current.target!);
+        if (!alreadyRetired) {
+          record(role, "command", { operation: "abandon", target: current.target });
+          try { transportCommand(current, nonce, role, "abandon"); }
+          catch (cause) { transportError(current.transport, cause); }
+        }
+        record(role, "abandon-disposition", { alreadyRetired });
+        return { target: current.target, parent: current.parent,
+          operation: "abandon", alreadyRetired };
+      })().catch((cause) => {
+        current.failure ??= cause;
+        throw cause;
+      });
+    };
     // Cleanup chooses its command from the admitted phase before yielding.
     // Strict release/abort requests below retain their wrong-phase refusal.
     const settle = (role: string): Promise<Receipt> => {
@@ -163,7 +200,10 @@ export namespace RuntimeDescendantController {
     const settleRole = async (role: string): Promise<Receipt> => {
       const current = state(role);
       await current.admission;
-      if (current.phase === "held") {
+      await current.preparation?.catch((cause) => { current.failure ??= cause; });
+      if (current.phase === "abandoning") await finishAbandon(role, current);
+      await current.abandonment;
+      if (current.phase === "held" || current.phase === "preparing-abandon") {
         current.phase = "abandoned";
         record(role, "cleanup-abort", { target: current.target });
         try { transportCommand(current, nonce, role, "abort"); }
@@ -199,6 +239,27 @@ export namespace RuntimeDescendantController {
         if (await retired(target)) throw new Error("Held descendant already retired");
         return { target, live: true };
       }
+      if (operation === "prepare-abandon") {
+        if (current.phase !== "held") throw new Error("Descendant is not held");
+        // Reserve the phase before observing originals. A concurrent request
+        // or disconnect cannot be retroactively turned into intentional death.
+        current.phase = "preparing-abandon";
+        return current.preparation = (async () => {
+          try {
+            const parentRetired = await retired(current.parent!);
+            const childRetired = await retired(target);
+            if (current.failure !== undefined) throw current.failure;
+            if (parentRetired || childRetired)
+              throw new Error("Abandonment requires live original parent and child");
+            current.phase = "abandoning";
+            current.abrupt = true;
+            record(role, "abandon-prepared", { parent: current.parent, target });
+            return { target, parent: current.parent, operation, prepared: true };
+          } catch (cause) { current.failure ??= cause; throw cause; }
+        })();
+      }
+      if (operation === "abandon" && current.phase === "abandoning")
+        return finishAbandon(role, current);
       if (operation === "release" || operation === "abandon" || operation === "abort") {
         if (current.phase !== "held") throw new Error("Descendant already released");
         const at = new Date().toISOString();
@@ -211,6 +272,7 @@ export namespace RuntimeDescendantController {
         if (current.phase !== "released" && current.phase !== "abandoned" &&
             current.phase !== "retired")
           throw new Error("Cannot join an unreleased descendant");
+        await current.abandonment;
         await wait(target);
         // Kernel departure is established first. Drain its final socket frame
         // before deciding whether the departed child supplied a lazy result.
@@ -228,7 +290,7 @@ export namespace RuntimeDescendantController {
     const disconnected = (transport: Transport): void => {
       for (const [role, current] of roles) {
         if (current.transport !== transport) continue;
-        if (current.phase === "abandoned" || current.phase === "retired" ||
+        if (current.phase === "abandoning" || current.phase === "abandoned" || current.phase === "retired" ||
             current.completion !== undefined) return;
         current.failure ??= new Error("Descendant connection ended before completion: " + role);
         record(role, "disconnected", { phase: current.phase, error: String(current.failure) });
@@ -251,11 +313,7 @@ export namespace RuntimeDescendantController {
         };
         transports.add(transport);
         socket.setEncoding("utf8");
-        socket.on("error", (cause) => {
-          failures.push(cause);
-          for (const [role, current] of roles)
-            if (current.transport === transport) record(role, "transport-error", { error: String(cause) });
-        });
+        socket.on("error", (cause) => transportError(transport, cause));
         socket.on("data", (chunk: string) => {
           input += chunk;
           if (Buffer.byteLength(input) > 65536) {
@@ -316,6 +374,8 @@ export namespace RuntimeDescendantController {
       joined = true;
       for (const [role, current] of roles) {
         await current.admission.catch((cause) => failures.push(cause));
+        await current.preparation?.catch((cause) => failures.push(cause));
+        await current.abandonment?.catch((cause) => failures.push(cause));
         let childRetired = false;
         for (const target of [current.target, current.parent]) {
           let known = false;
@@ -329,6 +389,7 @@ export namespace RuntimeDescendantController {
         }
         if (childRetired) await current.transport.settled;
         if (current.phase === "held" || current.phase === "enrolling" ||
+            current.phase === "preparing-abandon" || current.phase === "abandoning" ||
             (current.phase === "released" && current.completion === undefined))
           failures.push(new Error("Descendant has no completed release phase: " + role));
         if (current.failure !== undefined) failures.push(current.failure);
@@ -350,7 +411,7 @@ export namespace RuntimeDescendantController {
       if (directory) publish(path.join(directory, "closed.json"), { nonce, joined, roles: snapshot(), errors: failures.map(String) });
       if (failures.length) throw new AggregateError(failures, "Descendant controller closure");
     })());
-    return { nonce, receive, request, settle, snapshot, disconnected, listen, close,
+    return { nonce, receive, request, settle, snapshot, disconnected, transportError, listen, close,
       joined: () => joined };
   }
 
@@ -386,6 +447,8 @@ export namespace RuntimeDescendantController {
     completion: Record<string, unknown> | null;
     /** Protocol failure observations; retirement does not clear them. */
     errors: string[];
+    /** Raw transport errors; explicit abrupt intent does not erase their cause. */
+    transportErrors: string[];
   }
 }
 
@@ -400,8 +463,10 @@ interface Transport {
 interface Role {
   transport: Transport;
   announcement: Record<string, unknown>;
-  phase: "enrolling" | "held" | "released" | "abandoned" | "retired";
+  phase: "enrolling" | "held" | "preparing-abandon" | "abandoning" | "released" | "abandoned" | "retired";
   admission: Promise<void>;
+  preparation?: Promise<unknown>;
+  abandonment?: Promise<unknown>;
   parent?: Target;
   target?: Target;
   completion?: Record<string, unknown>;
@@ -409,6 +474,7 @@ interface Role {
   abrupt?: boolean;
   childRetired?: boolean;
   parentRetired?: boolean;
+  transportErrors: string[];
 }
 interface Controller {
   readonly nonce: string;
@@ -419,6 +485,8 @@ interface Controller {
   /** Read established identity and lifetime facts despite later protocol errors. */
   snapshot(): RuntimeDescendantController.Receipt[];
   disconnected(transport: Transport): void;
+  /** Record the actual transport error independently of original retirement. */
+  transportError(transport: Transport, cause: unknown): void;
   listen(root: string): Promise<{ port: number; nonce: string; directory: string }>;
   close(): Promise<void>;
   joined(): boolean;

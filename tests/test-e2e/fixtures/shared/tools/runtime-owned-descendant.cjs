@@ -119,6 +119,7 @@ module.exports = async function observeOwnedDescendant() {
   let sibling;
   let abandoned;
   let siblingRetired = false;
+  let siblingAbandonPrepared = false;
   let siblingAbandoned = false;
   let descendantRetired = false;
   let cleanResult;
@@ -150,6 +151,15 @@ module.exports = async function observeOwnedDescendant() {
   };
   const retireSibling = async () => {
     if (siblingRetired || !sibling) return;
+    if (!abandoned) throw new Error("owned runtime sibling closure remained unresolved: no authenticated admission");
+    if (!siblingAbandonPrepared) {
+      // A nondetached program can retire with its direct launcher on Windows.
+      // Declare the actual abrupt operation while both originals are held,
+      // before causing that termination rather than forgiving it afterwards.
+      facts.siblingAbandonPrepared = await requestAsync("sibling", "prepare-abandon");
+      save();
+      siblingAbandonPrepared = true;
+    }
     // The actual direct launcher must retire before its program is killed,
     // otherwise normal launcher cleanup can remove the abandoned generation.
     if (sibling.child.exitCode === null && sibling.child.signalCode === null) {
@@ -158,9 +168,9 @@ module.exports = async function observeOwnedDescendant() {
       facts.actors.sibling.killAccepted = sibling.child.kill("SIGKILL");
       save();
     }
-    if (!abandoned) throw new Error("owned runtime sibling closure remained unresolved: no authenticated admission");
-    // Kernel retirement precedes the sibling kill; output/close drains after
-    // descendant departure so inherited handles cannot make a circular gate.
+    // Kernel parent retirement precedes any self-kill of a surviving sibling.
+    // An already-retired original needs no command. Output/close drains after
+    // child departure so inherited handles cannot make a circular gate.
     facts.siblingParentJoin = await requestAsync("sibling", "parent-joined");
     save();
     if (!siblingAbandoned) {
