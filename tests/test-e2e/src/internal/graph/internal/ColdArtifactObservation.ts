@@ -5,6 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { waitFor } from "../../../../../utils/src/internal/waitFor";
 import { matchesObservedProcessCommand } from "../../../../../utils/src/matchesObservedProcessCommand";
 import {
   type ObservedProcessReading as ProcessReading,
@@ -18,7 +19,6 @@ interface BuildAdmission {
   process: ProcessReading;
   targetOwner: ProcessReading;
   owner: ProcessReading;
-  deadline: number;
   scratch: string;
   entry: string;
   guards: ObservedGuard[];
@@ -50,6 +50,11 @@ interface ObservedGuard {
  * identities; no process is terminated or adopted by its PID here. POSIX ps has
  * second precision, so it cannot replace the original native receipt; ambiguous
  * reuse cannot establish readiness.
+ *
+ * Required preparation progress also checks the actual client or public actor.
+ * Scanner failure or closure rejects a missing observation. Expected product
+ * closure remains separate from scanner and native retirement; resource release
+ * is verified at the original task's close or serial recovery fence.
  */
 export class ColdArtifactObservation {
   private latest: ProcessReading[] = [];
@@ -68,6 +73,7 @@ export class ColdArtifactObservation {
   public constructor(
     private readonly rootPid: number,
     private readonly directory: string,
+    private readonly checkProduct: (preparing: boolean) => void,
   ) {
     this.child = spawn(
       process.execPath,
@@ -197,7 +203,6 @@ export class ColdArtifactObservation {
   public async ready(): Promise<void> {
     await this.until(
       () => this.scanned && this.tracked.has(this.rootPid),
-      30_000,
       "OS observer did not acquire original root identity",
     );
   }
@@ -211,7 +216,6 @@ export class ColdArtifactObservation {
     oldWork: ReadonlySet<string> = new Set(),
   ): Promise<BuildAdmission> {
     let admitted: BuildAdmission | undefined;
-    const deadline = Date.now() + 120_000;
     await this.until(
       () => {
         const events = traceEvents(traceRoot);
@@ -327,7 +331,6 @@ export class ColdArtifactObservation {
             process: go,
             targetOwner,
             owner,
-            deadline,
             scratch: scratch.cwd!,
             entry,
             guards,
@@ -365,7 +368,6 @@ export class ColdArtifactObservation {
         }
         return false;
       },
-      120_000,
       "Actual cold go build/source key/compiler work admission was not observed",
     );
     await this.until(
@@ -386,7 +388,6 @@ export class ColdArtifactObservation {
             row.pid === admitted!.process.pid &&
             row.identity === admitted!.process.identity,
         ),
-      Math.max(1, Math.min(30_000, deadline - Date.now())),
       "Active original build and protected source/cache input snapshot were not observed together",
     );
     this.incompleteAdmission = false;
@@ -404,11 +405,8 @@ export class ColdArtifactObservation {
     );
     fs.writeFileSync(temporary, JSON.stringify({ request }));
     fs.renameSync(temporary, file);
-    const remaining = admission.deadline - Date.now();
-    assert.ok(remaining > 0, "Original cold preparation deadline expired");
     await this.until(
       () => this.scanRequest === request,
-      Math.min(30_000, remaining),
       "OS observer did not start a new scan after the transport response",
     );
     assert.ok(
@@ -421,7 +419,10 @@ export class ColdArtifactObservation {
     );
   }
 
-  public async absent(admission: BuildAdmission): Promise<void> {
+  public async absent(
+    admission: BuildAdmission,
+    productClosed = false,
+  ): Promise<void> {
     await this.until(
       () => {
         const live = this.latest.some((row) =>
@@ -438,8 +439,8 @@ export class ColdArtifactObservation {
             );
         return !live;
       },
-      30_000,
       "Original admitted native source-process owner remains alive",
+      productClosed ? false : "retiring",
     );
   }
 
@@ -449,20 +450,23 @@ export class ColdArtifactObservation {
         !this.latest.some(
           (row) => this.tracked.get(row.pid)?.identity === row.identity,
         ),
-      30_000,
       "Original actor or observed descendants remain alive",
+      false,
     );
   }
 
-  /** Check original resources after the public owner settles its input lease. */
+  /**
+   * Verify release after actual product close or serial recovery admission.
+   *
+   * Both fences follow the original task's cleanup. A remaining scratch or
+   * guard is a release failure at that fence, rather than pending timed progress.
+   */
   public async retired(admission: BuildAdmission): Promise<void> {
     const failures: unknown[] = [];
     try {
-      await this.until(
-        () =>
-          !fs.existsSync(admission.scratch) &&
+      assert.ok(
+        !fs.existsSync(admission.scratch) &&
           admission.guards.every((guard) => !fs.existsSync(guard.file)),
-        30_000,
         "Original task scratch or admitted native guards were not released",
       );
       this.unpublished(admission);
@@ -523,41 +527,31 @@ export class ColdArtifactObservation {
 
   public async close(): Promise<void> {
     this.child.stdin.end();
-    await bounded(this.closed, 30_000, "OS observer did not close");
+    await this.closed;
     if (this.failure) throw this.failure;
   }
 
   private async until(
     predicate: () => boolean,
-    milliseconds: number,
     label: string,
+    productRequired: "preparing" | "retiring" | false = "preparing",
   ): Promise<void> {
-    const deadline = Date.now() + milliseconds;
-    while (true) {
-      if (this.failure) throw this.failure;
-      if (predicate()) return;
-      if (Date.now() >= deadline) throw new Error(label);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-  }
-}
-
-/** Preserve the caller's finite bound without manufacturing producer success. */
-export async function bounded<T>(
-  operation: Promise<T>,
-  milliseconds: number,
-  label: string,
-): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      operation,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(label)), milliseconds);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
+    await waitFor(
+      () => {
+        if (this.failure) throw this.failure;
+        if (productRequired) this.checkProduct(productRequired === "preparing");
+        return predicate();
+      },
+      label,
+      {
+        check: () => {
+          if (this.observerClosed || this.scannerClosed)
+            throw new Error(
+              "Original OS scanner closed before its required observation",
+            );
+        },
+      },
+    );
   }
 }
 

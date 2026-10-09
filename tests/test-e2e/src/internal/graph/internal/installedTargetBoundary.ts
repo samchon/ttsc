@@ -123,7 +123,6 @@ export function launch(
     {
       cwd: options.cwd,
       env: { TTSC_GRAPH_BINARY: options.graphBinary },
-      timeout: 60_000,
     },
   );
   if (result.error || result.signal !== null || result.status === null) {

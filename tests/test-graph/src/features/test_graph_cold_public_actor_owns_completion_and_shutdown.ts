@@ -15,7 +15,7 @@ import { ColdGraphActorLifecycle } from "../../../utils/src/ColdGraphActorLifecy
  * 2. Hold shutdown, queue drain and publication with owned promises.
  * 3. Race queued failure with explicit close and retain every terminal error.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls the actual shared observation and terminal operations with Node EventEmitter and controlled own stage promises. It asserts pending settlement, event/failure order, listener disposal, identical close promise, exactly one stage sequence and complete error identity rather than elapsed time or source shape.
+ * @evidence contracts/testing.md#behavioral-verification Calls the actual shared observation and terminal operations with Node EventEmitter and controlled own stage promises. It asserts pending settlement, event/failure order, synchronous owning checks, listener disposal, identical close promise, exactly one stage sequence and complete error identity rather than elapsed time or source shape.
  * @evidence contracts/testing.md#independent-expectations A required message delivered before failure permits that progress; failure before a missing or later message rejects it. Shutdown must precede queue drain, verification and acknowledged publication; disconnect cannot precede that publication. Literal order and original Error identities derive from those ownership requirements.
  * @evidence contracts/testing.md#distinguishing-cases Pending/already-delivered progress, failed/close-failed messages, original error/disconnect/close, earlier/later event order and disposal contrast parent outcomes. Repeated/concurrent close, pending drain/publication, queue-originated close and all five failing stages contrast terminal ownership and self-dependency. Actual E2E owns public abort/recovery, artifact/warm identity and native/resource joins.
  * @evidence contracts/testing.md#execution-ownership One discoverable graph unit imports only the actual shared test helper, never another suite's fixture or internals. All controls are in-process owned events/promises with no host, compiler, process scan, install or product-success replacement.
@@ -61,6 +61,7 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
   const progress = ColdGraphActorLifecycle.observe(source);
   let settled = false;
   const pending = progress.wait("recovered").then(() => { settled = true; });
+  assert.doesNotThrow(() => progress.check());
   await tick();
   assert.equal(settled, false, "pending work must not manufacture an outcome");
   source.emit("message", { event: "ready" });
@@ -70,6 +71,7 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
   assert.equal(settled, true);
   const original = new Error("original actor error");
   source.emit("error", original);
+  assert.throws(() => progress.check(), (error) => error === original);
   await progress.wait("recovered");
   await assert.rejects(progress.wait("closed"), (error) => error === original);
   source.emit("message", { event: "closed" });
@@ -87,6 +89,7 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
       emitter.emit("message", { event, diagnostic: "retained failure" });
     else emitter.emit(event);
     await rejected;
+    assert.throws(() => observation.check(), /Public session actor/);
     observation.dispose();
   }
   const disposedSource = new EventEmitter();
@@ -94,6 +97,7 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
   const disposedWait = assert.rejects(disposed.wait("ready"), /disposed/);
   disposed.dispose();
   await disposedWait;
+  assert.throws(() => disposed.check(), /disposed/);
 
   const closing = deferred(), drained = deferred(), publication = deferred();
   const closeStarted = deferred(), drainStarted = deferred(), publishStarted = deferred();

@@ -15,6 +15,7 @@ async function main() {
   const controller = new AbortController();
   const reason = new Error("authored cold graph preparation cancellation");
   let operation;
+  let initialSettlement;
   let queue = Promise.resolve();
   let failed = false;
   let stopping = false;
@@ -38,6 +39,7 @@ async function main() {
     drain: async () => {
       await queue;
       if (operation) await operation.catch(() => undefined);
+      if (initialSettlement) await initialSettlement;
     },
     verify: async () => {
       await assert.rejects(session.graph(), /closed/);
@@ -69,7 +71,17 @@ async function main() {
     queue = queue.then(async () => {
       if (message === "start") {
         operation = session.graph({ signal: controller.signal });
-        void operation.catch(() => undefined);
+        initialSettlement = operation.then(
+          () => record("initial-completed"),
+          async (error) => {
+            if (controller.signal.aborted) return;
+            failed = true;
+            process.exitCode = 1;
+            try { await failure("failed", error); }
+            finally { requestClose(); }
+          },
+        );
+        void initialSettlement.catch((error) => { terminalError(error); requestClose(); });
         await record("started");
       } else if (message === "recover") {
         await assert.rejects(operation, (error) => error.name === "AbortError" && error.message.includes(reason.message));

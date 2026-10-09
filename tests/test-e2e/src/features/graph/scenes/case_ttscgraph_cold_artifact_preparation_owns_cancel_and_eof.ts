@@ -144,7 +144,16 @@ export async function observeColdMcpEof(
   );
   const completion = closeReceipt(child);
   const client = TtsgraphClient.connect(child, nativeReceipt);
-  const observed = new ColdArtifactObservation(child.pid!, row.root);
+  let preparationSettled = false;
+  let preparationOutcome: unknown;
+  const observed = new ColdArtifactObservation(child.pid!, row.root, () => {
+    client.assertReusable();
+    if (preparationSettled)
+      throw new Error(
+        "Cold request settled before active preparation was observed",
+        { cause: preparationOutcome },
+      );
+  });
   const failures: unknown[] = [];
   let joined = false;
   let observerJoined = false;
@@ -174,7 +183,8 @@ export async function observeColdMcpEof(
     let settled = false;
     const outcome = pending.then(
       (value) => {
-        settled = true;
+        preparationOutcome = value;
+        settled = preparationSettled = true;
         try {
           recordOutcome(row.root, { phase, status: "fulfilled", value });
         } catch (error) {
@@ -183,7 +193,8 @@ export async function observeColdMcpEof(
         return { status: "fulfilled" as const, value };
       },
       (error: unknown) => {
-        settled = true;
+        preparationOutcome = error;
+        settled = preparationSettled = true;
         try {
           recordOutcome(row.root, {
             phase,
@@ -221,7 +232,7 @@ export async function observeColdMcpEof(
     client.endStdin();
     assert.equal(await client.waitForExit(), 0, client.stderrText());
     assert.deepEqual(await completion, { code: 0, signal: null });
-    await observed.absent(first);
+    await observed.absent(first, true);
     await observed.joined();
     await observed.retired(first);
     releaseConfirmed = true;
@@ -388,7 +399,20 @@ export async function observeColdPublicSessionCancellation(
       }
     }
   });
-  const observed = new ColdArtifactObservation(child.pid!, row.root);
+  let initialPreparation = true;
+  const observed = new ColdArtifactObservation(
+    child.pid!,
+    row.root,
+    (preparing) => {
+      progress.check();
+      if (preparing)
+        assert.equal(
+          events.has(initialPreparation ? "initial-completed" : "recovered"),
+          false,
+          "Public graph operation completed before active preparation was observed",
+        );
+    },
+  );
   let joined = false;
   let observerJoined = false;
   let releaseConfirmed = true;
@@ -412,6 +436,7 @@ export async function observeColdPublicSessionCancellation(
       "cancelled preparation admitted native graph",
     );
     const oldWork = new Set(fs.readdirSync(row.goTmp));
+    initialPreparation = false;
     await ColdGraphActorLifecycle.send(child, "recover");
     await observed.build(row.trace, row.cache, row.goTmp, first, oldWork);
     // New preparation runs behind the canceled refresh in the public queue.

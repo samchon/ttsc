@@ -40,7 +40,7 @@ export function resolveGraphLauncher(): string {
 interface Pending {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
-  timer: NodeJS.Timeout;
+  timer?: NodeJS.Timeout;
 }
 
 /**
@@ -152,22 +152,26 @@ export class TtsgraphClient {
     });
   }
 
+  /** Ordinary requests settle from the actual response or transport failure. */
   request(
     method: string,
     params: unknown,
-    timeoutMs = 120_000,
+    timeoutMs?: number,
   ): Promise<unknown> {
     if (this.failure !== undefined) return Promise.reject(this.failure);
     const id = ++this.nextId;
     return new Promise<unknown>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.fail(
-          new Error(
-            `ttsc-graph ${method} timed out after ${timeoutMs}ms\nstderr: ${this.stderr}`,
-          ),
-          true,
-        );
-      }, timeoutMs);
+      const timer =
+        timeoutMs === undefined
+          ? undefined
+          : setTimeout(() => {
+              this.fail(
+                new Error(
+                  `ttsc-graph ${method} timed out after ${timeoutMs}ms\nstderr: ${this.stderr}`,
+                ),
+                true,
+              );
+            }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
       this.child.stdin.write(
         `${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`,
@@ -227,7 +231,9 @@ export class TtsgraphClient {
     this.child.stdin.end();
   }
 
-  async waitForExit(timeoutMs = 30_000): Promise<number> {
+  /** Join original process/stdio close; an explicit timeout tests caller policy. */
+  async waitForExit(timeoutMs?: number): Promise<number> {
+    if (timeoutMs === undefined) return this.closed;
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       return await Promise.race([
@@ -277,7 +283,7 @@ export class TtsgraphClient {
     if (this.failure !== undefined) throw this.failure;
   }
 
-  /** A timed-out or lost transport may still have a native input reader. */
+  /** A failed caller policy or lost transport may still have a native input reader. */
   inputsHaveUnconfirmedReaders(): boolean {
     return this.unconfirmedTransport;
   }

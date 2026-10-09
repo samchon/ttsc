@@ -57,6 +57,7 @@ export namespace ColdGraphActorLifecycle {
    * A required event permits progress only if no failure preceded it. Errors,
    * disconnect and original close reject missing progress without a clock
    * oracle. The caller still owns the actual process join and operator cancel.
+   * Conditional observations can synchronously check the same captured failure.
    * Dispose after that join to release this observation's listeners.
    *
    * @evidence contracts/common.md#principled-implementation Node event listeners capture delivered messages and original process errors synchronously; sequence order distinguishes an earlier required event from an earlier failure. Each waiter subscribes before inspecting captured state, so delivery cannot fall between inspection and subscription.
@@ -71,6 +72,9 @@ export namespace ColdGraphActorLifecycle {
   export function observe(source: EventEmitter): {
     events: ReadonlySet<string>;
     wait(event: string): Promise<void>;
+
+    /** Reject conditional observations after the original actor fails or closes. */
+    check(): void;
     dispose(): void;
   } {
     const events = new Set<string>();
@@ -110,6 +114,9 @@ export namespace ColdGraphActorLifecycle {
     source.on("close", closed);
     return {
       events,
+      check: () => {
+        if (failure) throw failure.error;
+      },
       wait: (event) => new Promise<void>((resolve, reject) => {
         const check = (): void => {
           const delivered = order.get(event);
