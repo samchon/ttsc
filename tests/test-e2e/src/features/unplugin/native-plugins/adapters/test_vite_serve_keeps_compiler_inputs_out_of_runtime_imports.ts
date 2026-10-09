@@ -31,7 +31,7 @@ import { positionOf } from "../../../../internal/unplugin/internal/source-map/po
  * @evidence contracts/testing.md#execution-ownership Selected Vite invokes viteServeCorpus, which calls this body with its upfront island. One actual watching server and one restart serve compiler-only input transitions and the linked-package missing-candidate graph. The original actual transform proof additionally checks missing candidate/type-root predicates before requests; its native work is a real additional cost. Two fresh joined HMR clients distinguish type-root and superseding-candidate notifications. No per-case project or server is prepared.
  * @evidence contracts/e2e.md#necessary-boundary Actual Vite module graphs, HMR and native plugin inputs connect without fabricated runtime edges.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Original HMR client and server close attempts are concurrent in finally, retain independent failures and distinguish actual client close from a failed frame. After restart, an unmet dependency observation checks the current HTTP server's error/close authority rather than the old HMR socket or the native watch backend; supported watcher fallback remains valid. onServerClosed is admitted only after the real server close and every acquired client close; restart reuses only this fixture. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. The pre-restart publication client is joined before intentional restart; a real client error still fails and unknown closure blocks restart. On every earlier failure, original HMR client and server close attempts remain concurrent in finally, retain independent failures and distinguish actual client close from a failed frame. After restart, an unmet dependency observation checks the current HTTP server's error/close authority rather than the old HMR socket or the native watch backend; supported watcher fallback remains valid. onServerClosed is admitted only after the real server close and every acquired client close; restart reuses only this fixture. Tracked roots end at process exit.
  * @evidence contracts/e2e.md#preserved-coverage Retains client/SSR literals, external/asset invalidation, failure/recovery, SSR attribution and restart. The prepared graph also preserves actual missing-candidate/type-root proof, successful cold/restarted candidate requests, the original1.6-second external-creation quiet twin and independently leased HMR full-reload plus importer invalidation for type-root and preferred-candidate appearance. Actual selected Vite execution is required to qualify these connections; one existing server/restart supplies these requests without another host.
  */
 export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_imports(
@@ -225,6 +225,16 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
       { check: () => observedEvents.check() },
     );
     assert.match((await request()).code, /RECOVERED/);
+    // This publication client owns only the pre-restart observations. Join it
+    // before intentionally ending that server lifetime; later candidates own
+    // their separate real clients and the final observation owns the new HTTP server.
+    try {
+      await observedEvents.close();
+    } finally {
+      if (observedEvents.joined) events = undefined;
+      else clientJoined = false;
+    }
+    assert.equal(observedEvents.joined, true, "original publication client joins before intentional restart");
     await server.restart();
     assert.match((await request()).code, /RECOVERED/);
     if (preparedRoot !== undefined) {

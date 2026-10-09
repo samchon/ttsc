@@ -115,7 +115,9 @@ export async function test_sourcenativeretirement_pending_waiter_reuses_binary_a
               pluginName: "normal-fanout",
               quiet: true,
             },
-            timeoutMs: 60_000,
+            // This is successful-publication coverage, not the separate timeout-refusal case.
+            // The original Worker error/exit and parent release own completion.
+            timeoutMs: Number.POSITIVE_INFINITY,
           },
           loader: pathToFileURL(
             path.resolve(

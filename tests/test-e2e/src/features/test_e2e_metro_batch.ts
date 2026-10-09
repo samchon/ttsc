@@ -165,7 +165,7 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. The existing Metro worker now exercises CJS withTtsc and requires its actual returned transformer, executes getCacheKey and retains a native-banner-shifted upstream AST identifier whose start/end must return to independently authored source coordinates. This is not a running Next or Metro server; key shape is not proof of a productive snapshot. Actual native cwd and type diagnostics distinguish public option transport and solution selection from a pure resolver test; actual native graph evidence reaching persistent Metro keys distinguishes the producer-to-recorder connection from authored unit envelopes.
  * @evidence contracts/e2e.md#shared-execution The existing explicit-host transform proof phase adds one linked banner contribution and source-pipeline operation to its already required native composition; changed native inputs require that host binary, while its existing Program request/session and normal shared object cache remain the preparation owners. One public prepare call in the initial Metro resident owns its required native installation before the graph-proof delivery. This adds descriptor/admission observation without a Program, worker or transform; actual binary paths and elapsed time are reported, and later capture revalidates its selected keys instead of accepting readiness as proof. Upfront public prepare requests share the owned native source with two instance cache namespaces; plugin/Go cache admission and source/environment edits then exercise that same producer before adapter startup. These are actual build/key/native-transform phases of this experiment, not a single Program assertion or per-original fixture loop. The Metro Node caller advances one descriptor scope through nine failure inputs before its adapter admission, with real evaluator attempts and no extra worker. The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer. The existing six adapter roots and skipLibCheck=false policy are established before the first graph-proof request; imported dependencies and the later membership root remain selected, while runtime-only roots keep their separate runtime owner. This moves the existing config write without adding a request, producer, Program or warmup. Descriptor observation/search, separate project-root, replacement and moving-proof consumers share the pool's Go object storage only when their effective environment has neither a dedicated nor external cache; binary authorities and required preparations remain independent. Collection/default ownership, admission, tool-environment, ambient capability and native failure lanes retain their original cache inputs. Object sharing is delegated to Go's input validation and does not assert a cache hit or measured time reduction. The final referenced-project, compiler-root and native-predicate controls share the already-required fresh Metro resident and its installation. Their source/config changes incur real validation work; no extra contributor, Go rule or public preparation is introduced. The static sibling contrast requires two additional Metro worker lifetimes because public options are memoized per worker; both reuse the same installation, session and supported native source cache without claiming zero native admission cost.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both cache-root queries use the actual platform before native admission, so their directory creation cannot introduce an extra input epoch; the selected Program independently reports that same native comparison policy. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined separately from command rejection; unknown closure retains inputs. The independent observation allocation is retained on every propagated pool failure, including setup or cleanup failure, with its path reported. Its identity-checked retention and any failure remain separate from native result acceptance; a successful whole pool leaves trace reclamation to the tracked exit owner. The initial adapter arms its native write only after the independent graph-proof captures and serializes that current tick immediately before delivery; its owned observation directory is outside compiler input membership and is removed after joined workers close. The final copied config imports an existing authored module from an exclusively allocated tools subdirectory outside Metro's src host walk. Native graph requests are read before compaction; compaction and membership mutation wait for actual resident close. Every restoration is attempted after closure, while unresolved ownership retains all live inputs.
- * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/authored-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/authored-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. A genuinely fresh Metro worker after both old workers close must deliver an offline-edited marker and one new real probe tick without deleting retained publications; it adds one Node worker and necessary native preparation. The same public entry first collects builtin-only resident and contained-entry transport controls without a compiler preparation, then independently collects deadCompilerClaimCorpus on one upfront native producer project: an actual PID-owned holder lock/native receipt precedes holder death, then a survivor must produce PROBED with a second native receipt and remove the lock. Two additional Node workers and three actual native producer invocations are costs; the survivor owns two completed five-second native holds, each with unchanged temporary environment and sub-750ms initial/intertick/terminal gaps. The resident graph startup receipt remains separate from that strict native boundary; recorded native departure is separately acquired and native preparation totals remain unmeasured. The original holder joins before the resident pool starts, so synchronous descriptor and metadata operations cannot starve its in-flight lock polling. Both independent failures are collected; an unresolved holder retains the workspace and refuses subsequent shared reuse. A live external bundler watcher remains unproved. The final fresh resident preserves its offline marker and one-probe assertions while adding implicit reference selection, distinct native cwd, a real type-error rejection and native-only persistent-key invalidation. Portable four-kind codec, migration, malformed-state and recovery cases remain in their owning unplugin and Metro units.
+ * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/authored-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/authored-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. A genuinely fresh Metro worker after both old workers close must deliver an offline-edited marker and one accepted fresh generation with trace-qualified cold alias-learning attempts without deleting retained publications; it adds one Node worker and necessary native preparation. The same public entry first collects builtin-only resident and contained-entry transport controls without a compiler preparation, then independently collects deadCompilerClaimCorpus on one upfront native producer project: an actual PID-owned holder lock/native receipt precedes holder death, then a survivor must produce PROBED with a second native receipt and remove the lock. Two additional Node workers and three actual native producer invocations are costs; the survivor owns two completed five-second native holds, each with unchanged temporary environment and separately reported initial/intertick/terminal gaps. The resident graph startup receipt remains separate from that strict native boundary; recorded native departure is separately acquired and native preparation totals remain unmeasured. The original holder joins before the resident pool starts, so synchronous descriptor and metadata operations cannot starve its in-flight lock polling. Both independent failures are collected; an unresolved holder retains the workspace and refuses subsequent shared reuse. A live external bundler watcher remains unproved. The final fresh resident preserves its offline marker and accepted-generation/native-attempt assertions while adding implicit reference selection, distinct native cwd, a real type-error rejection and native-only persistent-key invalidation. Portable four-kind codec, migration, malformed-state and recovery cases remain in their owning unplugin and Metro units.
  */
 export async function test_e2e_metro_batch(): Promise<void> {
   const failures: unknown[] = [];
@@ -4359,7 +4359,7 @@ async function runResidentLoaderPool(): Promise<void> {
         );
         // This receipt includes the full shared graph's synchronous startup.
         // deadCompilerClaimCorpus separately owns two actual native holds and
-        // keeps the original strict 750ms initial/intertick/terminal oracle.
+        // reports actual elapsed/gap samples separately from completed native results.
       };
       const failures = outcomes.filter(
         (outcome): outcome is PromiseRejectedResult =>
@@ -5643,6 +5643,20 @@ async function runResidentLoaderPool(): Promise<void> {
                 original.replace('"authored-marker"', '"offline-restart-marker"'),
               );
               fs.mkdirSync(traceRoot, { recursive: true });
+              const readFreshTrace = () => Object.fromEntries(
+                fs.readdirSync(traceRoot).filter((name) => name.endsWith(".jsonl")).map((name) => [
+                  name,
+                  fs.readFileSync(path.join(traceRoot, name), "utf8").split(/\r?\n/).filter(Boolean)
+                    .map((line): Record<string, unknown> => {
+                      const row: unknown = JSON.parse(line);
+                      assert.ok(row !== null && typeof row === "object");
+                      return row as Record<string, unknown>;
+                    }),
+                ]),
+              ) as Record<string, Record<string, unknown>[]>;
+              const freshCursor = Object.fromEntries(
+                Object.entries(readFreshTrace()).map(([name, rows]) => [name, rows.length]),
+              );
               restarted = createLoaderPoolWorker({
                 mode: "metro",
                 root: workspace.root,
@@ -5688,11 +5702,87 @@ async function runResidentLoaderPool(): Promise<void> {
                 ),
                 "the actual native plugin must receive the distinct compiler root while Metro filenames retain the host root",
               );
-              assert.equal(
-                fs.statSync(workspace.programRunLog).size,
-                ticksBeforeRestart + 1,
-                "one fresh native probe invocation must validate the offline-edited generation",
+              // The new compiler-root namespace can first learn the fixture's
+              // two opaque alias dependencies from the native envelope. One
+              // accepted generation is required; a prior attempt is permitted
+              // only with that exact, independently authored missing witness.
+              const freshRows = Object.entries(readFreshTrace()).flatMap(([name, rows]) =>
+                rows.slice(freshCursor[name] ?? 0).map((row) => {
+                  assert.ok(row.data !== null && typeof row.data === "object");
+                  return { name, row, data: row.data as Record<string, unknown> };
+                }),
               );
+              const commandFile = path.basename(restarted.diagnosticsFile.replace(/-stderr\.bin$/, ".jsonl"));
+              const commandRows = freshRows.filter(({ name, row, data }) =>
+                name === commandFile && row.event === "loader-pool-command" &&
+                data.phase === "fresh-resident-offline-edit",
+              );
+              assert.equal(commandRows.length, 2);
+              const [sent, replied] = commandRows;
+              assert.equal(sent!.data.state, "sent");
+              assert.equal(replied!.data.state, "replied");
+              assert.equal(replied!.data.failed, false);
+              assert.equal(sent!.data.id, replied!.data.id);
+              const actorPid = sent!.data.childPid;
+              assert.ok(typeof actorPid === "number" && Number.isSafeInteger(actorPid) && actorPid > 0);
+              assert.equal(replied!.data.childPid, actorPid);
+              const proofs = freshRows.filter(({ row, data }) =>
+                row.pid === actorPid && row.event === "bridge-generation-proof" && data.currentFile === source,
+              );
+              const accepted = proofs.filter(({ data }) => data.stableProjectSnapshot === true);
+              assert.equal(accepted.length, 1, "one accepted offline generation owns publication");
+              const selectedState = accepted[0]!.data.state;
+              assert.ok(typeof selectedState === "string" && selectedState.length > 0);
+              const learnedAliases = ["native-source-first", "native-source-second"]
+                .map((alias) => path.join(workspace.root, alias, "map.ts")).sort();
+              const refusals = proofs.filter(({ data }) => data.stableProjectSnapshot !== true);
+              assert.ok(refusals.length <= 1, "the same two alias facts can be learned only once");
+              for (const proof of proofs) {
+                assert.equal(proof.data.state, selectedState, "no intervening selected input state is excused");
+                assert.equal(proof.data.claimKind, "compile", "cold learning cannot excuse stale adoption");
+                assert.equal(proof.data.configStateComplete, true);
+                assert.equal(proof.data.resultType, "success");
+                assert.equal(proof.data.adoptionFailure, null);
+                const complete = proof.data.stableProjectSnapshot === true;
+                assert.equal(typeof proof.data.stableProjectSnapshot, "boolean");
+                const failures = proof.data.failures;
+                assert.ok(failures !== null && typeof failures === "object" &&
+                  "omitted" in failures && "entries" in failures && Array.isArray(failures.entries));
+                assert.equal(failures.omitted, 0);
+                if (complete) {
+                  assert.deepEqual(failures.entries, []);
+                  assert.equal(proof.data.projectHeldStill, true);
+                  assert.equal(proof.data.dependenciesProven, true);
+                  assert.equal(proof.data.externalSnapshotComplete, true);
+                } else {
+                  const missing = failures.entries.map((failure: unknown) => {
+                    assert.ok(failure !== null && typeof failure === "object" && "path" in failure &&
+                      "kind" in failure && "domain" in failure);
+                    assert.equal(failure.domain, "external");
+                    assert.equal(failure.kind, "dependency-unwitnessed");
+                    assert.equal(typeof failure.path, "string");
+                    return failure.path;
+                  });
+                  assert.deepEqual(missing.sort(), learnedAliases);
+                }
+                const dispositions: typeof freshRows = freshRows.filter(({ row, data }) =>
+                  row.pid === actorPid && row.event === "bridge-attempt-disposition" &&
+                  data.currentFile === source && data.scratchDirectory === proof.data.scratchDirectory,
+                );
+                assert.equal(dispositions.length, 1);
+                assert.equal(dispositions[0]!.data.attempt, complete ? refusals.length : 0);
+                assert.equal(dispositions[0]!.data.kind, complete ? "accepted" : "retry");
+                assert.equal(dispositions[0]!.data.movedBefore, 0);
+                assert.equal(dispositions[0]!.data.freshDeliveryOnly, false);
+                if (!complete) assert.equal(dispositions[0]!.data.movedAfter, 0);
+                const publications: typeof freshRows = freshRows.filter(({ row }) =>
+                  row.pid === actorPid && row.event === "bridge-publication" && row.invocation === proof.row.invocation,
+                );
+                assert.equal(publications.length, 1);
+                assert.equal(publications[0]!.data.action, complete ? "publish-attempt" : "withheld");
+              }
+              assert.equal(fs.statSync(workspace.programRunLog).size - ticksBeforeRestart, proofs.length,
+                "every fresh native invocation has its individually qualified capture/disposition");
               freshDeliveryAccepted = true;
               const invalidSource =
                 fs.readFileSync(source, "utf8") +
@@ -5904,11 +5994,13 @@ async function runResidentLoaderPool(): Promise<void> {
               ...configured,
               transform: path.join(workspace.root, "compile-probe.cjs"),
               operation: "source-pipeline",
-              config: path.join(workspace.root, "config/banner.config.json"),
-              configFile: path.join(workspace.root, "config/banner.config.json"),
+              // This source-pipeline probe does not consume a banner config.
+              // Do not inherit a deferred native config witness without its producer.
               reportedFiles: [siblingSource],
               reportedDependencies: [],
             }];
+            delete siblingConfig.compilerOptions.plugins[0].config;
+            delete siblingConfig.compilerOptions.plugins[0].configFile;
             fs.writeFileSync(siblingProject, JSON.stringify(siblingConfig));
             const automatic = JSON.parse(originalAutomatic.toString("utf8"));
             automatic.ttsc.plugin.reportedFiles = [siblingSource];

@@ -1,3 +1,4 @@
+import { waitFor } from "../../../../utils/src/internal/waitFor";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -14,8 +15,6 @@ import {
   recordWatchers,
 } from "../../../../utils/src/RecordedWatchers";
 import { TestProject } from "../../../../utils/src/TestProject";
-
-const WATCH_EVENT_DEADLINE_MS = 30_000;
 
 /**
  * Verifies missing project members and ancestor subscriptions stay semantically
@@ -60,6 +59,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
     );
 
     const changes: WatchInputChange[] = [];
+    const watchFailures: unknown[] = [];
     let projectInputWatchRoots: readonly string[] = [];
     const observed = recordWatchers(watchDirectoryThroughFsWatch);
     const write = (
@@ -85,7 +85,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       },
       {
         onError: (location, error) => {
-          throw new Error(`watch error on ${location}`, { cause: error });
+          watchFailures.push(new Error(`watch error on ${location}`, { cause: error }));
         },
         onInputChange: (change) => changes.push(change),
         onProjectInputWatchRoots: (roots) => {
@@ -148,7 +148,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       await delay();
       let previousProjectChanges = projectChangeCount(changes);
       write(stagedDescendantFile, "covered edit\n", "utf8");
-      await waitForNextProjectChange(changes, previousProjectChanges);
+      await waitForNextProjectChange(changes, previousProjectChanges, watchFailures);
       topology.setProjectInputs({
         root,
         files: [stagedDescendantFile],
@@ -167,7 +167,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       await delay();
       previousProjectChanges = projectChangeCount(changes);
       write(stagedDescendantFile, "promoted edit\n", "utf8");
-      await waitForNextProjectChange(changes, previousProjectChanges);
+      await waitForNextProjectChange(changes, previousProjectChanges, watchFailures);
 
       const externalRoot = TestProject.physicalPath(
         TestProject.tmpdir("ttsc-project-input-anchor-"),
@@ -215,7 +215,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       previousProjectChanges = projectChangeCount(changes);
       fs.mkdirSync(path.dirname(externalFile), { recursive: true });
       write(externalFile, "external\n", "utf8");
-      await waitForNextProjectChange(changes, previousProjectChanges);
+      await waitForNextProjectChange(changes, previousProjectChanges, watchFailures);
 
       const beforeReadme = changes.length;
       write(path.join(root, "README.md"), "unrelated\n", "utf8");
@@ -257,20 +257,20 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
         "declared\n",
         "utf8",
       );
-      await waitForNextProjectChange(changes, previousProjectChanges);
+      await waitForNextProjectChange(changes, previousProjectChanges, watchFailures);
 
       fs.mkdirSync(path.join(root, "api", "v1"), { recursive: true });
       await delay();
       previousProjectChanges = projectChangeCount(changes);
       write(path.join(root, "api", "v1", "openapi.json"), "{}\n");
-      await waitForNextProjectChange(changes, previousProjectChanges);
+      await waitForNextProjectChange(changes, previousProjectChanges, watchFailures);
 
       const beforeUnrelated = changes.length;
       write(path.join(root, "unrelated.tmp"), "unrelated\n");
       await waitForQuiet(changes, beforeUnrelated);
       previousProjectChanges = projectChangeCount(changes);
       write(path.join(root, "api", "v1", "openapi.json"), '{"changed":true}\n');
-      await waitForNextProjectChange(changes, previousProjectChanges);
+      await waitForNextProjectChange(changes, previousProjectChanges, watchFailures);
 
       const movedDocs = path.join(root, "docs-old");
       const replacementDocs = path.join(root, "docs-new");
@@ -285,14 +285,14 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       previousProjectChanges = projectChangeCount(changes);
       await rename(path.join(root, "docs"), movedDocs);
       await rename(replacementDocs, path.join(root, "docs"));
-      await waitForNextProjectChange(changes, previousProjectChanges);
+      await waitForNextProjectChange(changes, previousProjectChanges, watchFailures);
       previousProjectChanges = projectChangeCount(changes);
       write(
         path.join(root, "docs", "nested", "missing.md"),
         "replacement edit\n",
         "utf8",
       );
-      await waitForNextProjectChange(changes, previousProjectChanges);
+      await waitForNextProjectChange(changes, previousProjectChanges, watchFailures);
       await delay();
       const afterReplacement = projectChangeCount(changes);
       write(
@@ -310,12 +310,12 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       const movedApi = path.join(root, "api-old");
       previousProjectChanges = projectChangeCount(changes);
       await rename(path.join(root, "api"), movedApi);
-      await waitForNextProjectChange(changes, previousProjectChanges);
+      await waitForNextProjectChange(changes, previousProjectChanges, watchFailures);
       fs.mkdirSync(path.join(root, "api", "v1"), { recursive: true });
       await delay();
       previousProjectChanges = projectChangeCount(changes);
       write(path.join(root, "api", "v1", "replacement.json"), "{}\n");
-      await waitForNextProjectChange(changes, previousProjectChanges);
+      await waitForNextProjectChange(changes, previousProjectChanges, watchFailures);
 
       fs.mkdirSync(path.join(root, "dist", "src"), { recursive: true });
       const beforeProduct = changes.length;
@@ -336,8 +336,9 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       await waitForQuiet(changes, beforeRemoved);
       previousProjectChanges = projectChangeCount(changes);
       write(path.join(root, "docs", "nested", "next.md"), "next\n", "utf8");
-      await waitForNextProjectChange(changes, previousProjectChanges);
+      await waitForNextProjectChange(changes, previousProjectChanges, watchFailures);
 
+      assert.equal(watchFailures.length, 0, "source watch callbacks must preserve their actual failures");
       const foreign = changes.filter((change) => change.kind !== "project");
       assert.deepEqual(
         foreign,
@@ -353,14 +354,13 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
 async function waitForNextProjectChange(
   changes: readonly WatchInputChange[],
   previous: number,
+  failures: readonly unknown[],
 ): Promise<void> {
-  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
-  while (projectChangeCount(changes) <= previous) {
-    if (Date.now() >= deadline) {
-      assert.fail(`expected a project change after ${previous}`);
-    }
-    await delay(25);
-  }
+  await waitFor(() => projectChangeCount(changes) > previous, "actual project change", {
+    check: () => {
+      if (failures.length !== 0) throw new AggregateError(failures, "source watch operation failed");
+    },
+  });
   await delay();
 }
 

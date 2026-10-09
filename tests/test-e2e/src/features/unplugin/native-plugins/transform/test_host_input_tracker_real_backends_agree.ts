@@ -1,3 +1,4 @@
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -71,13 +72,12 @@ export async function test_host_input_tracker_real_backends_agree(): Promise<voi
   );
   /** Settle until `done` holds, so a slow backend is waited for, not raced. */
   const until = async (done: () => boolean, label: string): Promise<void> => {
-    const deadline = Date.now() + 10_000;
-    for (;;) {
+    await waitFor(async () => {
       await settleMutationTrackers([tracker]);
-      if (done()) return;
-      assert.ok(Date.now() < deadline, `timed out waiting for ${label}`);
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
+      return !tracker.failed && done();
+    }, label, {
+      check: () => assert.equal(tracker.failed, false, "the actual native tracker failed before its expected mutation"),
+    });
   };
   const recorded = (): string[] =>
     [...tracker.changes].map((changed) =>

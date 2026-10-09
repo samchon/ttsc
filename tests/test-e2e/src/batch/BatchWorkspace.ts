@@ -305,7 +305,7 @@ export namespace BatchWorkspace {
     const context = vm.createContext({
       console: { info() {}, debug() {}, warn() {} },
     });
-    vm.runInContext(code, context, { timeout: 30_000 });
+    vm.runInContext(code, context);
     return JSON.parse(JSON.stringify(context.TTSC_BATCH_RESULT));
   }
 

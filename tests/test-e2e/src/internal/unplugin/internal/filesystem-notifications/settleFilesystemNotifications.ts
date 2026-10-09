@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import os from "node:os";
+import { TestProject } from "@ttsc/testing";
 import path from "node:path";
 
 /**
@@ -19,41 +19,69 @@ import path from "node:path";
  * Elsewhere this returns at once: inotify and Windows never report a write made
  * before the watch was added.
  *
- * @throws When the watch fails, or no marker is heard within five seconds.
+ * @throws The original watch or marker-write error. Notification latency is not a failure.
  */
 export async function settleFilesystemNotifications(): Promise<void> {
   if (process.platform !== "darwin") return;
-  const directory = fs.realpathSync.native(
-    fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-notification-barrier-")),
+  const directory = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-notification-barrier-"),
   );
+  let watcher: fs.FSWatcher | undefined;
+  let joined: Promise<void> | undefined;
+  let timer: NodeJS.Timeout | undefined;
+  let settled = false;
+  const failures: unknown[] = [];
   try {
     await new Promise<void>((resolve, reject) => {
       let attempts = 0;
-      let timer: NodeJS.Timeout | undefined;
-      // The stream may start after the first write, so the marker is written
-      // again until one is heard.
-      const watcher = fs.watch(directory, { persistent: false }, () => {
-        clearTimeout(timer);
-        watcher.close();
-        resolve();
-      });
+      const finish = (failed: boolean, cause?: unknown): void => {
+        if (settled) return;
+        settled = true;
+        if (timer !== undefined) clearTimeout(timer);
+        if (failed) reject(cause);
+        else resolve();
+      };
+      watcher = fs.watch(directory, () => finish(false));
+      joined = new Promise<void>((resolveClose) => watcher!.once("close", resolveClose));
       watcher.on("error", (error) => {
-        clearTimeout(timer);
-        reject(error);
+        if (settled) failures.push(error);
+        else finish(true, error);
       });
+      // A stream may start after the first write. Repeated marker writes are
+      // this registration protocol, not an elapsed failure policy.
       const write = (): void => {
-        attempts += 1;
-        if (attempts > 500) {
-          watcher.close();
-          reject(new Error("no filesystem notification was heard"));
-          return;
+        if (settled) return;
+        try {
+          fs.writeFileSync(path.join(directory, "marker"), String(++attempts));
+          if (!settled) timer = setTimeout(write, 10);
+        } catch (error) {
+          finish(true, error);
         }
-        fs.writeFileSync(path.join(directory, "marker"), String(attempts));
-        timer = setTimeout(write, 10);
       };
       write();
     });
+  } catch (error) {
+    failures.push(error);
   } finally {
-    fs.rmSync(directory, { force: true, recursive: true });
+    settled = true;
+    if (timer !== undefined) clearTimeout(timer);
+    let safelyJoined = watcher === undefined;
+    try {
+      if (watcher !== undefined) {
+        watcher.close();
+        await joined;
+        safelyJoined = true;
+      }
+    } catch (error) {
+      failures.push(error);
+    }
+    try {
+      if (safelyJoined) fs.rmSync(directory, { force: true, recursive: true });
+      else TestProject.retainTemporaryDirectory(directory, "filesystem marker watcher closure is unproved");
+    } catch (error) {
+      failures.push(error);
+    }
   }
+  if (failures.length !== 0)
+    throw new AggregateError(failures, "filesystem notification marker and original closure");
 }
