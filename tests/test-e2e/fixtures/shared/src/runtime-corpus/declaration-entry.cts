@@ -17,14 +17,22 @@ const child = nativeChildProcess.spawn(nativeProcess.execPath, [nativePath.join(
 });
 child.unref();
 nativeFs.writeFileSync(nativePath.join(descendant, "parent.json"), JSON.stringify({ parent: nativeProcess.pid, child: child.pid }));
-const readyDeadline = Date.now() + 30000;
-while (!nativeFs.existsSync(nativePath.join(descendant, "ready.json"))) {
-  if (Date.now() > readyDeadline) throw new Error("registered descendant did not become ready");
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
-}
-// This parent is actually loaded through register; no synthetic parent skips
-// its normal preparation gate. Native ESM loading remains asynchronous.
-void (require("./package-boundary.cjs") as any).observePackageBoundary().then(
-  (value: unknown) => console.log("TTSC_INSTALLED_BOUNDARY_REGISTER:" + JSON.stringify(value)),
-  (error: unknown) => { console.log(String(error)); nativeProcess.exitCode = 1; },
-);
+let ready: unknown;
+child.once("error", (error: unknown) => { (globalThis as any).clearInterval(ready); throw error; });
+child.once("close", () => {
+  if (!nativeFs.existsSync(nativePath.join(descendant, "ready.json"))) {
+    (globalThis as any).clearInterval(ready);
+    nativeProcess.exitCode = 1;
+  }
+});
+// The child publishes ready only after the outer controller acquired both
+// original targets. The real register parent then performs its independent
+// native preparation; no descendant release deadline runs during that work.
+ready = (globalThis as any).setInterval(() => {
+  if (!nativeFs.existsSync(nativePath.join(descendant, "ready.json"))) return;
+  (globalThis as any).clearInterval(ready);
+  void (require("./package-boundary.cjs") as any).observePackageBoundary().then(
+    (value: unknown) => console.log("TTSC_INSTALLED_BOUNDARY_REGISTER:" + JSON.stringify(value)),
+    (error: unknown) => { console.log(String(error)); nativeProcess.exitCode = 1; },
+  );
+}, 10);

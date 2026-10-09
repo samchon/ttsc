@@ -376,8 +376,13 @@ registerOptions.compilerOptions.plugins = registerOptions.compilerOptions.plugin
 const registerAutomatic = JSON.parse(automaticManifestBytes);
 registerAutomatic.ttsc.plugin = registerReports(registerAutomatic.ttsc.plugin);
 let childReport;
-let childIsRunning;
+let childJoined = false;
+let descendantAdmission;
+let descendantRelease;
+let descendantJoin;
+const descendantController = require("./runtime-owned-descendant.cjs");
 const descendant = path.join(__dirname, "runtime-descendant");
+let registerFailure;
 try {
 fs.writeFileSync(registerBaseFile, JSON.stringify(registerOptions));
 fs.writeFileSync(automaticManifestFile, JSON.stringify(registerAutomatic));
@@ -398,12 +403,6 @@ try {
   fs.unlinkSync(configuration);
 }
 childReport = fs.existsSync(path.join(descendant, "parent.json")) ? JSON.parse(fs.readFileSync(path.join(descendant, "parent.json"), "utf8")) : undefined;
-childIsRunning = () => {
-  if (childReport === undefined) return false;
-  assert.ok(Number.isSafeInteger(childReport.child) && childReport.child > 0);
-  try { process.kill(childReport.child, 0); return true; }
-  catch (error) { if (error.code === "ESRCH") return false; throw error; }
-};
 const defaultRuntime = path.join(root, "node_modules/.cache/ttsc/ttsx");
 const defaultRuns = path.join(defaultRuntime, "project");
 const cleanDefault = () => {
@@ -417,7 +416,9 @@ try {
   assert.equal(registered.signal, null);
   assert.equal(registered.status, 0, registered.stderr);
   assert.ok(registered.pid > 0);
-  assert.throws(() => process.kill(registered.pid, 0), (error) => error.code === "ESRCH");
+  descendantAdmission = descendantController.request("registered", "ready");
+  assert.equal(descendantAdmission.parent.pid, registered.pid);
+  descendantController.request("registered", "parent-joined");
   const registerLines = registered.stdout.trim().split(/\r?\n/);
   assert.deepEqual(registerLines.slice(0, -1), ['TTSC_REGISTER_VIEW:<div>hello</div><b>world</b>', 'lowered', 'entry', 'TTSC_DECLARED_REGISTER:{"generated":42,"neighbor":43,"payload":42}']);
   const boundaryPrefix = "TTSC_INSTALLED_BOUNDARY_REGISTER:";
@@ -443,41 +444,55 @@ try {
   assert.ok(childReport, "the actual registered parent must publish its owned child identity");
   assert.equal(childReport.parent, registered.pid);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(descendant, "ready.json"), "utf8")), { pid: childReport.child, manifest: null, run: null, runtime: null, runs: null });
-  assert.equal(childIsRunning(), true, "the manifestless registered descendant must remain alive for its lazy import");
+  assert.equal(descendantController.request("registered", "live").live, true, "the authenticated original manifestless descendant must remain held for its lazy import");
   const owners = fs.existsSync(defaultRuns) ? fs.readdirSync(defaultRuns).flatMap((run) => fs.readdirSync(path.join(defaultRuns, run)).filter((name) => /^owner-.*\.json$/.test(name)).map((name) => JSON.parse(fs.readFileSync(path.join(defaultRuns, run, name), "utf8")))) : [];
   assert.equal(owners.some((owner) => owner.pid === childReport.child), false, "manifestless register must not invent an inherited generation owner");
   assert.equal(cleanDefault(), 0);
   assert.equal(fs.existsSync(defaultRuntime), false, "default clean must remove the unowned manifestless generation before the live descendant lazily rebuilds its typed input");
-  fs.writeFileSync(path.join(descendant, "release"), "release");
-  const deadline = Date.now() + 30000;
-  while (!fs.existsSync(path.join(descendant, "result")) || childIsRunning()) {
-    assert.ok(Date.now() < deadline, "the released descendant did not finish its actual lazy import");
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
-  }
+  descendantRelease = descendantController.request("registered", "release");
+  descendantJoin = descendantController.request("registered", "joined");
+  childJoined = descendantJoin.retired;
+  assert.equal(descendantJoin.completion.value, "descendant-ready", JSON.stringify(descendantJoin));
   assert.equal(fs.readFileSync(path.join(descendant, "result"), "utf8"), "descendant-ready");
   assert.equal(cleanDefault(), 0);
   assert.equal(fs.existsSync(defaultRuntime), false, "default clean must remove the completed registered run");
 } catch (error) { descendantFailures.push(error); }
 finally {
-  fs.writeFileSync(path.join(descendant, "release"), "release");
-  try {
-    const deadline = Date.now() + 30000;
-    while (childIsRunning()) {
-      assert.ok(Date.now() < deadline, "registered descendant closure remained unresolved");
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
-    }
+  if (!childJoined) try {
+    if (!descendantRelease) descendantController.request("registered", "abort");
+    descendantJoin = descendantController.request("registered", "joined");
+    childJoined = descendantJoin.retired;
   } catch (error) { descendantFailures.push(new Error("registered descendant closure remained unresolved", { cause: error })); }
 }
 if (descendantFailures.length) throw new AggregateError(descendantFailures, "registered descendant live/lazy/finished cleanup");
-} finally {
-  if (childIsRunning !== undefined && childIsRunning())
-    throw new Error("register reporting epoch retained because its descendant closure is unresolved");
-  try { fs.writeFileSync(registerBaseFile, registerBaseBytes); }
-  finally { fs.writeFileSync(automaticManifestFile, automaticManifestBytes); }
-  assert.deepEqual(fs.readFileSync(configlessPlacement), configlessBytes);
-  fs.unlinkSync(configlessPlacement);
-  fs.rmdirSync(configlessDirectory);
+} catch (cause) { registerFailure = cause; }
+finally {
+  const restorationFailures = [];
+  if (!childJoined) restorationFailures.push(new Error("register reporting epoch retained because its descendant closure is unresolved"));
+  else {
+    try { fs.writeFileSync(registerBaseFile, registerBaseBytes); } catch (cause) { restorationFailures.push(cause); }
+    try { fs.writeFileSync(automaticManifestFile, automaticManifestBytes); } catch (cause) { restorationFailures.push(cause); }
+    try {
+      assert.deepEqual(fs.readFileSync(configlessPlacement), configlessBytes);
+      fs.unlinkSync(configlessPlacement);
+      fs.rmdirSync(configlessDirectory);
+    } catch (cause) { restorationFailures.push(cause); }
+  }
+  if (restorationFailures.length)
+    throw new AggregateError([...(registerFailure === undefined ? [] : [registerFailure]), ...restorationFailures], "registered preparation and independent restoration failures");
 }
+if (registerFailure !== undefined) throw registerFailure;
 assert.deepEqual(fs.readFileSync(automaticManifestFile), automaticManifestBytes, "register reporting must restore the root discovery contributor after its descendant closes");
 unchanged();
-fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ apiEnvironmentBefore: apiEnvironmentReceipts.before, apiEnvironmentAfter: apiEnvironmentReceipts.after, apiFailures: apiFailures.map((error) => ({ name: error.message, detail: String(error.cause), stack: error.cause?.stack })), produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, driverEmitBefore, driverEmitAfter, driverEmitStatus, driverEmitStderr, rejectedOutputAbsent: !fs.existsSync(rejectedOutput), emitManifestAbsent: !fs.existsSync(emitManifest), registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: !childIsRunning(), registerBefore, registerAfter: receiptCount() }));
+const registerCompletedAt = new Date().toISOString();
+fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ apiEnvironmentBefore: apiEnvironmentReceipts.before, apiEnvironmentAfter: apiEnvironmentReceipts.after, apiFailures: apiFailures.map((error) => ({ name: error.message, detail: String(error.cause), stack: error.cause?.stack })), produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, driverEmitBefore, driverEmitAfter, driverEmitStatus, driverEmitStderr, rejectedOutputAbsent: !fs.existsSync(rejectedOutput), emitManifestAbsent: !fs.existsSync(emitManifest), registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: childJoined, descendantAdmission, descendantRelease, descendantJoin, registerBefore, registerAfter: receiptCount(), registerCompletedAt, mainEpochOwner: process.pid }));
+
+// Registration's original snapshots and receipt endpoint precede this separate
+// main-source epoch. The outer owner restores exact original base/marker bytes
+// only after this main and every original descendant have actually joined.
+const mainOptions = JSON.parse(registerBaseBytes);
+mainOptions.compilerOptions.plugins = mainOptions.compilerOptions.plugins.map(registerReports);
+const mainAutomatic = JSON.parse(automaticManifestBytes);
+mainAutomatic.ttsc.plugin = registerReports(mainAutomatic.ttsc.plugin);
+fs.writeFileSync(registerBaseFile, JSON.stringify(mainOptions));
+fs.writeFileSync(automaticManifestFile, JSON.stringify(mainAutomatic));

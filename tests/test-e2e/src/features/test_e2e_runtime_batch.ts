@@ -1,10 +1,12 @@
-import { FileSystemIterator, TestProject } from "@ttsc/testing";
+import { FileSystemIterator, RuntimeDescendantController, TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
+import { NativeProcessObserver } from "../../../utils/src/NativeProcessObserver";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { positionalCompilerCorpus } from "../batch/positionalCompilerCorpus";
 import { runtimeCacheFailureCorpus } from "../batch/runtimeCacheFailureCorpus";
@@ -17,6 +19,7 @@ import {
   denyWrites,
   runsAsRoot,
 } from "../internal/ttsc/internal/read-only-directory";
+import { readE2eTracePayload } from "../internal/readE2eTracePayload";
 import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/project/test_owned_native_process_joins_cancelled_command_trees";
 
 /**
@@ -184,15 +187,18 @@ import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/
  * descendant releases, the actual compiler API must report and remove the whole
  * nonempty runtime. This adds one runtime pair and one clean launcher, without
  * another project, installation or native plugin producer. The descendant's
- * controller connection owns the detached worker until release or actual EOF.
- * Awaited close events and yielding native liveness observations join the
- * killed pair without a fixture performance deadline. API cleanup explicitly
+ * authenticated controller holds the detached worker until explicit release.
+ * One borrowed native observer serializes original-target acquisition and
+ * retirement for registered, inherited and abandoned roles. The direct sibling
+ * launcher's original kernel target retires before authenticated self-SIGKILL;
+ * its output/close drains after descendant retirement. EOF is not departure
+ * proof. API cleanup explicitly
  * removes ambient cache selectors while retaining the caller's Go cache.
  *
- * @evidence contracts/testing.md#execution-ownership Both new families borrow the existing main ttsx host, installed consumer, upfront Program and retained register actor. Source-only package compilation, two configless isolated emits, package-own and consumer/workspace Programs are real internal work in each process that reaches them; this test does not claim one Program or measure their counts. No new installation, native plugin producer or host is added. The main graph invokes TestProject.spawn once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering, the four retained actor lifetimes (including the detached registered descendant), one abandoned sibling launcher/program pair, its clean launcher and two readonly entry children are explicit costs, not one-process or one-Program claims. The upfront frontdoor corpus separately restores eight actual startup/terminal launcher requests and their four CLI entry children. runtimeMapsCorpus additionally uses two root-option launcher lifetimes to combine native V8 coverage and stack consumers; real native preparations remain additional work. Independent failures collect together.
+ * @evidence contracts/testing.md#execution-ownership Both new families borrow the existing main ttsx host, installed consumer, upfront Program and retained register actor. Source-only package compilation, two configless isolated emits, package-own and consumer/workspace Programs are real internal work in each process that reaches them; this test does not claim one Program or measure their counts. No new installation, native plugin producer or host is added. The main graph invokes TestProject.spawnAsync once while its outer event loop owns authenticated descendant control. The existing native-process controls borrow that same observer only after controller requests and roles join; the outer Runtime closes the session once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering, the four retained actor lifetimes (including the detached registered descendant), one abandoned sibling launcher/program pair, its clean launcher and two readonly entry children are explicit costs, not one-process or one-Program claims. The upfront frontdoor corpus separately restores eight actual startup/terminal launcher requests and their four CLI entry children. runtimeMapsCorpus additionally uses two root-option launcher lifetimes to combine native V8 coverage and stack consumers; real native preparations remain additional work. Independent failures collect together.
  * @evidence contracts/e2e.md#necessary-boundary Static name units cannot establish native ESM linking and shared CommonJS evaluation through served compiler output. Ownership units cannot establish which installed transform actually runs through ttsx and register. Public ttsx connects native transforms, source publication and actual Node loading. Go rule units cannot establish the loaded graph's observed values or source preservation.
  * @evidence contracts/e2e.md#shared-execution Static fixtures join the existing runtime graph and register actor; one package-own project supplies both sibling sources, and one consumer project supplies its physical workspace. No per-case launcher or new native producer is introduced. One consumer and its runtime process carry the value graph, source-race/identity loads and installed clean dispatch. The existing lock-holder child also requires a checked module after its actual emitted file is removed: acquired-holder stdout, missing-owned stderr and exit1 establish both real negative transport and the exited holder. Exact output bytes restore before the main graph. Legacy/default/explicit dispatch controls share that consumer. Selective live/dead generation cleanup additionally reuses the inherited descendant's namespace with one plugin-free sibling launcher/program pair and one actual clean launcher; final all-dead API cleanup reuses that state. Real Go metadata/build/smoke and isolated emit children remain disclosed internal costs, not standalone source projects or one-Program certification.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Batch setup proves the lowercase installed spelling aliases the authored uppercase store, creating a link only where native spelling is distinct. Physical workspace links retain native source identity. Complete authored input trees are captured before consumers and compared after joins; no private cache reset or source rewrite manufactures the result. Native errors are outside the positive tsconfig population. The excluded orphan changes during its actual compiler read, restores original bytes before the second require and finally, and its environment authority restores before the main graph. The private compiler copy is the actual delegate of those two required race lowerings before its identity/cache controls; the witness waits for that compiler child to close, with no additional preparation CLI or claim that kernel metadata writers are quiescent. The first identity artifact, unchanged marked reuse and same-physical same-byte rewrite remain distinct expectations. Observation-only preparation receipts stay outside the exact five-field behavior report. The authored sibling runtimeCliCache independently names the CLI-selected cache for explicit orphan placement; the shared plugin cache remains a separate environment authority, while the manifestless register still selects the project-local default cache. The main source/config remain immutable; synchronous process error/signal/null status fails and unknown closure retains the common owner.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Batch setup proves the lowercase installed spelling aliases the authored uppercase store, creating a link only where native spelling is distinct. Physical workspace links retain native source identity. Complete authored input trees are captured before consumers and compared after joins; no private cache reset or source rewrite manufactures the result. Native errors are outside the positive tsconfig population. The excluded orphan changes during its actual compiler read, restores original bytes before the second require and finally, and its environment authority restores before the main graph. The private compiler copy is the actual delegate of those two required race lowerings before its identity/cache controls; the witness waits for that compiler child to close, with no additional preparation CLI or claim that kernel metadata writers are quiescent. The first identity artifact, unchanged marked reuse and same-physical same-byte rewrite remain distinct expectations. Observation-only preparation receipts stay outside the exact five-field behavior report. The authored sibling runtimeCliCache independently names the CLI-selected cache for explicit orphan placement; the shared plugin cache remains a separate environment authority, while the manifestless register still selects the project-local default cache. The main source remains immutable. Register, API and emission receipt windows precede a distinct MAIN reporting projection; original base and automatic-marker bytes restore only after actual main and all original borrower joins. MAIN receipts are captured immediately at main close and checked against successful native driver Programs with literal contributor values. Child-specific post-clean consumed JavaScript and its inline map bind the authenticated child to the authored lazy source without requiring a new compiler spawn on valid reuse. Process error/signal/null status fails and unknown closure retains the common owner.
  * @evidence contracts/e2e.md#preserved-coverage Existing runtime observations remain unchanged. New runtime observers attempt each independent family even after a linking/load failure, and their assertions collect outside the older payload assertion block. Existing own-property/getter/main identity and direct parser units retain their distinct boundaries. Keeps the native factory value matrix and combined utility alias/strip/runtime observations in one real loaded graph. The standard class/method warning-removal composition and original ESNext member-initialization effects run in both .mts/.cts modules in the same upfront Program; the contrary module-package .cts value is loaded alongside the .mts public entry. Source dirname, imported class root and both asset reads preserve their independent physical identities. The export population additionally observes real tslib IIFE reexports, inert throwing/template negatives, computed dynamic default exports, live default getters and bare-package versus project basename ownership, all from upfront inputs in the same host. Direct commonjs preparation/metadata and emit ownership units own their detailed portable distinctions. Dependency profile recipes are not repeated; isolated orphan lowering and other compiler-mode/lifetime transitions remain outside this population. TestFormatSortImportsPreservesBindingImportEvaluationOrder now splits its zero-findings invariant into TestFormatSortImportsPreservesSideEffectImports and its unchanged raw ESM bytes into this actual runtime; existing status, payload and markers remain asserted.
  */
 export async function test_e2e_runtime_batch(): Promise<void> {
@@ -312,6 +318,21 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         mtimeNs: fs.statSync(installedPackage, { bigint: true }).mtimeNs,
       };
   let result: ReturnType<typeof TestProject.spawn> | undefined;
+  const combinedFailures: unknown[] = [];
+  let mainJoined = false;
+  let mainJoinedAt: string | undefined;
+  let allRoleAdmissionsKnown = workspace.installationOnly;
+  let mainRuntimeAfter: number | undefined;
+  let mainContextReceipts: Record<string, unknown>[] | undefined;
+  let observer: Awaited<ReturnType<ReturnType<typeof NativeProcessObserver.prepare>["open"]>> | undefined;
+  let controller: ReturnType<typeof RuntimeDescendantController.create> | undefined;
+  let controllerRoot: string | undefined;
+  let controllerAddress: Awaited<ReturnType<NonNullable<typeof controller>["listen"]>> | undefined;
+  let runtimeTraceRoot: string | undefined;
+  const automaticManifest = path.join(workspace.root, "packages/batch-auto-discovery/package.json");
+  const automaticBytes = workspace.installationOnly ? undefined : fs.readFileSync(automaticManifest);
+  const registeredLazyFile = path.join(workspace.root, "src/runtime-corpus/descendant-lazy.cts");
+  const registeredLazyBytes = workspace.installationOnly ? undefined : fs.readFileSync(registeredLazyFile);
   const readonlyRoot = path.join(
     workspace.root,
     "tools/runtime-negative/readonly",
@@ -398,6 +419,15 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   if (!workspace.installationOnly)
     fs.renameSync(path.join(workspace.root, "tsconfig.json"), base);
   try {
+    if (!workspace.installationOnly) {
+      observer = await NativeProcessObserver.prepare().open();
+      controller = RuntimeDescendantController.create(observer, ["registered", "descendant", "sibling"]);
+      controllerRoot = TestProject.tmpdir("ttsc-runtime-descendants-");
+      controllerAddress = await controller.listen(controllerRoot);
+      runtimeTraceRoot = process.env.TTSC_E2E_TRACE ?? path.join(controllerRoot, "trace");
+      assert.ok(path.isAbsolute(runtimeTraceRoot));
+      fs.mkdirSync(runtimeTraceRoot, { recursive: true });
+    }
     if (readonlyActive) {
       for (const directory of [readonlyRoot, readonlyBoundary]) {
         readonlyRestorations.push(denyWrites(directory));
@@ -411,7 +441,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         );
       }
     }
-    result = TestProject.spawn(
+    result = await TestProject.spawnAsync(
       process.execPath,
       [
         workspace.installedTtsx,
@@ -439,10 +469,45 @@ export async function test_e2e_runtime_batch(): Promise<void> {
             ? undefined
             : readonlyRoot,
           TTSC_E2E_READONLY_DENIED: readonlyActive ? "1" : undefined,
+          TTSC_E2E_TRACE: runtimeTraceRoot ?? process.env.TTSC_E2E_TRACE,
+          TTSC_E2E_DESCENDANT_ROOT: controllerAddress?.directory,
+          TTSC_E2E_DESCENDANT_NONCE: controllerAddress?.nonce,
+          TTSC_E2E_DESCENDANT_PORT: controllerAddress?.port.toString(),
         },
       },
     );
+    mainJoined = true;
+    mainJoinedAt = new Date().toISOString();
+    mainContextReceipts = BatchWorkspace.readContextReceipts(workspace);
+    mainRuntimeAfter = mainContextReceipts.length;
+  } catch (cause) {
+    combinedFailures.push(cause);
   } finally {
+    if (controller) {
+      allRoleAdmissionsKnown = true;
+      for (const role of ["registered", "descendant", "sibling"]) {
+        try { await controller.request(role, "ready"); }
+        catch (cause) {
+          allRoleAdmissionsKnown = false;
+          combinedFailures.push(new Error("Runtime role admission unavailable: " + role, { cause }));
+        }
+        if (result?.status !== 0) {
+          // Scenario cleanup normally releases every role. A failed main may
+          // leave a held role: ask that authenticated original to abort, then
+          // request its original-target join. A non-held role needs no new kill.
+          try {
+            await controller.request(role, "live");
+            await controller.request(role, "abort");
+          } catch (cause) {
+            combinedFailures.push(new Error("Runtime failed-main cancellation observation: " + role, { cause }));
+          }
+          try { await controller.request(role, "joined"); }
+          catch (cause) { combinedFailures.push(new Error("Runtime failed-main role join: " + role, { cause })); }
+        }
+      }
+      try { await controller.close(); }
+      catch (cause) { combinedFailures.push(cause); }
+    }
     const permissionFailures: unknown[] = [];
     for (const restore of readonlyRestorations.reverse())
       try {
@@ -462,6 +527,12 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       BatchWorkspace.retain(
         "readonly input permissions could not be restored and acknowledged by actual writes",
       );
+    const lifetimeKnown = mainJoined && allRoleAdmissionsKnown &&
+      (workspace.installationOnly || controller?.joined() === true);
+    if (!lifetimeKnown && !workspace.installationOnly) {
+      BatchWorkspace.retain("original Runtime parent or descendant lifetime remains unresolved");
+      if (controllerRoot) TestProject.retainTemporaryDirectory(controllerRoot, "Runtime original targets unresolved");
+    }
     if (
       result?.stderr.includes(
         "owned runtime descendant closure remained unresolved",
@@ -493,25 +564,45 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       )
     )
       BatchWorkspace.retain(
-        "the registered descendant has no actual ESRCH acknowledgement; keep its held configuration and refuse later shared consumers",
+        "the registered descendant has no original-kernel departure acknowledgement; keep its held configuration and refuse later shared consumers",
       );
-    else if (!workspace.installationOnly)
-      fs.renameSync(base, path.join(workspace.root, "tsconfig.json"));
-    if (permissionFailures.length)
-      throw new AggregateError(
+    else if (!workspace.installationOnly && lifetimeKnown) {
+      try { fs.writeFileSync(path.join(workspace.root, "tsconfig.json"), config); }
+      catch (cause) { permissionFailures.push(cause); }
+      try { fs.writeFileSync(automaticManifest, automaticBytes!); }
+      catch (cause) { permissionFailures.push(cause); }
+      if (!permissionFailures.length) {
+        try { fs.unlinkSync(base); }
+        catch (cause) { permissionFailures.push(cause); }
+      }
+    }
+    if (permissionFailures.length) {
+      BatchWorkspace.retain("shared Runtime originals could not be restored exactly after all borrowers joined");
+      combinedFailures.push(new AggregateError(
         permissionFailures,
-        "shared readonly permission restoration failed",
-      );
+        "shared Runtime input and permission restoration failed",
+      ));
+    }
   }
-  const combinedFailures: unknown[] = [];
   if (!workspace.installationOnly) {
     try {
       await BatchWorkspace.open();
+      if (!mainJoined || !allRoleAdmissionsKnown || controller?.joined() !== true || !observer)
+        throw new Error("Native controls blocked by unresolved Runtime controller/session prerequisite");
       await test_owned_native_process_joins_cancelled_command_trees(
         workspace.root,
+        { observer },
       );
     } catch (error) {
       combinedFailures.push(error);
+    } finally {
+      if (observer) {
+        try { await observer.close(); }
+        catch (cause) {
+          combinedFailures.push(cause);
+          BatchWorkspace.retain("Runtime shared observer original closure remains unresolved");
+        }
+      }
     }
     try {
       await BatchWorkspace.open();
@@ -715,6 +806,11 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         descendantClosed: boolean;
         registerBefore: number;
         registerAfter: number;
+        registerCompletedAt: string;
+        mainEpochOwner: number;
+        descendantAdmission: { announcement: { pid: number; parentPid: number }; target: unknown; parent: unknown };
+        descendantRelease: { target: unknown; operation: string; at: string };
+        descendantJoin: { target: unknown; parent: unknown; retired: boolean; completion: { nonce: string; role: string; pid: number; event: string; value: string; completedAt: string; error?: unknown } };
       };
       try {
         assert.deepEqual(
@@ -760,7 +856,85 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         ),
         JSON.stringify(declarationObservation.produced),
       );
-      const allNativeReceipts = BatchWorkspace.readContextReceipts(workspace);
+      assert.ok(mainContextReceipts && mainRuntimeAfter !== undefined && mainJoinedAt && runtimeTraceRoot);
+      const allNativeReceipts = mainContextReceipts;
+      // Original writers are joined before these bounded, identity-checked
+      // reads. Only the selected writer PIDs are opened, never payload history.
+      const readWriter = (pid: number): Record<string, any>[] => {
+        assert.ok(Number.isSafeInteger(pid) && pid > 0);
+        const records: Record<string, any>[] = [];
+        for (const name of fs.readdirSync(runtimeTraceRoot!)) {
+          if (!name.startsWith(pid + "-") || !/^[0-9]+-[a-f0-9-]+\.jsonl$/.test(name)) continue;
+          const file = path.join(runtimeTraceRoot!, name);
+          const before = fs.lstatSync(file, { bigint: true });
+          assert.ok(before.isFile() && before.size <= BigInt(256 * 1024 * 1024));
+          const text = fs.readFileSync(file, "utf8");
+          const after = fs.lstatSync(file, { bigint: true });
+          assert.ok(after.isFile());
+          assert.deepEqual([after.dev, after.ino, after.size, after.mtimeNs, after.ctimeNs],
+            [before.dev, before.ino, before.size, before.mtimeNs, before.ctimeNs]);
+          assert.equal(Buffer.byteLength(text), Number(before.size));
+          assert.ok(text.endsWith("\n"), "joined writer must leave complete JSONL frames");
+          let sequence = 0;
+          for (const line of text.trimEnd().split(/\r?\n/)) {
+            const row = JSON.parse(line);
+            assert.equal(row.schema, 1);
+            assert.equal(row.writerPid, pid);
+            assert.equal(name, `${pid}-${row.instance}.jsonl`);
+            assert.ok(Number.isSafeInteger(row.sequence) && row.sequence > sequence);
+            sequence = row.sequence;
+            assert.notEqual(row.event, "integrity-failure");
+            records.push(row);
+          }
+        }
+        return records;
+      };
+      try {
+        const admission = declarationObservation.descendantAdmission;
+        const release = declarationObservation.descendantRelease;
+        const joined = declarationObservation.descendantJoin;
+        assert.equal(admission.announcement.pid, declarationObservation.descendantPid);
+        assert.equal(admission.announcement.parentPid, declarationObservation.registerPid);
+        assert.deepEqual(release.target, admission.target);
+        assert.equal(release.operation, "release");
+        assert.deepEqual(joined.target, admission.target);
+        assert.deepEqual(joined.parent, admission.parent);
+        assert.equal(joined.retired, true);
+        assert.equal(joined.completion.nonce, controller!.nonce);
+        assert.equal(joined.completion.role, "registered");
+        assert.equal(joined.completion.pid, declarationObservation.descendantPid);
+        assert.equal(joined.completion.event, "complete");
+        assert.equal(joined.completion.error, undefined);
+        assert.equal(joined.completion.value, "descendant-ready");
+        const lower = Date.parse(release.at);
+        const upper = Date.parse(joined.completion.completedAt);
+        assert.ok(Number.isFinite(lower) && Number.isFinite(upper) && lower <= upper);
+        const preparations = readWriter(declarationObservation.descendantPid).filter((row) =>
+          row.event === "runtime-source-preparation" &&
+          row.data.origin === "ttsx-commonjs-source-load" &&
+          typeof row.data.filename === "string" && path.basename(row.data.filename) === path.basename(registeredLazyFile) &&
+          fs.realpathSync.native(row.data.filename) === fs.realpathSync.native(registeredLazyFile) &&
+          Date.parse(row.at) >= lower && Date.parse(row.at) <= upper);
+        assert.ok(preparations.length > 0, "the authenticated child must consume compiler-prepared lazy source after actual default clean/release");
+        for (const row of preparations) {
+          assert.equal(row.data.selectedFormat, "commonjs");
+          assert.equal(row.data.sourceEncoding, "utf16le");
+          assert.equal(row.data.representation, "consumed-javascript-string");
+          const bytes: Buffer = readE2eTracePayload(runtimeTraceRoot, row as { writerPid: number; instance: string; invocation: string }, row.data.source).bytes;
+          assert.equal(bytes.length, row.data.sourceCodeUnits * 2);
+          const javascript = bytes.toString("utf16le");
+          assert.notEqual(javascript, registeredLazyBytes!.toString("utf8"));
+          const encoded = /sourceMappingURL=data:application\/json(?:;charset=utf-8)?;base64,([^\s]+)/.exec(javascript);
+          assert.ok(encoded, "the consumed child JavaScript must carry its real inline source map");
+          const map = JSON.parse(Buffer.from(encoded[1]!, "base64").toString("utf8"));
+          assert.equal(map.version, 3);
+          const sourceIndex = (map.sources as string[]).findIndex((source) =>
+            fs.realpathSync.native(source.startsWith("file:") ? fileURLToPath(source) : path.resolve(path.dirname(registeredLazyFile), map.sourceRoot ?? "", source)) === fs.realpathSync.native(registeredLazyFile));
+          assert.notEqual(sourceIndex, -1);
+          assert.equal(map.sourcesContent[sourceIndex], registeredLazyBytes!.toString("utf8"));
+        }
+        assert.deepEqual(fs.readFileSync(registeredLazyFile), registeredLazyBytes);
+      } catch (error) { combinedFailures.push(new Error("registered child post-clean consumed-source and original-target proof", { cause: error })); }
       assert.ok(
         Number.isInteger(declarationObservation.nativeEmitBefore) &&
           declarationObservation.nativeEmitBefore > receiptOffset,
@@ -799,11 +973,59 @@ export async function test_e2e_runtime_batch(): Promise<void> {
           declarationObservation.registerAfter >
             declarationObservation.registerBefore,
       );
-      assert.equal(
-        allNativeReceipts.length,
-        declarationObservation.registerAfter,
-        "every later native context must remain accounted for after the register actor closes",
-      );
+      assert.ok(mainRuntimeAfter >= declarationObservation.registerAfter);
+      assert.equal(allNativeReceipts.length, mainRuntimeAfter,
+        "MAIN receipt endpoint belongs to the actual original main join, before later corpora");
+      try {
+        const mainLower = Date.parse(declarationObservation.registerCompletedAt);
+        const mainUpper = Date.parse(mainJoinedAt);
+        assert.ok(Number.isFinite(mainLower) && mainLower <= mainUpper);
+        const builds = readWriter(declarationObservation.mainEpochOwner).filter((row) =>
+          row.event === "process-result" && Date.parse(row.at) >= mainLower &&
+          Date.parse(row.at) <= mainUpper && Array.isArray(row.argv) &&
+          row.argv.includes("build") && row.argv.some((argument: unknown) =>
+            typeof argument === "string" && argument.startsWith("--plugins-json=")))
+          .sort((left, right) => Date.parse(left.at) - Date.parse(right.at));
+        const expected: Record<string, unknown>[] = [];
+        const literalEntries: Record<string, Record<string, unknown>> = {
+          "shared-real-program-probe": { name: "shared-real-program-probe", operation: null, prefix: "a:", suffix: ":z" },
+          "native-order-prefix": { name: "native-order-prefix", operation: "prefix", prefix: "a:", suffix: null },
+          "native-order-identity": { name: "native-order-identity", operation: "identity", prefix: null, suffix: null },
+          "native-order-upper": { name: "native-order-upper", operation: "upper", prefix: null, suffix: null },
+          "native-order-suffix": { name: "native-order-suffix", operation: "suffix", prefix: null, suffix: ":z" },
+          "native-auto-discovery": { name: "native-auto-discovery", operation: "identity", prefix: null, suffix: null },
+        };
+        for (const build of builds) {
+          assert.equal(build.data.started, true);
+          assert.equal(build.data.exitObserved, true);
+          assert.equal(build.data.status, 0);
+          assert.equal(build.data.signal, null);
+          assert.equal(build.data.error, null);
+          const programs = readWriter(build.pid).filter((row) =>
+            row.event === "program-construction" && row.data.origin === "driver-create" &&
+            row.data.outcome === "constructor-returned" &&
+            Date.parse(row.at) >= mainLower && Date.parse(row.at) <= Date.parse(build.at));
+          assert.equal(programs.length, 1, "each successful MAIN native build must expose its actual driver constructor");
+          const program = programs[0]!;
+          assert.deepEqual(program.argv, build.argv);
+          const selector = (program.argv as string[]).find((argument) => argument.startsWith("--plugins-json="))!;
+          const entries = JSON.parse(selector.slice("--plugins-json=".length));
+          for (const entry of entries) {
+            if (entry.config?.contextReceipt !== workspace.contextReceipt) continue;
+            const literal = literalEntries[entry.name];
+            assert.ok(literal, "MAIN must not invent a reporting contributor");
+            assert.equal(entry.stage, "transform");
+            assert.equal(entry.config.reportedProgramSources, true);
+            assert.deepEqual(entry.config.reportedDependencies, []);
+            assert.equal(Object.hasOwn(entry.config, "reportedFiles"), false);
+            expected.push(literal);
+          }
+        }
+        assert.ok(expected.some((record) => record.name === "native-auto-discovery"),
+          "the real MAIN package boundary must admit its own Program and automatic contributor");
+        assert.deepEqual(allNativeReceipts.slice(declarationObservation.registerAfter, mainRuntimeAfter), expected,
+          "MAIN contexts must match independently observed successful driver Programs and literal fixture contributions");
+      } catch (error) { combinedFailures.push(new Error("MAIN valid-Program reporting receipt epoch", { cause: error })); }
       assert.ok(Number.isSafeInteger(declarationObservation.apiEnvironmentBefore));
       assert.ok(Number.isSafeInteger(declarationObservation.apiEnvironmentAfter));
       assert.ok(declarationObservation.apiEnvironmentBefore >= receiptOffset);
