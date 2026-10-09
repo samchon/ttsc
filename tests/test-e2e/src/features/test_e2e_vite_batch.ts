@@ -1,7 +1,5 @@
 import { TestExecutor, TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -12,6 +10,7 @@ import { fallbackToolDirectory } from "../../../../packages/unplugin/lib/core/br
 import { hostToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.mjs";
 import { projectRecordFile } from "../../../../packages/unplugin/lib/core/bridge/projectRecordFile.mjs";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
+import { createViteBuildControl } from "../../../utils/src/unplugin/createViteBuildControl";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { OwnedE2eEntry } from "../batch/OwnedE2eEntry";
 import type { ViteBuildRequest, ViteRecordTransition } from "../batch/viteBuildCorpus";
@@ -37,7 +36,7 @@ import { test_watch_broker_hears_what_follows_ready } from "./unplugin/transform
  * @evidence contracts/testing.md#execution-ownership The selected batch actor calls build once with watch enabled. Three input states reuse that host and producer, with their actual native revision costs retained; no legacy Vite, Rollup or profile function is invoked. The generateBundle observer reads each actual output without generating it a second time. One additional actual Node broker process serves the consolidated native readiness/drain/root-gap corpus in a separate cache subtree. Its original IPC replies and actual termination finish before the dedicated build actor enters synchronous native preparation; independent broker and Vite failures are both collected. The retained build alone uses one dedicated original Node actor under the existing native owner, borrowing this preparation; native preparation and Program costs are unchanged.
  * @evidence contracts/e2e.md#necessary-boundary Actual Vite and Rollup must load the emitted adapter, native source delivery and output graph. Direct cache or hook policy units cannot prove this assembly.
  * @evidence contracts/e2e.md#shared-execution One consumer graph, producer cache and one Vite/Rollup host serve all661 independent value assertions in initial, fallback and restored record states; no per-row preparation or host remains. Declaration and runtime source edits request necessary new native generations from that same host.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The parent owns original source/fallback bytes and requires actual original actor/native retirement plus matching mutation identities before independent restoration callbacks. Public watcher.close is separately observed and cannot certify Task.run retirement. Joined failed execution preserves its error while restoring proven inputs; unknown lifetime or record identity retains the allocation and refuses later borrowers. Parent ambient environment is unchanged; only the contained actor selects its cache/mode.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The parent owns original source/fallback bytes and requires actual original actor/native retirement plus matching mutation identities before independent restoration callbacks. Public watcher.close is separately observed and cannot certify Task.run retirement. Joined failed execution preserves its error while restoring proven inputs; unknown lifetime or record identity retains the allocation and refuses later borrowers. The operational control leaf is released only after original retirement and all restoration readers finish; unresolved control identity or removal fails independently. Parent ambient environment is unchanged; only the contained actor selects its cache/mode.
  * @evidence contracts/e2e.md#preserved-coverage Combines real Vite transform delivery, underlying Rollup assembly and actual utility/value meanings. It does not certify every original independent adapter lifecycle or mapped unit's execution.
  */
 export async function test_e2e_vite_batch(): Promise<void> {
@@ -127,12 +126,13 @@ export async function test_e2e_vite_batch(): Promise<void> {
  *
  * 1. Capture original source/fallback bytes and lend the prepared workspace.
  * 2. Join the original build actor and its contained descendants.
- * 3. Restore independently owned inputs, retaining every failed operation.
+ * 3. Restore independently owned inputs, then release their operational leaf.
  *
  * Actual native retirement supplies the lifetime fence. Source and record
  * identities captured before launch authorize independent restoration; joined
  * failures preserve their causes, while unknown ownership refuses reuse.
- * Operational receipts are Git-ignored and the parent environment stays intact.
+ * The Git-ignored control leaf survives unknown ownership and is released only
+ * after all restoration readers finish. The parent environment stays intact.
  */
 async function runViteBuildActor(
   workspace: BatchWorkspace.Workspace,
@@ -163,22 +163,19 @@ async function runViteBuildActor(
   }
   const fallbackBytes = fs.existsSync(fallback) ? fs.readFileSync(fallback) : undefined;
   const controlParent = path.join(TestProject.WORKSPACE_ROOT, ".wiki", "unplugin-discovery-20261008");
-  const control = path.join(controlParent, "vite-build-control-" + randomUUID());
+  const controlOwner = createViteBuildControl(controlParent);
+  const control = controlOwner.root;
   const requestFile = path.join(control, "request.json");
   const journal = path.join(control, "record-transition.json");
   const resultFile = path.join(control, "result.json");
-  for (const file of [controlParent, control, requestFile, journal, resultFile])
-    execFileSync("git", ["check-ignore", "--quiet", "--", file], { cwd: TestProject.WORKSPACE_ROOT });
-  fs.mkdirSync(controlParent, { recursive: true });
-  fs.mkdirSync(control);
   const request: ViteBuildRequest = {
     workspace: { root: workspace.root, cache: workspace.cache, contextReceipt: workspace.contextReceipt, pathsReceipt: workspace.pathsReceipt, expected: workspace.expected },
     journal,
   };
-  fs.writeFileSync(requestFile, JSON.stringify(request), { flag: "wx" });
   const lifetime: { state: "joined" | "not-started" | "unknown" } = { state: "not-started" };
   const failures: unknown[] = [];
   try {
+    fs.writeFileSync(requestFile, JSON.stringify(request), { flag: "wx" });
     phase("build-actor-started", { control });
     lifetime.state = "unknown";
     const result = await OwnedE2eEntry.run({
@@ -273,7 +270,13 @@ async function runViteBuildActor(
       try { BatchWorkspace.retain("shared Vite original retirement or mutation identity is unknown"); }
       catch (error) { failures.push(error); }
     }
+    try {
+      controlOwner.release(lifetime.state, restored);
+      phase("build-actor-control-release-returned", { control, lifetime: lifetime.state, restored });
+    } catch (error) {
+      failures.push(error);
+    }
   }
   if (failures.length !== 0)
-    throw new AggregateError(failures, "shared Vite execution, original retirement and restoration");
+    throw new AggregateError(failures, "shared Vite execution, original retirement, restoration and control release");
 }
