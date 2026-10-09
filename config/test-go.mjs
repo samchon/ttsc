@@ -26,6 +26,11 @@ const transformer = run([
 const observer = run([
   "-C", "packages/ttsc/test/fixtures/process-observer", "test", "-count=1", "./...",
 ], { ...process.env, GOWORK: "off" });
+// The shared native cache-probe fixture owns its portable gate receipt tests.
+// Keep this standalone module independent of product and observer failures.
+const nativeFixture = run([
+  "-C", "packages/unplugin/test/fixtures/native-transform-producer", "test", "-count=1", ".",
+], { ...process.env, GOWORK: "off" });
 const toolchain = spawnSync("go", ["env", "GOROOT"], {
   cwd: root,
   encoding: "utf8",
@@ -53,7 +58,7 @@ if (toolchain.status === 0) {
 } else {
   console.error(toolchain.error ?? `Cannot locate the Go WASM runner (go env GOROOT exited ${toolchain.status}): ${toolchain.stderr}`);
 }
-process.exitCode = native || transformer || observer || wasm;
+process.exitCode = native || transformer || observer || nativeFixture || wasm;
 
 // Await each complete Go population and retain launch failures and native
 // child exit codes. No command shell interprets Go arguments or environment.

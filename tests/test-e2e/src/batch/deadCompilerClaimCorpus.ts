@@ -1,33 +1,37 @@
 import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
+import { NativeProcessObserver } from "../../../utils/src/NativeProcessObserver";
 import { waitFor } from "../internal/unplugin/internal/adapter-vite-serve/waitFor";
 import { BatchWorkspace } from "./BatchWorkspace";
 
 /**
- * Verifies an actual dead holder cannot strand a shared native capture claim.
+ * Verifies an interrupted real holder cannot strand a shared native claim.
  *
- * The upfront package-owned producer retains the original delayed transform.
- * Its existing invocation log optionally records actual native PIDs, allowing
- * this owner to join departed native work before releasing the shared graph.
+ * Each actual native invocation stays behind an authenticated fixture gate
+ * until this owner acquires its original kernel lifetime. Numeric PID
+ * occupancy cannot replace original retirement or authorize shared reuse.
  *
- * 1. Observe a real holder's lock token and first native invocation receipt.
- * 2. Kill only that owned Node holder and observe its actual close and native
- *    departure.
- * 3. Require two survivor native results, second/third receipts and complete lock
- *    removal, sampling the entire native hold in each completed epoch.
+ * 1. Bind the holder's claim and first receipt to an acquired live original.
+ * 2. Interrupt the owned Node holder, release its native gate and observe
+ *    original retirement while preserving the residual claim token.
+ * 3. Require real takeover, PROBED and two further native responsiveness
+ *    epochs, then independently settle workers, natives and observer.
+ * 4. Restore exact source bytes only after qualified borrower retirement;
+ *    retain unknown lifetimes and collect release/close/restore errors.
  *
- * @evidence contracts/testing.md#behavioral-verification Two actual public unplugin API workers share one claim identity/state. The holder dies after its PID-owned lock and native invocation; the survivor must return PROBED, acquire another native invocation and remove the residual lock.
- * @evidence contracts/testing.md#independent-expectations Literal PROBE/PROBED source, the actual lock owner PID and the producer's existing native receipt distinguish takeover and real output from deleting a lock or returning stale text. Native PIDs are actual invocation owners, not a Program count.
- * @evidence contracts/testing.md#distinguishing-cases An interrupted in-flight owner contrasts with its succeeding live worker. Existing former-holder units own timestamp takeover/fencing and pruning units own seeded dead-owner cleanup; neither replaces this processGone-to-native-publication connection.
- * @evidence contracts/testing.md#execution-ownership The selected Metro DAG collects this independent helper beside its existing resident loader pool. Two extra Node worker lifetimes and three actual native producer invocations are explicit costs. The survivor performs two five-second holds in fresh transform states, including one after actual source mutation; no per-case fixture or new production API is introduced.
- * @evidence contracts/e2e.md#necessary-boundary Actual cross-process lock ownership, death detection, native capture and survivor publication cannot be proved by in-process timestamp aging or record pruning alone.
- * @evidence contracts/e2e.md#shared-execution Both workers use one upfront immutable source project, one owning Go producer copy, one SDK availability cache and one private claim store. The failed holder and survivor must have separate lifetimes; neither installs or creates another source project. Native build/preparation totals remain unmeasured.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the observed owned Node holder receives SIGKILL. Every acquired worker joins close and PID departure; recorded native PIDs must become ESRCH without being killed by this helper. Unknown closure/departure retains shared inputs. The claim store remains until BatchWorkspace closes after all consumers.
- * @evidence contracts/e2e.md#preserved-coverage Preserves the original actual-holder lock, native-start receipt, killed outcome, residual lock, survivor PROBED/second native receipt and empty-lock assertions. The original responsiveness boundary retains two real native holds, truthy output, each initial/intertick/terminal gap below 750ms and unchanged TEMP/TMP/TMPDIR. Immutable producer preparation is outside those epochs; the larger resident graph's synchronous first loading is separately observed rather than attributed to the native hold. Native descendant departure is an explicit strengthening over the original unjoined descendant; single-digit independent execution remains uncertified.
+ * @evidence contracts/testing.md#behavioral-verification Two actual public API workers share one claim. Authenticated native receipts are enrolled through the existing observer before release; the killed holder leaves its token and the survivor must return PROBED and release the final lock.
+ * @evidence contracts/testing.md#independent-expectations Literal PROBE/PROBED source, the original holder token, fresh nonce/token/PID receipts and retained kernel identities distinguish real takeover from deleting a lock or returning cached output. Current PID disappearance is not an oracle.
+ * @evidence contracts/testing.md#distinguishing-cases The interrupted first invocation contrasts with both succeeding native transforms. Matching gate release permits completion; unknown release never starts a held-native wait. Adjacent fixture units own wrong/malformed/duplicate/nonregular and actual I/O refusal controls.
+ * @evidence contracts/testing.md#execution-ownership Two Node workers and exactly three actual native transforms remain explicit costs. One observer session uses the process-wide validated preparation, building the test observer once only when not already prepared. Both survivor five-second workloads and responsiveness observations remain real.
+ * @evidence contracts/e2e.md#necessary-boundary Actual claim takeover, native execution and original kernel retirement require the real process/fixture boundary; portable receipt units do not certify those lifetimes or returned compiler output.
+ * @evidence contracts/e2e.md#shared-execution Both workers keep the same immutable project, producer, availability cache, claim identity and gate options. The observer preparation is memoized; this corpus owns a distinct session and does not borrow Runtime's already closed session. Native preparation totals remain measured by the owning run.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only owned Node children receive kill requests. Native retirement uses acquired originals; gates live outside the selected source graph. Failed release avoids a circular wait, independently closes known Node/observer owners and retains inputs so the ordinary outer group/job can retire remaining descendants. Observer close is not target retirement, and unknown closure forbids source restoration or shared reuse.
+ * @evidence contracts/e2e.md#preserved-coverage Retains the holder lock/token, actual interruption, residual claim, survivor PROBED, three receipts and empty final lock. Both completed holds retain source mutation, unchanged TEMP/TMP/TMPDIR, elapsed at least five seconds and all initial/intertick/terminal gaps below 750ms. Source restoration, gate cleanup and every independent failure retain their own outcomes; raw Linux native state before this correction remains unproved.
  */
 export async function deadCompilerClaimCorpus(
   workspace: BatchWorkspace.Workspace,
@@ -35,9 +39,14 @@ export async function deadCompilerClaimCorpus(
   const root = path.join(workspace.root, "tools/native-dead-claim");
   const session = path.join(root, "claim-store");
   const log = path.join(root, "native-runs.log");
+  const source = path.join(root, "src/mod.ts");
+  const original = fs.readFileSync(source);
+  const nonce = crypto.randomUUID();
+  const gates = path.join(workspace.cache, "dead-claim-lifetimes-" + nonce);
   assert.equal(fs.existsSync(session), false);
   assert.equal(fs.existsSync(log), false);
   fs.mkdirSync(session);
+  fs.mkdirSync(gates);
   const options = JSON.stringify({
     project: path.join(root, "tsconfig.json"),
     plugins: [
@@ -48,6 +57,8 @@ export async function deadCompilerClaimCorpus(
         runLog: log,
         runLogPids: true,
         transformDelayMs: 5000,
+        nativeLifetimeDirectory: gates,
+        nativeLifetimeSession: nonce,
       },
     ],
   });
@@ -61,6 +72,20 @@ export async function deadCompilerClaimCorpus(
       error?: Error;
     };
   }[] = [];
+  type Observer = Awaited<
+    ReturnType<ReturnType<typeof NativeProcessObserver.prepare>["open"]>
+  >;
+  type Receipt = { session: string; token: string; pid: number };
+  const natives: {
+    receipt: Receipt;
+    bytes: Buffer;
+    target?: Awaited<ReturnType<Observer["acquire"]>>;
+    releaseAttempted: boolean;
+    released: boolean;
+    retirementAttempted: boolean;
+    retired: boolean;
+  }[] = [];
+  let observer: Observer | undefined;
   const nativePids = () => {
     if (!fs.existsSync(log)) return [];
     const text = fs.readFileSync(log, "utf8");
@@ -77,15 +102,6 @@ export async function deadCompilerClaimCorpus(
   };
   const locks = () =>
     fs.readdirSync(session).filter((name) => name.endsWith(".lock"));
-  const departed = (pid: number) => {
-    try {
-      process.kill(pid, 0);
-      return false;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ESRCH") return true;
-      throw error;
-    }
-  };
   const start = (mode = "holder") => {
     const child = E2eProcessTrace.spawn(
       process.execPath,
@@ -126,8 +142,92 @@ export async function deadCompilerClaimCorpus(
     });
     return actor;
   };
+  const enroll = async (actor: (typeof actors)[number]) => {
+    let native: (typeof natives)[number] | undefined;
+    await waitFor(
+      () => {
+        const candidates = fs.readdirSync(gates).filter(
+          (name) =>
+            name.endsWith(".json") &&
+            !natives.some(({ receipt }) => name === receipt.token + ".json"),
+        );
+        assert.ok(candidates.length <= 1, "ambiguous native lifetime receipts");
+        if (candidates.length) {
+          const file = path.join(gates, candidates[0]!);
+          assert.ok(fs.lstatSync(file).isFile(), "nonregular native receipt");
+          const bytes = fs.readFileSync(file);
+          if (!bytes.length || bytes.at(-1) !== 10) return false;
+          const value: unknown = JSON.parse(bytes.toString("utf8"));
+          assert.ok(value !== null && typeof value === "object");
+          assert.deepEqual(Object.keys(value).sort(), ["pid", "session", "token"]);
+          assert.ok("session" in value && value.session === nonce);
+          assert.ok("token" in value && typeof value.token === "string");
+          assert.match(value.token, /^[0-9a-f]{32}$/);
+          assert.equal(candidates[0], value.token + ".json");
+          assert.ok("pid" in value && typeof value.pid === "number");
+          assert.ok(Number.isSafeInteger(value.pid) && value.pid > 0);
+          const recorded = nativePids();
+          assert.equal(recorded.length, natives.length + 1);
+          assert.equal(recorded.at(-1), value.pid);
+          assert.notEqual(value.pid, actor.child.pid);
+          native = {
+            receipt: { session: nonce, token: value.token, pid: value.pid },
+            bytes,
+            releaseAttempted: false,
+            released: false,
+            retirementAttempted: false,
+            retired: false,
+          };
+          natives.push(native);
+          return true;
+        }
+        assert.equal(
+          actor.result,
+          undefined,
+          "worker closed before native enrollment",
+        );
+        return false;
+      },
+      "authenticated held native invocation",
+      120000,
+    );
+    assert.ok(native !== undefined && observer !== undefined);
+    native.target = await observer.acquire(native.receipt.pid);
+    assert.equal(await observer.retired(native.target), false);
+    console.error("Dead claim original enrolled: " + JSON.stringify(native));
+    return native;
+  };
+  const release = (native: (typeof natives)[number]) => {
+    assert.equal(native.releaseAttempted, false);
+    native.releaseAttempted = true;
+    const file = path.join(gates, native.receipt.token + ".release");
+    const bytes = Buffer.from(JSON.stringify(native.receipt) + "\n");
+    fs.writeFileSync(file, bytes, { flag: "wx", mode: 0o600 });
+    assert.ok(fs.lstatSync(file).isFile(), "nonregular native release");
+    assert.deepEqual(fs.readFileSync(file), bytes);
+    native.released = true;
+  };
+  const retire = async (native: (typeof natives)[number]) => {
+    assert.ok(observer !== undefined && native.target !== undefined);
+    assert.equal(
+      native.released,
+      true,
+      "never await a native behind an unknown release",
+    );
+    assert.equal(native.retirementAttempted, false);
+    native.retirementAttempted = true;
+    await waitFor(
+      async () => {
+        native.retired = await observer!.retired(native.target!);
+        return native.retired;
+      },
+      "original native lifetime retirement",
+      120000,
+    );
+  };
   const failures: unknown[] = [];
   try {
+    observer = await NativeProcessObserver.prepare().open();
     const holder = start();
     try {
       await waitFor(
@@ -155,17 +255,7 @@ export async function deadCompilerClaimCorpus(
       false,
       "the holder must still be in flight",
     );
-    const firstNative = nativePids()[0]!;
-    assert.notEqual(
-      firstNative,
-      holder.child.pid,
-      "the native receipt belongs to a separate native process",
-    );
-    assert.equal(
-      departed(firstNative),
-      false,
-      "the recorded native owner must still be alive before interruption",
-    );
+    const firstNative = await enroll(holder);
     assert.equal(holder.child.kill("SIGKILL"), true);
     await waitFor(
       () => holder.result !== undefined,
@@ -177,11 +267,6 @@ export async function deadCompilerClaimCorpus(
       holder.result!.signal !== null || holder.result!.status !== 0,
       JSON.stringify(holder.result),
     );
-    await waitFor(
-      () => departed(holder.child.pid!),
-      "killed holder PID departure",
-      120000,
-    );
     assert.deepEqual(
       locks(),
       [lock],
@@ -191,12 +276,14 @@ export async function deadCompilerClaimCorpus(
       fs.readFileSync(path.join(session, lock, "owner"), "utf8"),
       token,
     );
-    await waitFor(
-      () => departed(firstNative),
-      "interrupted holder native PID departure",
-      120000,
-    );
+    release(firstNative);
+    await retire(firstNative);
     const survivor = start("responsive");
+    for (let invocation = 0; invocation < 2; invocation++) {
+      const native = await enroll(survivor);
+      release(native);
+      await retire(native);
+    }
     await waitFor(
       () => survivor.result !== undefined,
       "actual survivor capture and close",
@@ -248,6 +335,16 @@ export async function deadCompilerClaimCorpus(
   } catch (error) {
     failures.push(error);
   } finally {
+    // Release known gates independently. A failed release must not become an
+    // indefinite native wait that prevents the enclosing owner from retiring.
+    for (const native of natives)
+      if (!native.releaseAttempted)
+        try {
+          release(native);
+        } catch (error) {
+          failures.push(error);
+        }
+    let workersJoined = true;
     for (const actor of actors) {
       try {
         if (actor.result === undefined) actor.child.kill("SIGKILL");
@@ -257,35 +354,79 @@ export async function deadCompilerClaimCorpus(
           120000,
         );
         assert.equal(actor.result!.error, undefined);
-        assert.ok(actor.child.pid !== undefined);
-        await waitFor(
-          () => departed(actor.child.pid!),
-          "owned claim worker PID departure",
-          120000,
-        );
       } catch (error) {
+        workersJoined = false;
         failures.push(error);
-        BatchWorkspace.retain(
-          "dead-claim worker ownership remained unresolved",
-        );
       }
     }
+    for (const native of natives)
+      if (native.target && !native.retired && observer)
+        try {
+          if (native.released && !native.retirementAttempted) await retire(native);
+          else native.retired = await observer.retired(native.target);
+        } catch (error) {
+          failures.push(error);
+        }
+    let nativesJoined = false;
     try {
       const recorded = nativePids();
       assert.ok(
-        recorded.length > 0,
-        "native ownership receipt was not acquired; do not certify interrupted preparation cleanup",
+        actors.length === 0 || recorded.length > 0,
+        "native ownership was not acquired; do not certify interrupted preparation cleanup",
       );
-      for (const pid of recorded)
-        await waitFor(
-          () => departed(pid),
-          "recorded claim native owner departure",
-          120000,
-        );
+      assert.equal(recorded.length, natives.length);
+      assert.ok(natives.every((native) => native.target && native.retired));
+      nativesJoined = true;
     } catch (error) {
       failures.push(error);
-      BatchWorkspace.retain("dead-claim native ownership remained unresolved");
     }
+    let observerJoined = observer === undefined;
+    try {
+      if (observer) await observer.close();
+      observerJoined = true;
+    } catch (error) {
+      failures.push(error);
+    }
+    if (!workersJoined || !nativesJoined || !observerJoined) {
+      try {
+        BatchWorkspace.retain(
+          "dead-claim original lifetime remained unresolved; retained gate directory: " + gates,
+        );
+      } catch (error) {
+        failures.push(error);
+      }
+    } else {
+      try {
+        fs.writeFileSync(source, original);
+        assert.deepEqual(fs.readFileSync(source), original);
+      } catch (error) {
+        failures.push(error);
+        try {
+          BatchWorkspace.retain("dead-claim source restoration failed");
+        } catch (retentionError) {
+          failures.push(retentionError);
+        }
+      }
+      try {
+        for (const name of fs.readdirSync(gates)) {
+          assert.match(name, /^[0-9a-f]{32}\.(?:json|release)$/);
+          assert.ok(fs.lstatSync(path.join(gates, name)).isFile());
+          fs.unlinkSync(path.join(gates, name));
+        }
+        fs.rmdirSync(gates);
+      } catch (error) {
+        failures.push(error);
+        try {
+          BatchWorkspace.retain("dead-claim rendezvous cleanup failed");
+        } catch (retentionError) {
+          failures.push(retentionError);
+        }
+      }
+    }
+    console.error(
+      "Dead claim lifetime settlement: " +
+        JSON.stringify({ gates, workersJoined, nativesJoined, observerJoined, natives }),
+    );
   }
   if (failures.length)
     throw new AggregateError(failures, "actual dead compiler claim takeover");
