@@ -19,7 +19,7 @@ const path = require("node:path");
  * 3. Compile and transform the authored factory source, preserving its neighbor.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual installed TtscCompiler.prepare must reject the selected missing Go/runtime on Windows, then a captured mixed-spelling context must reach the isolated descriptor and native compile/transform. Emitted factory input.value contrasts with retained input.value + 1 in source transformation and the neighboring emitted function; ambient entries and authored source bytes must remain unchanged.
- * @evidence contracts/testing.md#independent-expectations Native environment-name precedence supplies literal descriptor values and missing executable paths. The authored native factory fixture and compile-probe emit contract independently require the generated arrow to drop +1 while its neighbor and source-stage text retain it; no returned result supplies another call's expected output.
+ * @evidence contracts/testing.md#independent-expectations Native environment-name precedence supplies literal descriptor values and missing executable paths. Missing Go preparation must return the documented toolchain-not-found envelope; the parent independently checks the actual selected executable and native ENOENT rather than expecting its path in that envelope. The authored native factory fixture and compile-probe emit contract independently require the generated arrow to drop +1 while its neighbor and source-stage text retain it; no returned result supplies another call's expected output.
  * @evidence contracts/testing.md#distinguishing-cases Windows rejects contradictory inherited uppercase versus constructor lowercase Go and mixed runtime overrides, then valid constructor tools and the existing cache beat inherited missing tools and a distinct absent cache across prepare, compile and transform. The captured marker survives original-input mutation; POSIX instead requires both variable spellings to retain independent values. Direct cleanup units own undefined, blank, duplicate, independent-instance and protected user-cache distinctions.
  * @evidence contracts/testing.md#execution-ownership This static fixture is called by test_e2e_runtime_batch's existing runtime-declared-flow preload actor. Its body is excluded from Evidence declaration selection and is not separately addressable; the owning batch and Individual review cover its execution and assertions.
  * @evidence contracts/e2e.md#necessary-boundary Pure environment/cleanup units cannot prove that the installed API's isolated descriptor and selected native source pipeline receive the same constructor authority or preserve emit/source-stage meaning.
@@ -104,7 +104,10 @@ module.exports = function apiEnvironmentLayers({ root, launcher, rootEntries, ap
         assert.throws(() => new TtscCompiler({
           cwd: root, tsconfig: "runtime-declared.json",
           env: { ttsc_go_binary: missingGo },
-        }).prepare(), /api-missing-go/);
+        }).prepare(), {
+          name: "Error",
+          message: /^ttsc: building plugin "[^"]+" failed because the Go toolchain was not found\. Reinstall ttsc with optional dependencies so the bundled Go compiler is present, or set TTSC_GO_BINARY to an absolute path\.$/,
+        });
         unchanged();
       });
       check("mixed runtime override", () => {
