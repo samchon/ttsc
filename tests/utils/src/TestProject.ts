@@ -380,51 +380,24 @@ export namespace TestProject {
   }
 
   /**
-   * Rename `from` to `to`, waiting out a process that still holds the path.
+   * Rename an owned fixture path and await the native operation's result.
    *
-   * Windows refuses a rename while any process has the path or an entry below
-   * it open, with `EPERM` for a directory and `EBUSY` for a file, and a watcher
-   * under test holds what it observes: a Vite scope held a directory a test
-   * renamed on a CI runner. The rename is the test's own step, so it is made
-   * rather than abandoned, and only the refusals a held path produces are
-   * waited out: any other error, a source that is not there above all, fails at
-   * once.
+   * Native refusal is an actual failed filesystem transition. The caller owns
+   * its watcher or process cleanup; elapsed age neither converts a pending
+   * operation into failure nor certifies that a held native path was released.
    *
-   * @evidence contracts/common.md#principled-implementation Native rename is attempted until success or the deadline only for the supported held-path error codes; other failures propagate immediately.
-   * @evidence contracts/common.md#clear-and-simple-design One retry loop isolates the fixture's native rename step from watcher teardown timing.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Retries address actual Windows handle-sharing refusals and remain bounded; absent source and unrelated failures are not hidden.
-   * @evidence contracts/common.md#meaningful-documentation The paragraphs identify held-path failures, deadline behavior and the fact that a rename must actually happen.
-   * @evidence contracts/portability.md#os-neutral-implementation The filesystem reports EACCES, EBUSY or EPERM at the boundary; native rename and timer delays preserve platform behavior without guessing case policy.
-   * @evidence contracts/performance.md#efficient-algorithms Each attempt makes one native rename; attempts scale with actual elapsed refusal time and 25ms delay rather than directory contents.
+   * @evidence contracts/common.md#principled-implementation The native promise settles only from the filesystem rename result, preserving its actual success or error.
+   * @evidence contracts/common.md#clear-and-simple-design One awaited native operation leaves watcher and process lifetime authority with the caller that owns those resources.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No elapsed deadline, renamed retry budget or inferred handle release changes the native result.
+   * @evidence contracts/common.md#meaningful-documentation States native completion and the caller's independent resource cleanup responsibility.
+   * @evidence contracts/portability.md#os-neutral-implementation Node's filesystem promise uses native paths and reports the platform's actual rename errors without classifying them by OS name.
+   * @evidence contracts/performance.md#efficient-algorithms One native rename performs the filesystem transition without repeated pathname polling.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Rename is an effectful transition and is never cached or shared between requests.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Only one awaited timer exists per failed attempt; success or final failure leaves no pending timer or retained helper state. The caller owns source and destination.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The awaited native operation owns its pending request until settlement; the caller retains ownership of source, destination and any active watchers.
    */
-  export async function rename(
-    from: string,
-    to: string,
-    milliseconds = 30_000,
-  ): Promise<void> {
-    const until = Date.now() + milliseconds;
-    for (;;) {
-      try {
-        fs.renameSync(from, to);
-        return;
-      } catch (error) {
-        const code = (error as { code?: string }).code;
-        if (
-          code === undefined ||
-          !HELD_PATH_CODES.has(code) ||
-          Date.now() >= until
-        ) {
-          throw error;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 25));
-      }
-    }
+  export async function rename(from: string, to: string): Promise<void> {
+    await fs.promises.rename(from, to);
   }
-
-  /** What a filesystem answers while another process still holds the path. */
-  const HELD_PATH_CODES = new Set(["EACCES", "EBUSY", "EPERM"]);
 
   /**
    * Materialize a relative-path file map under the target project root.
