@@ -1,4 +1,4 @@
-import type { SpawnSyncReturns } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
@@ -101,6 +101,87 @@ export namespace TestProject {
    * dependency.
    */
   export const TSGO_BINARY = resolveTsgoBinary();
+
+  /**
+   * Bind test children to an ignored physical temporary parent in the checkout.
+   *
+   * E2E startup calls this before entering the suite's native carrier.
+   * An already ignored repository parent retains its authority. Other inherited
+   * roots select the checkout's ignored cache directory, keeping junctioned
+   * workspace declarations on the same filesystem root as their consumers.
+   * Individual allocations retain their existing cleanup and retention owners;
+   * this operation does not remove the shared cache infrastructure directory.
+   *
+   * @evidence contracts/common.md#principled-implementation Native realpath and relative containment validate physical coordinates, and Git verifies ignore policy before fallback creation. TEMP, TMP and TMPDIR bind before child inheritance so native and Node allocations share one initial parent.
+   * @evidence contracts/common.md#clear-and-simple-design The existing temporary allocation owner selects one parent; startup delegates here without adding an allocation registry or changing fixture populations.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Physical containment and actual Git ignore results govern selection without drive, dependency or fixture exceptions. Graph path semantics and real imported declarations are unchanged.
+   * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain startup ordering, inherited authority, fallback and the retained per-allocation cleanup ownership.
+   * @evidence contracts/portability.md#os-neutral-implementation Native realpath observes aliases and junctions, path.relative checks actual checkout containment, and separate Git arguments avoid shell interpretation. All three temporary environment names carry the same physical directory without inferring filesystem case policy.
+   * @evidence contracts/performance.md#efficient-algorithms Startup resolves at most two candidate paths and runs bounded-output Git ignore queries; no fixture tree is traversed.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Selection observes the current inherited parent and ignore policy on each call and caches no validity claim.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous filesystem and Git observations settle before environment publication. The shared ignored cache directory remains infrastructure; children stay with their existing allocation and native retirement owners.
+   */
+  export function configureTemporaryEnvironment(
+    env: NodeJS.ProcessEnv = process.env,
+    inheritedRoot: string = os.tmpdir(),
+  ): string {
+    const workspace = fs.realpathSync.native(WORKSPACE_ROOT);
+    const ignored = (candidate: string): boolean => {
+      const relative = path.relative(workspace, candidate);
+      if (
+        !relative ||
+        path.isAbsolute(relative) ||
+        relative === ".." ||
+        relative.startsWith(".." + path.sep)
+      )
+        return false;
+      const result = spawnSync("git", ["check-ignore", "--quiet", "--", relative], {
+        cwd: workspace,
+        encoding: "utf8",
+        windowsHide: true,
+      });
+      if (result.error) throw result.error;
+      if (result.status !== 0 && result.status !== 1)
+        throw new Error(
+          "Unable to verify test temporary ignore policy: " + result.stderr,
+        );
+      return result.status === 0;
+    };
+    const physical = (candidate: string): string | undefined => {
+      try {
+        return fs.realpathSync.native(candidate);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "ENOTDIR") return undefined;
+        throw error;
+      }
+    };
+    let parent = physical(inheritedRoot);
+    if (
+      parent === undefined ||
+      !fs.statSync(parent).isDirectory() ||
+      !ignored(parent)
+    ) {
+      const fallback = path.join(workspace, ".cache");
+      if (!ignored(fallback))
+        throw new Error("Test temporary parent must be Gitignored: " + fallback);
+      const existing = physical(fallback);
+      if (existing !== undefined && !ignored(existing))
+        throw new Error(
+          "Test temporary parent escapes ignored checkout storage: " + fallback,
+        );
+      fs.mkdirSync(fallback, { recursive: true });
+      parent = fs.realpathSync.native(fallback);
+      if (!ignored(parent))
+        throw new Error(
+          "Created test temporary parent escapes ignored checkout storage: " + fallback,
+        );
+    }
+    env.TEMP = parent;
+    env.TMP = parent;
+    env.TMPDIR = parent;
+    return parent;
+  }
 
   /**
    * Create a tracked temp directory under the supplied or OS temp root.
