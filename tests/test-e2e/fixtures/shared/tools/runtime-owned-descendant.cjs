@@ -154,6 +154,8 @@ module.exports = async function observeOwnedDescendant() {
     const instance = tail.file.slice(String(pid).length + 1, -6);
     let sequence = tail.prefix ? JSON.parse(tail.prefix.trimEnd().split("\n").at(-1)).sequence : 0;
     const rows = tail.text.trimEnd().split("\n").map((line) => JSON.parse(line));
+    const cleanupCwds = new Map();
+    const physicalCwd = fs.realpathSync.native(cwd);
     for (const row of rows) {
       assert.equal(row.schema, 1);
       assert.equal(row.writerPid, pid);
@@ -164,7 +166,12 @@ module.exports = async function observeOwnedDescendant() {
       if (row.event === "runtime-cleanup") {
         assert.equal(row.pid, pid);
         assert.deepEqual(row.argv, argv);
-        assert.equal(row.cwd, cwd);
+        if (!cleanupCwds.has(row.invocation)) {
+          assert.ok(path.isAbsolute(row.cwd));
+          assert.equal(fs.realpathSync.native(row.cwd), physicalCwd);
+          cleanupCwds.set(row.invocation, row.cwd);
+        }
+        assert.equal(row.cwd, cleanupCwds.get(row.invocation));
       }
     }
     return rows;
