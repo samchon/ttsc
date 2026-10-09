@@ -6,14 +6,10 @@ import os from "node:os";
 import path from "node:path";
 
 import { matchesObservedProcessCommand } from "../../../../../utils/src/matchesObservedProcessCommand";
-
-interface ProcessReading {
-  pid: number;
-  parent: number;
-  identity: string;
-  command: string | null;
-  name: string;
-}
+import {
+  type ObservedProcessReading as ProcessReading,
+  updateObservedProcessTree,
+} from "../../../../../utils/src/ObservedProcessTree";
 
 interface BuildAdmission {
   invocation: string;
@@ -109,43 +105,46 @@ export class ColdArtifactObservation {
           this.inputs = scan.inputs;
           this.scanRequest = scan.request ?? undefined;
           this.scanned = true;
-          const root = scan.rows.find((row) => row.pid === rootPid);
-          if (root && !this.tracked.has(rootPid))
-            this.tracked.set(rootPid, root);
-          let changed = true;
-          while (changed) {
-            changed = false;
-            for (const row of scan.rows) {
-              const parent = this.tracked.get(row.parent);
-              if (
-                !parent ||
-                this.tracked.get(row.pid)?.identity === row.identity
-              )
-                continue;
-              if (
-                !scan.rows.some(
-                  (live) =>
-                    live.pid === parent.pid &&
-                    live.identity === parent.identity,
-                )
-              )
-                continue;
-              this.tracked.set(row.pid, row);
-              changed = true;
-            }
+          let observationFailed = false;
+          let observationFailure: unknown;
+          try {
+            updateObservedProcessTree(
+              this.tracked,
+              rootPid,
+              scan.rows,
+              process.platform,
+            );
+          } catch (error) {
+            observationFailed = true;
+            observationFailure = error;
           }
-          // Preserve the offending observation even when an invariant below
-          // rejects it; a failed assertion must not erase its own evidence.
-          fs.appendFileSync(
-            path.join(directory, "process-scans.jsonl"),
-            JSON.stringify({
-              request: scan.request,
-              inputs: scan.inputs,
-              rows: scan.rows.filter(
-                (row) => this.tracked.get(row.pid)?.identity === row.identity,
-              ),
-            }) + "\n",
-          );
+          // Preserve the failed ancestry reading before propagating it. The
+          // failure projection includes only the root, tracked PIDs and their
+          // proposed direct children, never the unrelated full OS listing.
+          try {
+            fs.appendFileSync(
+              path.join(directory, "process-scans.jsonl"),
+              JSON.stringify({
+                request: scan.request,
+                inputs: scan.inputs,
+                rows: scan.rows.filter((row) =>
+                  observationFailed
+                    ? row.pid === rootPid ||
+                      this.tracked.has(row.pid) ||
+                      this.tracked.has(row.parent)
+                    : this.tracked.get(row.pid)?.identity === row.identity,
+                ),
+              }) + "\n",
+            );
+          } catch (error) {
+            if (observationFailed)
+              throw new AggregateError(
+                [observationFailure, error],
+                "Process ancestry observation and evidence recording failed",
+              );
+            throw error;
+          }
+          if (observationFailed) throw observationFailure;
           for (const admission of this.admissions) {
             if (
               !scan.rows.some((row) =>
