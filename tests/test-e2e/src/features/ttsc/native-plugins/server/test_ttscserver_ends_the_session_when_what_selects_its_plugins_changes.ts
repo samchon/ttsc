@@ -198,7 +198,6 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
               },
               context: { diagnostics: [], only: ["source.fixAll.ttsc"] },
             },
-            60_000,
           );
           const action = actions.find(
             (candidate) => candidate.command?.command === "ttsc.lint.fixAll",
@@ -211,7 +210,6 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
               command: "ttsc.lint.fixAll",
               arguments: [cascadeUri],
             },
-            60_000,
           );
           const edits = edit.changes?.[cascadeUri] ?? [];
           assert.deepEqual(Object.keys(edit.changes ?? {}), [cascadeUri]);
