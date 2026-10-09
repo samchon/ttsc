@@ -13,15 +13,16 @@ import { TestMetroRuntime } from "../../internal/metro-runtime";
  *
  * 1. Record all four native kinds outside the project walk and compact them.
  * 2. A fresh Node reader must produce the same key from the retained requests.
- * 3. Each native transition moves the key; mismatching generation evidence
- *    taints a reusable run and old-schema/malformed snapshots withdraw proof.
+ * 3. Each native transition moves a stable current key while same-run
+ *    publication refuses to replace its immutable baseline. Mismatching
+ *    generation evidence taints a reusable run; invalid snapshots withdraw proof.
  * 4. Same-path kind unions and native-admitted volume-root aliases retain all
  *    requested facts in both the immutable baseline and the final key.
  * 5. A failed worker write retains all four requests in recovery storage;
  *    compaction restores them under a new epoch before reuse resumes.
  *
- * @evidence contracts/testing.md#behavioral-verification Exercises actual source recorder, compaction, strict persisted parsing, immutable key-baseline comparison and key assembly over owned external paths; one fresh process reads the same persisted population. A regular-file obstruction forces the actual worker recovery route, whose native requests must survive subsequent compaction and affect the restored key.
- * @evidence contracts/testing.md#independent-expectations Authored byte framing establishes native digests and literal kind requests. Key equality and inequality follow unchanged versus changed inputs; expected current hashes are computed independently from authored bytes, never copied from recorded producer digests.
+ * @evidence contracts/testing.md#behavioral-verification Exercises actual source recorder, compaction, strict persisted parsing, immutable key-baseline comparison and key assembly over owned external paths; one fresh process reads the same persisted population. Each native transition rejects publication under the original run identity without changing its baseline bytes, while current fingerprint calls without a run identity remain nonnonce, changed and repeatable. A regular-file obstruction forces the actual worker recovery route, whose native requests must survive subsequent compaction and affect the restored key.
+ * @evidence contracts/testing.md#independent-expectations Authored byte framing establishes native digests and literal kind requests. Key equality and inequality follow unchanged versus changed inputs; expected current hashes are computed independently from authored bytes, never copied from recorded producer digests. The immutable-run contract requires same-run withdrawal after mutation and preservation of the independently captured original baseline bytes; it does not permit replacing that baseline with the current observation.
  * @evidence contracts/testing.md#distinguishing-cases Covers cache/watch scope union, every native kind, absent versus created optional input, directory membership, entry-kind replacement, changed raw bytes, stale generation evidence, schema-four migration and malformed kind requests. Same-spelling kind unions run everywhere; distinct volume-root spellings are included only when native realpath admits the same target, without assuming an OS label establishes equality.
  * @evidence contracts/testing.md#execution-ownership The source-loader unit owns isolated root/external directories and one joined Node reader using the same maintained loader. No Metro service, compiler, Go build, installer or normal production emitter runs; the parent retains inputs until child close.
  */
@@ -65,8 +66,10 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
   recorder.recordMany({ project, inputs: kinds.map(([file, kind, digest]) => input(file, kind, digest)) });
   recorder.recordMany({ project, inputs: [input(directory, "directory", sha(""), "watch")] });
   const run = fingerprint.prepareSnapshot(root);
-  const key = fingerprint.computeProjectFingerprint({ projectRoot: root, runId: run });
+  const keyOptions = { projectRoot: root, runId: run };
+  const key = fingerprint.computeProjectFingerprint(keyOptions);
   assert.doesNotMatch(key, /^nonce:/);
+  assert.equal(fingerprint.computeProjectFingerprint(keyOptions), key);
   const retained = fingerprint.readSnapshotState(root);
   for (const [file, kind] of kinds) {
     assert.ok(retained.files.includes(file));
@@ -74,7 +77,9 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
   }
   assert.deepEqual(retained.accessibleEntries, [], "native listings are not compiler listings");
   const main = path.join(root, "node_modules/.cache/ttsc-metro/graph-inputs.json");
-  const baseline = JSON.parse(fs.readFileSync(path.join(path.dirname(main), `key-baseline-${run}.json`), "utf8"));
+  const baselinePath = path.join(path.dirname(main), `key-baseline-${run}.json`);
+  const baselineBytes = fs.readFileSync(baselinePath);
+  const baseline = JSON.parse(baselineBytes.toString("utf8"));
   assert.deepEqual(
     Object.values(baseline.inputs)
       .map((input: any) => input.nativePredicates?.directory)
@@ -105,9 +110,20 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
     () => { fs.rmSync(entry); fs.mkdirSync(entry); },
   ]) {
     mutate();
+    assert.match(
+      fingerprint.computeProjectFingerprint(keyOptions),
+      /^nonce:/,
+      "changed native facts cannot replace the original run's immutable baseline",
+    );
+    assert.deepEqual(fs.readFileSync(baselinePath), baselineBytes);
     const current = fingerprint.computeProjectFingerprint({ projectRoot: root });
     assert.doesNotMatch(current, /^nonce:/);
     assert.notEqual(current, previous);
+    assert.equal(
+      fingerprint.computeProjectFingerprint({ projectRoot: root }),
+      current,
+      "the changed current fingerprint must remain stable without republishing the old run",
+    );
     previous = current;
   }
   const late = fingerprint.createSnapshotRecorder(run);
