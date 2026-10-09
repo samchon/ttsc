@@ -8,6 +8,8 @@
         "src/features/**/test_*.ts",
         "src/features/**/case_*.ts",
         "src/batch/positionalCompilerCorpus.ts",
+        "src/batch/loaderCommandLifetimeCorpus.ts",
+        "src/batch/OwnedE2eEntry.ts",
         "src/batch/mappedResolutionWitnessCorpus.ts"
       ],
       "symbol": "function",

@@ -22,7 +22,7 @@ let hostObservation;
 if (mode === "metro") {
   const require = createRequire(import.meta.url);
   const index = require(path.join(path.dirname(fileURLToPath(metroUrl)), "index.js"));
-  metroOptions = { ...(projectView?.implicitProject ? {} : { project }), ...(projectView === undefined ? {} : { projectRoot: projectView.projectRoot }), compilerOptions, upstreamTransformer: path.join(root, "upstream.cjs") };
+  metroOptions = { ...(projectView?.implicitProject ? {} : { project: projectView?.project ?? project }), ...(projectView?.projectRoot === undefined ? {} : { projectRoot: projectView.projectRoot }), compilerOptions, upstreamTransformer: path.join(root, "upstream.cjs") };
   const configured = index.withTtsc({ projectRoot: metroRoot, transformer: {} }, metroOptions);
   transformer = require(configured.transformer.babelTransformerPath);
   const cacheKey = transformer.getCacheKey({ projectRoot: metroRoot });
@@ -38,7 +38,7 @@ async function deliver(sourceSuffix = "", deliveredSource) {
   adapterCalls = [];
   callbackObservation = undefined;
   if (mode === "metro") {
-    const resourcePath = path.join(root, "src/bundle.ts");
+    const resourcePath = projectView?.resourceFile ?? path.join(root, "src/bundle.ts");
     const filename = path.relative(metroRoot, resourcePath).split(path.sep).join("/");
     const primaryCall = { mode, pid: process.pid, filename, startedAt: new Date().toISOString(), finishedAt: undefined, outcome: "pending" };
     adapterCalls.push(primaryCall);
@@ -49,7 +49,7 @@ async function deliver(sourceSuffix = "", deliveredSource) {
     } catch (error) { primaryCall.outcome = "threw"; throw error; }
     finally { primaryCall.finishedAt = new Date().toISOString(); }
     let outsideProgram;
-    if (!outsideProgramObserved && !sourceSuffix && deliveredSource === undefined) {
+    if (projectView?.resourceFile === undefined && !outsideProgramObserved && !sourceSuffix && deliveredSource === undefined) {
       const outsidePath = path.join(root, "passthrough/tool.ts");
       const outsideFilename = path.relative(metroRoot, outsidePath).split(path.sep).join("/");
       const outsideSource = fs.readFileSync(outsidePath, "utf8");
