@@ -1,1 +1,1 @@
-{"name":"shared-readonly-frontdoor","private":true,"type":"commonjs"}
+{"name":"shared-readonly-frontdoor","private":true,"type":"commonjs","workspaces":["."]}
