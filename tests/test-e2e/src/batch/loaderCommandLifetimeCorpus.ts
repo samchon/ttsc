@@ -15,15 +15,15 @@ import { OwnedE2eEntry } from "./OwnedE2eEntry";
  *
  * 1. Exchange held, out-of-order, domain-error and split UTF-8 replies.
  * 2. Collect readiness, framing, spawn, exit and cancellation failures.
- * 3. Join the actual entry carrier on success, failure and descendant cancellation.
+ * 3. Contrast inherited and explicit Node flags, then join success, failure and descendant cancellation.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual resident helper communicates with static real Node peers; assertions distinguish retained pending work, matching IDs, terminal refusal, actual joined diagnostics and idempotent close. The actual ordinary carrier runs a static target and cancels its live descendant.
- * @evidence contracts/testing.md#independent-expectations Literal peer values, explicit held-ID barriers, authored UTF-8/stderr bytes, target argv/context and native retirement classification supply independent expectations.
- * @evidence contracts/testing.md#distinguishing-cases Healthy and domain-error replies preserve admission; malformed/unknown/partial replies, duplicate/error readiness, failed spawn, nonzero/normal terminal close, pre-abort and pending cancellation distinguish terminal ownership. Synchronous write throws and standalone pipe-error paths are reviewed safeguards, not empirically claimed controls.
+ * @evidence contracts/testing.md#independent-expectations Literal peer values, explicit held-ID barriers, authored UTF-8/stderr bytes, actual parent Node flags versus an authored explicit vector, target argv/context and native retirement classification supply independent expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Healthy and domain-error replies preserve admission; malformed/unknown/partial replies, duplicate/error readiness, failed spawn, nonzero/normal terminal close, pre-abort and pending cancellation distinguish terminal ownership. A same-cwd inherited carrier and different-cwd explicitly configured carriers preserve their actual option authority. Synchronous write throws and standalone pipe-error paths are reviewed safeguards, not empirically claimed controls.
  * @evidence contracts/testing.md#execution-ownership This corpus is selected by the ordinary Metro experiment and uses real Node pipes plus the already-built native supervisor. No compiler, Go producer, installer, monkeypatch or private-suite unit import is used.
  * @evidence contracts/e2e.md#necessary-boundary Real stream framing, spawn failure, original close and native descendant containment require actual process connections.
  * @evidence contracts/e2e.md#shared-execution Healthy concurrent and plugin-lock requests share one peer. Terminal alternatives need independent peer lifetimes; builtin-only carrier controls reuse the existing supervisor and do not prepare the shared compiler workspace.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every peer owns a copied static root and original close. Failed or unknown lifetimes retain the exact trace allocation; the encompassing ordinary entry owns cancellation of its complete tree.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every peer owns a copied static root and original close. Different-cwd builtin targets own explicit Node flags without rewriting inherited options. Failed or unknown lifetimes retain the exact trace allocation; a retention refusal joins the original error aggregate, and the encompassing ordinary entry owns cancellation of its complete tree.
  * @evidence contracts/e2e.md#preserved-coverage These transport assertions precede existing native Metro cases, whose preparation and actual publication controls remain independently collected.
  */
 export async function loaderCommandLifetimeCorpus(): Promise<void> {
@@ -193,9 +193,32 @@ export async function loaderCommandLifetimeCorpus(): Promise<void> {
     await collect("carrier-" + mode, async () => {
       const witness = path.join(trace, "carrier-" + mode);
       fs.mkdirSync(witness);
+      if (mode === "success") {
+        await collect("carrier-default-inherited", async () => {
+          let inheritedRetirement: string | undefined;
+          const inherited = await OwnedE2eEntry.run({
+            entry: path.join(fixture, "owned-entry-target.mjs"),
+            args: ["success", witness, "inherited argument"],
+            env: { ...process.env, TTSC_E2E_CARRIER_CONTEXT: "AUTHORED_INHERITED_CONTEXT" },
+            output: "pipe",
+            observeRetirement: (state) => { inheritedRetirement = state; },
+          });
+          assert.equal(inherited.status, 0, JSON.stringify(inherited));
+          assert.match(String(inherited.stderr), /AUTHORED_CARRIER_STDERR/);
+          const inheritedObserved = JSON.parse(String(inherited.stdout));
+          assert.deepEqual(inheritedObserved.execArgv, process.execArgv);
+          assert.deepEqual(inheritedObserved.args, ["inherited argument"]);
+          assert.equal(fs.realpathSync.native(inheritedObserved.cwd), fs.realpathSync.native(process.cwd()));
+          assert.equal(inheritedObserved.context, "AUTHORED_INHERITED_CONTEXT");
+          assert.equal(inheritedRetirement, "joined");
+          console.log("Owned entry retirement", JSON.stringify({ mode: "default-inherited", retirement: inheritedRetirement }));
+        });
+      }
+      const execArgv = ["--no-warnings", "--conditions=ttsc-owned-carrier"];
       const cancellation = new AbortController();
       let retirement: string | undefined;
       const operation = OwnedE2eEntry.run({
+        execArgv,
         entry: path.join(fixture, "owned-entry-target.mjs"),
         args: [mode, witness, "argument with space", "한글"],
         cwd: witness, env: { ...process.env, TTSC_E2E_CARRIER_CONTEXT: "AUTHORED_CONTEXT" },
@@ -220,7 +243,7 @@ export async function loaderCommandLifetimeCorpus(): Promise<void> {
         try {
           await Promise.race([
             witnessReady,
-            operation.then(() => { throw new Error("Carrier exited before descendant readiness"); }),
+            operation.then((result) => { throw new Error("Carrier exited before descendant readiness", { cause: result }); }),
           ]);
           cancellation.abort(new Error("AUTHORED_CARRIER_CANCELLATION"));
           await assert.rejects(operation);
@@ -234,6 +257,7 @@ export async function loaderCommandLifetimeCorpus(): Promise<void> {
         assert.equal(result.status, mode === "success" ? 0 : 9, JSON.stringify(result));
         assert.match(String(result.stderr), /AUTHORED_CARRIER_STDERR/);
         const observed = JSON.parse(String(result.stdout));
+        assert.deepEqual(observed.execArgv, execArgv);
         assert.deepEqual(observed.args, ["argument with space", "한글"]);
         assert.equal(fs.realpathSync.native(observed.cwd), fs.realpathSync.native(witness));
         assert.equal(observed.context, "AUTHORED_CONTEXT");
@@ -242,7 +266,11 @@ export async function loaderCommandLifetimeCorpus(): Promise<void> {
       console.log("Owned entry retirement", JSON.stringify({ mode, retirement }));
     });
   if (failures.length) {
-    TestProject.retainTemporaryDirectory(trace, "resident lifetime collection failed");
+    try {
+      TestProject.retainTemporaryDirectory(trace, "resident lifetime collection failed");
+    } catch (cause) {
+      failures.push(new Error("Resident lifetime fixture retention failed", { cause }));
+    }
     throw new AggregateError(failures, "resident command and ordinary entry lifetime");
   }
 }

@@ -3,7 +3,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 
 const [mode, witness, ...args] = process.argv.slice(2);
-process.stdout.write(JSON.stringify({ args, cwd: process.cwd(), context: process.env.TTSC_E2E_CARRIER_CONTEXT }) + "\n");
+process.stdout.write(JSON.stringify({ execArgv: process.execArgv, args, cwd: process.cwd(), context: process.env.TTSC_E2E_CARRIER_CONTEXT }) + "\n");
 process.stderr.write("AUTHORED_CARRIER_STDERR\n");
 if (mode === "nonzero") process.exitCode = 9;
 if (mode === "cancel") {
