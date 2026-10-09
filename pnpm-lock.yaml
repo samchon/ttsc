@@ -659,6 +659,9 @@ importers:
       '@ttsc/testing':
         specifier: workspace:*
         version: link:../utils
+      '@ttsc/unplugin':
+        specifier: workspace:*
+        version: link:../../packages/unplugin
       '@ttsc/wasm':
         specifier: workspace:*
         version: link:../../packages/wasm
