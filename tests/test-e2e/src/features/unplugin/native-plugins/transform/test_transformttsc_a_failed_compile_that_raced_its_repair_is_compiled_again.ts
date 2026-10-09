@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 import { createCacheProject } from "../../../../internal/unplugin/internal/transform-project-cache/createCacheProject";
 import { projectModules } from "../../../../internal/unplugin/internal/transform-project-cache/projectModules";
 
@@ -31,7 +31,7 @@ import { projectModules } from "../../../../internal/unplugin/internal/transform
  * @evidence contracts/testing.md#execution-ownership The ordinary tests/test-e2e/src/index.ts run selects nine batch entries whose import graph excludes this retained module, so that suite does not execute this declaration. If explicitly invoked, test_transformttsc_a_failed_compile_that_raced_its_repair_is_compiled_again owns a pending native failure raced by source repair, followed by retry/output/count assertions. Evidence selection does not establish runtime coverage.
  * @evidence contracts/e2e.md#necessary-boundary The real JS-to-native process connection stays pending while filesystem repair lands after the producer read. An isolated validator with a completed envelope cannot prove the failure delivery rechecks that timing boundary.
  * @evidence contracts/e2e.md#shared-execution createCacheProject shares its counting Go sidecar source and native build cache. One project/cache and one pending delivery use two necessary native attempts because the first read raced its repair; the fixture read stamp avoids repeating build preparation or relying on a fixed startup delay.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source, run-log and read-stamp paths isolate the race. waitFor establishes the actual first read before the rewrite; finally resets the cache on success or failure. TestProject owns temporary directories through runner exit.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source, run-log and read-stamp paths isolate the race. waitFor establishes the actual first read before the rewrite; original delivery settlement precedes cache reset. finally collects delivery and reset errors independently without replacing the body failure. TestProject owns temporary directories through runner exit.
  * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_a_failed_compile_that_raced_its_repair_is_compiled_again; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_a_failed_compile_that_raced_its_repair_is_compiled_again(): Promise<void> {
@@ -49,6 +49,8 @@ export async function test_transformttsc_a_failed_compile_that_raced_its_repair_
   const repaired = fs.readFileSync(module, "utf8");
   fs.writeFileSync(module, `${repaired}// BROKEN\n`);
   const cache = api.createTtscTransformCache();
+  const failures: unknown[] = [];
+  let original: Promise<unknown> | undefined;
   try {
     const delivery = api.transformTtsc(
       module,
@@ -57,14 +59,28 @@ export async function test_transformttsc_a_failed_compile_that_raced_its_repair_
       undefined,
       cache,
     );
+    let completed = false;
+    let failed = false;
+    let failure: unknown;
+    const returned = delivery.then(
+      (value: Awaited<typeof delivery>) => { completed = true; return value; },
+      (error: unknown) => { completed = true; failed = true; failure = error; throw error; },
+    );
+    original = returned;
+    void returned.catch(() => undefined);
     // The first compile may build the fixture's native plugin on a cold cache.
     await waitFor(
       () => fs.existsSync(readStamp),
       "the compile to read the marked module",
-      240_000,
+      { check: () => {
+        if (!fs.existsSync(readStamp) && completed)
+          throw new Error("compiler completed before publishing its read", {
+            cause: failed ? failure : undefined,
+          });
+      } },
     );
     fs.writeFileSync(module, repaired);
-    const result = await delivery;
+    const result = await returned;
     assert.ok(result, "the repaired module is transformed");
     assert.doesNotMatch(result.code, /BROKEN/);
     assert.equal(
@@ -72,7 +88,19 @@ export async function test_transformttsc_a_failed_compile_that_raced_its_repair_
       2,
       "the failed compile raced its repair, so the project compiled again",
     );
+  } catch (error) {
+    failures.push(error);
   } finally {
-    api.resetTtscTransformCache(cache);
+    try {
+      await original;
+    } catch (error) {
+      if (!failures.includes(error)) failures.push(error);
+    }
+    try {
+      api.resetTtscTransformCache(cache);
+    } catch (error) {
+      failures.push(error);
+    }
   }
+  if (failures.length) throw new AggregateError(failures, "repair delivery and cache release");
 }

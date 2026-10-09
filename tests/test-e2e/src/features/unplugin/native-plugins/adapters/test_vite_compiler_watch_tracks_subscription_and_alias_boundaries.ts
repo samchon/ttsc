@@ -9,7 +9,7 @@ import { WATCH_BROKER } from "../../../../../../../packages/unplugin/lib/core/tr
 import { createViteServeInputWatch } from "../../../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
 import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
 import { FixtureFiles } from "../../../../internal/FixtureFiles";
-import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies the Vite serve watcher observes subscription races, lexical aliases,
@@ -286,6 +286,7 @@ export async function test_vite_compiler_watch_tracks_subscription_and_alias_bou
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
     };
     write();
+    const lifecycleFailures: unknown[] = [];
     try {
       current.attach(server);
       register();
@@ -356,9 +357,18 @@ export async function test_vite_compiler_watch_tracks_subscription_and_alias_bou
         () => notifications.has(owner),
         "full disposal and fresh native reopen control",
       );
+    } catch (error) {
+      lifecycleFailures.push(error);
     } finally {
-      await current.dispose();
+      try {
+        await current.dispose();
+      } catch (error) {
+        prepared?.retain("project root Vite observer disposal was not acknowledged");
+        lifecycleFailures.push(error);
+      }
     }
+    if (lifecycleFailures.length !== 0)
+      throw new AggregateError(lifecycleFailures, "project root observation and original disposal");
   } catch (error) {
     failures.push(
       new Error("project root native notification lifecycle", { cause: error }),

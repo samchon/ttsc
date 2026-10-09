@@ -10,7 +10,7 @@ import path from "node:path";
 import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { assertFixtureDerivesMissingCandidate } from "../../../../internal/unplugin/internal/adapter-vite-serve/assertFixtureDerivesMissingCandidate";
 import { observeReloadEvents } from "../../../../internal/unplugin/internal/adapter-vite-serve/observeReloadEvents";
-import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 import { positionOf } from "../../../../internal/unplugin/internal/source-map/positionOf";
 
 /**
@@ -31,8 +31,8 @@ import { positionOf } from "../../../../internal/unplugin/internal/source-map/po
  * @evidence contracts/testing.md#execution-ownership Selected Vite invokes viteServeCorpus, which calls this body with its upfront island. One actual watching server and one restart serve compiler-only input transitions and the linked-package missing-candidate graph. The original actual transform proof additionally checks missing candidate/type-root predicates before requests; its native work is a real additional cost. Two fresh joined HMR clients distinguish type-root and superseding-candidate notifications. No per-case project or server is prepared.
  * @evidence contracts/e2e.md#necessary-boundary Actual Vite module graphs, HMR and native plugin inputs connect without fabricated runtime edges.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.
- * @evidence contracts/e2e.md#preserved-coverage Retains client/SSR literals, external/asset invalidation, failure/recovery, SSR attribution and restart. The prepared graph also preserves actual missing-candidate/type-root proof, successful cold/restarted candidate requests, the original1.6-second external-creation quiet twin and independently leased HMR full-reload plus importer invalidation for type-root and preferred-candidate appearance. Written linkage remains unexecuted until CI; one existing server/restart supplies these requests without another host.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Original HMR client and server close attempts are concurrent in finally, retain independent failures and distinguish actual client close from a failed frame. After restart, an unmet dependency observation checks the current HTTP server's error/close authority rather than the old HMR socket or the native watch backend; supported watcher fallback remains valid. onServerClosed is admitted only after the real server close and every acquired client close; restart reuses only this fixture. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retains client/SSR literals, external/asset invalidation, failure/recovery, SSR attribution and restart. The prepared graph also preserves actual missing-candidate/type-root proof, successful cold/restarted candidate requests, the original1.6-second external-creation quiet twin and independently leased HMR full-reload plus importer invalidation for type-root and preferred-candidate appearance. Actual selected Vite execution is required to qualify these connections; one existing server/restart supplies these requests without another host.
  */
 export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_imports(
   preparedRoot?: string,
@@ -192,6 +192,7 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     await waitFor(
       () => loaded.every((node) => !node.transformResult),
       "client and SSR dependency invalidation",
+      { check: () => observedEvents.check() },
     );
     for (const ssr of [false, true])
       assert.match((await request(ssr)).code, /UPDATED/);
@@ -202,23 +203,26 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     await waitFor(
       () => loaded.every((node) => !node.transformResult),
       "external declaration invalidation",
+      { check: () => observedEvents.check() },
     );
     await request();
     fs.writeFileSync(path.join(root, "rules.txt"), "second");
     await waitFor(
       () => !loaded[0].transformResult,
       "non-module asset invalidation",
+      { check: () => observedEvents.check() },
     );
     await request();
 
     fs.unlinkSync(dependency);
-    await waitFor(() => !loaded[0].transformResult, "dependency deletion");
+    await waitFor(() => !loaded[0].transformResult, "dependency deletion", { check: () => observedEvents.check() });
     await assert.rejects(request(), /secret\.server/);
     events.length = 0;
     fs.writeFileSync(dependency, 'export type Secret = "recovered";\n');
     await waitFor(
       () => observedEvents.length !== 0,
       "failed transform recovery notification before refetch",
+      { check: () => observedEvents.check() },
     );
     assert.match((await request()).code, /RECOVERED/);
     await server.restart();
@@ -266,11 +270,13 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
           await waitFor(
             () => !node.transformResult,
             label + " must invalidate its cached importer",
+            { check: () => candidateEvents!.check() },
           );
           await waitFor(
             () =>
               candidateEvents!.some((event) => event.type === "full-reload"),
             label + " must send an actual HMR full reload",
+            { check: () => candidateEvents!.check() },
           );
           assert.ok(await server.transformRequest("/src/candidates.ts"));
         } catch (error) {
@@ -284,18 +290,34 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
           try {
             await candidateEvents?.close();
           } catch (error) {
-            clientJoined = false;
+            if (candidateEvents?.joined !== true) clientJoined = false;
             failures.push(error);
           }
         }
       }
     }
     const restarted = (await nodes())[0];
-    fs.writeFileSync(dependency, 'export type Secret = "restarted";\n');
-    await waitFor(
-      () => !restarted.transformResult,
-      "dependency edit after server restart",
-    );
+    const restartedServer = server.httpServer;
+    const restartFailures: unknown[] = [];
+    const failed = (error: unknown) => restartFailures.push(error);
+    const closed = () => restartFailures.push(new Error("restarted Vite server closed before dependency publication"));
+    restartedServer.on("error", failed);
+    restartedServer.on("close", closed);
+    try {
+      fs.writeFileSync(dependency, 'export type Secret = "restarted";\n');
+      await waitFor(
+        () => !restarted.transformResult,
+        "dependency edit after server restart",
+        { check: () => {
+          if (restartFailures.length !== 0)
+            throw new AggregateError(restartFailures, "restarted Vite server observation");
+          assert.equal(restartedServer.listening, true, "restarted Vite server closed before dependency publication");
+        } },
+      );
+    } finally {
+      restartedServer.off("error", failed);
+      restartedServer.off("close", closed);
+    }
     assert.match((await request()).code, /RESTARTED/);
     assert.equal(compilerResolutions, 0);
   } catch (error) {
@@ -306,18 +328,13 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
       clientJoined = false;
     failures.push(error);
   } finally {
-    try {
-      await events?.close();
-    } catch (error) {
-      clientJoined = false;
-      failures.push(error);
-    }
-    try {
-      await server.close();
-      if (clientJoined) onServerClosed?.();
-    } catch (error) {
-      failures.push(error);
-    }
+    const closes = await Promise.allSettled([
+      Promise.resolve().then(() => events?.close()),
+      Promise.resolve().then(() => server.close()),
+    ]);
+    if (events !== undefined && !events.joined) clientJoined = false;
+    for (const close of closes) if (close.status === "rejected") failures.push(close.reason);
+    if (closes[1]!.status === "fulfilled" && clientJoined) onServerClosed?.();
   }
   if (failures.length)
     throw new AggregateError(

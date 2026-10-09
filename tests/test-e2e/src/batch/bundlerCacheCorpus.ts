@@ -383,17 +383,10 @@ export async function bundlerCacheCorpus(
       let phase = 0;
       let firstCalls = 0;
       let callbacks = 0;
-      let timer: ReturnType<typeof setTimeout> | undefined;
       const errors: unknown[] = [];
       try {
         await new Promise<void>((resolve, reject) => {
-          observeWatch("watch-start", { deadlineMs: 120_000 });
-          timer = setTimeout(() => {
-            observeWatch("deadline", { phase, callbacks });
-            reject(
-              new Error("webpack watch frontier did not settle within 120s"),
-            );
-          }, 120_000);
+          observeWatch("watch-start");
           watching = compiler.watch(
             { aggregateTimeout: 100, poll: 100 },
             (error, stats) => {
@@ -487,34 +480,29 @@ export async function bundlerCacheCorpus(
         observeWatch("watch-failed", { phase, error: diagnosticError(error) });
         errors.push(error);
       } finally {
-        if (timer !== undefined) clearTimeout(timer);
-        if (watching !== undefined) {
-          try {
+        const closes = await Promise.allSettled([
+          Promise.resolve().then(async () => {
+            if (watching === undefined) return;
             observeWatch("watch-close-start", { phase });
             await new Promise<void>((resolve, reject) =>
               watching!.close((error) => (error ? reject(error) : resolve())),
             );
             observeWatch("watch-close-returned", { phase });
-          } catch (error) {
-            observeWatch("watch-close-failed", {
-              phase,
-              error: diagnosticError(error),
-            });
-            errors.push(error);
-            releaseUnconfirmed = true;
-            BatchWorkspace.retain("webpack watch closure remained unresolved");
-          }
-        }
-        try {
-          observeWatch("compiler-close-start", { phase });
-          await closeCompiler(compiler);
-          observeWatch("compiler-close-returned", { phase });
-        } catch (error) {
-          observeWatch("compiler-close-failed", {
-            phase,
-            error: diagnosticError(error),
+          }),
+          Promise.resolve().then(async () => {
+            observeWatch("compiler-close-start", { phase });
+            await closeCompiler(compiler);
+            observeWatch("compiler-close-returned", { phase });
+          }),
+        ]);
+        for (const [index, close] of closes.entries()) {
+          if (close.status !== "rejected") continue;
+          observeWatch(index === 0 ? "watch-close-failed" : "compiler-close-failed", {
+            phase, error: diagnosticError(close.reason),
           });
-          errors.push(error);
+          errors.push(close.reason);
+          releaseUnconfirmed = true;
+          BatchWorkspace.retain("webpack original watcher/compiler closure unqualified");
         }
         observeWatch("watch-settled", {
           phase,

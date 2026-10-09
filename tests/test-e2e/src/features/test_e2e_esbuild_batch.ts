@@ -75,7 +75,6 @@ export async function test_e2e_esbuild_batch(): Promise<void> {
         env: { ...process.env, TTSC_CACHE_DIR: workspace.cache },
         encoding: "utf8",
         windowsHide: true,
-        timeout: 180000,
       },
     );
     if (!isOrdinarilyClosedReadonlyLauncher(result)) {
@@ -171,20 +170,9 @@ export async function test_e2e_esbuild_batch(): Promise<void> {
           },
         ],
       });
-      let timer: NodeJS.Timeout | undefined;
-      try {
-        await Promise.race([
-          disposed,
-          new Promise<never>((_, reject) => {
-            timer = setTimeout(
-              () => reject(new Error("esbuild disposal did not complete")),
-              30_000,
-            );
-          }),
-        ]);
-      } finally {
-        if (timer !== undefined) clearTimeout(timer);
-      }
+      // Public onDispose owns completion; the containing original entry owns
+      // explicit cancellation and descendant retirement while it remains pending.
+      await disposed;
       assert.equal(disposals, 1);
       assert.equal(result.outputFiles.length, 2);
       const output = result.outputFiles.find((file) =>

@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { LINUX_DIRECTORY_WATCHES } from "../../../../../../../packages/unplugin/lib/core/transform/tracker/linux/LINUX_DIRECTORY_WATCHES.mjs";
 import { openLinuxDirectoryObserver } from "../../../../../../../packages/unplugin/lib/core/transform/tracker/linux/openLinuxDirectoryObserver.mjs";
-import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies the directory-level observer watches exactly the directories its
@@ -86,6 +86,7 @@ export async function test_directory_observer_watches_only_admitted_directories(
     () => undefined,
     () => failures.push("second"),
   );
+  const owner = { check: () => assert.deepEqual(failures, [], "native observer failure") };
   try {
     assert.deepEqual(
       [await first.ready, await second.ready],
@@ -101,13 +102,15 @@ export async function test_directory_observer_watches_only_admitted_directories(
     fs.mkdirSync(at("src", "later"));
     fs.mkdirSync(at("node_modules", "pkg-new"));
     await waitFor(
-      () => watchedBelowRoot().includes("src/later"),
+      () => { owner.check(); return watchedBelowRoot().includes("src/later"); },
       "the created directory to be watched",
+      owner,
     );
     fs.writeFileSync(at("src", "later", "new.ts"), "export {};\n");
     await waitFor(
       () => reported.includes("src/later/new.ts"),
       "the file created in the new directory to be reported",
+      owner,
     );
     assert.equal(
       watchedBelowRoot().includes("node_modules/pkg-new"),

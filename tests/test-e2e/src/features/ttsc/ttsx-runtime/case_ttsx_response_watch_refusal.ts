@@ -19,7 +19,7 @@ import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
  * @evidence contracts/testing.md#execution-ownership The Runtime batch calls this maintained case using its installed public CLI and upfront static fixture. Source-loaded local acceptance may supply the actual source CLI and maintained loader instead; neither mode starts a compiler or native watcher.
  * @evidence contracts/e2e.md#necessary-boundary Parser and guard units cannot prove the actual CLI passes the selected project root to admission before effective-option queries, cache acquisition and entry execution; these real launcher statuses and effects establish that assembly.
  * @evidence contracts/e2e.md#shared-execution Both requests share the batch's existing installation and fixture. Their incompatible response bytes need two short Node launcher lifetimes; an intentionally absent explicit compiler prevents a failed admission from starting native work. No entry child, native build or extra installation is required.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A private upfront response-watch fixture owns its cache path and mutable response. Each original child handle is joined through close before the next request; a deadline terminates only that handle and fails acceptance. finally restores response bytes and no successful build state is shared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A private upfront response-watch fixture owns its cache path and mutable response. Each original child handle is joined through close before the next request and response restoration; actual startup/error/exit/close observations supply the result. The ordinary contained entry owns explicit cancellation and descendant retirement, without a duration-based kill or fabricated refusal. No successful build state is shared.
  * @evidence contracts/e2e.md#preserved-coverage Existing Runtime frontdoor execution, preload, main and fatal-status cases remain intact. This adds actual response mode admission; the source units retain the full spelling/encoding/failure matrix rather than adding a CLI process per portable option case.
  */
 export async function case_ttsx_response_watch_refusal(
@@ -83,11 +83,6 @@ export async function case_ttsx_response_watch_refusal(
       let stderr = "";
       let exit: (typeof receipts)[number]["exit"];
       let spawnError: Error | undefined;
-      let expired = false;
-      const timer = setTimeout(() => {
-        expired = true;
-        child.kill();
-      }, 10_000);
       child.stdout?.on("data", (bytes) => {
         stdout += bytes.toString();
       });
@@ -104,7 +99,6 @@ export async function case_ttsx_response_watch_refusal(
         (resolve) =>
           child.once("close", (code, signal) => resolve({ code, signal })),
       );
-      clearTimeout(timer);
       receipts.push({
         name: profile.name,
         pid: child.pid,
@@ -114,7 +108,6 @@ export async function case_ttsx_response_watch_refusal(
         stderr,
       });
       try {
-        assert.equal(expired, false);
         assert.equal(spawnError, undefined);
         assert.deepEqual(exit, { code: 2, signal: null });
         assert.deepEqual(close, { code: 2, signal: null });
@@ -128,8 +121,14 @@ export async function case_ttsx_response_watch_refusal(
         failures.push(new Error(profile.name, { cause }));
       }
     }
+  } catch (cause) {
+    failures.push(new Error("response watch invocation", { cause }));
   } finally {
-    fs.writeFileSync(response, original);
+    try {
+      fs.writeFileSync(response, original);
+    } catch (cause) {
+      failures.push(new Error("response watch restoration", { cause }));
+    }
   }
   if (failures.length !== 0)
     throw new AggregateError(failures, "response watch CLI admission failed");

@@ -6,7 +6,7 @@ import path from "node:path";
 
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { NativeProcessObserver } from "../../../utils/src/NativeProcessObserver";
-import { waitFor } from "../internal/unplugin/internal/adapter-vite-serve/waitFor";
+import { waitFor } from "../../../utils/src/internal/waitFor";
 import { BatchWorkspace } from "./BatchWorkspace";
 
 /**
@@ -30,7 +30,7 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * @evidence contracts/testing.md#execution-ownership Two Node workers and exactly three actual native transforms remain explicit costs. One observer session uses the process-wide validated preparation, building the test observer once only when not already prepared. Both survivor five-second workloads and responsiveness observations remain real.
  * @evidence contracts/e2e.md#necessary-boundary Actual claim takeover, native execution and original kernel retirement require the real process/fixture boundary; portable receipt units do not certify those lifetimes or returned compiler output.
  * @evidence contracts/e2e.md#shared-execution Both workers keep the same immutable project, producer, availability cache, claim identity and gate options. The observer preparation is memoized; this corpus owns a distinct session and does not borrow Runtime's already closed session. Native preparation totals remain measured by the owning run.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only owned Node children receive kill requests. Native retirement uses acquired originals; gates live outside the selected source graph. Failed release avoids a circular wait, independently closes known Node/observer owners and retains inputs so the ordinary outer group/job can retire remaining descendants. Observer close is not target retirement, and unknown closure forbids source restoration or shared reuse.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only owned Node children receive kill requests. Native retirement uses acquired originals; enrollment qualifies its still-live original Node holder, and pending observation ends on the actual owner error/close rather than clock age. Gates live outside the selected source graph. Failed release avoids a circular wait, independently closes known Node/observer owners and retains inputs so the ordinary outer group/job can retire remaining descendants. Observer close is not target retirement, and unknown closure forbids source restoration or shared reuse.
  * @evidence contracts/e2e.md#preserved-coverage Retains the holder lock/token, actual interruption, residual claim, survivor PROBED, three receipts and empty final lock. Both completed holds retain source mutation, unchanged TEMP/TMP/TMPDIR, elapsed at least five seconds and all initial/intertick/terminal gaps below 750ms. Source restoration, gate cleanup and every independent failure retain their own outcomes; raw Linux native state before this correction remains unproved.
  */
 export async function deadCompilerClaimCorpus(
@@ -64,6 +64,8 @@ export async function deadCompilerClaimCorpus(
   });
   const actors: {
     child: ReturnType<typeof E2eProcessTrace.spawn>;
+    closed: Promise<void>;
+    error?: Error;
     result?: {
       status: number | null;
       signal: NodeJS.Signals | null;
@@ -123,7 +125,9 @@ export async function deadCompilerClaimCorpus(
         windowsHide: true,
       },
     );
-    const actor: (typeof actors)[number] = { child };
+    let joined!: () => void;
+    const closed = new Promise<void>((resolve) => { joined = resolve; });
+    const actor: (typeof actors)[number] = { child, closed };
     actors.push(actor);
     let stdout = "",
       stderr = "",
@@ -136,9 +140,11 @@ export async function deadCompilerClaimCorpus(
     });
     child.once("error", (caught) => {
       error = caught;
+      actor.error = caught;
     });
     child.once("close", (status, signal) => {
       actor.result = { status, signal, stdout, stderr, error };
+      joined();
     });
     return actor;
   };
@@ -146,6 +152,8 @@ export async function deadCompilerClaimCorpus(
     let native: (typeof natives)[number] | undefined;
     await waitFor(
       () => {
+        if (actor.error) throw actor.error;
+        assert.equal(actor.result, undefined, "worker closed before native enrollment");
         const candidates = fs.readdirSync(gates).filter(
           (name) =>
             name.endsWith(".json") &&
@@ -189,7 +197,10 @@ export async function deadCompilerClaimCorpus(
         return false;
       },
       "authenticated held native invocation",
-      120000,
+      { check: () => {
+        if (actor.error) throw actor.error;
+        assert.equal(actor.result, undefined, "worker closed before native enrollment");
+      } },
     );
     assert.ok(native !== undefined && observer !== undefined);
     native.target = await observer.acquire(native.receipt.pid);
@@ -222,7 +233,6 @@ export async function deadCompilerClaimCorpus(
         return native.retired;
       },
       "original native lifetime retirement",
-      120000,
     );
   };
   const failures: unknown[] = [];
@@ -231,9 +241,16 @@ export async function deadCompilerClaimCorpus(
     const holder = start();
     try {
       await waitFor(
-        () => locks().length === 1 && nativePids().length === 1,
+        () => {
+          if (holder.error) throw holder.error;
+          assert.equal(holder.result, undefined, "holder closed before live claim publication");
+          return locks().length === 1 && nativePids().length === 1;
+        },
         "actual dead-claim holder lock and native invocation",
-        120000,
+        { check: () => {
+          if (holder.error) throw holder.error;
+          assert.equal(holder.result, undefined, "holder closed before claim publication");
+        } },
       );
     } catch (error) {
       throw new Error(
@@ -257,11 +274,7 @@ export async function deadCompilerClaimCorpus(
     );
     const firstNative = await enroll(holder);
     assert.equal(holder.child.kill("SIGKILL"), true);
-    await waitFor(
-      () => holder.result !== undefined,
-      "actual killed holder close",
-      120000,
-    );
+    await holder.closed;
     assert.equal(holder.result!.error, undefined);
     assert.ok(
       holder.result!.signal !== null || holder.result!.status !== 0,
@@ -284,11 +297,7 @@ export async function deadCompilerClaimCorpus(
       release(native);
       await retire(native);
     }
-    await waitFor(
-      () => survivor.result !== undefined,
-      "actual survivor capture and close",
-      120000,
-    );
+    await survivor.closed;
     assert.equal(survivor.result!.error, undefined);
     assert.equal(survivor.result!.signal, null);
     assert.equal(survivor.result!.status, 0, survivor.result!.stderr);
@@ -348,11 +357,7 @@ export async function deadCompilerClaimCorpus(
     for (const actor of actors) {
       try {
         if (actor.result === undefined) actor.child.kill("SIGKILL");
-        await waitFor(
-          () => actor.result !== undefined,
-          "owned claim worker close",
-          120000,
-        );
+        await actor.closed;
         assert.equal(actor.result!.error, undefined);
       } catch (error) {
         workersJoined = false;

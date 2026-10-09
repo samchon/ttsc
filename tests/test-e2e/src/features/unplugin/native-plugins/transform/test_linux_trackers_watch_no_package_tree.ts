@@ -10,7 +10,7 @@ import { createProjectMutationTracker } from "../../../../../../../packages/unpl
 import { LINUX_DIRECTORY_WATCHES } from "../../../../../../../packages/unplugin/lib/core/transform/tracker/linux/LINUX_DIRECTORY_WATCHES.mjs";
 import { readProjectMembershipPolicy } from "../../../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.mjs";
 import { FixtureFiles } from "../../../../internal/FixtureFiles";
-import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies the Linux trackers' watch set is fixed by the project and its
@@ -81,6 +81,7 @@ export async function test_linux_trackers_watch_no_package_tree(): Promise<void>
   few.close();
   plantPackages(500);
   const many = await openProjectTracker();
+  const owner = { check: () => assert.equal(many.failed, false, "project observer failed") };
   try {
     assert.deepEqual(
       watched(),
@@ -116,14 +117,16 @@ export async function test_linux_trackers_watch_no_package_tree(): Promise<void>
 
     fs.mkdirSync(at("src", "later"));
     await waitFor(
-      () => watched().includes("src/later"),
+      () => { owner.check(); return watched().includes("src/later"); },
       "the created source directory to be watched",
+      owner,
     );
     const added = at("src", "later", "added.ts");
     fs.writeFileSync(added, "export {};\n");
     await waitFor(
       () => many.changes.has(added),
       "the source created in the new directory to be heard",
+      owner,
     );
     assert.equal(many.membershipChanged, true);
     assert.equal(many.failed, false);

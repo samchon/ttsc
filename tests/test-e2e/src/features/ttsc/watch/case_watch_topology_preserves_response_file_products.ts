@@ -6,7 +6,7 @@ import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launc
 import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
-import { waitFor } from "../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
+import { waitFor } from "../../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies response-selected native products agree with real watch delivery.
@@ -42,8 +42,10 @@ export async function case_watch_topology_preserves_response_file_products(
   const final = path.join(root, "final/main.js");
   const changes: WatchInputChange[] = [];
   const failures: unknown[] = [];
+  let topologyFailure: Error | undefined;
   const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 750));
   const capture = async (name: string, body: () => Promise<void>) => {
+    topologyFailure = undefined;
     try {
       await body();
       return true;
@@ -102,10 +104,11 @@ export async function case_watch_topology_preserves_response_file_products(
       tsconfig: config,
     },
     {
-      onError: (location, cause) =>
-        failures.push(
-          new Error("response topology error at " + location, { cause }),
-        ),
+      onError: (location, cause) => {
+        const failure = new Error("response topology error at " + location, { cause });
+        topologyFailure ??= failure;
+        failures.push(failure);
+      },
       onInputChange: (change) => changes.push(change),
       onTopologyChange: () => undefined,
     },
@@ -140,7 +143,7 @@ export async function case_watch_topology_preserves_response_file_products(
           );
         }),
       "response topology " + kind + ": " + file,
-      30_000,
+      { check: () => { if (topologyFailure) throw topologyFailure; } },
     );
     await settle();
   };
