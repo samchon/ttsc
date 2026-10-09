@@ -40,14 +40,19 @@ export namespace OwnedNativeProcess {
    * causes. Output fields and extra receipt fields are omitted. Diagnostic data
    * never authorizes release.
    *
+   * Enabled private tracing may receive a frozen scalar copy of an accepted
+   * receipt through the existing retirement observer. The original helper has
+   * closed before that copy is made. It contains no command or environment
+   * data and cannot grant closure authority. Trace IO can change scheduling.
+   *
    * @evidence contracts/common.md#principled-implementation A private request carries exact command/options and a structurally checked native receipt is required after helper close; cancellation returns only after joined and empty-boundary proof.
    * @evidence contracts/common.md#clear-and-simple-design Control stdin is separate from target input, target output streams remain unchanged, and one finally owns listeners and private protocol storage.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unsupported modes and incompatible helper overrides reject explicitly rather than falling back to an uncontained child or asserting cleanup from helper exit alone.
-   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain supported descriptor/input modes, forced retirement and helper override compatibility; the namespace describes the native ownership split.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain supported descriptor/input modes, forced retirement, helper override compatibility and the opt-in frozen receipt observation's scheduling and authority limits; the namespace describes the native ownership split.
    * @evidence contracts/portability.md#os-neutral-implementation The existing native helper resolver owns platform and override precedence; JSON argv/env and explicit Windows verbatim mode preserve the actual command boundary without an added shell layer.
-   * @evidence contracts/performance.md#efficient-algorithms Piped output is accumulated up to maxBuffer per stream and file-backed outputs stream through inherited descriptors. Input encoding processes only the supplied view bytes; protocol serialization and receipts scale with their payloads.
+   * @evidence contracts/performance.md#efficient-algorithms Piped output is accumulated up to maxBuffer per stream and file-backed outputs stream through inherited descriptors. Input encoding processes only the supplied view bytes; protocol serialization and receipts scale with their payloads. Enabled tracing with an observer alone copies and freezes nine validated scalar fields without traversing arbitrary receipt payloads.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Commands can produce external effects and every admitted invocation has its own process boundary and result.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Abort closes the control pipe, then helper close and its native retirement receipt are awaited before private storage is removed. Missing or failed cleanup proof rejects and retains the exact protocol path; a classified failed spawn removes unused storage. The observer transfers classification to the source-resource owner rather than manufacturing a joined result from helper exit.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Abort closes the control pipe, then helper close and its native retirement receipt are awaited before private storage is removed. Missing or failed cleanup proof rejects and retains the exact protocol path; a classified failed spawn removes unused storage. The observer transfers classification to the source-resource owner rather than manufacturing a joined result from helper exit; its optional frozen receipt copy lives with this invocation and may transfer to the caller without retaining streams or mutable receipt data.
    */
   export async function run(
     command: string,
@@ -57,6 +62,34 @@ export namespace OwnedNativeProcess {
     observeRetirement?: (
       state: "joined" | "not-started" | "unknown",
       reason?: string,
+      observation?: Readonly<{
+        /** Original supervising child's PID, retained after its close. */
+        helperPid: number | undefined;
+
+        /** Target PID reported by the accepted native receipt. */
+        targetPid: number;
+
+        /** Accepted private protocol version. */
+        version: number;
+
+        /** Native target completion code, when supplied. */
+        status: number | null;
+
+        /** Native target completion signal, when supplied. */
+        signal: string | null;
+
+        /** Actual native cancellation classification. */
+        cancelled: boolean;
+
+        /** Accepted original-child join field. */
+        directChildJoined: boolean;
+
+        /** Accepted native containment-emptiness field. */
+        boundaryEmpty: boolean;
+
+        /** Accepted platform reaping mechanism. */
+        orphanReaping: string;
+      }>,
     ) => void,
   ): Promise<SpawnSyncReturns<string | Buffer>> {
     signal?.throwIfAborted();
@@ -129,6 +162,7 @@ export namespace OwnedNativeProcess {
     );
     const resultFile = path.join(directory, "result.json");
     let retirement: "joined" | "not-started" | "unknown" = "not-started";
+    let observation: Parameters<NonNullable<typeof observeRetirement>>[2];
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     const limit = options.maxBuffer ?? 1024 * 1024;
@@ -281,6 +315,25 @@ export namespace OwnedNativeProcess {
         );
       }
       retirement = "joined";
+      if (observeRetirement !== undefined && process.env.TTSC_E2E_TRACE) {
+        // Only already-validated scalar receipt fields cross this private
+        // observation boundary. Its allocation cannot replace an outcome.
+        try {
+          observation = Object.freeze({
+            helperPid: child.pid,
+            targetPid: receipt.pid,
+            version: receipt.version,
+            status: receipt.status,
+            signal: receipt.signal,
+            cancelled: receipt.cancelled,
+            directChildJoined: receipt.cleanup.directChildJoined,
+            boundaryEmpty: receipt.cleanup.boundaryEmpty,
+            orphanReaping: receipt.cleanup.orphanReaping,
+          });
+        } catch {
+          // Missing diagnostics do not change native closure authority.
+        }
+      }
       signal?.throwIfAborted();
       const encoding = options.encoding;
       const decode = (chunks: Buffer[]) => {
@@ -314,10 +367,17 @@ export namespace OwnedNativeProcess {
     } finally {
       signal?.removeEventListener("abort", cancel);
       child.stdin?.destroy();
-      observeRetirement?.(
-        retirement,
-        failed ? String(originalFailure) : undefined,
-      );
+      if (observation === undefined)
+        observeRetirement?.(
+          retirement,
+          failed ? String(originalFailure) : undefined,
+        );
+      else
+        observeRetirement?.(
+          retirement,
+          failed ? String(originalFailure) : undefined,
+          observation,
+        );
       // A failed proof does not authorize deleting a native reader's protocol
       // inputs. The exact retained path is part of the terminal diagnostic.
       if (retirement === "unknown") {

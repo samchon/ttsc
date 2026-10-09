@@ -293,9 +293,19 @@ export class CapabilityPluginResolver {
               reply.args,
               reply.options,
               nativeController.signal,
-              (state) => {
+              (state, _reason, observation) => {
                 retirement = state;
                 if (state === "unknown") this.closed = true;
+                if (process.env.TTSC_E2E_TRACE) {
+                  // The worker's existing command-relay-queued event binds
+                  // this response file to its original boundary token.
+                  E2ETrace.capabilityResolution("native-command-retired", {
+                    taskToken: `${directory}:${id}`,
+                    responseFile: reply.responseFile,
+                    retirement: state,
+                    ...observation,
+                  });
+                }
               },
             ).then(
               (result) =>

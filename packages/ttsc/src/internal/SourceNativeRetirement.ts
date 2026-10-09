@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { E2ETrace } from "./E2ETrace";
 import { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
 
 /**
@@ -423,14 +424,19 @@ export namespace SourceNativeRetirement {
    * after successful cleanup or deferred recovery. Ordinary unscoped callers
    * perform cleanup without observing or inventing a registration.
    *
+   * Enabled private tracing observes the original callback's execution, not
+   * its deferral. Scalar own error properties are read without invoking
+   * getters; reflection or sink failures leave the original outcome intact.
+   * Synchronous trace writes can change scheduling and prove only that run.
+   *
    * @evidence contracts/common.md#principled-implementation Physical identity and the exact resource object are captured before destruction; only successful cleanup removes that identical registration from the original scope, while failure and replacement retain ownership.
    * @evidence contracts/common.md#clear-and-simple-design One operation combines destructive cleanup with registration release, using the existing release/recover protocol instead of making each caller order physical lookup around removal.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing scoped root fails its real observation without guessing an identity or weakening forget; ordinary unscoped calls acquire no protocol state, and original task/cleanup errors remain separate aggregate members when both fail.
-   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain capture timing, replacement and failure retention, unknown deferral, thrown undefined and successful recovery; they do not claim an atomic namespace or retained directory handle.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain capture timing, replacement and failure retention, unknown deferral, thrown undefined, successful recovery and passive trace limits; they do not claim an atomic namespace or retained directory handle.
    * @evidence contracts/portability.md#os-neutral-implementation Native realpath observes aliases before destruction and the captured map key avoids resolving a removed path; later namespace replacement remains outside the caller's ownership premise.
-   * @evidence contracts/performance.md#efficient-algorithms Scoped capture performs one native physical lookup and map observation before the existing boundary safety scan; cleanup costs are delegated and the final identity comparison/map removal does not enumerate resources.
+   * @evidence contracts/performance.md#efficient-algorithms Scoped capture performs one native physical lookup and map observation before the existing boundary safety scan; cleanup costs are delegated and the final identity comparison/map removal does not enumerate resources. Enabled tracing alone allocates an observer, projects five error properties and visits the scope's B boundaries, with synchronous encoding and IO proportional to their recorded text.
    * @evidence contracts/performance.md#reuse-equivalent-work The captured object proves only this release's original registration, never reusable compiler results; a reentrant replacement is retained rather than treated as equivalent ownership.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Failed cleanup retains its registration; unknown boundaries retain the original callback through FIFO recovery, whose failed callback remains queued. Immediate cleanup failure follows release's reporting contract without creating a new automatic retry, and successful cleanup drops only its original entry.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Failed cleanup retains its registration; unknown boundaries retain the original callback through FIFO recovery, whose failed callback remains queued. Immediate cleanup failure follows release's reporting contract without creating a new automatic retry, and successful cleanup drops only its original entry. An enabled observer shares that callback's lifetime; bounded trace storage has no resource-release authority.
    */
   export function releaseResource(
     fenceRoot: string,
@@ -455,12 +461,44 @@ export namespace SourceNativeRetirement {
       throw combined;
     }
     const resource = root === undefined ? undefined : scope!.resources.get(root);
+    const observe = !process.env.TTSC_E2E_TRACE
+      ? undefined
+      : (phase: string, error?: unknown): void => {
+          try {
+            const detail: Record<string, string | number | boolean | null | undefined> = {};
+            if (error !== null && (typeof error === "object" || typeof error === "function"))
+              for (const field of ["code", "errno", "syscall", "path", "dest"]) {
+                const descriptor = Object.getOwnPropertyDescriptor(error, field);
+                const value: unknown = descriptor?.value;
+                if (typeof value === "string" || typeof value === "number")
+                  detail[field] = value;
+              }
+            E2ETrace.capabilityResolution(phase, {
+              taskToken: scope?.taskToken,
+              resourceRoot: root ?? fenceRoot,
+              ...detail,
+            });
+            if (phase === "source-resource-cleanup-started" && scope !== undefined)
+              for (const [boundary, state] of scope.boundaries)
+                E2ETrace.capabilityResolution("source-resource-cleanup-boundary", {
+                  taskToken: scope.taskToken,
+                  resourceRoot: root,
+                  boundary,
+                  retirement: state.state,
+                });
+          } catch {
+            // Diagnostic reflection and IO cannot replace original cleanup.
+          }
+        };
     release(() => {
+      observe?.("source-resource-cleanup-started");
       try {
         cleanup();
       } catch (error) {
+        observe?.("source-resource-cleanup-threw", error);
         throw failure(error);
       }
+      observe?.("source-resource-cleanup-returned");
       if (
         scope !== undefined &&
         root !== undefined &&

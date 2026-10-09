@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
+import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/SidecarEnvironment";
 import { OwnedSynchronousProcess } from "../../../../../packages/ttsc/src/internal/OwnedSynchronousProcess";
 import { SourceNativeRetirement } from "../../../../../packages/ttsc/src/internal/SourceNativeRetirement";
 import { TestProject } from "../../../../utils/src/TestProject";
@@ -17,11 +20,12 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 1. Remove real owned directories in ordinary and scoped execution.
  * 2. Collect cleanup, missing-root, prior-error and replacement boundaries.
  * 3. Defer an actual registered root, fail its first qualified cleanup and retry.
+ * 4. Isolate tracing and preserve cleanup under getters and real sink refusal.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls actual releaseResource, register, run, release/recover and ownership reporting; checks real directory removal, exact registration identity, original failure references, aggregate membership and deferred FIFO retry.
- * @evidence contracts/testing.md#independent-expectations A removed directory must need no later physical lookup, failed cleanup must keep its original registration, and cleanup may not delete a replacement registration. Authored original error references, literal callback order and independently observed filesystem presence determine expectations.
- * @evidence contracts/testing.md#distinguishing-cases Owns ordinary and scoped success, physical alias, immediate callback refusal, already-removed root refusal, original Error and thrown undefined with cleanup failure, successful cleanup with an earlier failure, same-root replacement generation, unknown deferral, wrong recovery, failed qualified cleanup and successful retry under another enclosing scope. Every independent case is collected before the aggregate result.
- * @evidence contracts/testing.md#execution-ownership One source-unit entry invokes maintained ownership APIs on real temporary directories and an actual directory alias. Authored cleanup callbacks supply explicit error-boundary oracles without replacing filesystem methods. The no-process boundary classification exercises policy and does not certify kernel retirement; active actual Go metadata success/error remain in the neighboring context unit.
+ * @evidence contracts/testing.md#behavioral-verification Calls actual releaseResource, register, run, release/recover and ownership reporting; checks real directory removal, exact registration identity, original failure references, aggregate membership and deferred FIFO retry. An isolated actor observes actual trace events and verifies original cleanup outcomes with disabled observation, throwing error getters/reflection and a real obstructed trace sink.
+ * @evidence contracts/testing.md#independent-expectations A removed directory must need no later physical lookup, failed cleanup must keep its original registration, and cleanup may not delete a replacement registration. Authored original error references, literal callback order and independently observed filesystem presence determine expectations. Literal native-error fields prescribe diagnostics; secret message exclusion, zero getter executions, absent deferred events and unchanged disabled-writer rows distinguish passive observation from behavior changes.
+ * @evidence contracts/testing.md#distinguishing-cases Owns ordinary and scoped success, physical alias, immediate callback refusal, already-removed root refusal, original Error and thrown undefined with cleanup failure, successful cleanup with an earlier failure, same-root replacement generation, unknown deferral, wrong recovery, failed qualified cleanup and successful retry under another enclosing scope. The actor contrasts successful/failed observed cleanup, combined prior failure, throwing getters/reflection, cleanup throwing undefined, unknown deferral followed by qualified execution, disabled tracing and actual sink IO refusal. Every independent case is collected before the aggregate result.
+ * @evidence contracts/testing.md#execution-ownership One source-unit entry invokes maintained ownership APIs on real temporary directories and an actual directory alias. Authored cleanup callbacks supply explicit error-boundary oracles without replacing filesystem methods. One fresh Node actor isolates the process-local trace writer through the existing unit loader, starts no product host/compiler/native helper and preserves unconfirmed inputs; its script assertions belong to this entry. The no-process boundary classification exercises policy and does not certify kernel retirement; active actual Go metadata success/error remain in the neighboring context unit.
  */
 export function test_source_native_retirement_releases_removed_roots_after_success(): void {
   const parent = TestProject.physicalPath(TestProject.tmpdir("native-resource-release-"));
@@ -193,6 +197,35 @@ export function test_source_native_retirement_releases_removed_roots_after_succe
     assert.equal(scope.resources.size, 0);
     assert.equal(scope.deferred.length, 0);
     assert.equal(other.resources.size, 0);
+  });
+  check("passive tracing preserves release outcomes", () => {
+    const root = directory("trace-actor");
+    const trace = path.join(root, "trace");
+    fs.mkdirSync(trace);
+    let joined = false;
+    try {
+      const result = childProcess.spawnSync(process.execPath, [
+        "--import",
+        new URL("../../../../../config/register-unit-loader.mjs", import.meta.url).href,
+        fileURLToPath(new URL("../../internal/source-retirement-trace-actor.ts", import.meta.url)),
+        root,
+      ], {
+        encoding: "utf8",
+        windowsHide: true,
+        env: SidecarEnvironment.merge(process.env, {
+          NODE_OPTIONS: undefined,
+          TTSC_E2E_TRACE: trace,
+        }),
+      });
+      joined = result.error === undefined && result.signal === null && result.status !== null;
+      assert.equal(result.error, undefined);
+      assert.equal(result.signal, null);
+      assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+      assert.deepEqual(JSON.parse(result.stdout).failures, []);
+    } finally {
+      if (!joined)
+        TestProject.retainTemporaryDirectory(parent, "Release trace actor closure was not established");
+    }
   });
   if (errors.length !== 0) throw new AggregateError(errors, "Destructive resource release population");
 }
