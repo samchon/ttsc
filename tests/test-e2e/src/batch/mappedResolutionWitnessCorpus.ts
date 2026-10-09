@@ -78,6 +78,11 @@ export function mappedResolutionWitnessCorpus(options: {
     fs.mkdirSync(path.dirname(near), { recursive: true });
     fs.mkdirSync(far, { recursive: true });
     fs.copyFileSync(path.join(fixtures, "descriptor.cjs"), descriptor);
+    // Keep project discovery separate from the descriptor imports scope.
+    fs.copyFileSync(
+      path.join(fixtures, "package.json"),
+      path.join(cwd, "package.json"),
+    );
     fs.copyFileSync(
       path.join(fixtures, "package.json"),
       path.join(path.dirname(descriptor), "package.json"),
