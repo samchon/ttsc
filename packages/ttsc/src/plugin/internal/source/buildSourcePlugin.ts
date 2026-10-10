@@ -8,13 +8,12 @@ import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProce
 import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { runHoldingLock } from "../../../internal/runHoldingLock";
-import { NativeSourcePackages } from "./NativeSourcePackages";
-import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
 import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
 import type { ITtscBuildContributor } from "./ITtscBuildContributor";
 import type { ITtscSourceBuildCachePaths } from "./ITtscSourceBuildCachePaths";
+import { NativeSourcePackages } from "./NativeSourcePackages";
 import { PluginBinaryUse } from "./PluginBinaryUse";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
@@ -22,6 +21,7 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
+import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
 import { computeCacheKey } from "./computeCacheKey";
 import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
@@ -44,12 +44,12 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * Build one Go source plugin into a cached executable.
  *
  * `opts.env` is the effective environment for this build; the caller merges
- * inherited and constructor layers using native environment-name identity so
- * a programmatic `TtscCompiler` instance
- * can pin its own Go toolchain (`TTSC_GO_BINARY`), Go build cache
- * (`TTSC_GO_CACHE_DIR`), and Go build variables (`GOFLAGS`, `CGO_*`, …) without
- * mutating the shared `process.env`. CLI callers omit it and inherit
- * `process.env`, so ambient behavior is unchanged.
+ * inherited and constructor layers using native environment-name identity so a
+ * programmatic `TtscCompiler` instance can pin its own Go toolchain
+ * (`TTSC_GO_BINARY`), Go build cache (`TTSC_GO_CACHE_DIR`), and Go build
+ * variables (`GOFLAGS`, `CGO_*`, …) without mutating the shared `process.env`.
+ * CLI callers omit it and inherit `process.env`, so ambient behavior is
+ * unchanged.
  *
  * The cache key includes source and toolchain readings. Before publication the
  * scratch inputs are compared with their recorded digests and the external
@@ -65,16 +65,16 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * Optional loader-required package ownership enters the key. Its cold producer
  * admits the entry and linked sources through Go metadata in the actual
  * materialized workspace before compilation; legacy cache artifacts have a
- * different key. Existing binary hits trust the cache producer and key rather than rehashing
- * executable bytes. Default caches are managed locally, while explicit roots
- * retain caller-managed pruning policy. Every returned cache key registers a
- * reader token retained by this process until exit; registration shares the
- * builder/collector lease, and other consumers register independent readers.
- * Failure to establish ownership propagates. Private opt-in tracing records the
- * mandatory key-creation and pre-build witness gates and adds one diagnostic
- * observation after Go returns. That diagnostic read adds metadata work, not
- * publication permission. A discarded epoch is separately recorded when the
- * bounded build owner starts again.
+ * different key. Existing binary hits trust the cache producer and key rather
+ * than rehashing executable bytes. Default caches are managed locally, while
+ * explicit roots retain caller-managed pruning policy. Every returned cache key
+ * registers a reader token retained by this process until exit; registration
+ * shares the builder/collector lease, and other consumers register independent
+ * readers. Failure to establish ownership propagates. Private opt-in tracing
+ * records the mandatory key-creation and pre-build witness gates and adds one
+ * diagnostic observation after Go returns. That diagnostic read adds metadata
+ * work, not publication permission. A discarded epoch is separately recorded
+ * when the bounded build owner starts again.
  *
  * Explicit worker scopes check cancellation between build phases, copied source
  * entries and native commands, including reader admission and final
@@ -101,7 +101,10 @@ export function buildSourcePlugin(opts: {
   env?: NodeJS.ProcessEnv;
 
   /** Loader-required ownership of the entry and named linked packages. */
-  packageOwnership?: readonly { entry: string; kind: "executable" | "linked" }[];
+  packageOwnership?: readonly {
+    entry: string;
+    kind: "executable" | "linked";
+  }[];
 
   /**
    * Digests of the environment each build directory is keyed on, shared by
@@ -123,6 +126,9 @@ export function buildSourcePlugin(opts: {
    */
   sourceDigests?: Map<string, string>;
 
+  /** Pinned-tool manifest readers shared only by this loader request. */
+  goModReaders?: Map<string, SourcePluginWorkspace.GoModReader>;
+
   ttscVersion: string;
   tsgoVersion: string;
 }): string {
@@ -136,7 +142,7 @@ export function buildSourcePlugin(opts: {
     const environmentDigests = new Map(opts.environmentDigests);
     try {
       const binary = buildSourcePluginAttempt(
-        opts,
+        attempt === 0 ? opts : { ...opts, goModReaders: undefined },
         env,
         sourceDigests,
         environmentDigests,
@@ -174,7 +180,9 @@ function buildSourcePluginAttempt(
 ): string {
   OwnedSynchronousProcess.checkpoint();
   const { dir, entry, source } = resolveSourceBuildTarget(opts);
-  const overlayDirs = [...(opts.overlayDirs ?? SourcePluginWorkspace.findTtscOverlayDirs())].sort();
+  const overlayDirs = [
+    ...(opts.overlayDirs ?? SourcePluginWorkspace.findTtscOverlayDirs()),
+  ].sort();
   const contributors = opts.contributors ?? [];
   const compiler = resolveGoCompiler(env);
   const goBinary = GoToolResolution.resolveGoToolForBuild(
@@ -186,6 +194,12 @@ function buildSourcePluginAttempt(
   OwnedSynchronousProcess.checkpoint();
   // The digest of every directory the key covers, as the key read it, which
   // the build proves against what it compiled.
+  const goModReader = SourcePluginWorkspace.createGoModReader(
+    goBinary,
+    opts.pluginName,
+    env,
+    opts.goModReaders,
+  );
   const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
   const key = computeCacheKey({
     contributors,
@@ -194,6 +208,7 @@ function buildSourcePluginAttempt(
     entry,
     env,
     environmentWitness,
+    goModReader,
     filesystem: opts.filesystem,
     goBinary,
     overlayDirs,
@@ -317,6 +332,7 @@ function buildSourcePluginAttempt(
         env,
         environmentWitness,
         goBinary,
+        goModReader,
         normalizeGoToolPermissions: compiler.bundled,
         key,
         keyedDigests: sourceDigests,
@@ -394,7 +410,10 @@ function compileSourcePlugin(opts: {
   binaryPath: string;
   cacheDir: string;
   contributors: readonly ITtscBuildContributor[];
-  packageOwnership?: readonly { entry: string; kind: "executable" | "linked" }[];
+  packageOwnership?: readonly {
+    entry: string;
+    kind: "executable" | "linked";
+  }[];
   dir: string;
   entry: string;
   env: NodeJS.ProcessEnv;
@@ -406,6 +425,7 @@ function compileSourcePlugin(opts: {
   goBuildCacheRoot: string;
   manageGoBuildCache: boolean;
   normalizeGoToolPermissions: boolean;
+  goModReader: SourcePluginWorkspace.GoModReader;
   key: string;
 
   /** The digest of every directory the key covers, as the key read it. */
@@ -461,6 +481,7 @@ function compileSourcePlugin(opts: {
       opts.dir,
       opts.env,
       opts.goBinary,
+      opts.goModReader,
     );
     OwnedSynchronousProcess.checkpoint();
     // Every source the build would otherwise read in place, an overlay and
@@ -487,11 +508,7 @@ function compileSourcePlugin(opts: {
       opts.goBinary,
       opts.env,
     );
-    const goModReader = SourcePluginWorkspace.createGoModReader(
-      opts.goBinary,
-      opts.pluginName,
-      opts.env,
-    );
+    const goModReader = opts.goModReader;
     OwnedSynchronousProcess.checkpoint();
     if (opts.contributors.length > 0) {
       mergeContributors({
@@ -543,12 +560,20 @@ function compileSourcePlugin(opts: {
             const observations = NativeSourcePackages.read({
               cwd: scratchDir,
               entries: opts.packageOwnership.map((input) => input.entry),
-              env: GoSourceInputs.goBuildEnv(opts.goBinary, goBuildCacheRoot, opts.env),
+              env: GoSourceInputs.goBuildEnv(
+                opts.goBinary,
+                goBuildCacheRoot,
+                opts.env,
+              ),
               goBinary: opts.goBinary,
               pluginName: opts.pluginName,
             });
             opts.packageOwnership.forEach((input, index) => {
-              NativeSourcePackages.kind(observations[index]!, `${opts.pluginName} ${input.entry}`, input.kind);
+              NativeSourcePackages.kind(
+                observations[index]!,
+                `${opts.pluginName} ${input.entry}`,
+                input.kind,
+              );
             });
           }
           runGoBuild(
@@ -629,10 +654,14 @@ function compileSourcePlugin(opts: {
     taskFailure = { error };
     throw error;
   } finally {
-    SourceNativeRetirement.releaseResource(scratchDir, () => {
-      fs.rmSync(scratchDir, { recursive: true, force: true });
-      SourceNativeRetirement.forget(opts.cacheDir);
-    }, taskFailure);
+    SourceNativeRetirement.releaseResource(
+      scratchDir,
+      () => {
+        fs.rmSync(scratchDir, { recursive: true, force: true });
+        SourceNativeRetirement.forget(opts.cacheDir);
+      },
+      taskFailure,
+    );
   }
 }
 
@@ -1008,7 +1037,6 @@ function resolveSourceBuildTarget(opts: {
   const { entry, moduleRoot } = resolvePluginGoModule(source, opts.pluginName);
   return { dir: moduleRoot, entry, source };
 }
-
 
 /**
  * The path, below a build's scratch directory, of the tree holding its copies

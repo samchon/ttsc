@@ -4,6 +4,7 @@ import { TRANSFORM_CLOCK_REFERENCE_DIRECTORIES } from "../clock/TRANSFORM_CLOCK_
 import { refreshFilesystemClockReference } from "../clock/refreshFilesystemClockReference";
 import { isProjectWalkPath } from "../project/isProjectWalkPath";
 import { notificationsProveMembership } from "../tracker/notificationsProveMembership";
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
 
 /**
@@ -42,6 +43,7 @@ export function notificationsProveProgramUnchanged(
    * proof.
    */
   cached: TtscCachedProjectTransform,
+  proof?: TtscGenerationProof.Transaction,
 ): boolean {
   if (!notificationsProveMembership(cached)) return false;
   for (const tracker of [
@@ -88,5 +90,5 @@ export function notificationsProveProgramUnchanged(
     TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.get(cached),
     resultFilesystem(cached.result),
   );
-  return matchesUniversalHostInputs(cached, cached.hostInputValidation);
+  return matchesUniversalHostInputs(cached, cached.hostInputValidation, proof);
 }

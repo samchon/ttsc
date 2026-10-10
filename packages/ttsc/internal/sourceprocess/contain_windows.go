@@ -125,6 +125,7 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
   targetPid := 0
   targetHandle := windows.Handle(0)
   var targetErr error
+  targetPending := false
   innerResult := false
   defer func() {
     if targetHandle != 0 {
@@ -133,21 +134,17 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
       }
     }
   }()
-  retainTarget := func() error {
-    data, readErr := os.ReadFile(filepath.Join(dir, "started.json"))
+  retainTarget := func() (bool, error) {
+    target, pending, readErr := readWindowsStarted(filepath.Join(dir, "started.json"))
     if readErr != nil {
-      return readErr
-    }
-    var target windowsStarted
-    if decodeErr := json.Unmarshal(data, &target); decodeErr != nil {
-      return decodeErr
+      return pending, readErr
     }
     retained, retainErr := retainWindowsTarget(target, job)
     if retainErr != nil {
-      return retainErr
+      return false, retainErr
     }
     targetHandle, targetPid = retained, int(target.Pid)
-    return nil
+    return false, nil
   }
   for !finished {
     select {
@@ -196,8 +193,8 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
         }
       }
       if started && !running && !finished {
-        targetErr = retainTarget()
-        if targetErr != nil && !os.IsNotExist(targetErr) {
+        targetPending, targetErr = retainTarget()
+        if targetErr != nil && !targetPending {
           value = failure("EPROCESS", targetErr.Error())
           finished = true
         }
@@ -233,8 +230,8 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
   // identity can still be retained here, before termination. Missing identity
   // after START is unknown, even if the job subsequently becomes empty.
   noTarget := !started || (innerResult && value.Version == 1 && value.Pid == 0 && value.Error != nil)
-  if started && targetHandle == 0 && !noTarget && (targetErr == nil || os.IsNotExist(targetErr)) {
-    targetErr = retainTarget()
+  if started && targetHandle == 0 && !noTarget && (targetErr == nil || targetPending) {
+    targetPending, targetErr = retainTarget()
   }
   originalJoined := innerResult && targetPid > 0 && value.Pid == targetPid && value.Cleanup.DirectChildJoined
   value.Cancelled = cancelled

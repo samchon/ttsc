@@ -8,7 +8,6 @@ import { typescriptTransformBunLoader } from "../source/typescriptTransformBunLo
 import { beginTtscTransformBuild } from "../transform/cache/beginTtscTransformBuild";
 import { createTtscTransformCache } from "../transform/cache/createTtscTransformCache";
 import { resetTtscTransformCache } from "../transform/cache/resetTtscTransformCache";
-import { withdrawTtscTransformGenerations } from "../transform/cache/withdrawTtscTransformGenerations";
 import { transformTtsc } from "../transform/transformTtsc";
 import { inlineSourceMap } from "../transform/utils/inlineSourceMap";
 import type { BunLikeBuild } from "./BunLikeBuild";
@@ -74,8 +73,9 @@ function resolveBunOptions(
  *   The first included transformable load resolves options once. One cache shares a validated
  *   project generation across deliveries; bundler start/end boundaries reset
  *   delivery proof, while a runtime retains its immutable module-load session.
- *   An incomplete observation withdraws the adapter's entire generation cache;
- *   only the newly compiled delivery is returned within this nonwatching session.
+ *   Coherent local output with unavailable observation shares first deliveries
+ *   only inside this nonwatching pass through the common proof owner; no
+ *   persistent host cache or shared publication can retain it.
  *   Setup snapshots the in-memory key population; changing host files/options
  *   is not authorized merely by an unchanged path or previously quiet callback.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
@@ -141,7 +141,11 @@ export function bun(options?: TtscBunOptions): BunLikePlugin {
               // The path this loader just read from disk is the file's own.
               exactPath: true,
               watching: false,
-              markVolatile: () => withdrawTtscTransformGenerations(cache),
+              // Bun has no reusable host module cache inside this immutable
+              // build/runtime session. The common core owns generation eviction
+              // and pass-only reuse; withdrawing it here recompiles every module
+              // when Bun cannot supply synchronous observation (#1712, #1713).
+              markVolatile: () => {},
             },
           );
           if (result !== undefined) {

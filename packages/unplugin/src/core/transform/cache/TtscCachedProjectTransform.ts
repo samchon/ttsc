@@ -232,11 +232,21 @@ export interface TtscCachedProjectTransform {
 
   /**
    * A locally admitted answer with incomplete host observations cannot be
-   * retained for resident, shared or persistent reuse. Successful answers need
-   * only explicit unavailable observations; diagnostic admission keeps its
-   * existing current-verdict policy. This flag never grants admission itself.
+   * retained for shared or persistent reuse. A separately admitted coherent
+   * local success may share first deliveries only in its explicit nonwatching
+   * pass (passDeliveryOnly). Successful answers need only explicit unavailable
+   * observations; diagnostic admission keeps its existing current-verdict
+   * policy. This flag never grants admission itself.
    */
   freshDeliveryOnly?: boolean;
+
+  /**
+   * Coherent local success whose only missing authority is host observation.
+   * WARNING (#1713): this grants neither persistent nor pooled reuse. The
+   * common proof owner requires an explicit nonwatching pass, a recorded
+   * source, first delivery and actual host-cache withdrawal on every delivery.
+   */
+  passDeliveryOnly?: boolean;
 
   /** Absolute path to the directory that owns the tsconfig. */
   projectRoot: string;

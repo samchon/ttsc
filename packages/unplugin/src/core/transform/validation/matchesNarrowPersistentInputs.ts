@@ -5,6 +5,7 @@ import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { selectWatchInputs } from "../envelope/selectWatchInputs";
 import { notificationsProveMembership } from "../tracker/notificationsProveMembership";
 import { reportsMembershipChange } from "../tracker/reportsMembershipChange";
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 import { matchesProvenInput } from "./matchesProvenInput";
 import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
 
@@ -49,6 +50,7 @@ export function matchesNarrowPersistentInputs(
   cached: TtscCachedProjectTransform,
   /** Delivered file spelling selecting this envelope's dependency closure. */
   file: string,
+  proof?: TtscGenerationProof.Transaction,
 ): boolean | undefined {
   if (reportsMembershipChange(cached)) {
     return false;
@@ -61,7 +63,7 @@ export function matchesNarrowPersistentInputs(
   if (hostValidation === undefined) {
     return undefined;
   }
-  if (!matchesUniversalHostInputs(cached, hostValidation)) {
+  if (!matchesUniversalHostInputs(cached, hostValidation, proof)) {
     return false;
   }
   const inputs = selectWatchInputs({

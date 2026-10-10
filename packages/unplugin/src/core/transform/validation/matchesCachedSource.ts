@@ -10,6 +10,7 @@ import { pathIdentityKey } from "../filesystem/pathIdentityKey";
 import { hostInputStateHash } from "../inputs/hostInputStateHash";
 import { toProjectKey } from "../project/toProjectKey";
 import { hashText } from "../utils/hashText";
+import { TtscGenerationProof } from "./TtscGenerationProof";
 import { matchesCompleteInputSnapshot } from "./matchesCompleteInputSnapshot";
 import { matchesNarrowPersistentInputs } from "./matchesNarrowPersistentInputs";
 import { nativeInputPredicatesHold } from "./nativeInputPredicatesHold";
@@ -24,17 +25,19 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  * no source comparison. A cache with a delivery epoch can use that comparison
  * alone for a stable generation's first delivery of each module in the current
  * pass, once the pass's own first delivery has proven the whole generation
- * still matches the filesystem. An incomplete generation may not take this
- * shortcut: otherwise a sibling output captured during a filesystem race could
- * still be served once. Later graph-bearing requests validate the file's
- * derived input set and project membership. A failed result is a diagnostic of
- * the whole loaded program, so its repair cannot be proved by one delivered
- * output's dependency closure. Failed and graph-free envelopes conservatively
- * validate the complete project and out-of-walk snapshots, reusing qualified
- * signatures. A mismatch rejects this generation for the delivery; its caller
- * chooses replacement or capture. Delivered text that differs while the disk
- * still holds the bytes the generation compiled is not one: it is reported and
- * served, since the compile read the disk (samchon/ttsc#1394).
+ * still matches the filesystem. Incomplete generations cannot claim complete
+ * proof. A coherent local success admitted only because its observer was
+ * unavailable may share first deliveries in its exact nonwatching pass through
+ * TtscGenerationProof; it cannot cross passes or earn persistent authority.
+ * Later graph-bearing requests validate the file's derived input set and
+ * project membership. A failed result is a diagnostic of the whole loaded
+ * program, so its repair cannot be proved by one delivered output's dependency
+ * closure. Failed and graph-free envelopes conservatively validate the complete
+ * project and out-of-walk snapshots, reusing qualified signatures. A mismatch
+ * rejects this generation for the delivery; its caller chooses replacement or
+ * capture. Delivered text that differs while the disk still holds the bytes the
+ * generation compiled is not one: it is reported and served, since the compile
+ * read the disk (samchon/ttsc#1394).
  *
  * Its place in the adapter's invalidation model, and the units beside it, are
  * mapped in the maintainer page
@@ -42,7 +45,7 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  *
  * @evidence contracts/common.md#principled-implementation Delivered source, generation completeness, pass identity and notification authority choose between first-delivery proof, derived-input validation and complete snapshots; divergent editor text never substitutes for compiler disk inputs.
  * @evidence contracts/common.md#clear-and-simple-design This admission boundary chooses the required proof while dedicated validators own membership, universal inputs and content comparisons.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts An incomplete generation cannot earn a first-delivery shortcut; inherited object members cannot invent a project baseline, and losing watcher proof falls back to recorded-state validation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts An incomplete generation cannot claim complete snapshot authority; only separately admitted coherent local success can share first deliveries of its exact nonwatching pass; inherited object members cannot invent a project baseline, and losing watcher proof falls back to recorded-state validation.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain disk-versus-delivered authority, epoch qualification, fallback and related maintainer guidance before tags.
  * @evidence contracts/portability.md#os-neutral-implementation Project membership and path identity use recorded compiler case policy and injected native operations; OS names do not certify case sensitivity or watcher capabilities.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
@@ -52,13 +55,13 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  *   while validators replace current signature/directory witnesses. No new
  *   independent handle or historical epoch collection is acquired here.
  * @evidence contracts/performance.md#efficient-algorithms Every admission first replays all generation-owned typed config predicates; this mandatory cost includes native queries, file bytes or directory membership independently of watcher/epoch qualification.
- *   Fresh-only rejection precedes native identity work. Baseline-bearing paths
+ *   Unsupported fresh-only rejection precedes source baseline work. Baseline-bearing paths
  *   hash delivered text and divergent paths read/hash host bytes; unrelated
  *   absent outputs can return before that hash after an initial K-output index.
  *   Epoch-qualified first checkpoints share the complete proof. Other paths
  *   pay derived-input or complete project/external/universal proof costs,
  *   including path/byte populations, native observations and clock refresh.
- * @evidence contracts/performance.md#reuse-equivalent-work Typed config predicate replay is not cached by this coordinator and remains mandatory even when the following existing shortcut shares other proof.  A complete generation earns one whole-snapshot proof per new delivery epoch; later first deliveries share it, while repeated or persistent deliveries revalidate their authoritative dependency scope.
+ * @evidence contracts/performance.md#reuse-equivalent-work Typed config predicate replay remains mandatory for every delivery and shares only the current synchronous transaction with nested validators; immutable membership is indexed separately.  A complete generation earns one whole-snapshot proof per new delivery epoch; later first deliveries share it, while repeated or persistent deliveries revalidate their authoritative dependency scope.
  */
 export function matchesCachedSource(
   /** Generation retaining recorded baselines and distinct proof authority. */
@@ -69,9 +72,11 @@ export function matchesCachedSource(
   source: string,
   /** Current host pass, or undefined for persistent input validation. */
   epoch: number | undefined,
+  proof?: TtscGenerationProof.Transaction,
 ): boolean {
-  if (!nativeInputPredicatesHold(cached)) return false;
-  if (cached.freshDeliveryOnly === true) return false;
+  if (!nativeInputPredicatesHold(cached, proof)) return false;
+  const pass = TtscGenerationProof.sharesPass(cached, file, epoch);
+  if (cached.freshDeliveryOnly === true && !pass) return false;
   const identities = envelopeDerivation(cached).identityContext;
   const currentKey = toProjectKey(cached.projectRoot, file, identities);
   const identity = pathIdentityKey(file, identities);
@@ -102,7 +107,7 @@ export function matchesCachedSource(
     if (!outputs.has(identity)) {
       // While the watchers prove the program unchanged, the module is still
       // outside it, and no walk is needed to say so (samchon/ttsc#1398).
-      if (notificationsProveProgramUnchanged(cached)) {
+      if (notificationsProveProgramUnchanged(cached, proof)) {
         return true;
       }
       // Root discovery deliberately never hashed this unrelated module. Its
@@ -113,7 +118,7 @@ export function matchesCachedSource(
         TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.get(cached),
         resultFilesystem(cached.result),
       );
-      return matchesCompleteInputSnapshot(cached);
+      return matchesCompleteInputSnapshot(cached, proof);
     }
   }
   if (expected !== hashText(source)) {
@@ -130,6 +135,7 @@ export function matchesCachedSource(
     }
     reportDivergentDelivery(cached, file);
   }
+  if (pass) return true;
   if (epoch !== undefined && cached.projectSnapshotComplete === true) {
     if (cached.deliveryEpoch !== epoch) {
       // The pass's first delivery. The generation was settled against an
@@ -142,7 +148,7 @@ export function matchesCachedSource(
         TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.get(cached),
         resultFilesystem(cached.result),
       );
-      if (!matchesCompleteInputSnapshot(cached)) {
+      if (!matchesCompleteInputSnapshot(cached, proof)) {
         return false;
       }
       cached.deliveryEpoch = epoch;
@@ -165,7 +171,7 @@ export function matchesCachedSource(
     cached.projectMutationTracker !== undefined &&
     cached.hostInputMutationTracker !== undefined
   ) {
-    const narrow = matchesNarrowPersistentInputs(cached, file);
+    const narrow = matchesNarrowPersistentInputs(cached, file, proof);
     if (narrow !== undefined) {
       return narrow;
     }
@@ -173,5 +179,5 @@ export function matchesCachedSource(
     // produced. Losing the proof is not evidence of a change, so fall through
     // to the snapshot the entry still carries.
   }
-  return matchesCompleteInputSnapshot(cached);
+  return matchesCompleteInputSnapshot(cached, proof);
 }

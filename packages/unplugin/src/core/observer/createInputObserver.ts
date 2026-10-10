@@ -217,11 +217,12 @@ export function createInputObserver(
   let poller: { close(): void } | undefined;
   let flushTimer: NodeJS.Timeout | undefined;
 
-  // Windows and macOS run every native observer in the isolated watch broker:
-  // Windows so an abort in Node's fs-event backend cannot take the host process
-  // down with it (samchon/ttsc#1411), and macOS so each scope is its own
-  // FSEventStream, whose dropped events are reported instead of lost
-  // (samchon/ttsc#1418, samchon/ttsc#1425).
+  // Windows uses ttsc's native completion-port helper, excluding access-only
+  // notifications without opening Node fs-event handles (samchon/ttsc#1719).
+  // Do not restore fs.watch here: reads can invalidate an unchanged generation,
+  // and deleting a watched temporary tree can abort Node (samchon/ttsc#1411).
+  // macOS keeps each scope in its own brokered FSEventStream, whose dropped
+  // events are reported instead of lost (samchon/ttsc#1418, samchon/ttsc#1425).
   const open =
     operations.watch ??
     (process.platform === "win32" || process.platform === "darwin"

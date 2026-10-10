@@ -198,23 +198,26 @@ export interface TtscTransformFilesystemOperations {
    * Open one directory's change notification, or throw when the observed
    * filesystem cannot provide one.
    *
-   * Left undefined, generations watch the host filesystem: in process on Linux,
-   * and through an isolated broker process on Windows and macOS. An embedder
-   * observing another filesystem supplies its own; a generation whose watch
-   * cannot be opened keeps validating from recorded state instead of losing its
-   * cache.
+   * Left undefined, generations watch the host filesystem through the native
+   * Linux helper, the native Windows completion-port helper, or the macOS
+   * FSEvents broker. An embedder observing another filesystem supplies its own;
+   * a generation whose watch cannot be opened keeps validating from recorded
+   * state instead of losing its cache.
    *
-   * Supplying one replaces the broker as well, so an embedder that wraps Node's
-   * own `fs.watch` gives up what the broker provides: on Windows, containing
-   * the native abort Node's fs-event backend can raise when a watched temporary
-   * tree is deleted, and on macOS, one FSEventStream per watch whose dropped
-   * events are reported rather than lost silently.
+   * Supplying one bypasses these native owners. Wrapping Node's `fs.watch`
+   * reintroduces Windows access-only notifications that invalidate unchanged
+   * inputs, and the native abort its fs-event backend can raise when a watched
+   * temporary tree is deleted. It also gives up explicit notification-loss
+   * reporting from the Linux helper and macOS's per-watch FSEventStream.
+   * Preserve mutation and loss reporting when implementing this capability;
+   * timestamps or identical current bytes cannot discard an actual A-B-A
+   * event.
    *
    * @evidence contracts/common.md#principled-implementation The watch capability reports actual directory changes and failure; its absence or failure cannot certify silence as unchanged inputs.
    * @evidence contracts/common.md#clear-and-simple-design One optional native operation exposes observation and a close handle, leaving broker selection and retained-generation proof in their owners.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Injected watches are explicit capabilities rather than patched fs methods, and errors require recorded-state validation instead of synthetic live coverage.
-   * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain absent overrides, failed watches, broker bypass, and the Windows/macOS capability lost when wrapping fs.watch directly.
-   * @evidence contracts/portability.md#os-neutral-implementation OS-neutral watching requires the observed filesystem's capability and accounts for backend-specific abort isolation and dropped-stream reporting rather than assuming recursive notifications are interchangeable.
+   * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain default owners, failed watches, explicit override authority, access-only noise, native aborts and mutation/loss reporting that a direct fs.watch wrapper cannot supply.
+   * @evidence contracts/portability.md#os-neutral-implementation OS-neutral watching requires the observed filesystem's capability and accounts for native Windows mutation filtering and Linux/macOS loss reporting rather than assuming recursive notifications are interchangeable.
    * @evidenceExclude contracts/performance.md#efficient-algorithms
    *   Only the signature of watch is declared here; the cost belongs to its
    *   implementation.

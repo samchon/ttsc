@@ -1,3 +1,6 @@
+import readline from "node:readline";
+import { resolveBinary } from "ttsc/binary";
+
 import { traceProcessSpawn } from "../../../tracing/traceProcessSpawn";
 import { WATCH_BROKER } from "./WATCH_BROKER";
 import type { WatchBroker } from "./WatchBroker";
@@ -13,11 +16,11 @@ import { watchBrokerSource } from "./watchBrokerSource";
  * caller-supplied watch capabilities can bypass it. Isolation has a reason on
  * each native backend:
  *
- * - Node's Windows fs-event backend can hit a native assertion that aborts the
- *   whole process when a watched temporary tree is deleted. In the child that
- *   crash becomes an ordinary exit that fails the affected trackers, and those
- *   generations fall back to proving themselves from recorded state instead of
- *   taking the host down.
+ * - Windows runs ttsc's native completion-port helper directly. Its directory
+ *   filter excludes access-time notifications: reads must not masquerade as
+ *   writes (#1719). Actual writes, metadata changes, native loss and failed
+ *   coverage remain observable; equal bytes cannot erase an A-B-A event. No
+ *   Node fs-event handle is opened in the host or an intermediate process.
  * - On macOS, libuv serves every directory watch of one event loop through a
  *   single FSEventStream and re-creates it whenever any watch in that loop
  *   opens or closes, losing the events in between (samchon/ttsc#1418), and it
@@ -26,10 +29,11 @@ import { watchBrokerSource } from "./watchBrokerSource";
  *   passes each drop on as a gap (samchon/ttsc#1425); see
  *   {@link watchBrokerSource}.
  *
- * Registration/drain owners unreference the child and IPC channel after their
+ * Registration/drain owners unreference the child and its transport after their
  * outstanding acknowledgments finish; startup itself returns a referenced
- * child. Last-registration closure attempts disconnection and termination. This
- * accessor has no independent shutdown deadline or exit wait.
+ * child. Last-registration closure ends the request stream and attempts
+ * termination. This accessor has no independent shutdown deadline or exit
+ * wait.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Native watches run in a protocol child. Error/exit dispatch reports failure
@@ -45,13 +49,15 @@ import { watchBrokerSource } from "./watchBrokerSource";
  *   Native platform-reason list and lifecycle paragraph explain isolation and
  *   process ownership under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation
- *   OS-neutral startup uses this process's executable and argument-array spawn;
- *   native FSEvents loading and platform differences remain in this boundary.
+ *   Windows resolves the same ttsc binary as its compiler owner and uses the
+ *   native __watch command; macOS uses this runtime and supported FSEvents.
+ *   Argument-array spawn, hidden Windows processes and ordered transport stay
+ *   inside this boundary.
  * @evidence contracts/performance.md#efficient-algorithms
- *   A current-holder read is fixed work. Cold startup includes optional native
- *   module resolution/warning, child source construction and native process/IPC
- *   creation; resolution/path/source bytes and process startup cost do not
- *   vanish into one spawn call. Failure visits R registrations and D drain
+ *   A current-holder read is fixed work. Windows cold startup resolves the ttsc
+ *   binary and opens native protocol pipes; macOS resolves the optional binding,
+ *   reports missing capability and constructs its child program and IPC channel.
+ *   Resolution/path/source bytes and native process startup cost remain real. Failure visits R registrations and D drain
  *   callbacks, whose native/reference/sink work remains delegated; it does not
  *   enumerate watched source trees.
  *   Enabled private tracing serializes the actual executable/source argv and
@@ -63,7 +69,7 @@ import { watchBrokerSource } from "./watchBrokerSource";
  *   a health certificate; binding installation changes are not re-resolved
  *   while it remains current, and sink exceptions can interrupt failure handling.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   One current module holder retains a child and registration/drain maps;
+ *   One current module holder retains a direct child and registration/drain maps;
  *   those populations and caller-retained retired brokers have no cap here.
  *   Request owners manage references/timers, and last closure attempts native
  *   disconnection/kill rather than proving exit. Completed failure routing
@@ -77,11 +83,17 @@ export function getWatchBroker(): WatchBroker {
   const fsevents =
     process.platform === "darwin" ? fseventsBindingPath() : undefined;
   if (fsevents === null) warnMissingFseventsBinding();
+  const native = process.platform === "win32";
+  const binary = native ? resolveBinary() : process.execPath;
+  if (binary === null)
+    throw new Error("No ttsc native watch helper is available");
   const child = traceProcessSpawn(
-    process.execPath,
-    ["-e", watchBrokerSource(fsevents)],
+    binary,
+    native ? ["__watch"] : ["-e", watchBrokerSource(fsevents)],
     {
-      stdio: ["ignore", "ignore", "ignore", "ipc"],
+      stdio: native
+        ? ["pipe", "pipe", "ignore"]
+        : ["ignore", "ignore", "ignore", "ipc"],
       windowsHide: true,
     },
   );
@@ -110,6 +122,65 @@ export function getWatchBroker(): WatchBroker {
       WATCH_BROKER.current = undefined;
     }
   };
+  if (native) {
+    // All Windows registrations share one direct native child. No Node watcher,
+    // nested child, global runtime patch, or access-time system change is needed.
+    const input = child.stdin;
+    const output = child.stdout;
+    if (input === null || output === null) {
+      child.kill();
+      throw new Error("The native watch helper has no protocol pipes");
+    }
+    broker.transport = {
+      send(message) {
+        if (input.destroyed || input.writableEnded) return false;
+        // write(false) means buffered backpressure, not refusal. The callback
+        // reports a real transport failure to every still-live registration.
+        input.write(JSON.stringify(message) + "\n", (error) => {
+          if (error !== null && error !== undefined) {
+            fail();
+            child.kill();
+          }
+        });
+        return true;
+      },
+      reference(active) {
+        const pipe = output as typeof output & {
+          ref?: () => void;
+          unref?: () => void;
+        };
+        if (active) {
+          child.ref();
+          pipe.ref?.();
+        } else {
+          child.unref();
+          pipe.unref?.();
+        }
+      },
+      close() {
+        input.end();
+      },
+    };
+    const lost = (): void => {
+      fail();
+      child.kill();
+    };
+    input.on("error", lost);
+    output.on("error", lost);
+    output.on("end", lost);
+    readline
+      .createInterface({ input: output, crlfDelay: Infinity })
+      .on("line", (line) => {
+        let message: unknown;
+        try {
+          message = JSON.parse(line) as unknown;
+        } catch {
+          lost();
+          return;
+        }
+        routeWatchBrokerMessage(broker, message);
+      });
+  }
   child.on("error", fail);
   child.on("exit", fail);
   child.on("message", (message: unknown) =>

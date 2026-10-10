@@ -42,9 +42,9 @@ ticks.push(tickCount());
 }
 console.info("TTSC_BUN_EPOCHS:" + JSON.stringify(epochs));
 console.info("TTSC_BUN_TICKS:" + JSON.stringify(ticks));
-// The original lifecycle contrast owns one typed delivery per build. The
-// richer graph above may require fresh native delivery when Bun cannot supply
-// reusable observer proof, so its receipt population is a separate boundary.
+// Both graphs compile once per build even when Bun cannot supply reusable
+// observer proof. Only the coherent, nonwatching local pass may share it;
+// onEnd still retires it before the next build (#1712, #1713).
 const singleRoot = path.resolve("tools/bun-native-sessions");
 const singleLog = path.join(singleRoot, "program-runs.bin");
 const singlePlugin = ttsc({ project: path.join(singleRoot, "tsconfig.json") });
@@ -63,3 +63,44 @@ for (let pass = 0; pass < 2; pass++) {
   assert.equal(singleTicks[pass + 1], pass + 1, "each completed single-entry build releases its native generation");
 }
 console.info("TTSC_BUN_SINGLE_ENTRY_TICKS:" + JSON.stringify(singleTicks));
+
+// Exercise the actual Turbopack loader under Bun's incomplete observer. The
+// callbacks are authored consumer capabilities, not a simulated Next server.
+// This reuses the same prepared native plugin and child, adding no install.
+const loader = (await import("__TURBOPACK_ADAPTER__")).default;
+const originalMode = process.env.NODE_ENV;
+const deliverLoader = (cacheable) => new Promise((resolve, reject) => {
+  const before = fs.statSync(singleLog).size;
+  const context = {
+    resourcePath: path.join(singleRoot, "src/main.ts"),
+    getOptions: () => ({ project: path.join(singleRoot, "tsconfig.json") }),
+    async: () => (error, code) => {
+      try {
+        assert.equal(fs.statSync(singleLog).size, before + 1,
+          "each actual loader delivery must own exactly one native invocation");
+      } catch (failure) { reject(failure); return; }
+      if (error) reject(error);
+      else resolve(code);
+    },
+    ...(cacheable === undefined ? {} : { cacheable }),
+  };
+  loader.call(context, fs.readFileSync(context.resourcePath, "utf8"));
+});
+try {
+  process.env.NODE_ENV = "production";
+  let withdrawn = 0;
+  assert.match(await deliverLoader(function (enabled) {
+    assert.equal(enabled, false);
+    withdrawn++;
+  }), /"PLUGIN"/);
+  assert.equal(withdrawn, 1, "production forwards explicit nonwatching lifecycle and withdraws its host cache");
+  await assert.rejects(deliverLoader(undefined), /explicitly nonwatching/);
+  const failure = new Error("Turbopack host withdrawal failed");
+  await assert.rejects(deliverLoader(() => { throw failure; }), error => error === failure);
+  process.env.NODE_ENV = "development";
+  await assert.rejects(deliverLoader(() => {}), /explicitly nonwatching/);
+  console.info("TTSC_TURBOPACK_LIFECYCLES:production,missing,throwing,development");
+} finally {
+  if (originalMode === undefined) delete process.env.NODE_ENV;
+  else process.env.NODE_ENV = originalMode;
+}

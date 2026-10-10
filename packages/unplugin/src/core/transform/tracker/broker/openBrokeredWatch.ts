@@ -7,6 +7,7 @@ import { WATCH_PROBE_DIRECTORY_PREFIX } from "./WATCH_PROBE_DIRECTORY_PREFIX";
 import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
 import type { WatchBrokerLocation } from "./WatchBrokerLocation";
 import type { WatchBrokerSink } from "./WatchBrokerSink";
+import { WatchBrokerTransport } from "./WatchBrokerTransport";
 import { drainWatchBroker } from "./drainWatchBroker";
 import { getWatchBroker } from "./getWatchBroker";
 import { probeForLocation } from "./probeForLocation";
@@ -16,11 +17,11 @@ import { sweepAbandonedWatchProbes } from "./sweepAbandonedWatchProbes";
  * Open directory watches in the isolated watch process for one sink, and report
  * when they hear.
  *
- * On Windows, Node's fs-event backend can assert in native code when a watched
- * temporary tree is deleted. Isolation turns that unrecoverable process abort
- * into an ordinary broker exit and a conservative fallback in the host. On
- * macOS, each registration's watches are streams of their own, started before
- * the child reports ready, and a dropped event reaches the sink as a gap
+ * On Windows, ttsc's native helper owns completion-port directory subscriptions
+ * and omits access-only notifications (#1719). Native loss and failure withdraw
+ * coverage; actual change events remain authoritative even after A-B-A writes.
+ * On macOS, each registration's watches are streams of their own, started
+ * before the child reports ready, and a dropped event reaches the sink as a gap
  * (samchon/ttsc#1425). A stream that can be probed reports ready only once its
  * opening probe came back through it; the child suppresses ordinary callbacks
  * received before that probe. This is its backend protocol, not a guarantee
@@ -143,10 +144,7 @@ export function openBrokeredWatch(
     };
   });
   broker.pendingRegistrations += 1;
-  broker.child.ref();
-  // Bun's IPC channel omits Node's Control.ref/unref methods. The child itself
-  // still owns the outstanding acknowledgement on that runtime.
-  broker.child.channel?.ref?.();
+  WatchBrokerTransport.reference(broker, true);
   const id = broker.nextId++;
   let resolveReady!: () => void;
   const answered = new Promise<void>((resolve) => {
@@ -166,7 +164,7 @@ export function openBrokeredWatch(
     let failed = false;
     let failure: unknown;
     try {
-      broker.child.send?.({ id, op: "remove" });
+      WatchBrokerTransport.send(broker, { id, op: "remove" });
     } catch (error) {
       failed = true;
       failure = error;
@@ -176,7 +174,7 @@ export function openBrokeredWatch(
         WATCH_BROKER.current = undefined;
       }
       try {
-        broker.child.disconnect?.();
+        WatchBrokerTransport.close(broker);
       } catch (error) {
         if (!failed) {
           failed = true;
@@ -194,7 +192,7 @@ export function openBrokeredWatch(
     }
     if (failed) throw failure;
   };
-  broker.child.send?.({
+  WatchBrokerTransport.send(broker, {
     allEvents: options.allEvents,
     locations: normalized,
     id,
@@ -226,8 +224,7 @@ export function openBrokeredWatch(
     // a reply over an unreferenced channel lets the loop empty and the process
     // exit mid-build.
     if (broker.pendingRegistrations === 0 && broker.pendingDrains === 0) {
-      broker.child.unref();
-      broker.child.channel?.unref?.();
+      WatchBrokerTransport.reference(broker, false);
     }
   });
   return {

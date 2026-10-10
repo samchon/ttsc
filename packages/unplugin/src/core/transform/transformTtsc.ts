@@ -10,37 +10,28 @@ import { TRANSFORM_RESULT_FILESYSTEM } from "./cache/TRANSFORM_RESULT_FILESYSTEM
 import type { TtscTransformCache } from "./cache/TtscTransformCache";
 import { awaitOrEvict } from "./cache/awaitOrEvict";
 import { createTransformCacheKey } from "./cache/createTransformCacheKey";
-import { disposeCachedTransform } from "./cache/disposeCachedTransform";
 import { evictGeneration } from "./cache/evictGeneration";
 import { replaysTerminalGeneration } from "./cache/replaysTerminalGeneration";
 import { selectCachedGenerationAction } from "./cache/selectCachedGenerationAction";
-import { selectOrEvict } from "./cache/selectOrEvict";
 import { transformCacheEpoch } from "./cache/transformCacheEpoch";
 import { transformCacheTrustsNotifications } from "./cache/transformCacheTrustsNotifications";
 import { transformFilesystem } from "./cache/transformFilesystem";
 import { withdrawGenerationNotifications } from "./cache/withdrawGenerationNotifications";
-import { reportMissingProgramOutput } from "./diagnostics/reportMissingProgramOutput";
-import { reportSuccessDiagnostics } from "./diagnostics/reportSuccessDiagnostics";
-import type { TtscTransformedOutput } from "./envelope/TtscTransformedOutput";
-import { TtscMissingProgramOutputError } from "./errors/TtscMissingProgramOutputError";
+import { deliverCachedTransform } from "./deliverCachedTransform";
 import { TtscUnstableGenerationError } from "./errors/TtscUnstableGenerationError";
 import { transformProject } from "./generation/transformProject";
 import { preparePluginBuildEnvironments } from "./inputs/preparePluginBuildEnvironments";
 import { TRANSFORM_CACHE_SESSIONS } from "./session/TRANSFORM_CACHE_SESSIONS";
 import { settleProjectMutationEvents } from "./tracker/settleProjectMutationEvents";
 import { resolveProjectSelection } from "./tsconfig/resolveProjectSelection";
-import { createTransformResult } from "./utils/createTransformResult";
 import { isDeclarationFile } from "./utils/isDeclarationFile";
 import { isHostWrapperQuery } from "./utils/isHostWrapperQuery";
 import { pluginsAreDisabled } from "./utils/pluginsAreDisabled";
 import { stripQuery } from "./utils/stripQuery";
-import { markCachedSourceServed } from "./validation/markCachedSourceServed";
+import { TtscGenerationProof } from "./validation/TtscGenerationProof";
 import type { TtscTransformHooks } from "./watch/TtscTransformHooks";
 import type { TtscWatchSelection } from "./watch/TtscWatchSelection";
-import { notifyFailedGenerationInputs } from "./watch/notifyFailedGenerationInputs";
 import { notifyRejectedGenerationInputs } from "./watch/notifyRejectedGenerationInputs";
-import { notifyVolatileDelivery } from "./watch/notifyVolatileDelivery";
-import { notifyWatchInputs } from "./watch/notifyWatchInputs";
 import { prepareProjectRecordDirectories } from "./watch/prepareProjectRecordDirectories";
 
 /**
@@ -78,7 +69,7 @@ import { prepareProjectRecordDirectories } from "./watch/prepareProjectRecordDir
  *   per build, not per compilation.
  * @evidence contracts/common.md#principled-implementation Project selection and generation-qualified cache admission preserve compiler disk authority; fresh-only success additionally needs an explicit nonwatching lifecycle, coherent project declaration and actual host-cache withdrawal, because incomplete observation cannot support watch invalidation.
  * @evidence contracts/common.md#clear-and-simple-design One delivery coordinator composes project selection, cache admission, compilation, output selection and host notifications; dedicated owners handle proof and lifetime internals.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Wrapper modules cannot poison source baselines and incomplete generations cannot authorize reuse; a separately admitted fresh-only result is evicted before capability checks, unknown or watching lifecycles fail explicitly, and unsupported withdrawal cannot be replaced by a fake record or guessed dependency closure.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Wrapper modules cannot poison source baselines; incomplete local results can share only explicitly nonwatching first deliveries in their exact pass. Unknown/watching lifecycles or unsupported withdrawal reject and evict them rather than invent persistent records or dependency closure.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and argument tags explain project scope, no-transform outcomes, cache epochs and per-build notification responsibilities with links to maintained reference context.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Selection/key construction pays ancestor/config/alias/option/path text work.
@@ -86,15 +77,18 @@ import { prepareProjectRecordDirectories } from "./watch/prepareProjectRecordDir
  *   replay source/project/external/universal proofs before selecting output.
  *   In-flight/valid completed reuse avoids compilation, not those checks or
  *   output/map/notification/record work. Capture misses pay whole native compile
- *   and input populations; concurrent supersession can repeat the outer loop
+ *   and input populations. The common proof owner skips redundant environment
+ *   preparation for proven first deliveries and shares synchronous native proof
+ *   queries; persistent/repeated delivery establishes fresh authority. Concurrent supersession can repeat the outer loop
  *   without a delivery-level retry/time bound here.
  * @evidence contracts/performance.md#reuse-equivalent-work Cache identity covers config/options/plugins/aliases; current generations, pass-qualified terminal verdicts and in-flight Promises are shared only while their source and dependency proof remains valid.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Optional cache state retains current generation Promises/results and
  *   per-key dependency/case facts without a byte/key cap here. Native tasks
  *   belong to compiler/capture owners; uncached captures retain no notification
- *   or persistent clock probe. Fresh-only delivery detaches its generation
- *   before host callbacks; eviction/disposal attempt independent resource release
+ *   or persistent clock probe. Fresh-only delivery releases capture resources,
+ *   retaining only an explicitly admitted local pass result; rejected or failed
+ *   incomplete handoff detaches its generation. Eviction/disposal attempt independent resource release
  *   and native failures need not close every handle or remove every probe.
  * @evidence contracts/portability.md#os-neutral-implementation Native module paths and project coordinates use supported path/filesystem abstractions, while actual case policy and watcher capability come from generation proof rather than OS-name assumptions.
  */
@@ -218,15 +212,18 @@ export async function transformTtsc(
       if (!transformCacheTrustsNotifications(cache)) {
         withdrawGenerationNotifications(cached);
       }
-      await preparePluginBuildEnvironments(cached.result, filesystem, cached);
-      if (cache?.get(key) !== transformed) continue;
       if (epoch === undefined) {
         await settleProjectMutationEvents(cached);
         if (cache?.get(key) !== transformed) {
           continue;
         }
       }
+      await TtscGenerationProof.prepare(cached, file, epoch);
+      if (cache?.get(key) !== transformed) continue;
+      // No await between this observation and synchronous admission.
+      const proof = TtscGenerationProof.create(cached, file, epoch);
       const action = selectCachedGenerationAction({
+        proof,
         cache,
         cached,
         epoch,
@@ -239,36 +236,17 @@ export async function transformTtsc(
         continue;
       }
       if (action === "serve") {
-        reportSuccessDiagnostics(cached, epoch);
-        // A resolved `"exception"` / `"failure"` envelope makes this throw;
-        // that is a failed generation too, so it is retained for this pass or
-        // evicted outside one before being surfaced.
-        let output: TtscTransformedOutput;
-        try {
-          output = selectOrEvict(cache, key, transformed, epoch, {
-            file,
-            projectRoot: cached.projectRoot,
-            result: cached.result,
-            tsconfig: cached.tsconfig,
-          });
-        } catch (error) {
-          if (!(error instanceof TtscMissingProgramOutputError)) {
-            notifyFailedGenerationInputs(hooks, cached, file, watchSelection);
-            throw error;
-          }
-          // The compile is fine and simply has nothing for this module, so the
-          // module goes back to the host untransformed rather than failing the
-          // build (samchon/ttsc#1308). Its project config and selection inputs
-          // still decide whether a later generation will contain this module,
-          // so hosts must receive the same universal watch-input batch.
-          reportMissingProgramOutput(cached, error, epoch);
-          notifyWatchInputs(hooks, cached, file, watchSelection);
-          markCachedSourceServed(cached, file);
-          return undefined;
-        }
-        notifyWatchInputs(hooks, cached, file, watchSelection);
-        markCachedSourceServed(cached, file);
-        return createTransformResult(file, source, output);
+        return deliverCachedTransform({
+          cache,
+          cached,
+          generation: transformed,
+          key,
+          epoch,
+          file,
+          source,
+          hooks,
+          selection: watchSelection,
+        });
       }
       transformed = undefined;
     }
@@ -336,50 +314,16 @@ export async function transformTtsc(
         policies.set(key, reported);
       }
     }
-    const { projectRoot, result } = cached;
-    if (cached.freshDeliveryOnly === true) {
-      // This delivery owns a newly compiled answer, but unavailable observer
-      // authority cannot certify any later resident or host-cache delivery.
-      // Eviction schedules resource release even if a host callback throws.
-      if (cache === undefined) disposeCachedTransform(cached);
-      else evictGeneration(cache, key, generation);
-      if (
-        result.type === "success" &&
-        (hooks?.watching !== false ||
-          hooks.markVolatile === undefined ||
-          (hooks.project?.watching !== undefined &&
-            hooks.project.watching !== hooks.watching))
-      ) {
-        throw new Error(
-          "@ttsc/unplugin: plugin input observation is unavailable; fresh output " +
-            "requires an explicitly nonwatching host with supported cache withdrawal. " +
-            "Watching, unknown or contradictory lifecycles cannot safely observe its changes.",
-        );
-      }
-      hooks?.markVolatile?.();
-    }
-    reportSuccessDiagnostics(cached, epoch);
-    let output: TtscTransformedOutput;
-    try {
-      output = selectOrEvict(cache, key, generation, epoch, {
-        file,
-        projectRoot,
-        result,
-        tsconfig: cached.tsconfig,
-      });
-    } catch (error) {
-      if (!(error instanceof TtscMissingProgramOutputError)) {
-        notifyFailedGenerationInputs(hooks, cached, file, watchSelection);
-        throw error;
-      }
-      reportMissingProgramOutput(cached, error, epoch);
-      notifyWatchInputs(hooks, cached, file, watchSelection);
-      markCachedSourceServed(cached, file);
-      return undefined;
-    }
-    notifyWatchInputs(hooks, cached, file, watchSelection);
-    markCachedSourceServed(cached, file);
-    notifyVolatileDelivery(hooks, cached, file);
-    return createTransformResult(file, source, output);
+    return deliverCachedTransform({
+      cache,
+      cached,
+      generation,
+      key,
+      epoch,
+      file,
+      source,
+      hooks,
+      selection: watchSelection,
+    });
   }
 }

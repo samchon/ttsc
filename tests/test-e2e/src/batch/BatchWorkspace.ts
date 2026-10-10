@@ -1219,10 +1219,15 @@ export namespace BatchWorkspace {
     const bunEntry = fs.readFileSync(path.join(root, "bun-entry.mjs"), "utf8");
     fs.writeFileSync(
       path.join(root, "bun-entry.mjs"),
-      bunEntry.replace(
-        "__BUN_ADAPTER__",
-        pathToFileURL(TestUnpluginRuntime.libPath("bun", "mjs")).href,
-      ),
+      bunEntry
+        .replace(
+          "__BUN_ADAPTER__",
+          pathToFileURL(TestUnpluginRuntime.libPath("bun", "mjs")).href,
+        )
+        .replace(
+          "__TURBOPACK_ADAPTER__",
+          pathToFileURL(TestUnpluginRuntime.libPath("turbopack", "mjs")).href,
+        ),
     );
     if (installationOnly) {
       fs.writeFileSync(

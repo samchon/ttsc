@@ -1,16 +1,17 @@
 import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
 import type { WatchBroker } from "./WatchBroker";
+import { WatchBrokerTransport } from "./WatchBrokerTransport";
 
 /**
  * Ask the watch broker to acknowledge, and resolve with whether it did.
  *
- * The child answers after two turns of its own loop, so a watch callback it had
- * already queued has run, and the ordered IPC channel puts every message it
- * sent before the reply ahead of the reply. That is the same proof an
- * in-process watcher gets from a macrotask turn, rather than the fixed wait
- * this replaces, which guessed at the crossing (samchon/ttsc#1272). On macOS
- * the child answers once each stream it can prove has delivered a probe, which
- * takes the service's latency (samchon/ttsc#1453).
+ * Windows answers after consuming currently queued native completions to an
+ * observed empty port. macOS answers once each provable stream has delivered a
+ * probe, including the service's latency (#1453). Ordered transport applies
+ * every preceding event before the reply. These are current backend frontiers,
+ * not atomic timestamp classification of concurrent writes. The optional direct
+ * fs.watch program retains its explicit two-turn frontier for protocol tests;
+ * it does not supply Windows production proof (#1719).
  *
  * A broker that never answers must not hold a delivery, so the wait gives up
  * after a threshold of twice the probe timeout: the child itself gives up on a
@@ -50,7 +51,7 @@ import type { WatchBroker } from "./WatchBroker";
  *   Native paragraphs and parameters explain ordering, coverage, sharing and
  *   false deadlines under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation
- *   OS-neutral host delivery delegates Windows loop ordering and macOS stream
+ *   OS-neutral host delivery delegates Windows completion-port drainage and macOS stream
  *   probing to the native broker rather than applying one universal timing guess.
  * @evidence contracts/performance.md#efficient-algorithms
  *   A covering memo query uses fixed identity/id lookup. New requests copy all N
@@ -123,8 +124,7 @@ function startWatchBrokerDrain(
       broker.drainScopes?.delete(id);
       broker.pendingDrains -= 1;
       if (broker.pendingDrains === 0 && broker.pendingRegistrations === 0) {
-        broker.child.unref();
-        broker.child.channel?.unref?.();
+        WatchBrokerTransport.reference(broker, false);
       }
       resolve(answered);
     };
@@ -134,12 +134,11 @@ function startWatchBrokerDrain(
     // the reference the loop can empty while a delivery waits here, and the
     // process exits mid-build with nothing to report.
     broker.pendingDrains += 1;
-    broker.child.ref();
-    broker.child.channel?.ref?.();
+    WatchBrokerTransport.reference(broker, true);
     const timer = setTimeout(() => release(false), timeout);
     broker.drains.set(id, release);
     (broker.drainScopes ??= new Map()).set(id, scope);
-    if (broker.child.send?.({ id, op: "drain" }) !== true) {
+    if (WatchBrokerTransport.send(broker, { id, op: "drain" }) !== true) {
       release(false);
     }
   });

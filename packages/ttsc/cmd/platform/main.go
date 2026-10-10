@@ -3,8 +3,8 @@
 // The real compiler and runner commands live in the JavaScript launchers so
 // they can resolve the consuming project's `typescript` and
 // plugin descriptors. This binary supplies version/platform metadata, and the
-// hidden `__watch` command: the Linux directory notification helper the
-// unplugin adapter runs.
+// hidden `__watch` command: the native Linux and Windows directory notification
+// helper the unplugin adapter runs.
 package main
 
 import (

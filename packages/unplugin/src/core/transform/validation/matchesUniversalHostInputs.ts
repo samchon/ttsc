@@ -1,4 +1,5 @@
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { matchesUniversalHostInputEntries } from "./matchesUniversalHostInputEntries";
 import { matchesUniversalHostInputProbes } from "./matchesUniversalHostInputProbes";
@@ -29,13 +30,14 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  * @evidence contracts/portability.md#os-neutral-implementation Filesystem-aware validators use actual tracker delivery capability and exact lexical coverage rather than platform-wide assumptions.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The coordinator borrows generation manifests and trackers without retaining a result or acquiring a handle.
  * @evidence contracts/performance.md#efficient-algorithms Every admission first replays all generation-owned typed config predicates; this mandatory cost includes native queries, file bytes or directory membership independently of watcher/epoch qualification.  The coverage scan stops at the first unproved input. Each coverage query checks overlapping unproven scopes and sampled events with native path comparisons; fallback adds unresolved bytes, native candidate probes and plugin tree enumeration. Mandatory environment qualification pays its owning dependency and environment-key costs on either route.
- * @evidence contracts/performance.md#reuse-equivalent-work Typed config predicate replay is not cached by this coordinator and remains mandatory even when the following existing shortcut shares other proof.  Shared manifests and qualified silent sources avoid repeated content reads only while the owning tree validator also proves unchanged build environment.
+ * @evidence contracts/performance.md#reuse-equivalent-work Typed config predicates remain mandatory on every delivery. An exact-generation synchronous transaction may share their current replay across nested validators, but no pass or notification shortcut authorizes a later delivery to skip them.  Shared manifests and qualified silent sources avoid repeated content reads only while the owning tree validator also proves unchanged build environment.
  */
 export function matchesUniversalHostInputs(
   cached: TtscCachedProjectTransform,
   validation: TtscHostInputValidation,
+  proof?: TtscGenerationProof.Transaction,
 ): boolean {
-  if (!nativeInputPredicatesHold(cached)) return false;
+  if (!nativeInputPredicatesHold(cached, proof)) return false;
   let notificationsProveAll = true;
   for (const input of validation.covered) {
     if (!trackerProvesInputUnchanged(cached.hostInputMutationTracker, input)) {
@@ -44,10 +46,10 @@ export function matchesUniversalHostInputs(
     }
   }
   if (notificationsProveAll)
-    return matchesUniversalHostInputTrees(cached, validation);
+    return matchesUniversalHostInputTrees(cached, validation, proof);
   return (
     matchesUniversalHostInputEntries(cached, validation) &&
     matchesUniversalHostInputProbes(cached, validation) &&
-    matchesUniversalHostInputTrees(cached, validation)
+    matchesUniversalHostInputTrees(cached, validation, proof)
   );
 }

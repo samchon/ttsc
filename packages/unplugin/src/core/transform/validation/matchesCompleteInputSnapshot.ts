@@ -3,6 +3,7 @@ import { resultFilesystem } from "../cache/resultFilesystem";
 import { declaredProjectInputKeys } from "../envelope/declaredProjectInputKeys";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { collectProjectInputSnapshot } from "../project/collectProjectInputSnapshot";
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 import { matchesCachedExternalInputs } from "./matchesCachedExternalInputs";
 import { matchesExternalInputRealpaths } from "./matchesExternalInputRealpaths";
 import { matchesUniversalHostInputEntries } from "./matchesUniversalHostInputEntries";
@@ -43,7 +44,7 @@ import { walkSnapshotComplete } from "./walkSnapshotComplete";
  *   target scans, signature entry materialization/adoption and native identity
  *   work add population/path/digit costs; unresolved content and predicate
  *   replay add bytes/listings. Early rejection skips subsequent domains.
- * @evidence contracts/performance.md#reuse-equivalent-work Typed config predicate replay is not cached by this coordinator and remains mandatory even when the following existing shortcut shares other proof.  Qualified separable signatures avoid repeated content reads under the caller's refreshed clock. Successful aggregate proof adopts earned project/external signatures and clears unverified flags; it neither clears recorded changes/failed flags nor makes later quiet notifications sufficient without their other admission conditions.
+ * @evidence contracts/performance.md#reuse-equivalent-work Typed config predicates remain mandatory on every delivery. An exact-generation synchronous transaction may share their current replay across nested validators, but no pass or notification shortcut authorizes a later delivery to skip them.  Qualified separable signatures avoid repeated content reads under the caller's refreshed clock. Successful aggregate proof adopts earned project/external signatures and clears unverified flags; it neither clears recorded changes/failed flags nor makes later quiet notifications sufficient without their other admission conditions.
  */
 export function matchesCompleteInputSnapshot(
   /**
@@ -51,8 +52,9 @@ export function matchesCompleteInputSnapshot(
    * proof.
    */
   cached: TtscCachedProjectTransform,
+  proof?: TtscGenerationProof.Transaction,
 ): boolean {
-  if (!nativeInputPredicatesHold(cached)) return false;
+  if (!nativeInputPredicatesHold(cached, proof)) return false;
   if (
     cached.projectSnapshotComplete !== true ||
     cached.projectDirectories === undefined
@@ -72,7 +74,7 @@ export function matchesCompleteInputSnapshot(
     hostValidation === undefined ||
     !matchesUniversalHostInputEntries(cached, hostValidation) ||
     !matchesUniversalHostInputProbes(cached, hostValidation) ||
-    !matchesUniversalHostInputTrees(cached, hostValidation)
+    !matchesUniversalHostInputTrees(cached, hostValidation, proof)
   ) {
     return false;
   }
