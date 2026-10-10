@@ -6,12 +6,12 @@ import path from "node:path";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../../../internal/E2ETrace";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
-import { pluginBuildVersions } from "./pluginBuildVersions";
 import { pluginSourceCovers } from "./pluginSourceCovers";
 import { pluginSourceDigest } from "./pluginSourceDigest";
 import { pluginSourceFilesSignature } from "./pluginSourceFilesSignature";
 import { recordCacheFileUse } from "./recordCacheFileUse";
 import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
+import { ttscPackageVersion } from "./ttscPackageVersion";
 
 /**
  * Content identities a plugin load proves from metadata instead of bytes, kept
@@ -162,11 +162,10 @@ export namespace PluginContentIdentities {
       // typically on the system drive, is judged against a second reference
       // minted in a per-user directory below the system temporary directory.
       const references = new Map([...temporaryReference(), ...owned]);
-      return {
-        root,
-        references,
-        version: pluginBuildVersions(props.projectRoot).ttsc,
-      };
+      // WARNING (#1726): resolve no module here. A descriptor evaluator opens a
+      // store under its resolution recorder, and any lookup becomes an input of
+      // the descriptor it did not read (`ttscPackageVersion`).
+      return { root, references, version: ttscPackageVersion() };
     } catch {
       return undefined;
     }

@@ -1330,6 +1330,17 @@ async function runResidentLoaderPool(): Promise<void> {
               [],
               "search stops at its independently selected package root",
             );
+            // The evaluator opens the load's record store under its resolution
+            // recorder; ttsc's own lookups there, such as a version read, must
+            // never become inputs of a descriptor that did not make them.
+            const pluginCache = physicalSelectionPath(workspace.cache);
+            assert.deepEqual(
+              loaded.hostInputs.filter((input) =>
+                physicalSelectionPath(input).startsWith(pluginCache + path.sep),
+              ),
+              [],
+              "no lookup below the plugin cache is a descriptor input",
+            );
           } catch (error) {
             publicApiFailures.push(
               new Error(
