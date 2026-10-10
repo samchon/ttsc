@@ -27,13 +27,25 @@ export function test_environment_batch_shares_current_observations_not_positive_
   try {
     process.env[name] = "A";
     const first = new Map<string, string>();
-    assert.equal(PluginBuildEnvironmentWitness.holds(a, undefined, first), true);
-    assert.equal(PluginBuildEnvironmentWitness.holds(b, undefined, first), false);
+    assert.equal(
+      PluginBuildEnvironmentWitness.holds(a, undefined, first),
+      true,
+    );
+    assert.equal(
+      PluginBuildEnvironmentWitness.holds(b, undefined, first),
+      false,
+    );
     assert.equal(first.size, 1);
     process.env[name] = "B";
     const second = new Map<string, string>();
-    assert.equal(PluginBuildEnvironmentWitness.holds(a, undefined, second), false);
-    assert.equal(PluginBuildEnvironmentWitness.holds(b, undefined, second), true);
+    assert.equal(
+      PluginBuildEnvironmentWitness.holds(a, undefined, second),
+      false,
+    );
+    assert.equal(
+      PluginBuildEnvironmentWitness.holds(b, undefined, second),
+      true,
+    );
     assert.equal(second.size, 1);
     assert.equal(PluginBuildEnvironmentWitness.holds(a), false);
     assert.equal(PluginBuildEnvironmentWitness.holds(b), true);

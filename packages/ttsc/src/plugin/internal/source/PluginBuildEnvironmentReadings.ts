@@ -80,8 +80,8 @@ export namespace PluginBuildEnvironmentReadings {
    * plugin directories use them. Missing readings remain explicitly missing.
    *
    * WARNING (#1712): this map belongs only to the following synchronous proof.
-   * Never retain it across an await, delivery, build boundary or publication.
-   * A process-permanent positive witness would miss changed Go tools and GOENV
+   * Never retain it across an await, delivery, build boundary or publication. A
+   * process-permanent positive witness would miss changed Go tools and GOENV
    * files (#1516); independently checking it in every helper instead multiplies
    * a thousands-file GOROOT scan by modules and proof layers.
    *
@@ -102,10 +102,16 @@ export namespace PluginBuildEnvironmentReadings {
     const result = new Map<string, string | undefined>();
     for (const directory of directories) {
       if (result.has(directory)) continue;
-      const known = readings.get(directory + (variables ??= key("", process.env)));
-      result.set(directory, known !== undefined &&
-        PluginBuildEnvironmentWitness.holds(known.witness, undefined, current)
-        ? known.environment : undefined);
+      const known = readings.get(
+        directory + (variables ??= key("", process.env)),
+      );
+      result.set(
+        directory,
+        known !== undefined &&
+          PluginBuildEnvironmentWitness.holds(known.witness, undefined, current)
+          ? known.environment
+          : undefined,
+      );
     }
     return result;
   }

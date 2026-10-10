@@ -1,4 +1,3 @@
-import type { TtscGenerationProof } from "./TtscGenerationProof";
 import {
   PluginBuildEnvironmentReadings,
   processPluginBuildEnvironment,
@@ -8,6 +7,7 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { pluginSourceHolds } from "../inputs/pluginSourceHolds";
 import { usesPreparedPluginBuildEnvironments } from "../inputs/preparePluginBuildEnvironments";
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
 
@@ -55,9 +55,9 @@ export function matchesUniversalHostInputTrees(
     // proof saw or older, never a newer one it did not prove.
     const prepared = usesPreparedPluginBuildEnvironments(cached.result);
     const environment = prepared
-        ? proof?.cached === cached && proof.environments !== undefined
-          ? proof.environments.get(directory)
-          : PluginBuildEnvironmentReadings.cached(directory)
+      ? proof?.cached === cached && proof.environments !== undefined
+        ? proof.environments.get(directory)
+        : PluginBuildEnvironmentReadings.cached(directory)
       : processPluginBuildEnvironment(directory);
     if (environment === undefined) return false;
     if (

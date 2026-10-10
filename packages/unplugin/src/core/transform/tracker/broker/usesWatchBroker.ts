@@ -4,13 +4,13 @@ import type { TtscTransformFilesystemOperations } from "../../filesystem/TtscTra
  * Whether a tracker over `filesystem` opens its watches in the isolated watch
  * broker rather than in this process.
  *
- * The host filesystem on Windows and macOS does: Windows so that a native
- * fs-event abort cannot take the host down, and macOS so that each watch is its
- * own FSEventStream, whose dropped events are reported, rather than one libuv
- * re-creates whenever any watch in the host opens or closes, and whose drops it
- * discards (samchon/ttsc#1418, samchon/ttsc#1425). An embedder that supplies
- * its own `watch` retains that capability, including for a host-filesystem
- * view.
+ * The host filesystem on Windows and macOS does: Windows so that native
+ * mutation filters exclude access-time noise without a Node fs-event handle,
+ * and macOS so that each watch is its own FSEventStream, whose dropped events
+ * are reported, rather than one libuv re-creates whenever any watch in the host
+ * opens or closes, and whose drops it discards (samchon/ttsc#1418,
+ * samchon/ttsc#1425). An embedder that supplies its own `watch` retains that
+ * capability, including for a host-filesystem view.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A supplied filesystem watcher is authoritative; only the native host

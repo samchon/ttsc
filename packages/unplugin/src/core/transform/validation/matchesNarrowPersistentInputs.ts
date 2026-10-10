@@ -1,4 +1,3 @@
-import type { TtscGenerationProof } from "./TtscGenerationProof";
 import path from "node:path";
 
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
@@ -6,6 +5,7 @@ import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { selectWatchInputs } from "../envelope/selectWatchInputs";
 import { notificationsProveMembership } from "../tracker/notificationsProveMembership";
 import { reportsMembershipChange } from "../tracker/reportsMembershipChange";
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 import { matchesProvenInput } from "./matchesProvenInput";
 import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
 

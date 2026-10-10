@@ -1,9 +1,9 @@
-import type { TtscGenerationProof } from "./TtscGenerationProof";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { declaredProjectInputKeys } from "../envelope/declaredProjectInputKeys";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { collectProjectInputSnapshot } from "../project/collectProjectInputSnapshot";
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 import { matchesCachedExternalInputs } from "./matchesCachedExternalInputs";
 import { matchesExternalInputRealpaths } from "./matchesExternalInputRealpaths";
 import { matchesUniversalHostInputEntries } from "./matchesUniversalHostInputEntries";

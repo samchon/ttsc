@@ -1,4 +1,3 @@
-import { TtscGenerationProof } from "./TtscGenerationProof";
 import { matchesProjectRootFile } from "../../tsconfig/matchesProjectRootFile";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
@@ -11,6 +10,7 @@ import { pathIdentityKey } from "../filesystem/pathIdentityKey";
 import { hostInputStateHash } from "../inputs/hostInputStateHash";
 import { toProjectKey } from "../project/toProjectKey";
 import { hashText } from "../utils/hashText";
+import { TtscGenerationProof } from "./TtscGenerationProof";
 import { matchesCompleteInputSnapshot } from "./matchesCompleteInputSnapshot";
 import { matchesNarrowPersistentInputs } from "./matchesNarrowPersistentInputs";
 import { nativeInputPredicatesHold } from "./nativeInputPredicatesHold";
@@ -28,15 +28,16 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  * still matches the filesystem. Incomplete generations cannot claim complete
  * proof. A coherent local success admitted only because its observer was
  * unavailable may share first deliveries in its exact nonwatching pass through
- * TtscGenerationProof; it cannot cross passes or earn persistent authority. Later graph-bearing requests validate the file's
- * derived input set and project membership. A failed result is a diagnostic of
- * the whole loaded program, so its repair cannot be proved by one delivered
- * output's dependency closure. Failed and graph-free envelopes conservatively
- * validate the complete project and out-of-walk snapshots, reusing qualified
- * signatures. A mismatch rejects this generation for the delivery; its caller
- * chooses replacement or capture. Delivered text that differs while the disk
- * still holds the bytes the generation compiled is not one: it is reported and
- * served, since the compile read the disk (samchon/ttsc#1394).
+ * TtscGenerationProof; it cannot cross passes or earn persistent authority.
+ * Later graph-bearing requests validate the file's derived input set and
+ * project membership. A failed result is a diagnostic of the whole loaded
+ * program, so its repair cannot be proved by one delivered output's dependency
+ * closure. Failed and graph-free envelopes conservatively validate the complete
+ * project and out-of-walk snapshots, reusing qualified signatures. A mismatch
+ * rejects this generation for the delivery; its caller chooses replacement or
+ * capture. Delivered text that differs while the disk still holds the bytes the
+ * generation compiled is not one: it is reported and served, since the compile
+ * read the disk (samchon/ttsc#1394).
  *
  * Its place in the adapter's invalidation model, and the units beside it, are
  * mapped in the maintainer page

@@ -7,18 +7,17 @@ import { openBrokeredWatch } from "../transform/tracker/broker/openBrokeredWatch
  * Open one recursive observer inside the transform core's isolated watch broker
  * instead of the host process.
  *
- * On Windows, Node's fs-event backend can abort the process that owns a watch,
- * for instance with `Assertion failed: !_wcsnicmp(filename, dir, dirlen)` in
- * `src\win\fs-event.c` (samchon/ttsc#1411). On macOS, libuv serves every
- * directory watch of a loop through one FSEventStream and re-creates it
- * whenever any watch opens or closes, losing the events in between
- * (samchon/ttsc#1418), where the broker opens one stream per watch. The
- * observer's scopes get the isolation the transform core's trackers have,
- * through the same registration (`openBrokeredWatch`) with a sink of their own
- * that forwards events (samchon/ttsc#1485). Attributed events reach `listener`
- * with a joined caller-directory path; unattributed events use null. A failed
- * registration reaches `onError`, which hands the scope's entries to the
- * bounded poll.
+ * On Windows, ttsc's direct native helper excludes access-only notifications
+ * and reports actual mutation, loss and failure through the same broker sink.
+ * On macOS, libuv serves every directory watch of a loop through one
+ * FSEventStream and re-creates it whenever any watch opens or closes, losing
+ * the events in between (samchon/ttsc#1418), where the broker opens one stream
+ * per watch. The observer's scopes get the isolation the transform core's
+ * trackers have, through the same registration (`openBrokeredWatch`) with a
+ * sink of their own that forwards events (samchon/ttsc#1485). Attributed events
+ * reach `listener` with a joined caller-directory path; unattributed events use
+ * null. A failed registration reaches `onError`, which hands the scope's
+ * entries to the bounded poll.
  *
  * Registration completes asynchronously, and FSEvents can later drop events
  * (samchon/ttsc#1425). Until the broker confirms the watch, and whenever it

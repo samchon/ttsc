@@ -27,12 +27,25 @@ export function test_shared_graph_inputs_are_classified_once_per_lexical_path():
     const external = selectExternalInputPaths({
       projectRoot: fixture.good.projectRoot,
       membershipPolicy: fixture.good.membershipPolicy,
-      result: { type: "success", typescript: { "src/main.ts": fixture.code },
-        dependencies: { "src/main.ts": inputs }, hostInputs: inputs,
-        graph: { edges: { "src/main.ts": inputs }, globals: inputs, configs: inputs,
-          candidates: { "src/main.ts": inputs }, resolutionInputs: inputs } },
-      filesystem: { ...DEFAULT_FILESYSTEM_OPERATIONS,
-        lstat(file) { if (file === fixture.file) queries++; return DEFAULT_FILESYSTEM_OPERATIONS.lstat(file); },
+      result: {
+        type: "success",
+        typescript: { "src/main.ts": fixture.code },
+        dependencies: { "src/main.ts": inputs },
+        hostInputs: inputs,
+        graph: {
+          edges: { "src/main.ts": inputs },
+          globals: inputs,
+          configs: inputs,
+          candidates: { "src/main.ts": inputs },
+          resolutionInputs: inputs,
+        },
+      },
+      filesystem: {
+        ...DEFAULT_FILESYSTEM_OPERATIONS,
+        lstat(file) {
+          if (file === fixture.file) queries++;
+          return DEFAULT_FILESYSTEM_OPERATIONS.lstat(file);
+        },
       },
     });
     return { external, queries };
@@ -44,5 +57,7 @@ export function test_shared_graph_inputs_are_classified_once_per_lexical_path():
     const dense = observe(1000);
     assert.deepEqual(dense.external, []);
     assert.equal(dense.queries, sparse.queries);
-  } finally { fixture.dispose(); }
+  } finally {
+    fixture.dispose();
+  }
 }

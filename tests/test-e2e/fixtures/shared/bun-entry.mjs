@@ -70,10 +70,18 @@ console.info("TTSC_BUN_SINGLE_ENTRY_TICKS:" + JSON.stringify(singleTicks));
 const loader = (await import("__TURBOPACK_ADAPTER__")).default;
 const originalMode = process.env.NODE_ENV;
 const deliverLoader = (cacheable) => new Promise((resolve, reject) => {
+  const before = fs.statSync(singleLog).size;
   const context = {
     resourcePath: path.join(singleRoot, "src/main.ts"),
     getOptions: () => ({ project: path.join(singleRoot, "tsconfig.json") }),
-    async: () => (error, code) => error ? reject(error) : resolve(code),
+    async: () => (error, code) => {
+      try {
+        assert.equal(fs.statSync(singleLog).size, before + 1,
+          "each actual loader delivery must own exactly one native invocation");
+      } catch (failure) { reject(failure); return; }
+      if (error) reject(error);
+      else resolve(code);
+    },
     ...(cacheable === undefined ? {} : { cacheable }),
   };
   loader.call(context, fs.readFileSync(context.resourcePath, "utf8"));

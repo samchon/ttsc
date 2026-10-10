@@ -6,10 +6,11 @@ import type { WatchBrokerRegistration } from "./WatchBrokerRegistration";
  * The live state of the isolated watch process.
  *
  * The broker multiplexes every Windows and macOS watch of the process over one
- * IPC channel, a tracker's and an input observer's scope's alike. Registrations
- * and drains are counted so the channel is referenced only while a reply is
- * outstanding, and each registration keeps the sink its messages go to and the
- * spelling map that translates the child's canonical paths back to its own.
+ * ordered transport, a tracker's and an input observer's scope's alike. Windows
+ * uses the native helper's stdio; macOS uses Node IPC. Registrations and drains
+ * are counted so the channel is referenced only while a reply is outstanding,
+ * and each registration keeps the sink its messages go to and the spelling map
+ * that translates the child's canonical paths back to its own.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Registration and request ids distinguish multiplexed owners; drain scopes
@@ -37,6 +38,16 @@ import type { WatchBrokerRegistration } from "./WatchBrokerRegistration";
 export interface WatchBroker {
   /** The isolated watch process; unreferenced whenever no reply is outstanding. */
   child: ChildProcess;
+
+  /**
+   * Native stdio transport on Windows; absent for the macOS IPC broker and
+   * explicit test transports.
+   */
+  transport?: {
+    send(message: unknown): boolean;
+    reference(active: boolean): void;
+    close(): void;
+  };
 
   /**
    * Round-trips awaiting the child's reply, by request id, each released with

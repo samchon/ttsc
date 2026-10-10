@@ -1,4 +1,3 @@
-import type { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -7,6 +6,7 @@ import { GoToolResolution } from "./GoToolResolution";
 import type { ITtscBuildContributor } from "./ITtscBuildContributor";
 import type { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
+import type { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
 import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
 import { pluginSourceDigest } from "./pluginSourceDigest";
@@ -21,8 +21,8 @@ import { pluginSourceDigest } from "./pluginSourceDigest";
  * source files. An optional required package-ownership population also frames
  * the key, separating binaries admitted by the matching cold producer from
  * legacy artifacts; requests without that authority retain their existing key.
- * Contributors are sorted by name; unique names remove input
- * order dependence, while equal-name rows retain the sort's input order.
+ * Contributors are sorted by name; unique names remove input order dependence,
+ * while equal-name rows retain the sort's input order.
  *
  * Each source directory enters the key as its digest (`pluginSourceDigest`),
  * which the transform envelope reports, with the environment below, as the
@@ -54,7 +54,10 @@ export function computeCacheKey(inputs: {
   env?: NodeJS.ProcessEnv;
 
   /** Required package ownership, admitted by the matching cold producer. */
-  packageOwnership?: readonly { entry: string; kind: "executable" | "linked" }[];
+  packageOwnership?: readonly {
+    entry: string;
+    kind: "executable" | "linked";
+  }[];
 
   /**
    * Digests of the environment each build directory is keyed on
@@ -104,11 +107,23 @@ export function computeCacheKey(inputs: {
   hash.update(JSON.stringify(["platform", process.platform, process.arch]));
   hash.update(JSON.stringify(["entry", inputs.entry]));
   if (inputs.packageOwnership !== undefined)
-    hash.update(JSON.stringify(["package-ownership", 1,
-      [...inputs.packageOwnership].sort((left, right) =>
-        left.entry < right.entry ? -1 : left.entry > right.entry ? 1 :
-          left.kind < right.kind ? -1 : left.kind > right.kind ? 1 : 0),
-    ]));
+    hash.update(
+      JSON.stringify([
+        "package-ownership",
+        1,
+        [...inputs.packageOwnership].sort((left, right) =>
+          left.entry < right.entry
+            ? -1
+            : left.entry > right.entry
+              ? 1
+              : left.kind < right.kind
+                ? -1
+                : left.kind > right.kind
+                  ? 1
+                  : 0,
+        ),
+      ]),
+    );
   // Private materialization changes native package working directories. Keep
   // binaries produced by the former absolute-ancestry layout out of this
   // layout's cache admissions, including callers with no SDK overlays.

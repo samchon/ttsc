@@ -42,8 +42,16 @@ export async function test_e2e_bun_batch(): Promise<void> {
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.split(/\r?\n/).filter(line =>
-    line === "TTSC_TURBOPACK_LIFECYCLES:production,missing,throwing,development").length, 1);
+  assert.equal(
+    result.stdout
+      .split(/\r?\n/)
+      .filter(
+        (line) =>
+          line ===
+          "TTSC_TURBOPACK_LIFECYCLES:production,missing,throwing,development",
+      ).length,
+    1,
+  );
   BatchWorkspace.assertResult(
     BatchWorkspace.readPayload(result.stdout),
     workspace.expected,
@@ -89,8 +97,11 @@ export async function test_e2e_bun_batch(): Promise<void> {
     const currentTick = deliveredTicks[pass];
     const nextTick = deliveredTicks[pass + 1];
     assert.ok(currentTick !== undefined && nextTick !== undefined);
-    assert.equal(nextTick, currentTick + 1,
-      "each full graph build must compile once, sharing its coherent local result across every module (#1712)");
+    assert.equal(
+      nextTick,
+      currentTick + 1,
+      "each full graph build must compile once, sharing its coherent local result across every module (#1712)",
+    );
   }
   assert.equal(fs.statSync(workspace.programRunLog).size, deliveredTicks[2]);
   const singleTicks = result.stdout
@@ -151,12 +162,16 @@ export async function test_e2e_bun_batch(): Promise<void> {
   const lastDeliveredTick = deliveredTicks[2];
   assert.ok(lastDeliveredTick !== undefined);
   assert.equal(
-    fs.statSync(workspace.programRunLog).size, lastDeliveredTick + 1,
+    fs.statSync(workspace.programRunLog).size,
+    lastDeliveredTick + 1,
     "the fresh full graph preload must not borrow a completed build's generation",
   );
   const singleRoot = path.join(workspace.root, "tools/bun-native-sessions");
-  assert.equal(fs.statSync(path.join(singleRoot, "program-runs.bin")).size, 6,
-    "two single-entry builds and four real loader lifecycle calls each compile once");
+  assert.equal(
+    fs.statSync(path.join(singleRoot, "program-runs.bin")).size,
+    6,
+    "two single-entry builds and four real loader lifecycle calls each compile once",
+  );
   const singleRuntime = TestProject.spawn(
     process.env.TTSC_BUN_BINARY ?? "bun",
     [

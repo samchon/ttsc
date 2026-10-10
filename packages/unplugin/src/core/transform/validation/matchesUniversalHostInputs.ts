@@ -1,5 +1,5 @@
-import type { TtscGenerationProof } from "./TtscGenerationProof";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { matchesUniversalHostInputEntries } from "./matchesUniversalHostInputEntries";
 import { matchesUniversalHostInputProbes } from "./matchesUniversalHostInputProbes";

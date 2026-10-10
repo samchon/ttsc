@@ -8,13 +8,10 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
  * frontier described below; a reply alone does not certify every scope, since
  * probe-dependent streams can be named unproven and gaps withdraw authority.
  *
- * On Windows the watches are `fs.watch`. A drain yields through two immediate
- * turns to allow the loop to poll and deliver queued callbacks before replying.
- * The real Windows scenario checks two hundred synchronous write/drain pairs;
- * the scripted unit checks this scheduling boundary separately. These checks
- * are not a universal kernel-order proof: FIFO completion-port queueing alone
- * does not guarantee dequeue order or establish when notification completion
- * becomes observable relative to a write and IPC request.
+ * Windows production registrations use ttsc's native helper, not this program
+ * (#1719). The optional fs.watch backend remains an explicit direct program
+ * capability used by its scripted protocol tests; it never supplies Windows
+ * production cache proof. Its drain yields through two immediate turns.
  *
  * On macOS the watches go through the `fsevents` binding, one FSEventStream per
  * location, instead of relying on `fs.watch` for stream and loss authority
@@ -59,7 +56,7 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
  *   The child protocol keeps per-registration streams and ordered drains;
  *   macOS proof requires clean probe delivery. Loss flags withdraw coverage
  *   before probe recognition, so matching a probe name cannot erase that warning.
- *   The Windows two-turn frontier retains its runtime/backend ordering premise;
+ *   The optional fs.watch two-turn frontier retains its runtime/backend ordering premise;
  *   this source does not independently prove kernel completeness.
  * @evidence contracts/common.md#clear-and-simple-design
  *   One maintained child program serves both native backends; this function only
@@ -351,7 +348,7 @@ function drain(requestId) {
       entry.abandon();
     }
   }
-  // Windows watches, and streams already proven, answer after two turns: the
+  // Explicit fs.watch watches, and streams already proven, answer after two turns: the
   // first lets the loop poll for completions the kernel had already queued,
   // the second answers after their callbacks.
   outstanding += 1;

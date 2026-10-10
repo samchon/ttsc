@@ -23,12 +23,12 @@ import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason"
 import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailure";
 import { NativeSourcePackages } from "../source/NativeSourcePackages";
 import { SourcePluginWorkspace } from "../source/SourcePluginWorkspace";
-import { resolvePluginGoModule } from "../source/resolvePluginGoModule";
 import { buildSourcePlugin } from "../source/buildSourcePlugin";
 import { isPathWithin } from "../source/isPathWithin";
 import { pluginBuildVersions } from "../source/pluginBuildVersions";
 import { pluginModuleReplaceDirectories } from "../source/pluginModuleReplaceDirectories";
 import { pluginSourceState } from "../source/pluginSourceState";
+import { resolvePluginGoModule } from "../source/resolvePluginGoModule";
 import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PluginDescriptorAdmission } from "./PluginDescriptorAdmission";
@@ -61,19 +61,18 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * under generic host manifests while preserving source-relative input layout.
  * Main proposals must agree in their full owning module; linked proposals must
  * agree inside every selected transform host. Errors or disagreement terminate
- * the load rather than changing the proposed kind.
- * Watch callers first receive structurally selected source/module/contributor
- * repair interests, before metadata can reject them. Valid records then narrow
- * those interests to the exact build directories; interests alone never admit
- * a plugin, certify a kind or supply reusable source-state proof.
- * Returns the ordered native plugins, parsed project config, recorded
- * JavaScript-host inputs and unresolved selection candidates, and the keyed
- * state of reported Go source directories supplied to the builds
- * (`pluginSources`): each plugin's module root and each contributor's source,
- * with its state (`pluginSourceState`), the sources as the build read them
- * together with the environment a build there is keyed on. Directories within
- * ttsc's installed package, including its overlays and the fallback
- * linked-plugin host, are keyed but omitted from this report under the
+ * the load rather than changing the proposed kind. Watch callers first receive
+ * structurally selected source/module/contributor repair interests, before
+ * metadata can reject them. Valid records then narrow those interests to the
+ * exact build directories; interests alone never admit a plugin, certify a kind
+ * or supply reusable source-state proof. Returns the ordered native plugins,
+ * parsed project config, recorded JavaScript-host inputs and unresolved
+ * selection candidates, and the keyed state of reported Go source directories
+ * supplied to the builds (`pluginSources`): each plugin's module root and each
+ * contributor's source, with its state (`pluginSourceState`), the sources as
+ * the build read them together with the environment a build there is keyed on.
+ * Directories within ttsc's installed package, including its overlays and the
+ * fallback linked-plugin host, are keyed but omitted from this report under the
  * installed-package/version ownership policy. That policy does not prove the
  * installation cannot be edited in place. Descriptor completeness relies on the
  * runtime recorder's status and the descriptor's explicit external-read
@@ -329,30 +328,41 @@ export function loadProjectPlugins(options: {
   const { ttsc: ttscVersion, tsgo: tsgoVersion } = pluginBuildVersions(
     context.projectRoot,
   );
-  const candidates = plugins.map((plugin, index) => {
-    const stage = PluginDescriptorAdmission.stage(plugin);
-    validatePluginSource(plugin);
-    const contributors = validatePluginContributors(plugin);
-    const source = resolvePluginSource(plugin.source, context.projectRoot);
-    const label = pluginLabel(plugin, entries[index]!.config, index);
-    requirePluginSource(source, label);
-    return { plugin, index, stage, contributors, source, label };
-  }).map((candidate) => ({
-    ...candidate,
-    ...resolvePluginGoModule(candidate.source, candidate.label),
-  }));
-  const watchReplacements = options.onWatchInputs === undefined
-    ? undefined
-    : new Map<string, readonly string[]>();
+  const candidates = plugins
+    .map((plugin, index) => {
+      const stage = PluginDescriptorAdmission.stage(plugin);
+      validatePluginSource(plugin);
+      const contributors = validatePluginContributors(plugin);
+      const source = resolvePluginSource(plugin.source, context.projectRoot);
+      const label = pluginLabel(plugin, entries[index]!.config, index);
+      requirePluginSource(source, label);
+      return { plugin, index, stage, contributors, source, label };
+    })
+    .map((candidate) => ({
+      ...candidate,
+      ...resolvePluginGoModule(candidate.source, candidate.label),
+    }));
+  // One fixed-effective-environment load owns manifest syntax sharing from the
+  // first watch query through metadata and builds. Do not allocate this after
+  // watch projection: that silently repeats selected-Go work (#1712).
+  const packageReaders = new Map<string, SourcePluginWorkspace.GoModReader>();
+  const watchReplacements =
+    options.onWatchInputs === undefined
+      ? undefined
+      : new Map<string, readonly string[]>();
   if (options.onWatchInputs !== undefined) {
     // The prospective context reads the admitted module layout and anchors its
     // tool there before kind exists. Keep both possible final-root baselines:
     // a linked package keeps packageDir, and an executable keeps moduleRoot.
-    const interests = new Set(candidates.flatMap((candidate) => [
-      candidate.moduleRoot,
-      candidate.packageDir,
-      ...(candidate.contributors ?? []).map((input) => input.source),
-    ]).filter(reportsPluginSource));
+    const interests = new Set(
+      candidates
+        .flatMap((candidate) => [
+          candidate.moduleRoot,
+          candidate.packageDir,
+          ...(candidate.contributors ?? []).map((input) => input.source),
+        ])
+        .filter(reportsPluginSource),
+    );
     options.onWatchInputs([...interests].sort());
     const initialSize = interests.size;
     for (const candidate of candidates) {
@@ -360,77 +370,102 @@ export function loadProjectPlugins(options: {
       // activate their irrelevant module graph just to discover watch inputs.
       if (candidate.stage === "transform" && candidate.entry !== ".") continue;
       for (const directory of pluginReplacementWatchDirectories(
-        candidate.moduleRoot, effectiveEnv, watchReplacements,
-      )) if (reportsPluginSource(directory)) interests.add(directory);
+        candidate.moduleRoot,
+        effectiveEnv,
+        watchReplacements,
+        packageReaders,
+      ))
+        if (reportsPluginSource(directory)) interests.add(directory);
     }
     if (interests.size !== initialSize)
       options.onWatchInputs([...interests].sort());
   }
-  const packageReaders = new Map<string, SourcePluginWorkspace.GoModReader>();
   const proposals = NativeSourcePackages.propose(
     candidates.map((candidate) => ({
-      ...candidate, ownModule: candidate.stage !== "transform",
-    })), effectiveEnv, packageReaders,
+      ...candidate,
+      ownModule: candidate.stage !== "transform",
+    })),
+    effectiveEnv,
+    packageReaders,
   );
-  const records = candidates.map(({ plugin, index, stage, contributors, source, packageDir }) => {
-    const { kind, moduleRoot } = resolveNativeSource(source, plugin, entries[index]!.config, index, {
-      env: effectiveEnv, observation: proposals[index]!.observation,
-    });
-    if (kind === "linked" && stage !== "transform") {
-      throw new Error(
-        `ttsc: plugin "${pluginLabel(plugin, entries[index]!.config, index)}" source is a linked Go package, but only transform-stage plugins can be linked into a compiler host`,
+  const records = candidates.map(
+    ({ plugin, index, stage, contributors, source, packageDir }) => {
+      const { kind, moduleRoot } = resolveNativeSource(
+        source,
+        plugin,
+        entries[index]!.config,
+        index,
+        {
+          env: effectiveEnv,
+          observation: proposals[index]!.observation,
+        },
       );
-    }
-    const linkedContributorName =
-      kind === "linked"
-        ? `linked_${String(index).padStart(6, "0")}`
-        : undefined;
-    const hostInputs = validatePluginHostInputs(plugin, index);
-    const pluginHostInputHashes = validatePluginHostInputHashes(
-      plugin,
-      index,
-      hostInputs,
-    );
-    const pluginHostInputRealpaths = validatePluginHostInputRealpaths(
-      plugin,
-      index,
-      hostInputs,
-    );
-    return {
-      capabilities: plugin.capabilities,
-      contributors,
-      config: entries[index]!.config,
-      kind,
-      label: pluginLabel(plugin, entries[index]!.config, index),
-      linkedContributorName,
-      name: plugin.name,
-      reportsTypeScriptDiagnostics:
-        plugin.reportsTypeScriptDiagnostics === true,
-      request: loadedEntries[index]!.request,
-      hostInputHashes: mergePluginHostInputHashes(
-        loadedEntries[index]!.hostInputHashes,
-        pluginHostInputHashes,
-        loadedEntries[index]!.hostInputs,
+      if (kind === "linked" && stage !== "transform") {
+        throw new Error(
+          `ttsc: plugin "${pluginLabel(plugin, entries[index]!.config, index)}" source is a linked Go package, but only transform-stage plugins can be linked into a compiler host`,
+        );
+      }
+      const linkedContributorName =
+        kind === "linked"
+          ? `linked_${String(index).padStart(6, "0")}`
+          : undefined;
+      const hostInputs = validatePluginHostInputs(plugin, index);
+      const pluginHostInputHashes = validatePluginHostInputHashes(
+        plugin,
+        index,
         hostInputs,
-      ),
-      hostInputRealpaths: mergePluginHostInputHashes(
-        loadedEntries[index]!.hostInputRealpaths,
-        pluginHostInputRealpaths,
-        loadedEntries[index]!.hostInputs,
+      );
+      const pluginHostInputRealpaths = validatePluginHostInputRealpaths(
+        plugin,
+        index,
         hostInputs,
-      ),
-      hostInputs: [...loadedEntries[index]!.hostInputs, ...hostInputs],
-      moduleRoot,
-      packageDir,
-      source,
-      stage,
-    };
-  });
-  const executableCandidates = candidates.filter((candidate) =>
-    records[candidate.index]!.kind === "executable" && !proposals[candidate.index]!.ownModule);
+      );
+      return {
+        capabilities: plugin.capabilities,
+        contributors,
+        config: entries[index]!.config,
+        kind,
+        label: pluginLabel(plugin, entries[index]!.config, index),
+        linkedContributorName,
+        name: plugin.name,
+        reportsTypeScriptDiagnostics:
+          plugin.reportsTypeScriptDiagnostics === true,
+        request: loadedEntries[index]!.request,
+        hostInputHashes: mergePluginHostInputHashes(
+          loadedEntries[index]!.hostInputHashes,
+          pluginHostInputHashes,
+          loadedEntries[index]!.hostInputs,
+          hostInputs,
+        ),
+        hostInputRealpaths: mergePluginHostInputHashes(
+          loadedEntries[index]!.hostInputRealpaths,
+          pluginHostInputRealpaths,
+          loadedEntries[index]!.hostInputs,
+          hostInputs,
+        ),
+        hostInputs: [...loadedEntries[index]!.hostInputs, ...hostInputs],
+        moduleRoot,
+        packageDir,
+        source,
+        stage,
+      };
+    },
+  );
+  const executableCandidates = candidates.filter(
+    (candidate) =>
+      records[candidate.index]!.kind === "executable" &&
+      !proposals[candidate.index]!.ownModule,
+  );
   // Admission can now narrow the provisional interests without restamping the
   // retained package/module baselines. Final host errors still keep these roots.
-  options.onWatchInputs?.(pluginBuildDirectories(records, effectiveEnv, watchReplacements));
+  options.onWatchInputs?.(
+    pluginBuildDirectories(
+      records,
+      effectiveEnv,
+      watchReplacements,
+      packageReaders,
+    ),
+  );
   const linkedContributors = records
     .filter((record) => record.stage === "transform")
     .flatMap((record) =>
@@ -448,59 +483,96 @@ export function loadProjectPlugins(options: {
   // a second executable host can select a genuinely different Go context.
   const admittedExecutables = new Set<string>();
   if (linkedContributors.length !== 0) {
-    const hosts = transformHosts.length === 0
-      ? [{ source: path.join(ttscPackageRoot(), "cmd", "utility-host"), label: "linked-plugin-host" }]
-      : transformHosts;
-    const contexts = new Map<string, { source: string; label: string; records: typeof transformHosts }>();
+    const hosts =
+      transformHosts.length === 0
+        ? [
+            {
+              source: path.join(ttscPackageRoot(), "cmd", "utility-host"),
+              label: "linked-plugin-host",
+            },
+          ]
+        : transformHosts;
+    const contexts = new Map<
+      string,
+      { source: string; label: string; records: typeof transformHosts }
+    >();
     for (const host of hosts) {
-      const moduleRoot = resolvePluginGoModule(host.source, host.label).moduleRoot;
+      const moduleRoot = resolvePluginGoModule(
+        host.source,
+        host.label,
+      ).moduleRoot;
       let context = contexts.get(moduleRoot);
       if (context === undefined) {
         context = { source: host.source, label: host.label, records: [] };
         contexts.set(moduleRoot, context);
       }
     }
-    for (const record of transformHosts) contexts.get(record.moduleRoot)!.records.push(record);
+    for (const record of transformHosts)
+      contexts.get(record.moduleRoot)!.records.push(record);
     for (const host of contexts.values()) {
       const moduleHosts = host.records;
       const hostEntries = moduleHosts.map((record) => ({
         entry: resolvePluginGoModule(record.source, record.label).entry,
       }));
       const observations = NativeSourcePackages.inspect({
-        source: host.source, pluginName: host.label, env: effectiveEnv,
+        source: host.source,
+        pluginName: host.label,
+        env: effectiveEnv,
         readers: packageReaders,
         packages: [
           ...hostEntries,
           ...linkedContributors.map((input) => ({
-            ...input, entry: `./contrib/${input.name}`,
+            ...input,
+            entry: `./contrib/${input.name}`,
           })),
         ],
       });
       moduleHosts.forEach((record, index) => {
-        NativeSourcePackages.kind(observations[index]!, record.label, "executable");
+        NativeSourcePackages.kind(
+          observations[index]!,
+          record.label,
+          "executable",
+        );
         admittedExecutables.add(record.source);
       });
       linkedContributors.forEach((input, index) => {
-        NativeSourcePackages.kind(observations[hostEntries.length + index]!, `${input.name} inside host ${host.label}`, "linked");
+        NativeSourcePackages.kind(
+          observations[hostEntries.length + index]!,
+          `${input.name} inside host ${host.label}`,
+          "linked",
+        );
       });
     }
   }
   // A nested main proposal still needs its actual owning manifests. Hosts
   // with linked contributors were admitted together above; other equivalent
   // entries share one standalone observation, with no repeated host copy.
-  const standaloneCandidates = executableCandidates.filter((candidate) =>
-    !admittedExecutables.has(candidate.source));
+  const standaloneCandidates = executableCandidates.filter(
+    (candidate) => !admittedExecutables.has(candidate.source),
+  );
   const executablePackages = NativeSourcePackages.ownPackages(
-    standaloneCandidates, effectiveEnv, packageReaders,
+    standaloneCandidates,
+    effectiveEnv,
+    packageReaders,
   );
   standaloneCandidates.forEach((candidate, index) => {
-    NativeSourcePackages.kind(executablePackages[index]!, candidate.label, "executable");
+    NativeSourcePackages.kind(
+      executablePackages[index]!,
+      candidate.label,
+      "executable",
+    );
   });
   const packageOwnership = (source: string, label: string, linked: boolean) => [
-    { entry: resolvePluginGoModule(source, label).entry, kind: "executable" as const },
-    ...(linked ? linkedContributors.map((input) => ({
-      entry: `./contrib/${input.name}`, kind: "linked" as const,
-    })) : []),
+    {
+      entry: resolvePluginGoModule(source, label).entry,
+      kind: "executable" as const,
+    },
+    ...(linked
+      ? linkedContributors.map((input) => ({
+          entry: `./contrib/${input.name}`,
+          kind: "linked" as const,
+        }))
+      : []),
   ];
   // One reading of each source directory, shared by every build below and
   // reported as the state the binaries were keyed on.
@@ -540,7 +612,9 @@ export function loadProjectPlugins(options: {
           pluginName: "linked-plugin-host",
           source: path.join(ttscPackageRoot(), "cmd", "utility-host"),
           packageOwnership: packageOwnership(
-            path.join(ttscPackageRoot(), "cmd", "utility-host"), "linked-plugin-host", true,
+            path.join(ttscPackageRoot(), "cmd", "utility-host"),
+            "linked-plugin-host",
+            true,
           ),
           environmentDigests,
           sourceDigests,
@@ -565,7 +639,11 @@ export function loadProjectPlugins(options: {
               env: effectiveEnv,
               goModReaders: packageReaders,
               pluginName: record.label,
-              packageOwnership: packageOwnership(record.source, record.label, false),
+              packageOwnership: packageOwnership(
+                record.source,
+                record.label,
+                false,
+              ),
               source: record.source,
               environmentDigests,
               sourceDigests,
@@ -2139,6 +2217,7 @@ function pluginBuildDirectories(
   }[],
   env: NodeJS.ProcessEnv,
   replacements?: Map<string, readonly string[]>,
+  readers?: Map<string, SourcePluginWorkspace.GoModReader>,
 ): string[] {
   const directories = new Set<string>();
   for (const record of records) {
@@ -2149,8 +2228,12 @@ function pluginBuildDirectories(
     );
     if (record.kind === "executable") {
       for (const directory of pluginReplacementWatchDirectories(
-        record.moduleRoot, env, replacements,
-      )) directories.add(directory);
+        record.moduleRoot,
+        env,
+        replacements,
+        readers,
+      ))
+        directories.add(directory);
     }
     for (const contributor of record.contributors ?? [])
       directories.add(path.resolve(contributor.source));
@@ -2167,13 +2250,19 @@ function pluginReplacementWatchDirectories(
   moduleRoot: string,
   env: NodeJS.ProcessEnv,
   observed?: Map<string, readonly string[]>,
+  readers?: Map<string, SourcePluginWorkspace.GoModReader>,
 ): readonly string[] {
   const previous = observed?.get(moduleRoot);
   if (previous !== undefined) return previous;
   let directories: readonly string[];
   try {
-    directories = pluginModuleReplaceDirectories(moduleRoot, env)
-      .map((replacement) => replacement.directory);
+    directories = pluginModuleReplaceDirectories(
+      moduleRoot,
+      env,
+      undefined,
+      undefined,
+      readers,
+    ).map((replacement) => replacement.directory);
   } catch {
     // An unreadable manifest/tool is not valid metadata. The already observed
     // module retains its repair path; actual proposal/build refusal propagates.

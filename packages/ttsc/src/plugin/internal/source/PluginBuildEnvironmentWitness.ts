@@ -145,8 +145,8 @@ export namespace PluginBuildEnvironmentWitness {
    * mismatch without repeating its lookup or changing the refusal. An optional
    * observation label separates preparation and build epochs in that trace; it
    * does not change validation or authorize publication. A supplied native
-   * observation map belongs to one synchronous batch only; never reuse it
-   * after an await, delivery, environment mutation or publication boundary.
+   * observation map belongs to one synchronous batch only; never reuse it after
+   * an await, delivery, environment mutation or publication boundary.
    *
    * @evidence contracts/common.md#principled-implementation Universal comparison requires every dependency to match its pre-read signature and immediately rejects a refused or changed path.
    * @evidence contracts/common.md#clear-and-simple-design Validation uses the same signature helper as capture, keeping identity and timestamp policy in one place.
@@ -167,10 +167,10 @@ export namespace PluginBuildEnvironmentWitness {
       let current = currentReadings?.get(file);
       if (current === undefined) {
         current = file.startsWith(ENVIRONMENT_PREFIX)
-        ? environmentSignature(file.slice(ENVIRONMENT_PREFIX.length))
-        : file.startsWith(LINK_PREFIX)
-          ? linkSignature(file.slice(LINK_PREFIX.length))
-          : signature(file);
+          ? environmentSignature(file.slice(ENVIRONMENT_PREFIX.length))
+          : file.startsWith(LINK_PREFIX)
+            ? linkSignature(file.slice(LINK_PREFIX.length))
+            : signature(file);
         currentReadings?.set(file, current);
       }
       if (current !== recorded) {

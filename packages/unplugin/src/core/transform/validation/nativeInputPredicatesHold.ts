@@ -1,4 +1,3 @@
-import type { TtscGenerationProof } from "./TtscGenerationProof";
 import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
 
@@ -6,11 +5,15 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { nativeInputPredicateMatches } from "../inputs/nativeInputPredicateMatches";
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 
 // Weakly owned by immutable observation membership, never by current verdict.
 // Keeping this separate from native path derivation also preserves the empty
 // predicate gate's promise to perform no native identity observations.
-const predicateInputs = new WeakMap<object, Array<[string, ITtscCompilerTransformation.IInputObservation]>>();
+const predicateInputs = new WeakMap<
+  object,
+  Array<[string, ITtscCompilerTransformation.IInputObservation]>
+>();
 
 /**
  * Validate every generation-owned native config predicate before cache reuse.
@@ -45,7 +48,9 @@ export function nativeInputPredicatesHold(
   if (observations === undefined) return finish(true);
   let inputs = predicateInputs.get(observations);
   if (inputs === undefined) {
-    inputs = Object.entries(observations).filter(([, observation]) => (observation.nativePredicates?.length ?? 0) !== 0);
+    inputs = Object.entries(observations).filter(
+      ([, observation]) => (observation.nativePredicates?.length ?? 0) !== 0,
+    );
     predicateInputs.set(observations, inputs);
   }
   if (inputs.length === 0) return finish(true);

@@ -1,6 +1,6 @@
-import type { TtscGenerationProof } from "../validation/TtscGenerationProof";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { isVolatileFile } from "../envelope/isVolatileFile";
+import type { TtscGenerationProof } from "../validation/TtscGenerationProof";
 import { matchesCachedSource } from "../validation/matchesCachedSource";
 import type { TtscCachedProjectTransform } from "./TtscCachedProjectTransform";
 import type { TtscTransformCache } from "./TtscTransformCache";
@@ -51,7 +51,13 @@ export function selectCachedGenerationAction(props: {
       projectRoot: props.cached.projectRoot,
       result: props.cached.result,
     }) &&
-    matchesCachedSource(props.cached, props.file, props.source, props.epoch, props.proof)
+    matchesCachedSource(
+      props.cached,
+      props.file,
+      props.source,
+      props.epoch,
+      props.proof,
+    )
   ) {
     return "serve";
   }

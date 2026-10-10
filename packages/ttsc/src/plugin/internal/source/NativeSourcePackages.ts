@@ -17,8 +17,8 @@ import { spawnGoTool } from "./spawnGoTool";
 /**
  * Observe Go-selected packages under the native builder's workspace policy.
  *
- * Metadata does not compile dependencies or certify a later build. A cold
- * build repeats ownership admission in its proven, materialized workspace.
+ * Metadata does not compile dependencies or certify a later build. A cold build
+ * repeats ownership admission in its proven, materialized workspace.
  *
  * @evidence contracts/common.md#principled-implementation The selected Go tool, effective environment, shared workspace writer and actual copied package inputs determine package names and errors; Go remains the build-constraint and package-validity authority.
  * @evidence contracts/common.md#clear-and-simple-design One namespace separates contextual observation, metadata framing and ownership admission; source-only contributions are observed inside their selected host module.
@@ -99,7 +99,10 @@ export namespace NativeSourcePackages {
       if (opts.proposal === true) {
         // Only root manifests change. Relative Go inputs retain the source
         // module layout, while its irrelevant graph/toolchain stays inactive.
-        const hostModule = resolvePluginGoModule(genericHostSource(), opts.pluginName).moduleRoot;
+        const hostModule = resolvePluginGoModule(
+          genericHostSource(),
+          opts.pluginName,
+        ).moduleRoot;
         for (const name of ["go.mod", "go.sum"]) {
           const manifest = path.join(hostModule, name);
           const target = path.join(scratch, name);
@@ -110,19 +113,28 @@ export namespace NativeSourcePackages {
       for (const input of opts.packages) {
         if (input.source === undefined) continue;
         const contributor = { source: input.source, name: input.name! };
-        SourcePluginAdmission.requireContributorPackage(opts.pluginName, contributor);
+        SourcePluginAdmission.requireContributorPackage(
+          opts.pluginName,
+          contributor,
+        );
         const target = path.resolve(scratch, input.entry);
-        if (path.relative(scratch, target).startsWith("..") || target === scratch)
+        if (
+          path.relative(scratch, target).startsWith("..") ||
+          target === scratch
+        )
           throw new Error("ttsc: invalid package selection target");
         if (fs.existsSync(target))
-          throw new Error(`ttsc: package selection target already exists: ${target}`);
+          throw new Error(
+            `ttsc: package selection target already exists: ${target}`,
+          );
         SourcePluginWorkspace.materialize(input.source, target);
       }
-      let reader = opts.readers?.get(goBinary);
-      if (reader === undefined) {
-        reader = SourcePluginWorkspace.createGoModReader(goBinary, opts.pluginName, env);
-        opts.readers?.set(goBinary, reader);
-      }
+      const reader = SourcePluginWorkspace.createGoModReader(
+        goBinary,
+        opts.pluginName,
+        env,
+        opts.readers,
+      );
       SourcePluginWorkspace.writeGoWork(
         scratch,
         SourcePluginWorkspace.findTtscOverlayDirs(),
@@ -142,9 +154,13 @@ export namespace NativeSourcePackages {
       taskFailure = { error };
       throw error;
     } finally {
-      SourceNativeRetirement.releaseResource(scratch, () => {
-        fs.rmSync(scratch, { recursive: true, force: true });
-      }, taskFailure);
+      SourceNativeRetirement.releaseResource(
+        scratch,
+        () => {
+          fs.rmSync(scratch, { recursive: true, force: true });
+        },
+        taskFailure,
+      );
     }
   }
 
@@ -182,7 +198,9 @@ export namespace NativeSourcePackages {
         readers,
         packages: group.map(({ entry }) => ({ entry })),
       });
-      group.forEach(({ index }, offset) => { output[index] = observations[offset]!; });
+      group.forEach(({ index }, offset) => {
+        output[index] = observations[offset]!;
+      });
     }
     return output;
   }
@@ -190,11 +208,11 @@ export namespace NativeSourcePackages {
   /**
    * Propose ownership with the candidate-selected tool before final admission.
    *
-   * Nested transform sources retain their admitted source-module layout but
-   * use unchanged generic host root manifests in scratch. Their outer module
-   * graph and toolchain are not source-only build authority. Module-root and
-   * check sources retain their actual owning module. Executable proposals must
-   * agree in the actual own module; linked proposals in each chosen actual host.
+   * Nested transform sources retain their admitted source-module layout but use
+   * unchanged generic host root manifests in scratch. Their outer module graph
+   * and toolchain are not source-only build authority. Module-root and check
+   * sources retain their actual owning module. Executable proposals must agree
+   * in the actual own module; linked proposals in each chosen actual host.
    *
    * @evidence contracts/common.md#principled-implementation Candidate tool selection occurs at the original owning module and effective environment; only prospective nested source-only manifests change in owned scratch before Go interprets the normal generated workspace.
    * @evidence contracts/common.md#clear-and-simple-design One grouping pass shares each module/proposal context and returns whether actual own-module observation already occurred.
@@ -210,7 +228,10 @@ export namespace NativeSourcePackages {
     env: NodeJS.ProcessEnv,
     readers = new Map<string, SourcePluginWorkspace.GoModReader>(),
   ): Array<{ observation: Package; ownModule: boolean }> {
-    const groups = new Map<string, Array<{ index: number; entry: string; ownModule: boolean }>>();
+    const groups = new Map<
+      string,
+      Array<{ index: number; entry: string; ownModule: boolean }>
+    >();
     inputs.forEach((input, index) => {
       const target = resolvePluginGoModule(input.source, input.label);
       const ownModule = input.ownModule === true || target.entry === ".";
@@ -219,11 +240,15 @@ export namespace NativeSourcePackages {
       group.push({ index, entry: target.entry, ownModule });
       groups.set(key, group);
     });
-    const output: Array<{ observation: Package; ownModule: boolean }> = new Array(inputs.length);
+    const output: Array<{ observation: Package; ownModule: boolean }> =
+      new Array(inputs.length);
     for (const group of groups.values()) {
       const first = inputs[group[0]!.index]!;
       const observations = inspect({
-        source: first.source, pluginName: first.label, env, readers,
+        source: first.source,
+        pluginName: first.label,
+        env,
+        readers,
         proposal: !group[0]!.ownModule,
         packages: group.map(({ entry }) => ({ entry })),
       });
@@ -258,21 +283,38 @@ export namespace NativeSourcePackages {
     OwnedSynchronousProcess.checkpoint();
     const result = spawnGoTool(
       opts.goBinary,
-      ["list", ...GoSourceInputs.BUILD_FLAGS, "-find", "-e", "-json=Dir,Name,GoFiles,CgoFiles,Error", ...entries],
+      [
+        "list",
+        ...GoSourceInputs.BUILD_FLAGS,
+        "-find",
+        "-e",
+        "-json=Dir,Name,GoFiles,CgoFiles,Error",
+        ...entries,
+      ],
       { cwd: opts.cwd, encoding: "utf8", env: opts.env, windowsHide: true },
     );
     OwnedSynchronousProcess.checkpoint();
     if (result.error !== undefined)
-      throw new Error(SourcePluginWorkspace.goSpawnFailureMessage(
-        `selecting Go packages for plugin "${opts.pluginName}"`,
-        opts.pluginName, opts.goBinary, opts.cwd, result.error,
-      ));
+      throw new Error(
+        SourcePluginWorkspace.goSpawnFailureMessage(
+          `selecting Go packages for plugin "${opts.pluginName}"`,
+          opts.pluginName,
+          opts.goBinary,
+          opts.cwd,
+          result.error,
+        ),
+      );
     if (result.status !== 0)
-      throw new Error(`ttsc: selecting Go packages for plugin "${opts.pluginName}" failed:\n${result.stderr || result.stdout}`);
+      throw new Error(
+        `ttsc: selecting Go packages for plugin "${opts.pluginName}" failed:\n${result.stderr || result.stdout}`,
+      );
     const packages = parse(result.stdout);
-    const selected = new Map(packages.map((input) => [
-      input.Dir === undefined ? undefined : fs.realpathSync.native(input.Dir), input,
-    ]));
+    const selected = new Map(
+      packages.map((input) => [
+        input.Dir === undefined ? undefined : fs.realpathSync.native(input.Dir),
+        input,
+      ]),
+    );
     return opts.entries.map((entry) => {
       const dir = fs.realpathSync.native(path.resolve(opts.cwd, entry));
       const input = selected.get(dir);
@@ -300,12 +342,21 @@ export namespace NativeSourcePackages {
     expected?: "executable" | "linked",
   ): "executable" | "linked" {
     if (input.Error !== undefined)
-      throw new Error(`ttsc: plugin "${label}" Go package selection failed: ${input.Error.Err}`);
-    if (input.Name === undefined || (input.GoFiles?.length ?? 0) + (input.CgoFiles?.length ?? 0) === 0)
-      throw new Error(`ttsc: plugin "${label}" source has no Go-selected production files: ${input.Dir ?? "unknown package"}`);
+      throw new Error(
+        `ttsc: plugin "${label}" Go package selection failed: ${input.Error.Err}`,
+      );
+    if (
+      input.Name === undefined ||
+      (input.GoFiles?.length ?? 0) + (input.CgoFiles?.length ?? 0) === 0
+    )
+      throw new Error(
+        `ttsc: plugin "${label}" source has no Go-selected production files: ${input.Dir ?? "unknown package"}`,
+      );
     const actual = input.Name === "main" ? "executable" : "linked";
     if (expected !== undefined && actual !== expected)
-      throw new Error(`ttsc: plugin "${label}" Go package ownership disagrees with its proposal: selected ${actual}, expected ${expected} (${input.Dir ?? "unknown package"})`);
+      throw new Error(
+        `ttsc: plugin "${label}" Go package ownership disagrees with its proposal: selected ${actual}, expected ${expected} (${input.Dir ?? "unknown package"})`,
+      );
     return actual;
   }
 
@@ -331,7 +382,8 @@ export namespace NativeSourcePackages {
       const token = output[offset]!;
       if (start < 0) {
         if (/\s/.test(token)) continue;
-        if (token !== "{") throw new Error("ttsc: invalid Go package metadata stream");
+        if (token !== "{")
+          throw new Error("ttsc: invalid Go package metadata stream");
         start = offset;
         depth = 1;
         continue;
@@ -347,17 +399,25 @@ export namespace NativeSourcePackages {
         if (typeof input !== "object" || input === null || Array.isArray(input))
           throw new Error("ttsc: invalid Go package metadata object");
         const record = input as Package;
-        if ((record.Dir !== undefined && typeof record.Dir !== "string") ||
-            (record.Name !== undefined && typeof record.Name !== "string") ||
-            [record.GoFiles, record.CgoFiles].some((files) => files !== undefined &&
-              (!Array.isArray(files) || files.some((file) => typeof file !== "string"))) ||
-            (record.Error !== undefined && (record.Error === null || typeof record.Error.Err !== "string")))
+        if (
+          (record.Dir !== undefined && typeof record.Dir !== "string") ||
+          (record.Name !== undefined && typeof record.Name !== "string") ||
+          [record.GoFiles, record.CgoFiles].some(
+            (files) =>
+              files !== undefined &&
+              (!Array.isArray(files) ||
+                files.some((file) => typeof file !== "string")),
+          ) ||
+          (record.Error !== undefined &&
+            (record.Error === null || typeof record.Error.Err !== "string"))
+        )
           throw new Error("ttsc: invalid Go package metadata fields");
         packages.push(record);
         start = -1;
       }
     }
-    if (start >= 0) throw new Error("ttsc: incomplete Go package metadata stream");
+    if (start >= 0)
+      throw new Error("ttsc: incomplete Go package metadata stream");
     return packages;
   }
 }

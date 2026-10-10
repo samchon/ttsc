@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  PluginBuildEnvironmentReadings,
   pluginSourceState,
   processPluginBuildEnvironment,
 } from "ttsc/plugin-source";
@@ -34,6 +35,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *   receive real source/environment inputs and supported metadata counters.
  *   Qualified requests require zero source queries; unavailable, dirty or
  *   mismatched witnesses require direct work, and actual mutations reject.
+ *   Direct cache-only batches deduplicate directories, retain unavailable keys,
+ *   handle empty selection and requalify actual variables and GOENV-file state.
  * @evidence contracts/testing.md#independent-expectations
  *   Zero repeated source queries follows the existing qualified notification
  *   contract. Positive fallback counts distinguish reuse from unconditional
@@ -43,7 +46,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *   Covers repeated/concurrent and new-epoch requests, absent/mismatched
  *   manifests, another result, failed/unverified/uncovered/non-authoritative or
  *   incomplete trackers, overlapping events/scopes, actual source edits,
- *   rename/removal, environment change, preparation failure and repair.
+ *   rename/removal, environment change, preparation failure and repair. Empty,
+ *   duplicate and unprepared directory batches contrast with qualified native
+ *   authority; ambient-variable and actual GOENV-file drift invalidate it.
  * @evidence contracts/testing.md#execution-ownership
  *   The test-unplugin runner discovers this direct source unit. The existing
  *   static Go corpus is copied as an owning library input; actual native Go
@@ -86,6 +91,31 @@ export async function test_plugin_preparation_reuses_only_qualified_source_witne
   try {
     const environment = processPluginBuildEnvironment(source, true);
     const state = pluginSourceState(source);
+    const unavailable = path.join(root, "unprepared");
+    assert.equal(PluginBuildEnvironmentReadings.cachedAll([]).size, 0);
+    const batch = PluginBuildEnvironmentReadings.cachedAll([
+      source,
+      source,
+      unavailable,
+    ]);
+    assert.equal(batch.size, 2);
+    assert.equal(batch.get(source), environment);
+    assert.ok(batch.has(unavailable));
+    assert.equal(
+      batch.get(unavailable),
+      undefined,
+      "cache-only batches cannot prepare missing authority",
+    );
+    process.env.GOFLAGS = "-mod=mod";
+    assert.equal(
+      PluginBuildEnvironmentReadings.cachedAll([source]).get(source),
+      undefined,
+    );
+    delete process.env.GOFLAGS;
+    assert.equal(
+      PluginBuildEnvironmentReadings.cachedAll([source]).get(source),
+      environment,
+    );
     const result = {
       type: "success" as const,
       typescript: {},
@@ -278,10 +308,19 @@ export async function test_plugin_preparation_reuses_only_qualified_source_witne
     tracker.changes.clear();
 
     fs.writeFileSync(environmentFile, "GOFLAGS=-mod=mod\n");
+    assert.equal(
+      PluginBuildEnvironmentReadings.cachedAll([source]).get(source),
+      undefined,
+      "a changed native GOENV witness cannot borrow the prior environment",
+    );
     await preparePluginBuildEnvironments(result, filesystem, cached);
     assert.equal(matchesUniversalHostInputTrees(cached, validation), false);
     fs.writeFileSync(environmentFile, "");
     assert.equal(processPluginBuildEnvironment(source, true), environment);
+    assert.equal(
+      PluginBuildEnvironmentReadings.cachedAll([source]).get(source),
+      environment,
+    );
     await preparePluginBuildEnvironments(result, filesystem, cached);
     assert.equal(matchesUniversalHostInputTrees(cached, validation), true);
     reads = 0;

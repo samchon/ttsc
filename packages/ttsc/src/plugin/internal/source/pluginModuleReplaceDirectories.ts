@@ -4,9 +4,9 @@ import path from "node:path";
 import { resolvePhysicalPath } from "../../../internal/pathIdentity/resolvePhysicalPath";
 import { GoToolResolution } from "./GoToolResolution";
 import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
+import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { resolveGoCompiler } from "./resolveGoCompiler";
 import { selectPluginModuleReplaceDirectories } from "./selectPluginModuleReplaceDirectories";
-import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 
 /**
  * The local directories outside a plugin's Go module that its `go.mod`
@@ -37,20 +37,21 @@ import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
  *   fails or supplies an unusable JSON result. A no-marker manifest skips Go
  *   parsing here; this is not general go.mod validation.
  * @evidence contracts/common.md#principled-implementation When the replace marker triggers a query, Go parses its grammar. Unversioned local targets selected outside best-effort root/target spellings are reported, resolving relative paths from the original module; unavailable identity resolution does not certify complete physical containment.
- * @evidence contracts/common.md#clear-and-simple-design A cheap no-replace scan avoids an unnecessary subprocess, while Go JSON parsing and physical containment stay in one owning operation.
+ * @evidence contracts/common.md#clear-and-simple-design A cheap no-replace scan avoids unnecessary parsing; the common selected-tool/load reader owns Go syntax, and this operation owns current physical containment.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The implementation uses Go's supported mod-edit interface instead of a handwritten grammar or special-casing particular dependency names.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain external versus internal replacement ownership, original-directory resolution and returned spellings; failure behavior is documented.
  * @evidence contracts/portability.md#os-neutral-implementation Node path and physical-path resolution determine containment; Go local-path syntax accepts native absolute paths and Windows-relative backslashes only on Windows.
- * @evidence contracts/performance.md#efficient-algorithms Full manifest read/UTF-8 marker scan can skip Go parsing. Otherwise native tool/env/capture and full JSON work precede a pass over all parsed directives, not only returned ones; each selected local target uses native best-effort identity resolution, which can traverse ancestors/probe case. Sorting returned module/version strings processes their bytes, with complete manifest/output/path arrays retained transiently and no replacement content digest scan here.
+ * @evidence contracts/performance.md#efficient-algorithms Full manifest read/UTF-8 marker scan can skip Go parsing. Otherwise selected-tool reader acquisition and a current manifest read precede a pass over all parsed directives, not only returned ones. Equivalent bytes share Go JSON acquisition only in the supplied fixed-environment load registry; a new syntax record pays native tool/env/capture and full JSON costs; each selected local target uses native best-effort identity resolution, which can traverse ancestors/probe case. Sorting returned module/version strings processes their bytes, with complete manifest/output/path arrays retained transiently and no replacement content digest scan here.
  *
- * @evidence contracts/performance.md#reuse-equivalent-work The optional pinned-tool/load reader shares Go parsing of identical current bytes with package observation and workspace creation. Physical replacement containment is recomputed every call, never borrowed from that syntax memo.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This operation acquires no retained handle or historical registry; spawnGoTool owns synchronous capture and its cleanup attempts, which can fail. Manifest/JSON/native identity contexts are call-owned and selected records transfer to the caller without pinning future directory state.
+ * @evidence contracts/performance.md#reuse-equivalent-work The optional pinned-tool/load reader or registry shares Go parsing of identical current bytes with package observation and workspace creation. Physical replacement containment is recomputed every call, never borrowed from that syntax memo.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This operation acquires no retained handle; the supplied load registry retains syntax readers until its caller releases the load. Without it the reader is call-owned. Native capture cleanup remains delegated and can fail; current physical identity contexts are call-owned and returned directories do not pin future state.
  */
 export function pluginModuleReplaceDirectories(
   moduleRoot: string,
   env: NodeJS.ProcessEnv,
   goBinary?: string,
   reader?: SourcePluginWorkspace.GoModReader,
+  readers?: Map<string, SourcePluginWorkspace.GoModReader>,
 ): IPluginModuleReplaceDirectory[] {
   const root = path.resolve(moduleRoot);
   let text: string;
@@ -70,7 +71,9 @@ export function pluginModuleReplaceDirectories(
       env,
       root,
     );
-  const parsed = (reader ?? SourcePluginWorkspace.createGoModReader(go, root, env)).read(root);
+  const parsed = (
+    reader ?? SourcePluginWorkspace.createGoModReader(go, root, env, readers)
+  ).read(root);
   // Parsed syntax may be shared; physical containment is current native state
   // and must be recomputed even when these manifest bytes are unchanged.
   return selectPluginModuleReplaceDirectories(

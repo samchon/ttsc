@@ -1,10 +1,10 @@
-import type { TtscGenerationProof } from "./TtscGenerationProof";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { TRANSFORM_CLOCK_REFERENCE_DIRECTORIES } from "../clock/TRANSFORM_CLOCK_REFERENCE_DIRECTORIES";
 import { refreshFilesystemClockReference } from "../clock/refreshFilesystemClockReference";
 import { isProjectWalkPath } from "../project/isProjectWalkPath";
 import { notificationsProveMembership } from "../tracker/notificationsProveMembership";
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
 
 /**

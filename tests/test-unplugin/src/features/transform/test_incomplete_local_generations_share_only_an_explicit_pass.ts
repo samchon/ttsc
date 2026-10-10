@@ -15,7 +15,8 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
  * Coherent consumer data may share its first deliveries in one explicitly
  * nonwatching pass. This is distinct from claiming a complete producer proof.
  *
- * 1. Deliver two modules through the actual coordinator and withdraw both host caches.
+ * 1. Deliver two modules through the actual coordinator and withdraw both host
+ *    caches.
  * 2. Reject repeats, another pass, unknown lifecycle and an unrecorded source.
  * 3. Refuse missing/contradictory capabilities and evict after callback failure.
  *
@@ -39,69 +40,187 @@ export async function test_incomplete_local_generations_share_only_an_explicit_p
   let registrations = 0;
   const hooks: TtscTransformHooks = {
     watching: false,
-    markVolatile: () => { withdrawals++; },
-    project: { watching: false, toolDirectory: path.join(cached.projectRoot, ".ttsc"), register: () => { registrations++; } },
+    markVolatile: () => {
+      withdrawals++;
+    },
+    project: {
+      watching: false,
+      toolDirectory: path.join(cached.projectRoot, ".ttsc"),
+      register: () => {
+        registrations++;
+      },
+    },
   };
-  const action = (file: string, epoch: number | null = 1, candidate = cached) => {
+  const action = (
+    file: string,
+    epoch: number | null = 1,
+    candidate = cached,
+  ) => {
     const generation = Promise.resolve(candidate);
     fixture.cache.set(fixture.key, generation);
-    return selectCachedGenerationAction({ cache: fixture.cache, cached: candidate, generation,
-      key: fixture.key, file, source: fixture.source, epoch: epoch === null ? undefined : epoch });
+    return selectCachedGenerationAction({
+      cache: fixture.cache,
+      cached: candidate,
+      generation,
+      key: fixture.key,
+      file,
+      source: fixture.source,
+      epoch: epoch === null ? undefined : epoch,
+    });
   };
   try {
     fixture.cache.set(fixture.key, owner);
     for (const file of [fixture.file, sibling]) {
-      const output = await fixture.api.transformTtsc(file, fixture.source, fixture.options, undefined, fixture.cache, hooks);
+      const output = await fixture.api.transformTtsc(
+        file,
+        fixture.source,
+        fixture.options,
+        undefined,
+        fixture.cache,
+        hooks,
+      );
       assert.equal(output?.code, fixture.code);
       assert.equal(fixture.cache.get(fixture.key), owner);
     }
-    assert.equal(withdrawals, 2, "each delivery withdraws once without attempting persistent publication");
-    assert.equal(registrations, 0, "incomplete output never publishes a persistent record");
+    assert.equal(
+      withdrawals,
+      2,
+      "each delivery withdraws once without attempting persistent publication",
+    );
+    assert.equal(
+      registrations,
+      0,
+      "incomplete output never publishes a persistent record",
+    );
     const served = new Set(cached.servedFiles);
     cached.servedFiles?.clear();
     assert.equal(usesPreparedPluginBuildEnvironments(cached.result), false);
     await TtscGenerationProof.prepare(cached, sibling, 1);
-    assert.equal(usesPreparedPluginBuildEnvironments(cached.result), false,
-      "a first-delivery pass never enters native preparation (#1712)");
+    assert.equal(
+      usesPreparedPluginBuildEnvironments(cached.result),
+      false,
+      "a first-delivery pass never enters native preparation (#1712)",
+    );
     await TtscGenerationProof.prepare(cached, sibling, 2);
-    assert.equal(usesPreparedPluginBuildEnvironments(cached.result), true,
-      "another pass must enter the preparation owner");
+    assert.equal(
+      usesPreparedPluginBuildEnvironments(cached.result),
+      true,
+      "another pass must enter the preparation owner",
+    );
     // Restore the served checkpoints earned by the coordinator above.
     cached.servedFiles = served;
-    assert.equal(action(fixture.file), "capture", "a repeated module needs another compile");
+    assert.equal(
+      action(fixture.file),
+      "capture",
+      "a repeated module needs another compile",
+    );
     assert.equal(fixture.cache.has(fixture.key), false);
     cached.servedFiles?.clear();
     assert.equal(action(sibling, 2), "capture");
     assert.equal(action(sibling, null), "capture");
-    assert.equal(action(path.join(cached.projectRoot, "src/unrecorded.ts")), "capture");
+    assert.equal(
+      action(path.join(cached.projectRoot, "src/unrecorded.ts")),
+      "capture",
+    );
     cached.passDeliveryOnly = false;
     assert.equal(action(sibling), "capture");
     cached.passDeliveryOnly = true;
-    assert.equal(action(sibling, 1, { ...cached, result: { ...cached.result, volatile: ["src/other.ts"] } }), "capture");
+    assert.equal(
+      action(sibling, 1, {
+        ...cached,
+        result: { ...cached.result, volatile: ["src/other.ts"] },
+      }),
+      "capture",
+    );
     // A distinct result owns an independent immutable volatility index.
     const moved = { ...cached, result: { ...cached.result } };
     fs.writeFileSync(sibling, "changed");
-    assert.equal(selectCachedGenerationAction({ cache: fixture.cache, cached: moved, generation: owner,
-      key: fixture.key, file: sibling, source: "changed", epoch: 1 }), "capture");
+    assert.equal(
+      selectCachedGenerationAction({
+        cache: fixture.cache,
+        cached: moved,
+        generation: owner,
+        key: fixture.key,
+        file: sibling,
+        source: "changed",
+        epoch: 1,
+      }),
+      "capture",
+    );
     fs.writeFileSync(sibling, fixture.source);
-    for (const unsupported of [undefined, {}, { watching: false },
+    for (const unsupported of [
+      undefined,
+      {},
+      { watching: false },
       { watching: true, markVolatile: () => {} },
-      { watching: false, markVolatile: () => {}, project: { ...hooks.project!, watching: true } }] as Array<TtscTransformHooks | undefined>) {
+      {
+        watching: false,
+        markVolatile: () => {},
+        project: { ...hooks.project!, watching: true },
+      },
+    ] as Array<TtscTransformHooks | undefined>) {
       fixture.cache.set(fixture.key, owner);
-      assert.throws(() => TtscGenerationProof.admitFreshOnly(cached, fixture.cache, fixture.key, owner, 1, unsupported), /explicitly nonwatching/);
+      assert.throws(
+        () =>
+          TtscGenerationProof.admitFreshOnly(
+            cached,
+            fixture.cache,
+            fixture.key,
+            owner,
+            1,
+            unsupported,
+          ),
+        /explicitly nonwatching/,
+      );
       assert.equal(fixture.cache.has(fixture.key), false);
     }
     fixture.cache.set(fixture.key, owner);
     const failure = new Error("host cache withdrawal refused");
-    assert.throws(() => TtscGenerationProof.admitFreshOnly(cached, fixture.cache, fixture.key, owner, 1,
-      { watching: false, markVolatile: () => { throw failure; } }), error => error === failure);
+    assert.throws(
+      () =>
+        TtscGenerationProof.admitFreshOnly(
+          cached,
+          fixture.cache,
+          fixture.key,
+          owner,
+          1,
+          {
+            watching: false,
+            markVolatile: () => {
+              throw failure;
+            },
+          },
+        ),
+      (error) => error === failure,
+    );
     assert.equal(fixture.cache.has(fixture.key), false);
     cached.servedFiles?.clear();
     fixture.cache.set(fixture.key, owner);
-    await assert.rejects(fixture.api.transformTtsc(sibling, fixture.source, fixture.options, undefined, fixture.cache,
-      { watching: false, markVolatile: () => {}, addWatchFile: () => { throw failure; } }), error => error === failure);
-    assert.equal(fixture.cache.has(fixture.key), false, "failed watch handoff cannot leave an incomplete owner");
+    await assert.rejects(
+      fixture.api.transformTtsc(
+        sibling,
+        fixture.source,
+        fixture.options,
+        undefined,
+        fixture.cache,
+        {
+          watching: false,
+          markVolatile: () => {},
+          addWatchFile: () => {
+            throw failure;
+          },
+        },
+      ),
+      (error) => error === failure,
+    );
+    assert.equal(
+      fixture.cache.has(fixture.key),
+      false,
+      "failed watch handoff cannot leave an incomplete owner",
+    );
     beginTtscTransformBuild(fixture.cache);
     assert.equal(action(sibling, 2), "capture");
-  } finally { fixture.dispose(); }
+  } finally {
+    fixture.dispose();
+  }
 }

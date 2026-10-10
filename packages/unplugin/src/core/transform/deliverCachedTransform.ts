@@ -46,14 +46,34 @@ export function deliverCachedTransform(props: {
   hooks: TtscTransformHooks | undefined;
   selection: TtscWatchSelection;
 }) {
-  const { cache, cached, generation, key, epoch, file, source, hooks, selection } = props;
+  const {
+    cache,
+    cached,
+    generation,
+    key,
+    epoch,
+    file,
+    source,
+    hooks,
+    selection,
+  } = props;
   try {
-    TtscGenerationProof.admitFreshOnly(cached, cache, key, generation, epoch, hooks);
+    TtscGenerationProof.admitFreshOnly(
+      cached,
+      cache,
+      key,
+      generation,
+      epoch,
+      hooks,
+    );
     reportSuccessDiagnostics(cached, epoch);
     let output;
     try {
       output = selectOrEvict(cache, key, generation, epoch, {
-        file, projectRoot: cached.projectRoot, result: cached.result, tsconfig: cached.tsconfig,
+        file,
+        projectRoot: cached.projectRoot,
+        result: cached.result,
+        tsconfig: cached.tsconfig,
       });
     } catch (error) {
       if (!(error instanceof TtscMissingProgramOutputError)) {
@@ -70,7 +90,8 @@ export function deliverCachedTransform(props: {
     notifyVolatileDelivery(hooks, cached, file);
     return createTransformResult(file, source, output);
   } catch (error) {
-    if (cached.freshDeliveryOnly === true) evictGeneration(cache, key, generation);
+    if (cached.freshDeliveryOnly === true)
+      evictGeneration(cache, key, generation);
     throw error;
   }
 }

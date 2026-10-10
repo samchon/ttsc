@@ -71,9 +71,17 @@ export namespace TtscGenerationProof {
    * @evidence contracts/performance.md#reuse-equivalent-work The pass shares its existing first-delivery proof; persistent and repeated deliveries establish new native authority.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Native requests belong to their environment owner; no transaction survives this await.
    */
-  export async function prepare(cached: TtscCachedProjectTransform, file: string, epoch: number | undefined): Promise<void> {
+  export async function prepare(
+    cached: TtscCachedProjectTransform,
+    file: string,
+    epoch: number | undefined,
+  ): Promise<void> {
     if (!sharesPass(cached, file, epoch))
-      await preparePluginBuildEnvironments(cached.result, resultFilesystem(cached.result), cached);
+      await preparePluginBuildEnvironments(
+        cached.result,
+        resultFilesystem(cached.result),
+        cached,
+      );
   }
 
   /**
@@ -89,12 +97,20 @@ export namespace TtscGenerationProof {
    * @evidence contracts/performance.md#reuse-equivalent-work Only the following synchronous validators borrow this batch; pass sharing uses its independent first-delivery contract.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The caller releases the transaction at the end of synchronous admission; no registry or native handle is acquired.
    */
-  export function create(cached: TtscCachedProjectTransform, file: string, epoch: number | undefined): Transaction {
+  export function create(
+    cached: TtscCachedProjectTransform,
+    file: string,
+    epoch: number | undefined,
+  ): Transaction {
     return {
       cached,
-      ...(sharesPass(cached, file, epoch) ? {} : {
-        environments: PluginBuildEnvironmentReadings.cachedAll(selectPluginSourceInputs(cached.result).keys()),
-      }),
+      ...(sharesPass(cached, file, epoch)
+        ? {}
+        : {
+            environments: PluginBuildEnvironmentReadings.cachedAll(
+              selectPluginSourceInputs(cached.result).keys(),
+            ),
+          }),
     };
   }
 
@@ -111,16 +127,28 @@ export namespace TtscGenerationProof {
    * @evidence contracts/performance.md#reuse-equivalent-work Only first deliveries in the same explicitly declared pass share its proof; repeated and later-pass requests do not.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate borrows generation state without retaining another owner.
    */
-  export function sharesPass(cached: TtscCachedProjectTransform, file: string, epoch: number | undefined): boolean {
-    if (epoch === undefined || cached.deliveryEpoch !== epoch ||
-      (cached.projectSnapshotComplete !== true && cached.passDeliveryOnly !== true) ||
-      (cached.freshDeliveryOnly === true && cached.passDeliveryOnly !== true)) return false;
+  export function sharesPass(
+    cached: TtscCachedProjectTransform,
+    file: string,
+    epoch: number | undefined,
+  ): boolean {
+    if (
+      epoch === undefined ||
+      cached.deliveryEpoch !== epoch ||
+      (cached.projectSnapshotComplete !== true &&
+        cached.passDeliveryOnly !== true) ||
+      (cached.freshDeliveryOnly === true && cached.passDeliveryOnly !== true)
+    )
+      return false;
     const identities = envelopeDerivation(cached).identityContext;
     const identity = pathIdentityKey(file, identities);
     if (cached.servedFiles?.has(identity)) return false;
     const key = toProjectKey(cached.projectRoot, file, identities);
-    return cached.sourceHashes?.[identity] !== undefined ||
-      Object.hasOwn(cached.inputHashes, key) || cached.externalInputHashes?.[identity] !== undefined;
+    return (
+      cached.sourceHashes?.[identity] !== undefined ||
+      Object.hasOwn(cached.inputHashes, key) ||
+      cached.externalInputHashes?.[identity] !== undefined
+    );
   }
 
   /**
@@ -138,15 +166,31 @@ export namespace TtscGenerationProof {
    * @evidence contracts/performance.md#reuse-equivalent-work Only coherent locally admitted output in its exact nonwatching pass survives; a later pass or repeated module must obtain another result.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Capture resources are released even when local output is kept; rejection and callback failure detach the owning Promise, and the cache lifecycle bounds retained result lifetime.
    */
-  export function admitFreshOnly(cached: TtscCachedProjectTransform, cache: TtscTransformCache | undefined, key: string, generation: Promise<TtscCachedProjectTransform>, epoch: number | undefined, hooks: TtscTransformHooks | undefined): void {
+  export function admitFreshOnly(
+    cached: TtscCachedProjectTransform,
+    cache: TtscTransformCache | undefined,
+    key: string,
+    generation: Promise<TtscCachedProjectTransform>,
+    epoch: number | undefined,
+    hooks: TtscTransformHooks | undefined,
+  ): void {
     if (cached.freshDeliveryOnly !== true) return;
-    const authorized = hooks?.watching === false && hooks.markVolatile !== undefined &&
-      (hooks.project?.watching === undefined || hooks.project.watching === false);
-    const retain = authorized && epoch !== undefined && cached.deliveryEpoch === epoch && cached.passDeliveryOnly === true;
+    const authorized =
+      hooks?.watching === false &&
+      hooks.markVolatile !== undefined &&
+      (hooks.project?.watching === undefined ||
+        hooks.project.watching === false);
+    const retain =
+      authorized &&
+      epoch !== undefined &&
+      cached.deliveryEpoch === epoch &&
+      cached.passDeliveryOnly === true;
     disposeCachedTransform(cached);
     if (!retain) evictGeneration(cache, key, generation);
     if (cached.result.type === "success" && !authorized)
-      throw new Error("@ttsc/unplugin: plugin input observation is unavailable; fresh output requires an explicitly nonwatching host with supported cache withdrawal. Watching, unknown or contradictory lifecycles cannot safely observe its changes.");
+      throw new Error(
+        "@ttsc/unplugin: plugin input observation is unavailable; fresh output requires an explicitly nonwatching host with supported cache withdrawal. Watching, unknown or contradictory lifecycles cannot safely observe its changes.",
+      );
     try {
       hooks?.markVolatile?.();
     } catch (error) {

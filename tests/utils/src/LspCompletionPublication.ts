@@ -11,7 +11,7 @@ import path from "node:path";
  * @evidence contracts/common.md#clear-and-simple-design One helper joins the existing private trace with the caller-owned close outcome without adding a product request or duplicating native preparation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual producer terminal state supplies readiness; no diagnostic, trigger notice, elapsed interval or request retry substitutes for it.
  * @evidence contracts/common.md#meaningful-documentation The prose states first-generation scope, root/close ownership, failure behavior and absence of a positive deadline.
- * @evidence contracts/portability.md#os-neutral-implementation Node native watch/read/path operations observe the supplied existing directory. Exact source cwd spelling comes from the same launcher input; no filesystem alias or case equivalence is inferred.
+ * @evidence contracts/portability.md#os-neutral-implementation Node native realpath/watch/read operations observe the physical storage directory, including when supplied through an alias. Exact protocol cwd spelling remains the launcher input; physical trace storage does not authorize protocol alias or case equivalence.
  * @evidence contracts/performance.md#efficient-algorithms The watcher scans complete JSONL records on actual directory events, with work proportional to retained trace bytes per event. The private writer has a byte budget; this helper keeps no accumulated record history.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The helper replays the same already-produced initial event for later consumers; it never starts or repeats discovery.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Each pending observation owns one watcher, closed after publication, trace error or actual child close. Its close continuation remains attached to the caller's existing lifetime; no child or trace directory ownership transfers.
@@ -55,7 +55,9 @@ export namespace LspCompletionPublication {
             const text = fs.readFileSync(path.join(directory, file), "utf8");
             // A writer may still own the final partial append. A newline is
             // the authority that its JSON record is complete.
-            for (const line of text.slice(0, text.lastIndexOf("\n") + 1).split("\n")) {
+            for (const line of text
+              .slice(0, text.lastIndexOf("\n") + 1)
+              .split("\n")) {
               if (!line) continue;
               const event = JSON.parse(line);
               if (event.event === "integrity-failure")
@@ -66,7 +68,8 @@ export namespace LspCompletionPublication {
                 event.cwd !== cwd ||
                 event.data?.producer !== producer ||
                 event.data?.generation !== 1
-              ) continue;
+              )
+                continue;
               if (event.data.outcome !== "published")
                 throw new Error(
                   `Initial ${producer} completion publication ${event.data.outcome}: ${event.data.error ?? "no error detail"}`,
@@ -94,9 +97,17 @@ export namespace LspCompletionPublication {
       void closed.then(
         () => {
           scan();
-          if (!settled) settle(new Error("ttscserver closed before initial completion publication"));
+          if (!settled)
+            settle(
+              new Error(
+                "ttscserver closed before initial completion publication",
+              ),
+            );
         },
-        (error) => settle(new Error("ttscserver close observation failed", { cause: error })),
+        (error) =>
+          settle(
+            new Error("ttscserver close observation failed", { cause: error }),
+          ),
       );
     });
   }

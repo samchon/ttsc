@@ -30,13 +30,31 @@ export function test_native_predicate_proof_is_shared_only_synchronously(): void
   const original = "{}";
   fs.writeFileSync(file, original);
   let reads = 0;
-  fixture.good.result.graph = { edges: {}, globals: [], configs: [], inputObservations: {
-    "config.json": { nativePredicates: [{ version: 1, kind: "file", scope: "cache",
-      digest: createHash("sha256").update(original).digest("hex"),
-      realpath: fs.realpathSync.native(file), identityStable: true }] },
-  } };
-  TRANSFORM_RESULT_FILESYSTEM.set(fixture.good.result, { ...DEFAULT_FILESYSTEM_OPERATIONS,
-    readFile(input) { if (input === file) reads++; return DEFAULT_FILESYSTEM_OPERATIONS.readFile(input); },
+  fixture.good.result.graph = {
+    edges: {},
+    globals: [],
+    configs: [],
+    inputObservations: {
+      "config.json": {
+        nativePredicates: [
+          {
+            version: 1,
+            kind: "file",
+            scope: "cache",
+            digest: createHash("sha256").update(original).digest("hex"),
+            realpath: fs.realpathSync.native(file),
+            identityStable: true,
+          },
+        ],
+      },
+    },
+  };
+  TRANSFORM_RESULT_FILESYSTEM.set(fixture.good.result, {
+    ...DEFAULT_FILESYSTEM_OPERATIONS,
+    readFile(input) {
+      if (input === file) reads++;
+      return DEFAULT_FILESYSTEM_OPERATIONS.readFile(input);
+    },
   });
   try {
     const first = TtscGenerationProof.create(fixture.good, fixture.file, 1);
@@ -49,12 +67,26 @@ export function test_native_predicate_proof_is_shared_only_synchronously(): void
     assert.equal(nativeInputPredicatesHold(fixture.good, second), false);
     assert.equal(reads, 2);
     fs.writeFileSync(file, original);
-    assert.equal(nativeInputPredicatesHold(fixture.good, TtscGenerationProof.create(fixture.good, fixture.file, 1)), true);
+    assert.equal(
+      nativeInputPredicatesHold(
+        fixture.good,
+        TtscGenerationProof.create(fixture.good, fixture.file, 1),
+      ),
+      true,
+    );
     assert.equal(reads, 3);
     fs.writeFileSync(file, "changed");
-    assert.equal(nativeInputPredicatesHold(fixture.good, { cached: { ...fixture.good }, nativePredicates: true }), false);
+    assert.equal(
+      nativeInputPredicatesHold(fixture.good, {
+        cached: { ...fixture.good },
+        nativePredicates: true,
+      }),
+      false,
+    );
     assert.equal(reads, 4);
     assert.equal(nativeInputPredicatesHold(fixture.good), false);
     assert.equal(reads, 5);
-  } finally { fixture.dispose(); }
+  } finally {
+    fixture.dispose();
+  }
 }

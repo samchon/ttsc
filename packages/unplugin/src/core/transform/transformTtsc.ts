@@ -1,4 +1,3 @@
-import { deliverCachedTransform } from "./deliverCachedTransform";
 import path from "node:path";
 
 import type { ResolvedTtscUnpluginOptions } from "../options/ResolvedTtscUnpluginOptions";
@@ -18,6 +17,7 @@ import { transformCacheEpoch } from "./cache/transformCacheEpoch";
 import { transformCacheTrustsNotifications } from "./cache/transformCacheTrustsNotifications";
 import { transformFilesystem } from "./cache/transformFilesystem";
 import { withdrawGenerationNotifications } from "./cache/withdrawGenerationNotifications";
+import { deliverCachedTransform } from "./deliverCachedTransform";
 import { TtscUnstableGenerationError } from "./errors/TtscUnstableGenerationError";
 import { transformProject } from "./generation/transformProject";
 import { preparePluginBuildEnvironments } from "./inputs/preparePluginBuildEnvironments";
@@ -236,7 +236,17 @@ export async function transformTtsc(
         continue;
       }
       if (action === "serve") {
-        return deliverCachedTransform({ cache, cached, generation: transformed, key, epoch, file, source, hooks, selection: watchSelection });
+        return deliverCachedTransform({
+          cache,
+          cached,
+          generation: transformed,
+          key,
+          epoch,
+          file,
+          source,
+          hooks,
+          selection: watchSelection,
+        });
       }
       transformed = undefined;
     }
@@ -304,6 +314,16 @@ export async function transformTtsc(
         policies.set(key, reported);
       }
     }
-    return deliverCachedTransform({ cache, cached, generation, key, epoch, file, source, hooks, selection: watchSelection });
+    return deliverCachedTransform({
+      cache,
+      cached,
+      generation,
+      key,
+      epoch,
+      file,
+      source,
+      hooks,
+      selection: watchSelection,
+    });
   }
 }

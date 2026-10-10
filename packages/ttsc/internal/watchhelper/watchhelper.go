@@ -1,5 +1,5 @@
 // Package watchhelper implements `ttsc __watch`, the directory notification
-// helper the unplugin adapter runs on Linux.
+// helper the unplugin adapter runs on Linux and Windows.
 //
 // An inotify instance holds a bounded queue. Events beyond its capacity are
 // dropped and an IN_Q_OVERFLOW event reports that loss, which libuv, and so
@@ -7,7 +7,13 @@
 // notice. The helper owns its own inotify instance and reports the overflow,
 // so the adapter can stop trusting its watches' silence instead.
 //
-// The protocol is newline-delimited JSON over stdio. The client writes
+// On Windows the same command serves the unplugin broker add/remove/drain
+// protocol over ordered JSON lines. Its completion-port backend shares directory
+// and recursion keys, omits access-time notifications, reports loss as gap and
+// acquisition/read failure as failed, and retains canceled buffers until native
+// completion. No compiler state is stored in either backend.
+//
+// The Linux protocol is newline-delimited JSON over stdio. The client writes
 // requests:
 //
 //   - `{"op":"add","id":N,"path":"/abs/dir"}` watches one directory. The reply
