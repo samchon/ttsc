@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-e2e",
-  "version": "0.31.0",
+  "version": "0.31.1",
   "type": "module",
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../config/register-typescript-loader.mjs src/index.ts",

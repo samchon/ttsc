@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/station",
-  "version": "0.31.0",
+  "version": "0.31.1",
   "description": "Standalone TypeScript-Go compiler, runtime, plugin host, and LSP host workspace.",
   "scripts": {
     "build": "pnpm --filter \"./packages/*\" --filter lint-contributor-demo -r --workspace-concurrency=1 build",
