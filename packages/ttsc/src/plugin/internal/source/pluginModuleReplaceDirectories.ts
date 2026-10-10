@@ -2,12 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { resolvePhysicalPath } from "../../../internal/pathIdentity/resolvePhysicalPath";
-import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
 import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
 import { resolveGoCompiler } from "./resolveGoCompiler";
 import { selectPluginModuleReplaceDirectories } from "./selectPluginModuleReplaceDirectories";
-import { spawnGoTool } from "./spawnGoTool";
+import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 
 /**
  * The local directories outside a plugin's Go module that its `go.mod`
@@ -44,13 +43,14 @@ import { spawnGoTool } from "./spawnGoTool";
  * @evidence contracts/portability.md#os-neutral-implementation Node path and physical-path resolution determine containment; Go local-path syntax accepts native absolute paths and Windows-relative backslashes only on Windows.
  * @evidence contracts/performance.md#efficient-algorithms Full manifest read/UTF-8 marker scan can skip Go parsing. Otherwise native tool/env/capture and full JSON work precede a pass over all parsed directives, not only returned ones; each selected local target uses native best-effort identity resolution, which can traverse ancestors/probe case. Sorting returned module/version strings processes their bytes, with complete manifest/output/path arrays retained transiently and no replacement content digest scan here.
  *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work This reader establishes the current module directives; callers share resulting source readings in computeCacheKey, not a stale directive memo here.
+ * @evidence contracts/performance.md#reuse-equivalent-work The optional pinned-tool/load reader shares Go parsing of identical current bytes with package observation and workspace creation. Physical replacement containment is recomputed every call, never borrowed from that syntax memo.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This operation acquires no retained handle or historical registry; spawnGoTool owns synchronous capture and its cleanup attempts, which can fail. Manifest/JSON/native identity contexts are call-owned and selected records transfer to the caller without pinning future directory state.
  */
 export function pluginModuleReplaceDirectories(
   moduleRoot: string,
   env: NodeJS.ProcessEnv,
   goBinary?: string,
+  reader?: SourcePluginWorkspace.GoModReader,
 ): IPluginModuleReplaceDirectory[] {
   const root = path.resolve(moduleRoot);
   let text: string;
@@ -70,27 +70,12 @@ export function pluginModuleReplaceDirectories(
       env,
       root,
     );
-  const result = spawnGoTool(go, ["mod", "edit", "-json"], {
-    cwd: root,
-    encoding: "utf8",
-    env: GoSourceInputs.goBuildEnv(go, undefined, env),
-    windowsHide: true,
-  });
-  if (result.error !== undefined || result.status !== 0)
-    throw new Error(
-      `ttsc: reading ${path.join(root, "go.mod")} failed: ${
-        result.error?.message ?? (result.stderr || result.stdout)
-      }`,
-    );
-  const parsed = JSON.parse(result.stdout) as {
-    Replace?: readonly {
-      New?: { Path?: string; Version?: string };
-      Old?: { Path?: string; Version?: string };
-    }[];
-  };
+  const parsed = (reader ?? SourcePluginWorkspace.createGoModReader(go, root, env)).read(root);
+  // Parsed syntax may be shared; physical containment is current native state
+  // and must be recomputed even when these manifest bytes are unchanged.
   return selectPluginModuleReplaceDirectories(
     root,
-    parsed.Replace ?? [],
+    parsed.directives,
     resolvePhysicalPath,
   );
 }

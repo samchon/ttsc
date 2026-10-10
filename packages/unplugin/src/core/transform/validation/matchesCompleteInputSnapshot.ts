@@ -1,3 +1,4 @@
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { declaredProjectInputKeys } from "../envelope/declaredProjectInputKeys";
@@ -51,8 +52,9 @@ export function matchesCompleteInputSnapshot(
    * proof.
    */
   cached: TtscCachedProjectTransform,
+  proof?: TtscGenerationProof.Transaction,
 ): boolean {
-  if (!nativeInputPredicatesHold(cached)) return false;
+  if (!nativeInputPredicatesHold(cached, proof)) return false;
   if (
     cached.projectSnapshotComplete !== true ||
     cached.projectDirectories === undefined
@@ -72,7 +74,7 @@ export function matchesCompleteInputSnapshot(
     hostValidation === undefined ||
     !matchesUniversalHostInputEntries(cached, hostValidation) ||
     !matchesUniversalHostInputProbes(cached, hostValidation) ||
-    !matchesUniversalHostInputTrees(cached, hostValidation)
+    !matchesUniversalHostInputTrees(cached, hostValidation, proof)
   ) {
     return false;
   }

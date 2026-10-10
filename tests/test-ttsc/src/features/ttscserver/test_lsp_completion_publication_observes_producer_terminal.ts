@@ -52,6 +52,14 @@ export async function test_lsp_completion_publication_observes_producer_terminal
     await LspCompletionPublication.wait(directory, cwd, producer, closed);
   }));
   cases.push(() => scenario(async (directory, closed) => {
+    const alias = path.join(root, "trace-alias");
+    fs.symlinkSync(directory, alias, process.platform === "win32" ? "junction" : "dir");
+    try {
+      fs.writeFileSync(path.join(directory, "producer.jsonl"), record() + "\n");
+      await LspCompletionPublication.wait(alias, cwd, producer, closed);
+    } finally { fs.unlinkSync(alias); }
+  }));
+  cases.push(() => scenario(async (directory, closed) => {
     const file = path.join(directory, "producer.jsonl");
     fs.writeFileSync(file, [record({}, cwd + "-other"), record({ producer: "other" }), record({ generation: 2 })].join("\n") + "\n");
     let completed = false;

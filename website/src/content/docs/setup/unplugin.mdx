@@ -313,7 +313,9 @@ Paths are compared by filesystem identity, including symlinks, Windows junctions
 
 Build hosts open a pass for each build or rebuild. The first module validates the retained project compilation; subsequent modules use that result. Metro workers, Turbopack loaders, and watching Vite servers validate each delivery. Unchanged rebuilds reuse compiled output.
 
-A Vite server with `server.watch: null` registers no watchers and uses the build-pass lifecycle. Bun uses one process-scoped loading session.
+A Vite server with `server.watch: null` registers no watchers and uses the build-pass lifecycle. Each Bun build shares one compilation across its modules and releases it at build end; Bun runtime imports share one immutable process-scoped loading session.
+
+Some runtimes cannot observe all plugin input reads. A coherent local result can still supply the first delivery of each recorded module in an explicitly nonwatching pass when the host supports cache withdrawal. It cannot become a persistent project record or a shared worker publication. Repeated deliveries and later passes compile again; watching or unknown lifecycles reject incomplete observation. Turbopack production loaders declare their nonwatching lifecycle and use `cacheable(false)` when that callback is available.
 
 ### Program membership
 

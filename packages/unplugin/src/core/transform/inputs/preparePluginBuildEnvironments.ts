@@ -38,10 +38,30 @@ export async function preparePluginBuildEnvironments(
   cached?: TtscCachedProjectTransform,
 ): Promise<void> {
   asyncResults.add(result);
-  for (const [directory, state] of selectPluginSourceInputs(result)) {
+  const sources = selectPluginSourceInputs(result);
+  // Preserve the async preparation boundary even for warm environments.
+  // Events queued by the caller before awaiting preparation must participate
+  // in the source witness below. Observe the batch after this yield, never
+  // carry a positive environment observation across it (#1712).
+  await Promise.resolve();
+  const current = PluginBuildEnvironmentReadings.cachedAll(sources.keys());
+  let awaited = false;
+  for (const directory of sources.keys()) {
+    if (current.get(directory) !== undefined) continue;
+    awaited = true;
     try {
       await PluginBuildEnvironmentReadings.prepare(directory);
-      const environment = PluginBuildEnvironmentReadings.cached(directory);
+    } catch {
+      // Keep unavailable authority for admission rather than cold fallback.
+    }
+  }
+  const environments = awaited
+    ? PluginBuildEnvironmentReadings.cachedAll(sources.keys())
+    : current;
+  const refresh: string[] = [];
+  for (const [directory, state] of sources) {
+    try {
+      const environment = environments.get(directory);
       if (
         cached?.result === result &&
         cached.hostInputValidation?.trees.get(directory) === state &&
@@ -56,10 +76,17 @@ export async function preparePluginBuildEnvironments(
           environment,
         })
       )
-        await PluginBuildEnvironmentReadings.prepare(directory, true);
+        refresh.push(directory);
     } catch {
       // Admission and terminal recovery interpret unavailable proof in their
       // own domain; this boundary never upgrades it to a successful reading.
+    }
+  }
+  for (const directory of refresh) {
+    try {
+      await PluginBuildEnvironmentReadings.prepare(directory, true);
+    } catch {
+      // Synchronous admission requalifies after this asynchronous window.
     }
   }
 }

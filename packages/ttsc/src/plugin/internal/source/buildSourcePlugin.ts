@@ -123,6 +123,9 @@ export function buildSourcePlugin(opts: {
    */
   sourceDigests?: Map<string, string>;
 
+  /** Pinned-tool manifest readers shared only by this loader request. */
+  goModReaders?: Map<string, SourcePluginWorkspace.GoModReader>;
+
   ttscVersion: string;
   tsgoVersion: string;
 }): string {
@@ -136,7 +139,7 @@ export function buildSourcePlugin(opts: {
     const environmentDigests = new Map(opts.environmentDigests);
     try {
       const binary = buildSourcePluginAttempt(
-        opts,
+        attempt === 0 ? opts : { ...opts, goModReaders: undefined },
         env,
         sourceDigests,
         environmentDigests,
@@ -186,6 +189,11 @@ function buildSourcePluginAttempt(
   OwnedSynchronousProcess.checkpoint();
   // The digest of every directory the key covers, as the key read it, which
   // the build proves against what it compiled.
+  let goModReader = opts.goModReaders?.get(goBinary);
+  if (goModReader === undefined) {
+    goModReader = SourcePluginWorkspace.createGoModReader(goBinary, opts.pluginName, env);
+    opts.goModReaders?.set(goBinary, goModReader);
+  }
   const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
   const key = computeCacheKey({
     contributors,
@@ -194,6 +202,7 @@ function buildSourcePluginAttempt(
     entry,
     env,
     environmentWitness,
+    goModReader,
     filesystem: opts.filesystem,
     goBinary,
     overlayDirs,
@@ -317,6 +326,7 @@ function buildSourcePluginAttempt(
         env,
         environmentWitness,
         goBinary,
+        goModReader,
         normalizeGoToolPermissions: compiler.bundled,
         key,
         keyedDigests: sourceDigests,
@@ -406,6 +416,7 @@ function compileSourcePlugin(opts: {
   goBuildCacheRoot: string;
   manageGoBuildCache: boolean;
   normalizeGoToolPermissions: boolean;
+  goModReader: SourcePluginWorkspace.GoModReader;
   key: string;
 
   /** The digest of every directory the key covers, as the key read it. */
@@ -461,6 +472,7 @@ function compileSourcePlugin(opts: {
       opts.dir,
       opts.env,
       opts.goBinary,
+      opts.goModReader,
     );
     OwnedSynchronousProcess.checkpoint();
     // Every source the build would otherwise read in place, an overlay and
@@ -487,11 +499,7 @@ function compileSourcePlugin(opts: {
       opts.goBinary,
       opts.env,
     );
-    const goModReader = SourcePluginWorkspace.createGoModReader(
-      opts.goBinary,
-      opts.pluginName,
-      opts.env,
-    );
+    const goModReader = opts.goModReader;
     OwnedSynchronousProcess.checkpoint();
     if (opts.contributors.length > 0) {
       mergeContributors({

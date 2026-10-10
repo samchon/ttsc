@@ -200,10 +200,12 @@ export async function transformProject(props: {
       },
     });
     if (disposition.freshDeliveryOnly) {
-      // Neither incomplete diagnostic observations nor a permitted local fresh
-      // success authorizes this generation's reuse beyond its current delivery.
+      // Missing observations never authorize persistent or shared reuse. A
+      // coherent fresh-only local success may separately earn bounded first
+      // deliveries through the common nonwatching pass owner (#1713).
       cached.freshDeliveryOnly = true;
     }
+    if (disposition.kind === "fresh-only") cached.passDeliveryOnly = true;
     if (disposition.kind === "accepted" || disposition.kind === "fresh-only") {
       return cached;
     }

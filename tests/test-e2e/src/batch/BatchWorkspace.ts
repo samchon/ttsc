@@ -1222,7 +1222,7 @@ export namespace BatchWorkspace {
       bunEntry.replace(
         "__BUN_ADAPTER__",
         pathToFileURL(TestUnpluginRuntime.libPath("bun", "mjs")).href,
-      ),
+      ).replace("__TURBOPACK_ADAPTER__", pathToFileURL(TestUnpluginRuntime.libPath("turbopack", "mjs")).href),
     );
     if (installationOnly) {
       fs.writeFileSync(

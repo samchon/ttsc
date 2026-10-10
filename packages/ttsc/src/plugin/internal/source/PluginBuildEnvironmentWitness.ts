@@ -144,7 +144,9 @@ export namespace PluginBuildEnvironmentWitness {
    * observation. The existing private opt-in trace retains the first actual
    * mismatch without repeating its lookup or changing the refusal. An optional
    * observation label separates preparation and build epochs in that trace; it
-   * does not change validation or authorize publication.
+   * does not change validation or authorize publication. A supplied native
+   * observation map belongs to one synchronous batch only; never reuse it
+   * after an await, delivery, environment mutation or publication boundary.
    *
    * @evidence contracts/common.md#principled-implementation Universal comparison requires every dependency to match its pre-read signature and immediately rejects a refused or changed path.
    * @evidence contracts/common.md#clear-and-simple-design Validation uses the same signature helper as capture, keeping identity and timestamp policy in one place.
@@ -153,16 +155,24 @@ export namespace PluginBuildEnvironmentWitness {
    * @evidence contracts/portability.md#os-neutral-implementation Validation reads actual Node metadata using the same link-following semantics as capture.
    * @evidence contracts/performance.md#efficient-algorithms Validation iterates dependencies until mismatch and performs native stat/link queries or ambient-variable serialization. Windows environment matching enumerates names and lowercases text per witnessed variable, so P alone does not bound that work. Native path/link/name/value/numeric bytes contribute cost; file content is not read and unavailable native observations share the helper's missing marker. An enabled private trace serializes the first mismatch's already-computed text through its existing bounded sink.
    *
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call must establish current validity; caching that answer would conceal external changes.
+   * @evidence contracts/performance.md#reuse-equivalent-work A caller-owned synchronous batch may share current native observations, comparing each witness against its own expected state; ordinary calls and all later observation phases establish new validity.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Validation retains no handles or additional historical state.
    */
-  export function holds(witness: Record, observation?: string): boolean {
+  export function holds(
+    witness: Record,
+    observation?: string,
+    currentReadings?: Map<string, string>,
+  ): boolean {
     for (const [file, recorded] of witness) {
-      const current = file.startsWith(ENVIRONMENT_PREFIX)
+      let current = currentReadings?.get(file);
+      if (current === undefined) {
+        current = file.startsWith(ENVIRONMENT_PREFIX)
         ? environmentSignature(file.slice(ENVIRONMENT_PREFIX.length))
         : file.startsWith(LINK_PREFIX)
           ? linkSignature(file.slice(LINK_PREFIX.length))
           : signature(file);
+        currentReadings?.set(file, current);
+      }
       if (current !== recorded) {
         E2ETrace.capabilityResolution(
           "plugin-build-environment-witness-mismatch",

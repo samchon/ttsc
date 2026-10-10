@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { GoSourceInputs } from "./GoSourceInputs";
+import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { formatGoWorkPath } from "./formatGoWorkPath";
@@ -15,8 +16,9 @@ import { spawnGoTool } from "./spawnGoTool";
  * Package selection must use the builder's overlays, generated workspace and
  * selected tool rather than an ancestor go.work found in a source directory.
  * A load may share installed-overlay manifest records under its pinned tool
- * and effective environment; each unique scratch is read independently. The
- * cold build owns a fresh reader over its proven materialized inputs. Go
+ * and effective environment; identical current bytes in independently proven
+ * scratch inputs share their Go parse. A moved native tool clears that reader's
+ * syntax memo, and a toolchain retry starts a new reader scope. Go
  * supplies the workspace's required Go and toolchain directives. These reads
  * preserve the existing installation/version and sequential-stability limits.
  *
@@ -25,8 +27,8 @@ import { spawnGoTool } from "./spawnGoTool";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual Go mod edit and work use commands interpret manifests; selected tool errors propagate and no static workspace version replaces Go's decision.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains shared policy and caller ownership; private helpers remain part of this operation's review surface.
  * @evidence contracts/portability.md#os-neutral-implementation Native fs/path operations preserve path spelling and formatGoWorkPath owns Go syntax quoting; subprocesses use the existing native wrapper owner with hidden windows.
- * @evidence contracts/performance.md#efficient-algorithms Workspace construction scans module and replacement populations; each module reader memoizes absolute directory results within its owning load or materialized build. Overlay discovery recursively scans admitted directories and sorts paths; native Go output and JSON parsing scale with complete bytes.
- * @evidence contracts/performance.md#reuse-equivalent-work A metadata load shares equivalent installed-overlay observations under one pinned tool/effective environment; unique scratch paths are independent. A materialized build uses its own reader, and no memo crosses a load or changed environment. Metadata and build share policy rather than pretending their independently materialized sources are identical.
+ * @evidence contracts/performance.md#efficient-algorithms Workspace construction scans module and replacement populations; each reader reads current manifest bytes and memoizes equivalent Go syntax within its pinned native tool/load. Overlay discovery recursively scans admitted directories and sorts paths; native Go output and JSON parsing scale with complete bytes.
+ * @evidence contracts/performance.md#reuse-equivalent-work Metadata and materialized builds share Go parsing only for identical current manifest bytes under the same pinned tool/effective environment. Independent materialization/content proof remains with each caller; tool movement clears syntax reuse and retries start another scope.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Readers retain module records only for their enclosing load or materialized build; command capture cleanup belongs to spawnGoTool and scratch lifetime belongs to the caller. Native commands can mutate Go-owned state and their selected-child completion does not prove arbitrary descendants retired.
  */
 export namespace SourcePluginWorkspace {
@@ -173,6 +175,7 @@ export namespace SourcePluginWorkspace {
   interface GoModInfo {
     readonly modulePath: string | null;
     readonly replacements: readonly GoModReplacement[];
+    readonly directives: NonNullable<GoModJson["Replace"]>;
   }
 
   /**
@@ -224,33 +227,56 @@ export namespace SourcePluginWorkspace {
   }
 
   /**
-   * Read each module once through Go within one selected-tool context.
+   * Read current manifest bytes and share identical Go parses within one pinned
+   * selected-tool/load context, including copied scratch modules.
    *
-   * @evidence contracts/common.md#principled-implementation Actual go mod edit JSON determines module/replacement identities; missing go.mod returns the existing empty module observation.
-   * @evidence contracts/common.md#clear-and-simple-design An absolute-directory map wraps one manifest acquisition helper.
+   * @evidence contracts/common.md#principled-implementation Actual go mod edit JSON determines module/replacement identities; current bytes and selected-tool metadata qualify reuse under the existing metadata-distinguishability premise. Environment values are copied at reader creation. Missing go.mod returns the existing empty module observation, and moving tool/manifest inputs cannot publish a parsed record.
+   * @evidence contracts/common.md#clear-and-simple-design A byte-content map wraps one Go acquisition helper; current reads and a post-parse byte comparison qualify insertion.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No custom Go manifest parser or global context-insensitive memo is introduced.
    * @evidence contracts/common.md#meaningful-documentation Native prose states this operation's authority and delegated boundaries; fields retain separate native comments.
    * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and temporary cwd avoid deep Windows working-directory limits; the selected tool handles manifest syntax.
-   * @evidence contracts/performance.md#efficient-algorithms Each distinct directory runs one existence query and at most one Go mod edit plus complete JSON parsing.
-   * @evidence contracts/performance.md#reuse-equivalent-work The caller may share this reader only within one load and the same pinned tool/effective environment; directory results are not cross-load authority.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The map grows with distinct observed directories for its caller's lifetime; process/output capture cleanup remains delegated.
+   * @evidence contracts/performance.md#efficient-algorithms Every call qualifies the selected tool's metadata and reads current manifest bytes. Each distinct byte string in that tool epoch runs Go mod edit and complete JSON parsing once, then rechecks bytes/tool metadata before caching; copied manifests share that parse.
+   * @evidence contracts/performance.md#reuse-equivalent-work The caller may share this reader only within one load and the same pinned tool/effective environment; parsed syntax is not cross-load or native containment authority.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The map retains distinct manifest bytes and parsed syntax for its caller's load/build lifetime; process/output capture cleanup remains delegated.
    */
   export function createGoModReader(
     goBinary: string,
     pluginName: string,
     env: NodeJS.ProcessEnv,
   ): GoModReader {
+    // WARNING (#1712): parse identical bytes once in this pinned tool/load
+    // context, including copied scratch manifests. Always read current bytes;
+    // a pathname or metadata-only memo misses manifest edits. Never promote
+    // this map to a process cache: tool/environment epochs change Go authority.
     const cache = new Map<string, GoModInfo>();
+    const environment = { ...env };
+    let toolWitness: PluginBuildEnvironmentWitness.Record = new Map();
+    PluginBuildEnvironmentWitness.add(toolWitness, goBinary);
     return {
       read(dir) {
         OwnedSynchronousProcess.checkpoint();
+        if (!PluginBuildEnvironmentWitness.holds(toolWitness)) {
+          cache.clear();
+          toolWitness = new Map();
+          PluginBuildEnvironmentWitness.add(toolWitness, goBinary);
+        }
         const resolved = path.resolve(dir);
-        const cached = cache.get(resolved);
+        const manifest = path.join(resolved, "go.mod");
+        let text: string;
+        try { text = fs.readFileSync(manifest, "utf8"); } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT") return emptyGoModInfo();
+          throw error;
+        }
+        const cached = cache.get(text);
         if (cached !== undefined) {
           return cached;
         }
-        const info = readGoModInfo(resolved, goBinary, pluginName, env);
-        cache.set(resolved, info);
+        const info = readGoModInfo(resolved, goBinary, pluginName, environment);
+        if (fs.readFileSync(manifest, "utf8") !== text)
+          throw new Error(`ttsc: go.mod changed while Go was reading ${manifest}`);
+        if (!PluginBuildEnvironmentWitness.holds(toolWitness))
+          throw new Error(`ttsc: Go tool changed while reading ${manifest}`);
+        cache.set(text, info);
         return info;
       },
     };
@@ -313,6 +339,7 @@ export namespace SourcePluginWorkspace {
 
     return {
       modulePath: json.Module?.Path ?? null,
+      directives: json.Replace ?? [],
       replacements: (json.Replace ?? [])
         .map(jsonReplacementToGoModReplacement)
         .filter((replacement) => replacement !== null),
@@ -322,6 +349,7 @@ export namespace SourcePluginWorkspace {
   function emptyGoModInfo(): GoModInfo {
     return {
       modulePath: null,
+      directives: [],
       replacements: [],
     };
   }

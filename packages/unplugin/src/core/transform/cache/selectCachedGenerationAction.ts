@@ -1,3 +1,4 @@
+import type { TtscGenerationProof } from "../validation/TtscGenerationProof";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { isVolatileFile } from "../envelope/isVolatileFile";
 import { matchesCachedSource } from "../validation/matchesCachedSource";
@@ -42,6 +43,7 @@ export function selectCachedGenerationAction(props: {
   generation: Promise<TtscCachedProjectTransform>;
   key: string;
   source: string;
+  proof?: TtscGenerationProof.Transaction;
 }): "serve" | "retry" | "capture" {
   if (
     !isVolatileFile(envelopeDerivation(props.cached), {
@@ -49,7 +51,7 @@ export function selectCachedGenerationAction(props: {
       projectRoot: props.cached.projectRoot,
       result: props.cached.result,
     }) &&
-    matchesCachedSource(props.cached, props.file, props.source, props.epoch)
+    matchesCachedSource(props.cached, props.file, props.source, props.epoch, props.proof)
   ) {
     return "serve";
   }

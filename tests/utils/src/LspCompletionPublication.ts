@@ -25,7 +25,7 @@ export namespace LspCompletionPublication {
    * @evidence contracts/common.md#clear-and-simple-design One scan and one terminal settle operation share watcher cleanup; no clock or repeated LSP request is involved.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The producer's published result supplies readiness, including empty success; real run/decode failures reject instead of being caught and retried.
    * @evidence contracts/common.md#meaningful-documentation Documents first-generation scope and each failure authority; source comments explain replay ordering and partial append handling.
-   * @evidence contracts/portability.md#os-neutral-implementation Native directory watching and reads preserve source cwd spelling and complete JSONL framing without OS labels or shell parsing.
+   * @evidence contracts/portability.md#os-neutral-implementation Native realpath supplies one physical directory for watching and reads, avoiding DOS 8.3 versus long-name watcher disagreement. Protocol cwd retains exact source spelling; no OS label or shell parsing supplies identity.
    * @evidence contracts/performance.md#efficient-algorithms Scans only JSONL files and complete lines. Work and transient strings scale with private trace bytes per event; no payload files, compiler inputs or corpus contents are read.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Replaying existing producer evidence starts no computation and does not cache a mutable refresh result.
    * @evidence contracts/performance.md#bound-retention-and-release-resources A single watcher closes exactly once at settlement, including read/watch failure and child close. The child-close continuation remains until its already-owned lifetime ends; no process, timer or retained directory is acquired.
@@ -39,6 +39,7 @@ export namespace LspCompletionPublication {
     return new Promise<void>((resolve, reject) => {
       let settled = false;
       let watcher: fs.FSWatcher | undefined;
+      let directory = root;
       const settle = (error?: unknown) => {
         if (settled) return;
         settled = true;
@@ -49,9 +50,9 @@ export namespace LspCompletionPublication {
       const scan = () => {
         if (settled) return;
         try {
-          for (const file of fs.readdirSync(root)) {
+          for (const file of fs.readdirSync(directory)) {
             if (!file.endsWith(".jsonl")) continue;
-            const text = fs.readFileSync(path.join(root, file), "utf8");
+            const text = fs.readFileSync(path.join(directory, file), "utf8");
             // A writer may still own the final partial append. A newline is
             // the authority that its JSON record is complete.
             for (const line of text.slice(0, text.lastIndexOf("\n") + 1).split("\n")) {
@@ -79,7 +80,12 @@ export namespace LspCompletionPublication {
         }
       };
       try {
-        watcher = fs.watch(root, scan);
+        // Node's Windows watcher requires its registered directory to agree
+        // with the physical names returned by native events. A DOS 8.3 temp
+        // parent can otherwise abort the entire process before JS can catch
+        // anything (#1717). Pin only private trace storage, never protocol cwd.
+        directory = fs.realpathSync.native(root);
+        watcher = fs.watch(directory, scan);
         watcher.on("error", settle);
         scan();
       } catch (error) {

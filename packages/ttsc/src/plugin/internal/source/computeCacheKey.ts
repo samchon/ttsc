@@ -1,3 +1,4 @@
+import type { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -72,6 +73,7 @@ export function computeCacheKey(inputs: {
   /** Byte adapter for delegated SDK identity; plugin source digests use fs. */
   filesystem?: Partial<SourceBuildFilesystemOperations>;
   goBinary?: string;
+  goModReader?: SourcePluginWorkspace.GoModReader;
   overlayDirs?: readonly string[];
 
   /**
@@ -139,6 +141,7 @@ export function computeCacheKey(inputs: {
     inputs.dir,
     env,
     goBinary,
+    inputs.goModReader,
   )) {
     hashSourceDirectory(
       hash,

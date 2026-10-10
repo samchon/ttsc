@@ -1,3 +1,4 @@
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { TRANSFORM_CLOCK_REFERENCE_DIRECTORIES } from "../clock/TRANSFORM_CLOCK_REFERENCE_DIRECTORIES";
@@ -42,6 +43,7 @@ export function notificationsProveProgramUnchanged(
    * proof.
    */
   cached: TtscCachedProjectTransform,
+  proof?: TtscGenerationProof.Transaction,
 ): boolean {
   if (!notificationsProveMembership(cached)) return false;
   for (const tracker of [
@@ -88,5 +90,5 @@ export function notificationsProveProgramUnchanged(
     TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.get(cached),
     resultFilesystem(cached.result),
   );
-  return matchesUniversalHostInputs(cached, cached.hostInputValidation);
+  return matchesUniversalHostInputs(cached, cached.hostInputValidation, proof);
 }

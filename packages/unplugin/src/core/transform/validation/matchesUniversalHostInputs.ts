@@ -1,3 +1,4 @@
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { matchesUniversalHostInputEntries } from "./matchesUniversalHostInputEntries";
@@ -34,8 +35,9 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
 export function matchesUniversalHostInputs(
   cached: TtscCachedProjectTransform,
   validation: TtscHostInputValidation,
+  proof?: TtscGenerationProof.Transaction,
 ): boolean {
-  if (!nativeInputPredicatesHold(cached)) return false;
+  if (!nativeInputPredicatesHold(cached, proof)) return false;
   let notificationsProveAll = true;
   for (const input of validation.covered) {
     if (!trackerProvesInputUnchanged(cached.hostInputMutationTracker, input)) {
@@ -44,10 +46,10 @@ export function matchesUniversalHostInputs(
     }
   }
   if (notificationsProveAll)
-    return matchesUniversalHostInputTrees(cached, validation);
+    return matchesUniversalHostInputTrees(cached, validation, proof);
   return (
     matchesUniversalHostInputEntries(cached, validation) &&
     matchesUniversalHostInputProbes(cached, validation) &&
-    matchesUniversalHostInputTrees(cached, validation)
+    matchesUniversalHostInputTrees(cached, validation, proof)
   );
 }

@@ -64,6 +64,9 @@ export function notifyWatchInputs(
   // so no persistent cache may keep it.
   if (
     hooks.project !== undefined &&
+    // Common delivery already withdrew this host cache. Incomplete local
+    // output cannot write a record, so avoid a second withdrawal callback.
+    cached.freshDeliveryOnly !== true &&
     !notifyProjectRecord(
       hooks.project,
       cached,

@@ -36,17 +36,15 @@ import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
  * @evidence contracts/performance.md#efficient-algorithms
  *   Cold graph index construction precedes separate scans of output, graph,
  *   candidate, dependency and host lists, followed by every collected member's
- *   filter pass. Duplicate occurrences still pay path/identity and candidate
- *   observations before seen rejection; rejected walk members are not added to
- *   seen. Native path/ancestor/case, existence and walk policy/component checks
+ *   filter pass. Lexical deduplication precedes native identity/candidate/walk
+ *   observations, including rejected members; distinct aliases stay separate. Native path/ancestor/case, existence and walk policy/component checks
  *   add costs to list/key text. Collected members, candidate/seen sets and
  *   output allocate population-sized storage; final string sorting adds output
  *   comparison work.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Generation state shares completed graph parsing, while this call's native
  *   identity context reuses its qualified path observations. The sets dedupe
- *   emitted lexical names and mark candidate membership; they do not suppress
- *   every repeated classification. Supplied filesystem, producer-derived state
+ *   every lexical classification and mark candidate membership. Supplied filesystem, producer-derived state
  *   and membership policy must represent the same stable generation view.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Its collections are local to the call and released on return; only the
@@ -144,6 +142,10 @@ export function selectExternalInputPaths(props: {
     }
     const absolute = path.resolve(props.projectRoot, member);
     const spelling = path.resolve(absolute);
+    // Classify each lexical address once, including rejected walk members.
+    // Physical aliases remain distinct so retargeting is still observable.
+    if (seen.has(spelling)) continue;
+    seen.add(spelling);
     const identity = pathIdentityKey(absolute, identities);
     const observation = graphIndexes.inputObservations.get(spelling);
     const missingCandidate =
@@ -153,7 +155,6 @@ export function selectExternalInputPaths(props: {
     if (
       identity === excluded ||
       isTransformScratchInput(absolute, props.scratchDirectory) ||
-      seen.has(spelling) ||
       (!missingCandidate &&
         isProjectWalkPath(
           props.projectRoot,
@@ -167,7 +168,6 @@ export function selectExternalInputPaths(props: {
     }
     // Preserve distinct lexical aliases even when they currently select the
     // same physical file. A later retarget must validate the alias itself.
-    seen.add(spelling);
     output.push(absolute);
   }
   output.sort();

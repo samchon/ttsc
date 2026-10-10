@@ -171,6 +171,7 @@ export function turbopack(
   }
   const hooks: TtscTransformHooks = {
     exactPath: true,
+    watching,
     ...(addDependency === undefined
       ? {}
       : {
@@ -186,7 +187,7 @@ export function turbopack(
             toolDirectory,
             // Turbopack takes no record outside its root, so a watching worker
             // refuses a module it could hand none (samchon/ttsc#1480).
-            watching: bridge !== undefined,
+            watching,
           },
         }),
     ...(bindings.markVolatile === undefined

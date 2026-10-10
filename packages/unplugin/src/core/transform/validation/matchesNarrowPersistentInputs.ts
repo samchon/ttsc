@@ -1,3 +1,4 @@
+import type { TtscGenerationProof } from "./TtscGenerationProof";
 import path from "node:path";
 
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
@@ -49,6 +50,7 @@ export function matchesNarrowPersistentInputs(
   cached: TtscCachedProjectTransform,
   /** Delivered file spelling selecting this envelope's dependency closure. */
   file: string,
+  proof?: TtscGenerationProof.Transaction,
 ): boolean | undefined {
   if (reportsMembershipChange(cached)) {
     return false;
@@ -61,7 +63,7 @@ export function matchesNarrowPersistentInputs(
   if (hostValidation === undefined) {
     return undefined;
   }
-  if (!matchesUniversalHostInputs(cached, hostValidation)) {
+  if (!matchesUniversalHostInputs(cached, hostValidation, proof)) {
     return false;
   }
   const inputs = selectWatchInputs({

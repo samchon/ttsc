@@ -75,6 +75,42 @@ export namespace PluginBuildEnvironmentReadings {
   }
 
   /**
+   * Qualify a batch in one synchronous observation transaction. Shared SDK
+   * paths and the complete variable identity are read once, even when several
+   * plugin directories use them. Missing readings remain explicitly missing.
+   *
+   * WARNING (#1712): this map belongs only to the following synchronous proof.
+   * Never retain it across an await, delivery, build boundary or publication.
+   * A process-permanent positive witness would miss changed Go tools and GOENV
+   * files (#1516); independently checking it in every helper instead multiplies
+   * a thousands-file GOROOT scan by modules and proof layers.
+   *
+   * @evidence contracts/common.md#principled-implementation One current variable snapshot and native path observation are compared against each reading's own expected witness; conflicting expected states cannot both pass.
+   * @evidence contracts/common.md#clear-and-simple-design One batch operation owns shared validation without changing synchronous reads or native worker publication boundaries.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Undefined is retained for absent or stale authority; no positive verdict survives this explicit observation transaction.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs state scope, missing semantics and the performance/correctness regressions prevented by the lifetime restriction.
+   * @evidence contracts/portability.md#os-neutral-implementation Existing native witness keys preserve filesystem, link and ambient-variable distinctions; no platform case assumption is added.
+   * @evidence contracts/performance.md#efficient-algorithms Full variables are indexed once; each distinct witnessed path is queried once while each reading compares its own witness entries. Work is proportional to variable bytes, total witness entries and unique native dependencies rather than repeated native SDK scans.
+   * @evidence contracts/performance.md#reuse-equivalent-work Only current native observations within this synchronous batch are shared; the returned digests do not authorize reuse after another asynchronous boundary.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The native observation map is call-local and the digest map transfers to its immediate proof caller; no handle or historical registry is acquired.
+   */
+  export function cachedAll(
+    directories: Iterable<string>,
+  ): ReadonlyMap<string, string | undefined> {
+    let variables: string | undefined;
+    const current = new Map<string, string>();
+    const result = new Map<string, string | undefined>();
+    for (const directory of directories) {
+      if (result.has(directory)) continue;
+      const known = readings.get(directory + (variables ??= key("", process.env)));
+      result.set(directory, known !== undefined &&
+        PluginBuildEnvironmentWitness.holds(known.witness, undefined, current)
+        ? known.environment : undefined);
+    }
+    return result;
+  }
+
+  /**
    * Read synchronously for clients whose API owns synchronous native work.
    * Explicit refresh preserves the original fresh-comparison semantics.
    *

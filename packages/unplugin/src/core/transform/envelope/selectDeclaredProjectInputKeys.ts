@@ -26,8 +26,8 @@ import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
  *   Visits each reported occurrence in graph endpoints/globals/configs,
  *   candidates, host inputs and dependency arrays. Native resolve, scratch
  *   checks, project-key identity/ancestor/case observations and text hashing
- *   precede each own-key membership test; duplicate declarations still pay
- *   those queries, with native answers shared by the supplied context. Entry
+ *   precede each own-key membership test after lexical deduplication; repeated
+ *   declarations pay resolution but no repeated native classification. Entry
  *   arrays from Object.entries/Object.values follow producer populations,
  *   while the returned set cannot exceed keys present in the project snapshot.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
@@ -49,9 +49,12 @@ export function selectDeclaredProjectInputKeys(props: {
   }
   const graph = props.result.graph;
   const keys = new Set<string>();
+  const seen = new Set<string>();
   const add = (entry: unknown): void => {
     if (typeof entry !== "string" || entry.length === 0) return;
     const absolute = path.resolve(props.projectRoot, entry);
+    if (seen.has(absolute)) return;
+    seen.add(absolute);
     if (isTransformScratchInput(absolute, props.scratchDirectory)) return;
     const key = toProjectKey(props.projectRoot, absolute, props.identities);
     if (Object.prototype.hasOwnProperty.call(props.projectInputHashes, key)) {
