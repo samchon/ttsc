@@ -29,7 +29,7 @@ import { watchBrokerSource } from "./watchBrokerSource";
  *   passes each drop on as a gap (samchon/ttsc#1425); see
  *   {@link watchBrokerSource}.
  *
- * Registration/drain owners unreference the child and IPC channel after their
+ * Registration/drain owners unreference the child and its transport after their
  * outstanding acknowledgments finish; startup itself returns a referenced
  * child. Last-registration closure ends the request stream and attempts
  * termination. This accessor has no independent shutdown deadline or exit
@@ -54,10 +54,10 @@ import { watchBrokerSource } from "./watchBrokerSource";
  *   Argument-array spawn, hidden Windows processes and ordered transport stay
  *   inside this boundary.
  * @evidence contracts/performance.md#efficient-algorithms
- *   A current-holder read is fixed work. Cold startup includes optional native
- *   module resolution/warning, child source construction and native process/IPC
- *   creation; resolution/path/source bytes and process startup cost do not
- *   vanish into one spawn call. Failure visits R registrations and D drain
+ *   A current-holder read is fixed work. Windows cold startup resolves the ttsc
+ *   binary and opens native protocol pipes; macOS resolves the optional binding,
+ *   reports missing capability and constructs its child program and IPC channel.
+ *   Resolution/path/source bytes and native process startup cost remain real. Failure visits R registrations and D drain
  *   callbacks, whose native/reference/sink work remains delegated; it does not
  *   enumerate watched source trees.
  *   Enabled private tracing serializes the actual executable/source argv and

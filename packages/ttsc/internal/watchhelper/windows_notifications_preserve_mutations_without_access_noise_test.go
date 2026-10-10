@@ -26,11 +26,11 @@ import (
 //  1. Force actual access-time updates and reads, then observe a native marker.
 //  2. Preserve A-B-A writes, recursion, Unicode rename/removal and separate owners.
 //  3. Refuse missing/file roots, classify literal malformed/lost batches as gaps,
-//     and close a real armed protocol session through EOF.
+//     and stream ready/drain, subscriber joins/removal and EOF retirement.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual Windows broker acquires handles, receives native notifications and emits decoded wire results; assertions distinguish access noise, real changes, recursion, independent registrations, failed acquisition, loss and EOF retirement.
+// @evidence contracts/testing.md#behavioral-verification The actual Windows broker acquires handles, receives native notifications and emits decoded wire results; assertions distinguish access noise, real changes, recursion, independent registrations, failed acquisition, loss and actual streaming ready/drain/join/remove/EOF retirement.
 // @evidence contracts/testing.md#independent-expectations Authored file names, native access timestamps and literal malformed notification bytes establish expectations independently of the implementation's mask or decoded results.
-// @evidence contracts/testing.md#distinguishing-cases Real access-only updates contrast with content-preserving A-B-A writes; shallow and recursive registrations contrast on one native tree; live and removed owners, valid Unicode names and malformed/truncated batches distinguish coverage and loss.
+// @evidence contracts/testing.md#distinguishing-cases Real access-only updates contrast with content-preserving A-B-A writes; shallow and recursive registrations contrast on one native tree; live and removed owners, pre-join and shared mutations across actual request/reply frontiers, valid Unicode names and malformed/truncated batches distinguish coverage and loss.
 // @evidence contracts/testing.md#execution-ownership This direct Go unit invokes the owning native broker and run in process using temporary files and memory streams; it installs no package and launches no compiler, runtime or helper child.
 func TestWindowsNotificationsPreserveMutationsWithoutAccessNoise(t *testing.T) {
   t.Run("access and ABA", func(t *testing.T) {
@@ -196,6 +196,173 @@ func TestWindowsNotificationsPreserveMutationsWithoutAccessNoise(t *testing.T) {
       t.Fatalf("last owner did not retire native registry")
     }
   })
+  t.Run("streaming ready drain sharing and EOF", func(t *testing.T) {
+    root := t.TempDir()
+    input, requests := io.Pipe()
+    responses, output := io.Pipe()
+    rows := make(chan map[string]any, 256)
+    scanResult := make(chan error, 1)
+    finished := make(chan int, 1)
+    stopScan := make(chan struct{})
+    go func() {
+      code := Run(input, output, io.Discard)
+      _ = input.Close()
+      _ = output.Close()
+      finished <- code
+    }()
+    go func() {
+      defer close(rows)
+      scanner := bufio.NewScanner(responses)
+      for scanner.Scan() {
+        var row map[string]any
+        if err := json.Unmarshal(scanner.Bytes(), &row); err != nil {
+          scanResult <- err
+          return
+        }
+        select {
+        case rows <- row:
+        case <-stopScan:
+          scanResult <- nil
+          return
+        }
+      }
+      scanResult <- scanner.Err()
+    }()
+    joined := false
+    scannerJoined := false
+    t.Cleanup(func() {
+      _ = requests.Close()
+      // Caller-owned pipe closure unblocks native output and the scanner on
+      // failure. Join both owned goroutines before temporary cleanup.
+      if !joined {
+        _ = responses.Close()
+        select {
+        case <-finished:
+        case <-time.After(10 * time.Second):
+          t.Error("streaming native owner did not retire after caller closure")
+        }
+      }
+      close(stopScan)
+      _ = responses.Close()
+      if !scannerJoined {
+        select {
+        case <-scanResult:
+        case <-time.After(10 * time.Second):
+          t.Error("protocol scanner did not retire after caller closure")
+        }
+      }
+    })
+    encoder := json.NewEncoder(requests)
+    send := func(request windowsBrokerRequest) {
+      t.Helper()
+      if err := encoder.Encode(request); err != nil {
+        t.Fatal(err)
+      }
+    }
+    observed := []map[string]any{}
+    until := func(predicate func(map[string]any) bool) {
+      t.Helper()
+      deadline := time.NewTimer(10 * time.Second)
+      defer deadline.Stop()
+      for {
+        select {
+        case row, open := <-rows:
+          if !open {
+            t.Fatal("protocol output ended before its positive frontier")
+          }
+          observed = append(observed, row)
+          if row["failed"] == true || row["gap"] == true {
+            t.Fatalf("unexpected native coverage loss: %+v", row)
+          }
+          if predicate(row) {
+            return
+          }
+        case <-deadline.C:
+          t.Fatalf("streaming native frontier stalled: %+v", observed)
+        }
+      }
+    }
+    ready := func(id int64) {
+      t.Helper()
+      send(windowsBrokerRequest{Op: "add", ID: id, AllEvents: true, Locations: []windowsWatchLocation{{Directory: root}}})
+      until(func(row map[string]any) bool { return row["id"] == float64(id) && row["ready"] == true })
+    }
+    drain := func(id int64) {
+      t.Helper()
+      send(windowsBrokerRequest{Op: "drain", ID: id})
+      until(func(row map[string]any) bool { return row["id"] == float64(id) && row["drained"] == true })
+    }
+    write := func(name string) {
+      t.Helper()
+      if err := os.WriteFile(filepath.Join(root, name), []byte("actual native mutation"), 0600); err != nil {
+        t.Fatal(err)
+      }
+    }
+    ready(1)
+    write("before-join.ts")
+    until(func(row map[string]any) bool { return row["id"] == float64(1) && row["filename"] == "before-join.ts" })
+    drain(100)
+    ready(2)
+    write("shared.ts")
+    seen := map[float64]bool{}
+    until(func(row map[string]any) bool {
+      if row["filename"] == "shared.ts" {
+        id, ok := row["id"].(float64)
+        if ok {
+          seen[id] = true
+        }
+      }
+      return seen[1] && seen[2]
+    })
+    drain(101)
+    for _, row := range observed {
+      if row["id"] == float64(2) && row["filename"] == "before-join.ts" {
+        t.Fatalf("new owner received a mutation before its observed join frontier: %+v", row)
+      }
+    }
+    send(windowsBrokerRequest{Op: "remove", ID: 1})
+    drain(102)
+    observed = nil
+    write("after-remove.ts")
+    until(func(row map[string]any) bool { return row["id"] == float64(2) && row["filename"] == "after-remove.ts" })
+    drain(103)
+    for _, row := range observed {
+      if row["id"] == float64(1) {
+        t.Fatalf("removed owner received a later native row: %+v", row)
+      }
+    }
+    if err := requests.Close(); err != nil {
+      t.Fatal(err)
+    }
+    select {
+    case code := <-finished:
+      joined = true
+      if code != 0 {
+        t.Fatalf("actual armed protocol did not retire successfully: %d", code)
+      }
+    case <-time.After(10 * time.Second):
+      t.Fatal("EOF did not retire the actual native loop")
+    }
+    err := <-scanResult
+    scannerJoined = true
+    if err != nil {
+      t.Fatalf("actual protocol framing failed: %v", err)
+    }
+    // A directory handle with no sharing cannot coexist with the helper's
+    // retired FILE_LIST_DIRECTORY handle. This checks actual native closure.
+    native, err := windows.UTF16PtrFromString(root)
+    if err != nil {
+      t.Fatal(err)
+    }
+    exclusive, err := windows.CreateFile(native, windows.FILE_LIST_DIRECTORY, 0, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
+    if err != nil {
+      t.Fatalf("EOF retained a native directory owner: %v", err)
+    }
+    if err := windows.CloseHandle(exclusive); err != nil {
+      t.Fatal(err)
+    }
+  })
+
   t.Run("failure loss and EOF", func(t *testing.T) {
     root := t.TempDir()
     file := filepath.Join(root, "file")

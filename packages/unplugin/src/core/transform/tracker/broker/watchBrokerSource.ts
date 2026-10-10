@@ -59,8 +59,10 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
  *   The optional fs.watch two-turn frontier retains its runtime/backend ordering premise;
  *   this source does not independently prove kernel completeness.
  * @evidence contracts/common.md#clear-and-simple-design
- *   One maintained child program serves both native backends; this function only
- *   injects resolved capability and the shared timeout, with JSON-safe path encoding.
+ *   One maintained child program serves macOS and the explicitly selected
+ *   fs.watch protocol capability; Windows production uses its native helper.
+ *   This function injects resolved capability and the shared timeout with
+ *   JSON-safe path encoding.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Native flags and deadlines express backend contracts, not fixture-specific
  *   repairs. Missing bindings and probes report uncertainty rather than silent success.

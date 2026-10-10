@@ -64,18 +64,20 @@ import { selectTransformAttemptDisposition } from "./selectTransformAttemptDispo
  * (samchon/ttsc#1545).
  *
  * A local success whose only lost premise is explicitly unavailable host
- * observation may qualify for its initiating delivery. The delivery coordinator
- * additionally requires an explicitly nonwatching host with cache-withdrawal
- * capability. It remains incomplete and cannot authorize resident, shared or
- * persistent caching. Actual changes, conflicts and unexplained missing proof
- * retain the stabilization gate.
+ * observation may qualify for local delivery. TtscGenerationProof additionally
+ * requires an explicitly nonwatching host and actual cache withdrawal for every
+ * delivery. It alone can share recorded first-module baselines inside the same
+ * explicit pass. This incomplete result cannot authorize ordinary resident
+ * reuse, a persistent project record or shared publication; repeated modules
+ * and later passes recapture. Actual changes, conflicts and unexplained missing
+ * proof retain the stabilization gate.
  *
  * Enabled private tracing records each computed disposition before its state is
  * applied. It does not supply proof when capture throws or tracing fails.
  *
- * @evidence contracts/common.md#principled-implementation Each capture establishes config coherence and reusable success proof or a current diagnostic verdict; a local stable success with only explicit unavailable host observations instead transfers one fresh delivery without reuse authority, while mixed mutation, missing or conflicting proof retains retry admission.
+ * @evidence contracts/common.md#principled-implementation Each capture establishes config coherence and reusable success proof or a current diagnostic verdict; a local stable success with only explicit unavailable host observations instead transfers an incomplete local result whose bounded first deliveries require the common nonwatching pass owner, while mixed mutation, missing or conflicting proof retains retry admission.
  * @evidence contracts/common.md#clear-and-simple-design The pure attempt policy selects acceptance and retry budgets; this loop owns mutable learned facts and resource handoff, capture owns proof construction, and the shared error builder owns terminal rendering and final disposal.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Retrying follows learned dependencies/case policy or refuted publication payload rather than an endless workaround chain; only lossless producer-authorized observation unavailability can permit a local fresh answer, and it never becomes a reusable success or excuses actual mutation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Retrying follows learned dependencies/case policy or refuted publication payload rather than an endless workaround chain; only lossless producer-authorized observation unavailability can permit a local fresh answer, and it never becomes complete or persistent/shared success proof or excuses actual mutation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain movement versus absolute budgets, failed-compile diagnostics and learned facts; separated props state delivery, tracking and inherited witness meaning.
  * @evidence contracts/portability.md#os-neutral-implementation Each capture delegates native filesystem and compiler behavior to injected host boundaries; reported compiler case policy is carried between attempts rather than guessed from OS names.
  * @evidence contracts/performance.md#efficient-algorithms At most four captures bound retry count, not each capture's project/config/input bytes, native walks, compiler/plugin work, observer setup or session waiting time. Each rejected attempt copies the cumulative witnessed Set and scans its external dependencies into that copy; the next capture receives a separate array of its names; supplied spellings contribute hashing/text cost. Terminal rendering visits retained attempts/witnesses, and disposal delegates observer/probe cleanup rather than making those effects constant work. Enabled tracing serializes disposition scalars and path text through the existing bounded append sink; disabled tracing skips that payload construction.

@@ -20,9 +20,10 @@ import { spawnGoTool } from "./spawnGoTool";
  * its pinned tool and effective environment; identical current bytes in
  * independently proven scratch inputs share their Go parse. A moved native tool
  * clears that reader's syntax memo, and a toolchain retry starts a new reader
- * scope. Go supplies the workspace's required Go and toolchain directives.
- * These reads preserve the existing installation/version and
- * sequential-stability limits.
+ * scope. Each caller has a diagnostic view over the shared native reader state;
+ * one plugin cannot inherit another plugin's failure label (#1720). Go supplies
+ * the workspace's required Go and toolchain directives. These reads preserve
+ * the existing installation/version and sequential-stability limits.
  *
  * @evidence contracts/common.md#principled-implementation Shared manifest acquisition, managed replacement admission, overlay filtering and Go-owned workspace version selection keep metadata and compilation under the same workspace policy; callers own source materialization and effective environment.
  * @evidence contracts/common.md#clear-and-simple-design One namespace owns the generated workspace and its module reader, overlay discovery and Go launch diagnostics; no second manifest parser or build-tag interpreter is introduced.
@@ -196,17 +197,19 @@ export namespace SourcePluginWorkspace {
   export interface GoModReader {
     /**
      * Observe the module at this native directory within the reader context.
+     * The optional diagnostic owner overrides the creating caller's label only;
+     * it changes no selected-tool, environment or byte-content authority.
      *
      * @evidence contracts/common.md#principled-implementation The signature associates a native directory with the selected reader's Go-owned module and replacement observation.
-     * @evidence contracts/common.md#clear-and-simple-design One input and one record expose the manifest policy needed by the workspace writer.
+     * @evidence contracts/common.md#clear-and-simple-design A directory and optional diagnostic label expose manifest policy without treating the label as native cache authority.
      * @evidence contracts/common.md#prohibited-implementation-shortcuts The signature supplies no parser, alternate selection policy or stability certificate.
-     * @evidence contracts/common.md#meaningful-documentation Native prose states that the result belongs to the reader context rather than a context-independent directory cache.
+     * @evidence contracts/common.md#meaningful-documentation Native prose states selected-context result ownership and the optional caller label, which changes failure attribution only.
      * @evidence contracts/portability.md#os-neutral-implementation The directory is a native filesystem path; its resolution belongs to the implementing reader.
      * @evidence contracts/performance.md#efficient-algorithms A method signature executes no algorithm; createGoModReader owns acquisition and parsing.
      * @evidence contracts/performance.md#reuse-equivalent-work Implementations supply observations within their selected tool/environment scope; this signature establishes no cross-context memo.
      * @evidence contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource; record retention belongs to the reader's enclosing load or materialized build.
      */
-    read(dir: string): GoModInfo;
+    read(dir: string, diagnosticPlugin?: string): GoModInfo;
   }
 
   interface GoModJson {
@@ -232,16 +235,18 @@ export namespace SourcePluginWorkspace {
   /**
    * Read current manifest bytes and share identical Go parses within one pinned
    * selected-tool/load context, including copied scratch modules. An optional
-   * registry shares the reader itself from the first watch query onward; its
+   * registry shares native reader state from the first watch query onward; its
    * owner must keep one fixed effective environment and discard it on retry.
+   * Caller views share that native state and syntax, while each default
+   * diagnostic label remains with its current caller.
    *
    * @evidence contracts/common.md#principled-implementation Actual go mod edit JSON determines module/replacement identities; current bytes, selected/dispatched-tool metadata and Go's environment-file witness qualify reuse under the existing metadata-distinguishability premise. Environment values are copied at reader creation. Missing go.mod returns the existing empty module observation, and moving tool/manifest inputs cannot publish a parsed record.
-   * @evidence contracts/common.md#clear-and-simple-design One factory acquires load-owned readers by selected tool, and each reader wraps Go acquisition with a byte-content map; current reads and post-parse byte/tool comparisons qualify insertion.
+   * @evidence contracts/common.md#clear-and-simple-design One factory acquires load-owned native reader state by selected tool; a thin caller view forwards its diagnostic label without duplicating the byte-content map. Current reads and post-parse byte/tool comparisons qualify insertion.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No custom Go manifest parser or global context-insensitive memo is introduced.
    * @evidence contracts/common.md#meaningful-documentation Native prose states this operation's authority and delegated boundaries; fields retain separate native comments.
    * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and temporary cwd avoid deep Windows working-directory limits; the selected tool handles manifest syntax.
-   * @evidence contracts/performance.md#efficient-algorithms Reader acquisition performs a selected-tool registry lookup; every nonmissing read qualifies tool/environment metadata and reads current manifest bytes. A cold or stale witness acquires current Go values and its GOENV file evidence through the common reader, without a GOROOT walk. Only complete native GOENV/GOROOT locations qualify syntax sharing; a dispatched tool is witnessed before parsing. Unavailable native environment acquisition disables syntax sharing while preserving actual parse success or failure. Each distinct byte string in that tool epoch runs Go mod edit and complete JSON parsing once, then rechecks bytes/tool metadata before caching; copied manifests share that parse.
-   * @evidence contracts/performance.md#reuse-equivalent-work The caller may share this reader only within one load and the same pinned tool/effective environment; parsed syntax is not cross-load or native containment authority.
+   * @evidence contracts/performance.md#efficient-algorithms Reader acquisition performs a selected-tool registry lookup; every nonmissing read qualifies tool/environment metadata and reads current manifest bytes. A cold or stale witness first observes the selected launcher; an unavailable or nonfile launcher skips optional environment acquisition and permits only the actual uncached parse attempt. An observed file lends its same pre-read stat to the witness before acquiring current Go values and GOENV evidence through the common reader, without a GOROOT walk. Only complete native GOENV/GOROOT locations qualify syntax sharing; a dispatched tool is witnessed before parsing. Unavailable native environment acquisition disables syntax sharing while preserving actual parse success or failure. Each distinct byte string that earns stable successful syntax in that tool epoch runs Go mod edit and complete JSON parsing once, then rechecks bytes/tool metadata before caching; copied manifests share that parse. Failed queries remain uncached and report the current caller's diagnostic label.
+   * @evidence contracts/performance.md#reuse-equivalent-work The caller may share this reader only within one load and the same pinned tool/effective environment; parsed syntax is not cross-load or native containment authority. Caller views share native state while preserving failure attribution; diagnostic labels are not syntax cache inputs.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The map retains distinct manifest bytes and parsed syntax for its caller's load/build lifetime; process/output capture cleanup remains delegated.
    */
   export function createGoModReader(
@@ -251,7 +256,11 @@ export namespace SourcePluginWorkspace {
     readers?: Map<string, GoModReader>,
   ): GoModReader {
     const existing = readers?.get(goBinary);
-    if (existing !== undefined) return existing;
+    if (existing !== undefined)
+      return {
+        read: (dir, diagnosticPlugin = pluginName) =>
+          existing.read(dir, diagnosticPlugin),
+      };
     // WARNING (#1712): parse identical bytes once in this pinned tool/load
     // context, including early replacement watch projection and copied scratch
     // manifests. The optional registry belongs to one fixed effective environment
@@ -261,17 +270,19 @@ export namespace SourcePluginWorkspace {
     // Fixed variable strings do not freeze GOENV or a dispatched Go executable.
     // Requalify their actual native evidence before every syntax hit; missing
     // environment authority permits a fresh parse only, never positive reuse.
+    // WARNING (#1720): diagnostic names are per caller, not a syntax/cache input.
+    // Shared views must forward their current label to every failed native read.
     const cache = new Map<string, GoModInfo>();
     const environment = { ...env };
     let toolWitness: PluginBuildEnvironmentWitness.Record | undefined;
     const reader: GoModReader = {
-      read(dir) {
+      read(dir, diagnosticPlugin = pluginName) {
         OwnedSynchronousProcess.checkpoint();
         const resolved = path.resolve(dir);
         const manifest = path.join(resolved, "go.mod");
-        let text: string;
+        let bytes: Buffer;
         try {
-          text = fs.readFileSync(manifest, "utf8");
+          bytes = fs.readFileSync(manifest);
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code === "ENOENT")
             return emptyGoModInfo();
@@ -283,16 +294,29 @@ export namespace SourcePluginWorkspace {
         ) {
           cache.clear();
           const witness: PluginBuildEnvironmentWitness.Record = new Map();
-          PluginBuildEnvironmentWitness.add(witness, goBinary);
+          let launcher: fs.BigIntStats | undefined;
+          try {
+            launcher = fs.statSync(goBinary, { bigint: true });
+          } catch {
+            // Unavailable metadata cannot qualify optional syntax reuse.
+          }
+          if (launcher?.isFile() === true)
+            PluginBuildEnvironmentWitness.add(witness, goBinary, launcher);
           // GOENV can change toolchain selection without changing env strings.
           // Share its existing native discovery owner; do not scan GOROOT here.
-          const observed = GoEnvironmentReading.read(
-            goBinary,
-            os.tmpdir(),
-            environment,
-            ["GOROOT"],
-            witness,
-          );
+          // Do not launch a missing/unobservable tool twice just to learn that
+          // optional cache qualification is unavailable (#1712). The actual
+          // mod-edit attempt below still owns its current failure or success.
+          const observed =
+            launcher?.isFile() === true
+              ? GoEnvironmentReading.read(
+                  goBinary,
+                  os.tmpdir(),
+                  environment,
+                  ["GOROOT"],
+                  witness,
+                )
+              : undefined;
           if (
             typeof observed?.GOROOT === "string" &&
             path.isAbsolute(observed.GOROOT)
@@ -315,12 +339,20 @@ export namespace SourcePluginWorkspace {
               ? witness
               : undefined;
         }
-        const cached = cache.get(text);
+        // UTF-8 decoding is lossy for malformed input. Only identical bytes
+        // can share Go syntax, even when Go serializes two inputs identically.
+        const byteKey = bytes.toString("base64");
+        const cached = cache.get(byteKey);
         if (cached !== undefined) {
           return cached;
         }
-        const info = readGoModInfo(resolved, goBinary, pluginName, environment);
-        if (fs.readFileSync(manifest, "utf8") !== text)
+        const info = readGoModInfo(
+          resolved,
+          goBinary,
+          diagnosticPlugin,
+          environment,
+        );
+        if (!fs.readFileSync(manifest).equals(bytes))
           throw new Error(
             `ttsc: go.mod changed while Go was reading ${manifest}`,
           );
@@ -333,7 +365,7 @@ export namespace SourcePluginWorkspace {
           );
         // An unavailable environment observation can still execute a fresh Go
         // parse, but it cannot authorize sharing that result on another call.
-        if (toolWitness !== undefined) cache.set(text, info);
+        if (toolWitness !== undefined) cache.set(byteKey, info);
         return info;
       },
     };

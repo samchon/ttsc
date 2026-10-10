@@ -88,7 +88,7 @@ import { prepareProjectRecordDirectories } from "./watch/prepareProjectRecordDir
  *   belong to compiler/capture owners; uncached captures retain no notification
  *   or persistent clock probe. Fresh-only delivery releases capture resources,
  *   retaining only an explicitly admitted local pass result; rejected or failed
- *   incomplete handoff detaches its generation. eviction/disposal attempt independent resource release
+ *   incomplete handoff detaches its generation. Eviction/disposal attempt independent resource release
  *   and native failures need not close every handle or remove every probe.
  * @evidence contracts/portability.md#os-neutral-implementation Native module paths and project coordinates use supported path/filesystem abstractions, while actual case policy and watcher capability come from generation proof rather than OS-name assumptions.
  */

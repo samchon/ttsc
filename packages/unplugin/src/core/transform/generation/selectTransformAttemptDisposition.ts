@@ -8,7 +8,9 @@ import { onlyLearnedCompileFacts } from "./onlyLearnedCompileFacts";
  * facts describe the capture; this policy performs no capture or native proof.
  *
  * Coherent results return first. A local, lossless host-observation refusal can
- * transfer one fresh success without reuse authority. Rejected attempts spend
+ * transfer an incomplete local success. TtscGenerationProof owns any sharing of
+ * its first module deliveries inside an explicit nonwatching pass; this policy
+ * grants no independent native or persistent proof. Rejected attempts spend
  * movement only when they neither refute a publication nor solely learn facts.
  * Two movements or four captures stop retrying, retaining a current diagnostic
  * rather than a terminal instability verdict when its config is not refuted.
