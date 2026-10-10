@@ -1,0 +1,1 @@
+A directory with no Go files, so Go reports an error for it.
