@@ -6,6 +6,8 @@ import (
   "path/filepath"
   "slices"
   "testing"
+
+  "github.com/microsoft/typescript-go/shim/core"
 )
 
 // TestTransformGraphReplaysCompilerResolutionSemantics loads authored native
@@ -14,8 +16,8 @@ import (
 // Required candidate membership is checked rather than an exact candidate set;
 // the same maintained compiler supplies the Program and resolution replay.
 //
-// @evidence contracts/testing.md#behavioral-verification Actual LoadProgram and NewTransformGraph expose the asserted package/import/suffix/reference candidate paths and type-root listing. Additional fixtures check JSON-reference admission, a noResolve target outside the Program, unbuilt project-reference resident versus nonresident edges, and explicit versus absent or relative semantic config selection.
-// @evidence contracts/testing.md#independent-expectations Required candidate paths, project-reference edge presence/absence, and selected config filenames are authored literals. The explicit wildcard type root contains exactly fixture-types and no files; independent native EvalSymlinks supplies its expected directory identity. Candidates are not checked for exact equality, and the uppercase JSON expectation uses the Program's filesystem case policy; this does not independently certify that policy or the compiler's full resolver semantics. Wildcard type enumeration is not claimed for an omitted types option.
+// @evidence contracts/testing.md#behavioral-verification Actual LoadProgram and NewTransformGraph expose the asserted package/import/suffix/reference candidate paths and type-root listing. Additional fixtures check JSON-reference admission, a noResolve target outside the Program, unbuilt project-reference resident versus nonresident edges, and explicit versus absent or relative semantic config selection; an explicit semantic config must also own the Program's current directory while the generated wrapper's strict overlay still applies.
+// @evidence contracts/testing.md#independent-expectations Required candidate paths, project-reference edge presence/absence, selected config filenames, the semantic project directory and the wrapper's authored strict option are authored literals. The explicit wildcard type root contains exactly fixture-types and no files; independent native EvalSymlinks supplies its expected directory identity. Candidates are not checked for exact equality, and the uppercase JSON expectation uses the Program's filesystem case policy; this does not independently certify that policy or the compiler's full resolver semantics. Wildcard type enumeration is not claimed for an omitted types option.
 // @evidence contracts/testing.md#distinguishing-cases resolveJsonModule false/true and conditional uppercase admission contrast; noResolve retains a successful target as a candidate. Project-reference source presence and output absence differ from realized edge membership. Explicit absolute semantic config, an unmarked wrapper despite ambient metadata, and a rejected relative semantic path exercise separate selection branches.
 // @evidence contracts/testing.md#execution-ownership This driver Go unit writes and cleans its own temporary projects, constructs maintained native compiler Programs in-process, and calls the owning graph operation. Each returned Program is closed; a restored empty linked-plugin manifest excludes ambient hooks, and no installed consumer or external compiler command is used. It does not substitute a literal-input-only aggregation test for this native compiler connection.
 func TestTransformGraphReplaysCompilerResolutionSemantics(t *testing.T) {
@@ -342,6 +344,15 @@ export const parent = true;`,
   defer semanticProgram.Close()
   if got := semanticProgram.TSProgram.Options().ConfigFilePath; got.AsString() != filepath.ToSlash(semanticConfig) {
     t.Fatalf("generated wrapper semantic config = %q, want %q", got, filepath.ToSlash(semanticConfig))
+  }
+  // The compiler anchors type discovery and its current directory at the
+  // parsed config's base directory, not ConfigFilePath. The user config must
+  // be the parsed project while the wrapper's overlay still applies.
+  if got := semanticProgram.TSProgram.GetCurrentDirectory(); got.AsString() != filepath.ToSlash(semanticRoot) {
+    t.Fatalf("generated wrapper base directory = %q, want %q", got, filepath.ToSlash(semanticRoot))
+  }
+  if got := semanticProgram.TSProgram.Options().Strict; got != core.TSTrue {
+    t.Fatalf("generated wrapper overlay strict = %v, want true", got)
   }
   semanticGraph := NewTransformGraph(semanticProgram, semanticRoot)
   semanticTypeRoot := filepath.ToSlash(filepath.Join("node_modules", "@types"))
