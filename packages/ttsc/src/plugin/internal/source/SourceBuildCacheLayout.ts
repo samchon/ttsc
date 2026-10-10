@@ -53,6 +53,18 @@ export namespace SourceBuildCacheLayout {
   /** Directory of the capability-resolution answers inside the cache root. */
   export const CAPABILITY_CACHE_DIRNAME = "capabilities";
 
+  /**
+   * Directory of the content identities a plugin load proves from metadata
+   * (`PluginContentIdentities`) inside the cache root.
+   */
+  export const IDENTITY_CACHE_DIRNAME = "identities";
+
+  /**
+   * Directory of the plugin-load answers keyed by those identities, such as Go
+   * package selections and runtime capabilities (`PluginLoadAnswers`).
+   */
+  export const ANSWER_CACHE_DIRNAME = "answers";
+
   /** Directory of the ttsx runtime inside the cache root. */
   export const RUNTIME_CACHE_DIRNAME = "ttsx";
 
@@ -72,6 +84,8 @@ export namespace SourceBuildCacheLayout {
   export const CACHE_FILE_DIRNAMES: readonly string[] = [
     DESCRIPTOR_CACHE_DIRNAME,
     CAPABILITY_CACHE_DIRNAME,
+    IDENTITY_CACHE_DIRNAME,
+    ANSWER_CACHE_DIRNAME,
     ORPHAN_CACHE_DIRNAME,
   ];
 

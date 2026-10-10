@@ -4,6 +4,7 @@ import { resolveNodeBinary } from "../../internal/resolveNodeBinary";
 import { collectProjectHostInputs } from "../../plugin/internal/load/collectProjectHostInputs";
 import { hashHostInputPaths } from "../../plugin/internal/load/hashHostInputPaths";
 import { loadProjectPlugins } from "../../plugin/internal/load/loadProjectPlugins";
+import type { PluginContentIdentities } from "../../plugin/internal/source/PluginContentIdentities";
 import { realpathHostInputPaths } from "../../plugin/internal/load/realpathHostInputPaths";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { ITtscCompilerTransformation } from "../../structures/ITtscCompilerTransformation";
@@ -301,6 +302,7 @@ function transformProjectWithPlugins(
     tsgoBinary,
     loaded.nativePlugins,
     checks,
+    loaded.identities,
   );
   const checkedHostInputs = mergeHostInputs(
     loaded.hostInputs,
@@ -414,6 +416,7 @@ function transformProjectWithPlugins(
         tsgoBinary,
         loaded.nativePlugins,
         plugin,
+        loaded.identities,
       ),
     },
   );
@@ -688,6 +691,7 @@ function runNativeChecks(
   tsgoBinary: string,
   nativePlugins: readonly ITtscLoadedNativePlugin[],
   checks: readonly ITtscLoadedNativePlugin[],
+  identities: PluginContentIdentities.Store | undefined,
 ): TtscBuildResult {
   let result: TtscBuildResult = {
     diagnostics: [],
@@ -716,6 +720,7 @@ function runNativeChecks(
             tsgoBinary,
             nativePlugins,
             plugin,
+            identities,
           ),
         },
       );
@@ -804,7 +809,9 @@ function serializeNativePlugins(
  * the caller declared a plugin config anchor (an embedder compiling through a
  * generated wrapper tsconfig) so config-file discovery walks the real project
  * instead of the wrapper's temp-dir ancestry. For transform plugins, also
- * passes `TTSC_LINKED_PLUGINS_JSON` when linked sources are present.
+ * passes `TTSC_LINKED_PLUGINS_JSON` when linked sources are present. The load's
+ * record store proves the Node runtime from metadata instead of streaming it
+ * before every spawn of every generation (#1723).
  */
 function nativePluginEnv(
   options: ITtscCompilerContext,
@@ -812,6 +819,7 @@ function nativePluginEnv(
   tsgoBinary: string,
   nativePlugins?: readonly ITtscLoadedNativePlugin[],
   plugin?: ITtscLoadedNativePlugin,
+  identities?: PluginContentIdentities.Store,
 ): NodeJS.ProcessEnv {
   const pluginConfigDir = resolvePluginConfigDir(options);
   const env = SidecarEnvironment.merge(
@@ -827,7 +835,7 @@ function nativePluginEnv(
     options.env,
     { TTSC_TSGO_BINARY: tsgoBinary },
   );
-  const node = resolveNodeBinary(env, projectRoot);
+  const node = resolveNodeBinary(env, projectRoot, identities);
   SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
   // The anchor is per-invocation state owned by this host: when this run
   // declared none (and the caller's env does not name one), drop any value

@@ -1,0 +1,3 @@
+package mark
+
+const Marker = "alpha"

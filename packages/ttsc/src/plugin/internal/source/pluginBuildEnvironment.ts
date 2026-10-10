@@ -3,6 +3,7 @@ import fs from "node:fs";
 
 import { GoToolResolution } from "./GoToolResolution";
 import type { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
+import type { PluginContentIdentities } from "./PluginContentIdentities";
 import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
 import { resolveGoCompiler } from "./resolveGoCompiler";
 
@@ -25,6 +26,8 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
  * @param env The effective environment, `process.env` by default.
  * @param witness Receives the paths the reading depends on and no variable
  *   carries (`hashPluginBuildEnvironment`).
+ * @param identities Record store that lets a new process prove the SDK and
+ *   executables from metadata (#1722).
  * @evidence contracts/common.md#principled-implementation The digest uses the same resolved compiler and environment serializer as the binary key, so reported toolchain state denotes the inputs actually used by the build.
  * @evidence contracts/common.md#clear-and-simple-design Compiler selection, executable resolution and hashing each stay with their owning helper; this function only composes one environment reading.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The result comes from real Go/environment inputs, not a fixed compiler version or a caller-specific substitute.
@@ -39,6 +42,7 @@ export function pluginBuildEnvironment(
   directory: string,
   env: NodeJS.ProcessEnv = process.env,
   witness?: PluginBuildEnvironmentWitness.Record,
+  identities?: PluginContentIdentities.Store,
 ): string {
   const goBinary = GoToolResolution.resolveGoToolForBuild(
     resolveGoCompiler(env).binary,
@@ -54,6 +58,7 @@ export function pluginBuildEnvironment(
     env,
     { readFile: (location) => fs.readFileSync(location) },
     witness,
+    identities,
   );
   return hash.digest("hex");
 }

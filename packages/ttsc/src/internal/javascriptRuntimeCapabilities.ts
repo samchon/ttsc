@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { captureProcessOutput } from "../compiler/internal/captureProcessOutput";
 import { SidecarEnvironment } from "../compiler/internal/sharedHost/SidecarEnvironment";
+import type { PluginContentIdentities } from "../plugin/internal/source/PluginContentIdentities";
+import { PluginLoadAnswers } from "../plugin/internal/source/PluginLoadAnswers";
 import { E2ETrace } from "./E2ETrace";
 import type { IJavaScriptRuntimeCapabilities } from "./IJavaScriptRuntimeCapabilities";
 import { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
@@ -20,28 +22,56 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  * Cache-ineligible candidates do not acquire executable proofs used only by
  * cache lookup and publication.
  *
- * @evidence contracts/common.md#principled-implementation A child reports its own feature availability and executable; byte-aware before/after identity and same-executable proof authorize reuse only for a stable absolute runtime without NODE_OPTIONS preload authority.
+ * With a record store, the executable identity is proven from metadata and a
+ * probe answer recorded for that identity is reused by a later process
+ * (#1723); a recorded answer must still name an executable this runtime is.
+ *
+ * @param runtime The interpreter to probe.
+ * @param env Caller environment merged over this process's.
+ * @param cwd Working directory of the probe.
+ * @param identities Optional record store of the caller's plugin cache.
+ * @evidence contracts/common.md#principled-implementation A child reports its own feature availability and executable; byte-aware before/after identity and same-executable proof authorize reuse only for a stable absolute runtime without NODE_OPTIONS preload authority, in process or through an answer recorded under that identity.
  * @evidence contracts/common.md#clear-and-simple-design One probe owner coordinates identity, spawning and parsing; the shared fingerprint helper owns file-content proof and the low-descriptor helper owns the POSIX launch distinction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Feature availability comes from the actual interpreter rather than its name; descriptor fallback handles a supported kernel constraint and failures produce unsupported capabilities, not fabricated success.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain measured capabilities, reuse restrictions and freshness, with comments separating platform launch and cache permission from tags.
  * @evidence contracts/portability.md#os-neutral-implementation Shared environment merge and lookup apply native name identity to caller precedence and NODE_OPTIONS preload authority, including Windows aliases; Node spawn receives an executable and argv without shell syntax, and only POSIX descriptor exhaustion uses the isolated broker.
- * @evidence contracts/performance.md#efficient-algorithms Environment merge/name handling first decides cache eligibility. Eligible hits read B executable bytes; eligible misses acquire before/after content proofs around the actual probe. Ineligible calls retain the fresh child without reading executable bytes solely for the forbidden cache. Probe spawning/parsing, a possible descriptor-exhaustion retry and capture-file reads add text/environment/native lookup costs and transient output storage; this adapter sets no explicit byte quota.
- * @evidence contracts/performance.md#reuse-equivalent-work Stable absolute candidates that report their own executable share measured capability results, including false feature flags; changed executable bytes, link/target identity, preload options or wrapper identity require another probe, while failed probes without executable identity are not reused.
+ * @evidence contracts/performance.md#efficient-algorithms Environment merge/name handling first decides cache eligibility. Eligible hits prove the executable from a record (three stats and one small read) or read B executable bytes; eligible misses acquire before/after identities around the actual probe. Ineligible calls retain the fresh child without reading executable bytes solely for the forbidden cache. Probe spawning/parsing, a possible descriptor-exhaustion retry and capture-file reads add text/environment/native lookup costs and transient output storage; this adapter sets no explicit byte quota.
+ * @evidence contracts/performance.md#reuse-equivalent-work Stable absolute candidates that report their own executable share measured capability results, including false feature flags, within the process and across processes through the record store keyed by the full identity; changed executable bytes, link/target identity, preload options or wrapper identity require another probe, while failed probes without executable identity are not reused.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous probe owns child completion and fallback captures; finally attempts capture close/removal, whose helper suppresses cleanup failures, so native/file release is unconfirmed on failure. Capability entries retain absolute spellings and path/identity text with no eviction quota; failed identity validation can remove an entry. Returned capability copies transfer to callers.
  */
 export function javascriptRuntimeCapabilities(
   runtime: string,
   env: NodeJS.ProcessEnv,
   cwd: string,
+  identities?: PluginContentIdentities.Store,
 ): IJavaScriptRuntimeCapabilities {
   const effectiveEnv = SidecarEnvironment.merge(process.env, env);
   const cacheKey = runtimeCapabilityCacheKey(runtime, effectiveEnv);
   const beforeIdentity =
-    cacheKey === undefined ? undefined : runtimeExecutableIdentity(runtime);
+    cacheKey === undefined
+      ? undefined
+      : runtimeExecutableIdentity(runtime, identities);
   if (cacheKey !== undefined && beforeIdentity !== undefined) {
     const cached = runtimeCapabilityCache.get(cacheKey);
     if (cached?.identity === beforeIdentity) return { ...cached.capabilities };
     runtimeCapabilityCache.delete(cacheKey);
+    // WARNING (#1723): a launch is a new process, so the memo above is empty
+    // on every CLI run. The same proven executable answers the same probe; the
+    // record store carries that answer across processes.
+    const recorded = recordedCapabilities(
+      PluginLoadAnswers.read(identities, RUNTIME_CAPABILITIES, [
+        cacheKey,
+        beforeIdentity,
+      ]),
+      runtime,
+    );
+    if (recorded !== undefined) {
+      runtimeCapabilityCache.set(cacheKey, {
+        capabilities: { ...recorded },
+        identity: beforeIdentity,
+      });
+      return recorded;
+    }
   }
   const args = [
     "-e",
@@ -113,7 +143,9 @@ export function javascriptRuntimeCapabilities(
   // This removes a process spawn from the common path without
   // authorizing a replaced or redirected runtime in a long-lived host.
   const afterIdentity =
-    cacheKey === undefined ? undefined : runtimeExecutableIdentity(runtime);
+    cacheKey === undefined
+      ? undefined
+      : runtimeExecutableIdentity(runtime, identities);
   if (
     cacheKey !== undefined &&
     capabilities.executable !== undefined &&
@@ -125,8 +157,42 @@ export function javascriptRuntimeCapabilities(
       capabilities: { ...capabilities },
       identity: afterIdentity,
     });
+    PluginLoadAnswers.write(
+      identities,
+      RUNTIME_CAPABILITIES,
+      [cacheKey, afterIdentity],
+      capabilities,
+    );
   }
   return capabilities;
+}
+
+/** Answer family of measured runtime capabilities (`PluginLoadAnswers`). */
+const RUNTIME_CAPABILITIES = "javascript-runtime-capabilities";
+
+/**
+ * A recorded probe answer in the shape the probe produces, still naming an
+ * executable this runtime is, or `undefined`.
+ */
+function recordedCapabilities(
+  value: unknown,
+  runtime: string,
+): IJavaScriptRuntimeCapabilities | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const recorded = value as Partial<IJavaScriptRuntimeCapabilities>;
+  if (
+    typeof recorded.bun !== "boolean" ||
+    typeof recorded.registerHooks !== "boolean" ||
+    typeof recorded.executable !== "string" ||
+    !path.isAbsolute(recorded.executable) ||
+    !sameRuntimeExecutable(runtime, recorded.executable)
+  )
+    return undefined;
+  return {
+    bun: recorded.bun,
+    executable: recorded.executable,
+    registerHooks: recorded.registerHooks,
+  };
 }
 
 type RuntimeCapabilityCacheEntry = {

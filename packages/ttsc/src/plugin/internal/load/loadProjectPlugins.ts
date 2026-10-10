@@ -22,9 +22,11 @@ import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITts
 import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason";
 import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailure";
 import { NativeSourcePackages } from "../source/NativeSourcePackages";
+import { PluginContentIdentities } from "../source/PluginContentIdentities";
 import { SourcePluginWorkspace } from "../source/SourcePluginWorkspace";
 import { buildSourcePlugin } from "../source/buildSourcePlugin";
 import { isPathWithin } from "../source/isPathWithin";
+import { pluginBuildEnvironment } from "../source/pluginBuildEnvironment";
 import { pluginBuildVersions } from "../source/pluginBuildVersions";
 import { pluginModuleReplaceDirectories } from "../source/pluginModuleReplaceDirectories";
 import { pluginSourceState } from "../source/pluginSourceState";
@@ -121,6 +123,12 @@ export function loadProjectPlugins(options: {
   /** Explicit project config, resolved from cwd. */
   file?: string;
 
+  /**
+   * Record store the caller already opened for this invocation, so its later
+   * native spawns share it; the loader opens its own when omitted.
+   */
+  identities?: PluginContentIdentities.Store;
+
   /** Observe plugin build roots before building, including failed builds. */
   onWatchInputs?: (inputs: readonly string[]) => void;
 
@@ -167,6 +175,12 @@ export function loadProjectPlugins(options: {
    * mutation witnesses; omission makes no positive completeness claim.
    */
   observationsComplete?: false;
+
+  /**
+   * Record store this load proved its inputs through, for the invocation's
+   * later native spawns (#1723); absent when the project loads no plugin.
+   */
+  identities?: PluginContentIdentities.Store;
 
   /** Check-stage entries followed by transform-stage entries in stable order. */
   nativePlugins: ITtscLoadedNativePlugin[];
@@ -234,8 +248,20 @@ export function loadProjectPlugins(options: {
   };
   // Where isolated descriptor evaluations keep their answers across launches
   // (`PluginDescriptorEvaluationCache`).
+  // WARNING (#1721, #1722, #1723): a warm load must prove its unchanged inputs
+  // from this store, not re-read them. Every launch is a new process, so any
+  // module-level memo of this load's work dies with it; a 27 s warm typia
+  // launch whose native build took 0.28 s is what that looked like.
+  const identities =
+    options.identities ??
+    PluginContentIdentities.open({
+      projectRoot: project.root,
+      cacheDir: options.cacheDir,
+      env: effectiveEnv,
+    });
   const descriptorCache: DescriptorCacheOptions = {
     cacheDir: options.cacheDir,
+    identities,
     version: pluginBuildVersions(project.root).ttsc,
   };
   const loadedEntries = withPluginLoaderEnv(() =>
@@ -319,6 +345,7 @@ export function loadProjectPlugins(options: {
         request,
       };
     }),
+    identities,
   );
   const plugins = composePluginSources(
     entries,
@@ -342,6 +369,26 @@ export function loadProjectPlugins(options: {
       ...candidate,
       ...resolvePluginGoModule(candidate.source, candidate.label),
     }));
+  // One reading of each source directory, shared by package selection and
+  // every build below and reported as the state the binaries were keyed on.
+  const sourceDigests = new Map<string, string>();
+  // And one reading of the environment each build directory is keyed on, which
+  // a plugin module root's state reports as it is.
+  const environmentDigests = new Map<string, string>();
+  const readings = {
+    sources: sourceDigests,
+    environments: environmentDigests,
+  };
+  // Records describing sources must never land inside one, so the store is
+  // admitted for source proofs only once every source of the load is known.
+  const sourceIdentities = PluginContentIdentities.outside(identities, [
+    ...candidates.flatMap((candidate) => [
+      candidate.moduleRoot,
+      candidate.packageDir,
+      ...(candidate.contributors ?? []).map((input) => input.source),
+    ]),
+    ...SourcePluginWorkspace.findTtscOverlayDirs(),
+  ]);
   // One fixed-effective-environment load owns manifest syntax sharing from the
   // first watch query through metadata and builds. Do not allocate this after
   // watch projection: that silently repeats selected-Go work (#1712).
@@ -387,6 +434,8 @@ export function loadProjectPlugins(options: {
     })),
     effectiveEnv,
     packageReaders,
+    sourceIdentities,
+    readings,
   );
   const records = candidates.map(
     ({ plugin, index, stage, contributors, source, packageDir }) => {
@@ -519,6 +568,8 @@ export function loadProjectPlugins(options: {
         pluginName: host.label,
         env: effectiveEnv,
         readers: packageReaders,
+        identities: sourceIdentities,
+        readings,
         packages: [
           ...hostEntries,
           ...linkedContributors.map((input) => ({
@@ -554,6 +605,8 @@ export function loadProjectPlugins(options: {
     standaloneCandidates,
     effectiveEnv,
     packageReaders,
+    sourceIdentities,
+    readings,
   );
   standaloneCandidates.forEach((candidate, index) => {
     NativeSourcePackages.kind(
@@ -574,12 +627,6 @@ export function loadProjectPlugins(options: {
         }))
       : []),
   ];
-  // One reading of each source directory, shared by every build below and
-  // reported as the state the binaries were keyed on.
-  const sourceDigests = new Map<string, string>();
-  // And one reading of the environment each build directory is keyed on, which
-  // a plugin module root's state reports as it is.
-  const environmentDigests = new Map<string, string>();
   const builtTransformHosts = new Map<object, string>();
   for (const record of transformHosts) {
     builtTransformHosts.set(
@@ -590,6 +637,7 @@ export function loadProjectPlugins(options: {
         contributors: mergeContributors(record.contributors, hostContributors),
         env: effectiveEnv,
         goModReaders: packageReaders,
+        identities: sourceIdentities,
         pluginName: record.label,
         packageOwnership: packageOwnership(record.source, record.label, true),
         source: record.source,
@@ -608,6 +656,7 @@ export function loadProjectPlugins(options: {
           contributors: linkedContributors,
           env: effectiveEnv,
           goModReaders: packageReaders,
+          identities: sourceIdentities,
           label: "linked plugin host",
           pluginName: "linked-plugin-host",
           source: path.join(ttscPackageRoot(), "cmd", "utility-host"),
@@ -638,6 +687,7 @@ export function loadProjectPlugins(options: {
               contributors: record.contributors,
               env: effectiveEnv,
               goModReaders: packageReaders,
+              identities: sourceIdentities,
               pluginName: record.label,
               packageOwnership: packageOwnership(
                 record.source,
@@ -697,6 +747,7 @@ export function loadProjectPlugins(options: {
         entry.observationsComplete && declaresHostInputReads(entry.plugin),
     ),
     discoveryInputsComplete: project.configInputsComplete === true,
+    ...(identities === undefined ? {} : { identities }),
     nativePlugins: orderNativePlugins(nativePlugins),
     ...(loadedEntries.some((entry) => !entry.observationsComplete)
       ? { observationsComplete: false as const }
@@ -712,9 +763,14 @@ export function loadProjectPlugins(options: {
           pluginSourceState(directory, {
             env: effectiveEnv,
             sourceDigest,
-            ...(environmentDigests.has(directory)
-              ? { environment: environmentDigests.get(directory)! }
-              : {}),
+            environment:
+              environmentDigests.get(directory) ??
+              pluginBuildEnvironment(
+                directory,
+                effectiveEnv,
+                undefined,
+                sourceIdentities,
+              ),
           }),
         ]),
     ),
@@ -1290,7 +1346,12 @@ function loadPluginDescriptor(
     ) {
       throw error;
     }
-    const loaded = loadDescriptorViaTtsx(request, context, effectiveEnv);
+    const loaded = loadDescriptorViaTtsx(
+      request,
+      context,
+      effectiveEnv,
+      descriptorCache.identities,
+    );
     if (loaded === undefined) {
       throw error;
     }
@@ -1302,6 +1363,9 @@ function loadPluginDescriptor(
 interface DescriptorCacheOptions {
   /** The plugin cache directory the caller selected, if any. */
   cacheDir: string | undefined;
+
+  /** Record store that proves the evaluating runtimes from metadata (#1723). */
+  identities: PluginContentIdentities.Store | undefined;
 
   /** This ttsc build's version. */
   version: string;
@@ -1352,16 +1416,22 @@ function loadCommonJsDescriptor(
     runtime,
     effectiveEnv,
     context.projectRoot,
+    descriptorCache.identities,
   );
   const node =
     !runtimeCapabilities.bun &&
     runtimeCapabilities.registerHooks &&
     runtimeCapabilities.executable !== undefined
       ? runtimeCapabilities.executable
-      : resolveNodeBinary(effectiveEnv, context.projectRoot);
+      : resolveNodeBinary(
+          effectiveEnv,
+          context.projectRoot,
+          descriptorCache.identities,
+        );
   const cacheAuthority = {
     additionalRuntime: node,
     cacheDir: descriptorCache.cacheDir,
+    identities: descriptorCache.identities,
     context,
     // Everything the child receives besides the per-evaluation output paths.
     env: {
@@ -1840,11 +1910,12 @@ function loadDescriptorViaTtsx(
   request: string,
   context: ITtscPluginFactoryContext,
   effectiveEnv: NodeJS.ProcessEnv,
+  identities: PluginContentIdentities.Store | undefined,
 ): IsolatedPluginDescriptor | undefined {
   // Binary discovery prefers the instance environment, then the ambient
   // process.env (where `withPluginLoaderEnv` injects ttsc's own node/ttsx paths
   // just before this runs), then the running interpreter.
-  const node = resolveNodeBinary(effectiveEnv, context.projectRoot);
+  const node = resolveNodeBinary(effectiveEnv, context.projectRoot, identities);
   const ttsx = effectiveEnv.TTSC_TTSX_BINARY ?? process.env.TTSC_TTSX_BINARY;
   if (node === undefined || ttsx === undefined || ttsx.length === 0) {
     return undefined;
@@ -2115,10 +2186,13 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function withPluginLoaderEnv<T>(run: () => T): T {
+function withPluginLoaderEnv<T>(
+  run: () => T,
+  identities: PluginContentIdentities.Store | undefined,
+): T {
   const previousNode = process.env.TTSC_NODE_BINARY;
   const previousTtsx = process.env.TTSC_TTSX_BINARY;
-  const node = resolveNodeBinary({}, process.cwd());
+  const node = resolveNodeBinary({}, process.cwd(), identities);
   if (process.env.TTSC_NODE_BINARY === undefined && node !== undefined) {
     process.env.TTSC_NODE_BINARY = node;
   }

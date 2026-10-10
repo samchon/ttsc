@@ -5,11 +5,11 @@ import path from "node:path";
 import { GoToolResolution } from "./GoToolResolution";
 import type { ITtscBuildContributor } from "./ITtscBuildContributor";
 import type { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
+import { PluginContentIdentities } from "./PluginContentIdentities";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import type { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
 import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
-import { pluginSourceDigest } from "./pluginSourceDigest";
 
 /**
  * Compute a 32-character lowercase key from a plugin build's SHA-256 digest.
@@ -43,7 +43,7 @@ import { pluginSourceDigest } from "./pluginSourceDigest";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain input coverage and the provenance of reported digests; documented optional output maps have blank separation between members.
  * @evidence contracts/portability.md#os-neutral-implementation Native roots are resolved with Node path APIs and executable resolution; platform/architecture intentionally distinguish incompatible binary artifacts.
  * @evidence contracts/performance.md#efficient-algorithms Source digest misses enumerate/sort paths and read individual files in full, not bounded streaming chunks. Overlay/contributor ordering compares path/name text; replacement discovery can read a manifest/run Go and native containment queries. Toolchain/env hashing delegates native metadata/probes/full bytes and memo checks without an unmeasured dominant-cost ranking; JSON framing processes all version/entry/label/digest text.
- * @evidence contracts/performance.md#reuse-equivalent-work Caller-owned sourceDigests share supplied absolute-directory readings across roles without independently verifying their provenance/currentness. EnvironmentDigests receives this call's selected environment identity so reporting can avoid another probe; it does not skip environment hashing. Reuse inherits the selected population and metadata/producer premises.
+ * @evidence contracts/performance.md#reuse-equivalent-work Caller-owned sourceDigests share supplied absolute-directory readings across roles without independently verifying their provenance/currentness. A supplied record store lets a new process reuse a directory, SDK or executable digest only while its separable metadata signature matches the recorded one (#1722), so unchanged inputs are not re-read per process. EnvironmentDigests receives this call's selected environment identity so reporting can avoid another probe; it does not skip environment hashing. Reuse inherits the selected population and metadata/producer premises.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Output maps belong to the enclosing load; this operation retains no handles or process-wide records itself.
  */
@@ -77,6 +77,14 @@ export function computeCacheKey(inputs: {
   filesystem?: Partial<SourceBuildFilesystemOperations>;
   goBinary?: string;
   goModReader?: SourcePluginWorkspace.GoModReader;
+
+  /**
+   * Record store that proves unchanged sources, overlays, contributors, GOROOT
+   * and executables from metadata in a new process (#1722). Without it every
+   * process reads their bytes.
+   */
+  identities?: PluginContentIdentities.Store;
+
   overlayDirs?: readonly string[];
 
   /**
@@ -143,12 +151,21 @@ export function computeCacheKey(inputs: {
     env,
     filesystem,
     inputs.environmentWitness,
+    inputs.identities,
   );
   inputs.environmentDigests?.set(
     path.resolve(inputs.dir),
     environment.digest("hex"),
   );
-  hashSourceDirectory(hash, "plugin", inputs.dir, inputs.sourceDigests);
+  const directory = (label: string, root: string): void =>
+    hashSourceDirectory(
+      hash,
+      label,
+      root,
+      inputs.sourceDigests,
+      inputs.identities,
+    );
+  directory("plugin", inputs.dir);
   // Local replacement targets outside the module supply separately keyed
   // sources. buildSourcePlugin snapshots and proves their copies before
   // redirecting the Go replacement directives to the scratch tree.
@@ -158,17 +175,15 @@ export function computeCacheKey(inputs: {
     goBinary,
     inputs.goModReader,
   )) {
-    hashSourceDirectory(
-      hash,
+    directory(
       `replace:${replacement.modulePath}${
         replacement.version === undefined ? "" : `@${replacement.version}`
       }`,
       replacement.directory,
-      inputs.sourceDigests,
     );
   }
   for (const [index, dir] of [...(inputs.overlayDirs ?? [])].sort().entries()) {
-    hashSourceDirectory(hash, `overlay:${index}`, dir, inputs.sourceDigests);
+    directory(`overlay:${index}`, dir);
   }
   // Hash contributors in sorted-by-name order so two consumers with the
   // same logical set produce the same key regardless of declaration order
@@ -177,12 +192,7 @@ export function computeCacheKey(inputs: {
     a.name === b.name ? 0 : a.name < b.name ? -1 : 1,
   );
   for (const contributor of sortedContributors) {
-    hashSourceDirectory(
-      hash,
-      `contributor:${contributor.name}`,
-      contributor.source,
-      inputs.sourceDigests,
-    );
+    directory(`contributor:${contributor.name}`, contributor.source);
   }
   return hash.digest("hex").slice(0, 32);
 }
@@ -197,11 +207,14 @@ function hashSourceDirectory(
   label: string,
   root: string,
   digests: Map<string, string> | undefined,
+  identities: PluginContentIdentities.Store | undefined,
 ): void {
   const directory = path.resolve(root);
   let digest = digests?.get(directory);
   if (digest === undefined) {
-    digest = pluginSourceDigest(directory);
+    // WARNING (#1722): the load-scoped map above ends with the process. Only the
+    // record store spares a new process from reading every source byte again.
+    digest = PluginContentIdentities.sourceDirectory(identities, directory);
     digests?.set(directory, digest);
   }
   hash.update(JSON.stringify(["dir", label, digest]));

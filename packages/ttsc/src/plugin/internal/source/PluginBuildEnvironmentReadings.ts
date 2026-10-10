@@ -148,6 +148,14 @@ export namespace PluginBuildEnvironmentReadings {
    * requests can create a worker after retirement. Refresh bypasses a cached
    * reading but can still share an equivalent in-flight request.
    *
+   * A caller that names its project lets the worker prove the SDK and
+   * executables from the plugin cache's records (#1722). The worker is its own
+   * isolate, so without them it reads the whole GOROOT once per process,
+   * which a bundler or runtime restarting on every edit pays every time.
+   *
+   * @param directory Plugin source directory whose build environment is read.
+   * @param refresh Bypass a cached reading.
+   * @param projectRoot Project whose plugin cache root holds the records.
    * @evidence contracts/common.md#principled-implementation Worker results publish only under their exact current variable identity and still-current native pre-read witness; changed or unwitnessable transfer windows reject instead of publishing authority or retrying indefinitely.
    * @evidence contracts/common.md#clear-and-simple-design Qualified hits return immediately; equivalent misses share one pending promise and exclusive queued worker request.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Go/environment/SDK preparation occurs in the worker rather than blocking the async host or fabricating a digest from compiler output.
@@ -160,6 +168,7 @@ export namespace PluginBuildEnvironmentReadings {
   export async function prepare(
     directory: string,
     refresh = false,
+    projectRoot?: string,
   ): Promise<string> {
     const known = refresh ? undefined : cached(directory);
     if (known !== undefined) return known;
@@ -168,7 +177,7 @@ export namespace PluginBuildEnvironmentReadings {
     const existing = pending.get(identity);
     if (existing !== undefined) return existing;
     const request = (async () => {
-      const reading = await observe(directory, env);
+      const reading = await observe(directory, env, projectRoot);
       if (
         identity !== key(directory, process.env) ||
         !PluginBuildEnvironmentWitness.holds(reading.witness)
@@ -200,6 +209,7 @@ export namespace PluginBuildEnvironmentReadings {
   function observe(
     directory: string,
     env: NodeJS.ProcessEnv,
+    projectRoot: string | undefined,
   ): Promise<Reading> {
     const request = queue.then(
       () =>
@@ -240,7 +250,7 @@ export namespace PluginBuildEnvironmentReadings {
           current.on("error", onError);
           current.on("exit", onExit);
           try {
-            current.postMessage({ directory, env });
+            current.postMessage({ directory, env, projectRoot });
           } catch (error) {
             release(false);
             reject(error);

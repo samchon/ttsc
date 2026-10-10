@@ -6,6 +6,7 @@ import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
+import { PluginContentIdentities } from "./PluginContentIdentities";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import { spawnGoTool } from "./spawnGoTool";
 
@@ -42,14 +43,17 @@ import { spawnGoTool } from "./spawnGoTool";
  *   variable carries: the Go tool, the Go environment file `go env -w` writes,
  *   the executables the C toolchain commands name, and GOROOT. A consumer that
  *   keeps the reading compares their metadata before reusing it.
+ * @param identities Record store that lets a new process prove the GOROOT
+ *   corpus and executable bytes from their metadata
+ *   (`PluginContentIdentities`, #1722); without it every process reads them.
  * @evidence contracts/common.md#principled-implementation Fixed artifact flags, observed compiler bytes/version, selected reported-or-fallback build values, named command executables and selected SDK files enter the same framed identity used by source-state reporting. Fallback values and metadata-qualified reuse are explicit premises, not complete observation of arbitrary toolchain inputs.
  * @evidence contracts/common.md#clear-and-simple-design Private helpers separate compiler identity, Go-reported settings, external variables and SDK content while sharing one hash sink and optional pre-read witness.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache signatures include real identity/change metadata and effective invocation context; failed SDK witnessing refuses reuse rather than accepting a VERSION-only proxy.
  * @evidence contracts/common.md#meaningful-documentation Native documentation names the input classes and witness purpose; private comments explain context-sensitive compiler memoization and SDK exclusions without treating a passing check as proof.
  * @evidence contracts/portability.md#os-neutral-implementation Node path/stat/process APIs resolve native tool identities; platform-specific executable suffixes and environment lookup are isolated in GoToolResolution, and Go supplies its own effective build settings.
  * @evidence contracts/performance.md#efficient-algorithms SDK traversal sorts reached entry names and selected file paths, performs native stat/realpath/link queries and serializes topology/metadata/path text. Matching manifests share aggregate hashes; changes read full selected files via the caller adapter, retaining file buffers with population/topology data. Compiler misses capture at most three complete version/byte readings when native metadata moves during a reading; only a stable attempt enters the memo. Go env can run up to three times for its file witness, and command tokens can each perform executable searches/full reads. Environment sorting/framing and command substring parsing also process name/value/command bytes; E/D/F/B alone do not capture native lookup or text comparison costs.
- * @evidence contracts/performance.md#reuse-equivalent-work Compiler memo identity includes selected path/file metadata and invocation cwd/environment; SDK aggregate reuse requires matching complete ordered metadata/topology. Both rely on native metadata distinguishability and sequential observation premises, not independently rehashed content on each hit. Physical directories expand once per selection policy while aliases retain edges; optional caller witnesses receive reached selected dependencies.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Compiler, Go-environment-path and SDK maps retain historical distinct tool/context/root keys without eviction. SDK population/topology and full individual file reads contribute transient bytes; synchronous probes delegate process/capture lifetime to their owner and do not certify arbitrary descendants are gone. No independent entry/record/file/output byte ceiling is imposed here.
+ * @evidence contracts/performance.md#reuse-equivalent-work Compiler memo identity includes selected path/file metadata and invocation cwd/environment; SDK aggregate reuse requires matching complete ordered metadata/topology. With a record store, a new process reuses the SDK aggregate and executable digests only while their signatures match the recorded ones and every stamp is separable from a freshly minted reference (#1722); `go version` and `go env` stay live because they report toolchain selection no file metadata shows. All of this relies on native metadata distinguishability and sequential observation premises. Physical directories expand once per selection policy while aliases retain edges; optional caller witnesses receive reached selected dependencies.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Compiler, Go-environment-path and SDK maps retain historical distinct tool/context/root keys without eviction; persisted records belong to the single-file collector. SDK population/topology and full individual file reads contribute transient bytes; synchronous probes delegate process/capture lifetime to their owner and do not certify arbitrary descendants are gone. No independent entry/record/file/output byte ceiling is imposed here.
  */
 export function hashPluginBuildEnvironment(
   hash: { update(data: string): unknown },
@@ -58,6 +62,7 @@ export function hashPluginBuildEnvironment(
   env: NodeJS.ProcessEnv,
   filesystem: SourceBuildFilesystemOperations,
   witness?: PluginBuildEnvironmentWitness.Record,
+  identities?: PluginContentIdentities.Store,
 ): void {
   // Fixed artifact policy must invalidate binaries and reported source states
   // together, including binaries cached before this policy was introduced.
@@ -68,11 +73,25 @@ export function hashPluginBuildEnvironment(
     hash.update(
       JSON.stringify([
         "go",
-        resolveGoCompilerIdentity(goBinary, env, directory, witness),
+        resolveGoCompilerIdentity(
+          goBinary,
+          env,
+          directory,
+          witness,
+          identities,
+        ),
       ]),
     );
   }
-  hashGoBuildEnvironment(hash, goBinary, directory, env, filesystem, witness);
+  hashGoBuildEnvironment(
+    hash,
+    goBinary,
+    directory,
+    env,
+    filesystem,
+    witness,
+    identities,
+  );
   hashExternalGoBuildEnvironment(hash, env);
 }
 
@@ -173,6 +192,7 @@ function resolveGoCompilerIdentity(
   env: NodeJS.ProcessEnv = process.env,
   cwd: string = process.cwd(),
   witness?: PluginBuildEnvironmentWitness.Record,
+  identities?: PluginContentIdentities.Store,
 ): string {
   const selected = GoToolResolution.resolveGoToolForBuild(
     goBinary,
@@ -217,7 +237,13 @@ function resolveGoCompilerIdentity(
       compilerEnv,
       cwd,
     );
-    identity = computeGoCompilerIdentity(selected, resolved, compilerEnv, cwd);
+    identity = computeGoCompilerIdentity(
+      selected,
+      resolved,
+      compilerEnv,
+      cwd,
+      identities,
+    );
     if (!PluginBuildEnvironmentWitness.holds(observed)) continue;
     for (const [file, signature] of observed)
       if (witness !== undefined && !witness.has(file))
@@ -269,10 +295,13 @@ function computeGoCompilerIdentity(
   resolved: string,
   env: NodeJS.ProcessEnv,
   cwd: string,
+  identities: PluginContentIdentities.Store | undefined,
 ): string {
   if (!fs.existsSync(resolved)) {
     return "missing";
   }
+  // `go version` stays a live probe: it answers which toolchain the effective
+  // environment selects (GOTOOLCHAIN, go.mod), which no file metadata shows.
   const version = spawnGoTool(goBinary, ["version"], {
     cwd,
     encoding: "utf8",
@@ -283,8 +312,25 @@ function computeGoCompilerIdentity(
     version.error !== undefined
       ? ((version.error as NodeJS.ErrnoException).code ?? version.error.message)
       : `${version.status ?? 0}:${version.stdout}${version.stderr}`;
-  const binaryHash = hashFile(resolved);
+  const binaryHash = hashExecutable(resolved, identities);
   return `sha256:${binaryHash}:${versionText}`;
+}
+
+/**
+ * The content digest of an executable, proven from its metadata in a process
+ * that has the record store (#1722) and read in full otherwise.
+ */
+function hashExecutable(
+  file: string,
+  identities: PluginContentIdentities.Store | undefined,
+): string {
+  return PluginContentIdentities.digest(
+    identities,
+    "executable",
+    file,
+    (references) => PluginContentIdentities.fileObservation(references, file),
+    () => hashFile(file),
+  );
 }
 
 function resolveExecutableIdentityPath(
@@ -352,7 +398,8 @@ function hashGoBuildEnvironment(
   cwd: string,
   env: NodeJS.ProcessEnv,
   filesystem: SourceBuildFilesystemOperations,
-  witness?: PluginBuildEnvironmentWitness.Record,
+  witness: PluginBuildEnvironmentWitness.Record | undefined,
+  identities: PluginContentIdentities.Store | undefined,
 ): void {
   const values = resolveGoBuildEnvironment(
     goBinary,
@@ -360,6 +407,7 @@ function hashGoBuildEnvironment(
     env,
     filesystem,
     witness,
+    identities,
   );
   for (const key of GO_BUILD_ENV_KEYS) {
     const value = values.get(key);
@@ -374,7 +422,8 @@ function resolveGoBuildEnvironment(
   cwd: string,
   env: NodeJS.ProcessEnv,
   filesystem: SourceBuildFilesystemOperations,
-  witness?: PluginBuildEnvironmentWitness.Record,
+  witness: PluginBuildEnvironmentWitness.Record | undefined,
+  identities: PluginContentIdentities.Store | undefined,
 ): Map<string, string> {
   const values = new Map<string, string>();
   if (goBinary !== undefined) {
@@ -384,6 +433,7 @@ function resolveGoBuildEnvironment(
       env,
       GO_BUILD_ENV_KEYS,
       witness,
+      identities,
     );
     if (parsed !== undefined) {
       try {
@@ -392,7 +442,14 @@ function resolveGoBuildEnvironment(
           if (typeof raw === "string" && raw !== "") {
             values.set(
               key,
-              normalizeGoBuildEnvValue(key, raw, env, filesystem, witness),
+              normalizeGoBuildEnvValue(
+                key,
+                raw,
+                env,
+                filesystem,
+                witness,
+                identities,
+              ),
             );
           }
         }
@@ -408,7 +465,14 @@ function resolveGoBuildEnvironment(
     if (value !== undefined && value !== "") {
       values.set(
         key,
-        normalizeGoBuildEnvValue(key, value, env, filesystem, witness),
+        normalizeGoBuildEnvValue(
+          key,
+          value,
+          env,
+          filesystem,
+          witness,
+          identities,
+        ),
       );
     }
   }
@@ -420,7 +484,8 @@ function normalizeGoBuildEnvValue(
   value: string,
   env: NodeJS.ProcessEnv,
   filesystem: SourceBuildFilesystemOperations,
-  witness?: PluginBuildEnvironmentWitness.Record,
+  witness: PluginBuildEnvironmentWitness.Record | undefined,
+  identities: PluginContentIdentities.Store | undefined,
 ): string {
   if (key === "GOROOT") {
     // Root/version observations also cover a missing SDK. The complete SDK
@@ -428,10 +493,15 @@ function normalizeGoBuildEnvValue(
     // nested content changes that do not move the root or VERSION metadata.
     PluginBuildEnvironmentWitness.add(witness, value);
     PluginBuildEnvironmentWitness.add(witness, path.join(value, "VERSION"));
-    return resolveGoRootCacheIdentity(value, filesystem, witness);
+    return resolveGoRootCacheIdentity(value, filesystem, witness, identities);
   }
   if (GO_BUILD_COMMAND_ENV_KEYS.has(key)) {
-    return `${value}\0${resolveCommandCacheIdentity(value, env, witness)}`;
+    return `${value}\0${resolveCommandCacheIdentity(
+      value,
+      env,
+      witness,
+      identities,
+    )}`;
   }
   return value;
 }
@@ -451,7 +521,8 @@ function normalizeGoBuildEnvValue(
 function resolveCommandCacheIdentity(
   command: string,
   env: NodeJS.ProcessEnv,
-  witness?: PluginBuildEnvironmentWitness.Record,
+  witness: PluginBuildEnvironmentWitness.Record | undefined,
+  identities: PluginContentIdentities.Store | undefined,
 ): string {
   const tokens = splitGoCommand(command);
   if (tokens === null) {
@@ -473,7 +544,7 @@ function resolveCommandCacheIdentity(
   }
   let identity: string;
   try {
-    identity = `command:sha256:${hashFile(resolved)}`;
+    identity = `command:sha256:${hashExecutable(resolved, identities)}`;
   } catch {
     return `command:unreadable:${resolved}`;
   }
@@ -487,7 +558,7 @@ function resolveCommandCacheIdentity(
     if (!GoToolResolution.isExecutableFile(operand)) return;
     PluginBuildEnvironmentWitness.add(witness, operand);
     try {
-      identity += `;${index + 1}:sha256:${hashFile(operand)}`;
+      identity += `;${index + 1}:sha256:${hashExecutable(operand, identities)}`;
     } catch {
       identity += `;${index + 1}:unreadable:${operand}`;
     }
@@ -544,6 +615,9 @@ interface GoRootIdentitySnapshot {
   files: string[];
   topology: string[];
   signature: string;
+
+  /** Whether every file stamp precedes its device's minted reference. */
+  separable: boolean;
 }
 
 interface GoRootIdentityCacheEntry {
@@ -554,19 +628,31 @@ interface GoRootIdentityCacheEntry {
 // GOROOT is usually stable but its selected source/tool payloads contribute to
 // every plugin key. Retain only the final aggregate
 // identity, guarded by a fresh metadata/topology manifest on every call. A
-// changed or incomplete manifest falls through to a full content read.
+// changed or incomplete manifest falls through to the record store, then to a
+// full content read.
+//
+// WARNING (#1186, #1722): this map lives only as long as the process. #1186
+// stopped at it, so every CLI launch, worker and bundler restart still read the
+// whole SDK (3,723 files, 135 MB for the bundled toolchain). The record store
+// below is what carries the identity across processes; never drop it in favor
+// of this memo alone.
 const goRootIdentityCache = new Map<string, GoRootIdentityCacheEntry>();
 
 function resolveGoRootCacheIdentity(
   goRoot: string,
   filesystem: SourceBuildFilesystemOperations,
-  witness?: PluginBuildEnvironmentWitness.Record,
+  witness: PluginBuildEnvironmentWitness.Record | undefined,
+  identities: PluginContentIdentities.Store | undefined,
 ): string {
   const resolved = resolveRealPath(goRoot);
   if (!fs.existsSync(resolved)) {
     return `missing:${goRoot}`;
   }
-  const snapshot = collectGoRootIdentitySnapshot(resolved, witness);
+  const snapshot = collectGoRootIdentitySnapshot(
+    resolved,
+    witness,
+    identities?.references,
+  );
   if (!snapshot.complete)
     PluginBuildEnvironmentWitness.refuse(witness, resolved);
   if (snapshot.complete) {
@@ -575,15 +661,37 @@ function resolveGoRootCacheIdentity(
       return cached.identity;
     }
   }
-  const hash = crypto.createHash("sha256");
-  hash.update(JSON.stringify(snapshot.topology));
-  for (const file of snapshot.files) {
-    const relative = path.relative(resolved, file).split(path.sep).join("/");
-    const contents = filesystem.readFile(file);
-    hash.update(JSON.stringify([relative, contents.length]));
-    hash.update(contents);
-  }
-  const identity = `sha256:${hash.digest("hex")}`;
+  // The first observation is the snapshot the witness just recorded; a second
+  // one, after the content read, brackets that read for publication.
+  let observed = 0;
+  const identity = PluginContentIdentities.digest(
+    snapshot.complete ? identities : undefined,
+    "goroot",
+    resolved,
+    (references) => {
+      const current =
+        observed++ === 0
+          ? snapshot
+          : collectGoRootIdentitySnapshot(resolved, undefined, references);
+      return current.complete
+        ? { separable: current.separable, signature: current.signature }
+        : undefined;
+    },
+    () => {
+      const hash = crypto.createHash("sha256");
+      hash.update(JSON.stringify(snapshot.topology));
+      for (const file of snapshot.files) {
+        const relative = path
+          .relative(resolved, file)
+          .split(path.sep)
+          .join("/");
+        const contents = filesystem.readFile(file);
+        hash.update(JSON.stringify([relative, contents.length]));
+        hash.update(contents);
+      }
+      return `sha256:${hash.digest("hex")}`;
+    },
+  );
   if (snapshot.complete) {
     goRootIdentityCache.set(resolved, {
       identity,
@@ -596,9 +704,10 @@ function resolveGoRootCacheIdentity(
 function collectGoRootIdentitySnapshot(
   root: string,
   witness?: PluginBuildEnvironmentWitness.Record,
+  references?: ReadonlyMap<bigint, bigint>,
 ): GoRootIdentitySnapshot {
   const out: string[] = [];
-  const state = { complete: true };
+  const state = { complete: true, separable: references !== undefined };
   const topology: string[] = [];
   walkGoRootIdentity(root, out, topology, state, witness);
   out.sort();
@@ -613,6 +722,11 @@ function collectGoRootIdentitySnapshot(
         state.complete = false;
         continue;
       }
+      if (
+        references === undefined ||
+        !PluginContentIdentities.separable(references, stats)
+      )
+        state.separable = false;
       signature.update(
         [
           relative,
@@ -634,6 +748,7 @@ function collectGoRootIdentitySnapshot(
     files: out,
     topology,
     signature: signature.digest("hex"),
+    separable: state.separable,
   };
 }
 

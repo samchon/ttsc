@@ -18,6 +18,7 @@ import { PluginBinaryUse } from "./PluginBinaryUse";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
+import { PluginContentIdentities } from "./PluginContentIdentities";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
@@ -114,6 +115,13 @@ export function buildSourcePlugin(opts: {
   environmentDigests?: Map<string, string>;
 
   filesystem?: Partial<SourceBuildFilesystemOperations>;
+
+  /**
+   * Record store the loader opened for this load, so its key reuses content
+   * identities across processes (#1722); a standalone build opens its own.
+   */
+  identities?: PluginContentIdentities.Store;
+
   label?: string;
   overlayDirs?: readonly string[];
   quiet?: boolean;
@@ -192,6 +200,18 @@ function buildSourcePluginAttempt(
   );
   ensureExecutableGoToolchain(goBinary, compiler.bundled);
   OwnedSynchronousProcess.checkpoint();
+  const identities =
+    opts.identities ??
+    PluginContentIdentities.open({
+      projectRoot: opts.baseDir,
+      cacheDir: opts.cacheDir,
+      env,
+      sources: [
+        dir,
+        ...overlayDirs,
+        ...contributors.map((contributor) => contributor.source),
+      ],
+    });
   // The digest of every directory the key covers, as the key read it, which
   // the build proves against what it compiled.
   const goModReader = SourcePluginWorkspace.createGoModReader(
@@ -199,6 +219,7 @@ function buildSourcePluginAttempt(
     opts.pluginName,
     env,
     opts.goModReaders,
+    identities,
   );
   const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
   const key = computeCacheKey({
@@ -211,6 +232,7 @@ function buildSourcePluginAttempt(
     goModReader,
     filesystem: opts.filesystem,
     goBinary,
+    identities,
     overlayDirs,
     environmentDigests,
     sourceDigests,

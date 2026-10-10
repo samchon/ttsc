@@ -1,10 +1,12 @@
 import fs from "node:fs";
+import path from "node:path";
 
 import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
 import type { ITtscCapabilityPluginSource } from "./ITtscCapabilityPluginSource";
 import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
 import { hashHostInputPaths } from "./load/hashHostInputPaths";
 import { realpathHostInputPaths } from "./load/realpathHostInputPaths";
+import { PluginContentIdentities } from "./source/PluginContentIdentities";
 import { pluginSourceFilesSignature } from "./source/pluginSourceFilesSignature";
 import { pluginSourceStateHolds } from "./source/pluginSourceStateHolds";
 import { recordCacheFileUse } from "./source/recordCacheFileUse";
@@ -83,8 +85,8 @@ export function readCapabilityResolution(options: {
   // old one still exists.
   const sources = Object.entries(entry.pluginSources);
   const evidence = sources.some(([, source]) => source.signature !== undefined)
-    ? CapabilityResolutionFormat.sourceEvidence(
-        CapabilityResolutionFormat.clockReference(file),
+    ? PluginContentIdentities.sourceEvidence(
+        PluginContentIdentities.mintReference(path.dirname(file)),
       )
     : undefined;
   for (const [directory, source] of sources)
@@ -108,7 +110,7 @@ function pluginSourceProven(
   directory: string,
   source: ITtscCapabilityPluginSource,
   evidence:
-    | ReturnType<typeof CapabilityResolutionFormat.sourceEvidence>
+    | ReturnType<typeof PluginContentIdentities.sourceEvidence>
     | undefined,
 ): boolean {
   try {

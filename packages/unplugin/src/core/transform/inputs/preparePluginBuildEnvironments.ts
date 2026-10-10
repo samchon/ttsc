@@ -27,9 +27,15 @@ const asyncResults = new WeakSet<object>();
  * awaits. Never preserve a positive batch across an await or replay the SDK
  * witness independently for every plugin and nested validator.
  *
+ * The project root reaches ttsc's environment worker, so that isolate proves
+ * the Go SDK and executables from the plugin cache's records instead of
+ * reading 135 MB of SDK once per bundler or runtime process (samchon/ttsc#1722).
+ *
  * @param cached Optional resident generation whose existing source-state and
  *   environment witness may qualify source reuse. Other preparation owners
  *   retain direct source comparison.
+ * @param projectRoot Project whose plugin cache holds those records; the
+ *   resident generation's own root when omitted.
  * @evidence contracts/common.md#principled-implementation Every reported plugin directory qualifies current environment authority; only missing readings require asynchronous preparation. The same result's matching manifest state can share source proof only with a healthy exact-source tracker and the environment under which that tree was proven. Otherwise this operation compares source state once and a mismatch refreshes environment authority for the following owning validator to compare again; failed preparation cannot qualify an input.
  * @evidence contracts/common.md#clear-and-simple-design One async boundary precedes existing synchronous generation, delivery and terminal proofs.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing observations stay unproved; reported binary state never substitutes for native environment preparation or source comparison.
@@ -43,6 +49,7 @@ export async function preparePluginBuildEnvironments(
   result: TtscCachedProjectTransform["result"],
   filesystem: TtscTransformFilesystemOperations,
   cached?: TtscCachedProjectTransform,
+  projectRoot: string | undefined = cached?.projectRoot,
 ): Promise<void> {
   asyncResults.add(result);
   const sources = selectPluginSourceInputs(result);
@@ -57,7 +64,11 @@ export async function preparePluginBuildEnvironments(
     if (current.get(directory) !== undefined) continue;
     awaited = true;
     try {
-      await PluginBuildEnvironmentReadings.prepare(directory);
+      await PluginBuildEnvironmentReadings.prepare(
+        directory,
+        false,
+        projectRoot,
+      );
     } catch {
       // Keep unavailable authority for admission rather than cold fallback.
     }
@@ -91,7 +102,11 @@ export async function preparePluginBuildEnvironments(
   }
   for (const directory of refresh) {
     try {
-      await PluginBuildEnvironmentReadings.prepare(directory, true);
+      await PluginBuildEnvironmentReadings.prepare(
+        directory,
+        true,
+        projectRoot,
+      );
     } catch {
       // Synchronous admission requalifies after this asynchronous window.
     }

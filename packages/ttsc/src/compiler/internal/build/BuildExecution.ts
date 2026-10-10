@@ -5,6 +5,7 @@ import { createCanonicalTempDirectory } from "../../../internal/createCanonicalT
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { hasProjectPluginEntries } from "../../../plugin/internal/load/hasProjectPluginEntries";
 import { loadProjectPlugins } from "../../../plugin/internal/load/loadProjectPlugins";
+import { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
 import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
@@ -70,15 +71,18 @@ export namespace BuildExecution {
    * Merge extra environment variables over `process.env`, always injecting
    * `TTSC_NODE_BINARY` selected by the runtime capability owner. Explicit
    * compatible overrides can select a different Node executable; this is not
-   * necessarily the current process binary.
+   * necessarily the current process binary. An invocation that loaded plugins
+   * passes its record store, so the runtime is proven from metadata instead of
+   * streamed again before every native spawn (#1723).
    */
   function mergeEnv(
-    extra?: NodeJS.ProcessEnv,
-    cwd: string = process.cwd(),
+    extra: NodeJS.ProcessEnv | undefined,
+    cwd: string,
+    identities: PluginContentIdentities.Store | undefined,
     ...later: readonly (NodeJS.ProcessEnv | undefined)[]
   ): NodeJS.ProcessEnv {
     const env = SidecarEnvironment.merge(process.env, extra, ...later);
-    const node = resolveNodeBinary(env, cwd);
+    const node = resolveNodeBinary(env, cwd, identities);
     SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
     return env;
   }
@@ -123,6 +127,7 @@ export namespace BuildExecution {
           path.join(__dirname, "..", "..", "..", "launcher", "ttsx.js"),
       },
       execution.projectRoot,
+      execution.identities,
       extra,
       // The invocation's resolved compiler owns the final environment layer.
       { TTSC_TSGO_BINARY: execution.tsgo.binary },
@@ -482,7 +487,7 @@ export namespace BuildExecution {
     const tsgo = resolveTsgo({ ...options, cwd });
     const res = spawnNative(tsgo.binary, [...(options.passthrough ?? [])], {
       cwd,
-      env: mergeEnv(options.env, cwd),
+      env: mergeEnv(options.env, cwd, undefined),
       encoding: "utf8",
     });
     if (res.error) {
@@ -822,7 +827,11 @@ export namespace BuildExecution {
       ],
       {
         cwd: execution.compilerSelection.compilerArgsCwd,
-        env: mergeEnv(options.env, execution.projectRoot),
+        env: mergeEnv(
+          options.env,
+          execution.projectRoot,
+          execution.identities,
+        ),
         encoding: "utf8",
       },
     );
@@ -856,7 +865,11 @@ export namespace BuildExecution {
     options: RunBuildOptions,
     args: readonly string[],
   ): TtscBuildResult {
-    const env = mergeEnv(options.env, execution.projectRoot);
+    const env = mergeEnv(
+      options.env,
+      execution.projectRoot,
+      execution.identities,
+    );
     const userOptions = readEffectiveCompilerOptions(
       execution.project,
       options.passthrough,
@@ -1183,19 +1196,31 @@ export namespace BuildExecution {
     const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
     let pluginSetupFailure: TtscBuildResult | undefined;
     let nativePlugins: ITtscLoadedNativePlugin[] = [];
+    // Opened only for an invocation that loads plugins, so a project without
+    // any never gains a cache directory; the load and every later native spawn
+    // of this invocation prove their unchanged inputs through it (#1722, #1723).
+    let identities: PluginContentIdentities.Store | undefined;
     try {
       if (
         compilerSelection.inspectionError === undefined &&
         hasProjectPluginEntries(project, options.plugins)
       ) {
+        const cacheDir =
+          options.cacheDir ??
+          SidecarEnvironment.read(options.env, "TTSC_CACHE_DIR");
+        const env = inheritedSidecarEnv(options.env, options.binary);
+        identities = PluginContentIdentities.open({
+          projectRoot,
+          cacheDir,
+          env,
+        });
         nativePlugins = loadProjectPlugins({
           binary: resolveBinary(options) ?? "",
-          cacheDir:
-            options.cacheDir ??
-            SidecarEnvironment.read(options.env, "TTSC_CACHE_DIR"),
+          cacheDir,
           cwd,
           entries: options.plugins,
-          env: inheritedSidecarEnv(options.env, options.binary),
+          env,
+          identities,
           onWatchInputs: options.onWatchInputs,
           pluginConfigDir: options.pluginConfigDir,
           projectRoot,
@@ -1215,6 +1240,7 @@ export namespace BuildExecution {
     return {
       compilerSelection,
       cwd,
+      ...(identities === undefined ? {} : { identities }),
       nativePlugins,
       pluginConfigDir: resolvePluginConfigDir({
         cwd,

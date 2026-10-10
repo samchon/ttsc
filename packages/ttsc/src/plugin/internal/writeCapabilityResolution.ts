@@ -8,6 +8,7 @@ import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
 import type { ITtscCapabilityPluginSource } from "./ITtscCapabilityPluginSource";
 import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
 import type { ITtscCapabilityResolutionPlugin } from "./ITtscCapabilityResolutionPlugin";
+import { PluginContentIdentities } from "./source/PluginContentIdentities";
 import { SourceBuildCacheLayout } from "./source/SourceBuildCacheLayout";
 import { pluginSourceDigest } from "./source/pluginSourceDigest";
 import { pluginSourceFilesSignature } from "./source/pluginSourceFilesSignature";
@@ -180,8 +181,8 @@ export function writeCapabilityResolution(
       return null;
     }
   }
-  const evidence = CapabilityResolutionFormat.sourceEvidence(
-    CapabilityResolutionFormat.clockReference(file),
+  const evidence = PluginContentIdentities.sourceEvidence(
+    PluginContentIdentities.mintReference(path.dirname(file)),
   );
   const entry: ITtscCapabilityResolutionEntry = {
     hostInputHashes,
@@ -244,7 +245,7 @@ export function writeCapabilityResolution(
 function recordPluginSource(
   directory: string,
   state: string,
-  evidence: ReturnType<typeof CapabilityResolutionFormat.sourceEvidence>,
+  evidence: ReturnType<typeof PluginContentIdentities.sourceEvidence>,
 ): ITtscCapabilityPluginSource {
   try {
     const before = pluginSourceFilesSignature(directory, evidence);
