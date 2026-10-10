@@ -1015,6 +1015,8 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
       "go-build",
       "descriptors",
       "capabilities",
+      "identities",
+      "answers",
       "ttsx-orphan",
     ];
     for (const directory of [
@@ -1035,6 +1037,8 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
         "plugins",
         "descriptors",
         "capabilities",
+        "identities",
+        "answers",
         "ttsx-orphan",
       ]) {
         assert.equal(fs.existsSync(path.join(cacheRoot, name)), false, name);
