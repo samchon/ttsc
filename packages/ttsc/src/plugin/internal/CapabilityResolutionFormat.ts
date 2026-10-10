@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { runtimeExecutableIdentity } from "../../internal/runtimeExecutableIdentity";
+import type { PluginContentIdentities } from "./source/PluginContentIdentities";
 import { SourceBuildCacheLayout } from "./source/SourceBuildCacheLayout";
 import { resolveSourceBuildCachePaths } from "./source/resolveSourceBuildCachePaths";
 
@@ -107,6 +108,13 @@ export namespace CapabilityResolutionFormat {
 
     /** Effective environment selecting workspace-local or explicit storage. */
     env?: NodeJS.ProcessEnv;
+
+    /**
+     * Record store of the project's plugin cache. WARNING (#1725): without it
+     * every lookup streamed the whole runtime executable, several times per
+     * capability resolution, in every process.
+     */
+    identities?: PluginContentIdentities.Store;
   }): string | null {
     const environment = SidecarEnvironment.merge(options.env ?? process.env);
     const runtime =
@@ -116,7 +124,7 @@ export namespace CapabilityResolutionFormat {
     let root: string;
     let runtimeIdentity: string;
     try {
-      const observed = runtimeExecutableIdentity(runtime);
+      const observed = runtimeExecutableIdentity(runtime, options.identities);
       if (observed === undefined) return null;
       runtimeIdentity = observed;
       root = resolveSourceBuildCachePaths(

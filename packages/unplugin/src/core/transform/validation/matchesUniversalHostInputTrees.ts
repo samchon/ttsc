@@ -58,7 +58,7 @@ export function matchesUniversalHostInputTrees(
       ? proof?.cached === cached && proof.environments !== undefined
         ? proof.environments.get(directory)
         : PluginBuildEnvironmentReadings.cached(directory)
-      : processPluginBuildEnvironment(directory);
+      : processPluginBuildEnvironment(directory, false, cached.projectRoot);
     if (environment === undefined) return false;
     if (
       trackerProvesInputUnchanged(cached.hostInputMutationTracker, directory) &&
@@ -71,6 +71,7 @@ export function matchesUniversalHostInputTrees(
         digest,
         resultFilesystem(cached.result),
         prepared ? { environment } : undefined,
+        cached.projectRoot,
       )
     )
       return false;

@@ -1,6 +1,6 @@
-import { pluginSourceDigest } from "./pluginSourceDigest";
 import { pluginSourceState } from "./pluginSourceState";
 import { processPluginBuildEnvironment } from "./processPluginBuildEnvironment";
+import { provenPluginSourceDigest } from "./provenPluginSourceDigest";
 
 /**
  * Whether one plugin source directory still holds the state a transform
@@ -16,12 +16,16 @@ import { processPluginBuildEnvironment } from "./processPluginBuildEnvironment";
  * is refuted. A compile keys its binaries on a fresh read, so a state it
  * reported after a change gets one comparison with a refreshed environment.
  * That retry does not guarantee equality for a changing or differently keyed
- * environment, and a supplied source digest remains the caller's premise.
+ * environment, and a supplied source digest remains the caller's premise. A
+ * caller that names its project proves the sources and the SDK from that
+ * project's plugin cache records instead of reading them in every new process
+ * (#1725).
  *
  * @param directory The source directory, as the envelope names it.
  * @param state The state the envelope reported.
  * @param options.sourceDigest The directory's `pluginSourceDigest`, when the
  *   caller holds one it can vouch for.
+ * @param options.projectRoot Project whose plugin cache root holds the records.
  * @throws When a listed source file cannot be read, as the build itself would.
  * @evidence contracts/common.md#principled-implementation Equality uses shared state composition and one real environment refresh after mismatch. This allows changed observations to be reconsidered without certifying the second comparison must match; supplied digest validity and native witness premises remain with their owners.
  * @evidence contracts/common.md#clear-and-simple-design One source reading is passed through both attempts and only the environment owner performs the refresh.
@@ -29,17 +33,20 @@ import { processPluginBuildEnvironment } from "./processPluginBuildEnvironment";
  * @evidence contracts/common.md#meaningful-documentation The prose states source-digest provenance, environment invalidation and the reason a mismatching state gets a fresh comparison.
  * @evidence contracts/portability.md#os-neutral-implementation Source reads and Go/environment witnesses use the same native boundary implementations as builds, rather than comparing OS names or guessed installation paths.
  * @evidence contracts/performance.md#efficient-algorithms At most one source digest computation is requested and reused by both comparisons; supplied strings bypass it. Native enumeration/file bytes, full environment identity/witness checks, optional tool/SDK refresh and digest-string hashing contribute work; mismatch repeats environment resolution once rather than bounding total cost by comparison count.
- * @evidence contracts/performance.md#reuse-equivalent-work A caller's proven source digest and the process owner's still-valid environment are reused; a mismatch forces the owning environment refresh before returning false.
+ * @evidence contracts/performance.md#reuse-equivalent-work A caller's proven source digest and the process owner's still-valid environment are reused; a mismatch forces the owning environment refresh before returning false. A named project lets the source and SDK readings come from its record store across processes.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The proof owns no retained source buffer, process or watcher; its caller owns any saved source digest.
  */
 export function pluginSourceStateHolds(
   directory: string,
   state: string,
-  options: { sourceDigest?: string } = {},
+  options: { projectRoot?: string; sourceDigest?: string } = {},
 ): boolean {
-  const sourceDigest = options.sourceDigest ?? pluginSourceDigest(directory);
-  if (pluginSourceState(directory, { sourceDigest }) === state) return true;
-  processPluginBuildEnvironment(directory, true);
-  return pluginSourceState(directory, { sourceDigest }) === state;
+  const projectRoot = options.projectRoot;
+  const sourceDigest =
+    options.sourceDigest ?? provenPluginSourceDigest(directory, projectRoot);
+  if (pluginSourceState(directory, { projectRoot, sourceDigest }) === state)
+    return true;
+  processPluginBuildEnvironment(directory, true, projectRoot);
+  return pluginSourceState(directory, { projectRoot, sourceDigest }) === state;
 }

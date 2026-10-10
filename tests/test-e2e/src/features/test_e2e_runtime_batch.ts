@@ -21,6 +21,7 @@ import {
 } from "../internal/ttsc/internal/read-only-directory";
 import { readE2eTracePayload } from "../internal/readE2eTracePayload";
 import { readRuntimeTraceWriter, verifyRuntimeCleanup } from "../internal/ttsc/internal/runtime-native-root-links";
+import { test_plain_launch_proves_its_runtime_and_compiler_without_streaming } from "./ttsc/compiler/test_plain_launch_proves_its_runtime_and_compiler_without_streaming";
 import { test_plugin_corpus_source_plugin_warm_load_proves_inputs_without_go_selection } from "./ttsc/native-plugins/corpus-source/test_plugin_corpus_source_plugin_warm_load_proves_inputs_without_go_selection";
 import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/project/test_owned_native_process_joins_cancelled_command_trees";
 
@@ -690,6 +691,13 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     // shared immutable workspace.
     try {
       test_plugin_corpus_source_plugin_warm_load_proves_inputs_without_go_selection();
+    } catch (error) {
+      combinedFailures.push(error);
+    }
+    // The launch budget without plugins needs its own project and runtime
+    // cache, which the shared workspace's records would otherwise answer.
+    try {
+      test_plain_launch_proves_its_runtime_and_compiler_without_streaming();
     } catch (error) {
       combinedFailures.push(error);
     }

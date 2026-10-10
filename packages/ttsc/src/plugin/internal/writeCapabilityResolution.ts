@@ -10,7 +10,6 @@ import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolution
 import type { ITtscCapabilityResolutionPlugin } from "./ITtscCapabilityResolutionPlugin";
 import { PluginContentIdentities } from "./source/PluginContentIdentities";
 import { SourceBuildCacheLayout } from "./source/SourceBuildCacheLayout";
-import { pluginSourceDigest } from "./source/pluginSourceDigest";
 import { pluginSourceFilesSignature } from "./source/pluginSourceFilesSignature";
 import { pluginSourceState } from "./source/pluginSourceState";
 
@@ -72,6 +71,12 @@ export function writeCapabilityResolution(
 
     /** Pre-load authority key; a moved evaluation authority refuses the write. */
     expectedAuthority?: string;
+
+    /**
+     * Record store of the project's plugin cache, which proves the runtime and
+     * the plugin sources and SDK from metadata instead of their bytes (#1725).
+     */
+    identities?: PluginContentIdentities.Store;
   },
   answer: {
     /**
@@ -192,7 +197,13 @@ export function writeCapabilityResolution(
     pluginSources: Object.fromEntries(
       Object.entries(answer.pluginSources).map(([directory, state]) => [
         directory,
-        recordPluginSource(directory, state, evidence),
+        recordPluginSource(
+          directory,
+          state,
+          evidence,
+          path.resolve(options.cwd),
+          options.identities,
+        ),
       ]),
     ),
     plugins: answer.plugins.map((plugin) => ({
@@ -240,23 +251,32 @@ export function writeCapabilityResolution(
  * when both signatures agree, every stamp was separable from a reference minted
  * before the read, and the digest gives the very state the load reported, so
  * the entry never vouches for sources the binary was not built from. Anything
- * else records the state alone, which a read proves in full.
+ * else records the state alone, which a read proves in full. The digest comes
+ * from the project's record store when its metadata still holds there, which
+ * places it inside the same two signatures, so a new process does not read
+ * every source byte again (#1725).
  */
 function recordPluginSource(
   directory: string,
   state: string,
   evidence: ReturnType<typeof PluginContentIdentities.sourceEvidence>,
+  projectRoot: string,
+  identities: PluginContentIdentities.Store | undefined,
 ): ITtscCapabilityPluginSource {
   try {
     const before = pluginSourceFilesSignature(directory, evidence);
-    const digest = pluginSourceDigest(directory);
+    const digest = PluginContentIdentities.sourceDirectory(
+      identities,
+      directory,
+    );
     const after = pluginSourceFilesSignature(directory, evidence);
     if (
       before !== undefined &&
       after !== undefined &&
       before.signature === after.signature &&
       after.separable &&
-      pluginSourceState(directory, { sourceDigest: digest }) === state
+      pluginSourceState(directory, { projectRoot, sourceDigest: digest }) ===
+        state
     ) {
       return { digest, signature: after.signature, state };
     }

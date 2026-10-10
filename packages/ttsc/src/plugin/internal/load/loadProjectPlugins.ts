@@ -1455,6 +1455,7 @@ function loadCommonJsDescriptor(
     env: {
       ...effectiveEnv,
       ...(node === undefined ? {} : { TTSC_NODE_BINARY: node }),
+      ...descriptorRecordRoot(descriptorCache.identities),
       TTSC_TTSX_BINARY: ttsx,
     },
     projectRoot: context.projectRoot,
@@ -1544,6 +1545,7 @@ function loadCommonJsDescriptor(
             // The direct evaluator may be Bun, but ttsx and native config
             // loaders require a real Node runtime with synchronous hooks.
             ...(node === undefined ? {} : { TTSC_NODE_BINARY: node }),
+            ...descriptorRecordRoot(descriptorCache.identities),
             TTSC_TTSX_BINARY: ttsx,
             TTSC_PLUGIN_CONTEXT: JSON.stringify(context),
             TTSC_PLUGIN_DESCRIPTOR_LOAD: "1",
@@ -1972,6 +1974,7 @@ function loadDescriptorViaTtsx(
         // may recurse into further descriptor loads) finds them even when the
         // instance-env snapshot predates `withPluginLoaderEnv`.
         TTSC_NODE_BINARY: node,
+        ...descriptorRecordRoot(identities),
         TTSC_TTSX_BINARY: ttsx,
         TTSC_PLUGIN_CONTEXT: JSON.stringify({
           binary: context.binary,
@@ -2054,6 +2057,20 @@ interface TtsxDescriptorResolutionRecord {
   signature?: string;
   specifier?: string;
   unstable?: boolean;
+}
+
+/**
+ * The private variable that hands a descriptor evaluator the plugin cache root
+ * this load's record store selected, so the child proves the compiler it runs
+ * from that root's records instead of streaming it (#1726) and never selects a
+ * cache root of its own. Absent without a store.
+ */
+function descriptorRecordRoot(
+  identities: PluginContentIdentities.Store | undefined,
+): { TTSC_PLUGIN_RECORD_ROOT?: string } {
+  return identities === undefined
+    ? {}
+    : { TTSC_PLUGIN_RECORD_ROOT: identities.root };
 }
 
 /**

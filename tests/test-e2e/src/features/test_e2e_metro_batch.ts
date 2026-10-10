@@ -761,13 +761,19 @@ async function runResidentLoaderPool(): Promise<void> {
         assert.notEqual(fs.readdirSync(descriptorCacheB).length, 0);
         const unrelatedCacheB = path.join(apiRootB, "unowned-neighbor");
         fs.writeFileSync(unrelatedCacheB, "preserve unrelated cache bytes\n");
+        // The plugin load also records content identities and load answers,
+        // which `clean` removes with the other single-file caches.
         assert.deepEqual(compilerB.clean(), [
           path.join(apiRootB, "plugins"),
           descriptorCacheB,
+          path.join(apiRootB, "identities"),
+          path.join(apiRootB, "answers"),
           goCacheB,
         ]);
         assert.equal(fs.existsSync(path.join(apiRootB, "plugins")), false);
         assert.equal(fs.existsSync(descriptorCacheB), false);
+        assert.equal(fs.existsSync(path.join(apiRootB, "identities")), false);
+        assert.equal(fs.existsSync(path.join(apiRootB, "answers")), false);
         assert.equal(fs.existsSync(goCacheB), false);
         assert.equal(
           fs.readFileSync(unrelatedCacheB, "utf8"),
@@ -4305,12 +4311,18 @@ async function runResidentLoaderPool(): Promise<void> {
     const beforePreparation = fs.existsSync(workspace.programRunLog)
       ? fs.statSync(workspace.programRunLog).size
       : 0;
+    // Both workers allocate their scratch in one temporary directory of their
+    // own: the shared workspace lies directly below the run's, which signs the
+    // absent candidates of its failed descriptor import, so one worker's
+    // scratch would withdraw the proof the other is taking.
+    const poolTemporaryDirectory = TestProject.tmpdir("ttsc-loader-pool-tmp-");
     const workers = (["metro", "turbopack"] as const).map((mode) =>
       createLoaderPoolWorker({
         mode,
         root: workspace.root,
         cache: workspace.cache,
         session,
+        temporaryDirectory: poolTemporaryDirectory,
         traceRoot,
         prepareNative:
           mode === "metro" ? TestUnpluginRuntime.libUrl("api") : undefined,

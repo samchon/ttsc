@@ -89,6 +89,13 @@ export function createLoaderPoolWorker(props: {
   prepareNative?: string;
   /** Cancellation withdraws command interest; the caller must still join close. */
   signal?: AbortSignal;
+  /**
+   * Temporary directory the worker allocates its scratch in, instead of the
+   * run's own. Absent candidates of a project directly below the run's
+   * temporary directory are proven absent by that directory's metadata, which a
+   * sibling's scratch allocation would move during another worker's proof.
+   */
+  temporaryDirectory?: string;
   /** Final resident's distinct public Metro host and compiler roots. */
   metroProjectView?: {
     hostRoot: string;
@@ -122,6 +129,13 @@ export function createLoaderPoolWorker(props: {
         TTSC_CACHE_DIR: props.cache,
         TTSC_UNPLUGIN_TRANSFORM_SESSION: props.session,
         TTSC_E2E_TRACE: props.traceRoot,
+        ...(props.temporaryDirectory === undefined
+          ? {}
+          : {
+              TEMP: props.temporaryDirectory,
+              TMP: props.temporaryDirectory,
+              TMPDIR: props.temporaryDirectory,
+            }),
       },
     },
   );

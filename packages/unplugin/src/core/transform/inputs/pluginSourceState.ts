@@ -21,6 +21,8 @@ import * as pluginSource from "ttsc/plugin-source";
  *
  * @param directory The source directory, as the envelope names it.
  * @param prepared Optional current environment prepared by the async owner.
+ * @param projectRoot Project whose plugin cache records prove the sources and
+ *   the SDK in a new process (samchon/ttsc#1725).
  * @evidence contracts/common.md#principled-implementation The shared pluginSourceState composition combines source digest and build environment exactly as binary keys do, and an observation error preserves null rather than a plausible state.
  * @evidence contracts/common.md#clear-and-simple-design Capture delegates state composition to ttsc while proof callers use pluginSourceHolds for mismatch refresh; the two roles are explicit without duplicate key logic.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing observations cannot become hardcoded state or equal a recorded valid state through an exception branch.
@@ -33,13 +35,17 @@ import * as pluginSource from "ttsc/plugin-source";
 export function pluginSourceState(
   directory: string,
   prepared?: { environment: string | undefined },
+  projectRoot?: string,
 ): string | null {
   try {
     if (prepared !== undefined)
       return prepared.environment === undefined
         ? null
-        : pluginSource.pluginSourceState(directory, prepared);
-    return pluginSource.pluginSourceState(directory);
+        : pluginSource.pluginSourceState(directory, {
+            environment: prepared.environment,
+            projectRoot,
+          });
+    return pluginSource.pluginSourceState(directory, { projectRoot });
   } catch {
     return null;
   }

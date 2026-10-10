@@ -61,7 +61,9 @@ export function projectRecordMoved(
   refreshProcessClockReference(record.root, filesystem);
   for (const [input, evidence] of Object.entries(record.inputs)) {
     if (evidence === null || typeof evidence !== "object") return input;
-    if (!watchInputEvidenceMatchesDisk(input, evidence, filesystem))
+    if (
+      !watchInputEvidenceMatchesDisk(input, evidence, filesystem, record.root)
+    )
       return input;
   }
   if (record.membership === null) return undefined;

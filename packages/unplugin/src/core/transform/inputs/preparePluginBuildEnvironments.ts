@@ -90,9 +90,13 @@ export async function preparePluginBuildEnvironments(
       )
         continue;
       if (
-        !pluginSourceHolds(directory, state, filesystem, {
-          environment,
-        })
+        !pluginSourceHolds(
+          directory,
+          state,
+          filesystem,
+          { environment },
+          projectRoot,
+        )
       )
         refresh.push(directory);
     } catch {

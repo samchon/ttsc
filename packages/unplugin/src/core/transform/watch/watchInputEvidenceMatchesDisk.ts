@@ -20,7 +20,10 @@ import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
  * a graph input by its state hash and physical target; a host input by the host
  * bytes' hash. The root-file membership is a walk over many paths and never
  * stands for one, so its evidence matches nothing here; the record holds it
- * apart. Evidence without a state proves nothing and does not match.
+ * apart. Evidence without a state proves nothing and does not match. A plugin
+ * tree is proven through the plugin cache records of the project the caller
+ * names, so a new process does not read its sources and SDK again
+ * (samchon/ttsc#1725).
  *
  * @evidence contracts/common.md#principled-implementation Each codec replays its recorded meaning: complete predicates, graph hash plus physical target, raw host hash or plugin-tree state; membership and absent state cannot establish one-path agreement.
  * @evidence contracts/common.md#clear-and-simple-design Discriminant branches delegate each observation to the codec owner and expose one conservative boolean comparison.
@@ -35,12 +38,19 @@ export function watchInputEvidenceMatchesDisk(
   file: string,
   evidence: TtscWatchInputEvidence,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  projectRoot?: string,
 ): boolean {
   const state = evidence.state;
   if (state === undefined || state.codec === "membership") return false;
   try {
     if (state.codec === "tree") {
-      return pluginSourceHolds(file, state.digest, filesystem);
+      return pluginSourceHolds(
+        file,
+        state.digest,
+        filesystem,
+        undefined,
+        projectRoot,
+      );
     }
     if (state.codec === "predicates") {
       return matchesGraphInputObservation(

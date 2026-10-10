@@ -48,6 +48,8 @@ export function captureWatchInputBaselines(
     nativePredicates?: readonly (keyof NonNullable<
       TtscWatchInputBaseline["nativePredicates"]
     >)[];
+    /** Project whose plugin cache records prove a plugin tree (#1725). */
+    projectRoot?: string;
   } = {},
 ): Map<string, TtscWatchInputBaseline | undefined> {
   const selected = [...new Set(files)];
@@ -89,6 +91,8 @@ function capture(
     nativePredicates?: readonly (keyof NonNullable<
       TtscWatchInputBaseline["nativePredicates"]
     >)[];
+    /** Project whose plugin cache records prove a plugin tree (#1725). */
+    projectRoot?: string;
   },
 ): TtscWatchInputBaseline {
   const stat = compilerStatKind(file, filesystem);
@@ -141,6 +145,8 @@ function capture(
     identity: pathIdentityKey(file, identities),
     realpath: compilerInputRealpathObservation(file, filesystem),
     stat,
-    ...(options.tree === true ? { tree: pluginSourceState(file) } : {}),
+    ...(options.tree === true
+      ? { tree: pluginSourceState(file, undefined, options.projectRoot) }
+      : {}),
   };
 }

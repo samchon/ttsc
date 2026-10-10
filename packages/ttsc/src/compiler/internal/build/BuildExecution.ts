@@ -88,6 +88,21 @@ export namespace BuildExecution {
   }
 
   /**
+   * Merge extra environment variables over `process.env` for a spawn of the
+   * selected TypeScript-Go compiler itself.
+   *
+   * WARNING (#1726): the compiler never reads `TTSC_NODE_BINARY`, which only
+   * plugin sidecars consume (`mergeEnv`). Selecting it streamed the 85 MB Node
+   * executable twice and probed it on every launch, plugins or not, about 0.2 s
+   * of a 0.5 s build without plugins.
+   */
+  function compilerEnv(
+    extra: NodeJS.ProcessEnv | undefined,
+  ): NodeJS.ProcessEnv {
+    return SidecarEnvironment.merge(process.env, extra);
+  }
+
+  /**
    * Build the environment for a native plugin spawn. Injects `TTSC_TSGO_BINARY`
    * and `TTSC_TTSX_BINARY` alongside the base env from `mergeEnv`, plus
    * `TTSC_PLUGIN_CONFIG_DIR` when the caller declared a plugin config anchor
@@ -458,7 +473,7 @@ export namespace BuildExecution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The caught resolution failure is legitimate only for commands not requiring a project; ordinary compilation failures do not enter this bypass.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain project-independent commands, existing-project behavior and null applicability; the catch comment states its deliberate broad premise.
    * @evidence contracts/portability.md#os-neutral-implementation Invocation cwd is resolved natively and spawnNative receives executable/argv separately with platform-aware environment merging.
-   * @evidence contracts/performance.md#efficient-algorithms Flag selection scans forwarded argument/name text before config IO. An applicable lane includes native cwd/config resolution, binary and runtime capability lookup, argv/env composition, complete captured output and diagnostic normalization; one requested command does not bound its native duration or output bytes.
+   * @evidence contracts/performance.md#efficient-algorithms Flag selection scans forwarded argument/name text before config IO. An applicable lane includes native cwd/config resolution, binary lookup, argv/env composition without runtime capability work (#1726), complete captured output and diagnostic normalization; one requested command does not bound its native duration or output bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A project probe and effectful terminal invocation establish no retained or shared cross-request result.
    *
@@ -487,7 +502,7 @@ export namespace BuildExecution {
     const tsgo = resolveTsgo({ ...options, cwd });
     const res = spawnNative(tsgo.binary, [...(options.passthrough ?? [])], {
       cwd,
-      env: mergeEnv(options.env, cwd, undefined),
+      env: compilerEnv(options.env),
       encoding: "utf8",
     });
     if (res.error) {
@@ -801,7 +816,7 @@ export namespace BuildExecution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported compiler options express the check contract without intercepting writes or replacing compiler APIs; spawn errors remain errors.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains the no-emit use and load-bearing argument precedence.
    * @evidence contracts/portability.md#os-neutral-implementation spawnNative uses the selected executable, separate argv and project cwd; environment composition handles native variable aliases and output text decoding is explicit UTF-8.
-   * @evidence contracts/performance.md#efficient-algorithms One argv composition includes delegated option-presence classification, threading/isolation text and argument copies. Environment composition can perform native runtime capability probes before the compiler launch; complete capture/decoding and diagnostic normalization follow. Work/storage depend on argument/env/path/report bytes and native child work, without an asserted measured cost ranking.
+   * @evidence contracts/performance.md#efficient-algorithms One argv composition includes delegated option-presence classification, threading/isolation text and argument copies. Environment composition only layers variables; the compiler reads no Node selection, so no runtime capability probe precedes the launch (#1726). Complete capture/decoding and diagnostic normalization follow. Work/storage depend on argument/env/path/report bytes and native child work, without an asserted measured cost ranking.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This executes the requested compiler pass; equivalence with other phases must be established by orchestration rather than caching a result here.
    *
@@ -827,11 +842,7 @@ export namespace BuildExecution {
       ],
       {
         cwd: execution.compilerSelection.compilerArgsCwd,
-        env: mergeEnv(
-          options.env,
-          execution.projectRoot,
-          execution.identities,
-        ),
+        env: compilerEnv(options.env),
         encoding: "utf8",
       },
     );
@@ -865,11 +876,7 @@ export namespace BuildExecution {
     options: RunBuildOptions,
     args: readonly string[],
   ): TtscBuildResult {
-    const env = mergeEnv(
-      options.env,
-      execution.projectRoot,
-      execution.identities,
-    );
+    const env = compilerEnv(options.env);
     const userOptions = readEffectiveCompilerOptions(
       execution.project,
       options.passthrough,

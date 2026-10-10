@@ -70,6 +70,7 @@ export function captureFailedGenerationInputStates(
                       environment: PluginBuildEnvironmentReadings.cached(input),
                     }
                   : undefined,
+                cached.projectRoot,
               ) ?? MISSING_INPUT_STATE,
             tree: true,
           },

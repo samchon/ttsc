@@ -146,15 +146,6 @@ export function computeCacheKey(inputs: {
   // binaries produced by the former absolute-ancestry layout out of this
   // layout's cache admissions, including callers with no SDK overlays.
   hash.update(JSON.stringify(["external-source-layout", 1]));
-  // Local replacement targets outside the module supply separately keyed
-  // sources. buildSourcePlugin snapshots and proves their copies before
-  // redirecting the Go replacement directives to the scratch tree.
-  const replacements = pluginModuleReplaceDirectories(
-    inputs.dir,
-    env,
-    goBinary,
-    inputs.goModReader,
-  );
   const overlays = [...(inputs.overlayDirs ?? [])].sort();
   // Hash contributors in sorted-by-name order so two consumers with the
   // same logical set produce the same key regardless of declaration order
@@ -162,12 +153,13 @@ export function computeCacheKey(inputs: {
   const sortedContributors = [...(inputs.contributors ?? [])].sort((a, b) =>
     a.name === b.name ? 0 : a.name < b.name ? -1 : 1,
   );
-  // A store whose root lies inside any directory this key hashes would write
-  // records into that source before the build rejects the cache placement,
-  // so such a store proves nothing here.
-  const identities = PluginContentIdentities.outside(inputs.identities, [
+  // A store whose root lies inside a directory this key hashes would write
+  // records into that source, so such a store proves nothing here. The build
+  // rejects that cache placement (`SourcePluginAdmission`) once every source
+  // is known; replacement targets narrow the store below, before their own
+  // digests, since only Go's reading of the manifest names them.
+  let identities = PluginContentIdentities.outside(inputs.identities, [
     inputs.dir,
-    ...replacements.map((replacement) => replacement.directory),
     ...overlays,
     ...sortedContributors.map((contributor) => contributor.source),
   ]);
@@ -216,6 +208,21 @@ export function computeCacheKey(inputs: {
   const directory = (label: string, root: string): void =>
     hashSourceDirectory(hash, label, root, inputs.sourceDigests, identities);
   directory("plugin", inputs.dir);
+  // Local replacement targets outside the module supply separately keyed
+  // sources. buildSourcePlugin snapshots and proves their copies before
+  // redirecting the Go replacement directives to the scratch tree. Go reads the
+  // manifest after the plugin's digest, so an edit made meanwhile lands between
+  // that digest and the build's copy, which `requireKeyedSource` refuses.
+  const replacements = pluginModuleReplaceDirectories(
+    inputs.dir,
+    env,
+    goBinary,
+    inputs.goModReader,
+  );
+  identities = PluginContentIdentities.outside(
+    identities,
+    replacements.map((replacement) => replacement.directory),
+  );
   for (const replacement of replacements) {
     directory(
       `replace:${replacement.modulePath}${

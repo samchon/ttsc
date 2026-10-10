@@ -13,6 +13,7 @@ import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { E2ETrace } from "../../../internal/E2ETrace";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { loadProjectPlugins } from "../../../plugin/internal/load/loadProjectPlugins";
+import type { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
 import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectIdentity } from "../../../structures/internal/ITtscProjectIdentity";
@@ -165,6 +166,13 @@ type LSPExecutionContext = {
    */
   selectionInputs?: ILSPPluginSelectionInputs;
 
+  /**
+   * Record store the confirming plugin load opened, which proves the Node
+   * runtime from metadata instead of streaming it again (#1726); absent for a
+   * project without plugins, which gains no cache directory.
+   */
+  identities?: PluginContentIdentities.Store;
+
   tsgoBinary: string;
 };
 
@@ -196,6 +204,7 @@ function resolveTtscserverEnv(launch: LSPLaunchOptions): TtscserverEnvironment {
   const context = resolveLspExecutionContext(launch);
   const env = lspSidecarEnvironment({
     cwd: context.projectContext?.logicalProjectRoot ?? path.resolve(launch.cwd),
+    identities: context.identities,
     pluginConfigOrigin: context.projectContext?.pluginConfigOrigin,
     tsgoBinary: context.tsgoBinary,
   });
@@ -244,6 +253,7 @@ function resolveTtscserverEnv(launch: LSPLaunchOptions): TtscserverEnvironment {
 
 function lspSidecarEnvironment(options: {
   cwd: string;
+  identities: PluginContentIdentities.Store | undefined;
   pluginConfigOrigin: string | undefined;
   tsgoBinary: string;
 }): NodeJS.ProcessEnv {
@@ -253,7 +263,7 @@ function lspSidecarEnvironment(options: {
       SidecarEnvironment.read(process.env, "TTSC_TTSX_BINARY") ??
       path.join(__dirname, "..", "..", "..", "launcher", "ttsx.js"),
   });
-  const node = resolveNodeBinary(env, options.cwd);
+  const node = resolveNodeBinary(env, options.cwd, options.identities);
   SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
   SidecarEnvironment.write(
     env,
@@ -305,6 +315,7 @@ function resolveLspExecutionContext(
       resolveFrom: __filename,
     });
     const initialProjectInputs = captureInitialLSPProjectInputs({
+      identities: loaded.identities,
       nativePlugins: loaded.nativePlugins,
       pluginConfigOrigin,
       project: selectedProject,
@@ -323,6 +334,7 @@ function resolveLspExecutionContext(
       resolveFrom: __filename,
     });
     const confirmedProjectInputs = captureInitialLSPProjectInputs({
+      identities: confirmation.identities,
       nativePlugins: confirmation.nativePlugins,
       pluginConfigOrigin,
       project: confirmedProject,
@@ -345,6 +357,9 @@ function resolveLspExecutionContext(
         initialProjectInputs: confirmedProjectInputs,
         nativePlugins: confirmation.nativePlugins,
         selectionInputs,
+        ...(confirmation.identities === undefined
+          ? {}
+          : { identities: confirmation.identities }),
         projectContext: {
           ...confirmedProject.identity,
           ...(pluginConfigOrigin === undefined ? {} : { pluginConfigOrigin }),
@@ -377,6 +392,7 @@ function loadLSPProjectPlugins(
 }
 
 function captureInitialLSPProjectInputs(options: {
+  identities: PluginContentIdentities.Store | undefined;
   nativePlugins: readonly ITtscLoadedNativePlugin[];
   pluginConfigOrigin: string | undefined;
   project: ITtscParsedProjectConfig;
@@ -414,6 +430,7 @@ function captureInitialLSPProjectInputs(options: {
     }
     const env = lspSidecarEnvironment({
       cwd: options.project.root,
+      identities: options.identities,
       pluginConfigOrigin: options.pluginConfigOrigin,
       tsgoBinary: options.tsgoBinary,
     });

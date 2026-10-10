@@ -34,7 +34,8 @@ import { LSPProjectInputDigest } from "./LSPProjectInputDigest";
  * detected drift; unavailable markers or changes between reads are not a proof
  * that the complete filesystem stayed fixed throughout capture.
  *
- * @param loaded The plugin load of the session.
+ * @param loaded The plugin load of the session, with the project whose plugin
+ *   cache proves its plugin sources from records.
  * @returns The inputs, or `undefined` when the load no longer describes the
  *   filesystem and the selection has to be loaded again.
  * @evidence contracts/common.md#principled-implementation The manifest groups candidate/source-file digests by directory. Recorded content and physical-target proofs and all plugin-source states are compared again before return; a detected mismatch rejects capture, while sequential reads and unproven paths do not certify every post-load change.
@@ -53,6 +54,7 @@ export function captureLSPPluginSelectionInputs(loaded: {
   hostInputRealpaths: Readonly<Record<string, string | null>>;
   hostInputs: readonly string[];
   pluginSources: Readonly<Record<string, string>>;
+  project?: { root: string };
 }): ILSPPluginSelectionInputs | undefined {
   const excluded = new Set(
     loaded.deferredHostInputs.map((file) => path.resolve(file)),
@@ -85,8 +87,15 @@ export function captureLSPPluginSelectionInputs(loaded: {
     )
   )
     return undefined;
+  // The load's project names the plugin cache whose records prove the sources
+  // and the SDK, so a session start does not read them again (#1725).
   for (const [directory, state] of Object.entries(loaded.pluginSources))
-    if (!pluginSourceStateHolds(directory, state)) return undefined;
+    if (
+      !pluginSourceStateHolds(directory, state, {
+        projectRoot: loaded.project?.root,
+      })
+    )
+      return undefined;
   return {
     omittedNames: GoSourceInputs.OMITTED_SOURCE_FILE_NAMES,
     omittedSuffixes: GoSourceInputs.OMITTED_SOURCE_FILE_SUFFIXES,
