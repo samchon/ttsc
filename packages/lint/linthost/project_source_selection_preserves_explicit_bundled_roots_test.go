@@ -21,10 +21,10 @@ import (
 // @evidence contracts/testing.md#execution-ownership This public Go unit requires embedded libraries and invokes both source projections and the writable guard in process over temporary config/source inputs, without an installed package, product subprocess or native build. Native noembed ownership belongs to the native source-selection units.
 func TestProjectSourceSelectionPreservesExplicitBundledRoots(t *testing.T) {
   root := t.TempDir()
-  library := bundled.LibPath() + "/lib.es5.d.ts"
+  library := bundled.LibPath().ResolveFile("lib.es5.d.ts")
   config, err := json.Marshal(map[string]any{
     "compilerOptions": map[string]any{"target": "ES2022", "strict": true},
-    "files":           []string{"main.ts", library},
+    "files":           []string{"main.ts", library.AsString()},
   })
   if err != nil {
     t.Fatal(err)
@@ -39,7 +39,7 @@ func TestProjectSourceSelectionPreservesExplicitBundledRoots(t *testing.T) {
   bundledFiles := 0
   var excluded *Finding
   for _, file := range prog.tsProgram.SourceFiles() {
-    if bundled.IsBundled(file.FileName()) {
+    if bundled.IsBundled(file.FileName().AsString()) {
       bundledFiles++
       if file.FileName() != library && excluded == nil {
         excluded = &Finding{File: file}
@@ -56,10 +56,10 @@ func TestProjectSourceSelectionPreservesExplicitBundledRoots(t *testing.T) {
       sources = prog.projectSourceFiles
     }
     for _, file := range sources() {
-      files = append(files, filepath.ToSlash(file.FileName()))
+      files = append(files, filepath.ToSlash(file.FileName().AsString()))
     }
     expectedMain := filepath.ToSlash(filepath.Join(root, "main.ts"))
-    if len(files) != 2 || !slices.Contains(files, expectedMain) || !slices.Contains(files, library) {
+    if len(files) != 2 || !slices.Contains(files, expectedMain) || !slices.Contains(files, library.AsString()) {
       t.Errorf("%s source membership=%v, want main.ts and explicit %s", name, files, library)
     }
   }

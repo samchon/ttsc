@@ -7,6 +7,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -78,8 +79,8 @@ func TestDriverEmitRewritesEverySourceUnderParallelEmit(t *testing.T) {
   // Emit assertion: the callback runs under emit()'s mutex, so writing this
   // map is safe; the assertions observe routing rather than worker overlap.
   emitted := map[string]string{}
-  _, emitDiags, err := prog.EmitAll(rewrites, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    emitted[filepath.Base(fileName)] = text
+  _, emitDiags, err := prog.EmitAll(rewrites, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[filepath.Base(fileName.AsString())] = text
     return nil
   })
   if err != nil {

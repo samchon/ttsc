@@ -6,6 +6,7 @@ import (
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // PluginEmitError reports compiler errors from a native plugin emit. The same
@@ -63,7 +64,7 @@ func (p *Program) pluginEmitDiagnostics(phase string, raw []*shimast.Diagnostic)
     Diagnostics:  diagnostics,
     Phase:        phase,
     Declarations: p.TSProgram.Options().GetEmitDeclarations(),
-    cwd:          p.TSProgram.GetCurrentDirectory(),
+    cwd:          p.TSProgram.GetCurrentDirectory().AsString(),
   }
 }
 
@@ -74,22 +75,22 @@ type pluginEmitOutput struct {
 }
 
 type pluginEmitFile struct {
-  name string
+  name shimtspath.RootedFilePath
   text string
   data *shimcompiler.WriteFileData
 }
 
 func newPluginEmitOutput(writeFile shimcompiler.WriteFile, buffered bool) *pluginEmitOutput {
   if writeFile == nil {
-    writeFile = func(name, text string, _ *shimcompiler.WriteFileData) error {
-      return DefaultWriteFile(name, text)
+    writeFile = func(name shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+      return DefaultWriteFile(name.AsString(), text)
     }
   }
   return &pluginEmitOutput{writeFile: writeFile, buffered: buffered}
 }
 
 // The caller serializes declaration writes; JavaScript and flush are serial.
-func (o *pluginEmitOutput) write(name, text string, data *shimcompiler.WriteFileData) error {
+func (o *pluginEmitOutput) write(name shimtspath.RootedFilePath, text string, data *shimcompiler.WriteFileData) error {
   if !o.buffered {
     return o.writeFile(name, text, data)
   }

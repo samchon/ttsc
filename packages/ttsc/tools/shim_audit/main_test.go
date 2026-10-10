@@ -24,11 +24,11 @@ func TestLinknameRe(t *testing.T) {
     wantName string
     wantHit  bool
   }{
-    {"//go:linkname checkerGetMinArgumentCount github.com/microsoft/typescript-go/internal/checker.(*Checker).getMinArgumentCount", "checker", "getMinArgumentCount", true},
-    {"//go:linkname x github.com/microsoft/typescript-go/internal/checker.(Checker).foo", "checker", "foo", true},
-    {"//go:linkname GetSourceFileOfNode github.com/microsoft/typescript-go/internal/ast.getSourceFileOfNode", "ast", "getSourceFileOfNode", true},
-    {"//go:linkname From github.com/microsoft/typescript-go/internal/vfs/cachedvfs.From", "vfs/cachedvfs", "From", true},
-    {"//go:linkname FS github.com/microsoft/typescript-go/internal/vfs/osvfs.FS", "vfs/osvfs", "FS", true},
+    {"//go:linkname checkerGetMinArgumentCount github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).getMinArgumentCount", "checker", "getMinArgumentCount", true},
+    {"//go:linkname x github.com/microsoft/TypeScript/tsc/internal/checker.(Checker).foo", "checker", "foo", true},
+    {"//go:linkname GetSourceFileOfNode github.com/microsoft/TypeScript/tsc/internal/ast.getSourceFileOfNode", "ast", "getSourceFileOfNode", true},
+    {"//go:linkname From github.com/microsoft/TypeScript/tsc/internal/vfs/cachedvfs.From", "vfs/cachedvfs", "From", true},
+    {"//go:linkname FS github.com/microsoft/TypeScript/tsc/internal/vfs/osvfs.FS", "vfs/osvfs", "FS", true},
     {"//go:linkname foo runtime.bar", "", "", false}, // not a tsgo internal target
     {"// just a comment", "", "", false},
   }
@@ -229,7 +229,7 @@ func TestIsReachable(t *testing.T) {
     t.Error("pointer-to-slice-of-basic should be reachable")
   }
 
-  pkg := types.NewPackage("github.com/microsoft/typescript-go/internal/checker", "checker")
+  pkg := types.NewPackage("github.com/microsoft/TypeScript/tsc/internal/checker", "checker")
   obj := types.NewTypeName(token.NoPos, pkg, "Foo", nil)
   named := types.NewNamed(obj, types.NewStruct(nil, nil), nil)
   if isReachable(named, reachable{}, fresh()) {

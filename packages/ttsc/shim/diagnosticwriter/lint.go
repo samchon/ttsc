@@ -17,11 +17,11 @@ import (
   "slices"
   "strings"
 
-  "github.com/microsoft/typescript-go/internal/ast"
-  "github.com/microsoft/typescript-go/internal/diagnostics"
-  inner "github.com/microsoft/typescript-go/internal/diagnosticwriter"
-  "github.com/microsoft/typescript-go/internal/locale"
-  "github.com/microsoft/typescript-go/internal/tspath"
+  "github.com/microsoft/TypeScript/tsc/internal/ast"
+  "github.com/microsoft/TypeScript/tsc/internal/diagnostics"
+  inner "github.com/microsoft/TypeScript/tsc/internal/diagnosticwriter"
+  "github.com/microsoft/TypeScript/tsc/internal/locale"
+  "github.com/microsoft/TypeScript/tsc/internal/tspath"
 )
 
 // LintCategory selects warning vs error rendering. Warnings render yellow,
@@ -233,6 +233,19 @@ func (d *LintDiagnostic) Category() diagnostics.Category {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Localize computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Localize(_ locale.Locale) string { return d.message }
 
+// Source returns the empty prefix, so lint codes render with the formatter's
+// default "TS" prefix exactly as they did before upstream added the prefix.
+//
+// @evidence contracts/common.md#principled-implementation The upstream interface defines an empty Source as its default code prefix; returning it preserves the established rendered lint banner.
+// @evidence contracts/common.md#clear-and-simple-design One constant accessor satisfies the interface without a configurable prefix nobody supplies.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No external-source marker is invented for findings that ttsc has always rendered under the default prefix.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the prefix meaning and the preserved rendering.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Source acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This accessor returns a constant and chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work No computation is performed, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Source computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+func (d *LintDiagnostic) Source() string { return "" }
+
 // MessageChain returns nil because this diagnostic contains one flat message.
 //
 // @evidence contracts/common.md#principled-implementation Nil represents the absent chain in the upstream interface; the value stores a flat message rather than structured children.
@@ -340,12 +353,10 @@ func FormatMixedDiagnostics(
     return 0
   }
   options := &inner.FormattingOptions{
-    Locale: locale.Default,
-    ComparePathsOptions: tspath.ComparePathsOptions{
-      CurrentDirectory:          currentDirectory,
-      UseCaseSensitiveFileNames: true,
-    },
-    NewLine: "\n",
+    Locale:           locale.Default,
+    CaseSensitivity:  tspath.CaseSensitive,
+    CurrentDirectory: displayDirectory(currentDirectory),
+    NewLine:          "\n",
   }
   slices.SortFunc(all, compareMixedDiagnostics)
   inner.FormatDiagnosticsWithColorAndContext(output, all, options)
@@ -385,7 +396,7 @@ func compareMixedDiagnostics(a, b inner.Diagnostic) int {
 
 func mixedDiagnosticFileName(d inner.Diagnostic) string {
   if file := d.File(); file != nil {
-    return file.FileName()
+    return file.FileName().AsString()
   }
   return ""
 }

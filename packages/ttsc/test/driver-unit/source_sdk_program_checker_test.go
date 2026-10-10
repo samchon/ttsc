@@ -12,6 +12,7 @@ import (
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   "github.com/microsoft/typescript-go/shim/core"
   "github.com/microsoft/typescript-go/shim/tsoptions"
+  "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/microsoft/typescript-go/shim/vfs/cachedvfs"
   "github.com/microsoft/typescript-go/shim/vfs/osvfs"
 )
@@ -36,10 +37,10 @@ func TestSourceSDKProgramChecker(t *testing.T) {
   program, checker, root := sourceSDKProgram(t, source)
   var main *shimast.SourceFile
   for _, file := range program.SourceFiles() {
-    if filepath.ToSlash(file.FileName()) == filepath.ToSlash(filepath.Join(root, "excluded", "main.ts")) {
+    if filepath.ToSlash(file.FileName().AsString()) == filepath.ToSlash(filepath.Join(root, "excluded", "main.ts")) {
       t.Fatal("a source excluded by the consumer config entered the Program")
     }
-    if filepath.ToSlash(file.FileName()) == filepath.ToSlash(filepath.Join(root, "src", "main.ts")) {
+    if filepath.ToSlash(file.FileName().AsString()) == filepath.ToSlash(filepath.Join(root, "src", "main.ts")) {
       main = file
     }
   }
@@ -96,8 +97,8 @@ func sourceSDKProgram(t *testing.T, source string) (*shimcompiler.Program, *shim
   write("src/functions.d.ts", "declare function __typeText<T>(): string;\ndeclare function typeProperties<T>(): readonly string[];\n")
   write("excluded/main.ts", "export const shouldNotBeLoaded = 1;\n")
   fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
-  host := shimcompiler.NewCompilerHost(root, fs, bundled.LibPath(), nil, nil)
-  parsed, _ := tsoptions.GetParsedCommandLineOfConfigFile(filepath.Join(root, "tsconfig.json"), &core.CompilerOptions{}, nil, host, nil)
+  host := shimcompiler.NewCompilerHost(fs, bundled.LibPath(), nil, nil, nil)
+  parsed, _ := tsoptions.GetParsedCommandLineOfConfigFile(tspath.RootedFilePathFromAbsolute(filepath.Join(root, "tsconfig.json")), &core.CompilerOptions{}, nil, fs, nil)
   if parsed == nil || len(parsed.Errors) != 0 {
     t.Fatalf("consumer config parse failed: %#v", parsed)
   }

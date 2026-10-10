@@ -8,6 +8,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimcore "github.com/microsoft/typescript-go/shim/core"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -90,8 +91,8 @@ func TestEmitWithPluginTransformersAppliesLinkedProgramPlugins(t *testing.T) {
     t.Fatal(err)
   }
   emitted := map[string]string{}
-  if _, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{hostTransform}, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    emitted[filepath.Base(fileName)] = text
+  if _, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{hostTransform}, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[filepath.Base(fileName.AsString())] = text
     return nil
   }); err != nil {
     t.Fatal(err)
@@ -143,8 +144,8 @@ func TestEmitWithPluginTransformersWithoutManifestLeavesLinkedHooksIdle(t *testi
   defer prog.Close()
 
   emitted := map[string]string{}
-  if _, err := prog.EmitWithPluginTransformers(nil, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    emitted[filepath.Base(fileName)] = text
+  if _, err := prog.EmitWithPluginTransformers(nil, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[filepath.Base(fileName.AsString())] = text
     return nil
   }); err != nil {
     t.Fatal(err)

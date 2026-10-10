@@ -7,6 +7,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -59,9 +60,9 @@ func TestDriverEmitRawSerializesWriteCallbackUnderParallelEmit(t *testing.T) {
   // plugin's per-file rewrite state. Both the read (length probe) and the write
   // happen inside the callback; actual concurrent scheduling is not measured.
   emitted := map[string]bool{}
-  _, emitDiags, err := prog.EmitAllRaw(func(fileName, _ string, _ *shimcompiler.WriteFileData) error {
+  _, emitDiags, err := prog.EmitAllRaw(func(fileName shimtspath.RootedFilePath, _ string, _ *shimcompiler.WriteFileData) error {
     _ = len(emitted)
-    emitted[fileName] = true
+    emitted[fileName.AsString()] = true
     return nil
   })
   if err != nil {

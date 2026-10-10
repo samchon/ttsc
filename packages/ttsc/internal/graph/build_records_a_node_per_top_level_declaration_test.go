@@ -80,7 +80,7 @@ export const value = 1;
     t.Fatalf("expected %d nodes, got %d: %v", len(want), declared, nodeIDSet(graph))
   }
   for name, kind := range want {
-    id := nodeID(path, name, kind)
+    id := nodeID(path.AsString(), name, kind)
     node, ok := graph.Nodes[id]
     if !ok {
       t.Fatalf("missing node for %s (%s); have %v", name, kind, nodeIDSet(graph))

@@ -13,6 +13,7 @@ import (
   "os"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
   cwdutil "github.com/samchon/ttsc/packages/ttsc/internal/cwd"
@@ -114,8 +115,8 @@ func writeCompiledProgramResponse(prog *driver.Program, diags []driver.Diagnosti
     // Capture WriteFile output in a map keyed by project-relative paths. This
     // gives the JS API a deterministic object and avoids touching outDir.
     writeFile := shimcompiler.WriteFile(
-      func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-        output[apiOutputKey(cwd, fileName)] = text
+      func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+        output[apiOutputKey(cwd, fileName.AsString())] = text
         return nil
       },
     )

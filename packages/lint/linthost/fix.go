@@ -205,7 +205,7 @@ func applyFindingFixes(cwd string, findings []*Finding) (int, error) {
     if finding == nil || finding.File == nil || len(finding.Fix) == 0 {
       continue
     }
-    path := finding.File.FileName()
+    path := finding.File.FileName().AsString()
     if path == "" {
       continue
     }

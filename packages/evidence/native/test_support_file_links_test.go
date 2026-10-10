@@ -10,6 +10,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/samchon/ttsc/packages/lint/rule"
 )
 
@@ -47,7 +48,7 @@ func (fixture *fileLinkFixture) source(relative string, content string) *shimast
   if strings.HasSuffix(relative, ".tsx") {
     kind = shimcore.ScriptKindTSX
   }
-  return shimparser.ParseSourceFile(shimast.SourceFileParseOptions{FileName: filepath.ToSlash(filepath.Join(fixture.root, relative))}, content, kind)
+  return shimparser.ParseSourceFile(shimast.SourceFileParseOptions{FileName: shimtspath.RootedFilePathFromAbsolute(filepath.Join(fixture.root, relative))}, content, kind)
 }
 
 func (fixture *fileLinkFixture) check() []string {

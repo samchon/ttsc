@@ -43,14 +43,14 @@ func TestEnumGenerationPreservesExistingFamilyMembers(t *testing.T) {
     }
   }
   write("ast/shim.go", `package ast
-import innerast "github.com/microsoft/typescript-go/internal/ast"
+import innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
 type Mode = innerast.Mode
 const Alpha = innerast.Alpha
 const privateDelta = innerast.Delta
 func privateReference() { _ = innerast.Beta }
 `)
   write("checker/shim.go", `package checker
-import innerast "github.com/microsoft/typescript-go/internal/ast"
+import innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
 const ForeignBeta = innerast.Beta
 `)
   upstream := func(expanded bool) map[string]*packages.Package {
@@ -130,7 +130,7 @@ const ( Alpha Mode = iota; Beta; Delta )
   }
   assertMembers(false, []string{"Alpha", "Beta", "Delta"})
   write("ast/shim.go", `package ast
-import innerast "github.com/microsoft/typescript-go/internal/ast"
+import innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
 type Mode = innerast.Mode
 const privateAlpha = innerast.Alpha
 `)
@@ -148,7 +148,7 @@ const privateAlpha = innerast.Alpha
     t.Fatal("repeated expanded generation changed earlier members")
   }
   write("ast/shim.go", `package ast
-import innerast "github.com/microsoft/typescript-go/internal/ast"
+import innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
 type Mode = innerast.Mode
 const (
   Alpha = innerast.Alpha

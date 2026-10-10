@@ -61,7 +61,7 @@ func assertSolidCheckerFindings(
     t.Fatalf("user source files = %d, want 1", len(files))
   }
   wanted := filepath.ToSlash(filepath.Join("src", fileName))
-  if got := filepath.ToSlash(files[0].FileName()); !strings.HasSuffix(got, wanted) {
+  if got := filepath.ToSlash(files[0].FileName().AsString()); !strings.HasSuffix(got, wanted) {
     t.Fatalf("user source file = %q, want one ending in %q", got, wanted)
   }
   assertSolidExpectations(t, files[0], program.runLintCycle(engine), expected)

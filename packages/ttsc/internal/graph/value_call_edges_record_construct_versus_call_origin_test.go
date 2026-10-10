@@ -53,9 +53,9 @@ export class Controller {
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  handle := nodeID(path, "Controller.handle", NodeMethod)
-  run := nodeID(path, "Service.run", NodeMethod)
-  service := nodeID(path, "Service", NodeClass)
+  handle := nodeID(path.AsString(), "Controller.handle", NodeMethod)
+  run := nodeID(path.AsString(), "Service.run", NodeMethod)
+  service := nodeID(path.AsString(), "Service", NodeClass)
 
   if got := edgeOrigin(graph, handle, run, EdgeValueCall); got != "call" {
     t.Fatalf("Controller.handle -> Service.run: want Origin \"call\", got %q; edges: %v", got, graph.Edges)

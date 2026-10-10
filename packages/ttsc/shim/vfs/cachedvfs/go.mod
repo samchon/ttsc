@@ -1,7 +1,5 @@
-module github.com/microsoft/typescript-go/shim/vfs/cachedvfs
+module github.com/microsoft/TypeScript/tsc/shim/vfs/cachedvfs
 
-go 1.26
+go 1.27
 
-require github.com/microsoft/typescript-go v0.0.0-20260610182825-7fc57c005063
-
-require github.com/go-json-experiment/json v0.0.0-20260601182631-00ed12fed2a6 // indirect
+require github.com/microsoft/TypeScript/tsc v0.0.0-20261008195036-6ad8c56f9b5a

@@ -93,7 +93,7 @@ type providerSnapshot struct {
 
   sources map[string]string
 
-  caseSensitive bool
+  caseSensitivity shimtspath.CaseSensitivity
 
   files map[string]string
 
@@ -105,7 +105,7 @@ type providerSnapshot struct {
 }
 
 func (s *providerSnapshot) fileKey(path string) string {
-  return shimtspath.GetCanonicalFileName(shimtspath.NormalizePath(path), s.caseSensitive)
+  return s.caseSensitivity.Canonicalize(shimtspath.NormalizePath(path))
 }
 
 func (s *providerSnapshot) fileFromURI(uri string) (string, bool) {
@@ -196,13 +196,13 @@ func (pr *Provider) buildSnapshot() (*providerSnapshot, error) {
   defer func() { _ = prog.Close() }()
 
   snapshot := &providerSnapshot{
-    graph:         graph.Build(prog),
-    sources:       graph.SourceTexts(prog),
-    caseSensitive: prog.TSProgram.UseCaseSensitiveFileNames(),
-    files:         map[string]string{},
-    nodesByFile:   map[string][]*graph.Node{},
-    edgesByFile:   map[string][]*graph.Edge{},
-    incoming:      map[string][]*graph.Edge{},
+    graph:           graph.Build(prog),
+    sources:         graph.SourceTexts(prog),
+    caseSensitivity: prog.TSProgram.CaseSensitivity(),
+    files:           map[string]string{},
+    nodesByFile:     map[string][]*graph.Node{},
+    edgesByFile:     map[string][]*graph.Edge{},
+    incoming:        map[string][]*graph.Edge{},
   }
   for file := range snapshot.sources {
     snapshot.files[snapshot.fileKey(file)] = file

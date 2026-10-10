@@ -629,7 +629,7 @@ func (a *unicornIsolatedFunctionsAnalysis) checkReference(
   } else {
     symbol = canonicalValueSymbol(a.ctx, identifier)
     if symbol != nil {
-      for _, declaration := range symbol.Declarations {
+      for _, declaration := range symbol.Declarations() {
         if declaration != nil && declaration != function &&
           declaration.Pos() >= function.Pos() && declaration.End() <= function.End() {
           return
@@ -674,10 +674,10 @@ func (a *unicornIsolatedFunctionsAnalysis) checkReference(
 // top-level bindings resolve globally but are real source declarations, so
 // they stay reported like upstream's script-mode captures.
 func unicornIsolatedFunctionsIsAmbientGlobal(ctx *Context, name string, symbol *shimast.Symbol) bool {
-  if len(symbol.Declarations) == 0 {
+  if len(symbol.Declarations()) == 0 {
     return true
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range symbol.Declarations() {
     if declaration == nil {
       return false
     }

@@ -3,6 +3,8 @@ package paths_test
 import (
   "testing"
   "time"
+
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // TestRewriterCommonSourceDirTerminatesAtVolumeRoots verifies rootDir inference never spins at a root.
@@ -40,7 +42,7 @@ func TestRewriterCommonSourceDirTerminatesAtVolumeRoots(t *testing.T) {
   }
   for _, c := range cases {
     done := make(chan string, 1)
-    go func() { done <- pathsCommonSourceDir(c.files, "/", false) }()
+    go func() { done <- pathsCommonSourceDir(c.files, "/", shimtspath.CaseInsensitive) }()
     select {
     case got := <-done:
       if got != c.expected {

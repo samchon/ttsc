@@ -9,7 +9,7 @@
 // Correcting the one row that surfaced would close the witness and leave the
 // class open, so the comparison runs as a check instead.
 //
-// Oracle: exported OptionsDeclarations and OptionsForWatch of the pinned native
+// Oracle: exported OptionsDeclarations of the pinned native
 // module, read by the same shim-backed reader as the generated option metadata.
 // This checks nominal boolean versus value kind for every matching schema name.
 // Native scalar/list/config-only consumption is separately owned by the typed

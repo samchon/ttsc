@@ -31,6 +31,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/wasm/host"
@@ -181,9 +182,9 @@ func runTypiaBuild(args []string, stdout, stderr io.Writer) int {
   }
   if shouldEmit {
     emitted := 0
-    writeFile := shimcompiler.WriteFile(func(fileName, text string, _ *shimcompiler.WriteFileData) error {
+    writeFile := shimcompiler.WriteFile(func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
       emitted++
-      return driver.DefaultWriteFile(fileName, text)
+      return driver.DefaultWriteFile(fileName.AsString(), text)
     })
     eDiags, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{typiaTransform}, writeFile)
     if err != nil {
@@ -304,7 +305,7 @@ func runTypiaTransformProject(
     if sf.IsDeclarationFile {
       continue
     }
-    key := typiaSourceFileKey(cwd, filepath.ToSlash(sf.FileName()))
+    key := typiaSourceFileKey(cwd, filepath.ToSlash(sf.FileName().AsString()))
     if filepath.IsAbs(key) || key == ".." || strings.HasPrefix(key, "../") {
       continue
     }
@@ -369,8 +370,8 @@ func runTypiaTransformSingleJS(
   var captured string
   found := false
   targetKey := filepath.ToSlash(absFile)
-  writeFile := shimcompiler.WriteFile(func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    if sameSourceStem(targetKey, fileName) {
+  writeFile := shimcompiler.WriteFile(func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    if sameSourceStem(targetKey, fileName.AsString()) {
       captured = text
       found = true
     }

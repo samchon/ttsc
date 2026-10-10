@@ -122,7 +122,7 @@ func TestLoadProgramKeepsCheckerPoolForTypeAwareRules(t *testing.T) {
     t.Fatalf("unexpected generated-wrapper diagnostics: %#v", generatedDiags)
   }
   defer generated.close()
-  if got := generated.tsProgram.Options().ConfigFilePath; got != shimtspath.ResolvePath(semanticConfig) {
+  if got := generated.tsProgram.Options().ConfigFilePath.AsString(); got != shimtspath.ResolvePath(semanticConfig) {
     t.Fatalf("generated wrapper semantic config = %q, want %q", got, shimtspath.ResolvePath(semanticConfig))
   }
 
@@ -143,7 +143,7 @@ func TestLoadProgramKeepsCheckerPoolForTypeAwareRules(t *testing.T) {
   if len(coldLSPDiags) != 0 {
     t.Fatalf("unexpected cold LSP diagnostics: %#v", coldLSPDiags)
   }
-  if got := coldLSP.tsProgram.Options().ConfigFilePath; got != shimtspath.ResolvePath(semanticConfig) {
+  if got := coldLSP.tsProgram.Options().ConfigFilePath.AsString(); got != shimtspath.ResolvePath(semanticConfig) {
     t.Fatalf("cold LSP semantic config = %q, want %q", got, shimtspath.ResolvePath(semanticConfig))
   }
 
@@ -155,7 +155,7 @@ func TestLoadProgramKeepsCheckerPoolForTypeAwareRules(t *testing.T) {
   if len(residentLSPDiags) != 0 {
     t.Fatalf("unexpected resident LSP diagnostics: %#v", residentLSPDiags)
   }
-  if got := residentLSP.tsProgram.Options().ConfigFilePath; got != shimtspath.ResolvePath(semanticConfig) {
+  if got := residentLSP.tsProgram.Options().ConfigFilePath.AsString(); got != shimtspath.ResolvePath(semanticConfig) {
     t.Fatalf("resident LSP semantic config = %q, want %q", got, shimtspath.ResolvePath(semanticConfig))
   }
   resident.invalidate()
@@ -168,7 +168,7 @@ func TestLoadProgramKeepsCheckerPoolForTypeAwareRules(t *testing.T) {
     t.Fatalf("unexpected unmarked-wrapper diagnostics: %#v", unmarkedDiags)
   }
   defer unmarked.close()
-  if got := unmarked.tsProgram.Options().ConfigFilePath; got != shimtspath.ResolvePath(generatedConfig) {
+  if got := unmarked.tsProgram.Options().ConfigFilePath.AsString(); got != shimtspath.ResolvePath(generatedConfig) {
     t.Fatalf("unmarked wrapper inherited ambient semantic config = %q, want %q", got, shimtspath.ResolvePath(generatedConfig))
   }
   invalid, _, err := loadProgram(root, generatedConfig, loadProgramOptions{semanticConfigPath: "relative.json"})

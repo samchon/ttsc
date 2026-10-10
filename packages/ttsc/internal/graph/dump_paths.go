@@ -172,7 +172,8 @@ func (m *dumpPathMapper) mapPath(file string) string {
 
   rawPhysical := normalized
   if shimtspath.GetRootLength(rawPhysical) == 0 {
-    rawPhysical = shimtspath.GetNormalizedAbsolutePath(rawPhysical, m.rawProject)
+    // m.rawProject is rooted whenever m.project is: canonicalDumpPath keeps an unrooted spelling unrooted, and mapPath returned above for an unrooted m.project.
+    rawPhysical = shimtspath.GetNormalizedAbsolutePath(rawPhysical, shimtspath.RootedDirectoryPathFromAbsolute(m.rawProject))
   }
   rawKey := m.pathKey(rawPhysical)
   if wire, ok := m.rawToWire[rawKey]; ok {
@@ -187,11 +188,11 @@ func (m *dumpPathMapper) mapPath(file string) string {
     ))
     return rawPhysical
   }
-  options := shimtspath.ComparePathsOptions{
-    CurrentDirectory:          m.project,
-    UseCaseSensitiveFileNames: m.caseSensitive,
+  caseSensitivity := shimtspath.CaseInsensitive
+  if m.caseSensitive {
+    caseSensitivity = shimtspath.CaseSensitive
   }
-  wire := shimtspath.GetRelativePathFromDirectory(m.project, physical, options)
+  wire := shimtspath.GetRelativePathFromDirectory(m.project, physical, caseSensitivity)
   if shimtspath.GetRootLength(wire) != 0 {
     m.fail(fmt.Errorf(
       "ttscgraph: source path %q cannot be represented relative to project %q because they are on different filesystem roots",

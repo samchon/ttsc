@@ -36,7 +36,7 @@ import (
   "golang.org/x/tools/go/packages"
 )
 
-const tsgoInternalPrefix = "github.com/microsoft/typescript-go/internal/"
+const tsgoInternalPrefix = "github.com/microsoft/TypeScript/tsc/internal/"
 
 // Packages for which we generate a shim. Mirrors tsgolint's list with
 // project/lsp/lsproto removed for the current host boundary and the rest kept

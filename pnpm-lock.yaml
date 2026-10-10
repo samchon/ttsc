@@ -40,8 +40,8 @@ catalogs:
       specifier: npm:typescript@~6.0.3
       version: 6.0.3
     typescript:
-      specifier: ^7.0.2
-      version: 7.0.2
+      specifier: 7.1.0-dev.20261009.1
+      version: 7.1.0-dev.20261009.1
   utils:
     '@nestia/e2e':
       specifier: ^14.0.0
@@ -80,7 +80,7 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
       bumpp:
         specifier: ^10.4.1
         version: 10.4.1
@@ -101,7 +101,7 @@ importers:
         version: typescript@6.0.3
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   benchmarks/evidence:
     devDependencies:
@@ -113,7 +113,7 @@ importers:
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
       typia:
         specifier: catalog:samchon
         version: 15.1.0(ttsc@packages+ttsc)
@@ -128,7 +128,7 @@ importers:
         version: 25.9.1
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   benchmarks/performance:
     devDependencies:
@@ -137,7 +137,7 @@ importers:
         version: 25.9.1
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   config:
     devDependencies:
@@ -167,7 +167,7 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
@@ -176,7 +176,7 @@ importers:
         version: link:../ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   packages/evidence:
     dependencies:
@@ -201,7 +201,7 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
@@ -210,13 +210,13 @@ importers:
         version: link:../ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   packages/factory:
     devDependencies:
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
@@ -225,7 +225,7 @@ importers:
         version: 4.60.4
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   packages/graph:
     dependencies:
@@ -247,7 +247,7 @@ importers:
         version: 0.184.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       esbuild:
         specifier: ^0.25.12
         version: 0.25.12
@@ -265,7 +265,7 @@ importers:
         version: link:../ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   packages/lint:
     devDependencies:
@@ -274,7 +274,7 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
@@ -283,7 +283,7 @@ importers:
         version: link:../ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   packages/lint/test/lint-contributor-demo:
     devDependencies:
@@ -298,7 +298,7 @@ importers:
         version: 6.1.3
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   packages/metro:
     dependencies:
@@ -317,7 +317,7 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
@@ -335,7 +335,7 @@ importers:
         version: link:../ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   packages/paths:
     devDependencies:
@@ -344,13 +344,13 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   packages/playground:
     dependencies:
@@ -378,7 +378,7 @@ importers:
         version: 7.7.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
       monaco-editor:
         specifier: ^0.52.0
         version: 0.52.2
@@ -396,7 +396,7 @@ importers:
         version: 1.2.1
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   packages/strip:
     devDependencies:
@@ -405,13 +405,13 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   packages/ttsc:
     dependencies:
@@ -427,13 +427,13 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
     optionalDependencies:
       '@ttsc/darwin-arm64':
         specifier: workspace:*
@@ -464,43 +464,43 @@ importers:
     devDependencies:
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
 
   packages/ttsc-darwin-x64:
     devDependencies:
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
 
   packages/ttsc-linux-arm:
     devDependencies:
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
 
   packages/ttsc-linux-arm64:
     devDependencies:
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
 
   packages/ttsc-linux-x64:
     devDependencies:
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
 
   packages/ttsc-win32-arm64:
     devDependencies:
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
 
   packages/ttsc-win32-x64:
     devDependencies:
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
 
   packages/unplugin:
     dependencies:
@@ -519,7 +519,7 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       esbuild:
         specifier: ^0.25.12
         version: 0.25.12
@@ -543,7 +543,7 @@ importers:
         version: link:../ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
       vite:
         specifier: ^7.3.5
         version: 7.3.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0)
@@ -565,7 +565,7 @@ importers:
         version: 3.9.2
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       esbuild:
         specifier: ^0.25.12
         version: 0.25.12
@@ -577,7 +577,7 @@ importers:
         version: link:../ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
       vscode-languageclient:
         specifier: ^10.1.0
         version: 10.1.0
@@ -589,13 +589,13 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
       rimraf:
         specifier: catalog:utils
         version: 6.1.3
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   tests/test-banner:
     devDependencies:
@@ -610,13 +610,13 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   tests/test-e2e:
     devDependencies:
@@ -676,7 +676,7 @@ importers:
         version: 15.1.0
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       esbuild:
         specifier: ^0.25.12
         version: 0.25.12
@@ -697,7 +697,7 @@ importers:
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
       vite:
         specifier: ^7.3.5
         version: 7.3.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0)
@@ -736,13 +736,13 @@ importers:
         version: 15.1.0
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
       yaml:
         specifier: catalog:utils
         version: 2.9.0
@@ -763,7 +763,7 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       ts-legacy:
         specifier: catalog:typescript
         version: typescript@6.0.3
@@ -772,7 +772,7 @@ importers:
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   tests/test-graph:
     devDependencies:
@@ -787,13 +787,13 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   tests/test-lint:
     devDependencies:
@@ -808,7 +808,7 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
@@ -823,13 +823,13 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   tests/test-playground:
     devDependencies:
@@ -847,13 +847,13 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
       tgrid:
         specifier: ^1.0.3
         version: 1.2.1
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   tests/test-strip:
     devDependencies:
@@ -868,13 +868,13 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   tests/test-ttsc:
     devDependencies:
@@ -898,7 +898,7 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       mocha:
         specifier: ^12.0.2
         version: 12.0.2
@@ -910,7 +910,7 @@ importers:
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   tests/test-unplugin:
     devDependencies:
@@ -931,7 +931,7 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       esbuild:
         specifier: ^0.25.12
         version: 0.25.12
@@ -943,7 +943,7 @@ importers:
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
       vite:
         specifier: ^7.3.5
         version: 7.3.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0)
@@ -967,10 +967,10 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@0.30.4)(typescript@7.0.2)
+        version: 0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)
       typescript:
         specifier: catalog:typescript
-        version: 7.0.2
+        version: 7.1.0-dev.20261009.1
 
   tests/utils:
     devDependencies:
@@ -985,7 +985,7 @@ importers:
         version: 25.9.1
       '@wrtnlabs/evidence':
         specifier: catalog:samchon
-        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)
+        version: 0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)
       lint-contributor-demo:
         specifier: workspace:*
         version: link:../../packages/lint/test/lint-contributor-demo
@@ -3032,122 +3032,44 @@ packages:
   '@types/yauzl@2.10.3':
     resolution: {integrity: sha512-oJoftv0LSuaDZE3Le4DbKX+KS9G36NzOeSap90UIK0yMA/NhKJhqlSGtNDORNRaIbQfzjXDrQa0ytJ6mNRGz/Q==}
 
-  '@typescript/typescript-aix-ppc64@7.0.2':
-    resolution: {integrity: sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==}
-    engines: {node: '>=16.20.0'}
-    cpu: [ppc64]
-    os: [aix]
-
-  '@typescript/typescript-darwin-arm64@7.0.2':
-    resolution: {integrity: sha512-gowzar9MwS/aRWp6f3a4KUqzRjAZjOsmGNCM6LcTgXum+dBfgsBVMN+AgvOCCbguXyick6LJhpBszxMebJ8syA==}
+  '@typescript/typescript-darwin-arm64@7.1.0-dev.20261009.1':
+    resolution: {integrity: sha512-m1MMcqEmqjNjHDUn/boOGmKzglrzUK0jsIbRlPujZg1YdT3/LpzA20jr2vz/yKx5h3rgadpEXmocbkq6FhiwEw==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [darwin]
 
-  '@typescript/typescript-darwin-x64@7.0.2':
-    resolution: {integrity: sha512-SZ9xZInqApNlNGc9s0W1VSsktYSOe9cFqNOIqmN1Gs8SmkjKZYFt017G4VwPxASInODuAdbTW7sXiFUf893RgA==}
+  '@typescript/typescript-darwin-x64@7.1.0-dev.20261009.1':
+    resolution: {integrity: sha512-O1OERN7NeCWA4lMbJGkwPyLjoUyhSCV3hRq9AC/Rnt+bOYJNhs18VnxY9WY5/Jhtqiuxk6aHipsccntPXmdZFQ==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [darwin]
 
-  '@typescript/typescript-freebsd-arm64@7.0.2':
-    resolution: {integrity: sha512-W5NH4y/J0plIIS5b2xvTEkU7JFxyqdMAOgf+Ilhl0vHQXKO5dZoxd+C/jEtq56c4F3wk71RB4BMRQ2XdI+bwYQ==}
-    engines: {node: '>=16.20.0'}
-    cpu: [arm64]
-    os: [freebsd]
-
-  '@typescript/typescript-freebsd-x64@7.0.2':
-    resolution: {integrity: sha512-UMGDx5sTpzNw3WiPebH7l90IWfJggEd+egHt/q6p7/Cm3zqoV7VxkGXt+3DxPIw8CcmvAB0j3sVVfbhX+M4Tpw==}
-    engines: {node: '>=16.20.0'}
-    cpu: [x64]
-    os: [freebsd]
-
-  '@typescript/typescript-linux-arm64@7.0.2':
-    resolution: {integrity: sha512-Qh4eU4/y3yDjnfjjyPYihMj5/ODIlmt+Bzu17OI+fiSRDW57QmU5SiN63exPRNJPKUzcc1INa1NXdrJ+MqHjUQ==}
+  '@typescript/typescript-linux-arm64@7.1.0-dev.20261009.1':
+    resolution: {integrity: sha512-ALgtgCdH16y5ycjQ8rIDYBtpnMJ7U2Vpo+KE3e6k9Ja3LbFg82yHxhLYjd8GBUFt7K93jllQlJcZYXgO8kTLZw==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [linux]
 
-  '@typescript/typescript-linux-arm@7.0.2':
-    resolution: {integrity: sha512-gffT3xPz9sR7j/YJExkyPntrI0P2EP9XbOyWzth2/Gs0RstK+90RBcO0ncXoXy/beYll1SXw846Nf2zdnEz0QQ==}
+  '@typescript/typescript-linux-arm@7.1.0-dev.20261009.1':
+    resolution: {integrity: sha512-wmIB/rMko4L9zqv7mM5KlOQTGQvnOQ4ZqfQltdq1IYJz6KYgoHeI/RAAWDGwhGF5i0rK3Bhs9uqLugqQBCuXYQ==}
     engines: {node: '>=16.20.0'}
     cpu: [arm]
     os: [linux]
 
-  '@typescript/typescript-linux-loong64@7.0.2':
-    resolution: {integrity: sha512-uEHck9i8hoAzXPiYRib1O7miOnz23SxIeVl6F4LXox+qov1K35jHcEW6VHKvZI+pyvl7fZEP4MCU5LYvIq1GuQ==}
-    engines: {node: '>=16.20.0'}
-    cpu: [loong64]
-    os: [linux]
-
-  '@typescript/typescript-linux-mips64el@7.0.2':
-    resolution: {integrity: sha512-R4KvAMnE43W5Qeqb0Ly56O3mWMWIAgsMyz36DCaycd5nbg/9kzm0liw3JocfRqyJY0KPmzFjbswozXyW0DnIYA==}
-    engines: {node: '>=16.20.0'}
-    cpu: [mips64el]
-    os: [linux]
-
-  '@typescript/typescript-linux-ppc64@7.0.2':
-    resolution: {integrity: sha512-DORx5b3sd/4S7eayxm4FQv+A7CrkUIGRaHiwI8oiHTAI1fAPWhF4J0vAlkC8biAlHSVVwxMQ3tjZ2/DVbnQiiA==}
-    engines: {node: '>=16.20.0'}
-    cpu: [ppc64]
-    os: [linux]
-
-  '@typescript/typescript-linux-riscv64@7.0.2':
-    resolution: {integrity: sha512-wf0jqEDOjrPRnKwYRyyJDRo11KMbvMFrU+q4zqKyChODBzvlkbhNQfKvLxQCcwTpdDaXSHZTVuh0JoCrKCUMHQ==}
-    engines: {node: '>=16.20.0'}
-    cpu: [riscv64]
-    os: [linux]
-
-  '@typescript/typescript-linux-s390x@7.0.2':
-    resolution: {integrity: sha512-IkwJc3L7yhytWd/ewjyxNDfOmswCm9GWMJT/ue/dU4aZNbwZeYAetq42VyLmsmSjvoX7z74X6ZaYCtzAr0EuGw==}
-    engines: {node: '>=16.20.0'}
-    cpu: [s390x]
-    os: [linux]
-
-  '@typescript/typescript-linux-x64@7.0.2':
-    resolution: {integrity: sha512-EYdf2cNg7rgCWJnxCdJ+F3V39O8ihb37eHAu1LK8oAFizgTQbPOK7zHHXbPt8rX24COqODXeI3sIf0fCXG7H/A==}
+  '@typescript/typescript-linux-x64@7.1.0-dev.20261009.1':
+    resolution: {integrity: sha512-wZgAhamV43/6yMJp8lZLkyvFRpgUiDA58iKYkZuY3e+vKYOZHTB6SgqeQCBbbrfACMAhE2T6UWq04QD6wi/pUw==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [linux]
 
-  '@typescript/typescript-netbsd-arm64@7.0.2':
-    resolution: {integrity: sha512-+polYF4MF04aPpO5FTkHran9yUQDSXqy5GiSDKpsll5jy3l3+g9QLhpf39T+ePtefhXLOGrLl0QIjkQP6VnelA==}
-    engines: {node: '>=16.20.0'}
-    cpu: [arm64]
-    os: [netbsd]
-
-  '@typescript/typescript-netbsd-x64@7.0.2':
-    resolution: {integrity: sha512-8YIT0EHM/3dq10ZOVF/A7pc/YSMtbcecct4rWtexrnSCHOPcpC2KTLXfTCR6vDpnSiY12heNb1GiN/wu+T/FyA==}
-    engines: {node: '>=16.20.0'}
-    cpu: [x64]
-    os: [netbsd]
-
-  '@typescript/typescript-openbsd-arm64@7.0.2':
-    resolution: {integrity: sha512-APT8+ClYnuYm1u9+kgGXoMj2VzWzcymwh2gNSQVySHfkRDGOTVkoWLjCmOQSaO+PoqQ57B0flRp9SA+7GnnkzQ==}
-    engines: {node: '>=16.20.0'}
-    cpu: [arm64]
-    os: [openbsd]
-
-  '@typescript/typescript-openbsd-x64@7.0.2':
-    resolution: {integrity: sha512-yX7s+Q0Dln0Dt9tEzZsAjXXR/+ytBM7AlglaqyeMPxQszJ1JhlJdZ6jLA+IzldHtflX81em7lDao1xXu+aRRkg==}
-    engines: {node: '>=16.20.0'}
-    cpu: [x64]
-    os: [openbsd]
-
-  '@typescript/typescript-sunos-x64@7.0.2':
-    resolution: {integrity: sha512-dLJDGaLZ1D4HPQn62u1n8mBDkJREwMsAkCdkwd4Ieqw+x3TUyTsqY0YiBCtE6H6OzzgGk3iuZ3vFWRS+E8/d1g==}
-    engines: {node: '>=16.20.0'}
-    cpu: [x64]
-    os: [sunos]
-
-  '@typescript/typescript-win32-arm64@7.0.2':
-    resolution: {integrity: sha512-Gyl1Vy6OsWesLzmq+EP0Fb7b4Nid5232AvcA2SFcdYreldpNtYFFofPjnt62y9hQy7VTaZp65ICJjuAQRaVcIQ==}
+  '@typescript/typescript-win32-arm64@7.1.0-dev.20261009.1':
+    resolution: {integrity: sha512-ir4giZdkF/wsH3JBnI+oQA9npUCrxCnelevrWO9n/jPeneEGNBjaoeaqkEd4PzFHR9iU1nCD6oxcQf3oExeUmw==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [win32]
 
-  '@typescript/typescript-win32-x64@7.0.2':
-    resolution: {integrity: sha512-0BQ3HkAHHlKLSp1qRvf3SUhGpGsDuhB/jgFw75guyqbxJqEaS0Cw/VFO8i2nHglJUzQCRtMMR/IBAKE3ETMC4g==}
+  '@typescript/typescript-win32-x64@7.1.0-dev.20261009.1':
+    resolution: {integrity: sha512-5cd9xYpd77pA3DMrqai4yXCYQ0jNWRHo7C/JEAcQhHpch7os4sUQ1qtz1zdlK434gGBn5GM7HjWNMs2u5vSB1A==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [win32]
@@ -6606,8 +6528,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  typescript@7.0.2:
-    resolution: {integrity: sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA==}
+  typescript@7.1.0-dev.20261009.1:
+    resolution: {integrity: sha512-UltaECVd47Mw4LibKV5FzI3OuCkk2fkX8gUbg3ndOO42k6gJWWuwHloOSsCwq75nIqppwfiK6L/7bI+BU7giNQ==}
     engines: {node: '>=16.20.0'}
     hasBin: true
 
@@ -8819,64 +8741,25 @@ snapshots:
       '@types/node': 20.19.41
     optional: true
 
-  '@typescript/typescript-aix-ppc64@7.0.2':
+  '@typescript/typescript-darwin-arm64@7.1.0-dev.20261009.1':
     optional: true
 
-  '@typescript/typescript-darwin-arm64@7.0.2':
+  '@typescript/typescript-darwin-x64@7.1.0-dev.20261009.1':
     optional: true
 
-  '@typescript/typescript-darwin-x64@7.0.2':
+  '@typescript/typescript-linux-arm64@7.1.0-dev.20261009.1':
     optional: true
 
-  '@typescript/typescript-freebsd-arm64@7.0.2':
+  '@typescript/typescript-linux-arm@7.1.0-dev.20261009.1':
     optional: true
 
-  '@typescript/typescript-freebsd-x64@7.0.2':
+  '@typescript/typescript-linux-x64@7.1.0-dev.20261009.1':
     optional: true
 
-  '@typescript/typescript-linux-arm64@7.0.2':
+  '@typescript/typescript-win32-arm64@7.1.0-dev.20261009.1':
     optional: true
 
-  '@typescript/typescript-linux-arm@7.0.2':
-    optional: true
-
-  '@typescript/typescript-linux-loong64@7.0.2':
-    optional: true
-
-  '@typescript/typescript-linux-mips64el@7.0.2':
-    optional: true
-
-  '@typescript/typescript-linux-ppc64@7.0.2':
-    optional: true
-
-  '@typescript/typescript-linux-riscv64@7.0.2':
-    optional: true
-
-  '@typescript/typescript-linux-s390x@7.0.2':
-    optional: true
-
-  '@typescript/typescript-linux-x64@7.0.2':
-    optional: true
-
-  '@typescript/typescript-netbsd-arm64@7.0.2':
-    optional: true
-
-  '@typescript/typescript-netbsd-x64@7.0.2':
-    optional: true
-
-  '@typescript/typescript-openbsd-arm64@7.0.2':
-    optional: true
-
-  '@typescript/typescript-openbsd-x64@7.0.2':
-    optional: true
-
-  '@typescript/typescript-sunos-x64@7.0.2':
-    optional: true
-
-  '@typescript/typescript-win32-arm64@7.0.2':
-    optional: true
-
-  '@typescript/typescript-win32-x64@7.0.2':
+  '@typescript/typescript-win32-x64@7.1.0-dev.20261009.1':
     optional: true
 
   '@typescript/vfs@1.6.4(typescript@5.9.3)':
@@ -9064,26 +8947,26 @@ snapshots:
       '@webassemblyjs/ast': 1.14.1
       '@xtuc/long': 4.2.2
 
-  '@wrtnlabs/evidence@0.3.1(ttsc@0.30.4)(typescript@7.0.2)':
+  '@wrtnlabs/evidence@0.3.1(ttsc@0.30.4)(typescript@7.1.0-dev.20261009.1)':
     dependencies:
       '@prisma/prisma-schema-wasm': 7.10.0-2.d0368e25c88e68caa4d283b5f2d88d1b76ed9356
       '@typia/interface': 15.1.0
       '@typia/utils': 15.1.0
       tstl: 3.0.0
       ttsc: 0.30.4
-      typescript: 7.0.2
+      typescript: 7.1.0-dev.20261009.1
       typia: 15.1.0(ttsc@0.30.4)
       web-tree-sitter: 0.27.0
       yaml: 2.9.0
 
-  '@wrtnlabs/evidence@0.3.1(ttsc@packages+ttsc)(typescript@7.0.2)':
+  '@wrtnlabs/evidence@0.3.1(ttsc@packages+ttsc)(typescript@7.1.0-dev.20261009.1)':
     dependencies:
       '@prisma/prisma-schema-wasm': 7.10.0-2.d0368e25c88e68caa4d283b5f2d88d1b76ed9356
       '@typia/interface': 15.1.0
       '@typia/utils': 15.1.0
       tstl: 3.0.0
       ttsc: link:packages/ttsc
-      typescript: 7.0.2
+      typescript: 7.1.0-dev.20261009.1
       typia: 15.1.0(ttsc@packages+ttsc)
       web-tree-sitter: 0.27.0
       yaml: 2.9.0
@@ -13208,28 +13091,15 @@ snapshots:
 
   typescript@6.0.3: {}
 
-  typescript@7.0.2:
+  typescript@7.1.0-dev.20261009.1:
     optionalDependencies:
-      '@typescript/typescript-aix-ppc64': 7.0.2
-      '@typescript/typescript-darwin-arm64': 7.0.2
-      '@typescript/typescript-darwin-x64': 7.0.2
-      '@typescript/typescript-freebsd-arm64': 7.0.2
-      '@typescript/typescript-freebsd-x64': 7.0.2
-      '@typescript/typescript-linux-arm': 7.0.2
-      '@typescript/typescript-linux-arm64': 7.0.2
-      '@typescript/typescript-linux-loong64': 7.0.2
-      '@typescript/typescript-linux-mips64el': 7.0.2
-      '@typescript/typescript-linux-ppc64': 7.0.2
-      '@typescript/typescript-linux-riscv64': 7.0.2
-      '@typescript/typescript-linux-s390x': 7.0.2
-      '@typescript/typescript-linux-x64': 7.0.2
-      '@typescript/typescript-netbsd-arm64': 7.0.2
-      '@typescript/typescript-netbsd-x64': 7.0.2
-      '@typescript/typescript-openbsd-arm64': 7.0.2
-      '@typescript/typescript-openbsd-x64': 7.0.2
-      '@typescript/typescript-sunos-x64': 7.0.2
-      '@typescript/typescript-win32-arm64': 7.0.2
-      '@typescript/typescript-win32-x64': 7.0.2
+      '@typescript/typescript-darwin-arm64': 7.1.0-dev.20261009.1
+      '@typescript/typescript-darwin-x64': 7.1.0-dev.20261009.1
+      '@typescript/typescript-linux-arm': 7.1.0-dev.20261009.1
+      '@typescript/typescript-linux-arm64': 7.1.0-dev.20261009.1
+      '@typescript/typescript-linux-x64': 7.1.0-dev.20261009.1
+      '@typescript/typescript-win32-arm64': 7.1.0-dev.20261009.1
+      '@typescript/typescript-win32-x64': 7.1.0-dev.20261009.1
 
   typia@15.1.0(ttsc@0.30.4):
     dependencies:

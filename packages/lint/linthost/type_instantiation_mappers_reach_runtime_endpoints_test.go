@@ -189,7 +189,7 @@ func declaredClassTypeParameters(
   symbol *shimast.Symbol,
 ) []*shimchecker.Type {
   t.Helper()
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range symbol.Declarations() {
     if declaration == nil ||
       (declaration.Kind != shimast.KindClassDeclaration && declaration.Kind != shimast.KindClassExpression) {
       continue
@@ -202,12 +202,12 @@ func declaredClassTypeParameters(
       }
       typ := checker.GetTypeAtLocation(node)
       if typ == nil {
-        t.Fatalf("GetTypeAtLocation returned nil for a type parameter of %s", symbol.Name)
+        t.Fatalf("GetTypeAtLocation returned nil for a type parameter of %s", symbol.Name())
       }
       result = append(result, typ)
     }
     return result
   }
-  t.Fatalf("class declaration for %q not found", symbol.Name)
+  t.Fatalf("class declaration for %q not found", symbol.Name())
   return nil
 }

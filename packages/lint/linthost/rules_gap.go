@@ -210,7 +210,7 @@ func requiresGenericArrowDisambiguation(
   }
   requiresDisambiguation := ctx.File.ScriptKind == shimcore.ScriptKindTSX
   if !requiresDisambiguation {
-    switch strings.ToLower(filepath.Ext(ctx.File.FileName())) {
+    switch strings.ToLower(filepath.Ext(ctx.File.FileName().AsString())) {
     case ".mts", ".cts":
       requiresDisambiguation = true
     }

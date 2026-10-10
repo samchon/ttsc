@@ -82,7 +82,7 @@ export const shape = (({
 
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
-  node := graph.Nodes[nodeID(path, "shape", NodeVariable)]
+  node := graph.Nodes[nodeID(path.AsString(), "shape", NodeVariable)]
   if node == nil {
     t.Fatalf("missing shape variable; nodes: %v", nodeIDSet(graph))
   }

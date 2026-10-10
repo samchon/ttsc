@@ -2,8 +2,8 @@
 package astnav
 
 import (
-  "github.com/microsoft/typescript-go/internal/ast"
-  _ "github.com/microsoft/typescript-go/internal/astnav"
+  "github.com/microsoft/TypeScript/tsc/internal/ast"
+  _ "github.com/microsoft/TypeScript/tsc/internal/astnav"
   _ "unsafe"
 )
 
@@ -20,5 +20,5 @@ import (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work GetTouchingToken declares a signature only; the implementation owns any shared work.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation GetTouchingToken is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
 //
-//go:linkname GetTouchingToken github.com/microsoft/typescript-go/internal/astnav.GetTouchingToken
+//go:linkname GetTouchingToken github.com/microsoft/TypeScript/tsc/internal/astnav.GetTouchingToken
 func GetTouchingToken(sourceFile *ast.SourceFile, position int) *ast.Node

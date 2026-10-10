@@ -1368,7 +1368,7 @@ func (e *Engine) runFile(
 ) []*Finding {
   var collected []*Finding
   collect := func(f *Finding) { collected = append(collected, f) }
-  resolved := e.config.ResolveRules(file.FileName())
+  resolved := e.config.ResolveRules(file.FileName().AsString())
   if resolved.Ignored {
     return collected
   }

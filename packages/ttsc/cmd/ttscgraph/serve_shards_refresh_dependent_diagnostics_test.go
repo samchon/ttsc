@@ -42,7 +42,7 @@ func TestServeShardsRefreshDependentDiagnostics(t *testing.T) {
   if consumerSource == nil {
     t.Fatal("consumer source was absent from resident program")
   }
-  consumerKey := session.graphStore.sourceKeys[consumerSource.FileName()]
+  consumerKey := session.graphStore.sourceKeys[consumerSource.FileName().AsString()]
   initialConsumer, exists := session.graphStore.shards[consumerKey]
   if consumerKey == "" || !exists || initialConsumer.digest == "" {
     t.Fatal("initial consumer shard has no committed identity or digest")
@@ -90,8 +90,8 @@ func TestServeShardsRefreshDependentDiagnostics(t *testing.T) {
   valueKeyFile := session.compiler.Program().SourceFile(value).FileName()
   consumerKeyFile := consumerSource.FileName()
   if len(session.graphStore.extractedFiles) != 2 ||
-    session.graphStore.extractedFiles[0] != consumerKeyFile ||
-    session.graphStore.extractedFiles[1] != valueKeyFile {
+    session.graphStore.extractedFiles[0] != consumerKeyFile.AsString() ||
+    session.graphStore.extractedFiles[1] != valueKeyFile.AsString() {
     t.Fatalf(
       "public API edit extracted %v, want reverse closure [%s %s]",
       session.graphStore.extractedFiles,

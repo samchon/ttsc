@@ -117,7 +117,7 @@ func writeTransformedProgramResponse(prog *driver.Program, diags []driver.Diagno
     // not the mutated output.
     graph = driver.NewTransformGraph(prog, cwd)
     for _, file := range prog.SourceFiles() {
-      typescript[apiOutputKey(cwd, file.FileName())] = file.Text()
+      typescript[apiOutputKey(cwd, file.FileName().AsString())] = file.Text()
     }
     diags = append(diags, prog.Diagnostics()...)
     dependencies = prog.TransformDependenciesFor(cwd)

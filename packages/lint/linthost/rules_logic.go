@@ -84,7 +84,7 @@ func isGlobalBooleanConverter(ctx *Context, callee *shimast.Node) bool {
   // Binding retains this file's own runtime declaration even when a duplicate
   // global declaration is omitted from the checker's merged global symbol.
   if ctx.File != nil {
-    if local := ctx.File.AsNode().Locals()["Boolean"]; local != nil && local.Flags&shimast.SymbolFlagsValue != 0 {
+    if local := ctx.File.AsNode().Locals()["Boolean"]; local != nil && local.Flags()&shimast.SymbolFlagsValue != 0 {
       return false
     }
   }
@@ -94,7 +94,7 @@ func isGlobalBooleanConverter(ctx *Context, callee *shimast.Node) bool {
     ctx.Checker.GetMergedSymbol(resolved) != ctx.Checker.GetMergedSymbol(global) {
     return false
   }
-  for _, declaration := range ctx.Checker.GetMergedSymbol(resolved).Declarations {
+  for _, declaration := range ctx.Checker.GetMergedSymbol(resolved).Declarations() {
     if declaration == nil {
       continue
     }

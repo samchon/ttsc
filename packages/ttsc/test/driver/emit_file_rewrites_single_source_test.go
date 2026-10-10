@@ -6,6 +6,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -70,8 +71,8 @@ export const value = plugin.make();
   // Emit assertion: the callback observes only outputs produced for the
   // selected source file, and that output must carry the rewrite sentinel.
   emitted := map[string]string{}
-  _, emitDiags, err := prog.EmitFile(rewrites, target, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    emitted[filepath.Base(fileName)] = text
+  _, emitDiags, err := prog.EmitFile(rewrites, target, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[filepath.Base(fileName.AsString())] = text
     return nil
   })
   if err != nil {

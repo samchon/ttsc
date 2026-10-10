@@ -27,19 +27,16 @@ import "github.com/microsoft/typescript-go/shim/tspath"
 // Common: Clear and simple design: One artifact predicate serves containment and source-map correction rather than independent suffix rules.
 // Common: Prohibited implementation shortcuts: The real compiler-selected path replaces the suffix exception; no API-specific filename or consumer exemption compensates for output loss.
 // Common: Meaningful documentation: Native prose distinguishes selected artifact identity from filename extension and explains why unrelated metadata-looking paths remain ordinary outputs.
-// Portability: OS-neutral implementation: Native compiler path comparison uses the loaded Program's current directory and actual case policy, without assuming case behavior from the operating system.
+// Portability: OS-neutral implementation: Native compiler path comparison of rooted paths uses the loaded Program's actual case policy, without assuming case behavior from the operating system.
 // Performance: Efficient algorithms: Upstream destination inference and lexical comparison process a bounded number of path strings with costs proportional to their text; no directory traversal or file read is added.
 // Performance: Reuse equivalent work: The current compiler generation owns destination selection; this predicate introduces no result cache or independent producer.
 // Performance: Bound retention and release resources: The predicate returns a boolean and retains no compiler generation, path history or external resource.
-func (p *Program) isBuildInfoOutput(fileName string) bool {
+func (p *Program) isBuildInfoOutput(fileName tspath.RootedFilePath) bool {
   if p == nil || p.TSProgram == nil {
     return false
   }
   buildInfo := p.TSProgram.CommandLine().GetBuildInfoFileName()
-  return buildInfo != "" && tspath.ComparePaths(buildInfo, fileName, tspath.ComparePathsOptions{
-    UseCaseSensitiveFileNames: p.TSProgram.UseCaseSensitiveFileNames(),
-    CurrentDirectory:          p.TSProgram.GetCurrentDirectory(),
-  }) == 0
+  return buildInfo != "" && p.TSProgram.CaseSensitivity().CompareFilePaths(buildInfo, fileName) == 0
 }
 
 // outputEscapesOutDir reports whether fileName — an emit output path tsgo
@@ -48,7 +45,7 @@ func (p *Program) isBuildInfoOutput(fileName string) bool {
 // next to their sources by design, so the guard only applies when `outDir`
 // gives the project an output boundary. The compiler-selected build-information
 // artifact is exempt because its location can legitimately be outside outDir.
-func (p *Program) outputEscapesOutDir(fileName string) bool {
+func (p *Program) outputEscapesOutDir(fileName tspath.RootedFilePath) bool {
   if p == nil || p.TSProgram == nil {
     return false
   }
@@ -59,14 +56,11 @@ func (p *Program) outputEscapesOutDir(fileName string) bool {
   if p.isBuildInfoOutput(fileName) {
     return false
   }
-  cmp := tspath.ComparePathsOptions{
-    UseCaseSensitiveFileNames: p.TSProgram.UseCaseSensitiveFileNames(),
-    CurrentDirectory:          p.TSProgram.GetCurrentDirectory(),
-  }
-  if tspath.ContainsPath(options.OutDir, fileName, cmp) {
+  caseSensitivity := p.TSProgram.CaseSensitivity()
+  if caseSensitivity.ContainsPath(options.OutDir, fileName.AsPath()) {
     return false
   }
-  if options.DeclarationDir != "" && tspath.ContainsPath(options.DeclarationDir, fileName, cmp) {
+  if options.DeclarationDir != "" && caseSensitivity.ContainsPath(options.DeclarationDir, fileName.AsPath()) {
     return false
   }
   return true

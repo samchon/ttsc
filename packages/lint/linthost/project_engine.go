@@ -239,7 +239,7 @@ func (e *Engine) projectSources(files []*shimast.SourceFile) []*shimast.SourceFi
     if file == nil {
       continue
     }
-    if e != nil && e.config != nil && e.config.ResolveRules(file.FileName()).Ignored {
+    if e != nil && e.config != nil && e.config.ResolveRules(file.FileName().AsString()).Ignored {
       continue
     }
     sources = append(sources, file)

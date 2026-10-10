@@ -157,7 +157,7 @@ func (m *preambleMapper) viewOf(file *ast.SourceFile) *preambleView {
 // anchor against — an uncorrected position is still better than a nil file.
 func newPreambleView(file *ast.SourceFile, preamble string) *preambleView {
   text := file.Text()
-  start, length, ok := sourcePreambleRegion(file.FileName(), text, preamble)
+  start, length, ok := sourcePreambleRegion(file.FileName().AsString(), text, preamble)
   if !ok {
     return nil
   }
@@ -253,7 +253,7 @@ func unanchoredPreambleDiagnostic(d *ast.Diagnostic) Diagnostic {
     Severity: SeverityError,
   }
   if file := d.File(); file != nil {
-    out.File = file.FileName()
+    out.File = file.FileName().AsString()
   }
   return out
 }

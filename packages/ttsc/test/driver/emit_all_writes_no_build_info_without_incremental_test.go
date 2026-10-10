@@ -6,6 +6,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -54,8 +55,8 @@ func TestEmitAllWritesNoBuildInfoWithoutIncremental(t *testing.T) {
   defer prog.Close()
 
   written := map[string]string{}
-  if _, diags, err := prog.EmitAllRaw(func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    written[filepath.ToSlash(fileName)] = text
+  if _, diags, err := prog.EmitAllRaw(func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    written[filepath.ToSlash(fileName.AsString())] = text
     return nil
   }); err != nil || len(diags) != 0 {
     t.Fatalf("emit mismatch: diags=%#v err=%v", diags, err)

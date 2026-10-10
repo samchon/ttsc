@@ -25,7 +25,7 @@ one layer and silently disappears at the next boundary.
 | `--tsconfig` | `-p`, `--project` | value | ttsc, ttsx, build, cache, check, fix, format, prepare, clean | launcher, host, lint | - | Resolve project settings from this tsconfig. |
 | `--cwd` | - | value | ttsc, ttsx, build, cache, check, fix, format, prepare, clean | launcher, host, lint | - | Resolve project-relative paths from this directory. |
 | `--emit` | - | boolean | ttsc, build, check | launcher, runBuild, host, lint | - | Force emitted files during build. |
-| `--noEmit` | - | boolean | ttsc, build, check | launcher, runBuild, host, lint | shadow | Force analysis-only build with no file writes. |
+| `--noEmit` | - | boolean | ttsc, build, check | launcher, runBuild, host, lint | shadow | Force analysis-only build without emitted compiler outputs. |
 | `--outDir` | - | value | ttsc, build, check | launcher, host, lint | - | Override compilerOptions.outDir for this invocation. |
 | `--composite` | - | boolean | ttsc, ttsx, build, check, fix, format | tsgo | tsconfig-only | Configure project-reference constraints in tsconfig; CLI accepts only false or null. |
 | `--incremental` | `-i` | boolean | ttsc, ttsx, build, check, fix, format | tsgo | - | Write build information for incremental compilation. |

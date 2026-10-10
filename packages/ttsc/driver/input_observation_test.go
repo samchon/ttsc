@@ -9,6 +9,7 @@ import (
   "runtime"
   "testing"
 
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
@@ -23,13 +24,13 @@ func TestInputObservationFSRejectsRestoredContent(t *testing.T) {
     t.Fatal(err)
   }
   observed := newInputObservationFS(DefaultFS())
-  if contents, ok := observed.ReadFile(file); !ok || contents != "A" {
+  if contents, ok := observed.ReadFile(shimtspath.RootedFilePathFromAbsolute(file)); !ok || contents != "A" {
     t.Fatalf("first read = %q, %v", contents, ok)
   }
   if err := os.WriteFile(file, []byte("B"), 0o644); err != nil {
     t.Fatal(err)
   }
-  if contents, ok := observed.ReadFile(file); !ok || contents != "B" {
+  if contents, ok := observed.ReadFile(shimtspath.RootedFilePathFromAbsolute(file)); !ok || contents != "B" {
     t.Fatalf("second read = %q, %v", contents, ok)
   }
   if err := os.WriteFile(file, []byte("A"), 0o644); err != nil {
@@ -53,16 +54,16 @@ func TestInputObservationFSProvesReadBytesAndMissingCandidates(t *testing.T) {
     t.Fatal(err)
   }
   observed := newInputObservationFS(DefaultFS())
-  if !observed.FileExists(file) {
+  if !observed.FileExists(shimtspath.RootedFilePathFromAbsolute(file)) {
     t.Fatal("selected file was not found")
   }
   if _, _, failure := observed.proof(file); failure != inputProofContentUnavailable {
     t.Fatalf("existence-only proof failure = %q, want %q", failure, inputProofContentUnavailable)
   }
-  if _, ok := observed.ReadFile(file); !ok {
+  if _, ok := observed.ReadFile(shimtspath.RootedFilePathFromAbsolute(file)); !ok {
     t.Fatal("selected file was not read")
   }
-  if observed.FileExists(missing) {
+  if observed.FileExists(shimtspath.RootedFilePathFromAbsolute(missing)) {
     t.Fatal("missing candidate unexpectedly exists")
   }
 
@@ -109,10 +110,10 @@ func testInputObservationFSKeepsFileAndDirectoryPredicatesIndependent(t *testing
     t.Fatal(err)
   }
   observed := newInputObservationFS(DefaultFS())
-  if observed.FileExists(directory) {
+  if observed.FileExists(shimtspath.RootedFilePathFromAbsolute(directory)) {
     t.Fatal("directory unexpectedly satisfied FileExists")
   }
-  if !observed.DirectoryExists(directory) {
+  if !observed.DirectoryExists(shimtspath.RootedDirectoryPathFromAbsolute(directory)) {
     t.Fatal("directory did not satisfy DirectoryExists")
   }
 
@@ -310,7 +311,7 @@ func TestInputObservationFSHashesCompilerDecodedText(t *testing.T) {
     t.Fatal(err)
   }
   observed := newInputObservationFS(DefaultFS())
-  contents, ok := observed.ReadFile(file)
+  contents, ok := observed.ReadFile(shimtspath.RootedFilePathFromAbsolute(file))
   if !ok || contents != text {
     t.Fatalf("compiler read = %q, %v; want decoded text", contents, ok)
   }
@@ -349,10 +350,10 @@ func TestInputObservationFSJoinsSelectedAliasProbeToPhysicalRead(t *testing.T) {
   }
   lexical := filepath.Join(alias, "value.js")
   observed := newInputObservationFS(DefaultFS())
-  if !observed.FileExists(lexical) {
+  if !observed.FileExists(shimtspath.RootedFilePathFromAbsolute(lexical)) {
     t.Fatal("selected lexical alias was not found")
   }
-  if _, ok := observed.ReadFile(physical); !ok {
+  if _, ok := observed.ReadFile(shimtspath.RootedFilePathFromAbsolute(physical)); !ok {
     t.Fatal("selected physical source was not read")
   }
 

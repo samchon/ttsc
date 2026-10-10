@@ -72,7 +72,7 @@ func TestContributorReportRelatedReachesFinding(t *testing.T) {
   if entry.Message != "defined over here" {
     t.Fatalf("render lost the message: %q", entry.Message)
   }
-  if want := fileURL(file.FileName()); entry.Location.URI != want {
+  if want := fileURL(file.FileName().AsString()); entry.Location.URI != want {
     t.Fatalf("related location must carry the finding's own file URI: want %q got %q", want, entry.Location.URI)
   }
   if entry.Location.Range.Start == entry.Location.Range.End {

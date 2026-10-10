@@ -6,10 +6,10 @@
 package printer
 
 import (
-  "github.com/microsoft/typescript-go/internal/ast"
-  innerprinter "github.com/microsoft/typescript-go/internal/printer"
-  "github.com/microsoft/typescript-go/internal/sourcemap"
-  "github.com/microsoft/typescript-go/internal/tspath"
+  "github.com/microsoft/TypeScript/tsc/internal/ast"
+  innerprinter "github.com/microsoft/TypeScript/tsc/internal/printer"
+  "github.com/microsoft/TypeScript/tsc/internal/sourcemap"
+  "github.com/microsoft/TypeScript/tsc/internal/tspath"
 )
 
 // EmitSourceFileWithSourceMap renders sourceFile the way EmitSourceFile does
@@ -42,13 +42,7 @@ func EmitSourceFileWithSourceMap(
 ) (string, string) {
   printer := innerprinter.NewPrinter(options, handlers, emitContext)
   fileName := sourceFile.FileName()
-  directory := tspath.GetDirectoryPath(fileName)
-  generator := sourcemap.NewGenerator(
-    tspath.GetBaseFileName(fileName),
-    "",
-    directory,
-    tspath.ComparePathsOptions{UseCaseSensitiveFileNames: true, CurrentDirectory: directory},
-  )
+  generator := sourcemap.NewGenerator(fileName.BaseName(), "", fileName.Directory(), tspath.CaseSensitive)
   writer := innerprinter.NewTextWriter(options.NewLine.GetNewLineCharacter(), 0)
   printer.Write(sourceFile.AsNode(), sourceFile, writer, generator)
   return writer.String(), generator.String()

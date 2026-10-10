@@ -596,8 +596,8 @@ func canonicalValueSymbol(ctx *Context, identifier *shimast.Node) *shimast.Symbo
   if symbol == nil {
     return nil
   }
-  if symbol.Flags&shimast.SymbolFlagsExportValue != 0 && symbol.ExportSymbol != nil {
-    symbol = symbol.ExportSymbol
+  if symbol.Flags()&shimast.SymbolFlagsExportValue != 0 && symbol.ExportSymbol() != nil {
+    symbol = symbol.ExportSymbol()
   }
   return ctx.Checker.GetMergedSymbol(symbol)
 }

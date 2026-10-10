@@ -82,7 +82,7 @@ void messageModule;`,
   }
   before := make(map[string][]*shimast.Node)
   for _, file := range prog.TSProgram.SourceFiles() {
-    before[filepath.Base(file.FileName())] = collect(file)
+    before[filepath.Base(file.FileName().AsString())] = collect(file)
   }
   expected := map[string][]string{
     "main.ts":      {"./modules/message.js", "./modules/exact.js", "./pkg/index.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "@lib/message", "@lib/message", "./modules/message.js", "@unmatched/name"},
@@ -98,7 +98,7 @@ void messageModule;`,
   }
   seen := make(map[string]bool)
   for _, file := range prog.TSProgram.SourceFiles() {
-    name := filepath.Base(file.FileName())
+    name := filepath.Base(file.FileName().AsString())
     want, checked := expected[name]
     if !checked {
       continue

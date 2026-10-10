@@ -9,14 +9,16 @@ package compiler
 import (
   _ "unsafe"
 
-  innerast "github.com/microsoft/typescript-go/internal/ast"
-  innerprinter "github.com/microsoft/typescript-go/internal/printer"
-  innertransformers "github.com/microsoft/typescript-go/internal/transformers"
+  innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
+  innerprinter "github.com/microsoft/TypeScript/tsc/internal/printer"
+  innertransformers "github.com/microsoft/TypeScript/tsc/internal/transformers"
 )
 
 // GetScriptTransformers returns tsgo's builtin emit transformer chain
 // (type-erase, import-elision, runtime-syntax, module-transform, ...) for one
 // source file, linked from the internal package via go:linkname.
+// emitResolver must carry the EmitContext the chain transforms in; obtain it
+// from the emit host's NewEmitResolver for that context.
 //
 // `sourceFile` is the marking target, not the file that gets transformed.
 // Upstream reads it for two per-file constants (in-JS-file, JSX language
@@ -38,5 +40,5 @@ import (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work GetScriptTransformers declares a signature only; the implementation owns any shared work.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation GetScriptTransformers is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
 //
-//go:linkname GetScriptTransformers github.com/microsoft/typescript-go/internal/compiler.getScriptTransformers
-func GetScriptTransformers(emitContext *innerprinter.EmitContext, host innerprinter.EmitHost, sourceFile *innerast.SourceFile) []*innertransformers.Transformer
+//go:linkname GetScriptTransformers github.com/microsoft/TypeScript/tsc/internal/compiler.getScriptTransformers
+func GetScriptTransformers(emitResolver innerprinter.EmitResolver, host innerprinter.EmitHost, sourceFile *innerast.SourceFile) []*innertransformers.Transformer

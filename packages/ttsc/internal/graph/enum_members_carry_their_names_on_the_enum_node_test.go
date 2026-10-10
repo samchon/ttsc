@@ -60,7 +60,7 @@ export class Cls {
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  colors, ok := graph.Nodes[nodeID(path, "Colors", NodeEnum)]
+  colors, ok := graph.Nodes[nodeID(path.AsString(), "Colors", NodeEnum)]
   if !ok {
     t.Fatalf("missing enum node; nodes: %v", nodeIDSet(graph))
   }
@@ -76,7 +76,7 @@ export class Cls {
 
   // The expected numeric values are not written as initializers in the fixture.
   // This result check does not prove which acquisition method produced them.
-  implicit := graph.Nodes[nodeID(path, "Implicit", NodeEnum)]
+  implicit := graph.Nodes[nodeID(path.AsString(), "Implicit", NodeEnum)]
   if implicit == nil ||
     len(implicit.EnumMembers) != 2 ||
     implicit.EnumMembers[0] != (EnumMember{Name: "First", Value: "0"}) ||
@@ -85,7 +85,7 @@ export class Cls {
   }
 
   // Three declared names must remain even when A and B share one value.
-  dup := graph.Nodes[nodeID(path, "Dup", NodeEnum)]
+  dup := graph.Nodes[nodeID(path.AsString(), "Dup", NodeEnum)]
   if dup == nil {
     t.Fatalf("missing Dup; nodes: %v", nodeIDSet(graph))
   }
@@ -101,15 +101,15 @@ export class Cls {
 
   // Reject the two candidate variable-node IDs for the authored Red member.
   for id := range graph.Nodes {
-    if id == nodeID(path, "Colors.Red", NodeVariable) ||
-      id == nodeID(path, "Red", NodeVariable) {
+    if id == nodeID(path.AsString(), "Colors.Red", NodeVariable) ||
+      id == nodeID(path.AsString(), "Red", NodeVariable) {
       t.Fatalf("an enum member became a node (%s); it is a fact on the enum", id)
     }
   }
 
   // The negative twin: this rides on enums only. A class's fields are member
   // nodes and its outline comes from those.
-  if cls := graph.Nodes[nodeID(path, "Cls", NodeClass)]; cls == nil ||
+  if cls := graph.Nodes[nodeID(path.AsString(), "Cls", NodeClass)]; cls == nil ||
     len(cls.EnumMembers) != 0 {
     t.Fatalf("a class node carried enum members: %v", cls)
   }

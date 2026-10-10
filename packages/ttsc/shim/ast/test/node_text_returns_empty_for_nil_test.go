@@ -3,7 +3,7 @@ package ast_test
 import (
   "testing"
 
-  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/TypeScript/tsc/shim/ast"
 )
 
 // TestNodeTextReturnsEmptyForNil verifies NodeText returns "" for a nil node.

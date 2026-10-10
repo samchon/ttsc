@@ -25,13 +25,13 @@
 package compiler
 
 import (
-  innerast "github.com/microsoft/typescript-go/internal/ast"
-  innercore "github.com/microsoft/typescript-go/internal/core"
-  inneroutputpaths "github.com/microsoft/typescript-go/internal/outputpaths"
-  innerprinter "github.com/microsoft/typescript-go/internal/printer"
-  innersourcemap "github.com/microsoft/typescript-go/internal/sourcemap"
-  innerstringutil "github.com/microsoft/typescript-go/internal/stringutil"
-  innertspath "github.com/microsoft/typescript-go/internal/tspath"
+  innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
+  innercore "github.com/microsoft/TypeScript/tsc/internal/core"
+  inneroutputpaths "github.com/microsoft/TypeScript/tsc/internal/outputpaths"
+  innerprinter "github.com/microsoft/TypeScript/tsc/internal/printer"
+  innersourcemap "github.com/microsoft/TypeScript/tsc/internal/sourcemap"
+  innerstringutil "github.com/microsoft/TypeScript/tsc/internal/stringutil"
+  innertspath "github.com/microsoft/TypeScript/tsc/internal/tspath"
 )
 
 // PrintedFile is the rendered output of one source file in the plugin-transform
@@ -57,7 +57,7 @@ type PrintedFile struct {
   MapText string
 
   // MapPath is the destination for MapText, or empty when no external map is emitted.
-  MapPath string
+  MapPath innertspath.RootedFilePath
 
   // SourceMapUrlPos is the offset of the `//# sourceMappingURL=` trailer in JS,
   // or -1 when no trailer was written, the value tsgo's emitter reports as
@@ -71,6 +71,58 @@ type PrintedFile struct {
   // exists to match it: "correcting" the offset here would make a plugin build
   // disagree with the plain build of the same project.
   SourceMapUrlPos int
+}
+
+// SourceMapHost supplies the directory and path-identity context the
+// compiler's source-map placement reads: the common source directory that a
+// relative mapRoot and a sourceRoot resolve against, the base directory an
+// absolute mapRoot resolves against, and the case policy of path comparison.
+// The compiler's emit host satisfies it.
+//
+// @evidence contracts/common.md#principled-implementation The three methods are exactly the emit-host queries the pinned emitter's source-map directory and URL policy read.
+// @evidence contracts/common.md#clear-and-simple-design A narrow interface lets a driver-owned emit host supply map context without implementing the declaration-emit host.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Directory context comes from the host's compiler state, not from a guessed process directory.
+// @evidence contracts/common.md#meaningful-documentation Native prose names each method's role in map placement, with a blank line before tags.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources An interface declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms An interface declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work An interface declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Implementations own path identity; the declaration names rooted path types and a case policy rather than an OS assumption.
+type SourceMapHost interface {
+  // CommonSourceDirectory is the directory a relative mapRoot and a sourceRoot resolve against.
+  //
+  // @evidence contracts/common.md#principled-implementation The query is the emit-host method the pinned emitter's source-map policy reads for this value.
+  // @evidence contracts/common.md#clear-and-simple-design One method supplies one map-placement input without a wider host contract.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts The value comes from the host's compiler state rather than a guessed process directory.
+  // @evidence contracts/common.md#meaningful-documentation Native prose names the value and its role in map placement following the documentation skill.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CommonSourceDirectory declares a signature only; the implementation owns acquisition and release of resources.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms CommonSourceDirectory declares a signature only; the implementation owns the processing strategy.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work CommonSourceDirectory declares a signature only; the implementation owns any shared work.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation CommonSourceDirectory is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
+  CommonSourceDirectory() innertspath.RootedDirectoryPath
+
+  // BaseDirectory is the directory an absolute mapRoot resolves against.
+  //
+  // @evidence contracts/common.md#principled-implementation The query is the emit-host method the pinned emitter's source-map policy reads for this value.
+  // @evidence contracts/common.md#clear-and-simple-design One method supplies one map-placement input without a wider host contract.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts The value comes from the host's compiler state rather than a guessed process directory.
+  // @evidence contracts/common.md#meaningful-documentation Native prose names the value and its role in map placement following the documentation skill.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources BaseDirectory declares a signature only; the implementation owns acquisition and release of resources.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms BaseDirectory declares a signature only; the implementation owns the processing strategy.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work BaseDirectory declares a signature only; the implementation owns any shared work.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation BaseDirectory is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
+  BaseDirectory() innertspath.RootedDirectoryPath
+
+  // CaseSensitivity is the case policy of map path comparison.
+  //
+  // @evidence contracts/common.md#principled-implementation The query is the emit-host method the pinned emitter's source-map policy reads for this value.
+  // @evidence contracts/common.md#clear-and-simple-design One method supplies one map-placement input without a wider host contract.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts The value comes from the host's compiler state rather than a guessed process directory.
+  // @evidence contracts/common.md#meaningful-documentation Native prose names the value and its role in map placement following the documentation skill.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CaseSensitivity declares a signature only; the implementation owns acquisition and release of resources.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms CaseSensitivity declares a signature only; the implementation owns the processing strategy.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work CaseSensitivity declares a signature only; the implementation owns any shared work.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation CaseSensitivity is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
+  CaseSensitivity() innertspath.CaseSensitivity
 }
 
 // PrintFileWithSourceMap renders node from sourceFile through a printer built
@@ -106,9 +158,9 @@ func PrintFileWithSourceMap(
   node *innerast.Node,
   sourceFile *innerast.SourceFile,
   options *innercore.CompilerOptions,
-  host innerprinter.EmitHost,
-  jsFilePath string,
-  sourceMapFilePath string,
+  host SourceMapHost,
+  jsFilePath innertspath.RootedFilePath,
+  sourceMapFilePath innertspath.RootedFilePath,
 ) PrintedFile {
   printer := innerprinter.NewPrinter(innerprinter.PrinterOptions{
     RemoveComments:  options.RemoveComments.IsTrue(),
@@ -122,18 +174,15 @@ func PrintFileWithSourceMap(
   writer := innerprinter.NewTextWriter(options.NewLine.GetNewLineCharacter(), 0)
 
   shouldEmit := (options.SourceMap.IsTrue() || options.InlineSourceMap.IsTrue()) &&
-    !innertspath.FileExtensionIs(sourceFile.FileName(), innertspath.ExtensionJson)
+    !sourceFile.FileName().ExtensionIs(innertspath.ExtensionJson)
 
   var generator *innersourcemap.Generator
   if shouldEmit {
     generator = innersourcemap.NewGenerator(
-      innertspath.GetBaseFileName(innertspath.NormalizeSlashes(jsFilePath)),
+      jsFilePath.BaseName(),
       sourceMapSourceRoot(options),
       SourceMapDirectory(options, host, jsFilePath, sourceFile),
-      innertspath.ComparePathsOptions{
-        UseCaseSensitiveFileNames: host.UseCaseSensitiveFileNames(),
-        CurrentDirectory:          host.GetCurrentDirectory(),
-      },
+      host.CaseSensitivity(),
     )
   }
 
@@ -154,7 +203,7 @@ func PrintFileWithSourceMap(
       writer.WriteComment("//# sourceMappingURL=")
       writer.WriteComment(url)
     }
-    if !options.InlineSourceMap.IsTrue() && len(sourceMapFilePath) > 0 {
+    if !options.InlineSourceMap.IsTrue() && sourceMapFilePath != "" {
       result.MapText = generator.String()
       result.MapPath = sourceMapFilePath
     }
@@ -171,7 +220,7 @@ func PrintFileWithSourceMap(
 // sourceMapSourceRoot mirrors emitter.getSourceRoot: a normalized sourceRoot
 // with a trailing separator so it composes with the relative source paths.
 func sourceMapSourceRoot(options *innercore.CompilerOptions) string {
-  root := innertspath.NormalizeSlashes(options.SourceRoot)
+  root := options.SourceRoot.AsString()
   if len(root) > 0 {
     root = innertspath.EnsureTrailingDirectorySeparator(root)
   }
@@ -185,7 +234,8 @@ func sourceMapSourceRoot(options *innercore.CompilerOptions) string {
 // A nonempty sourceRoot selects the host's common source directory. Otherwise
 // mapRoot selects the map directory, projecting sourceFile's path into that
 // root when sourceFile is present; a relative mapRoot is based on the common
-// source directory. Without either option, the output file's directory is used.
+// source directory and an absolute one on the host's base directory. Without
+// either option, the output file's directory is used.
 // The options and host must be nonnil; sourceFile may be nil.
 //
 // @evidence contracts/common.md#principled-implementation The maintained helper follows pinned emitter.getSourceMapDirectory's sourceRoot precedence, per-source mapRoot projection and relative-root anchoring, returning the exact generator base instead of assuming maps are based on an emitted file directory.
@@ -196,61 +246,51 @@ func sourceMapSourceRoot(options *innercore.CompilerOptions) string {
 // @evidence contracts/performance.md#efficient-algorithms Branching applies sourceRoot/mapRoot precedence and compiler path normalization/remapping over path text. Host CommonSourceDirectory/current-directory/case queries are delegated work and may compute or reuse source metadata; the absence of a local file loop does not bound those host costs. Centralizing this policy avoids separate consumer implementations, not all repeated path work.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure path-context calculation does not coordinate completed or in-flight work across requests; map consumers own any per-file index of its results.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Intermediate normalized/remapped path strings are invocation-local, and the returned directory string can retain newly allocated or borrowed backing bytes. Host-owned common-directory/source metadata remains with that host. This helper keeps no independent historical result cache, native handle or running task; callers determine the returned string's retention.
-func SourceMapDirectory(options *innercore.CompilerOptions, host innerprinter.EmitHost, filePath string, sourceFile *innerast.SourceFile) string {
+func SourceMapDirectory(options *innercore.CompilerOptions, host SourceMapHost, filePath innertspath.RootedFilePath, sourceFile *innerast.SourceFile) innertspath.RootedDirectoryPath {
   if len(options.SourceRoot) > 0 {
     return host.CommonSourceDirectory()
   }
   if len(options.MapRoot) > 0 {
-    dir := innertspath.NormalizeSlashes(options.MapRoot)
-    if sourceFile != nil {
-      dir = innertspath.GetDirectoryPath(inneroutputpaths.GetSourceFilePathInNewDir(
-        sourceFile.FileName(),
-        dir,
-        host.GetCurrentDirectory(),
-        host.CommonSourceDirectory(),
-        host.UseCaseSensitiveFileNames(),
-      ))
-    }
-    if innertspath.GetRootLength(dir) == 0 {
-      dir = innertspath.CombinePaths(host.CommonSourceDirectory(), dir)
-    }
-    return dir
+    return mapRootDirectory(options.MapRoot, host, sourceFile)
   }
-  return innertspath.GetDirectoryPath(innertspath.NormalizePath(filePath))
+  return filePath.Directory()
+}
+
+// mapRootDirectory mirrors emitter.getMapRootDirectory: mapRoot resolved
+// against the common source directory when relative and the base directory
+// otherwise, then narrowed to sourceFile's projected directory beneath it.
+func mapRootDirectory(mapRoot innertspath.SourceMapLocation, host SourceMapHost, sourceFile *innerast.SourceFile) innertspath.RootedDirectoryPath {
+  directory := mapRoot.ResolveDirectory(host.CommonSourceDirectory(), host.BaseDirectory())
+  if sourceFile != nil {
+    directory = inneroutputpaths.GetSourceFileNameInNewDir(
+      sourceFile.FileName(),
+      directory,
+      host.CommonSourceDirectory(),
+      host.CaseSensitivity(),
+    ).Directory()
+  }
+  return directory
 }
 
 // sourceMappingURL mirrors emitter.getSourceMappingURL: the value written after
 // `//# sourceMappingURL=`, either an inline base64 data URL or the encoded path
 // to the external `.js.map` (honoring mapRoot).
-func sourceMappingURL(options *innercore.CompilerOptions, generator *innersourcemap.Generator, host innerprinter.EmitHost, filePath string, sourceMapFilePath string, sourceFile *innerast.SourceFile) string {
+func sourceMappingURL(options *innercore.CompilerOptions, generator *innersourcemap.Generator, host SourceMapHost, filePath innertspath.RootedFilePath, sourceMapFilePath innertspath.RootedFilePath, sourceFile *innerast.SourceFile) string {
   if options.InlineSourceMap.IsTrue() {
     return generator.Base64DataURL()
   }
-  sourceMapFile := innertspath.GetBaseFileName(innertspath.NormalizeSlashes(sourceMapFilePath))
+  sourceMapFile := sourceMapFilePath.BaseName()
   if len(options.MapRoot) > 0 {
-    dir := innertspath.NormalizeSlashes(options.MapRoot)
-    if sourceFile != nil {
-      dir = innertspath.GetDirectoryPath(inneroutputpaths.GetSourceFilePathInNewDir(
-        sourceFile.FileName(),
-        dir,
-        host.GetCurrentDirectory(),
-        host.CommonSourceDirectory(),
-        host.UseCaseSensitiveFileNames(),
-      ))
-    }
-    if innertspath.GetRootLength(dir) == 0 {
-      dir = innertspath.CombinePaths(host.CommonSourceDirectory(), dir)
+    mapFilePath := mapRootDirectory(options.MapRoot, host, sourceFile).ResolveFile(sourceMapFile)
+    if options.MapRoot.IsRelative() {
       return innerstringutil.EncodeURI(innertspath.GetRelativePathToDirectoryOrUrl(
-        innertspath.GetDirectoryPath(innertspath.NormalizePath(filePath)),
-        innertspath.CombinePaths(dir, sourceMapFile),
+        filePath.Directory().AsString(),
+        mapFilePath.AsString(),
         true,
-        innertspath.ComparePathsOptions{
-          UseCaseSensitiveFileNames: host.UseCaseSensitiveFileNames(),
-          CurrentDirectory:          host.GetCurrentDirectory(),
-        },
+        host.CaseSensitivity(),
       ))
     }
-    return innerstringutil.EncodeURI(innertspath.CombinePaths(dir, sourceMapFile))
+    return innerstringutil.EncodeURI(mapFilePath.AsString())
   }
   return innerstringutil.EncodeURI(sourceMapFile)
 }

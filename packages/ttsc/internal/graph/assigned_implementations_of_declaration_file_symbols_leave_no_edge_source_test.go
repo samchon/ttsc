@@ -74,8 +74,8 @@ patched = (message: string): void => {
     }
   }
 
-  module := moduleID(mainPath)
-  helper := nodeID(mainPath, "helper", NodeFunction)
+  module := moduleID(mainPath.AsString())
+  helper := nodeID(mainPath.AsString(), "helper", NodeFunction)
   if !hasEdge(graph, module, helper, EdgeValueCall) {
     t.Fatalf("the assigned body's call to helper is not owned by the running module; edges: %v", graph.Edges)
   }

@@ -46,8 +46,9 @@ const (
 // the hand-assembled lane records it in the same place: before `emitBOM`
 // prepends its mark, exactly as the emitter does, so the plugin build agrees
 // with the plain build of the same project rather than being independently
-// "correct". The external source map keeps a nil, because the emitter writes it
-// with `writeText(sourceMapFilePath, sourceMap, nil)`.
+// "correct". The external source map carries only the emitted source file,
+// because the emitter writes it with
+// `writeText(sourceMapFilePath, sourceMap, &WriteFileData{SourceFile: e.sourceFile})`.
 //
 //  1. For each option set, materialize one project and compile it twice: once
 //     through `EmitAllRaw` (plain tsgo emit) and once through
@@ -59,11 +60,12 @@ const (
 //  3. Assert the reported offset addresses the trailer in the written text
 //     (allowing for the mark taken after it), or is the -1 sentinel when no
 //     trailer was written.
-//  4. Assert the external map is still written with no WriteFileData at all.
+//  4. Assert each lane names index.ts as the source of both artifacts and gives
+//     the external map no other WriteFileData field.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs actual raw and plugin emission for five map/BOM rows and asserts nonnil JS callback metadata, exact offset parity, empty diagnostics, unset build info/skip flag and correct trailer position or minus-one sentinel.
 // @evidence contracts/testing.md#independent-expectations Literal trailer and minus-one sentinel plus independent BOM byte count establish metadata-text correspondence; raw native emitter separately owns compatibility of offset convention.
-// @evidence contracts/testing.md#distinguishing-cases External/inline/no map and BOM with/without map distinguish absent metadata, sentinel corruption and premark offsets. External map callbacks must retain nil data when present.
+// @evidence contracts/testing.md#distinguishing-cases External/inline/no map and BOM with/without map distinguish absent metadata, sentinel corruption and premark offsets. External map callbacks must carry only the emitted source file, matching the JavaScript callback.
 // @evidence contracts/testing.md#execution-ownership The owning driver Go unit loads separate real Programs through its emitter helper, captures WriteFileData snapshots, closes Programs and uses no product executable.
 func TestEmitPluginTransformPopulatesWriteFileData(t *testing.T) {
   cases := []writeFileDataCase{
@@ -156,14 +158,27 @@ func TestEmitPluginTransformPopulatesWriteFileData(t *testing.T) {
       assertSourceMapUrlPos(t, "plugin", pluginJS, testCase)
       assertSourceMapUrlPos(t, "plain", plainJS, testCase)
 
-      // The emitter writes the external map with no data at all, so a caller
-      // keying off a non-nil data to recognize the JavaScript output keeps
-      // working on this lane.
-      if mapArtifact, present := plugin[mapArtifactName]; present && mapArtifact.data != nil {
-        t.Fatalf("plugin lane passed WriteFileData for %s; the emitter writes the map with none: %#v", mapArtifactName, mapArtifact.data)
-      }
-      if mapArtifact, present := plain[mapArtifactName]; present && mapArtifact.data != nil {
-        t.Fatalf("plain lane passed WriteFileData for %s, so this expectation no longer matches the pinned emitter: %#v", mapArtifactName, mapArtifact.data)
+      // Both artifacts name the source file they were emitted from, and the
+      // emitter writes the external map with that field alone, so the plugin
+      // lane must agree with the plain lane on both.
+      for lane, artifacts := range map[string]map[string]emittedArtifact{"plain": plain, "plugin": plugin} {
+        js := artifacts[jsArtifactName]
+        if js.data.SourceFile == nil || js.data.SourceFile.FileName().BaseName() != "index.ts" {
+          t.Fatalf("%s lane named no index.ts source for %s: %#v", lane, jsArtifactName, js.data.SourceFile)
+        }
+        mapArtifact, present := artifacts[mapArtifactName]
+        if !present {
+          continue
+        }
+        if mapArtifact.data == nil {
+          t.Fatalf("%s lane passed no WriteFileData for %s; the pinned emitter names the source file", lane, mapArtifactName)
+        }
+        if mapArtifact.data.SourceFile != js.data.SourceFile {
+          t.Fatalf("%s lane named a different source for %s than for %s", lane, mapArtifactName, jsArtifactName)
+        }
+        if mapArtifact.data.SourceMapUrlPos != 0 || mapArtifact.data.BuildInfo != nil || len(mapArtifact.data.Diagnostics) != 0 || mapArtifact.data.SkippedDtsWrite {
+          t.Fatalf("%s lane populated more than SourceFile for %s: %#v", lane, mapArtifactName, mapArtifact.data)
+        }
       }
     })
   }

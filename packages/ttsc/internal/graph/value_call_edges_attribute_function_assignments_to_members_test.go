@@ -51,13 +51,13 @@ export function install(inst: Service): void {
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  run := nodeID(path, "Service.run", NodeMethod)
-  helper := nodeID(path, "helper", NodeFunction)
+  run := nodeID(path.AsString(), "Service.run", NodeMethod)
+  helper := nodeID(path.AsString(), "helper", NodeFunction)
 
   if !hasEdge(graph, run, helper, EdgeValueCall) {
     t.Fatalf("missing value-call edge Service.run -> helper (assigned implementation); edges: %v", graph.Edges)
   }
-  if graph.Nodes[run].ImplementationFile != path ||
+  if graph.Nodes[run].ImplementationFile != path.AsString() ||
     graph.Nodes[run].ImplementationPos <= 0 ||
     graph.Nodes[run].ImplementationEnd <= graph.Nodes[run].ImplementationPos {
     t.Fatalf("Service.run missing assigned implementation span: %+v", graph.Nodes[run])

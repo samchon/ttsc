@@ -8,7 +8,7 @@
 
 package core
 
-import innercore "github.com/microsoft/typescript-go/internal/core"
+import innercore "github.com/microsoft/TypeScript/tsc/internal/core"
 
 const (
   TSUnknown = innercore.TSUnknown

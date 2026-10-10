@@ -6,6 +6,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -81,8 +82,8 @@ func TestEmitAllWritesBuildInfoForAnIncrementalProject(t *testing.T) {
       defer prog.Close()
 
       written := map[string]string{}
-      diags, err := lane.emit(prog, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-        written[filepath.ToSlash(fileName)] = text
+      diags, err := lane.emit(prog, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+        written[filepath.ToSlash(fileName.AsString())] = text
         return nil
       })
       if err != nil || len(diags) != 0 {

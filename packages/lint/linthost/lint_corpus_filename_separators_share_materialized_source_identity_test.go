@@ -70,7 +70,7 @@ func TestLintCorpusFilenameSeparatorsShareMaterializedSourceIdentity(t *testing.
       finding := findings[0]
       start := strings.Index(source, "var legacy")
       end := start + len("var legacy = 1;")
-      if finding.Pos != start || finding.End != end || finding.File.FileName() != filepath.ToSlash(location) {
+      if finding.Pos != start || finding.End != end || finding.File.FileName().AsString() != filepath.ToSlash(location) {
         t.Fatalf("main source identity/range: got %s [%d,%d), want %s [%d,%d)", finding.File.FileName(), finding.Pos, finding.End, filepath.ToSlash(location), start, end)
       }
     })

@@ -4,7 +4,7 @@
 // (e.g. an EmitHost.GetEmitModuleFormatOfFile result).
 package core
 
-import innercore "github.com/microsoft/typescript-go/internal/core"
+import innercore "github.com/microsoft/TypeScript/tsc/internal/core"
 
 // ModuleKind is tsgo's module-format enum (CommonJS, ESNext, NodeNext, ...).
 //

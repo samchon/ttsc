@@ -39,7 +39,7 @@ func TestServeShardsPruneUnreferencedExternalEndpoints(t *testing.T) {
   if source == nil {
     t.Fatal("fixture source was absent from resident program")
   }
-  sourceKey := session.graphStore.sourceKeys[source.FileName()]
+  sourceKey := session.graphStore.sourceKeys[source.FileName().AsString()]
   if sourceKey == "" || len(session.graphStore.sourceExternal[sourceKey]) != 1 {
     t.Fatalf("fixture source must own one external endpoint: key=%q targets=%v", sourceKey, session.graphStore.sourceExternal[sourceKey])
   }

@@ -34,7 +34,7 @@ func TestAutomaticTypeResolutionReplayPreservesCwdWithoutConfig(t *testing.T) {
       writeProjectFile(t, root, "node_modules/client-pkg/client.d.ts", "declare const client: string;\n")
       root = filepath.ToSlash(root)
       filesystem := driver.DefaultFS()
-      host := driver.DefaultHost(root, filesystem)
+      host := driver.DefaultHost(filesystem)
       parsed, diagnostics, err := driver.ParseTSConfig(filesystem, root, "tsconfig.json", host, nil)
       if err != nil || len(diagnostics) != 0 {
         t.Fatalf("parse config: %v, %v", err, diagnostics)
@@ -54,7 +54,7 @@ func TestAutomaticTypeResolutionReplayPreservesCwdWithoutConfig(t *testing.T) {
       if len(tasks) != 1 || !tasks[0].Universal || tasks[0].ResolvedFile == "" {
         t.Fatalf("expected one resolved automatic type: %+v", tasks)
       }
-      if expected := root + "/__inferred type names__.ts"; tasks[0].ContainingFile != expected {
+      if expected := root + "/__inferred type names__.ts"; tasks[0].ContainingFile.AsString() != expected {
         t.Fatalf("containing file = %q, want %q", tasks[0].ContainingFile, expected)
       }
       if !shimcompiler.ReplayProgramResolutions(tasks, filesystem) {

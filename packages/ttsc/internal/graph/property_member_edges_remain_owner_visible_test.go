@@ -56,12 +56,12 @@ export interface Contract {
 
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
-  dep := nodeID(path, "Dep", NodeInterface)
-  makeDep := nodeID(path, "makeDep", NodeFunction)
-  service := nodeID(path, "Service", NodeClass)
-  serviceDep := nodeID(path, "Service.dep", NodeVariable)
-  contract := nodeID(path, "Contract", NodeInterface)
-  contractDep := nodeID(path, "Contract.dep", NodeVariable)
+  dep := nodeID(path.AsString(), "Dep", NodeInterface)
+  makeDep := nodeID(path.AsString(), "makeDep", NodeFunction)
+  service := nodeID(path.AsString(), "Service", NodeClass)
+  serviceDep := nodeID(path.AsString(), "Service.dep", NodeVariable)
+  contract := nodeID(path.AsString(), "Contract", NodeInterface)
+  contractDep := nodeID(path.AsString(), "Contract.dep", NodeVariable)
 
   for _, id := range []string{serviceDep, contractDep} {
     if _, ok := graph.Nodes[id]; !ok {

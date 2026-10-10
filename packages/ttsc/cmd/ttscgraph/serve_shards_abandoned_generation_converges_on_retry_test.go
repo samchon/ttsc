@@ -55,7 +55,7 @@ func TestServeShardsAbandonedGenerationConvergesOnRetry(t *testing.T) {
   if abandoned.Sequence != committed.Sequence+1 {
     t.Fatalf("abandoned sequence = %d, want %d", abandoned.Sequence, committed.Sequence+1)
   }
-  abandonedKey := session.graphStore.sourceKeys[indexKeyFile]
+  abandonedKey := session.graphStore.sourceKeys[indexKeyFile.AsString()]
   if abandonedKey == "" {
     t.Fatal("abandoned source has no committed shard key")
   }
@@ -83,7 +83,7 @@ func TestServeShardsAbandonedGenerationConvergesOnRetry(t *testing.T) {
   if converged.Sequence != abandoned.Sequence+1 {
     t.Fatalf("converged sequence = %d, want %d", converged.Sequence, abandoned.Sequence+1)
   }
-  convergedKey := session.graphStore.sourceKeys[indexKeyFile]
+  convergedKey := session.graphStore.sourceKeys[indexKeyFile.AsString()]
   if convergedKey == "" || convergedKey == abandonedKey {
     t.Fatalf("edited source kept the abandoned shard identity %q", convergedKey)
   }

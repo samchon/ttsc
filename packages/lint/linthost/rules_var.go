@@ -970,7 +970,7 @@ func preferConstSymbolIsLocalToScope(symbol *shimast.Symbol, scope *shimast.Node
   if symbol == nil || scope == nil {
     return false
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range symbol.Declarations() {
     if preferConstDeclarationScope(declaration) == scope {
       return true
     }
