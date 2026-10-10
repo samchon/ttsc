@@ -23,8 +23,8 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  * cache lookup and publication.
  *
  * With a record store, the executable identity is proven from metadata and a
- * probe answer recorded for that identity is reused by a later process
- * (#1723); a recorded answer must still name an executable this runtime is.
+ * probe answer recorded for that identity is reused by a later process (#1723);
+ * a recorded answer must still name an executable this runtime is.
  *
  * @param runtime The interpreter to probe.
  * @param env Caller environment merged over this process's.

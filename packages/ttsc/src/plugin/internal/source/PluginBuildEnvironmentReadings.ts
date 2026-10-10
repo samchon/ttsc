@@ -150,8 +150,8 @@ export namespace PluginBuildEnvironmentReadings {
    *
    * A caller that names its project lets the worker prove the SDK and
    * executables from the plugin cache's records (#1722). The worker is its own
-   * isolate, so without them it reads the whole GOROOT once per process,
-   * which a bundler or runtime restarting on every edit pays every time.
+   * isolate, so without them it reads the whole GOROOT once per process, which
+   * a bundler or runtime restarting on every edit pays every time.
    *
    * @param directory Plugin source directory whose build environment is read.
    * @param refresh Bypass a cached reading.

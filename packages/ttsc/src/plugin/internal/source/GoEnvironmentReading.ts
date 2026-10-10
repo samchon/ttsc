@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
@@ -35,6 +36,21 @@ export namespace GoEnvironmentReading {
   const ENVIRONMENT_FILE_HINT = "go-environment-file";
 
   /**
+   * What chooses the file's location: `GOENV`, else `os.UserConfigDir()`
+   * (`%AppData%`, `$XDG_CONFIG_HOME`, `$HOME`, Plan 9's `$home`). The hint
+   * across processes is keyed by these alone, because a launch rarely repeats
+   * every unrelated variable, such as a per-run trace path, and a hint that
+   * misses costs the rediscovery run on every launch.
+   */
+  const LOCATION_VARIABLES = [
+    "GOENV",
+    "APPDATA",
+    "XDG_CONFIG_HOME",
+    "HOME",
+    "home",
+  ] as const;
+
+  /**
    * Run `go env -json` for the requested keys and `GOENV`, the file `go env -w`
    * writes, witnessing that file before the run reads it.
    *
@@ -60,7 +76,7 @@ export namespace GoEnvironmentReading {
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why file discovery can repeat and distinguish unavailable acquisition from current authority.
    * @evidence contracts/portability.md#os-neutral-implementation Go reports its actual environment-file location; native path metadata and the existing Go process owner supply observation and execution semantics.
    * @evidence contracts/performance.md#efficient-algorithms Hashing the complete tool/environment identity and up to three native Go queries process full name/value/output bytes. Requested keys contribute argument bytes; file discovery uses metadata rather than an SDK walk.
-   * @evidence contracts/performance.md#reuse-equivalent-work Only file-location discovery hints are shared across equal selected-tool/environment identities, in process and through the record store. Current Go values and file authority are reacquired for every call.
+   * @evidence contracts/performance.md#reuse-equivalent-work Only file-location discovery hints are shared: in process across equal selected-tool/environment identities, and through the record store across equal selected tools and location variables, since the reading verifies any hint against the file Go reports. Current Go values and file authority are reacquired for every call.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The module retains one file-location hint per historical tool/environment identity, without eviction, but no positive reading or native handle; persisted hints belong to the single-file collector. Command capture/retirement belongs to spawnGoTool and the caller owns the transferred witness.
    */
   export function read(
@@ -84,7 +100,7 @@ export namespace GoEnvironmentReading {
       const hinted = PluginLoadAnswers.read(
         identities,
         ENVIRONMENT_FILE_HINT,
-        memoKey,
+        hintKey(goBinary, env),
       );
       if (hinted === null || typeof hinted === "string") named = hinted;
     }
@@ -124,7 +140,7 @@ export namespace GoEnvironmentReading {
           PluginLoadAnswers.write(
             identities,
             ENVIRONMENT_FILE_HINT,
-            memoKey,
+            hintKey(goBinary, env),
             named,
           );
         return parsed;
@@ -138,7 +154,7 @@ export namespace GoEnvironmentReading {
           PluginLoadAnswers.write(
             identities,
             ENVIRONMENT_FILE_HINT,
-            memoKey,
+            hintKey(goBinary, env),
             named,
           );
         return parsed;
@@ -147,5 +163,16 @@ export namespace GoEnvironmentReading {
     if (named !== undefined && named !== null)
       PluginBuildEnvironmentWitness.refuse(witness, named);
     return undefined;
+  }
+
+  // A wrong hint is safe: the reading compares it with the `GOENV` Go reports
+  // and runs again with the reported file witnessed.
+  function hintKey(goBinary: string, env: NodeJS.ProcessEnv): unknown {
+    return [
+      goBinary,
+      LOCATION_VARIABLES.map(
+        (name) => SidecarEnvironment.read(env, name) ?? null,
+      ),
+    ];
   }
 }

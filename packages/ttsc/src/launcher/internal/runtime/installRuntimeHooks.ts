@@ -684,6 +684,17 @@ function observePluginDescriptorInputOnce(record: {
       (record.hash !== undefined && record.hash !== observedHash) ||
       (record.realpath !== undefined && record.realpath !== observedRealpath) ||
       (record.signature !== undefined && record.signature !== afterSignature);
+    // A missing path's signature is its nearest existing ancestor's metadata,
+    // so a write anywhere in that ancestor refuses the proof; the trace names
+    // which observation moved.
+    if (unstable)
+      E2ETrace.capabilityResolution("plugin-descriptor-input-unstable", {
+        resolved: record.resolved,
+        recordedSignature: record.signature,
+        beforeSignature,
+        afterSignature,
+        hashChanged: record.hash !== undefined && record.hash !== observedHash,
+      });
     return `${JSON.stringify({
       ...record,
       hash: observedHash,

@@ -420,10 +420,36 @@ async function runResidentLoaderPool(): Promise<void> {
           }).prepare(),
         refusal(refusedPluginCache),
       );
+      // Descriptor evaluation also records the runtime facts the descriptor
+      // depends on: the runtime executable's content identity and, when
+      // eligible, its measured capabilities. Neither is a plugin or Go build
+      // cache, and no plugin source is proven into a root inside that source.
+      const refusedParts = fs.readdirSync(refusedPluginCache).sort();
       assert.deepEqual(
-        fs.readdirSync(refusedPluginCache),
-        ["descriptors"],
+        refusedParts.filter(
+          (name) => !["answers", "descriptors", "identities"].includes(name),
+        ),
+        [],
         "descriptor evaluation precedes source-build admission; no plugin or Go build cache may be published",
+      );
+      assert.equal(refusedParts.includes("descriptors"), true);
+      const refusedRecords = (part: string): string[] =>
+        refusedParts.includes(part)
+          ? fs
+              .readdirSync(path.join(refusedPluginCache, part))
+              .map((name) => path.join(refusedPluginCache, part, name))
+          : [];
+      assert.deepEqual(
+        refusedRecords("identities")
+          .filter((file) => file.endsWith(".json"))
+          .map(
+            (file) =>
+              (JSON.parse(fs.readFileSync(file, "utf8")) as { kind: string })
+                .kind,
+          )
+          .filter((kind) => kind !== "executable"),
+        [],
+        "only the runtime executable is proven before source-build admission",
       );
       const refusedDescriptorRecords = fs.readdirSync(
         path.join(refusedPluginCache, "descriptors"),
@@ -468,6 +494,11 @@ async function runResidentLoaderPool(): Promise<void> {
         ),
       );
       fs.rmdirSync(path.join(refusedPluginCache, "descriptors"));
+      for (const part of ["answers", "identities"]) {
+        for (const file of refusedRecords(part)) fs.unlinkSync(file);
+        if (refusedParts.includes(part))
+          fs.rmdirSync(path.join(refusedPluginCache, part));
+      }
       fs.rmdirSync(refusedPluginCache);
       assert.equal(
         pluginSourceState(sourceModule, { env: baselineBuildEnv }),

@@ -44,8 +44,8 @@ import { spawnGoTool } from "./spawnGoTool";
  *   the executables the C toolchain commands name, and GOROOT. A consumer that
  *   keeps the reading compares their metadata before reusing it.
  * @param identities Record store that lets a new process prove the GOROOT
- *   corpus and executable bytes from their metadata
- *   (`PluginContentIdentities`, #1722); without it every process reads them.
+ *   corpus and executable bytes from their metadata (`PluginContentIdentities`,
+ *   #1722); without it every process reads them.
  * @evidence contracts/common.md#principled-implementation Fixed artifact flags, observed compiler bytes/version, selected reported-or-fallback build values, named command executables and selected SDK files enter the same framed identity used by source-state reporting. Fallback values and metadata-qualified reuse are explicit premises, not complete observation of arbitrary toolchain inputs.
  * @evidence contracts/common.md#clear-and-simple-design Private helpers separate compiler identity, Go-reported settings, external variables and SDK content while sharing one hash sink and optional pre-read witness.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache signatures include real identity/change metadata and effective invocation context; failed SDK witnessing refuses reuse rather than accepting a VERSION-only proxy.

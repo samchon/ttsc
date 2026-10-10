@@ -30,10 +30,12 @@ import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories
  * values are trusted producer readings, not revalidated content observations.
  * `sourceDigests` carries the digests one load already took: every build of the
  * load keys on one reading of each directory, and the load reports those
- * readings. The environment enters through `hashPluginBuildEnvironment`, the
- * rule that reported state takes it from too, and `environmentDigests` carries
- * the digest of each build directory's, so the load reports it without a second
- * `go env` run.
+ * readings. The environment enters as the digest of
+ * `hashPluginBuildEnvironment`, the rule that reported state takes it from too,
+ * and `environmentDigests` carries the digest of each build directory's, so the
+ * load reports it without a second `go env` run. With `environmentWitnesses`, a
+ * reading the load already took for the same directory, such as package
+ * selection's, keys the build too, and its witness joins the build's.
  *
  * The `ttsc cache` CLI and plugin build pipeline share this key computation.
  *
@@ -43,7 +45,7 @@ import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain input coverage and the provenance of reported digests; documented optional output maps have blank separation between members.
  * @evidence contracts/portability.md#os-neutral-implementation Native roots are resolved with Node path APIs and executable resolution; platform/architecture intentionally distinguish incompatible binary artifacts.
  * @evidence contracts/performance.md#efficient-algorithms Source digest misses enumerate/sort paths and read individual files in full, not bounded streaming chunks. Overlay/contributor ordering compares path/name text; replacement discovery can read a manifest/run Go and native containment queries. Toolchain/env hashing delegates native metadata/probes/full bytes and memo checks without an unmeasured dominant-cost ranking; JSON framing processes all version/entry/label/digest text.
- * @evidence contracts/performance.md#reuse-equivalent-work Caller-owned sourceDigests share supplied absolute-directory readings across roles without independently verifying their provenance/currentness. A supplied record store lets a new process reuse a directory, SDK or executable digest only while its separable metadata signature matches the recorded one (#1722), so unchanged inputs are not re-read per process. EnvironmentDigests receives this call's selected environment identity so reporting can avoid another probe; it does not skip environment hashing. Reuse inherits the selected population and metadata/producer premises.
+ * @evidence contracts/performance.md#reuse-equivalent-work Caller-owned sourceDigests share supplied absolute-directory readings across roles without independently verifying their provenance/currentness. A supplied record store lets a new process reuse a directory, SDK or executable digest only while its separable metadata signature matches the recorded one (#1722), so unchanged inputs are not re-read per process. EnvironmentDigests receives this call's selected environment identity so reporting can avoid another probe. A same-directory reading of the same load, with its witness, replaces a second environment probe; the witness then joins this build's, which the build compares after it ran, and a non-default byte adapter never shares. Reuse inherits the selected population and metadata/producer premises.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Output maps belong to the enclosing load; this operation retains no handles or process-wide records itself.
  */
@@ -65,6 +67,14 @@ export function computeCacheKey(inputs: {
    * its plugin sources' states without reading the environment again.
    */
   environmentDigests?: Map<string, string>;
+
+  /**
+   * Witness of each reading in `environmentDigests` this load took, by
+   * directory. A digest with its witness stands for this call's own reading:
+   * the key takes it instead of running Go again and copies the witness into
+   * `environmentWitness`. Filled with this call's reading when it takes one.
+   */
+  environmentWitnesses?: Map<string, PluginBuildEnvironmentWitness.Record>;
 
   /**
    * Receives selected native toolchain dependencies from the environment reader
@@ -136,45 +146,77 @@ export function computeCacheKey(inputs: {
   // binaries produced by the former absolute-ancestry layout out of this
   // layout's cache admissions, including callers with no SDK overlays.
   hash.update(JSON.stringify(["external-source-layout", 1]));
-  // The same framed values enter the key and the environment-only digest,
-  // which pluginBuildEnvironment reads for this directory.
-  const environment = crypto.createHash("sha256");
-  hashPluginBuildEnvironment(
-    {
-      update: (data: string) => {
-        hash.update(data);
-        environment.update(data);
-      },
-    },
-    goBinary,
-    inputs.dir,
-    env,
-    filesystem,
-    inputs.environmentWitness,
-    inputs.identities,
-  );
-  inputs.environmentDigests?.set(
-    path.resolve(inputs.dir),
-    environment.digest("hex"),
-  );
-  const directory = (label: string, root: string): void =>
-    hashSourceDirectory(
-      hash,
-      label,
-      root,
-      inputs.sourceDigests,
-      inputs.identities,
-    );
-  directory("plugin", inputs.dir);
   // Local replacement targets outside the module supply separately keyed
   // sources. buildSourcePlugin snapshots and proves their copies before
   // redirecting the Go replacement directives to the scratch tree.
-  for (const replacement of pluginModuleReplaceDirectories(
+  const replacements = pluginModuleReplaceDirectories(
     inputs.dir,
     env,
     goBinary,
     inputs.goModReader,
-  )) {
+  );
+  const overlays = [...(inputs.overlayDirs ?? [])].sort();
+  // Hash contributors in sorted-by-name order so two consumers with the
+  // same logical set produce the same key regardless of declaration order
+  // in the host's plugin descriptor.
+  const sortedContributors = [...(inputs.contributors ?? [])].sort((a, b) =>
+    a.name === b.name ? 0 : a.name < b.name ? -1 : 1,
+  );
+  // A store whose root lies inside any directory this key hashes would write
+  // records into that source before the build rejects the cache placement,
+  // so such a store proves nothing here.
+  const identities = PluginContentIdentities.outside(inputs.identities, [
+    inputs.dir,
+    ...replacements.map((replacement) => replacement.directory),
+    ...overlays,
+    ...sortedContributors.map((contributor) => contributor.source),
+  ]);
+  // The key frames the environment digest pluginBuildEnvironment reports for
+  // this directory. WARNING (#1721): package selection reads that environment
+  // first in the same load; reading it again here doubled `go env` and
+  // `go version` per load. A reading taken through another byte adapter is
+  // not this one's, so only the default adapter shares it.
+  const environmentDirectory = path.resolve(inputs.dir);
+  const sharedDigest =
+    inputs.filesystem === undefined
+      ? inputs.environmentDigests?.get(environmentDirectory)
+      : undefined;
+  const sharedWitness =
+    sharedDigest === undefined
+      ? undefined
+      : inputs.environmentWitnesses?.get(environmentDirectory);
+  let environment: string;
+  if (sharedDigest !== undefined && sharedWitness !== undefined) {
+    // The build compares this witness after it ran, exactly as it would its
+    // own reading's, so a toolchain change since the reading still refuses.
+    for (const [file, state] of sharedWitness)
+      if (!inputs.environmentWitness?.has(file))
+        inputs.environmentWitness?.set(file, state);
+    environment = sharedDigest;
+  } else {
+    const witness =
+      inputs.environmentWitness ??
+      (inputs.environmentWitnesses === undefined ? undefined : new Map());
+    const reading = crypto.createHash("sha256");
+    hashPluginBuildEnvironment(
+      reading,
+      goBinary,
+      inputs.dir,
+      env,
+      filesystem,
+      witness,
+      identities,
+    );
+    environment = reading.digest("hex");
+    inputs.environmentDigests?.set(environmentDirectory, environment);
+    if (inputs.filesystem === undefined && witness !== undefined)
+      inputs.environmentWitnesses?.set(environmentDirectory, new Map(witness));
+  }
+  hash.update(JSON.stringify(["environment", environment]));
+  const directory = (label: string, root: string): void =>
+    hashSourceDirectory(hash, label, root, inputs.sourceDigests, identities);
+  directory("plugin", inputs.dir);
+  for (const replacement of replacements) {
     directory(
       `replace:${replacement.modulePath}${
         replacement.version === undefined ? "" : `@${replacement.version}`
@@ -182,15 +224,9 @@ export function computeCacheKey(inputs: {
       replacement.directory,
     );
   }
-  for (const [index, dir] of [...(inputs.overlayDirs ?? [])].sort().entries()) {
+  for (const [index, dir] of overlays.entries()) {
     directory(`overlay:${index}`, dir);
   }
-  // Hash contributors in sorted-by-name order so two consumers with the
-  // same logical set produce the same key regardless of declaration order
-  // in the host's plugin descriptor.
-  const sortedContributors = [...(inputs.contributors ?? [])].sort((a, b) =>
-    a.name === b.name ? 0 : a.name < b.name ? -1 : 1,
-  );
   for (const contributor of sortedContributors) {
     directory(`contributor:${contributor.name}`, contributor.source);
   }

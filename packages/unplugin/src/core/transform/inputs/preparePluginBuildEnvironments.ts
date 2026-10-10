@@ -28,8 +28,8 @@ const asyncResults = new WeakSet<object>();
  * witness independently for every plugin and nested validator.
  *
  * The project root reaches ttsc's environment worker, so that isolate proves
- * the Go SDK and executables from the plugin cache's records instead of
- * reading 135 MB of SDK once per bundler or runtime process (samchon/ttsc#1722).
+ * the Go SDK and executables from the plugin cache's records instead of reading
+ * 135 MB of SDK once per bundler or runtime process (samchon/ttsc#1722).
  *
  * @param cached Optional resident generation whose existing source-state and
  *   environment witness may qualify source reuse. Other preparation owners

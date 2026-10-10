@@ -1,3 +1,5 @@
+import { TestProject } from "@ttsc/testing";
+
 import { SHARED_GO_BUILD_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 import {
   assert,
@@ -5,12 +7,12 @@ import {
   copyProject,
   fs,
   goPath,
+  os,
   path,
   spawn,
   ttscBin,
   workspaceRoot,
 } from "../../../../internal/ttsc/internal/plugin-corpus";
-import { TestProject } from "@ttsc/testing";
 
 /**
  * Verifies the warm-load budget of a cached nested source plugin: an unchanged
@@ -18,28 +20,28 @@ import { TestProject } from "@ttsc/testing";
  * package selection, no source copy and no runtime re-probe.
  *
  * WARNING (#1721, #1722, #1723): this is the regression guard for a class that
- * was fixed and then regressed across patches. A warm typia launch once took
- * 27 s on Windows while the native build took 0.28 s, because every process
- * re-ran `go list` twice, copied the plugin module twice and re-read the plugin
+ * was fixed and then regressed across patches. A warm typia launch once took 27
+ * s on Windows while the native build took 0.28 s, because every process re-ran
+ * `go list` twice, copied the plugin module twice and re-read the plugin
  * sources, the ttsc overlay, the whole GOROOT and the Node executable. Each
- * earlier fix only memoized inside one process, and a launch is one process.
- * If this case fails, a launch is paying for unchanged inputs again.
+ * earlier fix only memoized inside one process, and a launch is one process. If
+ * this case fails, a launch is paying for unchanged inputs again.
  *
  * 1. Copy the project and a nested Go transformer module into it, settle the
  *    sources' stamps, and build cold.
- * 2. Build again under a private `TTSC_E2E_TRACE` and assert the budget: no
- *    `go list`, no `go work`, no runtime probe or executable streaming, the
- *    package selection answered from its record, and every content identity
- *    reused.
- * 3. Edit the transformer's Go source and build again: the binary is rebuilt
- *    and Go selection observes the edited module.
+ * 2. Build again under a private `TTSC_E2E_TRACE` and assert the budget: no `go
+ *    list`, no `go work`, no runtime probe or executable streaming, the package
+ *    selection answered from its record, and every content identity on a device
+ *    the launch mints a clock reference on reused.
+ * 3. Edit the transformer's Go source and build again: the binary is rebuilt and
+ *    Go selection observes the edited module.
  *
  * @evidence contracts/testing.md#behavioral-verification Real `ttsc` builds run cold, warm and after an edit; the warm trace's process attempts and identity/answer observations are the asserted behavior, alongside build status, the cold-build log and the rebuilt binary after the edit.
- * @evidence contracts/testing.md#independent-expectations The budget follows from the contract that unchanged inputs are proven from records: Go selection and runtime probing are absent by construction, and every identity outcome must be "reused". The edit's expectation, a rebuild with a fresh `go list`, follows from content keying.
- * @evidence contracts/testing.md#distinguishing-cases Owns the unchanged warm launch (no selection, no probe, all reused) against the edited launch (rebuild and fresh selection). Unit cases own the per-input invalidation matrix of each record family.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named corpus-source export in the generic E2E population; its body owns the three CLI launches and reads the trace it requested.
+ * @evidence contracts/testing.md#independent-expectations The budget follows from the contract that unchanged inputs are proven from records: Go selection and runtime probing are absent by construction, and each identity outcome follows from its subject's device: "reused" on the temporary or cache device the launch references, "read" elsewhere. The edit's expectation, a rebuild with a fresh `go list`, follows from content keying.
+ * @evidence contracts/testing.md#distinguishing-cases Owns the unchanged warm launch (no selection, no probe, referenced identities reused) against the edited launch (rebuild and fresh selection). Unit cases own the per-input invalidation matrix of each record family.
+ * @evidence contracts/testing.md#execution-ownership The runtime batch invokes this named scenario after its native frontdoors; its body owns the three CLI launches and reads the trace it requested.
  * @evidence contracts/e2e.md#necessary-boundary Cross-process reuse exists only between real launches: a unit cannot show that a new process reads no bytes and starts no Go selection.
- * @evidence contracts/e2e.md#shared-execution The suite Go object cache is shared; the plugin cache, identities and answers start absent in this private project so the cold launch records exactly what the warm one reuses.
+ * @evidence contracts/e2e.md#shared-execution The suite Go object cache is shared; the plugin cache, identities and answers start absent in this private project so the cold launch records exactly what the warm one reuses, and the edited launch mutates its own source, which the shared batch workspace forbids. This is one independent cold build and one rebuild.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The project, the copied transformer module and the private trace directory belong to this case; NODE_OPTIONS is emptied so runtime records are eligible; sources are settled to a past stamp so the separable-stamp rule can hold. Each launch finishes before the next starts.
  * @evidence contracts/e2e.md#preserved-coverage New coverage; no existing assertion moved here.
  */
@@ -129,7 +131,9 @@ module.exports = (context) => ({
     "a warm load must not re-probe its runtime",
   );
   assert.equal(
-    phases.some((data) => data.phase === "runtime-executable-identity-observed"),
+    phases.some(
+      (data) => data.phase === "runtime-executable-identity-observed",
+    ),
     false,
     "a warm load must not stream its runtime executable",
   );
@@ -144,12 +148,36 @@ module.exports = (context) => ({
     identities.some((data) => data.kind === "plugin-source"),
     "the plugin source identity is proven",
   );
+  // A launch mints clock references on the cache root's device and the system
+  // temporary directory's device only; a population on any other device is
+  // read by contract. A linked workspace install, as on a Windows runner whose
+  // checkout is on D: while the project is on C:, puts the bundled GOROOT and
+  // the ttsc overlay there.
+  const referenced = new Set([
+    fs.statSync(os.tmpdir()).dev,
+    fs.statSync(root).dev,
+  ]);
   assert.deepEqual(
     identities
-      .filter((data) => data.outcome !== "reused")
-      .map((data) => `${data.kind} ${data.outcome} ${data.subject}`),
-    [],
-    "every content identity of an unchanged launch is reused",
+      .map((data) => `${data.kind} ${data.outcome} ${data.subject}`)
+      .sort(),
+    identities
+      .map(
+        (data) =>
+          `${data.kind} ${
+            referenced.has(fs.statSync(String(data.subject)).dev)
+              ? "reused"
+              : "read"
+          } ${data.subject}`,
+      )
+      .sort(),
+    "every content identity on a referenced device is reused",
+  );
+  assert.ok(
+    identities.some(
+      (data) => data.kind === "plugin-source" && data.outcome === "reused",
+    ),
+    "the plugin source in the project is reused",
   );
   assert.ok(
     phases.some(
@@ -164,7 +192,10 @@ module.exports = (context) => ({
   const source = path.join(transformer, "transformer", "transformer.go");
   fs.appendFileSync(source, "\n// edited after the warm launch\n");
   const edited = traced("edited");
-  assert.match(edited.result.stderr, /building source plugin "go-source-plugin"/);
+  assert.match(
+    edited.result.stderr,
+    /building source plugin "go-source-plugin"/,
+  );
   assert.ok(
     edited.events.some(
       (event) =>

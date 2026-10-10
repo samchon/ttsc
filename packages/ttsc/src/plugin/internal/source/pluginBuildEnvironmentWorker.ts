@@ -9,8 +9,8 @@ import { pluginBuildEnvironment } from "./pluginBuildEnvironment";
  * Observe one requested native toolchain environment on the exclusive worker.
  * Explicit environment values reach every Go/toolchain reader; no caller
  * process globals are written. Only actual readings and pre-read witnesses
- * cross the worker boundary, and failures retain their real error details.
- * A request that names its project lets this isolate prove the SDK and the
+ * cross the worker boundary, and failures retain their real error details. A
+ * request that names its project lets this isolate prove the SDK and the
  * executables from the plugin cache's records instead of their bytes (#1722).
  */
 parentPort?.on(

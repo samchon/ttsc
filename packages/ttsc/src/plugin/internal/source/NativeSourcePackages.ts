@@ -8,6 +8,7 @@ import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
+import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "./PluginContentIdentities";
 import { PluginLoadAnswers } from "./PluginLoadAnswers";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
@@ -31,7 +32,7 @@ import { spawnGoTool } from "./spawnGoTool";
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes metadata selection from compilation and later materialized admission.
  * @evidence contracts/portability.md#os-neutral-implementation Native path/fs operations and the shared Go tool selector preserve environment-name and path identity without blanket case folding; Go itself applies target platform and cgo selection.
  * @evidence contracts/performance.md#efficient-algorithms One list command observes all distinct package entries in each prepared context. Context materialization traverses and copies admitted host/contributor files; workspace setup delegates manifest commands and list skips dependency loading. Framing and JSON parsing process complete output bytes, and retained results scale with selected packages/files.
- * @evidence contracts/performance.md#reuse-equivalent-work Entries are deduplicated within a contextual observation; callers group equivalent module contexts for one load. No metadata result is cached across source, environment or toolchain changes. Cold admission uses the already prepared real build workspace.
+ * @evidence contracts/performance.md#reuse-equivalent-work Entries are deduplicated within a contextual observation; callers group equivalent module contexts for one load. With a record store, a successful selection is answered across loads and processes under an identity built from the content of everything Go reads, so any source, overlay, contributor, manifest, Go variable or toolchain change observes Go again (#1721); erroneous selections are never recorded. Cold admission uses the already prepared real build workspace.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Each metadata scratch has finally-based retirement-aware cleanup, and capture resources belong to spawnGoTool. Unknown native retirement retains scratch under the existing scope; results and complete output remain caller-owned with no independent byte ceiling.
  */
 export namespace NativeSourcePackages {
@@ -85,6 +86,12 @@ export namespace NativeSourcePackages {
 
     /** Build-environment digest of each module root this load read. */
     environments?: Map<string, string>;
+
+    /**
+     * Witness of each reading in `environments`, so a build of the same
+     * directory keys on that reading instead of probing Go again.
+     */
+    witnesses?: Map<string, PluginBuildEnvironmentWitness.Record>;
   }
 
   /**
@@ -96,7 +103,7 @@ export namespace NativeSourcePackages {
    * @evidence contracts/common.md#meaningful-documentation Native prose states this operation's authority and delegated boundaries; fields retain separate native comments.
    * @evidence contracts/portability.md#os-neutral-implementation Native copy/path and selected tool/environment owners preserve platform identity; contribution target containment is checked.
    * @evidence contracts/performance.md#efficient-algorithms Copies admitted host/contributor bytes and enumerates entries; workspace setup reads manifests and one list command skips dependencies.
-   * @evidence contracts/performance.md#reuse-equivalent-work All entries share one prepared context; optional readers are scoped to one load and the same selected tool/effective environment.
+   * @evidence contracts/performance.md#reuse-equivalent-work All entries share one prepared context; optional readers are scoped to one load and the same selected tool/effective environment. A supplied record store answers an equal selection without copying or running Go, under the content identity of the module, contributors, overlays, proposal manifests, toolchain/environment digest, Go variables, entries and command; an answer is recorded only when the copies matched their keyed digests, no package reported an error and the overlays still held their digests after Go ran.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Finally releases owned scratch through retirement authority; unknown native closure defers removal and capture cleanup remains delegated.
    */
   export function inspect(opts: {
@@ -114,8 +121,8 @@ export namespace NativeSourcePackages {
     identities?: PluginContentIdentities.Store;
 
     /**
-     * The load's source and environment readings, shared with its builds so
-     * one load reads each directory and each module's toolchain once.
+     * The load's source and environment readings, shared with its builds so one
+     * load reads each directory and each module's toolchain once.
      */
     readings?: SelectionReadings;
   }): Package[] {
@@ -156,7 +163,8 @@ export namespace NativeSourcePackages {
       // module edited between the identity reading and the copy observed
       // other bytes than the key names.
       let copiesKeyed =
-        identity === undefined || pluginSourceDigest(scratch) === identity.module;
+        identity === undefined ||
+        pluginSourceDigest(scratch) === identity.module;
       if (opts.proposal === true) {
         // Only root manifests change. Relative Go inputs retain the source
         // module layout, while its irrelevant graph/toolchain stays inactive.
@@ -259,7 +267,7 @@ export namespace NativeSourcePackages {
    * @evidence contracts/common.md#meaningful-documentation Native prose states this operation's authority and delegated boundaries; fields retain separate native comments.
    * @evidence contracts/portability.md#os-neutral-implementation Native module roots retain their selected spelling, without blanket case folding.
    * @evidence contracts/performance.md#efficient-algorithms One grouping pass plus contextual copies and metadata work for each distinct module; output storage scales with input population.
-   * @evidence contracts/performance.md#reuse-equivalent-work Equivalent entries in a module share one list; overlay module observations share the load's selected-tool readers, without global metadata caching.
+   * @evidence contracts/performance.md#reuse-equivalent-work Equivalent entries in a module share one list; overlay module observations share the load's selected-tool readers, and the load's readings and record store reach each contextual observation so equal selections are answered from their content identity.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Grouping/maps/results live for this call/load; scratch and native captures remain with inspect/read.
    */
   export function ownPackages(
@@ -310,7 +318,7 @@ export namespace NativeSourcePackages {
    * @evidence contracts/common.md#meaningful-documentation Native prose states deterministic proposal authority and mandatory final ownership confirmation.
    * @evidence contracts/portability.md#os-neutral-implementation Native module/tool/environment owners preserve candidate-relative tool and source layout identity.
    * @evidence contracts/performance.md#efficient-algorithms Groups inputs by module and actual/prospective mode, copies each admitted module once per context, and batches entries through Go metadata; retained work scales with source bytes and distinct contexts.
-   * @evidence contracts/performance.md#reuse-equivalent-work Equivalent entries share one observation and per-load manifest readers; no result crosses a load or changed context.
+   * @evidence contracts/performance.md#reuse-equivalent-work Equivalent entries share one observation and per-load manifest readers; a result crosses loads only through the record store's content identity, so a changed context observes Go again.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Group records live for this call; scratch/process cleanup remains with inspect and no independent output byte cap is imposed.
    */
   export function propose(
@@ -570,26 +578,33 @@ function selectionIdentity(
     let environment = readings.environments?.get(resolvedRoot);
     if (environment === undefined) {
       const hash = crypto.createHash("sha256");
+      const witness: PluginBuildEnvironmentWitness.Record = new Map();
       hashPluginBuildEnvironment(
         hash,
         goBinary,
         moduleRoot,
         env,
         { readFile: (location) => fs.readFileSync(location) },
-        undefined,
+        witness,
         identities,
       );
       environment = hash.digest("hex");
       readings.environments?.set(resolvedRoot, environment);
+      readings.witnesses?.set(resolvedRoot, witness);
     }
     const host =
       opts.proposal === true
-        ? resolvePluginGoModule(genericHostSource(), opts.pluginName)
-            .moduleRoot
+        ? resolvePluginGoModule(genericHostSource(), opts.pluginName).moduleRoot
         : undefined;
     return {
       format: 1,
-      command: ["list", ...GoSourceInputs.BUILD_FLAGS, "-find", "-e", SELECTION_FIELDS],
+      command: [
+        "list",
+        ...GoSourceInputs.BUILD_FLAGS,
+        "-find",
+        "-e",
+        SELECTION_FIELDS,
+      ],
       mode: opts.proposal === true ? "proposal" : "actual",
       module: directory(moduleRoot),
       environment,
@@ -604,7 +619,9 @@ function selectionIdentity(
       manifests:
         host === undefined
           ? null
-          : ["go.mod", "go.sum"].map((name) => fileDigest(path.join(host, name))),
+          : ["go.mod", "go.sum"].map((name) =>
+              fileDigest(path.join(host, name)),
+            ),
       overlays: SourcePluginWorkspace.findTtscOverlayDirs().map(directory),
       entries: opts.packages.map((input) => [
         input.entry,
@@ -630,7 +647,10 @@ function overlayDigests(
 /** A small manifest's content digest, or null when it does not exist. */
 function fileDigest(file: string): string | null {
   try {
-    return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+    return crypto
+      .createHash("sha256")
+      .update(fs.readFileSync(file))
+      .digest("hex");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
@@ -638,8 +658,8 @@ function fileDigest(file: string): string | null {
 }
 
 /**
- * A recorded selection rebased onto the module it now describes, or
- * `undefined` when the record does not have the shape `read` produces.
+ * A recorded selection rebased onto the module it now describes, or `undefined`
+ * when the record does not have the shape `read` produces.
  */
 function recallSelection(
   value: unknown,
@@ -655,7 +675,9 @@ function recallSelection(
     return packages.map((input) => ({
       ...input,
       Dir:
-        input.Dir === undefined ? undefined : path.resolve(moduleRoot, input.Dir),
+        input.Dir === undefined
+          ? undefined
+          : path.resolve(moduleRoot, input.Dir),
     }));
   } catch {
     return undefined;

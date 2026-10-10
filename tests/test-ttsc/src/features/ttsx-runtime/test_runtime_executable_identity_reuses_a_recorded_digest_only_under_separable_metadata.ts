@@ -10,15 +10,15 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * Verifies a runtime executable's digest is reused across processes only while
  * the recorded metadata holds and is separable from a fresh reference.
  *
- * A plugin load asked for this identity six times per launch and streamed an
- * 85 MB runtime each time (#1723). With a record store the bytes are proven
- * from metadata; a replaced or rewritten executable must still be read. A
- * corrupted recorded digest distinguishes a reused record from a fresh read.
+ * A plugin load asked for this identity six times per launch and streamed an 85
+ * MB runtime each time (#1723). With a record store the bytes are proven from
+ * metadata; a replaced or rewritten executable must still be read. A corrupted
+ * recorded digest distinguishes a reused record from a fresh read.
  *
  * 1. Record a fixture file's identity, corrupt the record and reopen the store.
  * 2. Rewrite identical bytes and then different bytes; both must stream again.
- * 3. Give the file a stamp the reference cannot separate; the record must not
- *    be trusted.
+ * 3. Give the file a stamp the reference cannot separate; the record must not be
+ *    trusted.
  *
  * @evidence contracts/testing.md#behavioral-verification runtimeExecutableIdentity runs with and without a real record store over a regular file; the asserted result is the returned identity string, whose last field is the content digest.
  * @evidence contracts/testing.md#independent-expectations The same function without a store streams the file and is the oracle for a fresh reading; the corrupted literal digest is the oracle for reuse.

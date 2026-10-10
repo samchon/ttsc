@@ -8,9 +8,9 @@ import { resolveSourceBuildCachePaths } from "./source/resolveSourceBuildCachePa
 
 /**
  * The on-disk format of the capability-resolution cache, shared by its reader
- * and writer so both agree on the entry's location and version tag. What
- * proves an entry still describes the project is the host inputs' states and
- * the plugin sources' states, each by the rule its producer applies; a plugin
+ * and writer so both agree on the entry's location and version tag. What proves
+ * an entry still describes the project is the host inputs' states and the
+ * plugin sources' states, each by the rule its producer applies; a plugin
  * source's metadata signature and the clock reference it is judged against
  * belong to `PluginContentIdentities`, which every cross-process plugin proof
  * shares.
@@ -153,5 +153,4 @@ export namespace CapabilityResolutionFormat {
       `${key}.json`,
     );
   }
-
 }

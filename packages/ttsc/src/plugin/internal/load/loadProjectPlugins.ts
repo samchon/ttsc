@@ -22,6 +22,7 @@ import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITts
 import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason";
 import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailure";
 import { NativeSourcePackages } from "../source/NativeSourcePackages";
+import type { PluginBuildEnvironmentWitness } from "../source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../source/PluginContentIdentities";
 import { SourcePluginWorkspace } from "../source/SourcePluginWorkspace";
 import { buildSourcePlugin } from "../source/buildSourcePlugin";
@@ -101,7 +102,7 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains result provenance, environment and path options; helper comments explain input races, conservative proof omission, fallback authority and cleanup. Member/tag spacing and separated concepts follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path/file-URL conversion, createRequire and hidden spawn with explicit argv/environment implement OS-neutral selection and process execution. Physical identities are preserved separately from lexical candidates; Bun-specific differences are capability decisions, not OS guesses.
  * @evidence contracts/performance.md#efficient-algorithms Input merging and conflicts use Sets/maps and sorted path populations, with path/key/value byte costs. Discovery can repeat config/manifest/candidate reads and full hashes; descriptor work includes runtime probes, full observation/JSON processing and possibly synchronous evaluation. Watch-only preliminary publication can temporarily digest/watch the full admitted module as well as its package before kind is known; callbacks delegate topology reconciliation. Load-local replacement readings serve preliminary and final publication. Package selection groups equivalent module contexts and batches entries through Go list without dependency compilation; per-load selected-tool manifest readers share overlay readings. Builds delegate source/environment hashing, copying, cold materialized ownership admission and Go execution; per-load digest maps share selected work. Composition can be quadratic in configured plugins/aliases, and native lookup/file/output bytes are not bounded by plugin count alone.
- * @evidence contracts/performance.md#reuse-equivalent-work Descriptor hits require the cache's context/environment/runtime/version identity and matching recorded projections, subject to producer declarations and sequential-observation limits. Per-load source/environment maps share directory-keyed digests and one selected transform host serves linked contributors; these identities do not certify every undeclared read or atomic filesystem stability.
+ * @evidence contracts/performance.md#reuse-equivalent-work Descriptor hits require the cache's context/environment/runtime/version identity and matching recorded projections, subject to producer declarations and sequential-observation limits. Per-load source/environment maps share directory-keyed digests between package selection and builds, and one selected transform host serves linked contributors. Across processes, the record store opened here proves unchanged sources, toolchain and runtime from separable metadata and answers equal package selections and runtime probes (#1721, #1722, #1723); a store whose root lies inside a plugin source is withdrawn before any source is proven. These identities do not certify every undeclared read or atomic filesystem stability.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Finally restores injected environment locators, attempts evaluator directory removal and closes direct-evaluator diagnostic descriptors. Close/removal can fail; synchronous completion concerns the selected evaluator and does not certify arbitrary descendants are gone. Generation maps/results scale with observed data, and disk diagnostics/result/observation files have no independent byte ceiling here. Default disk pruning has its own interval/protection/failure policy; explicit roots remain caller-owned.
  */
 export function loadProjectPlugins(options: {
@@ -264,87 +265,94 @@ export function loadProjectPlugins(options: {
     identities,
     version: pluginBuildVersions(project.root).ttsc,
   };
-  const loadedEntries = withPluginLoaderEnv(() =>
-    entries.map((entry) => {
-      const specifier = entry.config.transform;
-      if (typeof specifier !== "string" || specifier.length === 0) {
-        throw new Error(
-          `ttsc: plugin entry is missing a string "transform" field`,
-        );
-      }
-      const entryParent = path.join(entry.baseDir, "package.json");
-      const probedCandidates = collectModuleResolutionCandidates(
-        specifier,
-        entryParent,
-        undefined,
-      );
-      // Capture every candidate before resolution chooses the descriptor entry.
-      // A post-resolution snapshot could bless a higher-priority file created
-      // after the resolver had already selected the old entry.
-      const probedCandidateHashes = hashHostInputPaths(probedCandidates);
-      const probedCandidateRealpaths = realpathHostInputPaths(probedCandidates);
-      const request = PluginPackageResolution.resolvePluginRequest(
-        specifier,
-        entry.baseDir,
-      );
-      // Keep the candidates of the search roots up to the one the entry
-      // resolved in: the lookup never read the roots after it
-      // (`moduleResolutionBaseSelects`).
-      const read = new Set(
-        collectModuleResolutionCandidates(specifier, entryParent, request).map(
-          (candidate) => path.resolve(candidate),
-        ),
-      );
-      const entryCandidates = probedCandidates.filter((candidate) =>
-        read.has(path.resolve(candidate)),
-      );
-      const entryCandidateHashes = pickHostInputEntries(
-        probedCandidateHashes,
-        entryCandidates,
-      );
-      const entryCandidateRealpaths = pickHostInputEntries(
-        probedCandidateRealpaths,
-        entryCandidates,
-      );
-      const loaded = loadPluginEntry(
-        entry.config,
-        { ...context, plugin: entry.config },
-        request,
-        effectiveEnv,
-        descriptorCache,
-      );
-      const loadedHostInputHashes = mergeObservedHostInputHashes(
-        loaded.hostInputHashes,
-        hashHostInputPaths(Object.keys(loaded.hostInputHashes)),
-      );
-      const loadedHostInputRealpaths = mergeObservedHostInputRealpaths(
-        loaded.hostInputRealpaths,
-        realpathHostInputPaths(Object.keys(loaded.hostInputRealpaths)),
-      );
-      const hostInputHashes = mergeObservedHostInputHashes(
-        entryCandidateHashes,
-        loadedHostInputHashes,
-      );
-      const hostInputRealpaths = mergeObservedHostInputRealpaths(
-        entryCandidateRealpaths,
-        loadedHostInputRealpaths,
-      );
-      for (const input of loaded.hostInputs) {
-        const absolute = path.resolve(input);
-        if (
-          !Object.prototype.hasOwnProperty.call(loadedHostInputHashes, absolute)
-        ) {
-          delete hostInputHashes[absolute];
+  const loadedEntries = withPluginLoaderEnv(
+    () =>
+      entries.map((entry) => {
+        const specifier = entry.config.transform;
+        if (typeof specifier !== "string" || specifier.length === 0) {
+          throw new Error(
+            `ttsc: plugin entry is missing a string "transform" field`,
+          );
         }
-      }
-      return {
-        ...loaded,
-        hostInputHashes,
-        hostInputRealpaths,
-        hostInputs: [...loaded.hostInputs, ...entryCandidates],
-        request,
-      };
-    }),
+        const entryParent = path.join(entry.baseDir, "package.json");
+        const probedCandidates = collectModuleResolutionCandidates(
+          specifier,
+          entryParent,
+          undefined,
+        );
+        // Capture every candidate before resolution chooses the descriptor entry.
+        // A post-resolution snapshot could bless a higher-priority file created
+        // after the resolver had already selected the old entry.
+        const probedCandidateHashes = hashHostInputPaths(probedCandidates);
+        const probedCandidateRealpaths =
+          realpathHostInputPaths(probedCandidates);
+        const request = PluginPackageResolution.resolvePluginRequest(
+          specifier,
+          entry.baseDir,
+        );
+        // Keep the candidates of the search roots up to the one the entry
+        // resolved in: the lookup never read the roots after it
+        // (`moduleResolutionBaseSelects`).
+        const read = new Set(
+          collectModuleResolutionCandidates(
+            specifier,
+            entryParent,
+            request,
+          ).map((candidate) => path.resolve(candidate)),
+        );
+        const entryCandidates = probedCandidates.filter((candidate) =>
+          read.has(path.resolve(candidate)),
+        );
+        const entryCandidateHashes = pickHostInputEntries(
+          probedCandidateHashes,
+          entryCandidates,
+        );
+        const entryCandidateRealpaths = pickHostInputEntries(
+          probedCandidateRealpaths,
+          entryCandidates,
+        );
+        const loaded = loadPluginEntry(
+          entry.config,
+          { ...context, plugin: entry.config },
+          request,
+          effectiveEnv,
+          descriptorCache,
+        );
+        const loadedHostInputHashes = mergeObservedHostInputHashes(
+          loaded.hostInputHashes,
+          hashHostInputPaths(Object.keys(loaded.hostInputHashes)),
+        );
+        const loadedHostInputRealpaths = mergeObservedHostInputRealpaths(
+          loaded.hostInputRealpaths,
+          realpathHostInputPaths(Object.keys(loaded.hostInputRealpaths)),
+        );
+        const hostInputHashes = mergeObservedHostInputHashes(
+          entryCandidateHashes,
+          loadedHostInputHashes,
+        );
+        const hostInputRealpaths = mergeObservedHostInputRealpaths(
+          entryCandidateRealpaths,
+          loadedHostInputRealpaths,
+        );
+        for (const input of loaded.hostInputs) {
+          const absolute = path.resolve(input);
+          if (
+            !Object.prototype.hasOwnProperty.call(
+              loadedHostInputHashes,
+              absolute,
+            )
+          ) {
+            delete hostInputHashes[absolute];
+          }
+        }
+        return {
+          ...loaded,
+          hostInputHashes,
+          hostInputRealpaths,
+          hostInputs: [...loaded.hostInputs, ...entryCandidates],
+          request,
+        };
+      }),
     identities,
   );
   const plugins = composePluginSources(
@@ -375,9 +383,16 @@ export function loadProjectPlugins(options: {
   // And one reading of the environment each build directory is keyed on, which
   // a plugin module root's state reports as it is.
   const environmentDigests = new Map<string, string>();
+  // With the witness of each such reading, so a build of a directory package
+  // selection already read keys on that reading instead of probing Go again.
+  const environmentWitnesses = new Map<
+    string,
+    PluginBuildEnvironmentWitness.Record
+  >();
   const readings = {
     sources: sourceDigests,
     environments: environmentDigests,
+    witnesses: environmentWitnesses,
   };
   // Records describing sources must never land inside one, so the store is
   // admitted for source proofs only once every source of the load is known.
@@ -642,6 +657,7 @@ export function loadProjectPlugins(options: {
         packageOwnership: packageOwnership(record.source, record.label, true),
         source: record.source,
         environmentDigests,
+        environmentWitnesses,
         sourceDigests,
         ttscVersion,
         tsgoVersion,
@@ -666,6 +682,7 @@ export function loadProjectPlugins(options: {
             true,
           ),
           environmentDigests,
+          environmentWitnesses,
           sourceDigests,
           ttscVersion,
           tsgoVersion,
@@ -696,6 +713,7 @@ export function loadProjectPlugins(options: {
               ),
               source: record.source,
               environmentDigests,
+              environmentWitnesses,
               sourceDigests,
               ttscVersion,
               tsgoVersion,
@@ -2109,6 +2127,15 @@ function readTtsxDescriptorInputs(
         (signatures.has(resolved) &&
           signatures.get(resolved) !== record.signature)
       ) {
+        E2ETrace.capabilityResolution(
+          "plugin-descriptor-input-signature-moved",
+          {
+            resolved,
+            first: signatures.get(resolved),
+            later:
+              typeof record.signature === "string" ? record.signature : null,
+          },
+        );
         hashes.delete(resolved);
         realpaths.delete(resolved);
         signatures.delete(resolved);

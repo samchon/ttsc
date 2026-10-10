@@ -8,9 +8,9 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 import { recordCacheFileUse } from "./recordCacheFileUse";
 
 /**
- * Answers a plugin load computed from inputs it could identify by content,
- * kept in the plugin cache root under that identity so a later process with
- * equal inputs reads the answer instead of computing it again.
+ * Answers a plugin load computed from inputs it could identify by content, kept
+ * in the plugin cache root under that identity so a later process with equal
+ * inputs reads the answer instead of computing it again.
  *
  * WARNING (#1721, #1723): the key is the whole proof. A caller must fold into
  * `identity` every input that can change the answer, as content identities
@@ -57,7 +57,9 @@ export namespace PluginLoadAnswers {
     if (store === undefined) return undefined;
     const file = answerFile(store, kind, identity);
     try {
-      const entry = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<IEntry>;
+      const entry = JSON.parse(
+        fs.readFileSync(file, "utf8"),
+      ) as Partial<IEntry>;
       if (
         entry.format !== FORMAT ||
         entry.version !== store.version ||

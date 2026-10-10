@@ -17,8 +17,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * recorded. Rewriting only the recorded package name distinguishes an answer
  * read from the record from one Go produced.
  *
- * 1. Select a nested entry, corrupt the recorded name and select again through
- *    a reopened store; the corrupted name proves Go did not run.
+ * 1. Select a nested entry, corrupt the recorded name and select again through a
+ *    reopened store; the corrupted name proves Go did not run.
  * 2. Edit the entry's source, then change GOFLAGS, then select in proposal mode;
  *    each must observe Go and record a separate answer.
  * 3. Select a directory without Go files; its error must not be recorded.
@@ -115,7 +115,10 @@ export function test_native_source_selection_reuses_recorded_answers_until_input
     assert.equal(selections().length, 2);
   });
   verify("a changed Go variable observes Go again", () => {
-    assert.equal(own({ ...process.env, GOFLAGS: "-tags=selection" }).Name, "main");
+    assert.equal(
+      own({ ...process.env, GOFLAGS: "-tags=selection" }).Name,
+      "main",
+    );
     assert.equal(selections().length, 3);
   });
   verify("proposal mode keeps its own answer", () => {
@@ -139,7 +142,10 @@ export function test_native_source_selection_reuses_recorded_answers_until_input
     assert.equal(selections().length, 4);
   });
   if (failures.length !== 0)
-    throw new AggregateError(failures, "package selection answer matrix failed");
+    throw new AggregateError(
+      failures,
+      "package selection answer matrix failed",
+    );
 }
 
 function listFiles(directory: string): string[] {

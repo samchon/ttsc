@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { PluginContentIdentities } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginContentIdentities";
@@ -10,23 +11,26 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * Verifies a recorded source digest stands for the bytes only while their
  * metadata holds and every stamp is separable from a freshly minted reference.
  *
- * Every launch is a new process, so the record store is what spares a warm
- * load from reading every plugin source byte (#1722). A record that outlived an
- * edit would key a binary on stale sources, so each way content can change must
+ * Every launch is a new process, so the record store is what spares a warm load
+ * from reading every plugin source byte (#1722). A record that outlived an edit
+ * would key a binary on stale sources, so each way content can change must
  * reread. Corrupting only the recorded digest distinguishes reuse from a fresh
  * reading: a reused record returns the corrupted value, a fresh one does not.
  *
- * 1. Record a module's digest, corrupt it, and reopen the store as a new
- *    process would; unchanged separable metadata must return the record.
- * 2. Rewrite identical bytes, edit, add, rename and remove files; each must
- *    read the content again and match an independent digest.
- * 3. Give a file a stamp the reference cannot separate; the record must be
- *    neither trusted nor rewritten.
+ * 1. Record a module's digest, corrupt it, and reopen the store as a new process
+ *    would; unchanged separable metadata must return the record.
+ * 2. Rewrite identical bytes, edit, add, rename and remove files; each must read
+ *    the content again and match an independent digest.
+ * 3. Give a file a stamp the reference cannot separate; the record must be neither
+ *    trusted nor rewritten.
  * 4. Refuse a store whose root lies inside a plugin source.
+ * 5. Reuse one private temporary-volume reference directory across stores, so
+ *    opening a store never adds or removes an entry of the temporary directory,
+ *    whose metadata signs every missing path below it.
  *
  * @evidence contracts/testing.md#behavioral-verification PluginContentIdentities.open and sourceDirectory run against a real module directory and a real cache root; the observable result is the returned digest and the record file on disk.
  * @evidence contracts/testing.md#independent-expectations pluginSourceDigest called directly, with no store, is the independent oracle for every fresh reading; the corrupted literal digest is the oracle for a reused record.
- * @evidence contracts/testing.md#distinguishing-cases Unchanged separable metadata reuses; identical-byte rewrite, content edit, addition, rename and deletion reread; an unseparable stamp neither reuses nor records; a cache root inside the source refuses the store. Executable and GOROOT records share digest and are covered by their own units and the E2E warm-load budget.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged separable metadata reuses; identical-byte rewrite, content edit, addition, rename and deletion reread; an unseparable stamp neither reuses nor records; a cache root inside the source refuses the store; a second store reuses the first one's private temporary-volume reference directory. Executable and GOROOT records share digest and are covered by their own units and the E2E warm-load budget.
  * @evidence contracts/testing.md#execution-ownership The named unit calls the owning source operations directly over a copied package fixture and a private cache root; no Go process, native build or product host runs.
  */
 export function test_plugincontentidentities_reuses_a_digest_only_while_its_metadata_holds(): void {
@@ -73,13 +77,15 @@ export function test_plugincontentidentities_reuses_a_digest_only_while_its_meta
     assert.equal(entries.length, 1, "one directory, one record");
     return path.join(directory, entries[0]!);
   };
+  // The corrupted value can already be in place: a reused record is never
+  // rewritten, so the step after a reuse finds the previous corruption.
+  const corrupted = "0".repeat(64);
+  assert.notEqual(pluginSourceDigest(module), corrupted);
   const corrupt = (): string => {
     const file = record();
     const entry = JSON.parse(fs.readFileSync(file, "utf8")) as {
       digest: string;
     };
-    const corrupted = "0".repeat(64);
-    assert.notEqual(entry.digest, corrupted);
     entry.digest = corrupted;
     fs.writeFileSync(file, JSON.stringify(entry));
     return corrupted;
@@ -103,7 +109,10 @@ export function test_plugincontentidentities_reuses_a_digest_only_while_its_meta
   });
   verify("unchanged separable metadata returns the record", () => {
     const corrupted = corrupt();
-    assert.equal(PluginContentIdentities.sourceDirectory(open(), module), corrupted);
+    assert.equal(
+      PluginContentIdentities.sourceDirectory(open(), module),
+      corrupted,
+    );
   });
 
   const main = path.join(module, "main.go");
@@ -158,6 +167,24 @@ export function test_plugincontentidentities_reuses_a_digest_only_while_its_meta
       undefined,
     );
     assert.equal(fs.existsSync(path.join(module, "cache")), false);
+  });
+
+  verify("the temporary-volume reference directory is reused", () => {
+    const uid =
+      typeof process.getuid === "function" ? process.getuid() : undefined;
+    const directory = path.join(
+      os.tmpdir(),
+      uid === undefined
+        ? "ttsc-clock-references"
+        : `ttsc-clock-references-${uid}`,
+    );
+    open();
+    const first = fs.lstatSync(directory, { bigint: true });
+    open();
+    const second = fs.lstatSync(directory, { bigint: true });
+    assert.equal(first.isDirectory(), true);
+    assert.equal(second.ino, first.ino, "the directory is not recreated");
+    if (uid !== undefined) assert.equal(first.mode & 0o077n, 0n);
   });
 
   if (failures.length !== 0)

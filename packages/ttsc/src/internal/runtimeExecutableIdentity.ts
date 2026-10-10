@@ -13,10 +13,10 @@ import { E2ETrace } from "./E2ETrace";
  * brackets the streamed read. Concurrent writes that evade every filesystem
  * observation remain outside this snapshot guarantee.
  *
- * With a record store, the bytes of an unchanged executable are proven from
- * its metadata instead of streamed again (`PluginContentIdentities`, #1723):
- * the recorded digest stands only while the physical file's identity, size and
- * both stamps match the record and its modification stamp is separable from a
+ * With a record store, the bytes of an unchanged executable are proven from its
+ * metadata instead of streamed again (`PluginContentIdentities`, #1723): the
+ * recorded digest stands only while the physical file's identity, size and both
+ * stamps match the record and its modification stamp is separable from a
  * reference the store minted. A plugin load asks for this identity several
  * times, and every launch is a new process, so streaming an 85 MB runtime each
  * time cost about 0.9 s per launch. Without a store, or when that proof is
@@ -175,110 +175,110 @@ function streamDigest(
   return result;
 
   function observe(): string | IUnavailable {
-  try {
-    descriptor = fs.openSync(physicalPath, "r");
-    if (process.env.TTSC_E2E_TRACE) {
-      traceLease = {
-        callId: String(++identityTraceOrdinal),
+    try {
+      descriptor = fs.openSync(physicalPath, "r");
+      if (process.env.TTSC_E2E_TRACE) {
+        traceLease = {
+          callId: String(++identityTraceOrdinal),
+          runtime,
+          physicalPath,
+          descriptor,
+          pid: process.pid,
+          threadId,
+          dev: String(physical.dev),
+          ino: String(physical.ino),
+        };
+        E2ETrace.capabilityResolution(
+          "runtime-executable-identity-opened",
+          traceLease,
+        );
+      }
+      stage = "opened-stat";
+      const opened = fs.fstatSync(descriptor, { bigint: true });
+      if (fileIdentity(opened) !== fileIdentity(physical))
+        return {
+          stage,
+          reason: "opened-file-changed",
+          expected: fileIdentity(physical),
+          observed: fileIdentity(opened),
+        };
+      const hash = crypto.createHash("sha256");
+      const buffer = Buffer.allocUnsafe(64 * 1024);
+      let remaining = opened.size;
+      stage = "read";
+      while (remaining > 0n) {
+        const requested =
+          remaining > BigInt(buffer.length) ? buffer.length : Number(remaining);
+        const length = fs.readSync(descriptor, buffer, 0, requested, null);
+        if (length === 0)
+          return {
+            stage,
+            reason: "premature-eof",
+            expected: String(opened.size),
+            observed: String(opened.size - remaining),
+          };
+        hash.update(buffer.subarray(0, length));
+        remaining -= BigInt(length);
+      }
+      stage = "post-read-opened-stat";
+      const afterOpened = fs.fstatSync(descriptor, { bigint: true });
+      if (fileIdentity(afterOpened) !== fileIdentity(opened))
+        return {
+          stage,
+          reason: "opened-file-changed-during-read",
+          expected: fileIdentity(opened),
+          observed: fileIdentity(afterOpened),
+          observations: { before: opened, after: afterOpened },
+        };
+      stage = "post-read-realpath";
+      const afterPath = fs.realpathSync.native(runtime);
+      if (afterPath !== physicalPath)
+        return {
+          stage,
+          reason: "physical-target-changed",
+          expected: physicalPath,
+          observed: afterPath,
+        };
+      stage = "post-read-lexical-stat";
+      const afterLexical = fs.lstatSync(runtime, { bigint: true });
+      if (fileIdentity(afterLexical) !== fileIdentity(lexical))
+        return {
+          stage,
+          reason: "lexical-file-changed-during-read",
+          expected: fileIdentity(lexical),
+          observed: fileIdentity(afterLexical),
+        };
+      stage = "post-read-physical-stat";
+      const afterPhysical = fs.statSync(physicalPath, { bigint: true });
+      if (fileIdentity(afterPhysical) !== fileIdentity(physical))
+        return {
+          stage,
+          reason: "physical-file-changed-during-read",
+          expected: fileIdentity(physical),
+          observed: fileIdentity(afterPhysical),
+        };
+      const digest = hash.digest("hex");
+      E2ETrace.capabilityResolution("runtime-executable-identity-observed", {
         runtime,
         physicalPath,
-        descriptor,
-        pid: process.pid,
-        threadId,
-        dev: String(physical.dev),
-        ino: String(physical.ino),
+        startedAt: timing.startedAt,
+        finishedAt: new Date().toISOString(),
+        lexical: fileIdentity(lexical),
+        physical: fileIdentity(physical),
+        digest,
+        openedAtimeNs: String(opened.atimeNs),
+        afterOpenedAtimeNs: String(afterOpened.atimeNs),
+        openedBirthtimeNs: String(opened.birthtimeNs),
+        afterOpenedBirthtimeNs: String(afterOpened.birthtimeNs),
+      });
+      return digest;
+    } catch (error) {
+      return {
+        stage,
+        reason: "filesystem-error",
+        observed: error instanceof Error ? error.message : String(error),
       };
-      E2ETrace.capabilityResolution(
-        "runtime-executable-identity-opened",
-        traceLease,
-      );
     }
-    stage = "opened-stat";
-    const opened = fs.fstatSync(descriptor, { bigint: true });
-    if (fileIdentity(opened) !== fileIdentity(physical))
-      return ({
-        stage,
-        reason: "opened-file-changed",
-        expected: fileIdentity(physical),
-        observed: fileIdentity(opened),
-      });
-    const hash = crypto.createHash("sha256");
-    const buffer = Buffer.allocUnsafe(64 * 1024);
-    let remaining = opened.size;
-    stage = "read";
-    while (remaining > 0n) {
-      const requested =
-        remaining > BigInt(buffer.length) ? buffer.length : Number(remaining);
-      const length = fs.readSync(descriptor, buffer, 0, requested, null);
-      if (length === 0)
-        return ({
-          stage,
-          reason: "premature-eof",
-          expected: String(opened.size),
-          observed: String(opened.size - remaining),
-        });
-      hash.update(buffer.subarray(0, length));
-      remaining -= BigInt(length);
-    }
-    stage = "post-read-opened-stat";
-    const afterOpened = fs.fstatSync(descriptor, { bigint: true });
-    if (fileIdentity(afterOpened) !== fileIdentity(opened))
-      return ({
-        stage,
-        reason: "opened-file-changed-during-read",
-        expected: fileIdentity(opened),
-        observed: fileIdentity(afterOpened),
-        observations: { before: opened, after: afterOpened },
-      });
-    stage = "post-read-realpath";
-    const afterPath = fs.realpathSync.native(runtime);
-    if (afterPath !== physicalPath)
-      return ({
-        stage,
-        reason: "physical-target-changed",
-        expected: physicalPath,
-        observed: afterPath,
-      });
-    stage = "post-read-lexical-stat";
-    const afterLexical = fs.lstatSync(runtime, { bigint: true });
-    if (fileIdentity(afterLexical) !== fileIdentity(lexical))
-      return ({
-        stage,
-        reason: "lexical-file-changed-during-read",
-        expected: fileIdentity(lexical),
-        observed: fileIdentity(afterLexical),
-      });
-    stage = "post-read-physical-stat";
-    const afterPhysical = fs.statSync(physicalPath, { bigint: true });
-    if (fileIdentity(afterPhysical) !== fileIdentity(physical))
-      return ({
-        stage,
-        reason: "physical-file-changed-during-read",
-        expected: fileIdentity(physical),
-        observed: fileIdentity(afterPhysical),
-      });
-    const digest = hash.digest("hex");
-    E2ETrace.capabilityResolution("runtime-executable-identity-observed", {
-      runtime,
-      physicalPath,
-      startedAt: timing.startedAt,
-      finishedAt: new Date().toISOString(),
-      lexical: fileIdentity(lexical),
-      physical: fileIdentity(physical),
-      digest,
-      openedAtimeNs: String(opened.atimeNs),
-      afterOpenedAtimeNs: String(afterOpened.atimeNs),
-      openedBirthtimeNs: String(opened.birthtimeNs),
-      afterOpenedBirthtimeNs: String(afterOpened.birthtimeNs),
-    });
-    return digest;
-  } catch (error) {
-    return {
-      stage,
-      reason: "filesystem-error",
-      observed: error instanceof Error ? error.message : String(error),
-    };
-  }
   }
 }
 

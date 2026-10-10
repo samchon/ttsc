@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
@@ -16,10 +17,10 @@ import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
  * Content identities a plugin load proves from metadata instead of bytes, kept
  * in the plugin cache root so they outlive the process that read them.
  *
- * WARNING (#1721, #1722, #1723): a warm plugin load must not pay for its inputs'
- * bytes. Before this owner existed, every launch, every `ttsx` process, every
- * `@ttsc/unplugin` worker and the build-environment worker re-read the plugin
- * module, the ttsc overlays, the whole GOROOT and the Go and JavaScript
+ * WARNING (#1721, #1722, #1723): a warm plugin load must not pay for its
+ * inputs' bytes. Before this owner existed, every launch, every `ttsx` process,
+ * every `@ttsc/unplugin` worker and the build-environment worker re-read the
+ * plugin module, the ttsc overlays, the whole GOROOT and the Go and JavaScript
  * runtimes, because each earlier fix (#1186, #1712) kept its reuse inside one
  * process. A process is not the unit of reuse: a CLI launch is one process. Any
  * new content identity on the load path belongs here, and a memo that only
@@ -29,14 +30,16 @@ import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
  * signature of that population, and is trusted only under the separable-stamp
  * rule settled by #1227 and #1344: every stamp must be strictly older than a
  * reference minted on the same device by this store's own write, so no later
- * write can share a recorded tick. A record is written only when the signature
- * observed before the content read equals the one observed after it and both
- * are separable. Reuse still assumes the filesystem reports writes in its
- * metadata (identity, size, modification and change times); change time moves
- * on every write and cannot be restored by an ordinary process. A population on
- * a device without a reference, an unseparable stamp, a missing or foreign
- * record, or any observation failure falls back to reading content, exactly as
- * before this owner.
+ * write can share a recorded tick. References are minted on the cache root's
+ * volume and on the system temporary directory's volume, which together hold
+ * the project, its plugins and toolchain, and a system-installed runtime. A
+ * record is written only when the signature observed before the content read
+ * equals the one observed after it and both are separable. Reuse still assumes
+ * the filesystem reports writes in its metadata (identity, size, modification
+ * and change times); change time moves on every write and cannot be restored by
+ * an ordinary process. A population on a device without a reference, an
+ * unseparable stamp, a missing or foreign record, or any observation failure
+ * falls back to reading content, exactly as before this owner.
  *
  * Records live in single-file cache parts (`SourceBuildCacheLayout`), so the
  * opportunistic collector ages them out and `ttsc clean` removes them. Their
@@ -54,17 +57,17 @@ import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
  */
 export namespace PluginContentIdentities {
   /**
-   * One opened record store: the physical cache root and the clock reference
+   * One opened record store: the physical cache root and the clock references
    * minted when it was opened.
    *
    * @evidence contracts/common.md#principled-implementation The reference is minted by this store's own write before any observation it judges, so stamps strictly older than it cannot share a later write's tick.
-   * @evidence contracts/common.md#clear-and-simple-design Root, reference and version travel together so every record of one load is judged against one minted reference and one product version.
+   * @evidence contracts/common.md#clear-and-simple-design Root, references and version travel together so every record of one load is judged against the references minted for it and one product version.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The record stores observed state, not an expected digest.
    * @evidence contracts/common.md#meaningful-documentation Members document their provenance and lifetime.
    * @evidence contracts/portability.md#os-neutral-implementation The reference map is keyed by native device identifiers.
    * @evidenceExclude contracts/performance.md#efficient-algorithms A record type runs no algorithm.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The type grants no reuse by itself; digest owns it.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The opener owns the store for one load or one build; at most one device reference is retained.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The opener owns the store for one load or one build; at most two device references are retained.
    */
   export interface Store {
     /** Physical cache root that holds the identity and answer parts. */
@@ -107,10 +110,14 @@ export namespace PluginContentIdentities {
    * content as they did without one.
    *
    * The root follows the plugin cache policy (`resolveSourceBuildCachePaths`):
-   * an explicit `cacheDir`, `TTSC_CACHE_DIR`, or the workspace-local default.
-   * A default root is marked as selected before its first write, as every
-   * other default writer does, so a later root search never mistakes the new
-   * payload for an older orphan.
+   * an explicit `cacheDir`, `TTSC_CACHE_DIR`, or the workspace-local default. A
+   * default root is marked as selected before its first write, as every other
+   * default writer does, so a later root search never mistakes the new payload
+   * for an older orphan. One reference is minted in the root's identity
+   * directory, and the store exists only when that write succeeds. Another is
+   * minted in a private per-user directory below the system temporary
+   * directory, so an executable or SDK on the system volume is separable even
+   * when the project lives on another volume.
    *
    * A root inside any of `sources` is refused before anything is written: the
    * build rejects such a cache (`SourcePluginAdmission`), and a record written
@@ -125,9 +132,9 @@ export namespace PluginContentIdentities {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No wall clock or historical stamp substitutes for the minted reference.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs state root selection, the marker ordering and the undefined fallback.
    * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and the probe's device identity carry platform semantics; Windows environment names are read case-insensitively by the shared reader.
-   * @evidence contracts/performance.md#efficient-algorithms Root selection can walk ancestors and read manifests; the probe performs one directory creation, one write, one lstat and one removal. No plugin source is read.
+   * @evidence contracts/performance.md#efficient-algorithms Root selection can walk ancestors and read manifests; each of the two probes performs one directory creation, one write, one lstat and one removal; the temporary one also checks its directory's ownership. No plugin source is read.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each load needs a freshly minted reference; reusing an older one would defeat the separation premise.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The probe is removed in its owner's finally; the returned store retains one device reference and two strings.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Each probe is removed in its owner's finally; the per-user temporary directory stays, empty, for later loads so the temporary directory itself does not move. The returned store retains at most two device references and two strings.
    */
   export function open(props: {
     projectRoot: string;
@@ -146,10 +153,15 @@ export namespace PluginContentIdentities {
         props.cacheDir || SidecarEnvironment.read(props.env, "TTSC_CACHE_DIR")
           ? selected
           : SourceBuildCacheLayout.markDefaultWorkspaceCacheRoot(selected);
-      const references = mintReference(
+      const owned = mintReference(
         path.join(root, SourceBuildCacheLayout.IDENTITY_CACHE_DIRNAME),
       );
-      if (references.size === 0) return undefined;
+      if (owned.size === 0) return undefined;
+      // The cache root's device covers the project, its installed plugins and
+      // the toolchain bundled with them. A runtime or SDK installed elsewhere,
+      // typically on the system drive, is judged against a second reference
+      // minted in a per-user directory below the system temporary directory.
+      const references = new Map([...temporaryReference(), ...owned]);
       return {
         root,
         references,
@@ -194,7 +206,8 @@ export namespace PluginContentIdentities {
    *
    * A population whose selection would include the store's own root is never
    * recorded, since writing a record would change what it describes; a root
-   * below a pruned directory such as `node_modules` is outside every selection.
+   * below a pruned directory such as `node_modules` is outside every
+   * selection.
    *
    * @param store The opened store, or `undefined` to read content only.
    * @param kind Population family; records of different families never mix.
@@ -214,7 +227,9 @@ export namespace PluginContentIdentities {
     store: Store | undefined,
     kind: string,
     subject: string,
-    observe: (references: ReadonlyMap<bigint, bigint>) => Observation | undefined,
+    observe: (
+      references: ReadonlyMap<bigint, bigint>,
+    ) => Observation | undefined,
     read: () => string,
   ): string {
     if (
@@ -366,15 +381,17 @@ export namespace PluginContentIdentities {
 
   /**
    * A clock reference minted by a write of the cache's own: the modification
-   * stamp a fresh probe file got in `directory`, by the device that reported it.
+   * stamp a fresh probe file got in `directory`, by the device that reported
+   * it.
    *
    * A stamp strictly older than the same device's fresh reference satisfies the
    * separation policy. Reuse still assumes the filesystem's reported metadata
    * reflects writes; the comparison cannot certify arbitrary timestamp
    * restoration or future clock behavior. The probe is the cache's own file,
-   * named for this call, and removal is attempted at once, so concurrent readers
-   * never lend each other a reference. A failed write, or a population on
-   * another device, leaves nothing separable, and the proof reads the files.
+   * named for this call, and removal is attempted at once, so concurrent
+   * readers never lend each other a reference. A failed write, or a population
+   * on another device, leaves nothing separable, and the proof reads the
+   * files.
    *
    * @param directory Cache-owned directory the probe is written in.
    * @evidence contracts/common.md#principled-implementation A unique freshly-written file supplies its native device/mtime reference; acquisition failure clears the witness, and observers require a matching device and strictly older reported stamp under the metadata policy.
@@ -460,6 +477,9 @@ export namespace PluginContentIdentities {
    */
   const FORMAT = "ttsc-content-identity-v1";
 
+  /** Directory below the system temporary directory that holds its probes. */
+  const TEMPORARY_REFERENCE_DIRNAME = "ttsc-clock-references";
+
   interface IRecord {
     format: string;
     version: string;
@@ -467,6 +487,42 @@ export namespace PluginContentIdentities {
     subject: string;
     signature: string;
     digest: string;
+  }
+
+  // The temporary-volume reference lives in one directory reused by every
+  // load: creating and removing an entry of the temporary directory itself on
+  // each load would move that directory's metadata, which is the signature of
+  // every missing path below it a descriptor proof observed (#1721). A shared
+  // directory such as POSIX `/tmp` is writable by every user and a fixed name
+  // there could be another user's, so the directory is named for this user,
+  // created private, and used only while it is a real directory this user owns
+  // that nobody else can write to.
+  function temporaryReference(): ReadonlyMap<bigint, bigint> {
+    try {
+      const uid =
+        typeof process.getuid === "function" ? process.getuid() : undefined;
+      const directory = path.join(
+        os.tmpdir(),
+        uid === undefined
+          ? TEMPORARY_REFERENCE_DIRNAME
+          : `${TEMPORARY_REFERENCE_DIRNAME}-${uid}`,
+      );
+      try {
+        fs.mkdirSync(directory, { mode: 0o700 });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST")
+          return new Map();
+      }
+      const stats = fs.lstatSync(directory);
+      if (
+        !stats.isDirectory() ||
+        (uid !== undefined && (stats.uid !== uid || (stats.mode & 0o022) !== 0))
+      )
+        return new Map();
+      return mintReference(directory);
+    } catch {
+      return new Map();
+    }
   }
 
   function coversRoot(root: string, sources: readonly string[]): boolean {
@@ -490,7 +546,9 @@ export namespace PluginContentIdentities {
 
   function readRecord(file: string): IRecord | undefined {
     try {
-      const value = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<IRecord>;
+      const value = JSON.parse(
+        fs.readFileSync(file, "utf8"),
+      ) as Partial<IRecord>;
       return value.format === FORMAT &&
         typeof value.version === "string" &&
         typeof value.kind === "string" &&
