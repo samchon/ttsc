@@ -105,16 +105,16 @@ export function matchesCachedExternalInputs(
     ) {
       continue;
     }
-    // Each spelling resolves on its own; only the bytes of one physical file
-    // are read once for every spelling that resolves to it now, since the
-    // codecs hash content alone. A metadata-only change otherwise read an
-    // alias and its target twice in one delivery.
+    // Each spelling resolves on its own and the first one resolving to a
+    // physical file reads it through its own spelling, as the filesystem view
+    // answers; a later spelling resolving to that file now reuses the read,
+    // since the codecs hash content alone. A metadata-only change otherwise
+    // read an alias and its target twice in one delivery.
     const graph = Object.prototype.hasOwnProperty.call(
       graphRealpaths,
       identity,
     );
     const physical = hostInputRealpath(file, filesystem);
-    const read = physical ?? file;
     const shared =
       physical === null
         ? undefined
@@ -124,8 +124,8 @@ export function matchesCachedExternalInputs(
       hash = sharedReads.get(shared)!;
     } else {
       hash = graph
-        ? graphInputStateHash(read, filesystem)
-        : hostInputStateHash(read, filesystem);
+        ? graphInputStateHash(file, filesystem)
+        : hostInputStateHash(file, filesystem);
       if (shared !== undefined) sharedReads.set(shared, hash);
     }
     const after = inputMetadataSignature(file, filesystem);

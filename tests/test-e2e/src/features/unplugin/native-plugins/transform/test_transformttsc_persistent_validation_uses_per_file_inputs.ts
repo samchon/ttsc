@@ -13,7 +13,7 @@ import { projectModules } from "../../../../internal/unplugin/internal/transform
  *
  * Reading the whole envelope on every delivery would cost O(modules x inputs)
  * per build. Narrowing to each file's reachable inputs must not lose freshness:
- * a directory the proof cannot read, a reachable edit, a membership change, a
+ * an absence the proof cannot observe, a reachable edit, a membership change, a
  * broken host-input link whose remote target appears, and an out-of-project
  * descriptor dependency must all still replace the generation.
  *
@@ -32,19 +32,26 @@ import { projectModules } from "../../../../internal/unplugin/internal/transform
  * every delivery, the broken link here, which is read on each side of its
  * content comparison; and in number by the inputs the fixture declares.
  *
+ * The descriptor's absent inputs are proven by a native stat of each on every
+ * delivery: a directory listing cannot see a short-name or Unicode alias, and a
+ * watch cannot match an event to an absent spelling. Their number is the
+ * fixture's, so they are bounded by a property as well, each probed once per
+ * delivery, while the per-module stat bound counts every other file.
+ *
  * 1. Deliver twelve modules over a partitioned graph and assert reads, file stats,
  *    and metadata checks per module stay within their bounds, and that no
- *    watched directory or input spelling is read twice in one delivery.
- * 2. Deny the directory that proves candidates missing and assert the generation
- *    is replaced, then edit an unreachable external and an unclassified asset
- *    and assert neither replaces it.
+ *    watched directory, input spelling or absent input is read twice in one
+ *    delivery.
+ * 2. Deny the stat that proves a candidate missing and assert the generation is
+ *    replaced, then edit an unreachable external and an unclassified asset and
+ *    assert neither replaces it.
  * 3. Edit a reachable external, include a new source, create a broken link's
  *    remote target, and edit a descriptor dependency, and assert each replaces
  *    it.
  *
  * @evidence contracts/testing.md#behavioral-verification Partitioned native graph keeps per-delivery read/stat/metadata bounds and no duplicate watched-directory checks while retaining required invalidations and ignoring unreachable inputs.
  * @evidence contracts/testing.md#independent-expectations Independent per-cache counters, handwritten graph partition and literal mutations define workload/freshness; observed hashes are checked for proof presence, not used to manufacture expected output.
- * @evidence contracts/testing.md#distinguishing-cases Denied candidate directory, unreachable external/noninput, POSIX broken-link target appearance, reachable external, new source and descriptor dependency edit are separately asserted.
+ * @evidence contracts/testing.md#distinguishing-cases Denied candidate stat, unreachable external/noninput, POSIX broken-link target appearance, reachable external, new source and descriptor dependency edit are separately asserted.
  * @evidence contracts/testing.md#execution-ownership The ordinary tests/test-e2e/src/index.ts run selects nine batch entries whose import graph excludes this retained module, so that suite does not execute this declaration. If explicitly invoked, test_transformttsc_persistent_validation_uses_per_file_inputs owns deliveries across a twelve-module native graph with local I/O counters and separate freshness mutations. Evidence selection does not establish runtime coverage.
  * @evidence contracts/e2e.md#necessary-boundary The built transform API must hand an actual native fixture envelope to generation capture/validation and then serve the selected modules. The native run log and reported graph/proofs expose that connection; synthetic graph options test envelope transport and admission, not correctness of TypeScript-Go graph construction.
  * @evidence contracts/e2e.md#shared-execution createCacheProject reuses the materialized cache Go fixture and content-addressed build cache unless this case requests isolatedPluginSource; unique consumer and run-log roots keep mutable inputs private. Within each consumer/cache scenario, repeated deliveries reuse that scenario's transform cache; distinct consumers or policies keep separate caches. Changed declared inputs or rejected capture require the counted new invocation.
@@ -141,15 +148,32 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
   // The product frames of each directory stat, so a repeated read names the
   // validators that both read it.
   let directoryStatCallers: string[] = [];
+  // The descriptor's absent inputs, keyed by physical directory and name,
+  // whose stats are bounded per delivery rather than per module.
+  const absentProbes = new Set(
+    descriptorProbes.filter((probe) => !lexicallyExists(probe)).map(absenceKey),
+  );
+  // The absent inputs the delivery in progress statted.
+  let absenceStats: string[] = [];
+  // Whether the next stat of an absent input fails with a permission error.
+  let denyAbsenceProof = false;
   const recordStat = <T extends { isDirectory(): boolean }>(
     location: string,
     stat: () => T,
   ): T => {
     let target: T;
     try {
+      if (denyAbsenceProof && absentProbes.has(absenceKey(location))) {
+        denyAbsenceProof = false;
+        const error = new Error("permission denied") as NodeJS.ErrnoException;
+        error.code = "EACCES";
+        throw error;
+      }
       target = stat();
     } catch (error) {
-      stats += 1;
+      const key = absenceKey(location);
+      if (absentProbes.has(key)) absenceStats.push(key);
+      else stats += 1;
       throw error;
     }
     if (target.isDirectory()) {
@@ -158,7 +182,6 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
     } else stats += 1;
     return target;
   };
-  let deniedDirectory: string | undefined;
   const cache = createTtscTransformCache({
     lstat: (location: string) => {
       lstats += 1;
@@ -168,17 +191,6 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
     readFile: (location: string) => {
       reads += 1;
       return fs.readFileSync(location);
-    },
-    readdir: (location: string) => {
-      if (
-        deniedDirectory !== undefined &&
-        path.resolve(location) === deniedDirectory
-      ) {
-        const error = new Error("permission denied") as NodeJS.ErrnoException;
-        error.code = "EACCES";
-        throw error;
-      }
-      return fs.readdirSync(location, { withFileTypes: true });
     },
     stat: (location: string) =>
       recordStat(location, () => fs.statSync(location)),
@@ -232,7 +244,13 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
     directoryStats = [];
     directoryStatCallers = [];
     metadataReads = [];
+    absenceStats = [];
     assert.ok(await deliver(file));
+    assert.equal(
+      new Set(absenceStats).size,
+      absenceStats.length,
+      `a delivery probes each absent input once: ${absenceStats.join(", ")}`,
+    );
     assert.equal(
       new Set(directoryStats).size,
       directoryStats.length,
@@ -250,7 +268,7 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
   );
   assert.ok(
     stats / modules.length <= 12,
-    `persistent validation statted ${(stats / modules.length).toFixed(1)} files per module (bound: 12)`,
+    `persistent validation statted ${(stats / modules.length).toFixed(1)} files per module beside the ${absentProbes.size} absent inputs (bound: 12)`,
   );
   // The manifest reads each existing universal input once per spelling; the
   // fixture declares its inputs under one spelling each, so a delivery reading
@@ -262,14 +280,14 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
 
   const main = modules[0]!;
   let originalGeneration = [...cache.values()][0];
-  deniedDirectory = path.resolve(path.dirname(directoryProbe));
+  denyAbsenceProof = true;
   assert.ok(await deliver(main));
-  deniedDirectory = undefined;
+  assert.equal(denyAbsenceProof, false, "the delivery probes an absent input");
   const permissionRetryGeneration = [...cache.values()][0];
   assert.notEqual(
     permissionRetryGeneration,
     originalGeneration,
-    "an unreadable proving directory cannot certify that candidates remain missing",
+    "a denied absence probe cannot certify that its candidate remains missing",
   );
   originalGeneration = permissionRetryGeneration;
   fs.writeFileSync(
@@ -369,6 +387,31 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
     /DESCRIPTOR-RELOADED/,
     "the replacement generation must reload the changed descriptor dependency",
   );
+}
+
+/** Whether a path has a directory entry, a broken link among them. */
+function lexicallyExists(location: string): boolean {
+  try {
+    fs.lstatSync(location);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * One absent path under every spelling of its directory: the physical directory
+ * joined with the requested name, so a macOS temporary path and its `/private`
+ * target name the same probe.
+ */
+function absenceKey(location: string): string {
+  const directory = path.dirname(path.resolve(location));
+  let physical = directory;
+  try {
+    physical = fs.realpathSync.native(directory);
+  } catch {}
+  const key = path.join(physical, path.basename(location));
+  return process.platform === "win32" ? key.toLowerCase() : key;
 }
 
 /** The product frames that reached a recorded filesystem operation. */

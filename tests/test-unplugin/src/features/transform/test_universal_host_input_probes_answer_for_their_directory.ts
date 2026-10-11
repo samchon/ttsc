@@ -6,31 +6,30 @@ import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/sr
 import { createTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/createTtscTransformCache";
 import { transformFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/transformFilesystem";
 import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
-import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/TtscProjectMutationTracker";
 import { MISSING_INPUT_STATE } from "../../../../../packages/unplugin/src/core/transform/validation/MISSING_INPUT_STATE";
 import { captureUniversalHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
 import { matchesUniversalHostInputProbes } from "../../../../../packages/unplugin/src/core/transform/validation/matchesUniversalHostInputProbes";
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
 
 /**
- * Verifies absent host inputs a tracker proves unchanged cost no native probe,
- * while every candidate it does not prove is still probed.
+ * Verifies grouped absent host inputs are proven by their candidates' own
+ * stats, without restating the directory the tracker already verifies.
  *
- * One input a watch cannot prove, such as a link whose metadata proof stays on
- * the validation path, sent every absent input back to the disk, restating the
- * directory the tracker had just verified (samchon/ttsc#1453).
+ * Each grouped candidate is the first missing component directly below its
+ * directory, so ENOENT holds whether the directory stayed or vanished, and
+ * ENOTDIR means the directory became a non-directory (samchon/ttsc#1735).
  *
- * 1. Capture a generation whose two absent inputs share their nearest directory.
- * 2. With a tracker proving both, assert no stat at all.
- * 3. Withdraw one from the tracker: only that candidate and its directory are
- *    stated, and its appearance is still rejected.
+ * 1. Capture a generation whose two absent inputs share their directory.
+ * 2. Assert the proof holds with one stat per candidate and none of the directory.
+ * 3. Assert it still holds once the directory is removed, rejects once a file
+ *    replaces the directory, and rejects once a candidate appears.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual capture and matchesUniversalHostInputProbes run over a real directory through a counting native stat.
- * @evidence contracts/testing.md#independent-expectations The tracker's covered set and the literal stat log set the expectations; a real file created afterwards supplies the appearance.
- * @evidence contracts/testing.md#distinguishing-cases A group proven whole, a partly proven group and an unproven candidate that appeared are separate rows.
- * @evidence contracts/testing.md#execution-ownership Unit test: the real capture and probe owners run on a handwritten generation and a handwritten tracker state; no compiler, watcher or host runs.
+ * @evidence contracts/testing.md#behavioral-verification The actual capture and matchesUniversalHostInputProbes run over a real directory through a recording native stat.
+ * @evidence contracts/testing.md#independent-expectations Literal candidate paths, real removal, replacement and creation, and the recorded stat log set every expectation.
+ * @evidence contracts/testing.md#distinguishing-cases An unchanged directory, a vanished one, one replaced by a file and an appeared candidate are separate rows.
+ * @evidence contracts/testing.md#execution-ownership Unit test: the real capture and probe owners run on a handwritten generation; no compiler, watcher or host runs.
  */
-export function test_universal_host_input_probes_skip_candidates_the_tracker_proves(): void {
+export function test_universal_host_input_probes_answer_for_their_directory(): void {
   const fixture = createCachedDeliveryUnitFixture();
   const root = path.dirname(path.dirname(fixture.file));
   const directory = path.join(root, "absent-inputs");
@@ -66,36 +65,36 @@ export function test_universal_host_input_probes_skip_candidates_the_tracker_pro
     fixture.file,
   ).validation;
   assert.ok(validation, "both absences are reusable");
-  const tracker = (covered: readonly string[]): TtscProjectMutationTracker =>
-    ({
-      changes: new Set<string>(),
-      changesOmitted: false,
-      close: () => undefined,
-      contentAuthoritative: true,
-      covered: new Set(covered),
-      failed: false,
-      membershipChanged: false,
-    }) as unknown as TtscProjectMutationTracker;
+  assert.equal(validation.missing.size, 1, "the absences share one group");
 
   stats.length = 0;
-  cached.hostInputMutationTracker = tracker([first, second]);
   assert.equal(matchesUniversalHostInputProbes(cached, validation), true);
-  assert.equal(
-    stats.length,
-    0,
-    "a group its tracker proves whole is not stated",
+  assert.deepEqual(
+    [...stats].sort(),
+    [first, second].sort(),
+    "each candidate is stated once and the directory not at all",
   );
 
-  stats.length = 0;
-  cached.hostInputMutationTracker = tracker([first]);
-  assert.equal(matchesUniversalHostInputProbes(cached, validation), true);
-  assert.ok(stats.includes(second), "the unproven candidate is probed");
-  assert.ok(!stats.includes(first), "the proven candidate is not probed");
+  fs.rmSync(directory, { recursive: true });
+  assert.equal(
+    matchesUniversalHostInputProbes(cached, validation),
+    true,
+    "a vanished directory keeps its candidates unreachable",
+  );
 
+  fs.writeFileSync(directory, "a file where the directory was");
+  assert.equal(
+    matchesUniversalHostInputProbes(cached, validation),
+    false,
+    "a directory replaced by a file rejects the grouped proof",
+  );
+
+  fs.rmSync(directory);
+  fs.mkdirSync(directory);
   fs.writeFileSync(second, "{}");
   assert.equal(
     matchesUniversalHostInputProbes(cached, validation),
     false,
-    "an unproven candidate that appeared is still rejected",
+    "an appeared candidate rejects the proof",
   );
 }
