@@ -51,8 +51,13 @@ export async function test_transformttsc_notified_absent_candidate_is_not_reprob
   const probes = { calls: 0 };
   // Each probe's candidate and product frames, so a probe names its validator.
   const probeLog: string[] = [];
+  // The trackers when the first probe happens: a fallback that proves the
+  // whole snapshot clears the unverified flag that sent it there.
+  let measured: unknown;
+  let atFirstProbe: string | undefined;
   const count = (location: string): void => {
     if (!candidates.has(path.resolve(location))) return;
+    if (measured !== undefined) atFirstProbe ??= trackerStates(measured);
     probes.calls += 1;
     probeLog.push(`${location}\n${callerFrames()}`);
   };
@@ -94,6 +99,7 @@ export async function test_transformttsc_notified_absent_candidate_is_not_reprob
   await deliver(modules[0]!);
   assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
 
+  measured = await [...cache.values()][0];
   probes.calls = 0;
   probeLog.length = 0;
   for (const file of modules.slice(1)) {
@@ -104,7 +110,7 @@ export async function test_transformttsc_notified_absent_candidate_is_not_reprob
   assert.equal(
     probes.calls,
     0,
-    `a candidate the generation watches must cost no filesystem call per delivery (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])}; generation: ${generationFacts(await [...cache.values()][0])}):\n${probeLog.slice(0, 4).join("\n")}`,
+    `a candidate the generation watches must cost no filesystem call per delivery (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])}; generation: ${generationFacts(await [...cache.values()][0])}; trackers at the first probe: ${atFirstProbe ?? "none"}):\n${probeLog.slice(0, 4).join("\n")}`,
   );
 }
 

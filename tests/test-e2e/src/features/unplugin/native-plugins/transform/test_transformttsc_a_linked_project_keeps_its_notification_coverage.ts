@@ -61,8 +61,14 @@ export async function test_transformttsc_a_linked_project_keeps_its_notification
     return false;
   };
   const touched: string[] = [];
+  // The trackers when the first read below the project happens: a fallback
+  // that proves the whole snapshot clears the unverified flag that sent it.
+  let measured: unknown;
+  let atFirstRead: string | undefined;
   const count = (location: string): void => {
-    if (below(location)) touched.push(path.resolve(location));
+    if (!below(location)) return;
+    if (measured !== undefined) atFirstRead ??= trackerStates(measured);
+    touched.push(path.resolve(location));
   };
   const cache = createTtscTransformCache({
     exists: (location: string) => {
@@ -112,6 +118,7 @@ export async function test_transformttsc_a_linked_project_keeps_its_notification
   // The delivery's own watchers settle before the next one reads them.
   await new Promise((resolve) => setImmediate(() => setImmediate(resolve)));
 
+  measured = await [...cache.values()][0];
   touched.length = 0;
   for (const file of modules.slice(1)) await deliver(file);
   assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
@@ -120,7 +127,7 @@ export async function test_transformttsc_a_linked_project_keeps_its_notification
   assert.deepEqual(
     [...new Set(touched)].filter((location) => !roots.has(location)),
     [],
-    `the watchers answer for every input below the linked project (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])}; generation: ${generationFacts(await [...cache.values()][0])})`,
+    `the watchers answer for every input below the linked project (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])}; generation: ${generationFacts(await [...cache.values()][0])}; trackers at the first read: ${atFirstRead ?? "none"})`,
   );
 }
 
