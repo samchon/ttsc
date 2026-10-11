@@ -35,6 +35,7 @@ import { test_plugin_corpus_relative_cache_dir_resolves_from_cwd_option } from "
 import { test_plugin_corpus_ttsx_check_plugin_pass_leaves_build_info_untouched } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_ttsx_check_plugin_pass_leaves_build_info_untouched";
 import { test_plugin_corpus_ttsx_nested_project_reuses_the_prepared_workspace_cache } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_ttsx_nested_project_reuses_the_prepared_workspace_cache";
 import { test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_to_end } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_to_end";
+import { test_plugin_corpus_ttsx_runs_a_host_that_declares_no_emit_provenance } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_ttsx_runs_a_host_that_declares_no_emit_provenance";
 import { test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs";
 import { test_plugin_missing_ttsc_export_condition_falls_back_to_default_entry } from "./ttsc/native-plugins/corpus-misc/test_plugin_missing_ttsc_export_condition_falls_back_to_default_entry";
 import { test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch } from "./ttsc/native-plugins/corpus-misc/test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch";
@@ -403,6 +404,10 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
   [
     "test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_to_end",
     test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_to_end,
+  ],
+  [
+    "test_plugin_corpus_ttsx_runs_a_host_that_declares_no_emit_provenance",
+    test_plugin_corpus_ttsx_runs_a_host_that_declares_no_emit_provenance,
   ],
   [
     "test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs",
