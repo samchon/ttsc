@@ -25,6 +25,10 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    GOENV file's bytes, and read without a store: each must parse again.
  * 3. A manifest Go rejects throws and records nothing.
  *
+ * The record is keyed only by executables the store can prove from metadata,
+ * so the private cache root lives in the suite's temporary directory, inside the
+ * checkout and on the device of the Go toolchain the suite installed.
+ *
  * @evidence contracts/testing.md#behavioral-verification Real readers run the selected Go toolchain against real manifests and a real record store; the returned module path, directives and the answer files on disk are asserted.
  * @evidence contracts/testing.md#independent-expectations The authored module path and replace directives are the oracles for a Go parse; the corrupted literal is the oracle for a recorded one.
  * @evidence contracts/testing.md#distinguishing-cases Unchanged inputs reuse; a manifest edit, a GOFLAGS change, a GOENV file change and a store-less reader each parse; a rejected manifest records nothing.

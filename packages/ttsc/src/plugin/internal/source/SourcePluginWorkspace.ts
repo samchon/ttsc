@@ -8,7 +8,7 @@ import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableId
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
-import type { PluginContentIdentities } from "./PluginContentIdentities";
+import { PluginContentIdentities } from "./PluginContentIdentities";
 import { PluginLoadAnswers } from "./PluginLoadAnswers";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
@@ -518,11 +518,21 @@ export namespace SourcePluginWorkspace {
     env: NodeJS.ProcessEnv,
     identities: PluginContentIdentities.Store,
   ): unknown {
-    const launcher = runtimeExecutableIdentity(goBinary, identities);
-    const dispatched = runtimeExecutableIdentity(
-      path.join(goRoot, "bin", process.platform === "win32" ? "go.exe" : "go"),
-      identities,
+    const dispatchedPath = path.join(
+      goRoot,
+      "bin",
+      process.platform === "win32" ? "go.exe" : "go",
     );
+    // Only an executable the store can prove from metadata may key the record:
+    // streaming both executables on a device without a reference would cost
+    // more than the parse it replaces.
+    if (
+      !provableFromMetadata(goBinary, identities) ||
+      !provableFromMetadata(dispatchedPath, identities)
+    )
+      return undefined;
+    const launcher = runtimeExecutableIdentity(goBinary, identities);
+    const dispatched = runtimeExecutableIdentity(dispatchedPath, identities);
     if (launcher === undefined || dispatched === undefined) return undefined;
     let goEnvFile: string | null;
     if (goEnv === "off") goEnvFile = "off";
@@ -551,6 +561,24 @@ export namespace SourcePluginWorkspace {
         )
         .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)),
     ];
+  }
+
+  /**
+   * Whether the file's stamp is separable from the store's reference on its
+   * device, the precondition for proving its bytes from a record.
+   */
+  function provableFromMetadata(
+    file: string,
+    identities: PluginContentIdentities.Store,
+  ): boolean {
+    try {
+      return PluginContentIdentities.separable(
+        identities.references,
+        fs.statSync(file, { bigint: true }),
+      );
+    } catch {
+      return false;
+    }
   }
 
   /**
