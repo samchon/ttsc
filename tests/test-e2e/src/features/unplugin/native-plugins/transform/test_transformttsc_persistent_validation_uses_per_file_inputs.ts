@@ -236,7 +236,7 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
     assert.equal(
       new Set(directoryStats).size,
       directoryStats.length,
-      `a delivery reads each watched directory once (active resources: ${activeResourceSummary()}; host tracker: ${trackerState(capturedHostTracker)}): ${directoryStats.map((location, index) => `${location}\n${directoryStatCallers[index]}`).join("\n")}`,
+      `a delivery reads each watched directory once (active resources: ${activeResourceSummary()}; host tracker: ${trackerState(capturedHostTracker)}; validated but not tracker-covered: ${uncoveredInputs(capturedGeneration, capturedHostTracker)}): ${directoryStats.map((location, index) => `${location}\n${directoryStatCallers[index]}`).join("\n")}`,
     );
     const spellings = new Set(metadataReads);
     assert.ok(
@@ -404,5 +404,26 @@ function trackerState(tracker: unknown): string {
     covered: state.covered?.size,
     unproven: [...(state.unproven ?? [])],
     changes: [...(state.changes ?? [])].slice(0, 8),
+  });
+}
+
+/**
+ * The validated host inputs the tracker does not cover, whose presence alone
+ * sends every universal input back to the disk.
+ */
+function uncoveredInputs(generation: unknown, tracker: unknown): string {
+  const validated = (
+    generation as { hostInputValidation?: { covered?: ReadonlySet<string> } }
+  ).hostInputValidation?.covered;
+  const covered = (tracker as { covered?: ReadonlySet<string> } | undefined)
+    ?.covered;
+  if (validated === undefined) return "no validation";
+  const missing = [...validated].filter(
+    (input) => covered?.has(input) !== true,
+  );
+  return JSON.stringify({
+    validated: validated.size,
+    uncovered: missing.length,
+    first: missing.slice(0, 12),
   });
 }

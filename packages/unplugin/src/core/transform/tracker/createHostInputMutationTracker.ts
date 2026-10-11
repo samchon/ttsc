@@ -383,6 +383,11 @@ export async function createHostInputMutationTracker(
   tracker.verifyLocations = (seen) => {
     if (tracker.failed) return;
     for (const location of opened) {
+      // A watch this drain could not prove delivered vouches for nothing, and
+      // every input below it is validated directly, which states the directory
+      // anyway. Its identity is checked against the opened one again whenever
+      // a later drain proves it, so a replacement in between is still caught.
+      if (tracker.unproven?.has(location.directory) === true) continue;
       if (
         watchLocationIdentity(location.directory, filesystem, seen) !==
         location.identity

@@ -3,6 +3,7 @@ import path from "node:path";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
+import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
 
 /**
  * Prove the universal inputs that were absent are still absent, through one
@@ -23,8 +24,8 @@ import type { TtscHostInputValidation } from "./TtscHostInputValidation";
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain inability-to-prove rejection, unreadable-content ambiguity and both caller routes before tags.
  * @evidence contracts/portability.md#os-neutral-implementation The injected native stat resolves original candidate spelling, and its platform selects the same win32 or posix joining grammar as capture's ancestor probe. Case flags and JavaScript Unicode folding do not replace native alias resolution.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The pass borrows generation-owned groups and retains only each current native probe result; no directory listing, historical state or handle is acquired.
- * @evidence contracts/performance.md#efficient-algorithms Each group checks its directory once, then each candidate requires one native stat. Work follows candidate count and native path resolution, without enumerating unrelated directory entries; exact probes are necessary because listing names cannot establish all native aliases.
- * @evidence contracts/performance.md#reuse-equivalent-work Capture shares nearest-ancestor selection and raw candidate groups across consumers; each current absence proof must observe native candidates again unless the owning notification validator establishes unchanged inputs.
+ * @evidence contracts/performance.md#efficient-algorithms Each candidate its tracker does not prove requires one native stat, and its group checks its directory once; a group proven whole costs none. Work follows candidate count and native path resolution, without enumerating unrelated directory entries; exact probes are necessary because listing names cannot establish all native aliases.
+ * @evidence contracts/performance.md#reuse-equivalent-work Capture shares nearest-ancestor selection and raw candidate groups across consumers; each current absence proof must observe native candidates again unless the owning tracker proves that candidate unchanged.
  */
 export function matchesUniversalHostInputProbes(
   cached: TtscCachedProjectTransform,
@@ -35,7 +36,13 @@ export function matchesUniversalHostInputProbes(
     (filesystem.platform ?? process.platform) === "win32"
       ? path.win32
       : path.posix;
+  // A candidate its tracker proves unchanged needs no probe, whatever the
+  // other inputs' watches can vouch for, as for existing entries: one input a
+  // watch cannot prove must not send every absent one back to the disk
+  // (samchon/ttsc#1453).
+  const tracker = cached.hostInputMutationTracker;
   for (const input of validation.directMissing ?? []) {
+    if (trackerProvesInputUnchanged(tracker, input)) continue;
     try {
       filesystem.stat(input);
       return false;
@@ -43,7 +50,14 @@ export function matchesUniversalHostInputProbes(
       if (!isMissingPathError(error)) return false;
     }
   }
-  for (const [directory, names] of validation.missing) {
+  for (const [directory, allNames] of validation.missing) {
+    const names = [...allNames].filter(
+      (name) =>
+        !trackerProvesInputUnchanged(tracker, paths.join(directory, name)),
+    );
+    // The tracker re-checks its watched directory's identity on every delivery,
+    // so a group it proves whole needs no second stat of that directory.
+    if (names.length === 0) continue;
     try {
       if (!filesystem.stat(directory).isDirectory()) return false;
     } catch (error) {

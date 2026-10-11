@@ -5,6 +5,7 @@ import { resultFilesystem } from "../cache/resultFilesystem";
 import { derivationIdentity } from "../envelope/derivationIdentity";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { graphInputStateHash } from "../inputs/graphInputStateHash";
+import { hostInputRealpath } from "../inputs/hostInputRealpath";
 import { hostInputStateHash } from "../inputs/hostInputStateHash";
 import { inputMetadataEvidence } from "../inputs/inputMetadataEvidence";
 import { inputMetadataSignature } from "../inputs/inputMetadataSignature";
@@ -20,7 +21,7 @@ import { MISSING_INPUT_STATE } from "./MISSING_INPUT_STATE";
  * The caller adopts those signatures only once every input is proven unchanged,
  * so a signature never outlives the content comparison that justified it.
  *
- * @evidence contracts/common.md#principled-implementation Each lexical spelling replays its predicates or owning content codec; only stable separable metadata can replace that comparison, so aliases cannot answer for one another.
+ * @evidence contracts/common.md#principled-implementation Each lexical spelling replays its predicates or owning content codec and resolves its own physical file; only stable separable metadata can replace that comparison, so aliases cannot answer for one another. Spellings resolving to one physical file now share that file's content read, which the codecs hash by content alone.
  * @evidence contracts/common.md#clear-and-simple-design One pass returns the aggregate verdict and earned signatures, leaving all-or-nothing adoption to its caller.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Recorded missing states and absent hash keys remain distinct from successful content proof; newer reads do not rewrite the authoritative recorded hashes.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish mixed codecs, clock-qualified reuse and caller-owned signature adoption before tags.
@@ -34,7 +35,7 @@ import { MISSING_INPUT_STATE } from "./MISSING_INPUT_STATE";
  *   failures/listings, then recaptures metadata for earned signatures.
  *   Earned signature storage grows with successful observed spellings; legacy
  *   fallback also materializes the recorded hash key array.
- * @evidence contracts/performance.md#reuse-equivalent-work The generation's unchanged separable signatures share prior content validation; changed metadata or clock ordering requires replay, and adopted signatures come only from a completely successful caller verdict.
+ * @evidence contracts/performance.md#reuse-equivalent-work The generation's unchanged separable signatures share prior content validation; changed metadata or clock ordering requires replay, read once per codec and physical file in this pass, and adopted signatures come only from a completely successful caller verdict.
  */
 export function matchesCachedExternalInputs(
   /** Generation recording lexical inputs, distinct codecs and earned signatures. */
@@ -53,6 +54,8 @@ export function matchesCachedExternalInputs(
   const filesystem = resultFilesystem(cached.result);
   const recordedHashes = cached.externalInputHashes ?? {};
   const recordedSignatures = cached.externalInputSignatures ?? {};
+  // Content hashes this pass read, by codec and current physical file.
+  const sharedReads = new Map<string, string | null>();
   // Compare each spelling against the recorded state under its own name. Two
   // spellings share one identity exactly when they selected one physical file
   // at generation time, which is the state a retarget ends, so neither may
@@ -102,9 +105,29 @@ export function matchesCachedExternalInputs(
     ) {
       continue;
     }
-    const hash = Object.prototype.hasOwnProperty.call(graphRealpaths, identity)
-      ? graphInputStateHash(file, filesystem)
-      : hostInputStateHash(file, filesystem);
+    // Each spelling resolves on its own; only the bytes of one physical file
+    // are read once for every spelling that resolves to it now, since the
+    // codecs hash content alone. A metadata-only change otherwise read an
+    // alias and its target twice in one delivery.
+    const graph = Object.prototype.hasOwnProperty.call(
+      graphRealpaths,
+      identity,
+    );
+    const physical = hostInputRealpath(file, filesystem);
+    const read = physical ?? file;
+    const shared =
+      physical === null
+        ? undefined
+        : `${graph ? "graph" : "host"}\0${physical}`;
+    let hash: string | null;
+    if (shared !== undefined && sharedReads.has(shared)) {
+      hash = sharedReads.get(shared)!;
+    } else {
+      hash = graph
+        ? graphInputStateHash(read, filesystem)
+        : hostInputStateHash(read, filesystem);
+      if (shared !== undefined) sharedReads.set(shared, hash);
+    }
     const after = inputMetadataSignature(file, filesystem);
     if (
       !Object.prototype.hasOwnProperty.call(recordedHashes, identity) ||
