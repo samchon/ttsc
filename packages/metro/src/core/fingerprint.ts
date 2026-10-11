@@ -1421,8 +1421,9 @@ function reapDeadSnapshotCompactionLock(lock: string): void {
  * Signal zero still reaches a Linux zombie, a process that exited and only
  * waits for its parent to collect it; a parent that never collects, such as a
  * container's PID 1 that is not an init, keeps it indefinitely. Its `/proc`
- * state marks it dead, and it keeps its id until collected, so a live process
- * is never mistaken for it.
+ * status marks it dead once it is the process's last thread (a leader whose own
+ * thread exited reads as a zombie while its other threads run), and it keeps
+ * its id until collected, so a live process is never mistaken for it.
  */
 function processIsAlive(pid: number): boolean {
   try {
@@ -1431,15 +1432,15 @@ function processIsAlive(pid: number): boolean {
     return (error as NodeJS.ErrnoException).code !== "ESRCH";
   }
   if (process.platform !== "linux") return true;
-  let stat: string;
+  let status: string;
   try {
-    stat = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
+    status = fs.readFileSync(`/proc/${pid}/status`, "utf8");
   } catch {
     return true;
   }
-  // The state follows the parenthesized command name, which may contain spaces.
-  const state = stat.charAt(stat.lastIndexOf(")") + 2);
-  return state !== "Z" && state !== "X";
+  const state = /^State:\s*(\S)/m.exec(status)?.[1];
+  const threads = /^Threads:\s*(\d+)/m.exec(status)?.[1];
+  return !((state === "Z" || state === "X") && threads === "1");
 }
 
 /**

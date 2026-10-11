@@ -11,7 +11,7 @@ import { isZombieProcess } from "../../../../packages/unplugin/src/core/transfor
  *
  * Signal zero reaches a zombie, so these owners counted it alive and never
  * reclaimed its locks or directories under a parent that never collects, such
- * as a container's PID 1 that is not an init (samchon/ttsc#1731).
+ * as a container's PID 1 that is not an init (samchon/ttsc#1733).
  *
  * 1. Assert this running process is not a zombie on any platform.
  * 2. On Linux, start a shell that forks a short child and then replaces itself

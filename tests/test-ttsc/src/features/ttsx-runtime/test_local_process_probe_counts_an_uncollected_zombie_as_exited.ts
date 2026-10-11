@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import { createInterface } from "node:readline";
@@ -14,28 +14,25 @@ import { PluginBuildLockOwner } from "../../../../../packages/ttsc/src/plugin/in
  *
  * Signal zero reaches a zombie. Under a parent that never collects, such as a
  * container's PID 1 that is not an init, a ttsx run directory or plugin build
- * lock owned by a killed process was never reclaimed (samchon/ttsc#1731).
+ * lock owned by a killed process was never reclaimed (samchon/ttsc#1733).
  *
- * 1. Probe this process and a collected child: present and absent everywhere.
+ * 1. Probe this running process: present, and not gone, everywhere.
  * 2. On Linux, start a shell that forks a short child and then replaces itself
  *    with `sleep`, which never collects it, and wait until the kernel reports
  *    that child a zombie.
  * 3. Assert every probe reports the zombie gone and the sleeping parent alive.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual probes run against real processes: the current one, a collected child, a kernel-reported zombie and its live parent.
+ * @evidence contracts/testing.md#behavioral-verification The actual probes run against real processes: the current one, a kernel-reported zombie and its live parent.
  * @evidence contracts/testing.md#independent-expectations The kernel's own /proc state, read here independently, establishes the zombie before the probes are asked; the shell's live sleep is the presence control.
- * @evidence contracts/testing.md#distinguishing-cases Collected (ESRCH), uncollected zombie and live process are separate rows, and the remote-host row stays not gone.
- * @evidence contracts/testing.md#execution-ownership The unit runner discovers this export; it calls the three source owners in process and spawns only the shell, sleep and Node children it joins.
+ * @evidence contracts/testing.md#distinguishing-cases An uncollected zombie and live processes are separate rows; the unchanged ESRCH and remote-host decisions keep their existing owners.
+ * @evidence contracts/testing.md#execution-ownership The unit runner discovers this export; it calls the three source owners in process and spawns only the shell and sleep it joins.
  */
 export async function test_local_process_probe_counts_an_uncollected_zombie_as_exited(): Promise<void> {
   const hostname = os.hostname();
   assert.deepEqual(probeLocalProcess(process.pid), { result: "present" });
-  const collected = spawnSync(process.execPath, ["-e", ""]);
-  assert.equal(collected.status, 0);
-  assert.equal(probeLocalProcess(collected.pid).result, "absent");
-  assert.equal(isLocalProcessGone({ pid: collected.pid, hostname }), true);
+  assert.equal(isLocalProcessGone({ pid: process.pid, hostname }), false);
   assert.equal(
-    isLocalProcessGone({ pid: collected.pid, hostname: `${hostname}-remote` }),
+    PluginBuildLockOwner.gone({ pid: process.pid, hostname }),
     false,
   );
   if (process.platform !== "linux") return;

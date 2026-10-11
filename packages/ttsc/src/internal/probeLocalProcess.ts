@@ -9,17 +9,19 @@ import fs from "node:fs";
  * and holds its id only until its parent collects its status. A parent that
  * never collects, such as a container's PID 1 that is not an init or a
  * subreaper that collects only when its own command ends, keeps the zombie
- * indefinitely, so its `/proc` state reports it absent too. Its id cannot be
- * reused while the zombie holds it, so this never names a live process absent.
+ * indefinitely, so its `/proc` status reports it absent too. A leader whose own
+ * thread exited also reads as a zombie while its other threads run, so the
+ * zombie must be the process's last thread. Its id cannot be reused while the
+ * zombie holds it, so this never names a live process absent.
  *
- * @evidence contracts/common.md#principled-implementation ESRCH, or a Linux /proc state of zombie or dead, proves the process exited; success with any other state is presence, and every other failure stays unknown.
+ * @evidence contracts/common.md#principled-implementation ESRCH, or a Linux /proc status of zombie or dead with no other thread, proves the process exited; success with any other status is presence, and every other failure stays unknown.
  * @evidence contracts/common.md#clear-and-simple-design One probe gives the ttsx run, dependency-lock and plugin-lock owners the same exit decision.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The native signal-zero probe and the kernel's own process state decide; no PID list, timeout or error-to-absent fallback substitutes for them.
- * @evidence contracts/common.md#meaningful-documentation The paragraph explains why a zombie answers signal zero, which parents leave one behind, and why its id cannot name a live process.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The native signal-zero probe and the kernel's own process status decide; no PID list, timeout or error-to-absent fallback substitutes for them.
+ * @evidence contracts/common.md#meaningful-documentation The paragraph explains why a zombie answers signal zero, which parents leave one behind, why a zombie leader with running threads is not one, and why its id cannot name a live process.
  * @evidence contracts/portability.md#os-neutral-implementation Node's signal-zero probe works on every platform; only Linux exposes zombies through /proc, and elsewhere the probe's answer stands.
  * @evidence contracts/performance.md#efficient-algorithms One syscall, plus one small /proc read on Linux when the process exists.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Process state is a current observation and is never cached as proof for a later decision.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The probe retains no handle; the stat text becomes reclaimable on return.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The probe retains no handle; the status text becomes reclaimable on return.
  */
 export function probeLocalProcess(pid: number): {
   result: "present" | "absent" | "unknown";
@@ -32,17 +34,23 @@ export function probeLocalProcess(pid: number): {
     return { result: code === "ESRCH" ? "absent" : "unknown", errorCode: code };
   }
   if (process.platform !== "linux") return { result: "present" };
-  let stat: string;
+  let status: string;
   try {
-    stat = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
+    status = fs.readFileSync(`/proc/${pid}/status`, "utf8");
   } catch (error) {
     const code = (error as NodeJS.ErrnoException | null)?.code;
     // The process was collected between the probe and the read.
     if (code === "ENOENT" || code === "ESRCH") return { result: "absent" };
     return { result: "unknown", errorCode: code };
   }
-  // The state follows the parenthesized command name, which may contain spaces
-  // and parentheses of its own.
-  const state = stat.charAt(stat.lastIndexOf(")") + 2);
-  return { result: state === "Z" || state === "X" ? "absent" : "present" };
+  // A leader whose own thread exited reads as a zombie while its other threads
+  // still run; only a zombie that is the process's last thread has exited.
+  const state = /^State:\s*(\S)/m.exec(status)?.[1];
+  const threads = /^Threads:\s*(\d+)/m.exec(status)?.[1];
+  return {
+    result:
+      (state === "Z" || state === "X") && threads === "1"
+        ? "absent"
+        : "present",
+  };
 }
