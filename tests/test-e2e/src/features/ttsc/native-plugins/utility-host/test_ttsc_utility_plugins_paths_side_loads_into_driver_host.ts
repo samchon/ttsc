@@ -4,7 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestUtilityPlugins } from "../../../../internal/ttsc/internal/TestUtilityPlugins";
-import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
+import {
+  SHARED_GO_BUILD_CACHE_DIR,
+  retainedPluginCache,
+} from "../../../../internal/ttsc/internal/plugin-cache";
 import { nativePluginSource } from "../../../../internal/ttsc/internal/plugin-corpus";
 
 /**
@@ -24,8 +27,8 @@ import { nativePluginSource } from "../../../../internal/ttsc/internal/plugin-co
  * @evidence contracts/testing.md#distinguishing-cases Owns linked paths before an executable raw-emitting driver host and actual marker publication.
  * @evidence contracts/testing.md#execution-ownership The generic named TestExecutor entry invokes the actual workspace CLI/raw driver host. It is not Linux-only selection or packed installation; one CLI request is not a measured process or Program count.
  * @evidence contracts/e2e.md#necessary-boundary Actual static-linked paths init must apply within the driver-selected raw emission path; loaded-record or path rewrite units cannot prove this assembly.
- * @evidence contracts/e2e.md#shared-execution Canonical raw-linked-host source and linked paths checkout supply this consumer with the suite cache available. No cache hit, shared compiler object, Program reuse or avoided build is asserted by the marker/output oracle. Shared-family activation and measured reduction remain unexecuted.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh consumer config/source/marker/output isolate this raw-host observation; tracked consumer/shared producer inputs are retained before native preparation. Synchronous return/error/signal/status are observed separately and do not certify descendant join, cache-key validity or compiler object reuse.
+ * @evidence contracts/e2e.md#shared-execution Canonical raw-linked-host source and linked paths checkout supply this consumer with its own plugin cache and the suite Go object cache. No cache hit, shared compiler object, Program reuse or avoided build is asserted by the marker/output oracle. Shared-family activation and measured reduction remain unexecuted.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh consumer config/source/marker/output isolate this raw-host observation; the tracked consumer and its own plugin cache are retained before native preparation, leaving the suite plugin cache usable for later tests. Synchronous return/error/signal/status are observed separately and do not certify descendant join, cache-key validity or compiler object reuse.
  * @evidence contracts/e2e.md#preserved-coverage Original CLI success, exact driver-host-ran.txt value ok and relative import pattern remain with paths-first descriptor order and raw-linked-host producer. Existing producer mapping distinguishes EmitAllRaw from the separate own-transform lane; proposed shared-consumer registration/runtime/survival remains unverified.
  */
 export function test_ttsc_utility_plugins_paths_side_loads_into_driver_host(): void {
@@ -65,7 +68,8 @@ export function test_ttsc_utility_plugins_paths_side_loads_into_driver_host(): v
     root,
     "linked utility host synchronous return does not acknowledge native descendants",
   );
-  TestProject.retainSharedPluginCache(
+  const pluginCache = retainedPluginCache(
+    "ttsc-paths-driver-host-plugins-",
     "linked utility host native producer has no descendant join acknowledgement",
   );
   TestUtilityPlugins.seedPackages(root, ["paths"]);
@@ -76,7 +80,8 @@ export function test_ttsc_utility_plugins_paths_side_loads_into_driver_host(): v
       cwd: root,
       env: {
         PATH: TestUtilityPlugins.goPath(),
-        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        TTSC_CACHE_DIR: pluginCache,
+        TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
       },
     },
   );

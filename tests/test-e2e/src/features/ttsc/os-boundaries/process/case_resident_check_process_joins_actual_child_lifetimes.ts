@@ -5,6 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+import { isProcessRunning } from "../../../../../../utils/src/isProcessRunning";
 
 const { spawnSync } = E2eProcessTrace;
 
@@ -67,15 +68,9 @@ export const case_resident_check_process_joins_actual_child_lifetimes =
         await new Promise((resolve) => setTimeout(resolve, 20));
       }
     };
-    const alive = (pid: number): boolean => {
-      try {
-        process.kill(pid, 0);
-        return true;
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ESRCH") return false;
-        throw error;
-      }
-    };
+    // An orphaned descendant can stay an uncollected zombie under the Linux
+    // carrier subreaper; isProcessRunning counts that as ended.
+    const alive = (pid: number): boolean => isProcessRunning(pid);
     const completeIdentity = (file: string): boolean =>
       fs.existsSync(file) && /^[1-9]\d*\n$/.test(fs.readFileSync(file, "utf8"));
     try {

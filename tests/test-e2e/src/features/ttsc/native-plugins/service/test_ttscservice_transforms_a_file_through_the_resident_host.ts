@@ -7,7 +7,10 @@ import { TtscService } from "../../../../../../../packages/ttsc/lib/index.js";
 import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import { TestUtilityPlugins } from "../../../../internal/ttsc/internal/TestUtilityPlugins";
 import { tsgo } from "../../../../internal/ttsc/internal/compiler";
-import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
+import {
+  SHARED_GO_BUILD_CACHE_DIR,
+  retainedPluginCache,
+} from "../../../../internal/ttsc/internal/plugin-cache";
 
 /**
  * Verifies TtscService transforms files through one resident host.
@@ -40,7 +43,7 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named generic service entry, which owns resident requests, accepted updates and native nested/external link inputs through the actual built workspace API. Post-disposal rejection is an API terminal observation, not actual OS close.
  * @evidence contracts/e2e.md#necessary-boundary Actual serve requests/concurrent replies, buffer updates and native path adaptation are assembled across the resident connection. Direct policy/parser units cannot establish these returned outputs; void disposal does not independently certify child termination.
  * @evidence contracts/e2e.md#shared-execution One constructed service and copied linked-utility project serve all unchanged/concurrent/update/alias observations. Accepted updates may create new Program generations; shared inputs/cache availability do not certify identical objects, build/process totals, hits or packed installation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original unchanged/concurrent checks precede intentional physical then nested-link buffer mutation. Copied root/external directory/shared plugin cache are retained before preparation because supported void disposal supplies no awaited close acknowledgement. Body/disposal errors are aggregated; neither terminal rejection nor retention certifies descendants or authorizes uncertain-input cleanup.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original unchanged/concurrent checks precede intentional physical then nested-link buffer mutation. Copied root/external directory and the test's own plugin cache are retained before preparation, leaving the suite plugin cache usable for later tests, because supported void disposal supplies no awaited close acknowledgement. Body/disposal errors are aggregated; neither terminal rejection nor retention certifies descendants or authorizes uncertain-input cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Original nonempty/banner, stable-repeat, outside/concurrent replies and disposed-request rejection assertions remain, with every original incremental before/update/after/banner/no-join and nested-link transform/update/external-absence assertion. Physical-versus-nested equality checks the returned overlay. Historical embedding/file removal is not newly certified survival; actual shared-host execution/coverage remains a separate obligation.
  */
 export async function test_ttscservice_transforms_a_file_through_the_resident_host(): Promise<void> {
@@ -48,7 +51,10 @@ export async function test_ttscservice_transforms_a_file_through_the_resident_ho
   const retentionReason =
     "healthy resident service has no awaited disposal acknowledgement";
   TestProject.retainTemporaryDirectory(root, retentionReason);
-  TestProject.retainSharedPluginCache(retentionReason);
+  const pluginCache = retainedPluginCache(
+    "ttsc-service-plugins-",
+    retentionReason,
+  );
   TestUtilityPlugins.seedPackages(root);
   const alias = path.join(root, "linked-src");
   fs.symlinkSync(path.join(root, "src"), alias, "junction");
@@ -67,7 +73,8 @@ export async function test_ttscservice_transforms_a_file_through_the_resident_ho
     cwd: root,
     env: {
       PATH: TestUtilityPlugins.goPath(),
-      TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+      TTSC_CACHE_DIR: pluginCache,
+      TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
     },
   });
   const failures: unknown[] = [];

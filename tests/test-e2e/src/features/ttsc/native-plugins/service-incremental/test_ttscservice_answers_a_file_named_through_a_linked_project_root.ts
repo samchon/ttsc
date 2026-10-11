@@ -7,7 +7,10 @@ import { TtscService } from "../../../../../../../packages/ttsc/lib/index.js";
 import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import { TestUtilityPlugins } from "../../../../internal/ttsc/internal/TestUtilityPlugins";
 import { tsgo } from "../../../../internal/ttsc/internal/compiler";
-import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
+import {
+  SHARED_GO_BUILD_CACHE_DIR,
+  retainedPluginCache,
+} from "../../../../internal/ttsc/internal/plugin-cache";
 
 /**
  * Verifies `TtscService` transforms and updates a file named through the link
@@ -29,8 +32,8 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  * @evidence contracts/testing.md#distinguishing-cases Owns linked project-root construction and linked absolute requests, distinct from the normal-root/nested-link named case whose actual execution requires separate evidence.
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this generic named service-incremental entry, calling the actual built workspace public resident API over a native directory link.
  * @evidence contracts/e2e.md#necessary-boundary The constructor project identity and client file keys must agree with the physical Program loaded by the native child; direct path normalization does not prove that client-to-host framing.
- * @evidence contracts/e2e.md#shared-execution Linked utility inputs and explicit suite cache remain available, with a distinct constructed service selected by linked cwd. This does not certify hits, no rebuild, identical Program generations or total native process counts.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Linked root/source belong to private tracked directories and updates affect this service. Root/link-parent/shared cache are retained before preparation because supported void disposal provides no awaited close acknowledgement. Body and disposal errors are aggregated; disposal/retention do not certify OS close or arbitrary descendants.
+ * @evidence contracts/e2e.md#shared-execution Linked utility inputs and the suite Go object cache remain available, with a plugin cache of the test's own, with a distinct constructed service selected by linked cwd. This does not certify hits, no rebuild, identical Program generations or total native process counts.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Linked root/source belong to private tracked directories and updates affect this service. Root/link-parent and the test's own plugin cache are retained before preparation, leaving the suite plugin cache usable for later tests, because supported void disposal provides no awaited close acknowledgement. Body and disposal errors are aggregated; disposal/retention do not certify OS close or arbitrary descendants.
  * @evidence contracts/e2e.md#preserved-coverage Original nonempty/banner, successful update, nonempty edited output and LINKED_EDIT assertions remain; normal-root nested alias behavior is consolidated separately without deleting this constructor distinction.
  */
 export async function test_ttscservice_answers_a_file_named_through_a_linked_project_root(): Promise<void> {
@@ -38,7 +41,10 @@ export async function test_ttscservice_answers_a_file_named_through_a_linked_pro
   const retentionReason =
     "linked-root service has no awaited disposal acknowledgement";
   TestProject.retainTemporaryDirectory(root, retentionReason);
-  TestProject.retainSharedPluginCache(retentionReason);
+  const pluginCache = retainedPluginCache(
+    "ttsc-service-link-plugins-",
+    retentionReason,
+  );
   TestUtilityPlugins.seedPackages(root);
   const linkParent = TestProject.tmpdir("ttsc-service-link-");
   TestProject.retainTemporaryDirectory(linkParent, retentionReason);
@@ -49,9 +55,11 @@ export async function test_ttscservice_answers_a_file_named_through_a_linked_pro
     cwd: link,
     env: {
       PATH: TestUtilityPlugins.goPath(),
-      // The case observes path resolution, not a cold build, so it shares the
-      // suite's available plugin cache without asserting an avoided build.
-      TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+      // The case observes path resolution, not a cold build. The resident host
+      // outlives any join, so it gets a plugin cache of its own and shares only
+      // the suite's Go objects.
+      TTSC_CACHE_DIR: pluginCache,
+      TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
     },
   });
   const failures: unknown[] = [];

@@ -7,7 +7,10 @@ import { TtscService } from "../../../../../../../packages/ttsc/lib/index.js";
 import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import { TestUtilityPlugins } from "../../../../internal/ttsc/internal/TestUtilityPlugins";
 import { tsgo } from "../../../../internal/ttsc/internal/compiler";
-import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
+import {
+  SHARED_GO_BUILD_CACHE_DIR,
+  retainedPluginCache,
+} from "../../../../internal/ttsc/internal/plugin-cache";
 
 /**
  * Verifies TtscService.transformFile rejects when the project does not compile.
@@ -30,8 +33,8 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  * @evidence contracts/testing.md#distinguishing-cases Keeps incompatible startup source separate from healthy-session updates. Healthy transformation/update/disposal have a separate named owner and require their own actual execution evidence.
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named generic service entry, which constructs the actual built workspace API/native host and observes a public request rejection.
  * @evidence contracts/e2e.md#necessary-boundary The authored incompatible project is submitted through the real resident startup/request connection, not a fabricated reply or direct parser. Public rejection alone does not independently certify a nonzero child status or exact native compilation cause.
- * @evidence contracts/e2e.md#shared-execution The linked utility inputs and explicit suite cache remain available across separate healthy/failing consumers. This construction is distinct and does not reuse a healthy service or certify cache hits, identical Program objects or avoided builds.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Incompatible source belongs to the tracked copied root. Supported void disposal is attempted, with body/disposal errors aggregated, but it does not await actual child close. Root/already-owned shared plugin cache are conservatively retained before preparation; no restoration or cleanup is authorized by rejection/disposal alone.
+ * @evidence contracts/e2e.md#shared-execution The linked utility inputs and the suite Go object cache remain available across separate healthy/failing consumers; the plugin cache is this test's own. This construction is distinct and does not reuse a healthy service or certify cache hits, identical Program objects or avoided builds.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Incompatible source belongs to the tracked copied root. Supported void disposal is attempted, with body/disposal errors aggregated, but it does not await actual child close. Root and the test's own plugin cache are conservatively retained before preparation, leaving the suite plugin cache usable for later tests; no restoration or cleanup is authorized by rejection/disposal alone.
  * @evidence contracts/e2e.md#preserved-coverage The original assert.rejects remains, with the same incompatible source and actual compiled host; no success value is accepted to shorten this failure boundary.
  */
 export async function test_ttscservice_rejects_when_the_project_does_not_compile(): Promise<void> {
@@ -39,7 +42,10 @@ export async function test_ttscservice_rejects_when_the_project_does_not_compile
   const retentionReason =
     "failed resident startup has no awaited disposal acknowledgement";
   TestProject.retainTemporaryDirectory(root, retentionReason);
-  TestProject.retainSharedPluginCache(retentionReason);
+  const pluginCache = retainedPluginCache(
+    "ttsc-service-rejects-plugins-",
+    retentionReason,
+  );
   TestUtilityPlugins.seedPackages(root);
   fs.writeFileSync(
     path.join(root, "src", "main.ts"),
@@ -51,7 +57,8 @@ export async function test_ttscservice_rejects_when_the_project_does_not_compile
     cwd: root,
     env: {
       PATH: TestUtilityPlugins.goPath(),
-      TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+      TTSC_CACHE_DIR: pluginCache,
+      TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
     },
   });
   const failures: unknown[] = [];

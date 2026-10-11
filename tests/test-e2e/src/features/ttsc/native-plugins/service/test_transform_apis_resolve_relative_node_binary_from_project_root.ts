@@ -12,7 +12,7 @@ import { TestUtilityPlugins } from "../../../../internal/ttsc/internal/TestUtili
 import { tsgo } from "../../../../internal/ttsc/internal/compiler";
 import {
   SHARED_GO_BUILD_CACHE_DIR,
-  SHARED_PLUGIN_CACHE_DIR,
+  retainedPluginCache,
 } from "../../../../internal/ttsc/internal/plugin-cache";
 
 /**
@@ -32,8 +32,8 @@ import {
  * @evidence contracts/testing.md#distinguishing-cases Owns caller cwd versus projectRoot precedence and relative runtime overrides through both one-shot and resident consumers; ordinary service requests use the default runtime instead.
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named generic service entry; it invokes built workspace TtscCompiler and TtscService against the same actual project context. One-shot and resident calls are separate native connections.
  * @evidence contracts/e2e.md#necessary-boundary Real JS/native/config-evaluator connections must deliver the resolved override to both consumers; direct environment construction cannot prove either actual emitted banner. These observations establish delivered path text, not executable-byte or loaded-image equality.
- * @evidence contracts/e2e.md#shared-execution Both APIs share authored project/banner inputs and explicit suite plugin/Go caches. Cache availability does not certify hits, avoided rebuilds, one native process or identical Program objects between one-shot and resident consumers.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Copied runtime/caller/project and explicit overrides are private, without replacing ambient cwd or spawn. Supported void disposal is attempted and its errors are preserved with body errors, but it offers no awaited close acknowledgement. Tracked roots and already-owned plugin cache are conservatively retained before preparation until actual owned-spawn join evidence exists; retention is not closure certification.
+ * @evidence contracts/e2e.md#shared-execution Both APIs share authored project/banner inputs, a plugin cache of this test's own and the suite Go object cache. Cache availability does not certify hits, avoided rebuilds, one native process or identical Program objects between one-shot and resident consumers.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Copied runtime/caller/project and explicit overrides are private, without replacing ambient cwd or spawn. Supported void disposal is attempted and its errors are preserved with body errors, but it offers no awaited close acknowledgement. Tracked roots and the test's own plugin cache are conservatively retained before preparation until actual owned-spawn join evidence exists; retention is not closure certification, and the suite plugin cache stays usable for later tests.
  * @evidence contracts/e2e.md#preserved-coverage Original success type, nonempty one-shot/resident outputs and both exact single-banner runtime-path assertions remain, including the real copied Node and distinct caller cwd. Actual resident close/producer identity/population proof remain separate survival obligations; no original donor removal is authorized.
  */
 export async function test_transform_apis_resolve_relative_node_binary_from_project_root(): Promise<void> {
@@ -45,7 +45,10 @@ export async function test_transform_apis_resolve_relative_node_binary_from_proj
     "relative-runtime service has no awaited disposal acknowledgement";
   TestProject.retainTemporaryDirectory(root, retentionReason);
   TestProject.retainTemporaryDirectory(caller, retentionReason);
-  TestProject.retainSharedPluginCache(retentionReason);
+  const pluginCache = retainedPluginCache(
+    "ttsc-relative-node-plugins-",
+    retentionReason,
+  );
   TestUtilityPlugins.seedPackages(root, ["banner"]);
 
   const tsconfig = JSON.parse(
@@ -75,7 +78,7 @@ export async function test_transform_apis_resolve_relative_node_binary_from_proj
     cwd: caller,
     env: {
       PATH: TestUtilityPlugins.goPath(),
-      TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+      TTSC_CACHE_DIR: pluginCache,
       TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
       TTSC_NODE_BINARY: `.${path.sep}${runtimeName}`,
     },

@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -221,7 +222,8 @@ import { test_transform_session_store_outlives_its_process } from "./unplugin/tr
  * default ttsc cache then resolves to the repository's own `node_modules`, and
  * `pnpm install` in a fixture installs the repository instead. So while they
  * run, `TEMP`, `TMP` and `TMPDIR` name a private directory under the parent the
- * run inherited, which must lie outside the checkout.
+ * run inherited, resolved to its physical path, which must lie outside the
+ * checkout.
  *
  * 1. Allocate the private temporary parent outside the checkout.
  * 2. Run each listed scenario in order, awaiting the asynchronous ones.
@@ -233,11 +235,16 @@ import { test_transform_session_store_outlives_its_process } from "./unplugin/tr
  * @evidence contracts/testing.md#execution-ownership src/main.ts selects this batch, which owns exactly the listed scenarios; the ownership check proves no other scenario file is unowned.
  * @evidence contracts/e2e.md#necessary-boundary The scenarios were authored against real processes and installations; this entry adds no process of its own.
  * @evidence contracts/e2e.md#shared-execution The scenarios prepare private projects and share only the suite's Go object cache, as they did in their former package.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Scenarios run sequentially, so no two mutate shared state at once. Their temporary parent lies outside the checkout, as path.relative decides even across Windows volumes, so no fixture resolves the repository as its workspace or writes into the repository's own cache; the previous temporary variables are restored afterwards.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Scenarios run sequentially, so no two mutate shared state at once. Their temporary parent is the physical directory outside the checkout, as path.relative decides even across Windows volumes, so no fixture resolves the repository as its workspace or writes into the repository's own cache; the previous temporary variables are restored afterwards.
  * @evidence contracts/e2e.md#preserved-coverage Restores execution of every scenario #1603 left without a consumer.
  */
 export async function test_e2e_scenarios_batch(): Promise<void> {
-  const inherited = process.env.E2E_INHERITED_TMPDIR ?? os.tmpdir();
+  // Physical, as the suite's own parent is: macOS names its temporary directory
+  // through /var, a link to /private/var, and the scenarios compare the paths
+  // they allocate with the physical ones processes report.
+  const inherited = fs.realpathSync.native(
+    process.env.E2E_INHERITED_TMPDIR ?? os.tmpdir(),
+  );
   const relative = path.relative(TestProject.WORKSPACE_ROOT, inherited);
   if (
     !path.isAbsolute(relative) &&

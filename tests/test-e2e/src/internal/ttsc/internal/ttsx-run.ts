@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+import { isProcessRunning } from "../../../../../utils/src/isProcessRunning";
 import { isolatedCacheEnvironment } from "./isolated-cache-environment";
 
 const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
@@ -240,30 +241,11 @@ async function stopWaitingProcessTree(
 }
 
 /**
- * Whether a process with `pid` is running.
- *
- * Signal 0 still reaches a zombie, which has ended and only awaits collection.
- * On Linux the suite's native carrier is a child subreaper that collects its
- * orphans only once its entry finishes, so a program orphaned and killed in
- * mid-suite stays a zombie there; its `/proc` state tells the two apart.
+ * Whether a process with `pid` is running; an ended but uncollected zombie is
+ * not.
  */
 export function isRunning(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "EPERM";
-  }
-  if (process.platform !== "linux") return true;
-  let stat: string;
-  try {
-    stat = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
-    throw error;
-  }
-  // The state follows the parenthesized command name, which may contain spaces.
-  const state = stat.charAt(stat.lastIndexOf(")") + 2);
-  return state !== "Z" && state !== "X";
+  return isProcessRunning(pid);
 }
 
 /**

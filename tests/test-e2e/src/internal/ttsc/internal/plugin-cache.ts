@@ -37,3 +37,22 @@ export const SHARED_PLUGIN_CACHE_DIR = TestProject.sharedPluginCache();
  * concurrent builds, while the plugin cache stays the test's own.
  */
 export const SHARED_GO_BUILD_CACHE_DIR = TestProject.sharedGoBuildCache();
+
+/**
+ * A plugin cache of its own, kept on disk, for a test that leaves a native host
+ * it cannot join.
+ *
+ * Such a host may still read its binary, so the cache it was built into stays
+ * after the process exits. Retaining `SHARED_PLUGIN_CACHE_DIR` for that reason
+ * refuses it to every later test in the same process, which then fails with an
+ * unresolved process owner. Pair this with `SHARED_GO_BUILD_CACHE_DIR` so only
+ * the plugin binary, not the linked Go objects, is built again.
+ *
+ * @param prefix Temporary directory name prefix.
+ * @param reason Why the host cannot be joined, reported with the retention.
+ */
+export function retainedPluginCache(prefix: string, reason: string): string {
+  const directory = TestProject.tmpdir(prefix);
+  TestProject.retainTemporaryDirectory(directory, reason);
+  return directory;
+}
