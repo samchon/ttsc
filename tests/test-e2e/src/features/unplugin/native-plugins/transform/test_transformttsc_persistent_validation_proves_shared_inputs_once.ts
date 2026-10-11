@@ -122,6 +122,7 @@ export async function test_transformttsc_persistent_validation_proves_shared_inp
   const shifted = new Date(0);
   fs.utimesSync(touched, shifted, shifted);
   const beforeTouch = [...cache.values()][0];
+  const beforeTouchGeneration = await beforeTouch;
   reads = 0;
   readLog.length = 0;
   assert.ok(await deliver(modules[0]!));
@@ -132,7 +133,7 @@ export async function test_transformttsc_persistent_validation_proves_shared_inp
   );
   assert.ok(
     reads <= 1,
-    `metadata-only proof must read the input at most once:\n${readLog.join("\n")}`,
+    `metadata-only proof must read the input at most once (project tracker: ${trackerState((beforeTouchGeneration as { projectMutationTracker?: unknown }).projectMutationTracker)}):\n${readLog.join("\n")}`,
   );
   reads = 0;
   assert.ok(await deliver(modules[1]!));
@@ -211,4 +212,30 @@ function callerFrames(): string {
     .slice(0, 6)
     .map((line) => "    " + line.trim())
     .join("\n");
+}
+
+/**
+ * Why a mutation tracker may not prove its inputs: its failure flags, the
+ * watches that could not prove delivery and the changes it recorded.
+ */
+function trackerState(tracker: unknown): string {
+  if (tracker === undefined) return "absent";
+  const state = tracker as {
+    failed?: boolean;
+    unverified?: boolean;
+    changesOmitted?: boolean;
+    contentAuthoritative?: boolean;
+    covered?: ReadonlySet<string>;
+    unproven?: ReadonlySet<string>;
+    changes?: ReadonlySet<string>;
+  };
+  return JSON.stringify({
+    failed: state.failed,
+    unverified: state.unverified,
+    changesOmitted: state.changesOmitted,
+    contentAuthoritative: state.contentAuthoritative,
+    covered: state.covered?.size,
+    unproven: [...(state.unproven ?? [])],
+    changes: [...(state.changes ?? [])].slice(0, 8),
+  });
 }

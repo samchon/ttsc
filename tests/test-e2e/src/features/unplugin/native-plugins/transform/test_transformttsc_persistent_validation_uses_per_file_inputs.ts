@@ -236,7 +236,7 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
     assert.equal(
       new Set(directoryStats).size,
       directoryStats.length,
-      `a delivery reads each watched directory once (active resources: ${activeResourceSummary()}): ${directoryStats.map((location, index) => `${location}\n${directoryStatCallers[index]}`).join("\n")}`,
+      `a delivery reads each watched directory once (active resources: ${activeResourceSummary()}; host tracker: ${trackerState(capturedHostTracker)}): ${directoryStats.map((location, index) => `${location}\n${directoryStatCallers[index]}`).join("\n")}`,
     );
     const spellings = new Set(metadataReads);
     assert.ok(
@@ -379,4 +379,30 @@ function callerFrames(): string {
     .slice(0, 6)
     .map((line) => "    " + line.trim())
     .join("\n");
+}
+
+/**
+ * Why a host-input tracker may not prove its inputs: its failure flags, the
+ * watches that could not prove delivery and the changes it recorded.
+ */
+function trackerState(tracker: unknown): string {
+  if (tracker === undefined) return "absent";
+  const state = tracker as {
+    failed?: boolean;
+    unverified?: boolean;
+    changesOmitted?: boolean;
+    contentAuthoritative?: boolean;
+    covered?: ReadonlySet<string>;
+    unproven?: ReadonlySet<string>;
+    changes?: ReadonlySet<string>;
+  };
+  return JSON.stringify({
+    failed: state.failed,
+    unverified: state.unverified,
+    changesOmitted: state.changesOmitted,
+    contentAuthoritative: state.contentAuthoritative,
+    covered: state.covered?.size,
+    unproven: [...(state.unproven ?? [])],
+    changes: [...(state.changes ?? [])].slice(0, 8),
+  });
 }

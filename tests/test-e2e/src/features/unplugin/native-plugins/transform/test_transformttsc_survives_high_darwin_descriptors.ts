@@ -15,7 +15,9 @@ import { projectModules } from "../../../../internal/unplugin/internal/transform
  * all spawn or open files, so each must survive it.
  *
  * 1. Skip unless the host is macOS.
- * 2. Open descriptors until the last one opened is at least 10,500.
+ * 2. Open descriptors until the last one opened is at least 10,500. Where the
+ *    kernel caps one process at or below libuv's 10,240 threshold
+ *    (`kern.maxfilesperproc`), no descriptor can exceed it; report the skip.
  * 3. Run a build-scoped transform and assert it succeeds, then close every
  *    descriptor.
  *
@@ -35,22 +37,37 @@ export async function test_transformttsc_survives_high_darwin_descriptors(): Pro
   const file = projectModules(project.root)[0]!;
   const cache = api.createTtscTransformCache();
   const descriptors: number[] = [];
-  // The limits this process inherited, reported when the boundary cannot be
-  // reached, beside how many descriptors were already open before this case.
-  const limits = E2eProcessTrace.spawnSync(
-    "/bin/sh",
-    ["-c", "ulimit -Sn; ulimit -Hn"],
-    {
-      encoding: "utf8",
-    },
-  ).stdout.trim();
+  // The kernel's own cap on one process's descriptors. Where it stops below the
+  // libuv threshold, no descriptor can exist above it, so the failure this case
+  // guards cannot arise on the host and the case is reported as skipped.
+  const kernelCap = Number(
+    E2eProcessTrace.spawnSync(
+      "/usr/sbin/sysctl",
+      ["-n", "kern.maxfilesperproc"],
+      {
+        encoding: "utf8",
+      },
+    ).stdout.trim(),
+  );
   try {
     while ((descriptors.at(-1) ?? -1) < 10_500) {
       try {
         descriptors.push(fs.openSync("/dev/null", "r"));
       } catch (error) {
+        const reached = (descriptors.at(-1) ?? -1) + 1;
+        if (
+          (error as NodeJS.ErrnoException).code === "EMFILE" &&
+          Number.isSafeInteger(kernelCap) &&
+          kernelCap <= 10_240 &&
+          reached >= kernelCap - 1
+        ) {
+          console.log(
+            `CAPABILITY-SKIPPED:high-darwin-descriptors kern.maxfilesperproc=${kernelCap} keeps every descriptor below the libuv threshold 10240`,
+          );
+          return;
+        }
         throw new Error(
-          `descriptor ${(descriptors.at(-1) ?? -1) + 1} could not be opened after this case opened ${descriptors.length}; soft and hard limits: ${limits.split(/\s+/).join(", ")}`,
+          `descriptor ${reached} could not be opened after this case opened ${descriptors.length}; kern.maxfilesperproc: ${kernelCap}`,
           { cause: error },
         );
       }

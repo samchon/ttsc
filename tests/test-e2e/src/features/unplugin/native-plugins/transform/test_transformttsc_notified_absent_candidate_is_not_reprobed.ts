@@ -104,7 +104,7 @@ export async function test_transformttsc_notified_absent_candidate_is_not_reprob
   assert.equal(
     probes.calls,
     0,
-    `a candidate the generation watches must cost no filesystem call per delivery (active resources: ${activeResourceSummary()}):\n${probeLog.slice(0, 4).join("\n")}`,
+    `a candidate the generation watches must cost no filesystem call per delivery (active resources: ${activeResourceSummary()}; project tracker: ${trackerState(((await [...cache.values()][0]) as { projectMutationTracker?: unknown } | undefined)?.projectMutationTracker)}):\n${probeLog.slice(0, 4).join("\n")}`,
   );
 }
 
@@ -116,4 +116,30 @@ function callerFrames(): string {
     .slice(0, 6)
     .map((line) => "    " + line.trim())
     .join("\n");
+}
+
+/**
+ * Why a mutation tracker may not prove its inputs: its failure flags, the
+ * watches that could not prove delivery and the changes it recorded.
+ */
+function trackerState(tracker: unknown): string {
+  if (tracker === undefined) return "absent";
+  const state = tracker as {
+    failed?: boolean;
+    unverified?: boolean;
+    changesOmitted?: boolean;
+    contentAuthoritative?: boolean;
+    covered?: ReadonlySet<string>;
+    unproven?: ReadonlySet<string>;
+    changes?: ReadonlySet<string>;
+  };
+  return JSON.stringify({
+    failed: state.failed,
+    unverified: state.unverified,
+    changesOmitted: state.changesOmitted,
+    contentAuthoritative: state.contentAuthoritative,
+    covered: state.covered?.size,
+    unproven: [...(state.unproven ?? [])],
+    changes: [...(state.changes ?? [])].slice(0, 8),
+  });
 }
