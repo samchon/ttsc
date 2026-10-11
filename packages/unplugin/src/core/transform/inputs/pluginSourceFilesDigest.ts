@@ -1,7 +1,7 @@
 import path from "node:path";
 import {
-  pluginSourceDigest,
   pluginSourceFilesSignature,
+  provenPluginSourceDigest,
 } from "ttsc/plugin-source";
 
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
@@ -24,9 +24,15 @@ import { inputMetadataEvidence } from "./inputMetadataEvidence";
  * historical-directory eviction or owner partition and can grow with distinct
  * directory spellings.
  *
- * @param directory The source directory.
+ * @param directory The source directory. WARNING (samchon/ttsc#1725): the map
+ *   below ends with the process, and every bundler worker or restart is a new
+ *   one, so each first proof read every plugin source byte again (0.35 s for
+ *   typia's Go module). A caller that names its project takes a miss's digest
+ *   from that project's plugin cache records, which the load that reported the
+ *   state wrote.
  * @param filesystem The operations whose clock reference the caller refreshed
  *   (`refreshFilesystemClockReference`), which decides separability.
+ * @param projectRoot Project whose plugin cache root holds the records.
  * @throws When a listed file cannot be read, as `pluginSourceDigest` does.
  * @evidence contracts/common.md#principled-implementation The build's exact file selector signs names and metadata around a fresh byte digest; matching separable signatures permit reuse only under the same native source-tree and refreshed-clock premises.
  * @evidence contracts/common.md#clear-and-simple-design This coordinator owns the directory digest entry while ttsc owns selection and byte hashing and inputMetadataEvidence owns stamp interpretation.
@@ -34,12 +40,13 @@ import { inputMetadataEvidence } from "./inputMetadataEvidence";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain population invalidation, before/after proof, fresh clock ordering, native-view assumptions and unbounded retained entries, with separated tags following documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral native source paths use Node resolution and ttsc's native selector; injected metadata must observe those paths. A different filesystem view or path dialect is not supported by the native enumeration/read calls here.
  * @evidence contracts/performance.md#efficient-algorithms Reuse still enumerates and stats F files; a miss performs two metadata walks and one O(B) byte digest. Selection sorts its population, and temporary storage follows the file list and largest file buffer.
- * @evidence contracts/performance.md#reuse-equivalent-work All calls share DIGESTS by resolved directory spelling; current separable metadata must match the signature recorded around the producer read. The key does not partition filesystem owners, so sharing assumes one native source view.
+ * @evidence contracts/performance.md#reuse-equivalent-work All calls share DIGESTS by resolved directory spelling; current separable metadata must match the signature recorded around the producer read. The key does not partition filesystem owners, so sharing assumes one native source view. A miss of a caller naming its project takes the digest the load recorded in that project's plugin cache, across processes.
  * @evidence contracts/performance.md#bound-retention-and-release-resources DIGESTS is module-owned and retains one digest/signature per encountered key until failed stabilization deletes that key or the process ends; no historical-directory bound or explicit teardown currently exists.
  */
 export function pluginSourceFilesDigest(
   directory: string,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  projectRoot?: string,
 ): string {
   const key = path.resolve(directory);
   /**
@@ -56,7 +63,7 @@ export function pluginSourceFilesDigest(
   ) {
     return known.digest;
   }
-  const digest = pluginSourceDigest(key);
+  const digest = provenPluginSourceDigest(key, projectRoot);
   const after = pluginSourceFilesSignature(key, evidence);
   if (
     before !== undefined &&

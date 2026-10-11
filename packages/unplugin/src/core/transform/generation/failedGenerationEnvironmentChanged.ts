@@ -150,8 +150,18 @@ function environmentChanged(
         : undefined;
       if (
         recorded.state === MISSING_INPUT_STATE
-          ? pluginSourceState(input, prepared) !== null
-          : !pluginSourceHolds(input, recorded.state, filesystem, prepared)
+          ? pluginSourceState(
+              input,
+              prepared,
+              validation.cached.projectRoot,
+            ) !== null
+          : !pluginSourceHolds(
+              input,
+              recorded.state,
+              filesystem,
+              prepared,
+              validation.cached.projectRoot,
+            )
       )
         return true;
       continue;

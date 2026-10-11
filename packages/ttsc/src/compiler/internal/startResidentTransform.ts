@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { resolveNodeBinary } from "../../internal/resolveNodeBinary";
 import { loadProjectPlugins } from "../../plugin/internal/load/loadProjectPlugins";
+import type { PluginContentIdentities } from "../../plugin/internal/source/PluginContentIdentities";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import { ResidentTransformProcess } from "./ResidentTransformProcess";
@@ -94,7 +95,13 @@ export function startResidentTransform(
     ],
     binary: host.binary,
     cwd: project.root,
-    env: residentEnv(context, project.root, tsgoBinary, loaded.nativePlugins),
+    env: residentEnv(
+      context,
+      project.root,
+      tsgoBinary,
+      loaded.nativePlugins,
+      loaded.identities,
+    ),
   });
   return { process: resident, projectRoot: project.root };
 }
@@ -106,13 +113,15 @@ export function startResidentTransform(
  * plugin config anchor (an embedder compiling through a generated wrapper
  * tsconfig) so config-file discovery walks the real project instead of the
  * wrapper's temp-dir ancestry, and forwards linked transform plugins via
- * `TTSC_LINKED_PLUGINS_JSON`.
+ * `TTSC_LINKED_PLUGINS_JSON`. The load's record store proves the Node runtime
+ * from metadata instead of streaming it again (#1723).
  */
 function residentEnv(
   context: ITtscCompilerContext,
   projectRoot: string,
   tsgoBinary: string,
   nativePlugins: readonly ITtscLoadedNativePlugin[],
+  identities: PluginContentIdentities.Store | undefined,
 ): NodeJS.ProcessEnv {
   const pluginConfigDir = resolvePluginConfigDir(context);
   const env = SidecarEnvironment.merge(
@@ -128,7 +137,7 @@ function residentEnv(
     context.env,
     { TTSC_TSGO_BINARY: tsgoBinary },
   );
-  const node = resolveNodeBinary(env, projectRoot);
+  const node = resolveNodeBinary(env, projectRoot, identities);
   SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
   // The anchor is per-invocation state owned by this host: when this run
   // declared none (and the caller's env does not name one), drop any value

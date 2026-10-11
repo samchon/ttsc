@@ -18,6 +18,7 @@ import { PluginBinaryUse } from "./PluginBinaryUse";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
+import { PluginContentIdentities } from "./PluginContentIdentities";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
@@ -88,8 +89,8 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A changed witness is never overwritten or accepted. A fresh epoch takes a new toolchain reading and performs the actual build or qualified adoption; source, native and cleanup failures stay terminal. No selected SDK tool is warmed by a special command, and no foreign environment or memo is rebased. Shared Go objects retain their owner's toolID/actionID contract; same-version custom tool semantics beyond that contract are not newly guaranteed.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain effective environment, recorded-input comparisons and their trust/observation limits, reader registration and managed versus explicit roots; option-map comments state their reading provenance with blank member separation.
  * @evidence contracts/portability.md#os-neutral-implementation Node path/physical-cache/temp APIs preserve native identities; executable resolution and Windows command handling are isolated owners, and the binary filename explicitly follows its executable platform.
- * @evidence contracts/performance.md#efficient-algorithms At most three epochs redo native toolchain observation, key construction, materialization and guarded admission; each can run one Go build, preceded by one batched package metadata command when the loader requires ownership admission. The shared compiler reader can itself make three version observations, hence at most nine such cold observations for a persistently moving compiler and no build when its key witness fails. Full-file bytes, entries, path/sort text, contributors, external trees and witness populations drive work. Scoped cancellation is sampled between phases/entries/commands and does not bound native calls or delegated hashing. First source digest readings are reused across epochs, while each scratch is independently checked. Existing lock contention has its separate wait budget and native Go compiler work remains delegated.
- * @evidence contracts/performance.md#reuse-equivalent-work Existing binaries and concurrent builders share the version/platform/source/environment key with reader admission before return, assuming trustworthy cache producers and supplied digest maps. Fixed trimpath compilation removes disposable snapshot paths from Go object identities. Shared load readings and sequential source/toolchain comparisons reject observed changes; metadata reuse and unobserved concurrent mutation remain the underlying witnesses' limits.
+ * @evidence contracts/performance.md#efficient-algorithms At most three epochs redo native toolchain observation, key construction, materialization and guarded admission; the first can key on the load's witnessed same-directory reading instead of observing the toolchain again, and later ones always observe it. Each can run one Go build, preceded by one batched package metadata command when the loader requires ownership admission. The shared compiler reader can itself make three version observations, hence at most nine such cold observations for a persistently moving compiler and no build when its key witness fails. Full-file bytes, entries, path/sort text, contributors, external trees and witness populations drive work. Scoped cancellation is sampled between phases/entries/commands and does not bound native calls or delegated hashing. First source digest readings are reused across epochs, while each scratch is independently checked. Existing lock contention has its separate wait budget and native Go compiler work remains delegated.
+ * @evidence contracts/performance.md#reuse-equivalent-work Existing binaries and concurrent builders share the version/platform/source/environment key with reader admission before return, assuming trustworthy cache producers and supplied digest maps. The key's content digests come from the record store when their separable metadata still matches, so a new process does not read unchanged sources, SDK or compiler bytes to find an existing binary (#1722). Fixed trimpath compilation removes disposable snapshot paths from Go object identities. Shared load readings and sequential source/toolchain comparisons reject observed changes; metadata reuse and unobserved concurrent mutation remain the underlying witnesses' limits.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Scratch directories and build/cache leases have finally-based cleanup, including cancellation; cancelled work admits no new post-build prune pass. Scratch removal or lease cleanup can fail, and selected synchronous child settlement does not join arbitrary descendants. Repeated commands can repeat external tool effects; only ttsc-owned failed outputs are discarded, and Go-owned object entries retain their existing lifetime. Pending binary cleanup is best-effort. Reader tokens and their process map grow with distinct physical keys until process exit. Managed pruning attempts age/LRU reclamation while protecting live, unknown and selected entries, so it is not a hard disk bound; explicit roots remain caller-managed.
  */
 export function buildSourcePlugin(opts: {
@@ -113,7 +114,21 @@ export function buildSourcePlugin(opts: {
    */
   environmentDigests?: Map<string, string>;
 
+  /**
+   * Witnesses of the readings in `environmentDigests` (`computeCacheKey`), so
+   * the first epoch keys on a reading package selection already took. A
+   * discarded epoch reads the toolchain again instead.
+   */
+  environmentWitnesses?: Map<string, PluginBuildEnvironmentWitness.Record>;
+
   filesystem?: Partial<SourceBuildFilesystemOperations>;
+
+  /**
+   * Record store the loader opened for this load, so its key reuses content
+   * identities across processes (#1722); a standalone build opens its own.
+   */
+  identities?: PluginContentIdentities.Store;
+
   label?: string;
   overlayDirs?: readonly string[];
   quiet?: boolean;
@@ -140,9 +155,17 @@ export function buildSourcePlugin(opts: {
   for (let attempt = 0; ; attempt += 1) {
     OwnedSynchronousProcess.checkpoint();
     const environmentDigests = new Map(opts.environmentDigests);
+    // Only the first epoch may key on a reading taken before it; a discarded
+    // epoch means the toolchain moved, so later ones read it again.
+    const environmentWitnesses =
+      opts.environmentWitnesses === undefined
+        ? undefined
+        : new Map(attempt === 0 ? opts.environmentWitnesses : []);
     try {
       const binary = buildSourcePluginAttempt(
-        attempt === 0 ? opts : { ...opts, goModReaders: undefined },
+        attempt === 0
+          ? { ...opts, environmentWitnesses }
+          : { ...opts, environmentWitnesses, goModReaders: undefined },
         env,
         sourceDigests,
         environmentDigests,
@@ -152,6 +175,8 @@ export function buildSourcePlugin(opts: {
         opts.sourceDigests?.set(directory, digest);
       for (const [directory, digest] of environmentDigests)
         opts.environmentDigests?.set(directory, digest);
+      for (const [directory, witness] of environmentWitnesses ?? [])
+        opts.environmentWitnesses?.set(directory, witness);
       return binary;
     } catch (error) {
       if (
@@ -192,6 +217,18 @@ function buildSourcePluginAttempt(
   );
   ensureExecutableGoToolchain(goBinary, compiler.bundled);
   OwnedSynchronousProcess.checkpoint();
+  const identities =
+    opts.identities ??
+    PluginContentIdentities.open({
+      projectRoot: opts.baseDir,
+      cacheDir: opts.cacheDir,
+      env,
+      sources: [
+        dir,
+        ...overlayDirs,
+        ...contributors.map((contributor) => contributor.source),
+      ],
+    });
   // The digest of every directory the key covers, as the key read it, which
   // the build proves against what it compiled.
   const goModReader = SourcePluginWorkspace.createGoModReader(
@@ -199,6 +236,7 @@ function buildSourcePluginAttempt(
     opts.pluginName,
     env,
     opts.goModReaders,
+    identities,
   );
   const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
   const key = computeCacheKey({
@@ -211,8 +249,10 @@ function buildSourcePluginAttempt(
     goModReader,
     filesystem: opts.filesystem,
     goBinary,
+    identities,
     overlayDirs,
     environmentDigests,
+    environmentWitnesses: opts.environmentWitnesses,
     sourceDigests,
     ttscVersion: opts.ttscVersion,
     tsgoVersion: opts.tsgoVersion,

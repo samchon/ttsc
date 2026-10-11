@@ -916,7 +916,8 @@ function observeProjectFingerprint(props: {
       });
     }
   }
-  const snapshot = readSnapshotState(resolveFingerprintBase(props.projectRoot));
+  const base = resolveFingerprintBase(props.projectRoot);
+  const snapshot = readSnapshotState(base);
   if (snapshot === undefined || snapshot.volatile || snapshot.tainted) {
     throw new Error("Metro's recorded transform snapshot is not reusable.");
   }
@@ -936,6 +937,8 @@ function observeProjectFingerprint(props: {
     }
   > = {};
   for (const file of snapshot.files) {
+    // The project's plugin cache records prove a plugin tree, so a Metro
+    // worker does not read its sources and the SDK again (samchon/ttsc#1725).
     const baseline = addBaselineInput(
       inputs,
       file,
@@ -943,6 +946,7 @@ function observeProjectFingerprint(props: {
       trees.has(file),
       accessibleEntries.has(file),
       snapshot.nativePredicates[file],
+      base,
     );
     recorded[snapshotPathKey(file)] = {
       hash: baseline.hostHash,
@@ -985,12 +989,14 @@ function addBaselineInput(
   tree = false,
   accessibleEntries = false,
   nativePredicates?: readonly NativeInputKind[],
+  projectRoot?: string,
 ): TtscWatchInputBaseline {
   const key = snapshotPathKey(file);
   const observed = captureWatchInputBaseline(file, undefined, {
     tree,
     accessibleEntries,
     nativePredicates,
+    projectRoot,
   });
   if (observed === undefined) {
     throw new Error("Unable to read a stable Metro input baseline.");

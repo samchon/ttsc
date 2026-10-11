@@ -6,6 +6,7 @@ import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProce
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
+import type { PluginContentIdentities } from "./PluginContentIdentities";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
 import { formatGoWorkPath } from "./formatGoWorkPath";
@@ -238,7 +239,9 @@ export namespace SourcePluginWorkspace {
    * registry shares native reader state from the first watch query onward; its
    * owner must keep one fixed effective environment and discard it on retry.
    * Caller views share that native state and syntax, while each default
-   * diagnostic label remains with its current caller.
+   * diagnostic label remains with its current caller. An optional record store
+   * only carries the Go environment-file discovery hint across processes; it
+   * never carries a parse.
    *
    * @evidence contracts/common.md#principled-implementation Actual go mod edit JSON determines module/replacement identities; current bytes, selected/dispatched-tool metadata and Go's environment-file witness qualify reuse under the existing metadata-distinguishability premise. Environment values are copied at reader creation. Missing go.mod returns the existing empty module observation, and moving tool/manifest inputs cannot publish a parsed record.
    * @evidence contracts/common.md#clear-and-simple-design One factory acquires load-owned native reader state by selected tool; a thin caller view forwards its diagnostic label without duplicating the byte-content map. Current reads and post-parse byte/tool comparisons qualify insertion.
@@ -254,6 +257,7 @@ export namespace SourcePluginWorkspace {
     pluginName: string,
     env: NodeJS.ProcessEnv,
     readers?: Map<string, GoModReader>,
+    identities?: PluginContentIdentities.Store,
   ): GoModReader {
     const existing = readers?.get(goBinary);
     if (existing !== undefined)
@@ -315,6 +319,7 @@ export namespace SourcePluginWorkspace {
                   environment,
                   ["GOROOT"],
                   witness,
+                  identities,
                 )
               : undefined;
           if (

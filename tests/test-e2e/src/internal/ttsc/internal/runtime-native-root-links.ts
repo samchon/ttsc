@@ -121,7 +121,21 @@ export function verifyRuntimeCleanup(expected: {
   traceRoot: string; launcher: number; owner?: number; argv: string[]; cwd: string;
   cache: string; entry: string; source: Buffer; before: string[];
   synchronous?: { writer: number; before: string[] };
+  /** The launch's own start and close, as the parent recorded them. */
+  lifetime?: { start: string; close: string };
 }): void {
+  // Windows recycles process ids within one run, so a later process can write
+  // under the launcher's or owner's id into the same trace root. Only writer
+  // instances that recorded during this launch's lifetime belong to it.
+  const ownRows = (pid: number): Record<string, any>[] => {
+    const rows = readRuntimeTraceWriter(expected.traceRoot, pid);
+    const lifetime = expected.lifetime;
+    if (lifetime === undefined) return rows;
+    const instances = new Set(rows
+      .filter((row) => row.at >= lifetime.start && row.at <= lifetime.close)
+      .map((row) => row.instance));
+    return rows.filter((row) => instances.has(row.instance));
+  };
   if (expected.synchronous) {
     const parent = readRuntimeTraceWriter(expected.traceRoot, expected.synchronous.writer);
     const results = parent.filter((row) => row.event === "process-result" && row.pid === expected.launcher &&
@@ -142,7 +156,7 @@ export function verifyRuntimeCleanup(expected: {
     assert.equal(attempts[0]!.cwd, result.cwd);
     assert.ok(attempts[0]!.sequence < result.sequence);
   }
-  const rows = readRuntimeTraceWriter(expected.traceRoot, expected.launcher);
+  const rows = ownRows(expected.launcher);
   const children = rows.filter((row) => row.event === "process-start" && row.data?.origin === "ttsx-runtime");
   assert.equal(children.length, 1, "the CLI must admit one actual main program");
   const child = children[0]!;
@@ -156,7 +170,7 @@ export function verifyRuntimeCleanup(expected: {
   assert.equal(closed[0]!.data.status, 0);
   assert.equal(closed[0]!.data.signal, null);
   const entry = fs.realpathSync.native(expected.entry);
-  const preparations = readRuntimeTraceWriter(expected.traceRoot, owner).filter((row) => {
+  const preparations = ownRows(owner).filter((row) => {
     if (row.event !== "runtime-source-preparation") return false;
     return [row.data.filename, row.data.emitAttribution?.sourceFile]
       .filter((filename) => filename !== undefined)

@@ -302,7 +302,7 @@ export function captureUniversalHostInputValidation(
     const prepared = usesPreparedPluginBuildEnvironments(cached.result);
     const environment = prepared
       ? PluginBuildEnvironmentReadings.cached(directory)
-      : processPluginBuildEnvironment(directory);
+      : processPluginBuildEnvironment(directory, false, cached.projectRoot);
     if (
       environment === undefined ||
       !pluginSourceHolds(
@@ -310,6 +310,7 @@ export function captureUniversalHostInputValidation(
         digest,
         filesystem,
         prepared ? { environment } : undefined,
+        cached.projectRoot,
       )
     ) {
       recordGenerationProofFailure(failures, {

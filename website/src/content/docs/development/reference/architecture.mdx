@@ -66,7 +66,7 @@ TTSC_GO_CACHE_DIR=/tmp/ttsc-go-build npx ttsc --emit
 
 `ttsc cache paths --json` prints the active cache root, plugin binary cache root, Go build cache root, and `cacheableRoots`. Use that command in CI when the workflow wants to persist the right directories without hardcoding paths.
 
-Clean. Removes the ttsc-owned cache subdirectories (`plugins/`, `descriptors/`, `capabilities/`, `ttsx-orphan/`, the `ttsx/` runtime directories of runs that have ended, `go-build/`, and an external `TTSC_GO_CACHE_DIR`) plus the legacy project-local caches (`node_modules/.ttsc`, `.ttsc`). A run that may still be in progress keeps its runtime directory. It never removes the parent cache root, which may be shared with other tools, or a user `GOCACHE`:
+Clean. Removes the ttsc-owned cache subdirectories (`plugins/`, `descriptors/`, `capabilities/`, `identities/`, `answers/`, `ttsx-orphan/`, the `ttsx/` runtime directories of runs that have ended, `go-build/`, and an external `TTSC_GO_CACHE_DIR`) plus the legacy project-local caches (`node_modules/.ttsc`, `.ttsc`). A run that may still be in progress keeps its runtime directory. It never removes the parent cache root, which may be shared with other tools, or a user `GOCACHE`:
 
 ```bash
 npx ttsc clean
@@ -89,7 +89,7 @@ The plugin builder reads Go's effective build environment for the cache key. It 
 
 These effective Go build env values fold into the cache key when non-empty. `ttsc` reads them through `go env`, covering `go env -w` settings. `GOROOT` contributes a toolchain-content fingerprint instead of its install path, preserving pnpm path sharing for identical bundled toolchains. Command-valued entries such as `CC`, `CXX`, `AR`, `GCCGO`, and `PKG_CONFIG` include the resolved executable content hash as well as the command string.
 
-Within one process, a fresh file-metadata manifest check can reuse the GOROOT fingerprint. A changed manifest triggers a full content rehash. This reuse requires contributing changes to alter the captured identity or timestamps; an edit reproducing the entire metadata signature falls outside that proof.
+Within one process, a fresh file-metadata manifest check can reuse the GOROOT fingerprint. A new process reuses it, the plugin source and overlay digests, and the Go compiler's content hash from records under `<root>/identities`, but only while the recorded metadata matches and every modification time precedes a reference that process writes on the same drive, into the cache or into its per-user directory below the system temporary directory. A changed or unseparable manifest triggers a full content rehash. This reuse requires contributing changes to alter the captured identity or timestamps; an edit reproducing the entire metadata signature falls outside that proof. `go env` and `go version` still run on every load, because they report which toolchain the environment selects, which no file metadata shows.
 
 ```text
 GOOS GOARCH GOAMD64 GOARM GOARM64 GO386 GOMIPS GOMIPS64 GOPPC64

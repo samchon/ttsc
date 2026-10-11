@@ -1,10 +1,12 @@
 import fs from "node:fs";
+import path from "node:path";
 
 import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
 import type { ITtscCapabilityPluginSource } from "./ITtscCapabilityPluginSource";
 import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
 import { hashHostInputPaths } from "./load/hashHostInputPaths";
 import { realpathHostInputPaths } from "./load/realpathHostInputPaths";
+import { PluginContentIdentities } from "./source/PluginContentIdentities";
 import { pluginSourceFilesSignature } from "./source/pluginSourceFilesSignature";
 import { pluginSourceStateHolds } from "./source/pluginSourceStateHolds";
 import { recordCacheFileUse } from "./source/recordCacheFileUse";
@@ -52,6 +54,12 @@ export function readCapabilityResolution(options: {
 
   /** Environment selecting the cache root; ambient process env when omitted. */
   env?: NodeJS.ProcessEnv;
+
+  /**
+   * Record store of the project's plugin cache, which proves the runtime and
+   * the plugin sources and SDK from metadata instead of their bytes (#1725).
+   */
+  identities?: PluginContentIdentities.Store;
 }): ITtscCapabilityResolutionEntry | null {
   const file = CapabilityResolutionFormat.resolutionFile(options);
   if (file === null) return null;
@@ -83,12 +91,14 @@ export function readCapabilityResolution(options: {
   // old one still exists.
   const sources = Object.entries(entry.pluginSources);
   const evidence = sources.some(([, source]) => source.signature !== undefined)
-    ? CapabilityResolutionFormat.sourceEvidence(
-        CapabilityResolutionFormat.clockReference(file),
+    ? PluginContentIdentities.sourceEvidence(
+        PluginContentIdentities.mintReference(path.dirname(file)),
       )
     : undefined;
+  const projectRoot = path.resolve(options.cwd);
   for (const [directory, source] of sources)
-    if (!pluginSourceProven(directory, source, evidence)) return null;
+    if (!pluginSourceProven(directory, source, evidence, projectRoot))
+      return null;
   for (const plugin of entry.plugins)
     if (!fs.existsSync(plugin.binary)) return null;
   recordCacheFileUse(file);
@@ -108,8 +118,9 @@ function pluginSourceProven(
   directory: string,
   source: ITtscCapabilityPluginSource,
   evidence:
-    | ReturnType<typeof CapabilityResolutionFormat.sourceEvidence>
+    | ReturnType<typeof PluginContentIdentities.sourceEvidence>
     | undefined,
+  projectRoot: string,
 ): boolean {
   try {
     const now =
@@ -123,8 +134,8 @@ function pluginSourceProven(
         now.separable &&
         now.signature === source.signature &&
         source.digest !== undefined
-        ? { sourceDigest: source.digest }
-        : {},
+        ? { projectRoot, sourceDigest: source.digest }
+        : { projectRoot },
     );
   } catch {
     return false;

@@ -1,4 +1,5 @@
 import { SidecarEnvironment } from "../compiler/internal/sharedHost/SidecarEnvironment";
+import type { PluginContentIdentities } from "../plugin/internal/source/PluginContentIdentities";
 import { javascriptRuntimeCapabilities } from "./javascriptRuntimeCapabilities";
 
 /**
@@ -7,6 +8,10 @@ import { javascriptRuntimeCapabilities } from "./javascriptRuntimeCapabilities";
  * Bun can directly evaluate a descriptor, but it does not implement the
  * synchronous `module.registerHooks` contract used by those loaders.
  *
+ * @param env Effective environment naming `TTSC_NODE_BINARY`.
+ * @param cwd Working directory of the probes.
+ * @param identities Optional record store that lets probes of an unchanged
+ *   runtime be answered across processes (#1723).
  * @evidence contracts/common.md#principled-implementation Ordered candidates are accepted only after an actual runtime probe reports non-Bun registerHooks support and its absolute executable; names alone do not establish the loader capability.
  * @evidence contracts/common.md#clear-and-simple-design Candidate precedence and duplicate suppression remain here, while the shared probe owns launch, capability parsing and freshness policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The node spelling is a supported final discovery candidate, not an assumed successful runtime; incompatible candidates are skipped without patching modules or globals.
@@ -19,6 +24,7 @@ import { javascriptRuntimeCapabilities } from "./javascriptRuntimeCapabilities";
 export function resolveNodeBinary(
   env: NodeJS.ProcessEnv = process.env,
   cwd: string = process.cwd(),
+  identities?: PluginContentIdentities.Store,
 ): string | undefined {
   const candidates = [
     SidecarEnvironment.read(env, "TTSC_NODE_BINARY"),
@@ -31,7 +37,12 @@ export function resolveNodeBinary(
     if (candidate === undefined || candidate.trim() === "") continue;
     if (seen.has(candidate)) continue;
     seen.add(candidate);
-    const capabilities = javascriptRuntimeCapabilities(candidate, env, cwd);
+    const capabilities = javascriptRuntimeCapabilities(
+      candidate,
+      env,
+      cwd,
+      identities,
+    );
     if (
       !capabilities.bun &&
       capabilities.registerHooks &&

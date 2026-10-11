@@ -5,6 +5,7 @@ import { createCanonicalTempDirectory } from "../../../internal/createCanonicalT
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { hasProjectPluginEntries } from "../../../plugin/internal/load/hasProjectPluginEntries";
 import { loadProjectPlugins } from "../../../plugin/internal/load/loadProjectPlugins";
+import { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
 import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
@@ -70,17 +71,35 @@ export namespace BuildExecution {
    * Merge extra environment variables over `process.env`, always injecting
    * `TTSC_NODE_BINARY` selected by the runtime capability owner. Explicit
    * compatible overrides can select a different Node executable; this is not
-   * necessarily the current process binary.
+   * necessarily the current process binary. An invocation that loaded plugins
+   * passes its record store, so the runtime is proven from metadata instead of
+   * streamed again before every native spawn (#1723).
    */
   function mergeEnv(
-    extra?: NodeJS.ProcessEnv,
-    cwd: string = process.cwd(),
+    extra: NodeJS.ProcessEnv | undefined,
+    cwd: string,
+    identities: PluginContentIdentities.Store | undefined,
     ...later: readonly (NodeJS.ProcessEnv | undefined)[]
   ): NodeJS.ProcessEnv {
     const env = SidecarEnvironment.merge(process.env, extra, ...later);
-    const node = resolveNodeBinary(env, cwd);
+    const node = resolveNodeBinary(env, cwd, identities);
     SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
     return env;
+  }
+
+  /**
+   * Merge extra environment variables over `process.env` for a spawn of the
+   * selected TypeScript-Go compiler itself.
+   *
+   * WARNING (#1726): the compiler never reads `TTSC_NODE_BINARY`, which only
+   * plugin sidecars consume (`mergeEnv`). Selecting it streamed the 85 MB Node
+   * executable twice and probed it on every launch, plugins or not, about 0.2 s
+   * of a 0.5 s build without plugins.
+   */
+  function compilerEnv(
+    extra: NodeJS.ProcessEnv | undefined,
+  ): NodeJS.ProcessEnv {
+    return SidecarEnvironment.merge(process.env, extra);
   }
 
   /**
@@ -123,6 +142,7 @@ export namespace BuildExecution {
           path.join(__dirname, "..", "..", "..", "launcher", "ttsx.js"),
       },
       execution.projectRoot,
+      execution.identities,
       extra,
       // The invocation's resolved compiler owns the final environment layer.
       { TTSC_TSGO_BINARY: execution.tsgo.binary },
@@ -453,7 +473,7 @@ export namespace BuildExecution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The caught resolution failure is legitimate only for commands not requiring a project; ordinary compilation failures do not enter this bypass.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain project-independent commands, existing-project behavior and null applicability; the catch comment states its deliberate broad premise.
    * @evidence contracts/portability.md#os-neutral-implementation Invocation cwd is resolved natively and spawnNative receives executable/argv separately with platform-aware environment merging.
-   * @evidence contracts/performance.md#efficient-algorithms Flag selection scans forwarded argument/name text before config IO. An applicable lane includes native cwd/config resolution, binary and runtime capability lookup, argv/env composition, complete captured output and diagnostic normalization; one requested command does not bound its native duration or output bytes.
+   * @evidence contracts/performance.md#efficient-algorithms Flag selection scans forwarded argument/name text before config IO. An applicable lane includes native cwd/config resolution, binary lookup, argv/env composition without runtime capability work (#1726), complete captured output and diagnostic normalization; one requested command does not bound its native duration or output bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A project probe and effectful terminal invocation establish no retained or shared cross-request result.
    *
@@ -482,7 +502,7 @@ export namespace BuildExecution {
     const tsgo = resolveTsgo({ ...options, cwd });
     const res = spawnNative(tsgo.binary, [...(options.passthrough ?? [])], {
       cwd,
-      env: mergeEnv(options.env, cwd),
+      env: compilerEnv(options.env),
       encoding: "utf8",
     });
     if (res.error) {
@@ -796,7 +816,7 @@ export namespace BuildExecution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported compiler options express the check contract without intercepting writes or replacing compiler APIs; spawn errors remain errors.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains the no-emit use and load-bearing argument precedence.
    * @evidence contracts/portability.md#os-neutral-implementation spawnNative uses the selected executable, separate argv and project cwd; environment composition handles native variable aliases and output text decoding is explicit UTF-8.
-   * @evidence contracts/performance.md#efficient-algorithms One argv composition includes delegated option-presence classification, threading/isolation text and argument copies. Environment composition can perform native runtime capability probes before the compiler launch; complete capture/decoding and diagnostic normalization follow. Work/storage depend on argument/env/path/report bytes and native child work, without an asserted measured cost ranking.
+   * @evidence contracts/performance.md#efficient-algorithms One argv composition includes delegated option-presence classification, threading/isolation text and argument copies. Environment composition only layers variables; the compiler reads no Node selection, so no runtime capability probe precedes the launch (#1726). Complete capture/decoding and diagnostic normalization follow. Work/storage depend on argument/env/path/report bytes and native child work, without an asserted measured cost ranking.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This executes the requested compiler pass; equivalence with other phases must be established by orchestration rather than caching a result here.
    *
@@ -822,7 +842,7 @@ export namespace BuildExecution {
       ],
       {
         cwd: execution.compilerSelection.compilerArgsCwd,
-        env: mergeEnv(options.env, execution.projectRoot),
+        env: compilerEnv(options.env),
         encoding: "utf8",
       },
     );
@@ -856,7 +876,7 @@ export namespace BuildExecution {
     options: RunBuildOptions,
     args: readonly string[],
   ): TtscBuildResult {
-    const env = mergeEnv(options.env, execution.projectRoot);
+    const env = compilerEnv(options.env);
     const userOptions = readEffectiveCompilerOptions(
       execution.project,
       options.passthrough,
@@ -1183,19 +1203,31 @@ export namespace BuildExecution {
     const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
     let pluginSetupFailure: TtscBuildResult | undefined;
     let nativePlugins: ITtscLoadedNativePlugin[] = [];
+    // Opened only for an invocation that loads plugins, so a project without
+    // any never gains a cache directory; the load and every later native spawn
+    // of this invocation prove their unchanged inputs through it (#1722, #1723).
+    let identities: PluginContentIdentities.Store | undefined;
     try {
       if (
         compilerSelection.inspectionError === undefined &&
         hasProjectPluginEntries(project, options.plugins)
       ) {
+        const cacheDir =
+          options.cacheDir ??
+          SidecarEnvironment.read(options.env, "TTSC_CACHE_DIR");
+        const env = inheritedSidecarEnv(options.env, options.binary);
+        identities = PluginContentIdentities.open({
+          projectRoot,
+          cacheDir,
+          env,
+        });
         nativePlugins = loadProjectPlugins({
           binary: resolveBinary(options) ?? "",
-          cacheDir:
-            options.cacheDir ??
-            SidecarEnvironment.read(options.env, "TTSC_CACHE_DIR"),
+          cacheDir,
           cwd,
           entries: options.plugins,
-          env: inheritedSidecarEnv(options.env, options.binary),
+          env,
+          identities,
           onWatchInputs: options.onWatchInputs,
           pluginConfigDir: options.pluginConfigDir,
           projectRoot,
@@ -1215,6 +1247,7 @@ export namespace BuildExecution {
     return {
       compilerSelection,
       cwd,
+      ...(identities === undefined ? {} : { identities }),
       nativePlugins,
       pluginConfigDir: resolvePluginConfigDir({
         cwd,

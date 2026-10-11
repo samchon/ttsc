@@ -532,6 +532,8 @@ export function createInputObserver(
             entry.file,
             state.digest,
             DEFAULT_FILESYSTEM_OPERATIONS,
+            undefined,
+            projectRoot,
           );
         } else if (state?.codec === "predicates") {
           changed =

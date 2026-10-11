@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
+import type { PluginContentIdentities } from "../source/PluginContentIdentities";
 import { SourceBuildCacheLayout } from "../source/SourceBuildCacheLayout";
 import { recordCacheFileUse } from "../source/recordCacheFileUse";
 import { resolveSourceBuildCachePaths } from "../source/resolveSourceBuildCachePaths";
@@ -127,20 +128,26 @@ export namespace PluginDescriptorEvaluationCache {
 
     /** Ttsc build version, invalidating answers from another build. */
     version: string;
+
+    /**
+     * Record store proving the runtimes' bytes from metadata (#1723); without
+     * it each runtime is streamed again.
+     */
+    identities?: PluginContentIdentities.Store;
   }): string | null {
     const environment = SidecarEnvironment.merge(props.env);
     // Startup preloads can run before the descriptor recorder and read inputs
     // it never sees; a stable option string cannot prove their current meaning.
     if (SidecarEnvironment.read(environment, "NODE_OPTIONS")?.trim())
       return null;
-    const runtime = runtimeIdentity(props.runtime);
+    const runtime = runtimeIdentity(props.runtime, props.identities);
     if (runtime === null) return null;
     const additionalRuntime =
       props.additionalRuntime === undefined
         ? undefined
         : props.additionalRuntime === props.runtime
           ? runtime
-          : runtimeIdentity(props.additionalRuntime);
+          : runtimeIdentity(props.additionalRuntime, props.identities);
     if (additionalRuntime === null) return null;
     let root: string;
     try {
@@ -358,8 +365,11 @@ export namespace PluginDescriptorEvaluationCache {
    * content digest and bracketed lexical/physical metadata, so replaced bytes
    * cannot reuse an evaluation by restoring size/timestamps. Null is unproved.
    */
-  function runtimeIdentity(runtime: string): string | null {
-    return runtimeExecutableIdentity(runtime) ?? null;
+  function runtimeIdentity(
+    runtime: string,
+    identities: PluginContentIdentities.Store | undefined,
+  ): string | null {
+    return runtimeExecutableIdentity(runtime, identities) ?? null;
   }
 
   /**

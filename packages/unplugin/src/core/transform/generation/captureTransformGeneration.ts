@@ -422,7 +422,12 @@ export async function captureTransformGeneration(props: {
     // Prepare native toolchain authority before post-compile admission. Its
     // cold subprocess and SDK reads stay off this host's event loop, and the
     // config/walk/notification checks below include that asynchronous window.
-    await preparePluginBuildEnvironments(result, props.filesystem);
+    await preparePluginBuildEnvironments(
+      result,
+      props.filesystem,
+      undefined,
+      projectRoot,
+    );
     const { membershipPolicy, casePolicyLearned } =
       selectReportedMembershipPolicy(primedPolicy, result);
     TRANSFORM_RESULT_MEMBERSHIP.set(result, {

@@ -21,6 +21,8 @@ import {
 } from "../internal/ttsc/internal/read-only-directory";
 import { readE2eTracePayload } from "../internal/readE2eTracePayload";
 import { readRuntimeTraceWriter, verifyRuntimeCleanup } from "../internal/ttsc/internal/runtime-native-root-links";
+import { test_plain_launch_proves_its_runtime_and_compiler_without_streaming } from "./ttsc/compiler/test_plain_launch_proves_its_runtime_and_compiler_without_streaming";
+import { test_plugin_corpus_source_plugin_warm_load_proves_inputs_without_go_selection } from "./ttsc/native-plugins/corpus-source/test_plugin_corpus_source_plugin_warm_load_proves_inputs_without_go_selection";
 import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/project/test_owned_native_process_joins_cancelled_command_trees";
 
 /**
@@ -684,6 +686,21 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     } catch (error) {
       combinedFailures.push(error);
     }
+    // The warm-load budget needs a record-free plugin cache and edits its own
+    // plugin source, so it prepares a private project instead of borrowing the
+    // shared immutable workspace.
+    try {
+      test_plugin_corpus_source_plugin_warm_load_proves_inputs_without_go_selection();
+    } catch (error) {
+      combinedFailures.push(error);
+    }
+    // The launch budget without plugins needs its own project and runtime
+    // cache, which the shared workspace's records would otherwise answer.
+    try {
+      test_plain_launch_proves_its_runtime_and_compiler_without_streaming();
+    } catch (error) {
+      combinedFailures.push(error);
+    }
   }
   // Cleanup eligibility is independent of payload, API and reporting oracles.
   if (!workspace.installationOnly) {
@@ -711,6 +728,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         traceRoot: runtimeTraceRoot, launcher: result.pid, owner: mainEpochOwner,
         argv: start.argv, cwd: callerDirectory, cache: runtimeCliCache,
         entry: path.join(workspace.root, "src/runtime.mts"), source, before: mainRunsBefore,
+        lifetime: { start: start.at, close: departures[1]!.at },
       });
     } catch (error) { combinedFailures.push(new Error("main CLI cleanup eligibility", { cause: error })); }
   }
@@ -960,7 +978,11 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         const missingGo = path.join(workspace.root, "tools/api-missing-go.exe");
         const attempts = rows.filter((row) =>
           row.event === "process-attempt" && Array.isArray(row.argv) && row.argv[0] === missingGo);
-        assert.equal(attempts.length, process.platform === "win32" ? 1 : 0,
+        // The package-selection identity reads the Go environment before the
+        // selection it may answer, so the alias is selected twice: by that
+        // reading, then by the live selection the failed reading falls back to.
+        assert.deepEqual(attempts.map((attempt) => attempt.argv[1]),
+          process.platform === "win32" ? ["env", "mod"] : [],
           "only Windows constructor aliases select the deliberately missing Go executable");
         for (const attempt of attempts) {
           assert.equal(attempt.data.origin, "windows-go-tool");

@@ -165,6 +165,8 @@ export async function transformTtsc(
           await preparePluginBuildEnvironments(
             terminal.validation.cached.result,
             filesystem,
+            undefined,
+            terminal.validation.cached.projectRoot,
           );
           if (cache?.get(key) !== transformed) continue;
         }

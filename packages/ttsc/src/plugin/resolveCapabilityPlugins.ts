@@ -15,6 +15,7 @@ import { CapabilityResolutionFormat } from "./internal/CapabilityResolutionForma
 import type { ITtscCapabilityResolutionEntry } from "./internal/ITtscCapabilityResolutionEntry";
 import { loadProjectPlugins } from "./internal/load/loadProjectPlugins";
 import { readCapabilityResolution } from "./internal/readCapabilityResolution";
+import { PluginContentIdentities } from "./internal/source/PluginContentIdentities";
 import { writeCapabilityResolution } from "./internal/writeCapabilityResolution";
 
 /**
@@ -102,12 +103,26 @@ export function resolveCapabilityPluginResolution(options: {
   // the same cwd. NUL cannot occur in a filename, so this discovery key cannot
   // collide with an explicitly supplied path.
   const tsconfig = options.tsconfig ?? `${String.fromCharCode(0)}discovered`;
-  const runtimeProved = capabilityRuntimeAuthorityComplete(cwd);
+  // WARNING (#1725): every lookup proved the runtime by streaming it, and a hit
+  // proved the plugin sources and the whole GOROOT by their bytes, in each
+  // process. One store of the project's plugin cache serves every proof of
+  // this resolution, opened only once the runtime may be cached at all.
+  const identities = capabilityRecordStore(cwd);
+  const runtimeProved = capabilityRuntimeAuthorityComplete(cwd, identities);
   const authority = runtimeProved
-    ? CapabilityResolutionFormat.resolutionFile({ cwd, tsconfig })
+    ? CapabilityResolutionFormat.resolutionFile({
+        cwd,
+        tsconfig,
+        identities: identities(),
+      })
     : null;
   const cached = runtimeProved
-    ? readCapabilityResolution({ cwd, tsconfig, version })
+    ? readCapabilityResolution({
+        cwd,
+        tsconfig,
+        version,
+        identities: identities(),
+      })
     : null;
   E2ETrace.capabilityResolution("lookup", {
     cwd,
@@ -118,7 +133,14 @@ export function resolveCapabilityPluginResolution(options: {
     cacheHit: cached !== null,
   });
   if (cached !== null)
-    return resolved(cached, options.capability, cwd, tsconfig, authority);
+    return resolved(
+      cached,
+      options.capability,
+      cwd,
+      tsconfig,
+      authority,
+      identities,
+    );
 
   const binary = resolveBinary();
   if (binary === null || binary === undefined)
@@ -178,12 +200,21 @@ export function resolveCapabilityPluginResolution(options: {
       runtimeProved &&
       authority !== null &&
       (authorityUnchanged =
-        CapabilityResolutionFormat.resolutionFile({ cwd, tsconfig }) ===
-        authority) &&
+        CapabilityResolutionFormat.resolutionFile({
+          cwd,
+          tsconfig,
+          identities: identities(),
+        }) === authority) &&
       loaded.descriptorReadsDeclared &&
       loaded.discoveryInputsComplete
         ? writeCapabilityResolution(
-            { cwd, tsconfig, version, expectedAuthority: authority },
+            {
+              cwd,
+              tsconfig,
+              version,
+              expectedAuthority: authority,
+              identities: identities(),
+            },
             answer,
           )
         : null;
@@ -213,8 +244,38 @@ export function resolveCapabilityPluginResolution(options: {
           plugins: CapabilityPluginResult.select(answer, options.capability),
           status: "resolved",
         }
-      : resolved(recorded, options.capability, cwd, tsconfig, authority);
+      : resolved(
+          recorded,
+          options.capability,
+          cwd,
+          tsconfig,
+          authority,
+          identities,
+        );
   });
+}
+
+/**
+ * The record store of `cwd`'s plugin cache, opened on first use and kept for
+ * the resolution and its later freshness queries, or `undefined` when none can
+ * be opened. A kept store's references only grow older, which can make fewer
+ * stamps separable but never more.
+ */
+function capabilityRecordStore(
+  cwd: string,
+): () => PluginContentIdentities.Store | undefined {
+  let opened = false;
+  let store: PluginContentIdentities.Store | undefined;
+  return () => {
+    if (!opened) {
+      opened = true;
+      store = PluginContentIdentities.open({
+        projectRoot: cwd,
+        env: process.env,
+      });
+    }
+    return store;
+  };
 }
 
 /**
@@ -228,7 +289,10 @@ export function resolveCapabilityPluginResolution(options: {
  * operation's existing decision and preserves short-circuited comparisons as
  * unobserved, without repeating native queries.
  */
-function capabilityRuntimeAuthorityComplete(cwd: string): boolean {
+function capabilityRuntimeAuthorityComplete(
+  cwd: string,
+  identities: () => PluginContentIdentities.Store | undefined,
+): boolean {
   if (SidecarEnvironment.read(process.env, "NODE_OPTIONS")?.trim()) {
     E2ETrace.capabilityResolution("runtime-authority", {
       cwd,
@@ -254,6 +318,7 @@ function capabilityRuntimeAuthorityComplete(cwd: string): boolean {
       runtime,
       process.env,
       cwd,
+      identities(),
     );
     let executableMatches: boolean | undefined;
     const proved =
@@ -291,6 +356,7 @@ function resolved(
   cwd: string,
   tsconfig: string,
   authority: string | null,
+  identities: () => PluginContentIdentities.Store | undefined,
 ): ITtscCapabilityPluginResolution {
   const proof = JSON.stringify(entry);
   return {
@@ -298,12 +364,20 @@ function resolved(
       try {
         if (
           authority === null ||
-          !capabilityRuntimeAuthorityComplete(cwd) ||
-          CapabilityResolutionFormat.resolutionFile({ cwd, tsconfig }) !==
-            authority
+          !capabilityRuntimeAuthorityComplete(cwd, identities) ||
+          CapabilityResolutionFormat.resolutionFile({
+            cwd,
+            tsconfig,
+            identities: identities(),
+          }) !== authority
         )
           return false;
-        const current = readCapabilityResolution({ cwd, tsconfig, version });
+        const current = readCapabilityResolution({
+          cwd,
+          tsconfig,
+          version,
+          identities: identities(),
+        });
         return current !== null && JSON.stringify(current) === proof;
       } catch {
         return false;

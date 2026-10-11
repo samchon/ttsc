@@ -15,11 +15,13 @@ import { runBuild } from "../../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { resolveOwningProjectConfig } from "../../../compiler/internal/project/resolveOwningProjectConfig";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { E2ETrace } from "../../../internal/E2ETrace";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
+import { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
 import { recordCacheFileUse } from "../../../plugin/internal/source/recordCacheFileUse";
 import { buildSingleRootProject } from "../buildSingleRootProject";
 import { inlineServedSourceMap } from "../inlineServedSourceMap";
@@ -684,6 +686,17 @@ function observePluginDescriptorInputOnce(record: {
       (record.hash !== undefined && record.hash !== observedHash) ||
       (record.realpath !== undefined && record.realpath !== observedRealpath) ||
       (record.signature !== undefined && record.signature !== afterSignature);
+    // A missing path's signature is its nearest existing ancestor's metadata,
+    // so a write anywhere in that ancestor refuses the proof; the trace names
+    // which observation moved.
+    if (unstable)
+      E2ETrace.capabilityResolution("plugin-descriptor-input-unstable", {
+        resolved: record.resolved,
+        recordedSignature: record.signature,
+        beforeSignature,
+        afterSignature,
+        hashChanged: record.hash !== undefined && record.hash !== observedHash,
+      });
     return `${JSON.stringify({
       ...record,
       hash: observedHash,
@@ -1479,11 +1492,62 @@ function orphanCacheRoot(): string {
  * Read afresh at every use, never remembered by path: a long-lived process can
  * lower orphans before and after the compiler at that path is replaced, and an
  * entry lowered by the new one must not be recorded under the old one's key for
- * a later process to adopt.
+ * a later process to adopt. A fresh use proves an unchanged compiler from the
+ * run's plugin cache records (`runtimeRecordStore`), which observe its metadata
+ * again each time.
  */
 function compilerIdentity(binary: string): string {
-  return runtimeExecutableIdentity(binary) ?? crypto.randomUUID();
+  return (
+    runtimeExecutableIdentity(binary, runtimeRecordStore()) ??
+    crypto.randomUUID()
+  );
 }
+
+/**
+ * The record store of this run's plugin cache root, or `undefined` without one.
+ *
+ * WARNING (#1726): every ttsx process and every descriptor evaluation streamed
+ * the whole compiler executable (24.5 MB) to key its orphan and dependency
+ * builds, although the bytes had not changed since the last process. The root
+ * is the one a descriptor evaluator's parent load selected
+ * (`TTSC_PLUGIN_RECORD_ROOT`), or the cache root of this run's manifest; a
+ * process with neither streams as before and never selects a root itself.
+ */
+function runtimeRecordStore(): PluginContentIdentities.Store | undefined {
+  const descriptorRoot =
+    process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
+      ? SidecarEnvironment.read(process.env, "TTSC_PLUGIN_RECORD_ROOT")
+      : undefined;
+  const owner = RuntimeManifestRegistry.runtimeManifests().find(
+    (candidate) =>
+      typeof candidate.orphanCacheDir === "string" &&
+      candidate.orphanCacheDir.length !== 0,
+  );
+  const root =
+    descriptorRoot !== undefined && path.isAbsolute(descriptorRoot)
+      ? descriptorRoot
+      : owner === undefined
+        ? undefined
+        : path.dirname(owner.orphanCacheDir!);
+  if (root === undefined) return undefined;
+  // One store per root serves the process: its references only grow older,
+  // which can make fewer stamps separable but never more, and each identity
+  // still observes the compiler's metadata afresh.
+  if (runtimeStore?.root !== root)
+    runtimeStore = {
+      root,
+      store: PluginContentIdentities.open({
+        projectRoot: root,
+        cacheDir: root,
+        env: process.env,
+      }),
+    };
+  return runtimeStore.store;
+}
+
+let runtimeStore:
+  | { root: string; store: PluginContentIdentities.Store | undefined }
+  | undefined;
 
 /** The version of this ttsc package, which owns the orphan post-processing. */
 function ownPackageVersion(): string {
@@ -2020,6 +2084,7 @@ function dependencyCachePaths(
   try {
     compilerProof = runtimeExecutableIdentity(
       resolveTsgo({ cwd: path.dirname(tsconfig) }).binary,
+      runtimeRecordStore(),
     );
   } catch {
     // An unobservable executable gets a unique, non-reusable generation key.
@@ -2045,7 +2110,7 @@ function dependencyCachePaths(
 function assertCompilerStillCurrent(tsconfig: string, proof?: string): void {
   if (proof === undefined) return;
   const binary = resolveTsgo({ cwd: path.dirname(tsconfig) }).binary;
-  const current = runtimeExecutableIdentity(binary);
+  const current = runtimeExecutableIdentity(binary, runtimeRecordStore());
   if (current !== proof) {
     E2ETrace.capabilityResolution("runtime-compiler-publication-refused", {
       tsconfig,

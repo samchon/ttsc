@@ -4,6 +4,7 @@ import { SHARE_ENV, Worker } from "node:worker_threads";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
+import { PluginContentIdentities } from "./PluginContentIdentities";
 import { pluginBuildEnvironment } from "./pluginBuildEnvironment";
 
 /**
@@ -120,21 +121,46 @@ export namespace PluginBuildEnvironmentReadings {
    * Read synchronously for clients whose API owns synchronous native work.
    * Explicit refresh preserves the original fresh-comparison semantics.
    *
+   * WARNING (#1725): the map above ends with the process, and every consumer
+   * that proves a plugin-source state starts a new one: a bundler worker, a
+   * capability host, the language server. Without the project's record store
+   * each of them walked and hashed the whole GOROOT (1.7 s for the bundled
+   * toolchain) on its first proof. A caller that names its project lets a miss
+   * prove the SDK and executables from the plugin cache's records.
+   *
+   * @param directory Plugin source directory whose build environment is read.
+   * @param refresh Bypass a cached reading.
+   * @param projectRoot Project whose plugin cache root holds the records.
    * @evidence contracts/common.md#principled-implementation The same native reader constructs a digest paired with its pre-read witness; optional cached reuse validates current variables/metadata. A fresh synchronous reading is published without a separate post-read qualification here and relies on the native reader's premises.
    * @evidence contracts/common.md#clear-and-simple-design The synchronous boundary shares cached authority and delegates fresh observation to its owning reader.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A requested refresh actually probes the selected native toolchain.
    * @evidence contracts/common.md#meaningful-documentation Native prose identifies the synchronous execution owner and explicit refresh meaning.
    * @evidence contracts/portability.md#os-neutral-implementation Native Go selection and filesystem witnesses remain delegated to the shared reader.
    * @evidence contracts/performance.md#efficient-algorithms Hits pay complete variable-text indexing and native witness queries. Misses/refresh merge environment values, perform actual toolchain/SDK/content work, then rebuild the full variable-text key for publication; native/path/file/name/value bytes contribute cost beyond invocation count.
-   * @evidence contracts/performance.md#reuse-equivalent-work Synchronous and asynchronous clients share the same qualified readings.
+   * @evidence contracts/performance.md#reuse-equivalent-work Synchronous and asynchronous clients share the same qualified readings; a miss of a caller naming its project takes SDK and executable digests from the record store across processes.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retention belongs to the namespace; this call publishes one replacement record.
    */
-  export function read(directory: string, refresh = false): string {
+  export function read(
+    directory: string,
+    refresh = false,
+    projectRoot?: string,
+  ): string {
     const known = refresh ? undefined : cached(directory);
     if (known !== undefined) return known;
     const env = SidecarEnvironment.merge(process.env);
     const witness: PluginBuildEnvironmentWitness.Record = new Map();
-    const environment = pluginBuildEnvironment(directory, env, witness);
+    const environment = pluginBuildEnvironment(
+      directory,
+      env,
+      witness,
+      projectRoot === undefined
+        ? undefined
+        : PluginContentIdentities.open({
+            projectRoot,
+            env,
+            sources: [directory],
+          }),
+    );
     readings.set(key(directory, env), { environment, witness });
     return environment;
   }
@@ -148,6 +174,14 @@ export namespace PluginBuildEnvironmentReadings {
    * requests can create a worker after retirement. Refresh bypasses a cached
    * reading but can still share an equivalent in-flight request.
    *
+   * A caller that names its project lets the worker prove the SDK and
+   * executables from the plugin cache's records (#1722). The worker is its own
+   * isolate, so without them it reads the whole GOROOT once per process, which
+   * a bundler or runtime restarting on every edit pays every time.
+   *
+   * @param directory Plugin source directory whose build environment is read.
+   * @param refresh Bypass a cached reading.
+   * @param projectRoot Project whose plugin cache root holds the records.
    * @evidence contracts/common.md#principled-implementation Worker results publish only under their exact current variable identity and still-current native pre-read witness; changed or unwitnessable transfer windows reject instead of publishing authority or retrying indefinitely.
    * @evidence contracts/common.md#clear-and-simple-design Qualified hits return immediately; equivalent misses share one pending promise and exclusive queued worker request.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Go/environment/SDK preparation occurs in the worker rather than blocking the async host or fabricating a digest from compiler output.
@@ -160,6 +194,7 @@ export namespace PluginBuildEnvironmentReadings {
   export async function prepare(
     directory: string,
     refresh = false,
+    projectRoot?: string,
   ): Promise<string> {
     const known = refresh ? undefined : cached(directory);
     if (known !== undefined) return known;
@@ -168,7 +203,7 @@ export namespace PluginBuildEnvironmentReadings {
     const existing = pending.get(identity);
     if (existing !== undefined) return existing;
     const request = (async () => {
-      const reading = await observe(directory, env);
+      const reading = await observe(directory, env, projectRoot);
       if (
         identity !== key(directory, process.env) ||
         !PluginBuildEnvironmentWitness.holds(reading.witness)
@@ -200,6 +235,7 @@ export namespace PluginBuildEnvironmentReadings {
   function observe(
     directory: string,
     env: NodeJS.ProcessEnv,
+    projectRoot: string | undefined,
   ): Promise<Reading> {
     const request = queue.then(
       () =>
@@ -240,7 +276,7 @@ export namespace PluginBuildEnvironmentReadings {
           current.on("error", onError);
           current.on("exit", onExit);
           try {
-            current.postMessage({ directory, env });
+            current.postMessage({ directory, env, projectRoot });
           } catch (error) {
             release(false);
             reject(error);

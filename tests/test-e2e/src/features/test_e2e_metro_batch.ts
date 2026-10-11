@@ -420,10 +420,36 @@ async function runResidentLoaderPool(): Promise<void> {
           }).prepare(),
         refusal(refusedPluginCache),
       );
+      // Descriptor evaluation also records the runtime facts the descriptor
+      // depends on: the runtime executable's content identity and, when
+      // eligible, its measured capabilities. Neither is a plugin or Go build
+      // cache, and no plugin source is proven into a root inside that source.
+      const refusedParts = fs.readdirSync(refusedPluginCache).sort();
       assert.deepEqual(
-        fs.readdirSync(refusedPluginCache),
-        ["descriptors"],
+        refusedParts.filter(
+          (name) => !["answers", "descriptors", "identities"].includes(name),
+        ),
+        [],
         "descriptor evaluation precedes source-build admission; no plugin or Go build cache may be published",
+      );
+      assert.equal(refusedParts.includes("descriptors"), true);
+      const refusedRecords = (part: string): string[] =>
+        refusedParts.includes(part)
+          ? fs
+              .readdirSync(path.join(refusedPluginCache, part))
+              .map((name) => path.join(refusedPluginCache, part, name))
+          : [];
+      assert.deepEqual(
+        refusedRecords("identities")
+          .filter((file) => file.endsWith(".json"))
+          .map(
+            (file) =>
+              (JSON.parse(fs.readFileSync(file, "utf8")) as { kind: string })
+                .kind,
+          )
+          .filter((kind) => kind !== "executable"),
+        [],
+        "only the runtime executable is proven before source-build admission",
       );
       const refusedDescriptorRecords = fs.readdirSync(
         path.join(refusedPluginCache, "descriptors"),
@@ -468,6 +494,11 @@ async function runResidentLoaderPool(): Promise<void> {
         ),
       );
       fs.rmdirSync(path.join(refusedPluginCache, "descriptors"));
+      for (const part of ["answers", "identities"]) {
+        for (const file of refusedRecords(part)) fs.unlinkSync(file);
+        if (refusedParts.includes(part))
+          fs.rmdirSync(path.join(refusedPluginCache, part));
+      }
       fs.rmdirSync(refusedPluginCache);
       assert.equal(
         pluginSourceState(sourceModule, { env: baselineBuildEnv }),
@@ -730,13 +761,19 @@ async function runResidentLoaderPool(): Promise<void> {
         assert.notEqual(fs.readdirSync(descriptorCacheB).length, 0);
         const unrelatedCacheB = path.join(apiRootB, "unowned-neighbor");
         fs.writeFileSync(unrelatedCacheB, "preserve unrelated cache bytes\n");
+        // The plugin load also records content identities and load answers,
+        // which `clean` removes with the other single-file caches.
         assert.deepEqual(compilerB.clean(), [
           path.join(apiRootB, "plugins"),
           descriptorCacheB,
+          path.join(apiRootB, "identities"),
+          path.join(apiRootB, "answers"),
           goCacheB,
         ]);
         assert.equal(fs.existsSync(path.join(apiRootB, "plugins")), false);
         assert.equal(fs.existsSync(descriptorCacheB), false);
+        assert.equal(fs.existsSync(path.join(apiRootB, "identities")), false);
+        assert.equal(fs.existsSync(path.join(apiRootB, "answers")), false);
         assert.equal(fs.existsSync(goCacheB), false);
         assert.equal(
           fs.readFileSync(unrelatedCacheB, "utf8"),
@@ -1292,6 +1329,17 @@ async function runResidentLoaderPool(): Promise<void> {
               ),
               [],
               "search stops at its independently selected package root",
+            );
+            // The evaluator opens the load's record store under its resolution
+            // recorder; ttsc's own lookups there, such as a version read, must
+            // never become inputs of a descriptor that did not make them.
+            const pluginCache = physicalSelectionPath(workspace.cache);
+            assert.deepEqual(
+              loaded.hostInputs.filter((input) =>
+                physicalSelectionPath(input).startsWith(pluginCache + path.sep),
+              ),
+              [],
+              "no lookup below the plugin cache is a descriptor input",
             );
           } catch (error) {
             publicApiFailures.push(
@@ -4274,12 +4322,18 @@ async function runResidentLoaderPool(): Promise<void> {
     const beforePreparation = fs.existsSync(workspace.programRunLog)
       ? fs.statSync(workspace.programRunLog).size
       : 0;
+    // Both workers allocate their scratch in one temporary directory of their
+    // own: the shared workspace lies directly below the run's, which signs the
+    // absent candidates of its failed descriptor import, so one worker's
+    // scratch would withdraw the proof the other is taking.
+    const poolTemporaryDirectory = TestProject.tmpdir("ttsc-loader-pool-tmp-");
     const workers = (["metro", "turbopack"] as const).map((mode) =>
       createLoaderPoolWorker({
         mode,
         root: workspace.root,
         cache: workspace.cache,
         session,
+        temporaryDirectory: poolTemporaryDirectory,
         traceRoot,
         prepareNative:
           mode === "metro" ? TestUnpluginRuntime.libUrl("api") : undefined,
