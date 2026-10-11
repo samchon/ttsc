@@ -736,8 +736,10 @@ export function loadProjectPlugins(options: {
       binary,
       // This fallback is compiled from our utility-host, whose actual writer
       // publishes provenance and supports a separate compiler argument cwd.
-      // A separately selected executable host must opt
-      // in itself; a linked library cannot certify that foreign host.
+      // A separately selected executable host must opt in itself; a linked
+      // library cannot certify that foreign host. An undeclared capability
+      // only withholds the optional protocol: build execution still runs such
+      // a host and observes it from outside, never rejecting it.
       capabilities:
         record.stage === "transform" &&
         record.kind === "linked" &&

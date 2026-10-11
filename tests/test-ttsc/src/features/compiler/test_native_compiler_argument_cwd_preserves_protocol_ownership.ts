@@ -67,7 +67,9 @@ export function test_native_compiler_argument_cwd_preserves_protocol_ownership()
   const args = NativePluginArguments.createNativeCheckArgs(execution, options, plugin);
   assert.ok(args.includes("--cwd=" + b));
   assert.ok(args.includes("--tsconfig=" + path.join(b, "tsconfig.json")));
-  assert.throws(() => compose('["@args.rsp"]', false), /separate compiler argument cwd/);
+  // A host that predates the capability, a plugin library's own executable,
+  // links the installed driver that reads this base, so it is never rejected.
+  assert.equal(compose('["@args.rsp"]', false).TTSC_TSGO_ARGS_CWD, a);
   assert.equal(compose("[]", false).TTSC_TSGO_ARGS_CWD, undefined);
   assert.equal(compose(undefined, false).TTSC_TSGO_ARGS, undefined);
   assert.equal(compose(undefined, false).TTSC_TSGO_ARGS_CWD, undefined);

@@ -195,10 +195,16 @@ export namespace BuildExecution {
         compilerArgsCwd !== execution.projectRoot &&
         JSON.parse(tsgoArgs).length !== 0
       ) {
-        if (plugin?.capabilities?.compilerArgsCwd !== true)
-          throw new Error(
-            `ttsc: native host ${plugin?.name ?? "(unselected)"} does not support separate compiler argument cwd`,
-          );
+        // WARNING: NEVER reject a host here for not declaring
+        // `compilerArgsCwd`. Every native host, a plugin library's own
+        // executable such as typia's among them, is built against this
+        // installed ttsc's driver (the build replaces
+        // github.com/samchon/ttsc/packages/ttsc with it), and that driver's
+        // LoadProgram reads this variable beside TTSC_TSGO_ARGS itself. A host
+        // that bypasses that fallback ignores the forwarded arguments as a
+        // whole, so nothing can resolve against the wrong directory. Libraries
+        // published before the capability existed cannot declare it, and
+        // rejecting them broke them outright.
         SidecarEnvironment.write(env, TSGO_ARGS_CWD_ENV, compilerArgsCwd);
       } else {
         SidecarEnvironment.write(env, TSGO_ARGS_CWD_ENV, undefined);
