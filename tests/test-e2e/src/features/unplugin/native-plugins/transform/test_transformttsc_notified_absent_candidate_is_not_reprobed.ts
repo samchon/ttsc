@@ -104,7 +104,7 @@ export async function test_transformttsc_notified_absent_candidate_is_not_reprob
   assert.equal(
     probes.calls,
     0,
-    `a candidate the generation watches must cost no filesystem call per delivery (active resources: ${activeResourceSummary()}; project tracker: ${trackerState(((await [...cache.values()][0]) as { projectMutationTracker?: unknown } | undefined)?.projectMutationTracker)}):\n${probeLog.slice(0, 4).join("\n")}`,
+    `a candidate the generation watches must cost no filesystem call per delivery (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])}):\n${probeLog.slice(0, 4).join("\n")}`,
   );
 }
 
@@ -128,6 +128,7 @@ function trackerState(tracker: unknown): string {
     failed?: boolean;
     unverified?: boolean;
     changesOmitted?: boolean;
+    membershipChanged?: boolean;
     contentAuthoritative?: boolean;
     covered?: ReadonlySet<string>;
     unproven?: ReadonlySet<string>;
@@ -137,9 +138,26 @@ function trackerState(tracker: unknown): string {
     failed: state.failed,
     unverified: state.unverified,
     changesOmitted: state.changesOmitted,
+    membershipChanged: state.membershipChanged,
     contentAuthoritative: state.contentAuthoritative,
     covered: state.covered?.size,
     unproven: [...(state.unproven ?? [])],
     changes: [...(state.changes ?? [])].slice(0, 8),
   });
+}
+
+/** The state of each tracker a generation's notification proof consults. */
+function trackerStates(generation: unknown): string {
+  const trackers = generation as
+    | {
+        projectMutationTracker?: unknown;
+        hostInputMutationTracker?: unknown;
+        candidateMutationTracker?: unknown;
+      }
+    | undefined;
+  return [
+    `project ${trackerState(trackers?.projectMutationTracker)}`,
+    `host ${trackerState(trackers?.hostInputMutationTracker)}`,
+    `candidate ${trackerState(trackers?.candidateMutationTracker)}`,
+  ].join("; ");
 }

@@ -120,7 +120,7 @@ export async function test_transformttsc_a_linked_project_keeps_its_notification
   assert.deepEqual(
     [...new Set(touched)].filter((location) => !roots.has(location)),
     [],
-    `the watchers answer for every input below the linked project (active resources: ${activeResourceSummary()}; project tracker: ${trackerState(((await [...cache.values()][0]) as { projectMutationTracker?: unknown } | undefined)?.projectMutationTracker)})`,
+    `the watchers answer for every input below the linked project (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])})`,
   );
 }
 
@@ -134,6 +134,7 @@ function trackerState(tracker: unknown): string {
     failed?: boolean;
     unverified?: boolean;
     changesOmitted?: boolean;
+    membershipChanged?: boolean;
     contentAuthoritative?: boolean;
     covered?: ReadonlySet<string>;
     unproven?: ReadonlySet<string>;
@@ -143,9 +144,26 @@ function trackerState(tracker: unknown): string {
     failed: state.failed,
     unverified: state.unverified,
     changesOmitted: state.changesOmitted,
+    membershipChanged: state.membershipChanged,
     contentAuthoritative: state.contentAuthoritative,
     covered: state.covered?.size,
     unproven: [...(state.unproven ?? [])],
     changes: [...(state.changes ?? [])].slice(0, 8),
   });
+}
+
+/** The state of each tracker a generation's notification proof consults. */
+function trackerStates(generation: unknown): string {
+  const trackers = generation as
+    | {
+        projectMutationTracker?: unknown;
+        hostInputMutationTracker?: unknown;
+        candidateMutationTracker?: unknown;
+      }
+    | undefined;
+  return [
+    `project ${trackerState(trackers?.projectMutationTracker)}`,
+    `host ${trackerState(trackers?.hostInputMutationTracker)}`,
+    `candidate ${trackerState(trackers?.candidateMutationTracker)}`,
+  ].join("; ");
 }
