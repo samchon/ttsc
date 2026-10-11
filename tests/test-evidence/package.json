@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "name": "test-evidence",
-  "version": "0.31.1",
+  "version": "0.31.2",
   "description": "Unit tests for @ttsc/evidence and shared Evidence fixture operations.",
   "scripts": {
     "start": "tsc --noEmit -p tsconfig.json && node --import ../../config/register-unit-loader.mjs src/index.ts",
