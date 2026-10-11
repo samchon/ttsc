@@ -10,6 +10,7 @@ import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
 import { pathIdentityKey } from "../filesystem/pathIdentityKey";
 import { preparePluginBuildEnvironments } from "../inputs/preparePluginBuildEnvironments";
 import { toProjectKey } from "../project/toProjectKey";
+import { verifyGenerationLocations } from "../tracker/verifyGenerationLocations";
 import type { TtscTransformHooks } from "../watch/TtscTransformHooks";
 
 /**
@@ -56,6 +57,13 @@ export namespace TtscGenerationProof {
 
     /** Current native predicate verdict, unbuilt until its first gate. */
     nativePredicates?: boolean;
+
+    /**
+     * Identities this admission's location verification read, by watched
+     * directory, absent when it ran none. An identity proves its directory is
+     * one now; an absent or undefined entry proves nothing.
+     */
+    readonly locations?: ReadonlyMap<string, string | undefined>;
   }
 
   /**
@@ -86,15 +94,17 @@ export namespace TtscGenerationProof {
 
   /**
    * Start fresh synchronous observation after notification and preparation
-   * awaits, sharing actual SDK queries and native predicate replay locally.
+   * awaits, sharing actual SDK queries and native predicate replay locally. A
+   * persistent delivery also rechecks its trackers' watched directories here
+   * and keeps what that read for the validators that follow.
    *
-   * @evidence contracts/common.md#principled-implementation Current environments are batch-qualified after asynchronous work; a qualified pass needs no redundant native environment observation.
+   * @evidence contracts/common.md#principled-implementation Current environments are batch-qualified after asynchronous work, and a persistent delivery's watched directories are rechecked after it; a qualified pass needs no redundant native environment observation.
    * @evidence contracts/common.md#clear-and-simple-design One constructor binds observations to their exact generation.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No current verdict is retained across deliveries or asynchronous boundaries.
    * @evidence contracts/common.md#meaningful-documentation Native prose identifies the mandatory ordering and synchronous lifetime.
    * @evidence contracts/portability.md#os-neutral-implementation Native observation remains with the environment witness owner and actual generation path identity.
-   * @evidence contracts/performance.md#efficient-algorithms Plugin selection is generation-indexed; one batch shares variable hashing and distinct SDK metadata queries.
-   * @evidence contracts/performance.md#reuse-equivalent-work Only the following synchronous validators borrow this batch; pass sharing uses its independent first-delivery contract.
+   * @evidence contracts/performance.md#efficient-algorithms Plugin selection is generation-indexed; one batch shares variable hashing and distinct SDK metadata queries, and location verification reads each watched directory once.
+   * @evidence contracts/performance.md#reuse-equivalent-work Only the following synchronous validators borrow this batch and the location identities; pass sharing uses its independent first-delivery contract.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The caller releases the transaction at the end of synchronous admission; no registry or native handle is acquired.
    */
   export function create(
@@ -104,6 +114,12 @@ export namespace TtscGenerationProof {
   ): Transaction {
     return {
       cached,
+      // A persistent delivery rechecks its watched directories here, after
+      // its last await, so a directory replaced while it prepared withdraws
+      // its tracker before admission reads it.
+      ...(epoch === undefined
+        ? { locations: verifyGenerationLocations(cached) }
+        : {}),
       ...(sharesPass(cached, file, epoch)
         ? {}
         : {

@@ -73,7 +73,7 @@ export function matchesCompleteInputSnapshot(
   if (
     hostValidation === undefined ||
     !matchesUniversalHostInputEntries(cached, hostValidation) ||
-    !matchesUniversalHostInputProbes(cached, hostValidation) ||
+    !matchesUniversalHostInputProbes(cached, hostValidation, proof) ||
     !matchesUniversalHostInputTrees(cached, hostValidation, proof)
   ) {
     return false;

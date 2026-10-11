@@ -49,7 +49,7 @@ export function matchesUniversalHostInputs(
     return matchesUniversalHostInputTrees(cached, validation, proof);
   return (
     matchesUniversalHostInputEntries(cached, validation) &&
-    matchesUniversalHostInputProbes(cached, validation) &&
+    matchesUniversalHostInputProbes(cached, validation, proof) &&
     matchesUniversalHostInputTrees(cached, validation, proof)
   );
 }
