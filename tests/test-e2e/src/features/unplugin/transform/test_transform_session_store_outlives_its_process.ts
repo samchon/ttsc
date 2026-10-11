@@ -1,5 +1,6 @@
 import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -293,11 +294,23 @@ async function exerciseSharedClaims(
   if (holder?.kind !== "compile") return;
   await holder.publish(publication);
   holder.release();
+  const adopted = await waiter;
   assert.deepEqual(
-    await waiter,
+    adopted?.kind === "adopt"
+      ? { kind: adopted.kind, publication: adopted.publication }
+      : adopted,
     { kind: "adopt", publication },
     "a waiter adopts the holder's publication",
   );
+  if (adopted?.kind === "adopt")
+    assert.equal(
+      adopted.fingerprint,
+      crypto
+        .createHash("sha256")
+        .update(fs.readFileSync(path.join(store, `${identity}-${state}.json`)))
+        .digest("hex"),
+      "the adoption names the digest of the publication bytes it read",
+    );
   assert.equal(fs.existsSync(lock), false, "the holder released its lock");
 
   const replacing = await claimSharedCompile(store, identity, state, {

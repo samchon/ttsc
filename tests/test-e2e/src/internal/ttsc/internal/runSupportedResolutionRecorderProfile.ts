@@ -7,18 +7,18 @@ import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 
 /**
  * Observes public-hook resolution and completeness in the same actual child.
- * The historical donor's inverse-capability wrapper expectation is superseded
- * by the maintained contract: no private replacement, and incomplete authority
- * when require.resolve cannot be observed through the public hook.
+ * The historical inverse-capability wrapper expectation is superseded by the
+ * maintained contract: no private replacement, and incomplete authority when
+ * require.resolve cannot be observed through the public hook.
  *
  * @evidence contracts/testing.md#behavioral-verification Runs maintained recorder.cjs in an actual Node child; observes successful present resolution, missing resolution refusal, private-slot identity and recorder completeness. A complete observation must retain the present hash and own missing null input.
  * @evidence contracts/testing.md#independent-expectations An independently installed public hook counts actual require.resolve calls before the recorder is installed and is deregistered in finally. Literal present bytes/missing candidate and unchanged private function identity establish the expectations. This is runtime hook behavior for the same root, not a general native classifier oracle.
  * @evidence contracts/testing.md#distinguishing-cases Same present/missing input pair is retained on both capability outcomes. Observed hook support requires complete hashes; unavailable support requires explicit incomplete authority, never false successful hash coverage or a private wrapper.
- * @evidence contracts/testing.md#execution-ownership Authored internal survivor profile for the approved runtime family, not currently registered or executed. The test-e2e family callback will invoke this operation after the legacy baseline; original donor remains selected until actual survivor evidence permits removal.
+ * @evidence contracts/testing.md#execution-ownership test_resolution_recorder_observes_require_resolve_through_the_supported_hooks calls this profile, and the scenarios batch runs that entry.
  * @evidence contracts/e2e.md#necessary-boundary Actual Node public hook dispatch and maintained recorder share a child/module process. A synthetic hook result or isolated recorder data unit cannot establish the runtime dispatch/completeness connection.
  * @evidence contracts/e2e.md#shared-execution One actual child observes independent public-hook dispatch and recorder behavior sequentially; the probe deregisters before recorder installation. No parent capability child, compiler build or consumer install is added here; family producer preparation is separate.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh tracked allocation contains original present bytes and absent later.js; it is retained before physical spelling. Synchronous result requires no error, no signal and status0, not arbitrary descendant join. Child termination owns its public-hook lifetime and private slots are never patched.
- * @evidence contracts/e2e.md#preserved-coverage Original present hash typeof string and missing own null hash are preserved whenever observation is complete. Present resolution and MODULE_NOT_FOUND remain independently asserted even when observation is incomplete. Private-slot nonreplacement supersedes only the unsupported inverse-capability historical premise; donor inputs/assertions remain intact until actual survivor proof. AUTHORED/UNEXECUTED, no runtime or registration certification.
+ * @evidence contracts/e2e.md#preserved-coverage Original present hash typeof string and missing own null hash are preserved whenever observation is complete. Present resolution and MODULE_NOT_FOUND remain independently asserted even when observation is incomplete. Private-slot nonreplacement supersedes only the unsupported inverse-capability historical premise.
  */
 export function runSupportedResolutionRecorderProfile(): void {
   const allocatedRoot = TestProject.tmpdir("ttsc-recorder-require-resolve-");

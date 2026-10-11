@@ -239,14 +239,31 @@ async function stopWaitingProcessTree(
     throw new AggregateError(failures, "waiting run cleanup failed");
 }
 
-/** Whether a process with `pid` is running. */
+/**
+ * Whether a process with `pid` is running.
+ *
+ * Signal 0 still reaches a zombie, which has ended and only awaits collection.
+ * On Linux the suite's native carrier is a child subreaper that collects its
+ * orphans only once its entry finishes, so a program orphaned and killed in
+ * mid-suite stays a zombie there; its `/proc` state tells the two apart.
+ */
 export function isRunning(pid: number): boolean {
   try {
     process.kill(pid, 0);
-    return true;
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === "EPERM";
   }
+  if (process.platform !== "linux") return true;
+  let stat: string;
+  try {
+    stat = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+  // The state follows the parenthesized command name, which may contain spaces.
+  const state = stat.charAt(stat.lastIndexOf(")") + 2);
+  return state !== "Z" && state !== "X";
 }
 
 /**

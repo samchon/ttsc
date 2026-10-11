@@ -20,7 +20,9 @@ import {
  * must reload the project before reporting remaining diagnostics.
  *
  * 1. Materialize a project with fixable native lint violations and a
- *    `lint.config.json` enabling the offending rules.
+ *    `lint.config.json` enabling the offending rules. The source is a module
+ *    (`export {}`): in a script, a top-level `var` is a property of the global
+ *    object, so `no-var` deliberately reports it without rewriting it.
  * 2. Run `ttsc fix` through the real launcher and source-plugin cache.
  * 3. Assert the source file is rewritten and no JavaScript output is emitted.
  *
@@ -47,7 +49,7 @@ export function test_plugin_corpus_ttsc_lint_fix_rewrites_source_before_final_ch
   assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
   assert.notEqual(
     fs.readFileSync(path.join(root, "src", "main.ts"), "utf8"),
-    'const legacy = 1;\nconst stable = legacy;\nif (typeof stable === "number") { JSON.stringify(stable); }\n',
+    'const legacy = 1;\nconst stable = legacy;\nif (typeof stable === "number") { JSON.stringify(stable); }\nexport {};\n',
   );
   const linkDir = path.join(root, "node_modules", "@ttsc");
   fs.mkdirSync(linkDir, { recursive: true });
@@ -71,7 +73,7 @@ export function test_plugin_corpus_ttsc_lint_fix_rewrites_source_before_final_ch
   assert.equal(result.status, 0, result.stderr);
   assert.equal(
     fs.readFileSync(path.join(root, "src", "main.ts"), "utf8"),
-    'const legacy = 1;\nconst stable = legacy;\nif (typeof stable === "number") { JSON.stringify(stable); }\n',
+    'const legacy = 1;\nconst stable = legacy;\nif (typeof stable === "number") { JSON.stringify(stable); }\nexport {};\n',
   );
   assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), false);
 }

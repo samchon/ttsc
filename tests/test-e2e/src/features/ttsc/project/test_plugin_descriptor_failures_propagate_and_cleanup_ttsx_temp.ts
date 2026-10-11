@@ -253,8 +253,12 @@ export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
           cwd: root,
           env: {
             ...fakeEnvironment(fakeTtsx, lspMarker, "nonzero"),
-            // Descriptor setup fails before the launcher can execute this binary.
-            TTSCSERVER_BINARY: TestProject.NATIVE_BINARY,
+            // The launcher asks this binary to resolve its launch options
+            // before descriptor setup fails, so it must be the real host.
+            TTSCSERVER_BINARY: path.join(
+              path.dirname(TestProject.NATIVE_BINARY),
+              process.platform === "win32" ? "ttscserver.exe" : "ttscserver",
+            ),
           },
         },
       );

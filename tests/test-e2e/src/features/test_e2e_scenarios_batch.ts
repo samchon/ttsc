@@ -1,3 +1,7 @@
+import os from "node:os";
+import path from "node:path";
+
+import { TestProject } from "../../../utils/src/TestProject";
 import { test_e2e_compiler_stub } from "./test_e2e_compiler_stub";
 import { test_e2e_evidence } from "./test_e2e_evidence";
 import { test_e2e_installation } from "./test_e2e_installation";
@@ -211,8 +215,17 @@ import { test_transform_session_store_outlives_its_process } from "./unplugin/tr
  * (`assertScenarioOwnership`) fails CI when a scenario file is owned by no
  * batch, so a new or moved scenario cannot silently stop running again.
  *
- * 1. Run each listed scenario in order, awaiting the asynchronous ones.
- * 2. Report each failure under its scenario name, and the elapsed time of each.
+ * The scenarios were written for a standalone project in the system temporary
+ * directory. The suite's own temporary parent lies inside the checkout, where
+ * the repository's `pnpm-workspace.yaml` becomes every fixture's workspace: the
+ * default ttsc cache then resolves to the repository's own `node_modules`, and
+ * `pnpm install` in a fixture installs the repository instead. So while they
+ * run, `TEMP`, `TMP` and `TMPDIR` name a private directory under the parent the
+ * run inherited, which must lie outside the checkout.
+ *
+ * 1. Allocate the private temporary parent outside the checkout.
+ * 2. Run each listed scenario in order, awaiting the asynchronous ones.
+ * 3. Report each failure under its scenario name, and the elapsed time of each.
  *
  * @evidence contracts/testing.md#behavioral-verification Each scenario keeps its own real launches and assertions; this batch only supplies execution.
  * @evidence contracts/testing.md#independent-expectations Expectations stay in the scenarios that own them.
@@ -220,19 +233,41 @@ import { test_transform_session_store_outlives_its_process } from "./unplugin/tr
  * @evidence contracts/testing.md#execution-ownership src/main.ts selects this batch, which owns exactly the listed scenarios; the ownership check proves no other scenario file is unowned.
  * @evidence contracts/e2e.md#necessary-boundary The scenarios were authored against real processes and installations; this entry adds no process of its own.
  * @evidence contracts/e2e.md#shared-execution The scenarios prepare private projects and share only the suite's Go object cache, as they did in their former package.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Scenarios run sequentially, so no two mutate shared state at once.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Scenarios run sequentially, so no two mutate shared state at once. Their temporary parent lies outside the checkout, as path.relative decides even across Windows volumes, so no fixture resolves the repository as its workspace or writes into the repository's own cache; the previous temporary variables are restored afterwards.
  * @evidence contracts/e2e.md#preserved-coverage Restores execution of every scenario #1603 left without a consumer.
  */
 export async function test_e2e_scenarios_batch(): Promise<void> {
+  const inherited = process.env.E2E_INHERITED_TMPDIR ?? os.tmpdir();
+  const relative = path.relative(TestProject.WORKSPACE_ROOT, inherited);
+  if (
+    !path.isAbsolute(relative) &&
+    relative !== ".." &&
+    !relative.startsWith(".." + path.sep)
+  )
+    throw new Error(
+      `The scenarios need a temporary parent outside the checkout: ${inherited}`,
+    );
+  const parent = TestProject.tmpdir("ttsc-e2e-scenarios-", inherited);
+  const names = ["TEMP", "TMP", "TMPDIR"] as const;
+  const previous = names.map((name) => process.env[name]);
+  for (const name of names) process.env[name] = parent;
   const failures: unknown[] = [];
-  for (const [name, run] of SCENARIOS) {
-    const started = Date.now();
-    try {
-      await run();
-    } catch (cause) {
-      failures.push(new Error(name, { cause }));
+  try {
+    for (const [name, run] of SCENARIOS) {
+      const started = Date.now();
+      try {
+        await run();
+      } catch (cause) {
+        failures.push(new Error(name, { cause }));
+      }
+      process.stdout.write(`scenario ${name}: ${Date.now() - started} ms\n`);
     }
-    process.stdout.write(`scenario ${name}: ${Date.now() - started} ms\n`);
+  } finally {
+    names.forEach((name, index) => {
+      const value = previous[index];
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    });
   }
   if (failures.length !== 0)
     throw new AggregateError(

@@ -38,8 +38,9 @@ const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 /**
  * Writes a fake `go` executable (Node.js script) into `root` and returns its
  * path. The script handles `go version`, `go env -json`, `go mod edit -json`,
- * and `go build`, verifying that expected copied source files are present
- * before writing a stub binary to the `-o` output path.
+ * the package-selection `go list -find -e -json`, and `go build`, verifying
+ * that expected copied source files are present before writing a stub binary to
+ * the `-o` output path.
  *
  * On Windows the wrapper is a `.cmd` batch file; on POSIX it is a shell script.
  * Pass `{ executable: false }` to produce a non-executable POSIX file, which
@@ -118,6 +119,22 @@ function createFakeGoBinary(
       // `go work use` sets the scratch workspace's `go` directive; a fake
       // toolchain has no version rule to apply, so it leaves the file as written.
       'if (args[0] === "work" && args[1] === "use") process.exit(0);',
+      // `go list -find -e -json=...` as package selection asks it: one JSON
+      // object per named directory, with its production Go files and the
+      // package clause of the first, or Go's error for a directory without one.
+      'if (args[0] === "list") {',
+      '  for (const entry of args.slice(1).filter((arg) => !arg.startsWith("-"))) {',
+      "    const dir = fs.realpathSync.native(path.resolve(process.cwd(), entry));",
+      '    const files = fs.readdirSync(dir).filter((name) => name.endsWith(".go") && !name.endsWith("_test.go")).sort();',
+      "    if (files.length === 0) {",
+      "      console.log(JSON.stringify({ Dir: dir, Error: { Err: `no Go files in ${dir}` } }));",
+      "      continue;",
+      "    }",
+      '    const clause = /^\\s*package\\s+(\\w+)/m.exec(fs.readFileSync(path.join(dir, files[0]), "utf8"));',
+      "    console.log(JSON.stringify({ Dir: dir, Name: clause ? clause[1] : undefined, GoFiles: files }));",
+      "  }",
+      "  process.exit(0);",
+      "}",
       'if (args[0] !== "build") {',
       '  console.error(`unexpected go command: ${args.join(" ")}`);',
       "  process.exit(1);",

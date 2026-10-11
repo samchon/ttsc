@@ -200,6 +200,11 @@ export const test_gobuildcache_prunes_lru_objects_outside_active_build_leases =
     fs.writeFileSync(externalFutureIntent, externalFutureContents, "utf8");
     const futureModified = new Date(now + 24 * 60 * 60 * 1000);
     fs.utimesSync(externalFutureIntent, futureModified, futureModified);
+    // Compare the stored nanoseconds: utimes takes seconds as a double, so
+    // mtimeMs can read back a fraction of a millisecond off the Date it set.
+    const externalFutureModified = fs.statSync(externalFutureIntent, {
+      bigint: true,
+    }).mtimeNs;
     const linkedFutureIntent = path.join(
       goCache,
       ".ttsc-maintenance",
@@ -280,8 +285,8 @@ export const test_gobuildcache_prunes_lru_objects_outside_active_build_leases =
       "coordination recovery rewrote an external hard-linked file",
     );
     assert.equal(
-      fs.statSync(externalFutureIntent).mtimeMs,
-      futureModified.getTime(),
+      fs.statSync(externalFutureIntent, { bigint: true }).mtimeNs,
+      externalFutureModified,
       "coordination recovery changed external hard-link metadata",
     );
 

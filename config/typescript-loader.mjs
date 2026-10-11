@@ -12,6 +12,7 @@
  * (samchon/ttsc#1574).
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import ts from "typescript";
@@ -32,6 +33,10 @@ export async function initializeTestEnvironment() {
     fileURLToPath(new URL("../tests/test-e2e/src/index.ts", import.meta.url)),
   );
   if (entry !== ordinaryEntry) return;
+  // The selection below points TEMP, TMP and TMPDIR into the checkout for every
+  // descendant. Scenarios that model a project outside any workspace allocate
+  // under the parent this run inherited instead (samchon/ttsc#1731).
+  process.env.E2E_INHERITED_TMPDIR ??= os.tmpdir();
   const { TestProject } = await import("../tests/utils/src/TestProject.ts");
   TestProject.configureTemporaryEnvironment();
 }

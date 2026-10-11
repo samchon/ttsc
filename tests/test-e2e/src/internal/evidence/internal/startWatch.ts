@@ -299,12 +299,12 @@ export const startWatch = (
             );
             return;
           }
+          // The launcher exits after this reply and its exit closes the channel.
+          // The parent must not disconnect first: Node counts the IPC channel
+          // among the closes that 'close' awaits, and only an end-of-file the
+          // parent reads from the child satisfies it, so a parent-side
+          // disconnect() leaves 'close' unemitted after the child has exited.
           acknowledgedStopStatus = message.status;
-          try {
-            if (child.connected) child.disconnect();
-          } catch (error) {
-            settle(false, error);
-          }
         };
         child.once("close", onClose);
         child.on("message", onMessage);

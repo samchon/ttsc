@@ -3,26 +3,27 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { EmitOwnershipIndex } from "../../../../../../packages/ttsc/src/compiler/internal/EmitOwnershipIndex";
-import { runBuild } from "../../../../../../packages/ttsc/src/compiler/internal/build/runBuild";
-import { runSingleFileEmit } from "../../../../../../packages/ttsc/src/compiler/internal/runSingleFileEmit";
+import { EmitOwnershipIndex } from "../../../../../../packages/ttsc/lib/compiler/internal/EmitOwnershipIndex.js";
+import { runBuild } from "../../../../../../packages/ttsc/lib/compiler/internal/build/runBuild.js";
+import { runSingleFileEmit } from "../../../../../../packages/ttsc/lib/compiler/internal/runSingleFileEmit.js";
 
 /**
- * Verifies source-internal emission and provenance on the caller's compiler
- * root.
+ * Verifies SDK-internal emission and provenance on the caller's compiler root.
  *
  * Five genuinely different JSX modes each emit the authored TypeScript and
  * JavaScript JSX sources together. Two positional emitter calls additionally
- * consume react-native ownership through the same source-internal SDK. This
- * child uses the source unit loader because the ordinary E2E loader cannot
- * initialize the SDK's CommonJS recorder path constants. It receives the
- * already tracked compiler workspace; it allocates no project or installation.
+ * consume react-native ownership through the same SDK internals. This child
+ * imports the built CommonJS modules under the ordinary E2E loader. Under the
+ * source unit loader, Node 22.15 resolved the authored sources' extensionless
+ * `require()` calls without the loader's hooks and failed (samchon/ttsc#1731).
+ * It receives the already tracked compiler workspace; it allocates no project
+ * or installation.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual source runBuild invokes the selected native producer. Each mode requires successful emission, the two literal writer suffixes and marker/layout text, actual emittedSources associations, and unique EmitOwnershipIndex lookup. The declaration input must have no JavaScript owner. Two actual runSingleFileEmit calls return the distinct react-native JSX markers and restore their private output lifetimes.
+ * @evidence contracts/testing.md#behavioral-verification Actual built runBuild invokes the selected native producer. Each mode requires successful emission, the two literal writer suffixes and marker/layout text, actual emittedSources associations, and unique EmitOwnershipIndex lookup. The declaration input must have no JavaScript owner. Two actual runSingleFileEmit calls return the distinct react-native JSX markers and restore their private output lifetimes.
  * @evidence contracts/testing.md#independent-expectations Authored JSX markers and mode semantics specify outputs before emission: preserve writes JSX suffixes; react-native retains JSX in JavaScript suffixes; react lowers createElement; automatic modes name their respective runtime modules. Exact expected source/output coordinates do not come from filename prediction or returned provenance. The declaration-only input independently has no JavaScript writer.
  * @evidence contracts/testing.md#distinguishing-cases Both tsx and jsx inputs coexist in every Program. Last JSX occurrence and response-file selection distinguish effective modes. React-native's retained JSX contrasts with preserve's suffix and react's lowering. A declaration has no owner; native ambiguity and full public CLI admission remain separate and are not certified here.
- * @evidence contracts/testing.md#execution-ownership One child calls this export through the source unit loader and runs five synchronous runBuild and two synchronous runSingleFileEmit operations. It collects every independently runnable case before throwing the aggregate. These seven owning emit operations do not claim seven underlying native processes or Programs; configuration and provenance observations also belong to the real producer path.
- * @evidence contracts/e2e.md#necessary-boundary Native-written JavaScript must connect through source BuildExecution and the source external-provenance adapter's emittedSources relation to actual ownership lookup and positional return. Portable enum and synthetic ledger units cannot establish this connection. This source-artifact boundary does not certify the installed launcher or installed Windows watch population.
+ * @evidence contracts/testing.md#execution-ownership One child calls this export through the ordinary E2E loader and runs five synchronous runBuild and two synchronous runSingleFileEmit operations. It collects every independently runnable case before throwing the aggregate. These seven owning emit operations do not claim seven underlying native processes or Programs; configuration and provenance observations also belong to the real producer path.
+ * @evidence contracts/e2e.md#necessary-boundary Native-written JavaScript must connect through the built BuildExecution and external-provenance adapter's emittedSources relation to actual ownership lookup and positional return. Portable enum and synthetic ledger units cannot establish this connection. This source-artifact boundary does not certify the installed launcher or installed Windows watch population.
  * @evidence contracts/e2e.md#shared-execution All modes and positional calls share the caller's canonical project and selected executable in one child. Different effective JSX modes genuinely change emitted syntax or suffix; both source languages share each producing invocation. Two positional calls cover the consumer operation for each source language rather than repeating all five modes through that operation. No contributor build or dependency installation is performed.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Static inputs live outside the baseline src include. lstat ENOENT alone establishes lexical absence, so dangling links cannot be acquired as missing inputs. Exclusive writes are recorded only after success; release checks regular-file identity and the authored bytes. Each mode receives an empty owned regular output directory; cleanup refuses replaced links. Exact config bytes are restored and only successfully staged inputs/output directories are removed in finally. Configured noEmit, declaration, maps and incremental products are explicitly disabled for this provenance phase. Actual synchronous operations finish before cleanup; SDK positional temporary directories remain the SDK's responsibility.
  * @evidence contracts/e2e.md#preserved-coverage The five-mode two-language producer matrix and react-native positional connection add real source-artifact evidence. The source unit owns enum/probe admission cases. Installed watch failures, public CLI forwarding, native alias ambiguity, outside-fileset diagnostics and POSIX transport stay with their original owners until independently verified; this helper does not remove or weaken them.
