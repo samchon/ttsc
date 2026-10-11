@@ -37,6 +37,12 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * supported upstream naming subset; this adapter does not certify arbitrary
  * compiler behavior.
  *
+ * A foreign compiler host that cannot report its writes, a plugin library's own
+ * executable built before ttsc required provenance, is observed instead: the
+ * selected tsgo answers the same read-only probes, the host runs unchanged, and
+ * its writes are the predicted outputs whose metadata moved across the run.
+ * Requiring provenance must never reject such a host outright.
+ *
  * Normally reported ownerless outputs carry their actual failed proof boundary
  * in emittedSourceProofFailures. These explanations preserve compiler streams
  * and status; they do not replace missing ownership with a successful claim.
@@ -64,6 +70,16 @@ export function runExternalEmitProvenance(options: {
   env: NodeJS.ProcessEnv;
 
   /**
+   * How the emitting command's writes are known. `reported` (the default) reads
+   * the producer's own `TSFILE:` rows. `observed` serves a foreign compiler
+   * host that cannot report them, a plugin library's own executable such as
+   * typia's: `binary` and `args` then only drive the read-only probes, the
+   * callback runs that host unchanged, and a write is a predicted output whose
+   * metadata moved across the run.
+   */
+  writes?: "reported" | "observed";
+
+  /**
    * Execute the single emitting command, preserving raw output and whether the
    * child exited normally rather than being killed during reporting.
    */
@@ -79,15 +95,22 @@ export function runExternalEmitProvenance(options: {
   const probe = prepareProbe(options, (reason) => {
     refusal = reason;
   });
+  const observed = options.writes === "observed";
+  const outputsBefore =
+    observed && probe !== undefined
+      ? observePredictedOutputs(probe)
+      : undefined;
   const { result, completedNormally } = options.run(
-    probe === undefined
+    probe === undefined || observed
       ? options.args
       : [...options.args, "--listFiles", "true", "--listEmittedFiles", "true"],
   );
   const lines = result.stdout.split(/\r?\n/);
   const sourceLines = new Set(probe?.files);
   const stdout =
-    probe === undefined || probe.config.compilerOptions.listFiles === true
+    probe === undefined ||
+    observed ||
+    probe.config.compilerOptions.listFiles === true
       ? result.stdout
       : result.stdout
           .split(/(?<=\n)/)
@@ -100,7 +123,12 @@ export function runExternalEmitProvenance(options: {
       emittedSourceProofFailures: undefined,
       stdout,
     };
-  const written = writtenJavaScript(result.stdout, options.cwd);
+  const written =
+    outputsBefore !== undefined
+      ? movedOutputs(outputsBefore)
+      : observed
+        ? []
+        : writtenJavaScript(result.stdout, options.cwd);
   const emittedSources: Record<string, readonly string[]> = Object.create(null);
   const emittedSourceProofFailures: Record<string, string> =
     Object.create(null);
@@ -115,7 +143,11 @@ export function runExternalEmitProvenance(options: {
     };
   }
 
-  const listed = compilerSourceList(lines, options.cwd);
+  // An observed host lists nothing; it compiles the same selected tsconfig, and
+  // the source observations below still prove that selection held still.
+  const listed = observed
+    ? probe.files
+    : compilerSourceList(lines, options.cwd);
   const sameSelection = JSON.stringify(listed) === JSON.stringify(probe.files);
 
   let stable = sameSelection;
@@ -552,6 +584,54 @@ function createOutputPrediction(
       ? [output]
       : [...new Set([adjacent, output])];
   };
+}
+
+/**
+ * Every output the selected sources predict, with its metadata before an
+ * observed host runs.
+ */
+function observePredictedOutputs(probe: {
+  base: string;
+  config: { compilerOptions: Record<string, unknown> };
+  files: readonly string[];
+}): Map<string, string> {
+  const predict = createOutputPrediction(probe.config, probe.base);
+  const outputs = new Map<string, string>();
+  for (const source of probe.files)
+    for (const output of predict(source))
+      outputs.set(output, outputObservation(output));
+  return outputs;
+}
+
+/**
+ * The predicted outputs an observed host wrote: present now, with metadata
+ * other than before. A rewrite inside one clock tick at the same size and inode
+ * stays invisible, which is why a host that can report its writes must declare
+ * `emitProvenance` instead.
+ */
+function movedOutputs(before: ReadonlyMap<string, string>): string[] {
+  const written: string[] = [];
+  for (const [output, observation] of before) {
+    const after = outputObservation(output);
+    if (after !== "missing" && after !== observation) written.push(output);
+  }
+  return written;
+}
+
+/** Device, inode, size and both clocks of one output, or `missing`. */
+function outputObservation(file: string): string {
+  try {
+    const stats = fs.lstatSync(file, { bigint: true });
+    return [
+      stats.dev,
+      stats.ino,
+      stats.size,
+      stats.mtimeNs,
+      stats.ctimeNs,
+    ].join(":");
+  } catch {
+    return "missing";
+  }
 }
 
 /** The writer's TSFILE report, rather than existing files, establishes writes. */

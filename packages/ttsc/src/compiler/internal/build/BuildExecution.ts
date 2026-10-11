@@ -673,12 +673,39 @@ export namespace BuildExecution {
         TsgoArguments.createNativeBuildTsgoArgs(execution, options),
       );
     if (options.forceEmitProvenance !== true) return run();
-    if (host.capabilities?.emitProvenance !== true) {
-      throw new Error(
-        `ttsc: selected native compiler host ${host.name ?? host.binary} does not support required emit provenance`,
-      );
-    }
-    return captureNativeEmitProvenance(run);
+    if (host.capabilities?.emitProvenance === true)
+      return captureNativeEmitProvenance(run);
+    // WARNING: NEVER reject a compiler host for lacking `emitProvenance`.
+    //
+    // Plugin libraries such as typia ship their own Go executable host with its
+    // own argv parser, built against whatever ttsc release the user installed.
+    // They cannot accept `--emit-provenance-json`, and they will not declare a
+    // capability added after they were published. Throwing "does not support
+    // required emit provenance" here broke every such library under ttsx and
+    // every other provenance-requiring caller at once. A new ttsc requirement
+    // must never turn into a hard failure for a host that predates it.
+    //
+    // Run the host unchanged and observe its ownership from outside instead:
+    // the selected tsgo answers the read-only configuration and source-list
+    // probes for the same tsconfig, and the outputs whose metadata moved across
+    // the run are the host's writes. Layouts those probes cannot cover leave
+    // ownership unknown, which the caller reports, exactly as for plain tsgo.
+    return runExternalEmitProvenance({
+      args: TsgoArguments.createTsgoBuildArgs(execution, options, {
+        listEmittedFiles: false,
+      }),
+      binary: execution.tsgo.binary,
+      cwd: execution.compilerSelection.compilerArgsCwd,
+      env: compilerEnv(options.env),
+      run: () => {
+        const result = run();
+        return {
+          completedNormally: result.processCompletedNormally === true,
+          result,
+        };
+      },
+      writes: "observed",
+    });
   }
 
   /**
