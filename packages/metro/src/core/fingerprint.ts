@@ -1415,14 +1415,31 @@ function reapDeadSnapshotCompactionLock(lock: string): void {
   }
 }
 
-/** Treat every process-query failure except a definite missing PID as live. */
+/**
+ * Treat every process-query failure except a definite missing PID as live.
+ *
+ * Signal zero still reaches a Linux zombie, a process that exited and only
+ * waits for its parent to collect it; a parent that never collects, such as a
+ * container's PID 1 that is not an init, keeps it indefinitely. Its `/proc`
+ * state marks it dead, and it keeps its id until collected, so a live process
+ * is never mistaken for it.
+ */
 function processIsAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
-    return true;
   } catch (error) {
     return (error as NodeJS.ErrnoException).code !== "ESRCH";
   }
+  if (process.platform !== "linux") return true;
+  let stat: string;
+  try {
+    stat = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
+  } catch {
+    return true;
+  }
+  // The state follows the parenthesized command name, which may contain spaces.
+  const state = stat.charAt(stat.lastIndexOf(")") + 2);
+  return state !== "Z" && state !== "X";
 }
 
 /**

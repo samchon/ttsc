@@ -1,19 +1,20 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { isZombieProcess } from "../../utils/isZombieProcess";
 import { WATCH_PROBE_DIRECTORY_PREFIX } from "./WATCH_PROBE_DIRECTORY_PREFIX";
 
 /**
  * Attempt removal of recognized probe-name entries below `parent` when their
- * named process reports ESRCH.
+ * named process reports ESRCH or has exited uncollected.
  *
  * A process removes its own probe directory when it exits, but a killed process
  * may not. Only a namespace entry named with a process id that the operating
- * system reports as gone (`ESRCH`) is removed: a live owner, one this process
- * may not signal, and a name without an id are left alone. Names follow the
- * adapter's probe convention; this scan does not separately stat entry kind or
- * prove filesystem ownership, and liveness/deletion are not one atomic
- * operation.
+ * system reports as gone (`ESRCH`), or as a zombie its parent never collected,
+ * is removed: a live owner, one this process may not signal, and a name without
+ * an id are left alone. Names follow the adapter's probe convention; this scan
+ * does not separately stat entry kind or prove filesystem ownership, and
+ * liveness/deletion are not one atomic operation.
  *
  * @param parent The tool cache the broker is about to name its own probe
  *   directory in.
@@ -64,7 +65,7 @@ export function sweepAbandonedWatchProbes(parent: string): void {
     }
     try {
       process.kill(owner, 0);
-      continue;
+      if (!isZombieProcess(owner)) continue;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ESRCH") continue;
     }

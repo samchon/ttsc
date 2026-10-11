@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { isZombieProcess } from "../utils/isZombieProcess";
 import type { TtscSharedCompileClaim } from "./TtscSharedCompileClaim";
 import type { TtscSharedCompilePublication } from "./TtscSharedCompilePublication";
 
@@ -294,15 +295,16 @@ function owns(lock: string, token: string): boolean {
 }
 
 /**
- * Whether no process with this id exists on this machine, which the store's
- * locks and partial writes name their writer by. An id that is not a positive
- * integer names nothing this can tell, and counts as alive.
+ * Whether no process with this id runs on this machine, which the store's locks
+ * and partial writes name their writer by. An id that is not a positive integer
+ * names nothing this can tell, and counts as alive. An exited process its
+ * parent never collected is gone too.
  */
 function processGone(pid: number): boolean {
   if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
     process.kill(pid, 0);
-    return false;
+    return isZombieProcess(pid);
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === "ESRCH";
   }

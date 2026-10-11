@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { probeLocalProcess } from "../../../internal/probeLocalProcess";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 
 /**
@@ -177,15 +178,16 @@ export namespace PluginBuildLockOwner {
    * process with its id exists. A holder on another host, or one whose id is
    * alive (possibly reused), is not proven gone.
    *
-   * Only ESRCH proves absence. Permission errors, invalid probe arguments and
-   * other failures remain inconclusive and must not authorize reclamation.
+   * Only ESRCH, or a Linux zombie that exited but was never collected, proves
+   * absence. Permission errors, invalid probe arguments and other failures
+   * remain inconclusive and must not authorize reclamation.
    *
-   * @evidence contracts/common.md#principled-implementation Signal zero checks existence without terminating the process; same-host ESRCH establishes absence, while success or any other error does not.
-   * @evidence contracts/common.md#clear-and-simple-design Host comparison and one native probe express the proof boundary directly, without a second process-discovery mechanism.
+   * @evidence contracts/common.md#principled-implementation probeLocalProcess checks existence without terminating the process; same-host ESRCH or an uncollected zombie establishes absence, while presence or any other error does not.
+   * @evidence contracts/common.md#clear-and-simple-design Host comparison and the shared probe express the proof boundary directly, without a second process-discovery mechanism.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unexpected probe failures are not converted to a dead-owner special case or hidden behind retries.
-   * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish PID reuse, remote owners and each inconclusive failure class before the tags.
-   * @evidence contracts/portability.md#os-neutral-implementation os.hostname and Node's platform-independent signal-zero probe preserve native host scope; only the explicit no-such-process code authorizes absence.
-   * @evidence contracts/performance.md#efficient-algorithms A hostname comparison and one process-existence syscall avoid enumerating native processes; string comparison costs grow only with hostname length.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish PID reuse, remote owners, uncollected zombies and each inconclusive failure class before the tags.
+   * @evidence contracts/portability.md#os-neutral-implementation os.hostname and Node's platform-independent signal-zero probe preserve native host scope; only the explicit no-such-process code, or Linux's own zombie state, authorizes absence.
+   * @evidence contracts/performance.md#efficient-algorithms A hostname comparison and one process-existence syscall, plus one /proc read on Linux, avoid enumerating native processes; string comparison costs grow only with hostname length.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Liveness is a time-sensitive observation; a previously absent or present PID cannot be cached as proof for a later reclamation.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The query owns no retained handle or running task and returns only its immediate proof decision.
@@ -193,12 +195,7 @@ export namespace PluginBuildLockOwner {
   export function gone(owner: IRecord): boolean {
     if (owner.hostname.toLowerCase() !== os.hostname().toLowerCase())
       return false;
-    try {
-      process.kill(owner.pid, 0);
-      return false;
-    } catch (error) {
-      return (error as NodeJS.ErrnoException).code === "ESRCH";
-    }
+    return probeLocalProcess(owner.pid).result === "absent";
   }
 
   /**

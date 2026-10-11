@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { userStateDirectory } from "../filesystem/userStateDirectory";
+import { isZombieProcess } from "../utils/isZombieProcess";
 import { TTSC_TRANSFORM_SESSION_ENV } from "./TTSC_TRANSFORM_SESSION_ENV";
 import { readTtscTransformSession } from "./readTtscTransformSession";
 
@@ -48,7 +49,7 @@ import { readTtscTransformSession } from "./readTtscTransformSession";
  * @evidence contracts/common.md#clear-and-simple-design New directory ownership stays in userStateDirectory, claiming in claimSharedCompile and adoption proof in generation capture; this operation declares the address and reclaims recognized legacy children.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional store failure leaves real local compilation in place, rather than reusing unproven output or suppressing compiler failure.
  * @evidence contracts/common.md#meaningful-documentation The prose explains worker inheritance, persistent versus obsolete process storage, and why sharing failures return undefined.
- * @evidence contracts/portability.md#os-neutral-implementation Native joins and user-state capability checks provide new storage; inherited addresses receive only current directory checks. process.kill(pid, 0) treats success and EPERM as live, other failures as not live; this classification is not a general proof of death under every process-probe failure.
+ * @evidence contracts/portability.md#os-neutral-implementation Native joins and user-state capability checks provide new storage; inherited addresses receive only current directory checks. process.kill(pid, 0) treats success and EPERM as live, other failures as not live, and a success naming a Linux zombie as not live; this classification is not a general proof of death under every process-probe failure.
  * @evidence contracts/performance.md#efficient-algorithms An inherited path performs native path/stat work and avoids the root scan. Cold opening materializes N child names, matches their text and probes recognized PIDs, with provider realpath/create/stat work and recursive deletion of selected subtrees. Cost depends on name bytes, removed descendants and native operations, not just N; persistent shared-store contents are not scanned here.
  * @evidence contracts/performance.md#reuse-equivalent-work Parent and worker processes retain the inherited store capability, while compile identity, state proof and publication reuse remain with the claim/adoption owners.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Recognized clock and legacy children classified not live are recursively reclaimed. Inherited, live and unrecognized children bypass reclamation; a failed removal aborts opening, so no count or byte bound is enforced here. The environment retains the current address; claimSharedCompile owns best-effort publication pruning. Synchronous operations leave no open handle.
@@ -84,11 +85,14 @@ export function openTtscTransformSession(): string | undefined {
 /** The store's name below the per-user root, which names no process. */
 const SHARED_STORE = "shared";
 
-/** Whether a process with this id exists, as far as this process can tell. */
+/**
+ * Whether a process with this id runs, as far as this process can tell. An
+ * exited process its parent never collected does not.
+ */
 function processAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
-    return true;
+    return !isZombieProcess(pid);
   } catch (error) {
     // EPERM: it exists and belongs to another user.
     return (error as NodeJS.ErrnoException).code === "EPERM";

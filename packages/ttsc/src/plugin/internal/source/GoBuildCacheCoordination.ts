@@ -322,6 +322,9 @@ export namespace GoBuildCacheCoordination {
     // the child process required for `go build`. The fallback inherits only the
     // low standard descriptors and checks its parent PID. An IPC channel would
     // allocate another high descriptor and recreate Darwin's spawn EBADF limit.
+    // A dead parent that nobody collects stays a zombie and still answers
+    // signal zero, but POSIX reparents the heartbeat when its parent exits, so
+    // a changed parent id ends it as well; Windows never reparents.
     const ready = `${file}.heartbeat-${crypto.randomBytes(16).toString("hex")}`;
     let heartbeatChild: ReturnType<typeof spawn> | undefined;
     try {
@@ -334,7 +337,7 @@ export namespace GoBuildCacheCoordination {
           "const parent = Number(process.argv[3]);",
           "const ready = process.argv[4];",
           "const timer = setInterval(() => {",
-          "  try { process.kill(parent, 0); } catch { clearInterval(timer); process.exit(0); }",
+          "  try { if (process.ppid !== parent) throw 0; process.kill(parent, 0); } catch { clearInterval(timer); process.exit(0); }",
           "  try {",
           '    if (JSON.parse(fs.readFileSync(file, "utf8")).status === "complete") {',
           "      clearInterval(timer); process.exit(0);",
