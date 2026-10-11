@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <rect width="1080" height="1080" fill="#ffffff"/>
+  
+  <g>
+    <text x="40" y="84" font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif" font-size="56"
+          font-weight="bold" fill="#E5322B">나쁜 답변</text>
+    <text x="556" y="128" font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif"
+               font-size="31" fill="#E5322B">- 파일 수만큼 똑같이 반복함</text><text x="556" y="200" font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif"
+               font-size="31" fill="#E5322B">- 지루하고 잔소리 같음</text><text x="556" y="272" font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif"
+               font-size="31" fill="#E5322B">- 조용히 있으면 안 걸림</text><text x="556" y="344" font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif"
+               font-size="31" fill="#E5322B">- 논쟁 발생 가능성 100%</text><text x="556" y="416" font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif"
+               font-size="31" fill="#E5322B">- 밀리면 그 규칙은 없어짐</text>
+    
+  <g>
+    <rect x="34" y="104" width="262" height="140" rx="20"
+          fill="#fff" stroke="#111111" stroke-width="5"/>
+    <path d="M 96 244 l 12 34 l 30 -34 z"
+          fill="#fff" stroke="#111111" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M 100 241 l 34 0" stroke="#fff" stroke-width="8"/>
+    <text font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif" font-size="25" fill="#111111"
+          text-anchor="middle"><tspan x="165" y="164">규칙 다 지켰습니다</tspan><tspan x="165" y="201">(문서는 안 봄)</tspan></text>
+  </g>
+    
+  <g>
+    <rect x="316" y="126" width="212" height="124" rx="20"
+          fill="#fff" stroke="#111111" stroke-width="5"/>
+    <path d="M 386 250 l 12 34 l 30 -34 z"
+          fill="#fff" stroke="#111111" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M 390 247 l 34 0" stroke="#fff" stroke-width="8"/>
+    <text font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif" font-size="27" fill="#111111"
+          text-anchor="middle"><tspan x="422" y="177.68">*규칙 다시</tspan><tspan x="422" y="216.68">읽어주는 중*</tspan></text>
+  </g>
+    
+  <g stroke="#111111" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="150" y1="334" x2="150" y2="312"/>
+    <circle cx="150" cy="304" r="8" fill="#111111"/>
+    <rect x="90" y="334" width="120" height="92" rx="16" fill="#fff"/>
+    <circle cx="127" cy="370" r="9" fill="#111111" stroke="none"/>
+    <circle cx="173" cy="370" r="9" fill="#111111" stroke="none"/>
+    <path d="M 128 398 q 22 16 44 0"/>
+    <rect x="102" y="432" width="96" height="64" rx="12" fill="#fff"/>
+    <path d="M 102 448 l -32 24"/>
+    <path d="M 198 448 l 32 24"/>
+    <line x1="128" y1="496" x2="128" y2="524"/>
+    <line x1="172" y1="496" x2="172" y2="524"/>
+  </g>
+    
+  <g stroke="#111111" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="415" cy="346" r="50" fill="#fff"/>
+    <circle cx="397" cy="336" r="7" fill="#111111" stroke="none"/>
+    <circle cx="433" cy="336" r="7" fill="#111111" stroke="none"/>
+    <path d="M 395 372 q 20 -14 40 0"/>
+    <path d="M 415 396 l 0 74"/>
+    <path d="M 415 412 l -46 -34"/>
+    <path d="M 415 412 l 46 -34"/>
+    <path d="M 415 470 l -30 54"/>
+    <path d="M 415 470 l 30 54"/>
+  </g>
+  </g>
+  <line x1="0" y1="540" x2="1080" y2="540" stroke="#111111" stroke-width="6"/>
+  
+  <g>
+    <text x="40" y="632" font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif" font-size="56"
+          font-weight="bold" fill="#1BA34C">좋은 답변</text>
+    <text x="556" y="676" font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif"
+               font-size="31" fill="#1BA34C">- 금방 끝남</text><text x="556" y="748" font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif"
+               font-size="31" fill="#1BA34C">- 파일마다 따로 물어봄</text><text x="556" y="820" font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif"
+               font-size="31" fill="#1BA34C">- 조용히 있으면 전부 걸림</text><text x="556" y="892" font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif"
+               font-size="31" fill="#1BA34C">- 팩트임 (컴파일러)</text><text x="556" y="964" font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif"
+               font-size="31" fill="#1BA34C">- 논쟁에서 밀릴 확률 0에 수렴함</text>
+    
+  <g>
+    <rect x="34" y="652" width="262" height="140" rx="20"
+          fill="#fff" stroke="#111111" stroke-width="5"/>
+    <path d="M 96 792 l 12 34 l 30 -34 z"
+          fill="#fff" stroke="#111111" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M 100 789 l 34 0" stroke="#fff" stroke-width="8"/>
+    <text font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif" font-size="25" fill="#111111"
+          text-anchor="middle"><tspan x="165" y="712">규칙 다 지켰습니다</tspan><tspan x="165" y="749">(문서는 안 봄)</tspan></text>
+  </g>
+    
+  <g>
+    <rect x="316" y="674" width="212" height="124" rx="20"
+          fill="#fff" stroke="#111111" stroke-width="5"/>
+    <path d="M 386 798 l 12 34 l 30 -34 z"
+          fill="#fff" stroke="#111111" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M 390 795 l 34 0" stroke="#fff" stroke-width="8"/>
+    <text font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif" font-size="32" fill="#111111"
+          text-anchor="middle" font-weight="bold"><tspan x="422" y="746.88">그럼 죽어</tspan></text>
+  </g>
+    
+  <g stroke="#111111" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="150" y1="882" x2="150" y2="860"/>
+    <circle cx="150" cy="852" r="8" fill="#111111"/>
+    <rect x="90" y="882" width="120" height="92" rx="16" fill="#fff"/>
+    <circle cx="127" cy="918" r="9" fill="#111111" stroke="none"/>
+    <circle cx="173" cy="918" r="9" fill="#111111" stroke="none"/>
+    <path d="M 128 946 q 22 16 44 0"/>
+    <rect x="102" y="980" width="96" height="64" rx="12" fill="#fff"/>
+    <path d="M 102 996 l -32 24"/>
+    <path d="M 198 996 l 32 24"/>
+    <line x1="128" y1="1044" x2="128" y2="1072"/>
+    <line x1="172" y1="1044" x2="172" y2="1072"/>
+  </g>
+    
+  <g stroke="#111111" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="323" y="858" width="184" height="140" rx="14" fill="#fff"/>
+    <line x1="323" y1="896" x2="507" y2="896"/>
+    <circle cx="345" cy="877" r="7" fill="#111111" stroke="none"/>
+    <circle cx="369" cy="877" r="7" fill="#111111" stroke="none"/>
+    <circle cx="393" cy="877" r="7" fill="#111111" stroke="none"/>
+    <text x="349" y="954" font-family="Consolas, monospace" font-size="46"
+          font-weight="bold" fill="#E5322B" stroke="none">&gt; _</text>
+    <path d="M 355 998 l 0 30 l 120 0 l 0 -30"/>
+    <path d="M 319 1028 l 192 0" stroke-width="6"/>
+    <line x1="371" y1="1028" x2="371" y2="1072"/>
+    <line x1="459" y1="1028" x2="459" y2="1072"/>
+  </g>
+  </g>
+  <text x="1046" y="1054" font-family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, Noto Sans KR, sans-serif" font-size="25"
+        fill="#8b93a1" text-anchor="end">evidence graph</text>
+</svg>
