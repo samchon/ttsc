@@ -53,6 +53,9 @@ export namespace ProcessOwnedDirectory {
 
     /** Native code already caught by the operation, if it supplied one. */
     errorCode?: string;
+
+    /** The Linux /proc state that proved an exited owner absent. */
+    state?: string;
   }
 
   /**
@@ -192,12 +195,13 @@ export namespace ProcessOwnedDirectory {
           owner,
           observe === undefined
             ? undefined
-            : (result, errorCode) =>
+            : (result, errorCode, state) =>
                 report(observe, {
                   record: name,
                   owner,
                   result,
                   ...(errorCode === undefined ? {} : { errorCode }),
+                  ...(state === undefined ? {} : { state }),
                 }),
         )
       )

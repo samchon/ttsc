@@ -12,7 +12,9 @@ import fs from "node:fs";
  * indefinitely, so its `/proc` status reports it absent too. A leader whose own
  * thread exited also reads as a zombie while its other threads run, so the
  * zombie must be the process's last thread. Its id cannot be reused while the
- * zombie holds it, so this never names a live process absent.
+ * zombie holds it, so this never names a live process absent. An absent answer
+ * carries its evidence: ESRCH, the /proc read's code when collection raced it,
+ * or the zombie's state, so a diagnostic reader can check which one held.
  *
  * @evidence contracts/common.md#principled-implementation ESRCH, or a Linux /proc status of zombie or dead with no other thread, proves the process exited; success with any other status is presence, and every other failure stays unknown.
  * @evidence contracts/common.md#clear-and-simple-design One probe gives the ttsx run, dependency-lock and plugin-lock owners the same exit decision.
@@ -26,6 +28,9 @@ import fs from "node:fs";
 export function probeLocalProcess(pid: number): {
   result: "present" | "absent" | "unknown";
   errorCode?: string;
+
+  /** The Linux /proc state that proved an exited process absent. */
+  state?: string;
 } {
   try {
     process.kill(pid, 0);
@@ -40,17 +45,17 @@ export function probeLocalProcess(pid: number): {
   } catch (error) {
     const code = (error as NodeJS.ErrnoException | null)?.code;
     // The process was collected between the probe and the read.
-    if (code === "ENOENT" || code === "ESRCH") return { result: "absent" };
+    if (code === "ENOENT" || code === "ESRCH")
+      return { result: "absent", errorCode: code };
     return { result: "unknown", errorCode: code };
   }
   // A leader whose own thread exited reads as a zombie while its other threads
   // still run; only a zombie that is the process's last thread has exited.
   const state = /^State:\s*(\S)/m.exec(status)?.[1];
   const threads = /^Threads:\s*(\d+)/m.exec(status)?.[1];
-  return {
-    result:
-      (state === "Z" || state === "X") && threads === "1"
-        ? "absent"
-        : "present",
-  };
+  // The state travels with an absent answer: signal zero succeeded, so it is the
+  // only evidence of the exit a diagnostic reader can check.
+  return (state === "Z" || state === "X") && threads === "1"
+    ? { result: "absent", state }
+    : { result: "present" };
 }

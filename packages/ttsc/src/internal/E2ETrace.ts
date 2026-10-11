@@ -62,6 +62,7 @@ export namespace E2ETrace {
           owner?: { hostname: string; pid: number };
           result: string;
           errorCode?: string;
+          state?: string;
         },
       ) => void)
     | undefined {
@@ -86,6 +87,7 @@ export namespace E2ETrace {
           owner?: { hostname: string; pid: number };
           result: string;
           errorCode?: string;
+          state?: string;
         },
       ): void => {
         try {

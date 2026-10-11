@@ -40,14 +40,16 @@ export function isLocalProcessGone(
   observe?: (
     result: "remote" | "present" | "absent" | "unknown",
     errorCode?: string,
+    state?: string,
   ) => void,
 ): boolean {
   const report = (
     result: "remote" | "present" | "absent" | "unknown",
     errorCode?: string,
+    state?: string,
   ): void => {
     try {
-      observe?.(result, errorCode);
+      observe?.(result, errorCode, state);
     } catch {
       // Diagnostics own no policy.
     }
@@ -56,7 +58,7 @@ export function isLocalProcessGone(
     report("remote");
     return false;
   }
-  const { result, errorCode } = probeLocalProcess(owner.pid);
-  report(result, errorCode);
+  const { result, errorCode, state } = probeLocalProcess(owner.pid);
+  report(result, errorCode, state);
   return result === "absent";
 }

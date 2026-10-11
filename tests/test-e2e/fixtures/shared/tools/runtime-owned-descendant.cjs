@@ -219,7 +219,8 @@ module.exports = async function observeOwnedDescendant() {
       assert.equal(seen.has(observation.record), false);
       seen.add(observation.record);
       assert.deepEqual(observation.owner, expected.owner);
-      if (observation.result === "absent") assert.equal(observation.errorCode, "ESRCH");
+      // ESRCH, a Linux /proc read the collection raced (ENOENT), or a last-thread zombie (/proc state Z or X).
+      if (observation.result === "absent") assert.ok(observation.errorCode === "ESRCH" || (observation.errorCode === "ENOENT" && process.platform === "linux") || (observation.errorCode === undefined && (observation.state === "Z" || observation.state === "X")), JSON.stringify(observation));
       else if (observation.result === "present") {
         assert.equal(observation.errorCode, undefined);
         protectedOwner = true;
