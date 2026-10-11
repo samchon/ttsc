@@ -12,6 +12,7 @@ import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITt
 import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOptions";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonOptions";
+import type { TtscPluginSourceInputsHandler } from "../../../structures/internal/TtscSingleFileEmitOptions";
 import { outputText } from "../outputText";
 import { readProjectConfig } from "../project/readProjectConfig";
 import { CompilerProjectSelection } from "../project/CompilerProjectSelection";
@@ -1190,7 +1191,7 @@ export namespace BuildExecution {
   export function resolveExecutionContext(
     options: TtscCommonOptions & {
       emit?: boolean;
-      onWatchInputs?: (inputs: readonly string[]) => void;
+      onWatchInputs?: TtscPluginSourceInputsHandler;
       resolvedProject?: ITtscParsedProjectConfig;
       tsconfig?: string;
     },

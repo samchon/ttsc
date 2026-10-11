@@ -19,6 +19,7 @@ import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity
 import { isFilesystemPathIdentityWithin } from "../../internal/pathIdentity/isFilesystemPathIdentityWithin";
 import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysicalPath";
 import { resolveSafeCacheCleanupTargets } from "../../internal/resolveSafeCacheCleanupTargets";
+import type { PluginContentIdentities } from "../../plugin/internal/source/PluginContentIdentities";
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { legacyGlobalCacheTargets } from "../../plugin/internal/source/legacyGlobalCacheTargets";
 import { resolveCleanTargets } from "../../plugin/internal/source/resolveCleanTargets";
@@ -634,8 +635,11 @@ function runWatch(
   const invocation = {
     ...(checkOnly ? { ...options, emit: false } : options),
     cwd,
-    onWatchInputs: (inputs: readonly string[]) => {
-      topology?.setExtraInputs(inputs);
+    onWatchInputs: (
+      inputs: readonly string[],
+      identities?: PluginContentIdentities.Store,
+    ) => {
+      topology?.setExtraInputs(inputs, identities);
     },
     onProjectInputs: (inputs: ITtscProjectInputSnapshot) => {
       topology?.setProjectInputs(inputs);

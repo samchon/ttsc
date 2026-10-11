@@ -14,9 +14,9 @@ import { type ProjectInputPathIdentityContext } from "../../../internal/pathIden
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import { isProjectInputPathIdentityWithin } from "../../../internal/pathIdentity/isProjectInputPathIdentityWithin";
 import { resolveProjectInputPath } from "../../../internal/pathIdentity/resolveProjectInputPath";
+import { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
 import { collectPluginSourceDirectories } from "../../../plugin/internal/source/collectPluginSourceDirectories";
 import { pluginSourceCovers } from "../../../plugin/internal/source/pluginSourceCovers";
-import { pluginSourceDigest } from "../../../plugin/internal/source/pluginSourceDigest";
 import { prunesPluginSourceDirectory } from "../../../plugin/internal/source/prunesPluginSourceDirectory";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
@@ -83,6 +83,13 @@ export class WatchTopology {
    * whose state did not move is not a plugin change.
    */
   private pluginInputStates = new Map<string, string>();
+
+  /**
+   * The record store of the latest plugin load that reported the inputs, which
+   * proves their states from the plugin cache's records (#1728). Absent before
+   * a load reports one, or when it opened none; the states are read then.
+   */
+  private pluginInputIdentities: PluginContentIdentities.Store | undefined;
 
   /**
    * The plugin inputs notifications named since the last decision, by path key,
@@ -331,17 +338,33 @@ export class WatchTopology {
    * observation. This does not freeze the source tree or prove every transient
    * edit was seen.
    *
+   * WARNING (#1728): take each baseline through the reporting load's record
+   * store (`identities`), never by reading the sources again. The load proves
+   * the same directories from the plugin cache's records a moment later, and a
+   * content read here cost every watch session start 0.3-0.6 s for typia's Go
+   * module. The store proves only a digest whose metadata still holds and is
+   * separable from its reference, so the baseline is the digest a content read
+   * would return at this moment.
+   *
+   * @param inputs Plugin source directories and files the load reported.
+   * @param identities The reporting load's record store, if it opened one.
    * @evidence contracts/common.md#principled-implementation Published plugin inputs define the source corpus, and retaining existing pre-build baselines keeps unreported edits visible.
    * @evidence contracts/common.md#clear-and-simple-design Deduplication, baseline retention and compiler/watch reconciliation remain ordered phases.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual plugin source digest applies its owning source-selection and pruning policy; named plugins or fixture output do not replace observed input state.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains baseline timing and why existing inputs are not restamped following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and canonical backend registration govern source trees; lexical keys preserve declarations and unknown names, folding ASCII only under measured insensitive parents rather than an OS-derived rule.
-   * @evidence contracts/performance.md#efficient-algorithms Input/path keys deduplicate with text and native case/ancestor work; only newly admitted inputs compute initial source digests. Those reads scan the selected pruned corpus, then refresh(false) also pays project/compiler listing, directory traversal and watcher reconciliation; fixed publication count does not bound delegated bytes or backend work.
-   * @evidence contracts/performance.md#reuse-equivalent-work Unchanged ordered input sets return immediately; existing inputs reuse their recorded digest until actual notification processing establishes changed consumed state.
+   * @evidence contracts/performance.md#efficient-algorithms Input/path keys deduplicate with text and native case/ancestor work; only newly admitted inputs compute initial source digests, each proven from the selected files' metadata when the load's records hold and read from the selected pruned corpus otherwise; refresh(false) also pays project/compiler listing, directory traversal and watcher reconciliation; fixed publication count does not bound delegated bytes or backend work.
+   * @evidence contracts/performance.md#reuse-equivalent-work Unchanged ordered input sets return immediately; existing inputs reuse their recorded digest until actual notification processing establishes changed consumed state; a new input's digest is the one the load recorded while its metadata holds.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Publications replace input/digest populations and case-observation caches without a population cap; synchronization attempts obsolete watcher closure. Native/supplied closure has its own lifetime and can throw; owner close does not prove every backend has stopped or every retained snapshot byte was released.
    */
-  public setExtraInputs(inputs: readonly string[]): void {
+  public setExtraInputs(
+    inputs: readonly string[],
+    identities?: PluginContentIdentities.Store,
+  ): void {
     this.beginLexicalTransaction();
+    // The latest load's store also serves later notifications; its references
+    // only grow older, which can make fewer stamps separable but never more.
+    this.pluginInputIdentities = identities;
     const next = uniqueExistingPaths(inputs, this.lexicalIdentities);
     if (arraysEqual(this.extraInputs, next)) return;
     this.extraInputs = next;
@@ -354,7 +377,8 @@ export class WatchTopology {
       const key = this.pathKey(input);
       states.set(
         key,
-        this.pluginInputStates.get(key) ?? pluginInputState(input),
+        this.pluginInputStates.get(key) ??
+          pluginInputState(input, this.pluginInputIdentities),
       );
     }
     this.pluginInputStates = states;
@@ -1664,7 +1688,7 @@ export class WatchTopology {
       const key = this.pathKey(input);
       const locations = pending.get(key);
       if (locations === undefined) continue;
-      const state = pluginInputState(input);
+      const state = pluginInputState(input, this.pluginInputIdentities);
       if (this.pluginInputStates.get(key) === state) continue;
       this.pluginInputStates.set(key, state);
       for (const location of locations) {
@@ -2739,12 +2763,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * What a plugin build keys a plugin input on: the digest of the files its build
  * reads from a source directory (`pluginSourceDigest`), or a file's bytes. An
  * input that cannot be read has a state of its own, so the change that made it
- * unreadable is reported and the build names the failure.
+ * unreadable is reported and the build names the failure. A directory's digest
+ * comes from the load's record store while the selected files' metadata holds
+ * there (#1728), and from the files otherwise.
  */
-function pluginInputState(input: string): string {
+function pluginInputState(
+  input: string,
+  identities: PluginContentIdentities.Store | undefined,
+): string {
   try {
     return WatchPaths.isDirectory(input)
-      ? `directory:${pluginSourceDigest(input)}`
+      ? `directory:${PluginContentIdentities.sourceDirectory(identities, input)}`
       : `file:${fingerprintProjectInputFile(input)}`;
   } catch (error) {
     return `unreadable:${error instanceof Error ? error.message : String(error)}`;

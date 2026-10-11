@@ -130,8 +130,14 @@ export function loadProjectPlugins(options: {
    */
   identities?: PluginContentIdentities.Store;
 
-  /** Observe plugin build roots before building, including failed builds. */
-  onWatchInputs?: (inputs: readonly string[]) => void;
+  /**
+   * Observe plugin build roots before building, including failed builds, with
+   * the record store that proves their states (#1728).
+   */
+  onWatchInputs?: (
+    inputs: readonly string[],
+    identities?: PluginContentIdentities.Store,
+  ) => void;
 
   /** Caller-selected anchor for plugin-owned configuration discovery. */
   pluginConfigDir?: string;
@@ -425,7 +431,10 @@ export function loadProjectPlugins(options: {
         ])
         .filter(reportsPluginSource),
     );
-    options.onWatchInputs([...interests].sort());
+    // WARNING (#1728): hand the watch owner this load's store with the roots.
+    // It baselines each root before any build reads it; without the store it
+    // read every source the load proves from records a moment later.
+    options.onWatchInputs([...interests].sort(), sourceIdentities);
     const initialSize = interests.size;
     for (const candidate of candidates) {
       // Nested source-only proposals replace the outer root manifests. Do not
@@ -440,7 +449,7 @@ export function loadProjectPlugins(options: {
         if (reportsPluginSource(directory)) interests.add(directory);
     }
     if (interests.size !== initialSize)
-      options.onWatchInputs([...interests].sort());
+      options.onWatchInputs([...interests].sort(), sourceIdentities);
   }
   const proposals = NativeSourcePackages.propose(
     candidates.map((candidate) => ({
@@ -529,6 +538,7 @@ export function loadProjectPlugins(options: {
       watchReplacements,
       packageReaders,
     ),
+    sourceIdentities,
   );
   const linkedContributors = records
     .filter((record) => record.stage === "transform")

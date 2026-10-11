@@ -1,3 +1,4 @@
+import type { PluginContentIdentities } from "../../plugin/internal/source/PluginContentIdentities";
 import type { ITtscProjectInputSnapshot } from "./ITtscProjectInputSnapshot";
 import type { TtscCommonOptions } from "./TtscCommonOptions";
 
@@ -39,6 +40,9 @@ export interface TtscSingleFileEmitOptions extends TtscCommonOptions {
  * Executable modules, linked source roots, contributors and external local
  * module replacements can be reported. ttsc's own package sources are omitted;
  * this notification is not the complete compiler or project-rule input graph.
+ * The reporting load also hands over its record store, if it opened one, so the
+ * owner proves each root's state from the plugin cache's records instead of
+ * reading the sources the load is about to prove (#1728).
  *
  * @evidence contracts/common.md#principled-implementation Readonly roots describe the actual native-plugin sources whose later edits need observation.
  * @evidence contracts/common.md#clear-and-simple-design A void notification leaves watcher construction and lifetime with the invocation owner.
@@ -49,7 +53,10 @@ export interface TtscSingleFileEmitOptions extends TtscCommonOptions {
  * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
-export type TtscPluginSourceInputsHandler = (inputs: readonly string[]) => void;
+export type TtscPluginSourceInputsHandler = (
+  inputs: readonly string[],
+  identities?: PluginContentIdentities.Store,
+) => void;
 
 /**
  * Receive the discovered project-rule filesystem topology for the watch owner.

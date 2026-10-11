@@ -1,6 +1,7 @@
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOptions";
+import type { TtscPluginSourceInputsHandler } from "../../../structures/internal/TtscSingleFileEmitOptions";
 
 /**
  * Options of one {@link runBuild} call: the public build options plus the knobs
@@ -120,7 +121,7 @@ export type RunBuildOptions = TtscBuildOptions & {
    * The watch launcher uses these roots to invalidate a sidecar when its Go
    * implementation changes between rebuilds.
    */
-  onWatchInputs?: (inputs: readonly string[]) => void;
+  onWatchInputs?: TtscPluginSourceInputsHandler;
 
   /**
    * Receives the reconciled project-rule filesystem dependency snapshot. Called
