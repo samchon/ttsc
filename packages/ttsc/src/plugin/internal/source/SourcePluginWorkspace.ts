@@ -1,12 +1,15 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
+import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
+import { PluginLoadAnswers } from "./PluginLoadAnswers";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
 import { formatGoWorkPath } from "./formatGoWorkPath";
@@ -239,9 +242,17 @@ export namespace SourcePluginWorkspace {
    * registry shares native reader state from the first watch query onward; its
    * owner must keep one fixed effective environment and discard it on retry.
    * Caller views share that native state and syntax, while each default
-   * diagnostic label remains with its current caller. An optional record store
-   * only carries the Go environment-file discovery hint across processes; it
-   * never carries a parse.
+   * diagnostic label remains with its current caller.
+   *
+   * An optional record store carries the Go environment-file discovery hint
+   * across processes, and the parse of identical bytes by the same Go command
+   * (#1729): every launch otherwise ran `go mod edit -json` on an unchanged
+   * `go.mod`. A recorded parse is keyed by the manifest bytes, the content
+   * identities of the launcher and of the `GOROOT/bin/go` the live `go env
+   * -json GOROOT` reports, the `GOENV` file's bytes, and every `GO*`/`CGO_*`
+   * variable the command receives. It is consulted and written only under the
+   * same qualified tool witness that admits in-load sharing, so the live
+   * witness query still runs on every load.
    *
    * @evidence contracts/common.md#principled-implementation Actual go mod edit JSON determines module/replacement identities; current bytes, selected/dispatched-tool metadata and Go's environment-file witness qualify reuse under the existing metadata-distinguishability premise. Environment values are copied at reader creation. Missing go.mod returns the existing empty module observation, and moving tool/manifest inputs cannot publish a parsed record.
    * @evidence contracts/common.md#clear-and-simple-design One factory acquires load-owned native reader state by selected tool; a thin caller view forwards its diagnostic label without duplicating the byte-content map. Current reads and post-parse byte/tool comparisons qualify insertion.
@@ -249,7 +260,7 @@ export namespace SourcePluginWorkspace {
    * @evidence contracts/common.md#meaningful-documentation Native prose states this operation's authority and delegated boundaries; fields retain separate native comments.
    * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and temporary cwd avoid deep Windows working-directory limits; the selected tool handles manifest syntax.
    * @evidence contracts/performance.md#efficient-algorithms Reader acquisition performs a selected-tool registry lookup; every nonmissing read qualifies tool/environment metadata and reads current manifest bytes. A cold or stale witness first observes the selected launcher; an unavailable or nonfile launcher skips optional environment acquisition and permits only the actual uncached parse attempt. An observed file lends its same pre-read stat to the witness before acquiring current Go values and GOENV evidence through the common reader, without a GOROOT walk. Only complete native GOENV/GOROOT locations qualify syntax sharing; a dispatched tool is witnessed before parsing. Unavailable native environment acquisition disables syntax sharing while preserving actual parse success or failure. Each distinct byte string that earns stable successful syntax in that tool epoch runs Go mod edit and complete JSON parsing once, then rechecks bytes/tool metadata before caching; copied manifests share that parse. Failed queries remain uncached and report the current caller's diagnostic label.
-   * @evidence contracts/performance.md#reuse-equivalent-work The caller may share this reader only within one load and the same pinned tool/effective environment; parsed syntax is not cross-load or native containment authority. Caller views share native state while preserving failure attribution; diagnostic labels are not syntax cache inputs.
+   * @evidence contracts/performance.md#reuse-equivalent-work The caller may share this reader only within one load and the same pinned tool/effective environment; parsed syntax is never native containment authority. Across loads only a parse recorded under the content identities of the bytes, both Go executables, the GOENV file and the Go variables is reused, and only under a qualified live tool witness. Caller views share native state while preserving failure attribution; diagnostic labels are not syntax cache inputs.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The map retains distinct manifest bytes and parsed syntax for its caller's load/build lifetime; process/output capture cleanup remains delegated.
    */
   export function createGoModReader(
@@ -279,6 +290,9 @@ export namespace SourcePluginWorkspace {
     const cache = new Map<string, GoModInfo>();
     const environment = { ...env };
     let toolWitness: PluginBuildEnvironmentWitness.Record | undefined;
+    // The tool part of a recorded parse's identity, formed with each qualified
+    // witness; undefined without a store or a provable tool.
+    let toolIdentity: unknown;
     const reader: GoModReader = {
       read(dir, diagnosticPlugin = pluginName) {
         OwnedSynchronousProcess.checkpoint();
@@ -343,6 +357,16 @@ export namespace SourcePluginWorkspace {
             complete && PluginBuildEnvironmentWitness.holds(witness)
               ? witness
               : undefined;
+          toolIdentity =
+            toolWitness === undefined || identities === undefined
+              ? undefined
+              : goModToolIdentity(
+                  goBinary,
+                  observed!.GOROOT as string,
+                  observed!.GOENV as string,
+                  environment,
+                  identities,
+                );
         }
         // UTF-8 decoding is lossy for malformed input. Only identical bytes
         // can share Go syntax, even when Go serializes two inputs identically.
@@ -350,6 +374,26 @@ export namespace SourcePluginWorkspace {
         const cached = cache.get(byteKey);
         if (cached !== undefined) {
           return cached;
+        }
+        // WARNING (#1729): a new process asks the record store before running
+        // Go on bytes this exact command already parsed. Never key this on a
+        // path or on the reader's metadata witness alone.
+        const answer =
+          toolIdentity === undefined
+            ? undefined
+            : [
+                toolIdentity,
+                crypto.createHash("sha256").update(bytes).digest("hex"),
+              ];
+        const recalled =
+          answer === undefined
+            ? undefined
+            : recallGoModInfo(
+                PluginLoadAnswers.read(identities, GO_MOD_SYNTAX, answer),
+              );
+        if (recalled !== undefined) {
+          cache.set(byteKey, recalled);
+          return recalled;
         }
         const info = readGoModInfo(
           resolved,
@@ -370,7 +414,14 @@ export namespace SourcePluginWorkspace {
           );
         // An unavailable environment observation can still execute a fresh Go
         // parse, but it cannot authorize sharing that result on another call.
-        if (toolWitness !== undefined) cache.set(byteKey, info);
+        if (toolWitness !== undefined) {
+          cache.set(byteKey, info);
+          if (answer !== undefined)
+            PluginLoadAnswers.write(identities, GO_MOD_SYNTAX, answer, {
+              modulePath: info.modulePath,
+              directives: info.directives,
+            });
+        }
         return info;
       },
     };
@@ -448,6 +499,96 @@ export namespace SourcePluginWorkspace {
       directives: [],
       replacements: [],
     };
+  }
+
+  /** Answer family of `go mod edit -json` parses (`PluginLoadAnswers`). */
+  const GO_MOD_SYNTAX = "go-mod-syntax";
+
+  /**
+   * Everything besides the manifest bytes that decides how `go mod edit -json`
+   * parses them, by content: the launcher, the `GOROOT/bin/go` the live query
+   * reported, the `GOENV` file that can select another toolchain, and the Go
+   * variables the command receives. `undefined` when an executable cannot be
+   * identified or the file cannot be read, so the parse runs.
+   */
+  function goModToolIdentity(
+    goBinary: string,
+    goRoot: string,
+    goEnv: string,
+    env: NodeJS.ProcessEnv,
+    identities: PluginContentIdentities.Store,
+  ): unknown {
+    const launcher = runtimeExecutableIdentity(goBinary, identities);
+    const dispatched = runtimeExecutableIdentity(
+      path.join(goRoot, "bin", process.platform === "win32" ? "go.exe" : "go"),
+      identities,
+    );
+    if (launcher === undefined || dispatched === undefined) return undefined;
+    let goEnvFile: string | null;
+    if (goEnv === "off") goEnvFile = "off";
+    else
+      try {
+        goEnvFile = crypto
+          .createHash("sha256")
+          .update(fs.readFileSync(goEnv))
+          .digest("hex");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+          return undefined;
+        goEnvFile = null;
+      }
+    return [
+      1,
+      launcher,
+      goRoot,
+      dispatched,
+      goEnv,
+      goEnvFile,
+      Object.entries(GoSourceInputs.goBuildEnv(goBinary, undefined, env))
+        .filter(
+          (entry): entry is [string, string] =>
+            entry[1] !== undefined && /^(GO|CGO_)/i.test(entry[0]),
+        )
+        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)),
+    ];
+  }
+
+  /**
+   * A recorded parse in the shape `readGoModInfo` returns, or `undefined` when
+   * the record does not have it.
+   */
+  function recallGoModInfo(value: unknown): GoModInfo | undefined {
+    if (typeof value !== "object" || value === null) return undefined;
+    const record = value as { modulePath?: unknown; directives?: unknown };
+    if (
+      (record.modulePath !== null && typeof record.modulePath !== "string") ||
+      !Array.isArray(record.directives) ||
+      !record.directives.every(isReplaceDirective)
+    )
+      return undefined;
+    const directives = record.directives as NonNullable<GoModJson["Replace"]>;
+    return {
+      modulePath: record.modulePath,
+      directives,
+      replacements: directives
+        .map(jsonReplacementToGoModReplacement)
+        .filter((replacement) => replacement !== null),
+    };
+  }
+
+  function isReplaceDirective(value: unknown): boolean {
+    if (typeof value !== "object" || value === null) return false;
+    const directive = value as Record<string, unknown>;
+    return [directive.Old, directive.New].every(
+      (side) =>
+        side === undefined ||
+        (typeof side === "object" &&
+          side !== null &&
+          ["Path", "Version"].every((key) => {
+            const field = (side as Record<string, unknown>)[key];
+            return field === undefined || typeof field === "string";
+          })),
+    );
   }
 
   function jsonReplacementToGoModReplacement(
