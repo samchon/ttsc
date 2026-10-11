@@ -104,7 +104,7 @@ export async function test_transformttsc_notified_absent_candidate_is_not_reprob
   assert.equal(
     probes.calls,
     0,
-    `a candidate the generation watches must cost no filesystem call per delivery (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])}):\n${probeLog.slice(0, 4).join("\n")}`,
+    `a candidate the generation watches must cost no filesystem call per delivery (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])}; generation: ${generationFacts(await [...cache.values()][0])}):\n${probeLog.slice(0, 4).join("\n")}`,
   );
 }
 
@@ -160,4 +160,29 @@ function trackerStates(generation: unknown): string {
     `host ${trackerState(trackers?.hostInputMutationTracker)}`,
     `candidate ${trackerState(trackers?.candidateMutationTracker)}`,
   ].join("; ");
+}
+
+/** The generation facts that select narrow or complete validation. */
+function generationFacts(generation: unknown): string {
+  const facts = generation as
+    | {
+        result?: { type?: string; graph?: unknown };
+        projectSnapshotComplete?: boolean;
+        projectDirectories?: unknown;
+        hostInputValidation?: unknown;
+        deliveryEpoch?: unknown;
+        freshDeliveryOnly?: boolean;
+        passDeliveryOnly?: boolean;
+      }
+    | undefined;
+  return JSON.stringify({
+    result: facts?.result?.type,
+    graph: facts?.result?.graph !== undefined,
+    complete: facts?.projectSnapshotComplete,
+    directories: facts?.projectDirectories !== undefined,
+    hostValidation: facts?.hostInputValidation !== undefined,
+    epoch: facts?.deliveryEpoch,
+    freshOnly: facts?.freshDeliveryOnly,
+    passOnly: facts?.passDeliveryOnly,
+  });
 }

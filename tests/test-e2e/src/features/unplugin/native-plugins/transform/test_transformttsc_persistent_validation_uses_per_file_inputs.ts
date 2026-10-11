@@ -319,7 +319,7 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
   assert.equal(
     [...cache.values()][0],
     originalGeneration,
-    `an unreachable external edit must not replace the file's generation (active resources: ${activeResourceSummary()}; reads of the edited file: ${unrelatedReads.join("\n") || "none"}; trackers after: ${trackerStates(unrelatedGeneration)})`,
+    `an unreachable external edit must not replace the file's generation (active resources: ${activeResourceSummary()}; reads of the edited file: ${unrelatedReads.join("\n") || "none"}; trackers after: ${trackerStates(unrelatedGeneration)}; generation: ${generationFacts(unrelatedGeneration)})`,
   );
 
   fs.writeFileSync(
@@ -506,5 +506,30 @@ function uncoveredInputs(generation: unknown, tracker: unknown): string {
     validated: validated.size,
     uncovered: missing.length,
     first: missing.slice(0, 12),
+  });
+}
+
+/** The generation facts that select narrow or complete validation. */
+function generationFacts(generation: unknown): string {
+  const facts = generation as
+    | {
+        result?: { type?: string; graph?: unknown };
+        projectSnapshotComplete?: boolean;
+        projectDirectories?: unknown;
+        hostInputValidation?: unknown;
+        deliveryEpoch?: unknown;
+        freshDeliveryOnly?: boolean;
+        passDeliveryOnly?: boolean;
+      }
+    | undefined;
+  return JSON.stringify({
+    result: facts?.result?.type,
+    graph: facts?.result?.graph !== undefined,
+    complete: facts?.projectSnapshotComplete,
+    directories: facts?.projectDirectories !== undefined,
+    hostValidation: facts?.hostInputValidation !== undefined,
+    epoch: facts?.deliveryEpoch,
+    freshOnly: facts?.freshDeliveryOnly,
+    passOnly: facts?.passDeliveryOnly,
   });
 }

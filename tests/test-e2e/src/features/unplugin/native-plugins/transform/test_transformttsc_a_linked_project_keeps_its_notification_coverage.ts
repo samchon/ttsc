@@ -120,7 +120,7 @@ export async function test_transformttsc_a_linked_project_keeps_its_notification
   assert.deepEqual(
     [...new Set(touched)].filter((location) => !roots.has(location)),
     [],
-    `the watchers answer for every input below the linked project (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])})`,
+    `the watchers answer for every input below the linked project (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])}; generation: ${generationFacts(await [...cache.values()][0])})`,
   );
 }
 
@@ -166,4 +166,29 @@ function trackerStates(generation: unknown): string {
     `host ${trackerState(trackers?.hostInputMutationTracker)}`,
     `candidate ${trackerState(trackers?.candidateMutationTracker)}`,
   ].join("; ");
+}
+
+/** The generation facts that select narrow or complete validation. */
+function generationFacts(generation: unknown): string {
+  const facts = generation as
+    | {
+        result?: { type?: string; graph?: unknown };
+        projectSnapshotComplete?: boolean;
+        projectDirectories?: unknown;
+        hostInputValidation?: unknown;
+        deliveryEpoch?: unknown;
+        freshDeliveryOnly?: boolean;
+        passDeliveryOnly?: boolean;
+      }
+    | undefined;
+  return JSON.stringify({
+    result: facts?.result?.type,
+    graph: facts?.result?.graph !== undefined,
+    complete: facts?.projectSnapshotComplete,
+    directories: facts?.projectDirectories !== undefined,
+    hostValidation: facts?.hostInputValidation !== undefined,
+    epoch: facts?.deliveryEpoch,
+    freshOnly: facts?.freshDeliveryOnly,
+    passOnly: facts?.passDeliveryOnly,
+  });
 }
