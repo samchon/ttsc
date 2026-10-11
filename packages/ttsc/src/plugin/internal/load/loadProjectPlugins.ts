@@ -529,17 +529,16 @@ export function loadProjectPlugins(options: {
       records[candidate.index]!.kind === "executable" &&
       !proposals[candidate.index]!.ownModule,
   );
+  const buildDirectories = pluginBuildDirectories(
+    records,
+    effectiveEnv,
+    watchReplacements,
+    packageReaders,
+  );
   // Admission can now narrow the provisional interests without restamping the
   // retained package/module baselines. Final host errors still keep these roots.
-  options.onWatchInputs?.(
-    pluginBuildDirectories(
-      records,
-      effectiveEnv,
-      watchReplacements,
-      packageReaders,
-    ),
-    sourceIdentities,
-  );
+  options.onWatchInputs?.(buildDirectories, sourceIdentities);
+  const keyedDirectories = new Set(buildDirectories);
   const linkedContributors = records
     .filter((record) => record.stage === "transform")
     .flatMap((record) =>
@@ -781,10 +780,12 @@ export function loadProjectPlugins(options: {
       ? { observationsComplete: false as const }
       : {}),
     // The directories the watch inputs named before the builds, as the builds
-    // read them.
+    // read them. Package selection shares these readings and also reads a
+    // linked plugin's module root, which no build keys on, so only the build
+    // directories are reported.
     pluginSources: Object.fromEntries(
       [...sourceDigests]
-        .filter(([directory]) => reportsPluginSource(directory))
+        .filter(([directory]) => keyedDirectories.has(directory))
         .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
         .map(([directory, sourceDigest]) => [
           directory,
