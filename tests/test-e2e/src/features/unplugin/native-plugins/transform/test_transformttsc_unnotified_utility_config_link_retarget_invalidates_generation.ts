@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createUtilityPluginProject } from "../../../../internal/unplugin/internal/transform-utility-plugin-config/createUtilityPluginProject";
+import { utilityConfigResolutionsObservable } from "../../../../internal/unplugin/internal/transform-utility-plugin-config/utilityConfigResolutionsObservable";
 
 /**
  * Verifies a same-content link retarget is still caught when notifications are
@@ -20,6 +21,11 @@ import { createUtilityPluginProject } from "../../../../internal/unplugin/intern
  * graph members only. A universal host input is not a graph member, so a
  * retarget to a directory holding a byte-identical module would be invisible
  * unless the fallback proves the universal manifest too.
+ *
+ * Where Node's `require.resolve` bypasses the module hooks, the config's
+ * resolutions cannot be observed, so `utilityConfigResolutionsObservable`
+ * checks the documented refusal instead and these cases do not run
+ * (samchon/ttsc#1566, samchon/ttsc#1713).
  *
  * 1. Configure a banner whose config requires a module through a directory link,
  *    and compile through a cache whose watchers can be failed.
@@ -37,6 +43,7 @@ import { createUtilityPluginProject } from "../../../../internal/unplugin/intern
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Complete generation outputs OLD LINK TARGET; failed watchers plus byte-identical selection-link retarget replace generation and output only NEW LINK TARGET. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
  */
 export async function test_transformttsc_unnotified_utility_config_link_retarget_invalidates_generation(): Promise<void> {
+  if (!(await utilityConfigResolutionsObservable())) return;
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const root = createUtilityPluginProject({

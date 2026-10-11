@@ -2,6 +2,7 @@ import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
 import { createCacheProject } from "../../../../internal/unplugin/internal/transform-project-cache/createCacheProject";
 import { projectModules } from "../../../../internal/unplugin/internal/transform-project-cache/projectModules";
 
@@ -34,9 +35,25 @@ export async function test_transformttsc_survives_high_darwin_descriptors(): Pro
   const file = projectModules(project.root)[0]!;
   const cache = api.createTtscTransformCache();
   const descriptors: number[] = [];
+  // The limits this process inherited, reported when the boundary cannot be
+  // reached, beside how many descriptors were already open before this case.
+  const limits = E2eProcessTrace.spawnSync(
+    "/bin/sh",
+    ["-c", "ulimit -Sn; ulimit -Hn"],
+    {
+      encoding: "utf8",
+    },
+  ).stdout.trim();
   try {
     while ((descriptors.at(-1) ?? -1) < 10_500) {
-      descriptors.push(fs.openSync("/dev/null", "r"));
+      try {
+        descriptors.push(fs.openSync("/dev/null", "r"));
+      } catch (error) {
+        throw new Error(
+          `descriptor ${(descriptors.at(-1) ?? -1) + 1} could not be opened after this case opened ${descriptors.length}; soft and hard limits: ${limits.split(/\s+/).join(", ")}`,
+          { cause: error },
+        );
+      }
     }
     api.beginTtscTransformBuild(cache);
     assert.ok(

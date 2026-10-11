@@ -160,10 +160,17 @@ export async function test_vite_serve_first_request_survives_missing_resolution_
   } catch (error) {
     failures.push(new Error("Vite body", { cause: error }));
   } finally {
-    const closes = await Promise.allSettled([
-      ...clients.map((client) => Promise.resolve().then(() => client.close())),
-      Promise.resolve().then(() => server.close()),
-    ]);
+    // The clients finish their close handshakes before the server stops: a
+    // server closing first resets the HMR sockets still closing, which Darwin
+    // and Windows report to each client as an error.
+    const closes = await Promise.allSettled(
+      clients.map((client) => Promise.resolve().then(() => client.close())),
+    );
+    closes.push(
+      ...(await Promise.allSettled([
+        Promise.resolve().then(() => server.close()),
+      ])),
+    );
     for (const close of closes) if (close.status === "rejected")
       failures.push(new Error("original Vite client/server closure", { cause: close.reason }));
   }

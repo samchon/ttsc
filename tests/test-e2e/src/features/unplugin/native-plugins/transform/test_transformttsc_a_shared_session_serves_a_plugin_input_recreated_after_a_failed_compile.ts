@@ -44,7 +44,7 @@ export async function test_transformttsc_a_shared_session_serves_a_plugin_input_
   // program does not import.
   const contributor = path.resolve(
     import.meta.dirname,
-    "../../../../../../experimental/test-unplugin/assets/linked/contract",
+    "../../../../../../../experimental/test-unplugin/assets/linked/contract",
   );
   TestProject.writeFiles(root, {
     "package.json": JSON.stringify({ private: true, type: "module" }),

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { activeResourceSummary } from "../../../../internal/unplugin/internal/activeResourceSummary";
 import { createCacheProject } from "../../../../internal/unplugin/internal/transform-project-cache/createCacheProject";
 import { projectModules } from "../../../../internal/unplugin/internal/transform-project-cache/projectModules";
 
@@ -48,8 +49,12 @@ export async function test_transformttsc_notified_absent_candidate_is_not_reprob
     ),
   );
   const probes = { calls: 0 };
+  // Each probe's candidate and product frames, so a probe names its validator.
+  const probeLog: string[] = [];
   const count = (location: string): void => {
-    if (candidates.has(path.resolve(location))) probes.calls += 1;
+    if (!candidates.has(path.resolve(location))) return;
+    probes.calls += 1;
+    probeLog.push(`${location}\n${callerFrames()}`);
   };
   const cache = createTtscTransformCache({
     exists: (location: string) => {
@@ -90,6 +95,7 @@ export async function test_transformttsc_notified_absent_candidate_is_not_reprob
   assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
 
   probes.calls = 0;
+  probeLog.length = 0;
   for (const file of modules.slice(1)) {
     await deliver(file);
   }
@@ -98,6 +104,16 @@ export async function test_transformttsc_notified_absent_candidate_is_not_reprob
   assert.equal(
     probes.calls,
     0,
-    "a candidate the generation watches must cost no filesystem call per delivery",
+    `a candidate the generation watches must cost no filesystem call per delivery (active resources: ${activeResourceSummary()}):\n${probeLog.slice(0, 4).join("\n")}`,
   );
+}
+
+/** The product frames that reached a recorded filesystem operation. */
+function callerFrames(): string {
+  return (new Error().stack ?? "")
+    .split("\n")
+    .filter((line) => /[\\/]packages[\\/]unplugin[\\/]/.test(line))
+    .slice(0, 6)
+    .map((line) => "    " + line.trim())
+    .join("\n");
 }

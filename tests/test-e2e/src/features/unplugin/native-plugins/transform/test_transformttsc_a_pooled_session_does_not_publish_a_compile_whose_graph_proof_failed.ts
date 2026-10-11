@@ -41,7 +41,7 @@ export async function test_transformttsc_a_pooled_session_does_not_publish_a_com
   // and counts itself in `.ttsc/contract-runs`.
   const contributor = path.resolve(
     import.meta.dirname,
-    "../../../../../../experimental/test-unplugin/assets/linked/contract",
+    "../../../../../../../experimental/test-unplugin/assets/linked/contract",
   );
   TestProject.writeFiles(root, {
     "package.json": JSON.stringify({ private: true, type: "module" }),

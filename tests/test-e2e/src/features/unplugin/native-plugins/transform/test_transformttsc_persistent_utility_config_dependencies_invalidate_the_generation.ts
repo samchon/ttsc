@@ -10,6 +10,7 @@ import path from "node:path";
 import { samePhysicalPath } from "../../../../internal/unplugin/internal/paths/samePhysicalPath";
 import { STRIP_SOURCE } from "../../../../internal/unplugin/internal/transform-utility-plugin-config/STRIP_SOURCE";
 import { createUtilityPluginProject } from "../../../../internal/unplugin/internal/transform-utility-plugin-config/createUtilityPluginProject";
+import { utilityConfigResolutionsObservable } from "../../../../internal/unplugin/internal/transform-utility-plugin-config/utilityConfigResolutionsObservable";
 
 /**
  * Verifies persistent generations include the modules native utility config
@@ -20,6 +21,11 @@ import { createUtilityPluginProject } from "../../../../internal/unplugin/intern
  * Each module it evaluated is an input of the generation, and each superseding
  * resolution candidate can change which module it evaluates, although no
  * descriptor, config, or project source changed.
+ *
+ * Where Node's `require.resolve` bypasses the module hooks, the config's
+ * resolutions cannot be observed, so `utilityConfigResolutionsObservable`
+ * checks the documented refusal instead and these cases do not run
+ * (samchon/ttsc#1566, samchon/ttsc#1713).
  *
  * 1. Configure banner and strip through `.cjs` and `.ts` configs that exercise
  *    every resolution path.
@@ -37,6 +43,7 @@ import { createUtilityPluginProject } from "../../../../internal/unplugin/intern
  * @evidence contracts/e2e.md#preserved-coverage Banner/strip CJS/TS native configs record external evaluated modules/manifests/candidates, reload helper edits, and follow dotted/package-main/nearer-package/NODE_PATH supersession. These assertions remain in test_transformttsc_persistent_utility_config_dependencies_invalidate_the_generation, with their stated fixture/oracle limits; portable decisions are not claimed covered by an unnamed unit or by a synthetic envelope alone.
  */
 export async function test_transformttsc_persistent_utility_config_dependencies_invalidate_the_generation(): Promise<void> {
+  if (!(await utilityConfigResolutionsObservable())) return;
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
 

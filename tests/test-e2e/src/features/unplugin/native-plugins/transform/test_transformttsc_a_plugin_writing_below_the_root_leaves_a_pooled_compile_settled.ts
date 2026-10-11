@@ -43,7 +43,7 @@ export async function test_transformttsc_a_plugin_writing_below_the_root_leaves_
   // below the project while it runs.
   const contributor = path.resolve(
     import.meta.dirname,
-    "../../../../../../experimental/test-unplugin/assets/linked/contract",
+    "../../../../../../../experimental/test-unplugin/assets/linked/contract",
   );
   TestProject.writeFiles(root, {
     "package.json": JSON.stringify({ private: true, type: "module" }),

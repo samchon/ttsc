@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { activeResourceSummary } from "../../../../internal/unplugin/internal/activeResourceSummary";
 import { createCacheProject } from "../../../../internal/unplugin/internal/transform-project-cache/createCacheProject";
 import { projectModules } from "../../../../internal/unplugin/internal/transform-project-cache/projectModules";
 
@@ -137,6 +138,9 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
   // The directories statted by the delivery in progress, the watched
   // locations' identity checks among them.
   let directoryStats: string[] = [];
+  // The product frames of each directory stat, so a repeated read names the
+  // validators that both read it.
+  let directoryStatCallers: string[] = [];
   const recordStat = <T extends { isDirectory(): boolean }>(
     location: string,
     stat: () => T,
@@ -148,8 +152,10 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
       stats += 1;
       throw error;
     }
-    if (target.isDirectory()) directoryStats.push(path.resolve(location));
-    else stats += 1;
+    if (target.isDirectory()) {
+      directoryStats.push(path.resolve(location));
+      directoryStatCallers.push(callerFrames());
+    } else stats += 1;
     return target;
   };
   let deniedDirectory: string | undefined;
@@ -224,12 +230,13 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
   for (const file of modules) {
     await new Promise<void>((resolve) => setImmediate(resolve));
     directoryStats = [];
+    directoryStatCallers = [];
     metadataReads = [];
     assert.ok(await deliver(file));
     assert.equal(
       new Set(directoryStats).size,
       directoryStats.length,
-      `a delivery reads each watched directory once: ${directoryStats.join(", ")}`,
+      `a delivery reads each watched directory once (active resources: ${activeResourceSummary()}): ${directoryStats.map((location, index) => `${location}\n${directoryStatCallers[index]}`).join("\n")}`,
     );
     const spellings = new Set(metadataReads);
     assert.ok(
@@ -362,4 +369,14 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
     /DESCRIPTOR-RELOADED/,
     "the replacement generation must reload the changed descriptor dependency",
   );
+}
+
+/** The product frames that reached a recorded filesystem operation. */
+function callerFrames(): string {
+  return (new Error().stack ?? "")
+    .split("\n")
+    .filter((line) => /[\\/]packages[\\/]unplugin[\\/]/.test(line))
+    .slice(0, 6)
+    .map((line) => "    " + line.trim())
+    .join("\n");
 }

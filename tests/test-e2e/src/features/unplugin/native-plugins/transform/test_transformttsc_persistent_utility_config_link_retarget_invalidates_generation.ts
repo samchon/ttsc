@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createUtilityPluginProject } from "../../../../internal/unplugin/internal/transform-utility-plugin-config/createUtilityPluginProject";
+import { utilityConfigResolutionsObservable } from "../../../../internal/unplugin/internal/transform-utility-plugin-config/utilityConfigResolutionsObservable";
 
 /**
  * Verifies a directory link retargeted while a config is evaluated cannot bless
@@ -18,6 +19,11 @@ import { createUtilityPluginProject } from "../../../../internal/unplugin/intern
  * that evaluation leaves the output describing the old target, so watch
  * registration must keep the link's lexical spelling, and the raced output must
  * be discarded both on the first request and after invalidation.
+ *
+ * Where Node's `require.resolve` bypasses the module hooks, the config's
+ * resolutions cannot be observed, so `utilityConfigResolutionsObservable`
+ * checks the documented refusal instead and these cases do not run
+ * (samchon/ttsc#1566, samchon/ttsc#1713).
  *
  * 1. Configure a banner whose config requires a module through a directory link
  *    outside the project.
@@ -37,6 +43,7 @@ import { createUtilityPluginProject } from "../../../../internal/unplugin/intern
  * @evidence contracts/e2e.md#preserved-coverage Config evaluation retargets an external link; native output is NEW not OLD, lexical watch/realpath proof survives, stable replay reuses and a later retarget stabilizes anew. These assertions remain in test_transformttsc_persistent_utility_config_link_retarget_invalidates_generation, with their stated fixture/oracle limits; portable decisions are not claimed covered by an unnamed unit or by a synthetic envelope alone.
  */
 export async function test_transformttsc_persistent_utility_config_link_retarget_invalidates_generation(): Promise<void> {
+  if (!(await utilityConfigResolutionsObservable())) return;
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const root = createUtilityPluginProject({

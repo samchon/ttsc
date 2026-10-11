@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { activeResourceSummary } from "../../../../internal/unplugin/internal/activeResourceSummary";
 import { createCacheProject } from "../../../../internal/unplugin/internal/transform-project-cache/createCacheProject";
 import { projectModules } from "../../../../internal/unplugin/internal/transform-project-cache/projectModules";
 
@@ -119,6 +120,6 @@ export async function test_transformttsc_a_linked_project_keeps_its_notification
   assert.deepEqual(
     [...new Set(touched)].filter((location) => !roots.has(location)),
     [],
-    "the watchers answer for every input below the linked project",
+    `the watchers answer for every input below the linked project (active resources: ${activeResourceSummary()})`,
   );
 }
