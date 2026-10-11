@@ -26,8 +26,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 3. A manifest Go rejects throws and records nothing.
  *
  * The record is keyed only by executables the store can prove from metadata, so
- * the private cache root lives in the suite's temporary directory, inside the
- * checkout and on the device of the Go toolchain the suite installed.
+ * the private cache root lives below the checkout's ignored `.cache`, on the
+ * device of the Go toolchain the suite installed; a Windows runner's system
+ * temporary directory is on another drive. The premise is asserted first.
  *
  * @evidence contracts/testing.md#behavioral-verification Real readers run the selected Go toolchain against real manifests and a real record store; the returned module path, directives and the answer files on disk are asserted.
  * @evidence contracts/testing.md#independent-expectations The authored module path and replace directives are the oracles for a Go parse; the corrupted literal is the oracle for a recorded one.
@@ -36,7 +37,10 @@ import { TestProject } from "../../../../utils/src/TestProject";
  */
 export function test_go_mod_reader_reuses_a_recorded_parse_until_its_inputs_change(): void {
   const root = TestProject.physicalPath(
-    TestProject.tmpdir("ttsc-go-mod-answers-"),
+    TestProject.tmpdir(
+      "ttsc-go-mod-answers-",
+      path.join(TestProject.WORKSPACE_ROOT, ".cache"),
+    ),
   );
   const module = path.join(root, "plugin");
   fs.mkdirSync(module, { recursive: true });
@@ -58,12 +62,14 @@ export function test_go_mod_reader_reuses_a_recorded_parse_until_its_inputs_chan
     assert.ok(store);
     return store;
   };
-  const read = (env: NodeJS.ProcessEnv = baseEnv, withStore = true) => {
-    const goBinary = GoToolResolution.resolveGoToolForBuild(
+  const tool = (env: NodeJS.ProcessEnv = baseEnv): string =>
+    GoToolResolution.resolveGoToolForBuild(
       resolveGoCompiler(env).binary,
       env,
       module,
     );
+  const read = (env: NodeJS.ProcessEnv = baseEnv, withStore = true) => {
+    const goBinary = tool(env);
     return SourcePluginWorkspace.createGoModReader(
       goBinary,
       "plugin",
@@ -101,6 +107,13 @@ export function test_go_mod_reader_reuses_a_recorded_parse_until_its_inputs_chan
     }
   };
 
+  assert.ok(
+    PluginContentIdentities.separable(
+      open().references,
+      fs.statSync(tool(), { bigint: true }),
+    ),
+    "premise: the suite's Go launcher lies on a device the store references",
+  );
   verify("an unchanged manifest is answered from its record", () => {
     const parsed = read();
     assert.equal(parsed.modulePath, "example.com/plugin");
