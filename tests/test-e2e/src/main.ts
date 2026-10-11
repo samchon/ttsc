@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { TestExecutor } from "../../utils/src/TestExecutor";
 import { BatchWorkspace } from "./batch/BatchWorkspace";
+import { assertScenarioOwnership } from "./batch/assertScenarioOwnership";
 
 // Immutable consumers finish before the editor changes source bytes. Each file
 // owns its explicit DAG consumers; webpack includes two real hosts. No legacy scenario discovery remains.
@@ -15,9 +16,12 @@ const batches = [
   "evidence",
   "graph",
   "lsp",
+  "scenarios",
 ] as const;
 if (process.argv.some((argument) => argument.startsWith("--package=")))
   throw new Error("The shared DAG suite runs the shared boundary DAG together");
+// Every scenario file must be reachable from a batch before any batch runs.
+assertScenarioOwnership(import.meta.dirname);
 await TestExecutor.main({
   location: (process.argv.includes("--installation")
     ? (["runtime"] as const)
