@@ -11,6 +11,7 @@ import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { normalizeCompilerEnumValue } from "../../../flags/normalizeCompilerEnumValue";
 import { readCompilerOptionValues } from "../../../flags/readCompilerOptionValues";
 import { type ProjectInputPathIdentityContext } from "../../../internal/pathIdentity/ProjectInputPathIdentityContext";
+import { createCaseSensitivityObservations } from "../../../internal/pathIdentity/createCaseSensitivityObservations";
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import { isProjectInputPathIdentityWithin } from "../../../internal/pathIdentity/isProjectInputPathIdentityWithin";
 import { resolveProjectInputPath } from "../../../internal/pathIdentity/resolveProjectInputPath";
@@ -58,7 +59,7 @@ import { watchDirectory } from "./watchDirectory";
  * they perform no extra filesystem observations.
  *
  * @evidence contracts/common.md#principled-implementation The compiler-input operation's membership, published rule inputs and actual content fingerprints qualify notifications; its native default obtains the real compiler list. Post-registration reconciliation compares baselines to recover observed handoff changes, not an atomic guarantee against every transient mutation. Explicit operations preserve native defaults without replacing global filesystem or compiler methods. Project-input attribution: Observed member deltas establish attribution; stale selected names cannot override them, while directory names retain supported population causality and unrelated multiple members remain unnamed.
- * @evidence contracts/common.md#clear-and-simple-design Compiler, plugin and project-input watch populations keep their own baselines and callbacks under one topology owner; small classifiers separate membership, selection and handle replacement. Four distinct operations own directory subscriptions, file subscriptions, immediate reload-directory reads and compiler membership; existing callers need no new argument. Project-input attribution: One private reconciliation separates member deltas from immediate resolution-directory digests before choosing a supported event name or an observed single member.
+ * @evidence contracts/common.md#clear-and-simple-design Compiler, plugin and project-input watch populations keep their own baselines and callbacks under one topology owner; small classifiers separate membership, selection and handle replacement. Five distinct operations own directory subscriptions, file subscriptions, immediate reload-directory reads, compiler membership and each decision's case-policy observations; existing callers need no new argument. Project-input attribution: One private reconciliation separates member deltas from immediate resolution-directory digests before choosing a supported event name or an observed single member.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported native backends and explicit gap/replacement ownership replace foreign watcher patching; failed observation is reported rather than represented as complete coverage. The constructor manufactures no observations and bypasses no input or content proof; supplied operations retain the existing callback and result contracts. Project-input attribution: Native event names do not manufacture a delta; the current and previous physical membership identify already observed names without filename or fixture exceptions.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain membership authority, plugin fingerprinting, publication races, physical registration and public lifecycle operations following the documentation skill. Parameters identify each supplied operation and native default beside the constructor. Project-input attribution: Native paragraphs explain stale attention, directory causality, accompanying resolution digests and unselected immediate entries.
  * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node APIs and registration uses realpath; compiler/plugin maps preserve lexical aliases and fold only measured insensitive ASCII components. Project inputs use physical identities, while unknown/native Unicode relations remain conservative event candidates rather than identity proof. Registration paths and read options are passed unchanged; compiler-input readers supply absolute membership paths without replacing the topology's native identity policy. Project-input attribution: The supplied filesystem identity transaction establishes selected names and ancestry without an OS-wide case assumption or lexical alias guess.
@@ -110,9 +111,15 @@ export class WatchTopology {
    */
   private compilerListings = new Map<string, CompilerListing>();
   private files = new Map<string, string>();
-  private lexicalIdentities = createProjectInputPathIdentityContext({
-    throwOnRealpathError: false,
-  });
+
+  /**
+   * The current decision's directory case-policy observations, which every
+   * identity context the decision creates shares (samchon/ttsc#1742).
+   */
+  private caseObservations!: ReturnType<
+    typeof createCaseSensitivityObservations
+  >;
+  private lexicalIdentities!: ProjectInputPathIdentityContext;
   private fileWatchers = new Map<string, fs.FSWatcher>();
   private observedDirectories = new Map<string, string>();
   private outputFiles = new Map<string, string>();
@@ -161,6 +168,8 @@ export class WatchTopology {
    *   membership; the default invokes the native compiler. Readers throw
    *   listing failures and retain ownership of their returned array, which this
    *   topology does not mutate.
+   * @param observeCaseSensitivity Create one decision's directory case-policy
+   *   observations; the default asks the native filesystem.
    */
   public constructor(
     private readonly options: WatchTopologyOptions,
@@ -169,7 +178,10 @@ export class WatchTopology {
     private readonly openFileWatch: typeof fs.watch = fs.watch,
     private readonly readDirectory: typeof fs.readdirSync = fs.readdirSync,
     private readonly getCompilerInputs: typeof listCompilerInputs = listCompilerInputs,
-  ) {}
+    private readonly observeCaseSensitivity: typeof createCaseSensitivityObservations = createCaseSensitivityObservations,
+  ) {
+    this.beginLexicalTransaction();
+  }
 
   /**
    * Re-resolve compiler inputs and notify when the resolved topology changes,
@@ -228,6 +240,7 @@ export class WatchTopology {
     const projectInputProgramOverlap = projectInputCompilerMembershipChange(
       this.projectInputs,
       compilerProgramMembershipChange,
+      this.projectInputIdentities(),
     );
     const projectInputProgramChange =
       compilerProgramMembershipChange.length !== 0 &&
@@ -331,6 +344,7 @@ export class WatchTopology {
     const causedBy = projectInputCompilerMembershipProjectChanges(
       changed,
       population.globs,
+      this.projectInputIdentities(),
     );
     const reloadInput = {
       causedBy,
@@ -340,7 +354,10 @@ export class WatchTopology {
       reloadDirectories: population.reloadDirectories,
       reloadFiles: population.reloadFiles ?? [],
     };
-    const reload = projectInputReloadEventShouldNotify(reloadInput);
+    const reload = projectInputReloadEventShouldNotify(
+      reloadInput,
+      this.projectInputIdentities(),
+    );
     reportProjectInputDecision({
       source: "compiler-membership",
       ...reloadInput,
@@ -428,7 +445,11 @@ export class WatchTopology {
    * @evidence contracts/performance.md#bound-retention-and-release-resources Publication prunes retired declaration-owner choices and replaces uncapped match/fingerprint populations. Watcher retirement invokes close without awaiting backend completion, and supplied errors can interrupt cleanup. Weak output-overlap keys do not retain old identity transactions; the current declaration snapshot can borrow caller arrays until replaced or the facade is released.
    */
   public setProjectInputs(inputs: ITtscProjectInputSnapshot): void {
-    const next = normalizeProjectInputSnapshot(inputs);
+    this.beginLexicalTransaction();
+    const next = normalizeProjectInputSnapshot(
+      inputs,
+      this.projectInputIdentities(),
+    );
     // The declared spellings are recorded even when the normalized snapshot did
     // not move, because a republication can carry a new alias for identities
     // that already matched, and anchoring the spelling that was retired would
@@ -437,7 +458,13 @@ export class WatchTopology {
       inputs.declared === undefined
         ? inputs
         : { ...inputs.declared, root: inputs.root };
-    if (projectInputSnapshotsEqual(this.projectInputs, next)) {
+    if (
+      projectInputSnapshotsEqual(
+        this.projectInputs,
+        next,
+        this.projectInputIdentities(),
+      )
+    ) {
       this.syncProjectInputWatchers();
       return;
     }
@@ -486,8 +513,23 @@ export class WatchTopology {
 
   /** Start fresh native case observations for one synchronous watch decision. */
   private beginLexicalTransaction(): void {
+    this.caseObservations = this.observeCaseSensitivity();
     this.lexicalIdentities = createProjectInputPathIdentityContext({
+      caseSensitive: this.caseObservations,
       throwOnRealpathError: false,
+    });
+  }
+
+  /**
+   * A strict project-input identity context for the current decision. Its
+   * physical paths are resolved afresh, and its case answers are the
+   * decision's: one decision builds such contexts per declaration and per
+   * candidate, and each asked every directory again, which on Windows is an
+   * `fsutil` process per question (samchon/ttsc#1742).
+   */
+  private projectInputIdentities(): ProjectInputPathIdentityContext {
+    return createProjectInputPathIdentityContext({
+      caseSensitive: this.caseObservations,
     });
   }
 
@@ -759,6 +801,7 @@ export class WatchTopology {
       if (fs.existsSync(location)) {
         if (this.projectInputMatches.size !== 0) {
           const key = createProjectInputPathIdentityContext({
+            caseSensitive: this.caseObservations,
             throwOnRealpathError: false,
           }).resolve(location).key;
           if (
@@ -869,7 +912,7 @@ export class WatchTopology {
     if (this.closed) return;
     const previous = new Map(this.projectInputWatchers);
     const previousLinks = new Map(this.projectInputLinkWatchers);
-    const identities = createProjectInputPathIdentityContext();
+    const identities = this.projectInputIdentities();
     const desired = new Map<string, string>();
     const required = new Map<string, string>();
     for (const file of this.projectInputDeclarations("file")) {
@@ -1117,6 +1160,7 @@ export class WatchTopology {
     if (this.projectInputRecoveryScheduled) return;
     this.projectInputRecoveryScheduled = true;
     queueMicrotask(() => {
+      this.beginLexicalTransaction();
       try {
         let previousRejectionCount = -1;
         while (
@@ -1160,6 +1204,7 @@ export class WatchTopology {
     queueMicrotask(() => {
       this.projectInputPostRegistrationReconciliationScheduled = false;
       if (this.closed) return;
+      this.beginLexicalTransaction();
       this.refreshPublishedProjectInputIdentities();
       this.refreshProjectInputs(this.projectInputs.root, undefined, true);
     });
@@ -1174,8 +1219,13 @@ export class WatchTopology {
    * that must observe later target changes.
    */
   private refreshPublishedProjectInputIdentities(): void {
-    const next = normalizeProjectInputSnapshot(this.declaredProjectInputs);
-    if (projectInputSnapshotsEqual(this.projectInputs, next)) return;
+    const identities = this.projectInputIdentities();
+    const next = normalizeProjectInputSnapshot(
+      this.declaredProjectInputs,
+      identities,
+    );
+    if (projectInputSnapshotsEqual(this.projectInputs, next, identities))
+      return;
     this.projectInputs = next;
     this.pruneProjectInputWatchRoots([next, this.declaredProjectInputs]);
   }
@@ -1293,6 +1343,7 @@ export class WatchTopology {
     const resolved = ProjectInputWatchRules.projectInputRecursiveWatchRoot(
       target,
       this.projectInputs.root,
+      this.projectInputIdentities(),
     );
     if (resolved !== undefined) this.projectInputWatchRoots.set(key, resolved);
     return resolved;
@@ -1306,7 +1357,7 @@ export class WatchTopology {
     this.beginLexicalTransaction();
     try {
       const previous = this.projectInputMatches;
-      const identities = createProjectInputPathIdentityContext();
+      const identities = this.projectInputIdentities();
       // One population for the whole decision. Every question below is asked of
       // the same declarations, and rebuilding it per question would both cost
       // more and let two answers disagree about what was declared.
@@ -1381,7 +1432,10 @@ export class WatchTopology {
         reloadDirectories: population.reloadDirectories ?? [],
         reloadFiles: population.reloadFiles ?? [],
       };
-      const reload = projectInputReloadEventShouldNotify(reloadInput);
+      const reload = projectInputReloadEventShouldNotify(
+        reloadInput,
+        identities,
+      );
       const invalidate = projectInputMembershipInvalidatesProgram({
         changed: reconciledChange,
         changedInputs,
@@ -1445,7 +1499,7 @@ export class WatchTopology {
   }
 
   private collectProjectInputMatches(): Map<string, string> {
-    const identities = createProjectInputPathIdentityContext();
+    const identities = this.projectInputIdentities();
     const matches = new Map<string, string>();
     // Both spellings are scanned, and each is resolved here rather than when
     // the snapshot arrived. A declaration reached through a symlink otherwise
@@ -1620,7 +1674,7 @@ export class WatchTopology {
 
   private isProjectInputDirectory(location: string): boolean {
     const resolved = path.resolve(location);
-    const identities = createProjectInputPathIdentityContext();
+    const identities = this.projectInputIdentities();
     return (
       this.projectInputs.files.some(
         (file) =>
@@ -1794,7 +1848,8 @@ type CompilerFileSnapshot = {
 };
 
 type CompilerListing = {
-  inputs: readonly string[];
+  /** The reader's own array, which the topology never mutates. */
+  inputs: string[];
   question: string;
 };
 
@@ -2410,8 +2465,8 @@ function uniqueExistingPaths(
 
 function normalizeProjectInputSnapshot(
   snapshot: ITtscProjectInputSnapshot,
+  identities: ProjectInputPathIdentityContext,
 ): ITtscProjectInputSnapshot {
-  const identities = createProjectInputPathIdentityContext();
   const files = new Map<string, string>();
   const globs = new Map<string, string>();
   const reloadDirectories = new Map<string, string>();
@@ -2444,8 +2499,8 @@ function normalizeProjectInputSnapshot(
 function projectInputSnapshotsEqual(
   left: ITtscProjectInputSnapshot,
   right: ITtscProjectInputSnapshot,
+  identities: ProjectInputPathIdentityContext,
 ): boolean {
-  const identities = createProjectInputPathIdentityContext();
   return (
     // Every sibling comparison in this class decides on identity, and this one
     // is only safe today because both operands come from the same normalizer.
@@ -2500,7 +2555,7 @@ function isSymbolicLink(location: string): boolean {
 function matchesProjectInput(
   snapshot: ITtscProjectInputSnapshot,
   location: string,
-  identities = createProjectInputPathIdentityContext(),
+  identities: ProjectInputPathIdentityContext,
 ): boolean {
   const key = identities.resolve(location).key;
   return (
@@ -2627,8 +2682,8 @@ function compilerMembershipChange(
 function projectInputCompilerMembershipChange(
   snapshot: ITtscProjectInputSnapshot,
   changed: readonly string[],
+  identities: ProjectInputPathIdentityContext,
 ): string[] {
-  const identities = createProjectInputPathIdentityContext();
   return changed.filter(
     (location) =>
       matchesProjectInput(snapshot, location, identities) &&
@@ -2648,8 +2703,8 @@ function projectInputCompilerMembershipChange(
 function projectInputCompilerMembershipProjectChanges(
   locations: readonly string[],
   globs: readonly string[],
+  identities: ProjectInputPathIdentityContext,
 ): string[] {
-  const identities = createProjectInputPathIdentityContext();
   const roots = globs.map((glob) => identities.resolve(literalGlobRoot(glob)));
   const changes = new Map<string, string>();
   for (const location of locations) {
@@ -2730,7 +2785,7 @@ function fingerprintProjectInputDirectory(
 function matchesProjectInputGlob(
   pattern: string,
   location: string,
-  identities = createProjectInputPathIdentityContext(),
+  identities: ProjectInputPathIdentityContext,
 ): boolean {
   const root = identities.resolve(literalGlobRoot(pattern));
   const candidate = identities.resolve(location);

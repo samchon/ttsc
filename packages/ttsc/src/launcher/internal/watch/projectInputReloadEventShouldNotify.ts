@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { type ProjectInputPathIdentity } from "../../../internal/pathIdentity/ProjectInputPathIdentity";
+import { type ProjectInputPathIdentityContext } from "../../../internal/pathIdentity/ProjectInputPathIdentityContext";
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import { literalGlobRoot } from "./literalGlobRoot";
 
@@ -12,6 +13,8 @@ import { literalGlobRoot } from "./literalGlobRoot";
  * lane only after the surrounding change detector admits the event; unchanged
  * bytes remain quiet before this classifier is observed.
  *
+ * @param identities The decision's identity transaction; absence creates a
+ *   native one for this classification alone.
  * @evidence contracts/common.md#principled-implementation Exact selection files and immediate resolution-directory entries choose execution reload; a strictly nested declared glob can explain its own ancestor's membership delta without exempting unrelated selection changes.
  * @evidence contracts/common.md#clear-and-simple-design Exact-file membership, immediate-entry membership and causal explanations have distinct helpers under one classification operation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A data exemption must explain the same directory's observed delta, not cancel every reload because some unrelated data event occurred.
@@ -22,15 +25,17 @@ import { literalGlobRoot } from "./literalGlobRoot";
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Identity caches and predicate collections are local to one decision, without a resident historical cache or native handle.
  */
-export function projectInputReloadEventShouldNotify(input: {
-  causedBy?: readonly string[];
-  changed?: string;
-  changedInputs: readonly string[];
-  reloadDirectories?: readonly string[];
-  reloadFiles: readonly string[];
-  globs?: readonly string[];
-}): boolean {
-  const identities = createProjectInputPathIdentityContext();
+export function projectInputReloadEventShouldNotify(
+  input: {
+    causedBy?: readonly string[];
+    changed?: string;
+    changedInputs: readonly string[];
+    reloadDirectories?: readonly string[];
+    reloadFiles: readonly string[];
+    globs?: readonly string[];
+  },
+  identities: ProjectInputPathIdentityContext = createProjectInputPathIdentityContext(),
+): boolean {
   const reloadFiles = new Set(
     input.reloadFiles.map((location) => identities.resolve(location).key),
   );

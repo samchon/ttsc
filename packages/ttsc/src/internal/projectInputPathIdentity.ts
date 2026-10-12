@@ -16,6 +16,7 @@
 export * from "./pathIdentity/FilesystemPathIdentity";
 export * from "./pathIdentity/FilesystemPathIdentityOperations";
 export * from "./pathIdentity/FilesystemPathIdentityContext";
+export * from "./pathIdentity/createCaseSensitivityObservations";
 export * from "./pathIdentity/createFilesystemPathIdentityContext";
 export * from "./pathIdentity/isFilesystemPathIdentityWithin";
 export * from "./pathIdentity/resolveFilesystemPath";

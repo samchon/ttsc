@@ -1,13 +1,10 @@
-import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { E2ETrace } from "../E2ETrace";
-import { OwnedSynchronousProcess } from "../OwnedSynchronousProcess";
-import { parseWindowsDirectoryCaseSensitivity } from "../parseWindowsDirectoryCaseSensitivity";
 import type { FilesystemPathIdentity } from "./FilesystemPathIdentity";
 import type { FilesystemPathIdentityContext } from "./FilesystemPathIdentityContext";
 import type { FilesystemPathIdentityOperations } from "./FilesystemPathIdentityOperations";
+import { createCaseSensitivityObservations } from "./createCaseSensitivityObservations";
 import { isFilesystemPathIdentityWithin } from "./isFilesystemPathIdentityWithin";
 import { resolveFilesystemPath } from "./resolveFilesystemPath";
 
@@ -47,19 +44,7 @@ export function createFilesystemPathIdentityContext(
   const readdir = operations.readdir ?? fs.readdirSync;
   const caseSensitive =
     operations.caseSensitive ??
-    ((directory: string) => {
-      try {
-        return filesystemDirectoryIsCaseSensitive(directory, platform, {
-          lstat,
-          readdir,
-          realpath,
-        });
-      } catch {
-        // A failed capability observation is unknown. This does not suppress
-        // strict physical identity errors in the separate realpath resolver.
-        return undefined;
-      }
-    });
+    createCaseSensitivityObservations({ lstat, platform, readdir, realpath });
 
   const resolve = (location: string): FilesystemPathIdentity => {
     const normalized = resolveFilesystemPath(location, platform);
@@ -262,150 +247,6 @@ function physicalRealpath(location: string): string {
   return fs.realpathSync.native?.(location) ?? fs.realpathSync(location);
 }
 
-function filesystemDirectoryIsCaseSensitive(
-  directory: string,
-  platform: NodeJS.Platform,
-  operations: {
-    lstat(location: string): fs.Stats | fs.BigIntStats;
-    readdir(directory: string): string[];
-    realpath(location: string): string;
-  },
-): boolean | undefined {
-  const pathApi = platform === "win32" ? path.win32 : path.posix;
-  let entries: string[];
-  try {
-    entries = operations.readdir(directory);
-  } catch {
-    return undefined;
-  }
-  const foldedNames = new Map<string, string>();
-  for (const name of entries) {
-    const folded = foldAsciiCase(name);
-    const previous = foldedNames.get(folded);
-    if (previous !== undefined && previous !== name) return true;
-    foldedNames.set(folded, name);
-  }
-  for (const name of entries) {
-    const alternate = alternateCase(name);
-    if (alternate === name) continue;
-    try {
-      operations.lstat(pathApi.join(directory, alternate));
-    } catch (error) {
-      if (isMissingFilesystemEntry(error)) {
-        // Enumeration is not an atomic snapshot. An absent alternate proves
-        // sensitivity only if the original spelling still names an entry.
-        try {
-          operations.lstat(pathApi.join(directory, name));
-          return true;
-        } catch (originalError) {
-          if (isMissingFilesystemEntry(originalError) === false)
-            throw originalError;
-        }
-        continue;
-      }
-      throw error;
-    }
-    try {
-      const actual = resolveFilesystemPath(
-        operations.realpath(pathApi.join(directory, name)),
-        platform,
-      );
-      const alias = resolveFilesystemPath(
-        operations.realpath(pathApi.join(directory, alternate)),
-        platform,
-      );
-      return actual !== alias;
-    } catch (error) {
-      if (isMissingFilesystemEntry(error) === false) throw error;
-    }
-  }
-  if (platform === "darwin") {
-    // APFS/HFS case semantics are volume-wide. An empty directory has no child
-    // name to probe, so ask the same read-only question of its existing name in
-    // the parent and walk upward until a name with ASCII case is available.
-    // This avoids a write probe while still distinguishing default APFS from a
-    // case-sensitive volume.
-    let current = resolveFilesystemPath(directory, platform);
-    while (true) {
-      const parent = pathApi.dirname(current);
-      if (parent === current) break;
-      // Names are interpreted by their parent; another mount is not evidence
-      // of the directory's own volume case policy.
-      if (operations.lstat(current).dev !== operations.lstat(parent).dev)
-        return undefined;
-      const name = pathApi.basename(current);
-      const alternate = alternateCase(name);
-      if (alternate !== name) {
-        try {
-          const actual = resolveFilesystemPath(
-            operations.realpath(current),
-            platform,
-          );
-          const alias = resolveFilesystemPath(
-            operations.realpath(pathApi.join(parent, alternate)),
-            platform,
-          );
-          return actual !== alias;
-        } catch (error) {
-          if (isMissingFilesystemEntry(error) === false) throw error;
-        }
-      }
-      current = parent;
-    }
-    return undefined;
-  }
-  if (platform !== "win32") return undefined;
-  // Node does not expose the Windows per-directory flag. Prefer fsutil's
-  // read-only answer; unavailable capability remains unknown.
-  const queried = queryWindowsDirectoryCaseSensitivity(directory);
-  if (queried !== undefined) return queried;
-  return undefined;
-}
-
-/**
- * Read the per-directory flag without depending on fsutil's display language.
- *
- * English output is cheap to recognize directly. Other Windows locales write
- * console-code-page bytes that Node cannot reliably decode, so their raw
- * message is interpreted against the volume-root query.
- */
-function queryWindowsDirectoryCaseSensitivity(
-  directory: string,
-): boolean | undefined {
-  const result = queryWindowsDirectoryCaseSensitivityBytes(directory);
-  if (result === undefined) return undefined;
-  const volumeRoot = path.win32.parse(directory).root;
-  const direct = parseWindowsDirectoryCaseSensitivity(
-    result,
-    undefined,
-    volumeRoot,
-  );
-  if (direct !== undefined) return direct;
-  const volume = queryWindowsDirectoryCaseSensitivityBytes(volumeRoot);
-  return parseWindowsDirectoryCaseSensitivity(result, volume, volumeRoot);
-}
-
-function queryWindowsDirectoryCaseSensitivityBytes(
-  directory: string,
-): Buffer | undefined {
-  const args = ["file", "queryCaseSensitiveInfo", directory];
-  const result = E2ETrace.synchronous(
-    "fsutil.exe",
-    args,
-    {},
-    "path-case-probe",
-    () =>
-      OwnedSynchronousProcess.launch("fsutil.exe", args, {
-        windowsHide: true,
-      }) ?? childProcess.spawnSync("fsutil.exe", args, { windowsHide: true }),
-  );
-  return result.error === undefined &&
-    result.status === 0 &&
-    Buffer.isBuffer(result.stdout)
-    ? result.stdout
-    : undefined;
-}
-
 function filesystemPathIdentityKey(
   location: string,
   platform: NodeJS.Platform,
@@ -413,14 +254,6 @@ function filesystemPathIdentityKey(
   if (platform !== "win32") return location;
   const root = path.win32.parse(location).root;
   return `${root.toLowerCase()}${location.slice(root.length)}`;
-}
-
-function alternateCase(value: string): string {
-  return value.replace(/[A-Za-z]/g, (character) =>
-    character === character.toLowerCase()
-      ? character.toUpperCase()
-      : character.toLowerCase(),
-  );
 }
 
 /** ASCII folding is the case equivalence observed by the read-only probes. */
