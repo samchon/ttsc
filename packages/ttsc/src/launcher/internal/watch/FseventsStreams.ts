@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import fs from "node:fs";
 import path from "node:path";
 
 import type { DirectoryWatcher } from "./DirectoryWatcher";
@@ -116,6 +117,7 @@ export class FseventsStreams {
     const displaced = [...(this.descendants.get(directory) ?? [])];
     const stream: Stream = {
       active: true,
+      openedAt: Date.now(),
       root: directory,
       stop: () => undefined,
       watches: new Map(),
@@ -209,6 +211,9 @@ type Watch = {
 
 type Stream = {
   active: boolean;
+
+  /** When the stream opened; nothing born before it was created in it. */
+  openedAt: number;
   root: string;
   stop: () => unknown;
   watches: Map<string, Set<Watch>>;
@@ -218,6 +223,8 @@ type Stream = {
 const GAP = 0x1 | 0x2 | 0x4 | 0x8 | 0x20 | 0x40 | 0x80;
 const MODIFIED = 0x400 | 0x1000 | 0x2000 | 0x4000 | 0x8000;
 const RENAMED = 0x100 | 0x200 | 0x800;
+const CREATED = 0x100;
+const MOVED = 0x200 | 0x800;
 
 function addWatch(stream: Stream, watch: Watch): void {
   const watches = stream.watches.get(watch.directory) ?? new Set<Watch>();
@@ -247,6 +254,21 @@ function deliver(stream: Stream, file: string, flags: number): void {
     // incomplete. The unplugin broker treats the same case as a gap.
     deliverGap(stream);
     return;
+  }
+  // FSEvents keeps ItemCreated on later writes to a path it saw created, so a
+  // plain edit of a file older than this stream arrived as a rename. An object
+  // born before the stream opened was not created in it; its other flags
+  // decide. A removal or a rename keeps the event structural.
+  if (
+    (flags & CREATED) !== 0 &&
+    (flags & MOVED) === 0 &&
+    (flags & MODIFIED) !== 0
+  ) {
+    try {
+      if (fs.lstatSync(target).birthtimeMs < stream.openedAt) flags &= ~CREATED;
+    } catch {
+      // A path gone by now keeps its creation flag.
+    }
   }
   const event =
     (flags & MODIFIED) !== 0 && (flags & RENAMED) === 0 ? "change" : "rename";

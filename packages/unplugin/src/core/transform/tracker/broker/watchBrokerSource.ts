@@ -119,6 +119,8 @@ const registrations = new Map();
 const DROPPED = 0x1 | 0x2 | 0x4 | 0x8 | 0x20 | 0x40 | 0x80;
 const MODIFIED = 0x400 | 0x1000 | 0x2000 | 0x4000 | 0x8000;
 const RENAMED = 0x100 | 0x200 | 0x800;
+const CREATED = 0x100;
+const MOVED = 0x200 | 0x800;
 const fsevents = load();
 let probeSequence = 0;
 
@@ -203,6 +205,8 @@ function stream(location, deliver, registration) {
   const root = probe === undefined ? directory : probe.root;
   const within = (parent, file) => file === parent || file.startsWith(parent.endsWith("/") ? parent : parent + "/");
   const opened = { close: undefined, location: location.directory, pending: new Map(), probe, proven: probe === undefined };
+  // Anything born before this instant was not created in this stream.
+  const openedAt = Date.now();
   const stop = fsevents.watch(root, (file, flags) => {
     // Loss authority is independent of the path, including our own probe.
     if ((flags & DROPPED) !== 0) {
@@ -232,6 +236,16 @@ function stream(location, deliver, registration) {
     }
     const filename = file.slice(directory.length + 1);
     if (location.recursive !== true && filename.includes("/")) return;
+    // FSEvents keeps ItemCreated on later writes to a path it saw created, so a
+    // plain edit of a file older than this stream arrived as a rename, a
+    // membership change that replaced generations for an unrelated write. An
+    // object born before the stream opened was not created in it; its other
+    // flags decide. A removal or a rename keeps the event structural.
+    if ((flags & CREATED) !== 0 && (flags & MOVED) === 0 && (flags & MODIFIED) !== 0) {
+      try {
+        if (fs.lstatSync(file).birthtimeMs < openedAt) flags &= ~CREATED;
+      } catch {}
+    }
     deliver((flags & MODIFIED) !== 0 && (flags & RENAMED) === 0 ? "change" : "rename", filename);
   });
   opened.close = () => {

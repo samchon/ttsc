@@ -113,8 +113,10 @@ export async function test_transformttsc_a_linked_project_keeps_its_notification
     assert.ok(result, `expected transformed output for ${file}`);
   };
 
+  const treeBefore = new Set(listTree(physical));
   await deliver(modules[0]!);
   assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
+  const created = listTree(physical).filter((entry) => !treeBefore.has(entry));
   // The delivery's own watchers settle before the next one reads them.
   await new Promise((resolve) => setImmediate(() => setImmediate(resolve)));
 
@@ -127,7 +129,7 @@ export async function test_transformttsc_a_linked_project_keeps_its_notification
   assert.deepEqual(
     [...new Set(touched)].filter((location) => !roots.has(location)),
     [],
-    `the watchers answer for every input below the linked project (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])}; generation: ${generationFacts(await [...cache.values()][0])}; trackers at the first read: ${atFirstRead ?? "none"})`,
+    `the watchers answer for every input below the linked project (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])}; generation: ${generationFacts(await [...cache.values()][0])}; trackers at the first read: ${atFirstRead ?? "none"}; created by the first delivery: ${created.slice(0, 12).join(", ") || "nothing"})`,
   );
 }
 
@@ -198,4 +200,13 @@ function generationFacts(generation: unknown): string {
     freshOnly: facts?.freshDeliveryOnly,
     passOnly: facts?.passDeliveryOnly,
   });
+}
+
+/** Every entry below a directory, relative to it, sorted. */
+function listTree(root: string): string[] {
+  try {
+    return (fs.readdirSync(root, { recursive: true }) as string[]).sort();
+  } catch {
+    return [];
+  }
 }

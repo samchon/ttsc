@@ -174,10 +174,13 @@ export async function test_membership_walk_predicate_and_tracker_agree_on_ignore
         fs.writeFileSync(file, bytes);
         assert.equal(tracker.changes.has(file), false, label + ": " + relative);
       }
+      // A write below a directory the walk provably excludes cannot touch the
+      // program, so it costs no proof: a recursive backend hears every such
+      // write a bundler or a cache makes.
       assert.equal(
         tracker.unverified,
-        true,
-        "lexical rejection still withdraws authority",
+        undefined,
+        "a write below a proven excluded directory withdraws no authority",
       );
       const after = collectProjectInputSnapshot(
         root,
@@ -214,6 +217,11 @@ export async function test_membership_walk_predicate_and_tracker_agree_on_ignore
         tracker.changes.has(alias),
         true,
         "excluded spelling cannot hide a native input alias",
+      );
+      assert.equal(
+        tracker.unverified,
+        true,
+        "a link below an excluded directory keeps membership conservative",
       );
       const absent = path.join(root, "unobserved", "missing", "input.ts");
       emit("change", path.relative(root, absent));

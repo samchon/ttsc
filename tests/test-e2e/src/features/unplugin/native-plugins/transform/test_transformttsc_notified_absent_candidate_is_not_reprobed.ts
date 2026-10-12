@@ -96,8 +96,12 @@ export async function test_transformttsc_notified_absent_candidate_is_not_reprob
     assert.ok(result, `expected transformed output for ${file}`);
   };
 
+  const treeBefore = new Set(listTree(project.root));
   await deliver(modules[0]!);
   assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
+  const created = listTree(project.root).filter(
+    (entry) => !treeBefore.has(entry),
+  );
 
   measured = await [...cache.values()][0];
   probes.calls = 0;
@@ -110,7 +114,7 @@ export async function test_transformttsc_notified_absent_candidate_is_not_reprob
   assert.equal(
     probes.calls,
     0,
-    `a candidate the generation watches must cost no filesystem call per delivery (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])}; generation: ${generationFacts(await [...cache.values()][0])}; trackers at the first probe: ${atFirstProbe ?? "none"}):\n${probeLog.slice(0, 4).join("\n")}`,
+    `a candidate the generation watches must cost no filesystem call per delivery (active resources: ${activeResourceSummary()}; trackers: ${trackerStates(await [...cache.values()][0])}; generation: ${generationFacts(await [...cache.values()][0])}; trackers at the first probe: ${atFirstProbe ?? "none"}; created by the first delivery: ${created.slice(0, 12).join(", ") || "nothing"}):\n${probeLog.slice(0, 4).join("\n")}`,
   );
 }
 
@@ -191,4 +195,13 @@ function generationFacts(generation: unknown): string {
     freshOnly: facts?.freshDeliveryOnly,
     passOnly: facts?.passDeliveryOnly,
   });
+}
+
+/** Every entry below a directory, relative to it, sorted. */
+function listTree(root: string): string[] {
+  try {
+    return (fs.readdirSync(root, { recursive: true }) as string[]).sort();
+  } catch {
+    return [];
+  }
 }

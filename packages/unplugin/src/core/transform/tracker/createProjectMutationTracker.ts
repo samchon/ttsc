@@ -36,9 +36,10 @@ import { watchLocationIdentity } from "./watchLocationIdentity";
  * recorded-state validation supplies the actual verdict. Content witnesses
  * preserve captured native input aliases, then reject only an observed normal
  * directory excluded in both lexical and native spellings. Unknown, missing and
- * linked ancestry remains conservative. Membership rejection still withdraws
- * notification authority even when content is outside the walk. Named events
- * also compare current native identity and case policy with the retained
+ * linked ancestry remains conservative. Membership rejection withdraws
+ * notification authority except below such a proven excluded directory, so a
+ * recursive backend's writes to a cache or output tree cost no proof. Named
+ * events also compare current native identity and case policy with the retained
  * identity transaction. Retargeting withdraws notification authority without
  * changing the meaning of earlier recorded event spellings.
  *
@@ -48,8 +49,8 @@ import { watchLocationIdentity } from "./watchLocationIdentity";
  *   A lexical nonmatch is uncertainty rather than native alias exclusion.
  *   Changed native identity premises also withdraw notification proof while
  *   membership and content witnesses keep their independent classifications.
- *   Content exclusion requires normal directory identity and both policy
- *   spellings; captured native input aliases remain content witnesses.
+ *   Content and membership exclusion require normal directory identity and both
+ *   policy spellings; captured native input aliases remain content witnesses.
  * @evidence contracts/common.md#clear-and-simple-design
  *   One root, directory index and filter set define the tracker; broker and local
  *   paths share those decisions rather than duplicating backend-specific policies.
@@ -145,6 +146,53 @@ export async function createProjectMutationTracker(
       .filter((directory) => directory.relevant)
       .map((directory) => paths.resolve(directory.path)),
   );
+  // Whether an event path lies below a directory the walk excludes, proven by
+  // an observed normal directory excluded in both its lexical and its native
+  // spelling. A missing ancestor, one outside the root, or a link before that
+  // directory proves nothing. Content stops at the excluded directory, since a
+  // captured input reached through a deeper link is already caught by its
+  // identity above. Membership has no identity to catch a new file created
+  // through such a link (`node_modules/linked -> src`), so for it the whole
+  // path must be links-free.
+  const excludedFromWalk = (changed: string, wholePath: boolean): boolean => {
+    const relative = paths.relative(root, paths.dirname(changed));
+    if (
+      relative === ".." ||
+      relative.startsWith(".." + paths.sep) ||
+      paths.isAbsolute(relative)
+    )
+      return false;
+    let directory = root;
+    let excluded = false;
+    for (const component of relative.split(paths.sep).filter(Boolean)) {
+      directory = paths.join(directory, component);
+      try {
+        const before = filesystem.lstat(directory);
+        if (!before.isDirectory() || before.isSymbolicLink()) return false;
+        const physical = filesystem.realpath(directory);
+        const after = filesystem.lstat(directory);
+        if (
+          !after.isDirectory() ||
+          after.isSymbolicLink() ||
+          before.dev !== after.dev ||
+          before.ino !== after.ino
+        )
+          return false;
+        if (
+          !excluded &&
+          !isProjectWalkDirectory(directory, policy, filesystem.platform) &&
+          !isProjectWalkDirectory(physical, policy, filesystem.platform)
+        ) {
+          if (!wholePath) return true;
+          excluded = true;
+        }
+      } catch {
+        // Missing/deleted ancestors and unknown native spellings remain events.
+        return false;
+      }
+    }
+    return excluded;
+  };
   const reportsMembership = (location: string, filename: string): boolean => {
     const changed = paths.join(location, filename);
     const current = createHostPathIdentityContext(filesystem);
@@ -169,8 +217,13 @@ export async function createProjectMutationTracker(
         filesystem,
       );
     // Current realpath cannot identify a deleted alias. Policy checks only
-    // lexical spellings, so rejection cannot establish unchanged program state.
-    if (!membership) tracker.unverified = true;
+    // lexical spellings, so rejection cannot establish unchanged program state,
+    // except below a directory the walk provably excludes. A recursive backend
+    // (macOS, Windows) hears every write under the root, a cache or an output
+    // directory among them, and withdrawing authority for each sent every later
+    // delivery to the whole-snapshot proof.
+    if (!membership && !excludedFromWalk(changed, true))
+      tracker.unverified = true;
     return membership;
   };
   // Content belongs to the walk too. A recursive native backend can report
@@ -201,39 +254,7 @@ export async function createProjectMutationTracker(
       tracker.unverified = true;
       return true;
     }
-    const relative = paths.relative(root, paths.dirname(changed));
-    if (
-      relative === ".." ||
-      relative.startsWith(".." + paths.sep) ||
-      paths.isAbsolute(relative)
-    )
-      return true;
-    let directory = root;
-    for (const component of relative.split(paths.sep).filter(Boolean)) {
-      directory = paths.join(directory, component);
-      try {
-        const before = filesystem.lstat(directory);
-        if (!before.isDirectory() || before.isSymbolicLink()) return true;
-        const physical = filesystem.realpath(directory);
-        const after = filesystem.lstat(directory);
-        if (
-          !after.isDirectory() ||
-          after.isSymbolicLink() ||
-          before.dev !== after.dev ||
-          before.ino !== after.ino
-        )
-          return true;
-        if (
-          !isProjectWalkDirectory(directory, policy, filesystem.platform) &&
-          !isProjectWalkDirectory(physical, policy, filesystem.platform)
-        )
-          return false;
-      } catch {
-        // Missing/deleted ancestors and unknown native spellings remain events.
-        return true;
-      }
-    }
-    return true;
+    return !excludedFromWalk(changed, false);
   };
   const reportsNewMembership = (
     location: string,
