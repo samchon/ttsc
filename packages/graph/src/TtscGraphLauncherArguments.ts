@@ -1,4 +1,5 @@
 import type { IProjectOptions } from "./IProjectOptions";
+import { InstalledGraphBinary } from "./internal/InstalledGraphBinary";
 import {
   PROJECT_OPTIONS,
   nonNegativeIntegerOption,
@@ -162,13 +163,7 @@ export namespace TtscGraphLauncherArguments {
   } {
     if (argv.some((argument) => DUMP_HELP_FLAGS.has(argument)))
       return { code: 0, stdout: DUMP_HELP_SUMMARY };
-    return {
-      code: 1,
-      stderr:
-        "@ttsc/graph: could not resolve the ttscgraph binary. " +
-        "Install `ttsc` so its platform package is present, " +
-        "or set TTSC_GRAPH_BINARY to an absolute path.\n",
-    };
+    return { code: 1, stderr: `${InstalledGraphBinary.missingMessage()}\n` };
   }
 }
 
@@ -202,6 +197,7 @@ const DUMP_HELP_SUMMARY = [
   "  --pretty           Indent the JSON output.",
   "",
   "The native `ttscgraph` binary owns these flags and is not installed here,",
-  "so this summary may lag it. Install `ttsc` and rerun for the exact list.",
+  "so this summary may lag it. Install @ttsc/graph with its optional",
+  "dependencies and rerun for the exact list.",
   "",
 ].join("\n");

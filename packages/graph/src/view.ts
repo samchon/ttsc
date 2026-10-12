@@ -6,6 +6,7 @@ import path from "node:path";
 import { TtscGraphLauncherArguments } from "./TtscGraphLauncherArguments";
 import { TtscGraphViewSnapshot } from "./TtscGraphViewSnapshot";
 import { GraphProcessTrace } from "./internal/GraphProcessTrace";
+import { InstalledGraphBinary } from "./internal/InstalledGraphBinary";
 import { publishArtifacts } from "./model/publishedArtifacts";
 import { captureProcessOutput, ensureExecutable } from "./nativeExecutable";
 import { reduce } from "./reduce";
@@ -29,15 +30,11 @@ import { resolveGraphBinary } from "./resolveGraphBinary";
 export function runView(argv: readonly string[]): number | void {
   const opts = TtscGraphLauncherArguments.view(argv);
 
-  // Anchor binary resolution at the project selected by `--cwd`, so `view` from
-  // an unrelated directory still finds the `ttsc` installed under the target.
-  const binary = resolveGraphBinary(process.env, opts.cwd);
+  // The producer belongs to this package's installation; `--cwd` only selects
+  // the project the native process graphs.
+  const binary = resolveGraphBinary(process.env);
   if (binary === null) {
-    process.stderr.write(
-      "@ttsc/graph: could not resolve the ttscgraph binary. " +
-        "Install `ttsc` so its platform package is present, " +
-        "or set TTSC_GRAPH_BINARY to an absolute path.\n",
-    );
+    process.stderr.write(`${InstalledGraphBinary.missingMessage()}\n`);
     return 1;
   }
   ensureExecutable(binary);

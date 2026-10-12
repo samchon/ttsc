@@ -26,6 +26,15 @@
   "peerDependencies": {
     "ttsc": "workspace:^"
   },
+  "optionalDependencies": {
+    "@ttsc/graph-linux-x64": "workspace:*",
+    "@ttsc/graph-linux-arm": "workspace:*",
+    "@ttsc/graph-linux-arm64": "workspace:*",
+    "@ttsc/graph-darwin-x64": "workspace:*",
+    "@ttsc/graph-darwin-arm64": "workspace:*",
+    "@ttsc/graph-win32-x64": "workspace:*",
+    "@ttsc/graph-win32-arm64": "workspace:*"
+  },
   "keywords": [
     "ttsc",
     "mcp",

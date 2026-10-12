@@ -17,6 +17,6 @@ export interface TtscGraphSessionOptions {
   /** Project tsconfig passed to `ttscgraph serve`. */
   tsconfig: string;
 
-  /** Absolute native binary path, resolved from `cwd` when omitted. */
+  /** Absolute native binary path; omitted, the installed `@ttsc/graph-<platform>-<arch>` binary runs. */
   binary?: string;
 }

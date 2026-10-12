@@ -1,3 +1,4 @@
+import { InstalledGraphBinary } from "../internal/InstalledGraphBinary";
 import { ITtscGraphSnapshot } from "../structures/ITtscGraphSnapshot";
 import { TtscGraphLinePeer } from "./TtscGraphLinePeer";
 import { TtscGraphMemory } from "./TtscGraphMemory";
@@ -385,8 +386,7 @@ export class TtscGraphSessionState {
             response.dump?.provenance.schemaVersion ??
               response.snapshot?.schemaVersion,
           )}, this client reads v${String(DUMP_SCHEMA_VERSION)}. ` +
-            "Install a matching `ttsc` (the binary resolves from the target " +
-            "project, or from TTSC_GRAPH_BINARY).",
+            InstalledGraphBinary.MISMATCH_REMEDY,
         ),
       );
       return;

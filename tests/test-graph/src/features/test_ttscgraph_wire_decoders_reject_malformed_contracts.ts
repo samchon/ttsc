@@ -77,7 +77,7 @@ export function test_ttscgraph_wire_decoders_reject_malformed_contracts(): void 
   stale.provenance.schemaVersion = 5;
   const malformed = { ...dump, nodes: null };
   const stalePattern = new RegExp(
-    `dump is schema v5, this client reads v${String(DUMP_SCHEMA_VERSION)}[\\s\\S]*Install a matching \`ttsc\`[\\s\\S]*TTSC_GRAPH_BINARY`,
+    `dump is schema v5, this client reads v${String(DUMP_SCHEMA_VERSION)}[\\s\\S]*Reinstall @ttsc/graph so its platform package matches[\\s\\S]*TTSC_GRAPH_BINARY`,
     "u",
   );
   const bodyPattern = new RegExp(

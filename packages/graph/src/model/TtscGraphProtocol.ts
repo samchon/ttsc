@@ -1,5 +1,6 @@
 import typia from "typia";
 
+import { InstalledGraphBinary } from "../internal/InstalledGraphBinary";
 import { ITtscGraphSnapshot } from "../structures/ITtscGraphSnapshot";
 
 /**
@@ -63,8 +64,7 @@ export namespace TtscGraphProtocol {
         `@ttsc/graph: ttscgraph speaks serve protocol ${
           version === undefined ? "an unknown version" : `v${String(version)}`
         }, this client speaks v${String(PROTOCOL_VERSION)}. ` +
-          "Install a matching `ttsc` (the binary resolves from the target " +
-          "project, or from TTSC_GRAPH_BINARY).",
+          InstalledGraphBinary.MISMATCH_REMEDY,
       );
     }
 

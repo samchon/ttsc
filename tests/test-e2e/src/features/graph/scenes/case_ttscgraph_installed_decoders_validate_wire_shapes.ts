@@ -78,7 +78,7 @@ export async function case_ttscgraph_installed_decoders_validate_wire_shapes(): 
     [
       () => parseDump(JSON.stringify(stale)),
       new RegExp(
-        `dump is schema v5, this client reads v${String(DUMP_SCHEMA_VERSION)}[\\s\\S]*Install a matching \`ttsc\`[\\s\\S]*TTSC_GRAPH_BINARY`,
+        `dump is schema v5, this client reads v${String(DUMP_SCHEMA_VERSION)}[\\s\\S]*Reinstall @ttsc/graph so its platform package matches[\\s\\S]*TTSC_GRAPH_BINARY`,
         "u",
       ),
     ],
@@ -137,7 +137,7 @@ export async function case_ttscgraph_installed_decoders_validate_wire_shapes(): 
     [
       JSON.stringify(stale),
       new RegExp(
-        `dump is schema v5, this client reads v${String(DUMP_SCHEMA_VERSION)}[\\s\\S]*Install a matching \`ttsc\`[\\s\\S]*TTSC_GRAPH_BINARY`,
+        `dump is schema v5, this client reads v${String(DUMP_SCHEMA_VERSION)}[\\s\\S]*Reinstall @ttsc/graph so its platform package matches[\\s\\S]*TTSC_GRAPH_BINARY`,
         "u",
       ),
     ],

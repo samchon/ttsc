@@ -20,7 +20,7 @@
     "package:next": "bash next.bash",
     "release": "bumpp -r",
     "package:latest": "pnpm build && pnpm run package:latest:publish",
-    "package:latest:publish": "pnpm --filter=./packages/* --filter=!ttsc -r publish --tag latest --access public --no-git-checks --provenance && pnpm --filter ttsc publish --tag latest --access public --no-git-checks --provenance"
+    "package:latest:publish": "pnpm --filter=./packages/* --filter=!ttsc --filter=!@ttsc/graph -r publish --tag latest --access public --no-git-checks --provenance && pnpm --filter @ttsc/graph publish --tag latest --access public --no-git-checks --provenance && pnpm --filter ttsc publish --tag latest --access public --no-git-checks --provenance"
   },
   "repository": {
     "type": "git",

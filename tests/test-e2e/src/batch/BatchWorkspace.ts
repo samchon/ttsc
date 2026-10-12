@@ -14,7 +14,6 @@ import { pathToFileURL } from "node:url";
 import vm from "node:vm";
 
 import factory, { TsPrinter } from "../../../../packages/factory/src/index";
-import { resolveGraphBinary } from "../../../../packages/graph/src/resolveGraphBinary";
 import { PluginBuildEnvironmentWitness } from "../../../../packages/ttsc/lib/plugin/internal/source/PluginBuildEnvironmentWitness.js";
 import { buildSourcePlugin } from "../../../../packages/ttsc/lib/plugin/internal/source/buildSourcePlugin.js";
 import { copiesPluginSourceEntry } from "../../../../packages/ttsc/lib/plugin/internal/source/copiesPluginSourceEntry.js";
@@ -32,10 +31,11 @@ import { shellQuote } from "../internal/ttsc/internal/source-build";
 /**
  * Owns the one corpus all nine real boundary sessions consume. The authored
  * host-platform override binds nested optional edges to the same packed
- * candidate as the root dependency. Default compiler/server/Go/Graph locators
- * must select that physical file and the independent pack producer bytes;
- * locator assertions do not certify subsequent CLI execution or override
- * lanes.
+ * candidate as the root dependency. Default compiler/server/Go locators must
+ * select that physical file and the independent pack producer bytes; locator
+ * assertions do not certify subsequent CLI execution or override lanes. The
+ * graph producer ships in `@ttsc/graph`'s own platform package, which this
+ * consumer does not install; test_e2e_installation owns its packed identity.
  */
 export namespace BatchWorkspace {
   export interface Workspace {
@@ -849,11 +849,6 @@ export namespace BatchWorkspace {
           path.join(sdk, "lib/plugin/internal/source/resolveGoCompiler.js"),
         ).resolveGoCompiler({}).binary,
         `bin/go/bin/go${executableSuffix}`,
-      ],
-      [
-        "ttscgraph",
-        resolveGraphBinary({}, root),
-        `bin/ttscgraph${executableSuffix}`,
       ],
     ] as const;
     for (const [name, selected, relativeBinary] of defaultNativePaths) {

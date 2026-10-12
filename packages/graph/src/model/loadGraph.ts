@@ -1,6 +1,7 @@
 import typia from "typia";
 
 import { GraphProcessTrace } from "../internal/GraphProcessTrace";
+import { InstalledGraphBinary } from "../internal/InstalledGraphBinary";
 import { captureProcessOutput, ensureExecutable } from "../nativeExecutable";
 import { resolveGraphBinary } from "../resolveGraphBinary";
 import { ITtscGraphDump } from "../structures/ITtscGraphDump";
@@ -34,7 +35,7 @@ export const DUMP_SCHEMA_VERSION = 8;
  * @evidence contracts/common.md#clear-and-simple-design One-shot process execution, capture ownership and parse validation have separate helpers; the resident MCP path remains a different lifetime owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed resolution or native execution throws rather than returning an invented empty graph.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state direct/viewer usage, project/binary defaults and every externally visible failure boundary.
- * @evidence contracts/portability.md#os-neutral-implementation Native argv carries cwd, tsconfig and artifact paths without a shell; project-anchored binary resolution and permission repair account for host execution differences.
+ * @evidence contracts/portability.md#os-neutral-implementation Native argv carries cwd, tsconfig and artifact paths without a shell; installation-anchored binary resolution and permission repair account for host execution differences.
  * @evidence contracts/performance.md#efficient-algorithms One native dump is followed by linear JSON parsing/validation and model indexing; output is file-backed rather than constrained by a guessed pipe budget.
  * @evidence contracts/performance.md#reuse-equivalent-work Direct loads intentionally build the requested current project anew; callers needing repeated equivalent snapshots use TtscGraphSession's resident producer and model.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The operation owns two capture descriptors until the finally block disposes them; returned graph ownership transfers to the caller, while artifact storage remains process/project scoped.
@@ -49,24 +50,18 @@ export function loadGraph(
 
     /**
      * Absolute path to the `ttscgraph` binary. Defaults to the per-platform
-     * binary resolved from the project's installed `ttsc`; pass it explicitly
-     * to point at a custom build.
+     * binary installed with `@ttsc/graph`; pass it explicitly to point at a
+     * custom build.
      */
     binary?: string;
   } = {},
 ): TtscGraphMemory {
   const cwd = options.cwd ?? process.cwd();
   const tsconfig = options.tsconfig ?? "tsconfig.json";
-  // Resolve the platform binary from the selected project cwd, not the caller's
-  // process directory, so a one-shot load names its own installation.
-  const binary = options.binary ?? resolveGraphBinary(process.env, cwd);
-  if (binary === null) {
-    throw new Error(
-      "@ttsc/graph: could not resolve the ttscgraph binary. " +
-        "Install `ttsc` so its platform package is present, " +
-        "or set TTSC_GRAPH_BINARY to an absolute path.",
-    );
-  }
+  // The producer belongs to this package's installation, so the selected
+  // project only becomes the native process's --cwd.
+  const binary = options.binary ?? resolveGraphBinary(process.env);
+  if (binary === null) throw new Error(InstalledGraphBinary.missingMessage());
   ensureExecutable(binary);
 
   // The dump goes to a file rather than a pipe, so no output ceiling applies:
@@ -159,8 +154,7 @@ export function parseDump(json: string): ITtscGraphDump {
       `@ttsc/graph: ttscgraph dump is schema ${
         version === undefined ? "unknown" : `v${String(version)}`
       }, this client reads v${String(DUMP_SCHEMA_VERSION)}. ` +
-        "Install a matching `ttsc` (the binary resolves from the target " +
-        "project, or from TTSC_GRAPH_BINARY).",
+        InstalledGraphBinary.MISMATCH_REMEDY,
     );
   }
   try {

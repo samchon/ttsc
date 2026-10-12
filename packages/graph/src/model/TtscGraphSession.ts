@@ -1,5 +1,6 @@
 import { CapabilityPluginResolver } from "ttsc";
 
+import { InstalledGraphBinary } from "../internal/InstalledGraphBinary";
 import { ensureExecutable } from "../nativeExecutable";
 import { resolveGraphBinary } from "../resolveGraphBinary";
 import type { IPublishedArtifactsResident } from "./IPublishedArtifactsResident";
@@ -70,18 +71,10 @@ export class TtscGraphSession {
   private readonly retiredDaemons = new Set<Promise<void>>();
 
   public constructor(options: TtscGraphSessionOptions) {
-    // Resolve the platform binary from the project this session serves, so the
-    // MCP server started from an unrelated directory still finds the target's
-    // installed `ttsc`.
-    const binary =
-      options.binary ?? resolveGraphBinary(process.env, options.cwd);
-    if (binary === null) {
-      throw new Error(
-        "@ttsc/graph: could not resolve the ttscgraph binary. " +
-          "Install `ttsc` so its platform package is present, " +
-          "or set TTSC_GRAPH_BINARY to an absolute path.",
-      );
-    }
+    // The producer belongs to this package's installation, so an MCP server
+    // started from any directory spawns the binary of its own release.
+    const binary = options.binary ?? resolveGraphBinary(process.env);
+    if (binary === null) throw new Error(InstalledGraphBinary.missingMessage());
     ensureExecutable(binary);
     this.cwd = options.cwd;
     this.tsconfig = options.tsconfig;

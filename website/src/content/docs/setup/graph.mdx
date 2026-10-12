@@ -34,15 +34,15 @@ Median tokens on the shared onboarding question, against no MCP and the three co
   </Tabs.Tab>
 </Tabs>
 
-`@ttsc/graph` resolves the native `ttscgraph` binary from the `ttsc` platform package installed in the project it graphs, which is why `ttsc` is on that line.
+The native `ttscgraph` binary ships with `@ttsc/graph` itself, in a per-platform package such as `@ttsc/graph-linux-x64` that the package manager installs as an optional dependency. A project that does not use the graph downloads none of it. `ttsc` stays on the install line as the peer `@ttsc/graph` is built on, including the plugin resolution it uses to read what lint plugins publish.
 
-Keep `@ttsc/graph` and `ttsc` versions together. The server uses the target project's binary, or `TTSC_GRAPH_BINARY` when set, and stops on a protocol mismatch:
+Keep `@ttsc/graph` and `ttsc` on the same version; upgrading from 0.31 means upgrading both. If the package manager skipped optional dependencies, the server reports which platform package is missing; reinstall `@ttsc/graph` with optional dependencies enabled, or point `TTSC_GRAPH_BINARY` at an absolute `ttscgraph` path. A binary from another build stops on a protocol or schema mismatch:
 
 ```
 @ttsc/graph: ttscgraph speaks serve protocol v2, this client speaks v1.
 ```
 
-Upgrade both packages together to resolve the mismatch.
+Reinstall `@ttsc/graph` so its platform package matches, or point `TTSC_GRAPH_BINARY` at a matching build.
 
 ## Connect an agent
 
