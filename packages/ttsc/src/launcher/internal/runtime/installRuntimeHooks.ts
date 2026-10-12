@@ -1228,7 +1228,7 @@ function resolveServedSource(
   prepareAsEntry: boolean = false,
 ): ServedSource {
   const real = realPath(filename);
-  let served = serveInlinedEntryEmit(real);
+  let served = serveInlinedEntryEmit(real, prepareAsEntry);
   if (served !== null) {
     return served;
   }
@@ -1237,7 +1237,7 @@ function resolveServedSource(
   const prepareEntry = prepareAsEntry ? prepareRuntimeEntry : undefined;
   if (prepareEntry !== undefined) {
     RuntimeManifestRegistry.registerManifest(prepareEntry(real));
-    served = serveInlinedEntryEmit(real);
+    served = serveInlinedEntryEmit(real, true);
     if (served === null) {
       throw new Error(`ttsx: prepared entry emit not found for ${filename}`);
     }
@@ -1730,18 +1730,24 @@ function serveEntryEmit(real: string): ServedSource | null {
 
 /**
  * {@link serveEntryEmit} with the emit's source map inlined, as a module load
- * serves it. A checked entry build's emit is immutable for the run, so each of
- * its emitted files is read and source-mapped once (`RuntimeEntrySources`,
- * samchon/ttsc#1749).
+ * serves it. A checked entry build's emit is immutable for the run, so an entry
+ * load, which Node 22.15 repeats for the process entry, reads and source-maps
+ * each emitted file once (`RuntimeEntrySources`, samchon/ttsc#1749). Other
+ * modules are not remembered: Node keeps each loaded module, and holding every
+ * served text beside it would retain the whole program's emit.
  */
-function serveInlinedEntryEmit(real: string): ServedSource | null {
+function serveInlinedEntryEmit(
+  real: string,
+  entry: boolean,
+): ServedSource | null {
   const owner = RuntimeManifestRegistry.findEntryEmit(real);
   if (owner === null) {
     return null;
   }
-  return RuntimeEntrySources.serve(owner.manifest, owner.emittedFile, () =>
-    withInlineSourceMap(entryEmitSource(owner, real)),
-  );
+  const prepare = () => withInlineSourceMap(entryEmitSource(owner, real));
+  return entry
+    ? RuntimeEntrySources.serve(owner.manifest, owner.emittedFile, prepare)
+    : prepare();
 }
 
 function entryEmitSource(
