@@ -8,6 +8,7 @@ import { relativeToProject } from "../filesystem/relativeToProject";
 import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 import { envelopeDerivation } from "./envelopeDerivation";
 import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
+import { generationCaseSensitivity } from "./generationCaseSensitivity";
 
 /**
  * The generation's resolution candidates recorded as not files, so its
@@ -72,7 +73,10 @@ export function selectNotifiableAbsentInputs(props: {
   if (graph === undefined) {
     return empty;
   }
-  const identities = createHostPathIdentityContext(props.filesystem);
+  const identities = createHostPathIdentityContext(
+    props.filesystem,
+    generationCaseSensitivity(props),
+  );
   const graphState = envelopeDerivation({
     projectRoot: props.projectRoot,
     result: props.result,

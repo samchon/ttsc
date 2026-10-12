@@ -29,6 +29,8 @@ import type { TtscTransformFilesystemOperations } from "./TtscTransformFilesyste
  *   The returned context memoizes path, realpath and case observations for
  *   repeated questions within one filesystem transaction. Callers must create
  *   a new context when later filesystem changes can invalidate those observations.
+ *   A caller capturing one generation can hand in that generation's case answers,
+ *   so its contexts do not each ask the filesystem again (samchon/ttsc#1742).
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Ownership of the context and its maps transfers to the caller. Retained
  *   entries grow with queried paths and ancestors and have no internal eviction;
@@ -36,9 +38,15 @@ import type { TtscTransformFilesystemOperations } from "./TtscTransformFilesyste
  */
 export function createHostPathIdentityContext(
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  /**
+   * Case answers this context shares with the others of its unit of work,
+   * observed through the same `filesystem`; omitted, the context asks for
+   * itself.
+   */
+  caseSensitive: TtscTransformFilesystemOperations["caseSensitive"] = filesystem.caseSensitive,
 ): FilesystemPathIdentityContext {
   return createFilesystemPathIdentityContext({
-    caseSensitive: filesystem.caseSensitive,
+    caseSensitive,
     lstat: filesystem.lstat,
     platform: filesystem.platform,
     readdir: (directory) =>

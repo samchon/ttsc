@@ -12,6 +12,7 @@ import { TRANSFORM_RESULT_MEMBERSHIP } from "../cache/TRANSFORM_RESULT_MEMBERSHI
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { refreshFilesystemClockReference } from "../clock/refreshFilesystemClockReference";
 import { reportDivergentDelivery } from "../diagnostics/reportDivergentDelivery";
+import { generationCaseSensitivity } from "../envelope/generationCaseSensitivity";
 import { selectDeclaredProjectInputKeys } from "../envelope/selectDeclaredProjectInputKeys";
 import { selectExternalInputPaths } from "../envelope/selectExternalInputPaths";
 import { selectNotifiableAbsentInputs } from "../envelope/selectNotifiableAbsentInputs";
@@ -457,6 +458,13 @@ export async function captureTransformGeneration(props: {
       clockReferenceDirectory ?? scratchDirectory,
       props.filesystem,
     );
+    // Every context capturing this generation below shares the generation's
+    // directory case answers, rather than each asking again (samchon/ttsc#1742).
+    const generationCase = generationCaseSensitivity({
+      filesystem: props.filesystem,
+      projectRoot,
+      result,
+    });
     const persistentHostInputs = selectPersistentHostInputs({
       filesystem: props.filesystem,
       projectRoot,
@@ -518,6 +526,7 @@ export async function captureTransformGeneration(props: {
               projectRoot,
               result,
             }),
+            generationCase,
           )
         : undefined;
     compileTrace?.("bridge-tracker-lifecycle", {
@@ -566,6 +575,7 @@ export async function captureTransformGeneration(props: {
                 .filter((input) => !absentCandidates.has(input))
                 .map((input) => [path.resolve(input), "presence" as const]),
             ),
+            generationCase,
           )
         : undefined;
     compileTrace?.("bridge-tracker-lifecycle", {

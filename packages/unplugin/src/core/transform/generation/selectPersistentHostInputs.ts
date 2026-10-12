@@ -1,5 +1,6 @@
 import type { ITtscCompilerTransformation } from "ttsc";
 
+import { generationCaseSensitivity } from "../envelope/generationCaseSensitivity";
 import { selectListedFiles } from "../envelope/selectListedFiles";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
@@ -43,7 +44,10 @@ export function selectPersistentHostInputs(props: {
     props.temporaryTsconfig === undefined
   )
     return inputs;
-  const identities = createHostPathIdentityContext(props.filesystem);
+  const identities = createHostPathIdentityContext(
+    props.filesystem,
+    generationCaseSensitivity(props),
+  );
   const temporary =
     props.temporaryTsconfig === undefined
       ? undefined

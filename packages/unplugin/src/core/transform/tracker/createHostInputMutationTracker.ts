@@ -114,12 +114,21 @@ export async function createHostInputMutationTracker(
    * filesystem.
    */
   scopes?: ReadonlyMap<string, TtscTrackedInputScope>,
+  /**
+   * The case answers of the generation this tracker watches, for its baseline
+   * (`generationCaseSensitivity`); omitted, the baseline observes for itself.
+   * An event's re-check always observes afresh.
+   */
+  caseSensitive?: TtscTransformFilesystemOperations["caseSensitive"],
 ): Promise<TtscProjectMutationTracker> {
   const paths =
     (filesystem.platform ?? process.platform) === "win32"
       ? path.win32
       : path.posix;
-  const identities = createHostPathIdentityContext(filesystem);
+  const identities = createHostPathIdentityContext(
+    filesystem,
+    caseSensitive ?? filesystem.caseSensitive,
+  );
   // The project root in both of its spellings: an input the compiler reported
   // physically is the project's as much as one spelled as the project was
   // named, and the root's observer is opened once, under the name.
