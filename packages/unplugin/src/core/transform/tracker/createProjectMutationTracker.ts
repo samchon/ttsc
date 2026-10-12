@@ -38,10 +38,12 @@ import { watchLocationIdentity } from "./watchLocationIdentity";
  * directory excluded in both lexical and native spellings. Unknown, missing and
  * linked ancestry remains conservative. Membership rejection withdraws
  * notification authority except below such a proven excluded directory, so a
- * recursive backend's writes to a cache or output tree cost no proof. Named
- * events also compare current native identity and case policy with the retained
- * identity transaction. Retargeting withdraws notification authority without
- * changing the meaning of earlier recorded event spellings.
+ * recursive backend's writes to a cache or output tree cost no proof, nor does
+ * an edit to an existing unlinked file whose every name the program cannot
+ * admit (samchon/ttsc#1737). Named events also compare current native identity
+ * and case policy with the retained identity transaction. Retargeting withdraws
+ * notification authority without changing the meaning of earlier recorded event
+ * spellings.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The project walk and membership policy own structural relevance; content
@@ -193,6 +195,26 @@ export async function createProjectMutationTracker(
     }
     return excluded;
   };
+  // Whether an event names an existing file no spelling can make a program
+  // member: a regular file with no second hard link, whose own and physical
+  // names are both names the program cannot admit. A directory alias can move
+  // a file into the program but cannot rename it, and a removed name, a link
+  // or a directory stays conservative.
+  const existingNonProgramFile = (changed: string): boolean => {
+    try {
+      const stats = filesystem.lstat(changed);
+      if (!stats.isFile() || stats.nlink > 1n) return false;
+      return (
+        !isPossibleProgramFileName(paths.basename(changed), policy) &&
+        !isPossibleProgramFileName(
+          paths.basename(filesystem.realpath(changed)),
+          policy,
+        )
+      );
+    } catch {
+      return false;
+    }
+  };
   const reportsMembership = (location: string, filename: string): boolean => {
     const changed = paths.join(location, filename);
     const current = createHostPathIdentityContext(filesystem);
@@ -221,8 +243,14 @@ export async function createProjectMutationTracker(
     // except below a directory the walk provably excludes. A recursive backend
     // (macOS, Windows) hears every write under the root, a cache or an output
     // directory among them, and withdrawing authority for each sent every later
-    // delivery to the whole-snapshot proof.
-    if (!membership && !excludedFromWalk(changed, true))
+    // delivery to the whole-snapshot proof. An existing file whose every name
+    // the program cannot admit is no member either, a stylesheet or an asset
+    // edited in a source directory among them, on every backend.
+    if (
+      !membership &&
+      !excludedFromWalk(changed, true) &&
+      !existingNonProgramFile(changed)
+    )
       tracker.unverified = true;
     return membership;
   };
