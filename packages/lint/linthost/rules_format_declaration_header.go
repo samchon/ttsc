@@ -504,12 +504,19 @@ func singleGenericHeritageHeader(src, base, prefix string, typeParams, heritage 
   if typeNode == nil {
     return "", false
   }
-  ewta := typeNode.AsExpressionWithTypeArguments()
-  if ewta == nil || ewta.TypeArguments == nil || len(ewta.TypeArguments.Nodes) < 2 {
+  // An interface's `extends` and a class's `implements` element is a type
+  // reference when it names an entity; other elements keep the expression form.
+  var typeArguments *shimast.NodeList
+  if typeNode.Kind == shimast.KindTypeReference {
+    typeArguments = typeNode.AsTypeReferenceNode().TypeArguments
+  } else if ewta := typeNode.AsExpressionWithTypeArguments(); ewta != nil {
+    typeArguments = ewta.TypeArguments
+  }
+  if typeArguments == nil || len(typeArguments.Nodes) < 2 {
     return "", false
   }
   nameStart := shimscanner.SkipTrivia(src, typeNode.Pos())
-  ltPos := typeArgsStart(src, ewta.TypeArguments)
+  ltPos := typeArgsStart(src, typeArguments)
   if nameStart < 0 || ltPos <= nameStart {
     return "", false
   }
@@ -517,7 +524,7 @@ func singleGenericHeritageHeader(src, base, prefix string, typeParams, heritage 
   if strings.ContainsRune(typeName, '\n') {
     return "", false
   }
-  args, ok := nodeListTexts(src, ewta.TypeArguments)
+  args, ok := nodeListTexts(src, typeArguments)
   if !ok {
     return "", false
   }

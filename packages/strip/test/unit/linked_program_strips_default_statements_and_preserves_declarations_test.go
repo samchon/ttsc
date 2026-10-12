@@ -49,7 +49,7 @@ if (box.value) console.log("drop-if");`,
   defer prog.Close()
   var file *shimast.SourceFile
   for _, source := range prog.TSProgram.SourceFiles() {
-    if filepath.Base(source.FileName()) == "main.ts" {
+    if filepath.Base(source.FileName().AsString()) == "main.ts" {
       file = source
     }
   }

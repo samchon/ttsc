@@ -22,8 +22,8 @@ import (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 type OverlayFS struct {
   vfs.FS
-  caseSensitive bool
-  overrides     map[string]string
+  caseSensitivity shimtspath.CaseSensitivity
+  overrides       map[string]string
 }
 
 // NewOverlayFS returns an overlay over inner with no overrides set.
@@ -32,15 +32,15 @@ type OverlayFS struct {
 // @evidence contracts/common.md#clear-and-simple-design Construction initializes one map and captures the inner VFS in one owner.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Construction does not alter the inner object or inject sample file contents.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the initially empty overlay following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Construction captures inner.UseCaseSensitiveFileNames as its canonicalization policy; it performs no independent per-directory capability or physical-alias probe.
+// @evidence contracts/portability.md#os-neutral-implementation Construction captures inner.CaseSensitivity as its canonicalization policy; it performs no independent per-directory capability or physical-alias probe.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The returned overlay keeps inner reachable and owns a fresh override map. Later distinct keys and content bytes have no configured cap or eviction; callers remove entries with Unset or release the overlay. Inner handles and caches remain owned by the supplied filesystem.
 // @evidence contracts/performance.md#efficient-algorithms Construction allocates one empty map and wrapper and queries the inner case policy once, without scanning source files or override populations. Any work performed by that supplied policy query belongs to this delegated call, not a universal constant-time guarantee.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each construction intentionally creates independent mutable override state; the function owns no cross-overlay sharing coordinator or cached constructor result.
 func NewOverlayFS(inner vfs.FS) *OverlayFS {
   return &OverlayFS{
-    FS:            inner,
-    caseSensitive: inner.UseCaseSensitiveFileNames(),
-    overrides:     map[string]string{},
+    FS:              inner,
+    caseSensitivity: inner.CaseSensitivity(),
+    overrides:       map[string]string{},
   }
 }
 
@@ -48,7 +48,7 @@ func NewOverlayFS(inner vfs.FS) *OverlayFS {
 // It does not anchor relative paths to the compiler cwd or resolve physical
 // aliases; callers must use compatible spellings when registering and reading.
 func (o *OverlayFS) key(path string) string {
-  return shimtspath.GetCanonicalFileName(shimtspath.NormalizePath(path), o.caseSensitive)
+  return o.caseSensitivity.Canonicalize(shimtspath.NormalizePath(path))
 }
 
 // Set records an in-memory override for path.
@@ -106,8 +106,8 @@ func (o *OverlayFS) Unset(path string) {
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The wrapper adds no read cache or native handle ownership. Override strings remain owned by the overlay and caller; fallback temporary resources and retained read state belong to the supplied inner filesystem, not this adapter's release policy.
 // @evidence contracts/performance.md#efficient-algorithms Lookup processes path normalization/case/hash bytes before testing the override map. A hit returns stored text without scanning it; a miss adds the inner read's actual path, input-byte and decoding/cache costs, which are not universally fixed steps.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The wrapper adds no completed/in-flight read coordinator or independent disk-content cache; inner reuse remains the supplied filesystem's policy.
-func (o *OverlayFS) ReadFile(path string) (string, bool) {
-  if content, ok := o.overrides[o.key(path)]; ok {
+func (o *OverlayFS) ReadFile(path shimtspath.RootedFilePath) (string, bool) {
+  if content, ok := o.overrides[o.key(path.AsString())]; ok {
     return content, true
   }
   return o.FS.ReadFile(path)
@@ -123,8 +123,8 @@ func (o *OverlayFS) ReadFile(path string) (string, bool) {
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The wrapper retains no new entries or native handles during the query. Existing overrides remain overlay-owned; any temporary handles or metadata caches populated by fallback belong to the supplied inner filesystem.
 // @evidence contracts/performance.md#efficient-algorithms Key normalization/case conversion and hashing process path bytes before one override lookup. Hits require no native query; misses add the supplied filesystem's existence-probe or metadata-cache work rather than a universal fixed cost.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This wrapper owns no existence-query sharing coordinator or separate metadata cache; it reads current overrides and delegates inner reuse policy.
-func (o *OverlayFS) FileExists(path string) bool {
-  if _, ok := o.overrides[o.key(path)]; ok {
+func (o *OverlayFS) FileExists(path shimtspath.RootedFilePath) bool {
+  if _, ok := o.overrides[o.key(path.AsString())]; ok {
     return true
   }
   return o.FS.FileExists(path)

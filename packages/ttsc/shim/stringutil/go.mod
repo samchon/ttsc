@@ -1,5 +1,5 @@
-module github.com/microsoft/typescript-go/shim/stringutil
+module github.com/microsoft/TypeScript/tsc/shim/stringutil
 
-go 1.26
+go 1.27
 
-require github.com/microsoft/typescript-go v0.0.0-20260610182825-7fc57c005063
+require github.com/microsoft/TypeScript/tsc v0.0.0-20261008195036-6ad8c56f9b5a

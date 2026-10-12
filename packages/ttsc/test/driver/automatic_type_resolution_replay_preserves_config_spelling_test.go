@@ -95,7 +95,7 @@ func TestAutomaticTypeResolutionReplayPreservesConfigSpelling(t *testing.T) {
           if task.Universal {
             automatic[task.Name] = true
             expected := filepath.ToSlash(filepath.Join(root, "__inferred type names__.ts"))
-            if task.ContainingFile != expected {
+            if task.ContainingFile.AsString() != expected {
               t.Errorf("%s containing file = %q, want %q", task.Name, task.ContainingFile, expected)
             }
             if (task.ResolvedFile == "") != (task.Name == "missing-types") {
@@ -104,7 +104,7 @@ func TestAutomaticTypeResolutionReplayPreservesConfigSpelling(t *testing.T) {
           } else if task.Kind == shimcompiler.ProgramResolutionKindTypeReference {
             ordinary = true
             expected := filepath.ToSlash(filepath.Join(root, "nested", "consumer.ts"))
-            if task.ContainingFile != expected || task.SourceFile != expected {
+            if task.ContainingFile.AsString() != expected || task.SourceFile.AsString() != expected {
               t.Errorf("ordinary reference lost its source context: %+v", task)
             }
           }

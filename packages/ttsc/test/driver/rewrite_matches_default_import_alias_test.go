@@ -6,6 +6,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -66,8 +67,8 @@ export const value = plugin.make("input");
     ConsumeParens: true,
   })
   emitted := map[string]string{}
-  _, emitDiags, err := prog.EmitAll(rewrites, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    emitted[filepath.Base(fileName)] = text
+  _, emitDiags, err := prog.EmitAll(rewrites, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[filepath.Base(fileName.AsString())] = text
     return nil
   })
   if err != nil {

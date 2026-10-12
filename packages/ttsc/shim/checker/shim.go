@@ -11,10 +11,10 @@ package checker
 import (
   "sync"
 
-  innerast "github.com/microsoft/typescript-go/internal/ast"
-  innerchecker "github.com/microsoft/typescript-go/internal/checker"
-  innernodebuilder "github.com/microsoft/typescript-go/internal/nodebuilder"
-  innerprinter "github.com/microsoft/typescript-go/internal/printer"
+  innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
+  innerchecker "github.com/microsoft/TypeScript/tsc/internal/checker"
+  innernodebuilder "github.com/microsoft/TypeScript/tsc/internal/nodebuilder"
+  innerprinter "github.com/microsoft/TypeScript/tsc/internal/printer"
   _ "unsafe"
 )
 
@@ -157,13 +157,13 @@ func WithNodeBuilderContext(ch *Checker, emitContext *innerprinter.EmitContext, 
   return node, nil
 }
 
-//go:linkname nodeBuilderEnterContext github.com/microsoft/typescript-go/internal/checker.(*NodeBuilder).enterContext
+//go:linkname nodeBuilderEnterContext github.com/microsoft/TypeScript/tsc/internal/checker.(*NodeBuilder).enterContext
 func nodeBuilderEnterContext(*innerchecker.NodeBuilder, *innerast.Node, innernodebuilder.Flags, innernodebuilder.InternalFlags, innernodebuilder.SymbolTracker)
 
-//go:linkname nodeBuilderExitContext github.com/microsoft/typescript-go/internal/checker.(*NodeBuilder).exitContext
+//go:linkname nodeBuilderExitContext github.com/microsoft/TypeScript/tsc/internal/checker.(*NodeBuilder).exitContext
 func nodeBuilderExitContext(*innerchecker.NodeBuilder, *innerast.Node) *innerast.Node
 
-//go:linkname nodeBuilderPopContext github.com/microsoft/typescript-go/internal/checker.(*NodeBuilder).popContext
+//go:linkname nodeBuilderPopContext github.com/microsoft/TypeScript/tsc/internal/checker.(*NodeBuilder).popContext
 func nodeBuilderPopContext(*innerchecker.NodeBuilder)
 
 // IsTypeUsableAsPropertyName reports whether t is a string or number literal
@@ -303,7 +303,7 @@ type Program = innerchecker.Program
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Tracer = innerchecker.Tracer
 
-//go:linkname checkerNewAnonymousType github.com/microsoft/typescript-go/internal/checker.(*Checker).newAnonymousType
+//go:linkname checkerNewAnonymousType github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).newAnonymousType
 func checkerNewAnonymousType(
   recv *innerchecker.Checker,
   symbol *innerast.Symbol,
@@ -313,13 +313,13 @@ func checkerNewAnonymousType(
   indexInfos []*innerchecker.IndexInfo,
 ) *innerchecker.Type
 
-//go:linkname checkerGetTargetSymbol github.com/microsoft/typescript-go/internal/checker.(*Checker).getTargetSymbol
+//go:linkname checkerGetTargetSymbol github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).getTargetSymbol
 func checkerGetTargetSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerast.Symbol
 
-//go:linkname checkerIsPrototypeProperty github.com/microsoft/typescript-go/internal/checker.isPrototypeProperty
+//go:linkname checkerIsPrototypeProperty github.com/microsoft/TypeScript/tsc/internal/checker.isPrototypeProperty
 func checkerIsPrototypeProperty(symbol *innerast.Symbol) bool
 
-//go:linkname checkerArePropertiesAbstractOrInterface github.com/microsoft/typescript-go/internal/checker.(*Checker).arePropertiesAbstractOrInterface
+//go:linkname checkerArePropertiesAbstractOrInterface github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).arePropertiesAbstractOrInterface
 func checkerArePropertiesAbstractOrInterface(
   recv *innerchecker.Checker,
   base *innerast.Symbol,
@@ -350,13 +350,13 @@ func Checker_isPropertyAssignableTo(
   targetProperty *innerast.Symbol,
 ) bool {
   if recv == nil || sourceProperty == nil || targetProperty == nil ||
-    sourceProperty.Name != targetProperty.Name {
+    sourceProperty.Name() != targetProperty.Name() {
     return false
   }
   source := checkerNewAnonymousType(
     recv,
     nil,
-    innerast.SymbolTable{sourceProperty.Name: sourceProperty},
+    innerast.SymbolTable{sourceProperty.Name(): sourceProperty},
     nil,
     nil,
     nil,
@@ -364,7 +364,7 @@ func Checker_isPropertyAssignableTo(
   target := checkerNewAnonymousType(
     recv,
     nil,
-    innerast.SymbolTable{targetProperty.Name: targetProperty},
+    innerast.SymbolTable{targetProperty.Name(): targetProperty},
     nil,
     nil,
     nil,
@@ -408,14 +408,14 @@ func Checker_isValidClassMemberOverridePair(
   }
 
   baseDeclarationFlags := innerchecker.GetDeclarationModifierFlagsFromSymbol(base)
-  basePropertyFlags := base.Flags & innerast.SymbolFlagsPropertyOrAccessor
-  derivedPropertyFlags := derived.Flags & innerast.SymbolFlagsPropertyOrAccessor
+  basePropertyFlags := base.Flags() & innerast.SymbolFlagsPropertyOrAccessor
+  derivedPropertyFlags := derived.Flags() & innerast.SymbolFlagsPropertyOrAccessor
   if basePropertyFlags != 0 && derivedPropertyFlags != 0 {
     // A direct class base member cannot be a mapped property. The upstream
     // mapped-property exception therefore has no member declaration this
     // direct-pair API could publish; assignment declarations and abstract /
     // interface members are the two applicable exceptions.
-    if derived.ValueDeclaration != nil && innerast.IsBinaryExpression(derived.ValueDeclaration) ||
+    if derived.ValueDeclaration() != nil && innerast.IsBinaryExpression(derived.ValueDeclaration()) ||
       checkerArePropertiesAbstractOrInterface(recv, base, baseDeclarationFlags) {
       return true
     }
@@ -427,7 +427,7 @@ func Checker_isValidClassMemberOverridePair(
   }
   if checkerIsPrototypeProperty(base) {
     return checkerIsPrototypeProperty(derived) ||
-      derived.Flags&innerast.SymbolFlagsProperty != 0
+      derived.Flags()&innerast.SymbolFlagsProperty != 0
   }
   return false
 }
@@ -450,7 +450,7 @@ func NewChecker(program Program, tracer *Tracer) (*Checker, *sync.Mutex) {
   return innerchecker.NewChecker(program, tracer)
 }
 
-//go:linkname checkerGetRegularTypeOfLiteralType github.com/microsoft/typescript-go/internal/checker.(*Checker).getRegularTypeOfLiteralType
+//go:linkname checkerGetRegularTypeOfLiteralType github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).getRegularTypeOfLiteralType
 func checkerGetRegularTypeOfLiteralType(recv *innerchecker.Checker, t *innerchecker.Type) *innerchecker.Type
 
 // Checker_getRegularTypeOfLiteralType returns the canonical regular form of a
@@ -791,7 +791,7 @@ func Checker_getTypeOfPropertyOfType(recv *innerchecker.Checker, t *innerchecker
   return recv.GetTypeOfPropertyOfType(t, name)
 }
 
-//go:linkname checkerGetPropertyNameForKnownSymbolName github.com/microsoft/typescript-go/internal/checker.(*Checker).getPropertyNameForKnownSymbolName
+//go:linkname checkerGetPropertyNameForKnownSymbolName github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).getPropertyNameForKnownSymbolName
 func checkerGetPropertyNameForKnownSymbolName(recv *innerchecker.Checker, symbolName string) string
 
 // Checker_getPropertyNameForKnownSymbolName returns the late-bound property
@@ -819,7 +819,7 @@ func Checker_getPropertyNameForKnownSymbolName(recv *innerchecker.Checker, symbo
   return checkerGetPropertyNameForKnownSymbolName(recv, symbolName)
 }
 
-//go:linkname checkerGetIterationTypeOfIterable github.com/microsoft/typescript-go/internal/checker.(*Checker).getIterationTypeOfIterable
+//go:linkname checkerGetIterationTypeOfIterable github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).getIterationTypeOfIterable
 func checkerGetIterationTypeOfIterable(
   recv *innerchecker.Checker,
   use innerchecker.IterationUse,
@@ -860,7 +860,7 @@ func Checker_getSynchronousIterationYieldType(recv *innerchecker.Checker, inputT
   )
 }
 
-//go:linkname checkerGetAliasSymbolForTypeNode github.com/microsoft/typescript-go/internal/checker.(*Checker).getAliasSymbolForTypeNode
+//go:linkname checkerGetAliasSymbolForTypeNode github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).getAliasSymbolForTypeNode
 func checkerGetAliasSymbolForTypeNode(recv *innerchecker.Checker, node *innerast.Node) *innerast.Symbol
 
 // Checker_getAliasSymbolForTypeNode returns the symbol of a type alias
@@ -880,7 +880,7 @@ func Checker_getAliasSymbolForTypeNode(recv *innerchecker.Checker, node *inneras
   return checkerGetAliasSymbolForTypeNode(recv, node)
 }
 
-//go:linkname checkerGetDeclarationOfAliasSymbol github.com/microsoft/typescript-go/internal/checker.(*Checker).getDeclarationOfAliasSymbol
+//go:linkname checkerGetDeclarationOfAliasSymbol github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).getDeclarationOfAliasSymbol
 func checkerGetDeclarationOfAliasSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerast.Node
 
 // Checker_getDeclarationOfAliasSymbol returns the last alias declaration in
@@ -899,7 +899,7 @@ func Checker_getDeclarationOfAliasSymbol(recv *innerchecker.Checker, symbol *inn
   return checkerGetDeclarationOfAliasSymbol(recv, symbol)
 }
 
-//go:linkname checkerGetTargetOfImportSpecifier github.com/microsoft/typescript-go/internal/checker.(*Checker).getTargetOfImportSpecifier
+//go:linkname checkerGetTargetOfImportSpecifier github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).getTargetOfImportSpecifier
 func checkerGetTargetOfImportSpecifier(recv *innerchecker.Checker, node *innerast.Node) *innerast.Symbol
 
 // Checker_getTargetOfImportSpecifier resolves an import specifier node to the
@@ -967,7 +967,7 @@ func Checker_getExportsOfModule(recv *innerchecker.Checker, symbol *innerast.Sym
   return recv.GetExportsOfModule(symbol)
 }
 
-//go:linkname checkerResolveEntityName github.com/microsoft/typescript-go/internal/checker.(*Checker).resolveEntityName
+//go:linkname checkerResolveEntityName github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).resolveEntityName
 func checkerResolveEntityName(
   recv *innerchecker.Checker,
   name *innerast.Node,
@@ -1011,7 +1011,7 @@ func Checker_resolveEntityName(
   return checkerResolveEntityName(recv, name, meaning, ignoreErrors, dontResolveAlias, location)
 }
 
-//go:linkname checkerGetTypeNameSymbol github.com/microsoft/typescript-go/internal/checker.getTypeNameSymbol
+//go:linkname checkerGetTypeNameSymbol github.com/microsoft/TypeScript/tsc/internal/checker.getTypeNameSymbol
 func checkerGetTypeNameSymbol(t *innerchecker.Type) *innerast.Symbol
 
 // Type_getTypeNameSymbol returns t's alias symbol when alias metadata exists;
@@ -1036,7 +1036,7 @@ func Type_getTypeNameSymbol(t *innerchecker.Type) *innerast.Symbol {
   return checkerGetTypeNameSymbol(t)
 }
 
-//go:linkname checkerIsArrayType github.com/microsoft/typescript-go/internal/checker.(*Checker).isArrayType
+//go:linkname checkerIsArrayType github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).isArrayType
 func checkerIsArrayType(recv *innerchecker.Checker, t *innerchecker.Type) bool
 
 // Checker_isArrayType reports whether t is a built-in Array<T> or
@@ -1055,7 +1055,7 @@ func Checker_isArrayType(recv *innerchecker.Checker, t *innerchecker.Type) bool 
   return checkerIsArrayType(recv, t)
 }
 
-//go:linkname checkerGetBaseTypes github.com/microsoft/typescript-go/internal/checker.(*Checker).getBaseTypes
+//go:linkname checkerGetBaseTypes github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).getBaseTypes
 func checkerGetBaseTypes(recv *innerchecker.Checker, t *innerchecker.Type) []*innerchecker.Type
 
 // Checker_getBaseTypes returns the list of base types (from `extends` clauses)
@@ -1079,7 +1079,7 @@ func Checker_getBaseTypes(recv *innerchecker.Checker, t *innerchecker.Type) []*i
   return checkerGetBaseTypes(recv, t)
 }
 
-//go:linkname checkerGetDeclaredTypeOfSymbol github.com/microsoft/typescript-go/internal/checker.(*Checker).getDeclaredTypeOfSymbol
+//go:linkname checkerGetDeclaredTypeOfSymbol github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).getDeclaredTypeOfSymbol
 func checkerGetDeclaredTypeOfSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerchecker.Type
 
 // Checker_getDeclaredTypeOfSymbol returns the compiler's declared type for a
@@ -1105,7 +1105,7 @@ func Checker_getDeclaredTypeOfSymbol(recv *innerchecker.Checker, symbol *inneras
   return checkerGetDeclaredTypeOfSymbol(recv, symbol)
 }
 
-//go:linkname checkerGetMinArgumentCount github.com/microsoft/typescript-go/internal/checker.(*Checker).getMinArgumentCount
+//go:linkname checkerGetMinArgumentCount github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).getMinArgumentCount
 func checkerGetMinArgumentCount(recv *innerchecker.Checker, signature *innerchecker.Signature) int
 
 // Checker_getMinArgumentCount returns the minimum number of required arguments
@@ -1274,13 +1274,13 @@ func Checker_getRestTypeOfSignature(recv *innerchecker.Checker, signature *inner
   return recv.GetRestTypeOfSignature(signature)
 }
 
-//go:linkname checkerInstantiateType github.com/microsoft/typescript-go/internal/checker.(*Checker).instantiateType
+//go:linkname checkerInstantiateType github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).instantiateType
 func checkerInstantiateType(recv *innerchecker.Checker, t *innerchecker.Type, m *innerchecker.TypeMapper) *innerchecker.Type
 
-//go:linkname checkerNewSimpleTypeMapper github.com/microsoft/typescript-go/internal/checker.newSimpleTypeMapper
+//go:linkname checkerNewSimpleTypeMapper github.com/microsoft/TypeScript/tsc/internal/checker.newSimpleTypeMapper
 func checkerNewSimpleTypeMapper(source *innerchecker.Type, target *innerchecker.Type) *innerchecker.TypeMapper
 
-//go:linkname checkerNewTypeMapper github.com/microsoft/typescript-go/internal/checker.newTypeMapper
+//go:linkname checkerNewTypeMapper github.com/microsoft/TypeScript/tsc/internal/checker.newTypeMapper
 func checkerNewTypeMapper(sources []*innerchecker.Type, targets []*innerchecker.Type) *innerchecker.TypeMapper
 
 // Checker_instantiateType substitutes the type parameters of `t` with the
@@ -1359,7 +1359,7 @@ func Checker_newTypeMapper(sources []*innerchecker.Type, targets []*innerchecker
   return checkerNewTypeMapper(sources, targets)
 }
 
-//go:linkname checkerCombineTypeMappers github.com/microsoft/typescript-go/internal/checker.(*Checker).combineTypeMappers
+//go:linkname checkerCombineTypeMappers github.com/microsoft/TypeScript/tsc/internal/checker.(*Checker).combineTypeMappers
 func checkerCombineTypeMappers(recv *innerchecker.Checker, m1 *innerchecker.TypeMapper, m2 *innerchecker.TypeMapper) *innerchecker.TypeMapper
 
 // Checker_combineTypeMappers composes two mapper stages. The first mapper's

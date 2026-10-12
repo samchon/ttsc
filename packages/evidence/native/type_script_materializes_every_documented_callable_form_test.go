@@ -4,6 +4,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "path/filepath"
   "sort"
   "strings"
@@ -71,7 +72,7 @@ class Internal {
   method(): void {}
 }
 `
-  absolute := filepath.ToSlash(filepath.Join(t.TempDir(), "api.ts"))
+  absolute := shimtspath.RootedFilePathFromAbsolute(filepath.Join(t.TempDir(), "api.ts"))
   file := shimparser.ParseSourceFile(
     shimast.SourceFileParseOptions{FileName: absolute},
     source,

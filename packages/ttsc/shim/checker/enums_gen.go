@@ -8,7 +8,7 @@
 
 package checker
 
-import innerchecker "github.com/microsoft/typescript-go/internal/checker"
+import innerchecker "github.com/microsoft/TypeScript/tsc/internal/checker"
 
 const (
   ElementFlagsFixed                                     = innerchecker.ElementFlagsFixed
@@ -60,6 +60,8 @@ const (
   ObjectFlagsIsGenericTypeComputed                      = innerchecker.ObjectFlagsIsGenericTypeComputed
   ObjectFlagsIsNeverIntersection                        = innerchecker.ObjectFlagsIsNeverIntersection
   ObjectFlagsIsNeverIntersectionComputed                = innerchecker.ObjectFlagsIsNeverIntersectionComputed
+  ObjectFlagsIsUniformEnum                              = innerchecker.ObjectFlagsIsUniformEnum
+  ObjectFlagsIsUniformEnumComputed                      = innerchecker.ObjectFlagsIsUniformEnumComputed
   ObjectFlagsIsUnknownLikeUnion                         = innerchecker.ObjectFlagsIsUnknownLikeUnion
   ObjectFlagsIsUnknownLikeUnionComputed                 = innerchecker.ObjectFlagsIsUnknownLikeUnionComputed
   ObjectFlagsJSLiteral                                  = innerchecker.ObjectFlagsJSLiteral
@@ -78,7 +80,6 @@ const (
   ObjectFlagsReverseMapped                              = innerchecker.ObjectFlagsReverseMapped
   ObjectFlagsSingleSignatureType                        = innerchecker.ObjectFlagsSingleSignatureType
   ObjectFlagsTuple                                      = innerchecker.ObjectFlagsTuple
-  ObjectFlagsUnresolvedMembers                          = innerchecker.ObjectFlagsUnresolvedMembers
   SignatureFlagsCallChainFlags                          = innerchecker.SignatureFlagsCallChainFlags
   SignatureFlagsConstruct                               = innerchecker.SignatureFlagsConstruct
   SignatureFlagsHasLiteralTypes                         = innerchecker.SignatureFlagsHasLiteralTypes

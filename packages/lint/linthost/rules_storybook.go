@@ -1361,7 +1361,7 @@ func storybookFindPackageJSON(file *shimast.SourceFile) string {
   if file == nil {
     return ""
   }
-  dir := filepath.Dir(file.FileName())
+  dir := filepath.Dir(file.FileName().AsString())
   for {
     candidate := filepath.Join(dir, "package.json")
     if _, err := os.Stat(candidate); err == nil {

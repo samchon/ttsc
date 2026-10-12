@@ -76,7 +76,7 @@ func NewSession(cwd, tsconfig string, options LoadProgramOptions) (*Session, []D
 // @evidence contracts/common.md#clear-and-simple-design One operation owns buffer update, incremental compiler update and checker-lease replacement.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The compiler's update result determines reuse, with no filename-specific bypass or invented success.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains true and false reuse results following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Resident member spelling, supplied cwd and captured overlay case policy feed native ToPath; these are lexical compiler keys, not independent physical-alias or directory capability proofs.
+// @evidence contracts/portability.md#os-neutral-implementation Resident member spelling, the Program's base directory and its case policy produce the native path key; these are lexical compiler keys, not independent physical-alias or directory capability proofs.
 // @evidence contracts/performance.md#efficient-algorithms Overlay/key setup processes path bytes; SourceFile may run pending linked hooks before indexed lookup. Native update reads/parses the edited member and either clones file collections and initializes a new checker pool while sharing eligible data, or performs full reconstruction. File/reference/source populations and native host work therefore remain costs even on a reused-data result.
 // @evidence contracts/performance.md#reuse-equivalent-work Under the caller's existing-member/single-change contract, native parse options, import/reference/augmentation/ambient-name compatibility and package-redirect checks determine data reuse. Every successful result is a new Program generation; transformed mutable AST reuse is not supported by this type-check session contract.
 // @evidence contracts/performance.md#bound-retention-and-release-resources A returned replacement releases the old checker lease before acquiring/installing the new checker and host. Current native data and uncapped overlay text remain session-owned, with earlier generation data possibly shared or retained by other aliases; lease replacement does not bound bytes or reclaim all old state. Close and caller ownership govern later release.
@@ -84,11 +84,11 @@ func (s *Session) Apply(absPath, content string) bool {
   s.overlay.Set(absPath, content)
   name := absPath
   if file := s.prog.SourceFile(absPath); file != nil {
-    name = file.FileName()
+    name = file.FileName().AsString()
   }
-  changed := shimtspath.ToPath(name, s.cwd, s.overlay.caseSensitive)
-  newHost := DefaultHost(s.cwd, s.prog.FS)
-  newProg, reused := s.prog.TSProgram.UpdateProgram(changed, newHost, nil)
+  changed := s.prog.TSProgram.PathKeyForFileName(shimtspath.ToRootedFilePath(name, s.prog.TSProgram.GetCurrentDirectory()))
+  newHost := DefaultHost(s.prog.FS)
+  newProg, _, reused := s.prog.TSProgram.UpdateProgram(changed, newHost, nil, nil)
   if newProg != nil {
     e2etrace.Program("program-construction", "driver-update", "constructor-returned", reused, newProg)
     if s.prog.checkerRelease != nil {

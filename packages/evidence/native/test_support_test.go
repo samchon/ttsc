@@ -16,6 +16,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/lint/rule"
 )
@@ -86,7 +87,7 @@ func runGraphHints(
       kind = shimcore.ScriptKindTSX
     }
     sources = append(sources, shimparser.ParseSourceFile(
-      shimast.SourceFileParseOptions{FileName: filepath.ToSlash(absolute)},
+      shimast.SourceFileParseOptions{FileName: shimtspath.RootedFilePathFromAbsolute(absolute)},
       content,
       kind,
     ))
@@ -176,7 +177,7 @@ func runIndexRuleAtSeverity(t *testing.T, root string, files map[string]string, 
     if !isTypeScriptTestPath(relative) {
       continue
     }
-    normalized := filepath.ToSlash(absolute)
+    normalized := shimtspath.RootedFilePathFromAbsolute(absolute)
     kind := shimcore.ScriptKindTS
     if strings.HasSuffix(strings.ToLower(relative), ".tsx") {
       kind = shimcore.ScriptKindTSX
@@ -251,7 +252,7 @@ func parseTestSourceFile(
   content string,
 ) *shimast.SourceFile {
   t.Helper()
-  absolute := filepath.ToSlash(filepath.Join(t.TempDir(), filepath.FromSlash(path)))
+  absolute := shimtspath.RootedFilePathFromAbsolute(filepath.Join(t.TempDir(), filepath.FromSlash(path)))
   kind := shimcore.ScriptKindTS
   if strings.HasSuffix(strings.ToLower(path), ".tsx") {
     kind = shimcore.ScriptKindTSX
@@ -393,7 +394,7 @@ func parseTypeScriptInventory(
   content string,
 ) *artifactInventory {
   t.Helper()
-  absolute := filepath.ToSlash(filepath.Join(t.TempDir(), filepath.FromSlash(path)))
+  absolute := shimtspath.RootedFilePathFromAbsolute(filepath.Join(t.TempDir(), filepath.FromSlash(path)))
   file := shimparser.ParseSourceFile(
     shimast.SourceFileParseOptions{FileName: absolute},
     content,

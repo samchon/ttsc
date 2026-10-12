@@ -57,7 +57,7 @@ func TestUserSourceFilesSpanProgramTypeScriptSources(t *testing.T) {
 
   names := make([]string, 0)
   for _, file := range prog.userSourceFiles() {
-    rel, err := filepath.Rel(root, file.FileName())
+    rel, err := filepath.Rel(root, file.FileName().AsString())
     if err != nil {
       t.Fatal(err)
     }

@@ -75,10 +75,10 @@ delta;
 
   for _, file := range []*shimast.SourceFile{first, second} {
     name := file.FileName()
-    if got, want := bomb.checks[name], 1; got != want {
+    if got, want := bomb.checks[name.AsString()], 1; got != want {
       t.Fatalf("panicking rule checks for %s = %d, want %d", name, got, want)
     }
-    if got, want := sibling.checks[name], 6; got != want {
+    if got, want := sibling.checks[name.AsString()], 6; got != want {
       t.Fatalf("sibling rule checks for %s = %d, want %d", name, got, want)
     }
   }
@@ -93,7 +93,7 @@ func (*fileQuarantinePanickingRule) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindIdentifier, shimast.KindNumericLiteral}
 }
 func (r *fileQuarantinePanickingRule) Check(ctx *Context, _ *shimast.Node) {
-  r.checks[ctx.File.FileName()]++
+  r.checks[ctx.File.FileName().AsString()]++
   panic("synthetic repeated panic")
 }
 
@@ -106,5 +106,5 @@ func (*fileQuarantineSiblingRule) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindIdentifier, shimast.KindNumericLiteral}
 }
 func (r *fileQuarantineSiblingRule) Check(ctx *Context, _ *shimast.Node) {
-  r.checks[ctx.File.FileName()]++
+  r.checks[ctx.File.FileName().AsString()]++
 }

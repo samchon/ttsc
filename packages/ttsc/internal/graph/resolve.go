@@ -101,7 +101,7 @@ func Resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target {
   if symbol == nil {
     return nil
   }
-  if symbol.Flags&shimast.SymbolFlagsAlias != 0 {
+  if symbol.Flags()&shimast.SymbolFlagsAlias != 0 {
     if aliased := shimchecker.Checker_getAliasedSymbol(checker, symbol); aliased != nil {
       symbol = aliased
     }
@@ -111,7 +111,7 @@ func Resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target {
     target.Pos = declaration.Pos()
     target.End = declaration.End()
     if file := shimast.GetSourceFileOfNode(declaration); file != nil {
-      target.File = file.FileName()
+      target.File = file.FileName().AsString()
       target.External = !IsWorkspaceSourceFile(file)
     }
   }
@@ -131,27 +131,27 @@ func declarationFile(symbol *shimast.Symbol) *shimast.SourceFile {
 }
 
 func declarationNode(symbol *shimast.Symbol) *shimast.Node {
-  if len(symbol.Declarations) == 0 {
+  if len(symbol.Declarations()) == 0 {
     return nil
   }
   // Prefer a non-declaration-file declaration. A declaration-merged symbol (a
   // class paired with an interface, or a function with a namespace) can list a
   // `.d.ts` declaration first; classifying by it would mark a real workspace
   // symbol external and sever it from the graph.
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range symbol.Declarations() {
     if file := shimast.GetSourceFileOfNode(declaration); file != nil && !file.IsDeclarationFile && declaration.Body() != nil {
       return declaration
     }
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range symbol.Declarations() {
     if file := shimast.GetSourceFileOfNode(declaration); file != nil && !file.IsDeclarationFile {
       return declaration
     }
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range symbol.Declarations() {
     if declaration.Body() != nil {
       return declaration
     }
   }
-  return symbol.Declarations[0]
+  return symbol.Declarations()[0]
 }

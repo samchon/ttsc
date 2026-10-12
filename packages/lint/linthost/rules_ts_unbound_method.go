@@ -106,7 +106,7 @@ func unboundMethodSymbolIsClassMethod(symbol *shimast.Symbol) bool {
   if symbol == nil {
     return false
   }
-  for _, decl := range symbol.Declarations {
+  for _, decl := range symbol.Declarations() {
     if decl == nil {
       continue
     }

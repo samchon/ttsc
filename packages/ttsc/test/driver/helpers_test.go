@@ -8,6 +8,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -70,13 +71,13 @@ func emitFixtureArtifacts(t *testing.T, root string, viaPluginLane bool) map[str
   defer prog.Close()
 
   emitted := map[string]emittedArtifact{}
-  write := func(fileName, text string, data *shimcompiler.WriteFileData) error {
+  write := func(fileName shimtspath.RootedFilePath, text string, data *shimcompiler.WriteFileData) error {
     artifact := emittedArtifact{text: text}
     if data != nil {
       copied := *data
       artifact.data = &copied
     }
-    emitted[filepath.Base(fileName)] = artifact
+    emitted[filepath.Base(fileName.AsString())] = artifact
     return nil
   }
   if viaPluginLane {
@@ -137,8 +138,8 @@ func emitIndexWithRewrite(t *testing.T, sourceText string, rewrite driver.Rewrit
   rewrites := driver.NewRewriteSet()
   rewrites.Add(rewrite)
   emitted := map[string]string{}
-  _, emitDiags, err := prog.EmitAll(rewrites, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    emitted[filepath.Base(fileName)] = text
+  _, emitDiags, err := prog.EmitAll(rewrites, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[filepath.Base(fileName.AsString())] = text
     return nil
   })
   if err != nil {

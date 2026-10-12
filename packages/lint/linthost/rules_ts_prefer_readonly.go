@@ -88,7 +88,7 @@ func preferReadonlyRecordTarget(ctx *Context, target *shimast.Node, written map[
   }
   record := func(symbol *shimast.Symbol) {
     if symbol != nil {
-      for _, decl := range symbol.Declarations {
+      for _, decl := range symbol.Declarations() {
         if decl != nil && decl.Kind == shimast.KindPropertyDeclaration {
           written[decl] = true
         }

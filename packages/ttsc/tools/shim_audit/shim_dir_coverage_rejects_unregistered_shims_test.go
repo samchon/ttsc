@@ -38,7 +38,7 @@ func TestCheckShimDirCoverageRejectsUnregisteredShims(t *testing.T) {
   }
   write("ast/shim.go", "package ast\n")
   write("vfs/osvfs/shim.go", "package osvfs\n")
-  write("astnav/bridge.go", "package astnav\n\n//go:linkname GetTouchingToken github.com/microsoft/typescript-go/internal/astnav.GetTouchingToken\nfunc GetTouchingToken()\n")
+  write("astnav/bridge.go", "package astnav\n\n//go:linkname GetTouchingToken github.com/microsoft/TypeScript/tsc/internal/astnav.GetTouchingToken\nfunc GetTouchingToken()\n")
   write("ast/test/only_test.go", "package ast_test\n")
 
   if err := checkShimDirCoverage(root); err != nil {

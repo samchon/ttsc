@@ -162,13 +162,13 @@ func noUnnecessaryTypeArgumentsResolveParameters(ctx *Context, node, nameNode *s
     target = qn.Right
   }
   symbol := ctx.Checker.GetSymbolAtLocation(target)
-  if symbol != nil && symbol.Flags&shimast.SymbolFlagsAlias != 0 {
+  if symbol != nil && symbol.Flags()&shimast.SymbolFlagsAlias != 0 {
     symbol = ctx.Checker.GetAliasedSymbol(symbol)
   }
   if symbol == nil {
     return nil
   }
-  for _, decl := range symbol.Declarations {
+  for _, decl := range symbol.Declarations() {
     switch decl.Kind {
     case shimast.KindClassDeclaration, shimast.KindClassExpression,
       shimast.KindInterfaceDeclaration, shimast.KindTypeAliasDeclaration:

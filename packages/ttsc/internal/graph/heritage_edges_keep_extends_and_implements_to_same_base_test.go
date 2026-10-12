@@ -48,8 +48,8 @@ export class Derived extends Base implements Base {}
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  derived := nodeID(path, "Derived", NodeClass)
-  base := nodeID(path, "Base", NodeClass)
+  derived := nodeID(path.AsString(), "Derived", NodeClass)
+  base := nodeID(path.AsString(), "Base", NodeClass)
 
   wireKinds := map[string]bool{}
   for _, edge := range graph.Edges {

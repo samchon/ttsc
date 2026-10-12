@@ -10,7 +10,7 @@
 package ast
 
 import (
-  innerast "github.com/microsoft/typescript-go/internal/ast"
+  innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
 )
 
 // ---- Node-list / visitor primitives ----

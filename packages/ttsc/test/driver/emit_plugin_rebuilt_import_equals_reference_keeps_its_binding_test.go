@@ -8,6 +8,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -75,8 +76,8 @@ func TestEmitWithPluginTransformerRebuiltImportEqualsReferenceKeepsItsBinding(t 
   }
 
   emitted := map[string]string{}
-  if _, err := prog.EmitWithPluginTransformer(transform, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    emitted[filepath.Base(fileName)] = text
+  if _, err := prog.EmitWithPluginTransformer(transform, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[filepath.Base(fileName.AsString())] = text
     return nil
   }); err != nil {
     t.Fatal(err)

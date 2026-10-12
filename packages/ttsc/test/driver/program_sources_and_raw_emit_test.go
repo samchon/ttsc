@@ -11,6 +11,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -89,7 +90,7 @@ func TestDriverProgramSourcesAndRawEmit(t *testing.T) {
   }
   found := make([]string, 0, len(sources))
   for _, source := range prog.SourceFiles() {
-    name, err := filepath.Rel(root, source.FileName())
+    name, err := filepath.Rel(root, source.FileName().AsString())
     if err != nil {
       t.Fatal(err)
     }
@@ -117,8 +118,8 @@ func TestDriverProgramSourcesAndRawEmit(t *testing.T) {
     t.Errorf("source population = %v, want %v", found, wantSources)
   }
   emitted := map[string]string{}
-  _, emitDiags, err := prog.EmitAllRaw(func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    name, err := filepath.Rel(root, fileName)
+  _, emitDiags, err := prog.EmitAllRaw(func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    name, err := filepath.Rel(root, fileName.AsString())
     if err != nil {
       return err
     }

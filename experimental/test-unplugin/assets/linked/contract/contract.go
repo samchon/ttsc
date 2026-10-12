@@ -45,7 +45,7 @@ func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error
   factory := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
   counted := false
   for _, file := range prog.SourceFiles() {
-    if !ownedByProject(root, file.FileName()) {
+    if !ownedByProject(root, file.FileName().AsString()) {
       continue
     }
     var value string
@@ -86,7 +86,7 @@ func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error
     }
     counted = true
     for _, input := range read {
-      ctx.ReportFileDependency(file.FileName(), input)
+      ctx.ReportFileDependency(file.FileName().AsString(), input)
     }
   }
   if runLog, ok := ctx.Entry.Config["runLog"].(string); ok && runLog != "" {

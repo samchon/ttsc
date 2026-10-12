@@ -206,7 +206,7 @@ func unicornPreferNumberPropertiesResolvesGlobal(ctx *Context, node *shimast.Nod
   if resolved != global {
     return false
   }
-  for _, declaration := range resolved.Declarations {
+  for _, declaration := range resolved.Declarations() {
     if declaration != nil &&
       shimast.GetSourceFileOfNode(declaration) == ctx.File &&
       unicornPreferNumberPropertiesDeclarationIntroducesValue(declaration) {

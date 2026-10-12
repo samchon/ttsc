@@ -113,7 +113,7 @@ type observedInput struct {
 // released; returned listing/text sizes still determine retained bytes.
 type inputObservationFS struct {
   vfs.FS
-  caseSensitive        bool
+  caseSensitivity      shimtspath.CaseSensitivity
   mu                   sync.Mutex
   observations         map[string]observedInput
   observationOrder     []string
@@ -125,7 +125,7 @@ type inputObservationFS struct {
 func newInputObservationFS(inner vfs.FS) *inputObservationFS {
   return &inputObservationFS{
     FS:                   inner,
-    caseSensitive:        inner.UseCaseSensitiveFileNames(),
+    caseSensitivity:      inner.CaseSensitivity(),
     observations:         map[string]observedInput{},
     observationSpellings: map[string]string{},
   }
@@ -133,34 +133,34 @@ func newInputObservationFS(inner vfs.FS) *inputObservationFS {
 
 // FileExists records the returned existence answer; a true answer additionally
 // records the same VFS's identity spelling without inventing file contents.
-func (fs *inputObservationFS) FileExists(path string) bool {
+func (fs *inputObservationFS) FileExists(path shimtspath.RootedFilePath) bool {
   exists := fs.FS.FileExists(path)
   proof := transformInputObservation{FileExists: boolPointer(exists)}
   if exists {
     // Existence participates in resolution, but only ReadFile returns bytes
     // that can influence the resident Program. Do not duplicate every
     // resolver probe with an eager file read.
-    proof.Realpath = fs.currentRealpath(path)
+    proof.Realpath = fs.currentRealpath(path.AsPath())
   }
-  fs.observe(path, observedInput{proof: proof})
+  fs.observe(path.AsString(), observedInput{proof: proof})
   return exists
 }
 
 // ReadFile hashes the text actually returned by the compiler VFS. A failed read
 // records failure without hashing a second read or guessing the path's kind.
-func (fs *inputObservationFS) ReadFile(path string) (string, bool) {
+func (fs *inputObservationFS) ReadFile(path shimtspath.RootedFilePath) (string, bool) {
   contents, ok := fs.FS.ReadFile(path)
   if ok {
     digest := sha256.Sum256([]byte(contents))
     hash := hex.EncodeToString(digest[:])
-    fs.observe(path, observedInput{
+    fs.observe(path.AsString(), observedInput{
       proof: transformInputObservation{
         ReadFile: &transformInputReadObservation{OK: true, Hash: hash},
-        Realpath: fs.currentRealpath(path),
+        Realpath: fs.currentRealpath(path.AsPath()),
       },
     })
   } else {
-    fs.observe(path, observedInput{
+    fs.observe(path.AsString(), observedInput{
       proof: transformInputObservation{
         ReadFile: &transformInputReadObservation{OK: false},
       },
@@ -171,21 +171,21 @@ func (fs *inputObservationFS) ReadFile(path string) (string, bool) {
 
 // DirectoryExists records existence independently of FileExists, since a
 // false file predicate and a true directory predicate are compatible.
-func (fs *inputObservationFS) DirectoryExists(path string) bool {
+func (fs *inputObservationFS) DirectoryExists(path shimtspath.RootedDirectoryPath) bool {
   exists := fs.FS.DirectoryExists(path)
   proof := transformInputObservation{DirectoryExists: boolPointer(exists)}
   if exists {
-    proof.Realpath = fs.currentRealpath(path)
+    proof.Realpath = fs.currentRealpath(path.AsPath())
   }
-  fs.observe(path, observedInput{proof: proof})
+  fs.observe(path.AsString(), observedInput{proof: proof})
   return exists
 }
 
 // GetAccessibleEntries copies the returned lists before retaining them so the
 // caller cannot mutate the witness. It does not add an unconsumed traversal.
-func (fs *inputObservationFS) GetAccessibleEntries(path string) vfs.Entries {
+func (fs *inputObservationFS) GetAccessibleEntries(path shimtspath.RootedDirectoryPath) vfs.Entries {
   entries := fs.FS.GetAccessibleEntries(path)
-  fs.observe(path, observedInput{
+  fs.observe(path.AsString(), observedInput{
     proof: transformInputObservation{
       AccessibleEntries: &transformInputEntriesObservation{
         Directories: append([]string{}, entries.Directories...),
@@ -198,16 +198,16 @@ func (fs *inputObservationFS) GetAccessibleEntries(path string) vfs.Entries {
 
 // Stat records the supplied VFS's nil/file/directory distinction and its
 // identity spelling for existing objects, preserving the returned FileInfo.
-func (fs *inputObservationFS) Stat(path string) vfs.FileInfo {
+func (fs *inputObservationFS) Stat(path shimtspath.RootedPath) vfs.FileInfo {
   info := fs.FS.Stat(path)
   kind := "missing"
   if info == nil {
-    fs.observe(path, observedInput{
+    fs.observe(path.AsString(), observedInput{
       proof: transformInputObservation{Stat: &kind},
     })
   } else if info.IsDir() {
     kind = "directory"
-    fs.observe(path, observedInput{
+    fs.observe(path.AsString(), observedInput{
       proof: transformInputObservation{
         Stat:     &kind,
         Realpath: fs.currentRealpath(path),
@@ -215,7 +215,7 @@ func (fs *inputObservationFS) Stat(path string) vfs.FileInfo {
     })
   } else {
     kind = "file"
-    fs.observe(path, observedInput{
+    fs.observe(path.AsString(), observedInput{
       proof: transformInputObservation{
         Stat:     &kind,
         Realpath: fs.currentRealpath(path),
@@ -227,18 +227,18 @@ func (fs *inputObservationFS) Stat(path string) vfs.FileInfo {
 
 // Realpath records the adapter's answer and returns it unchanged; a lexical
 // fallback remains an adapter answer, not separately proven physical identity.
-func (fs *inputObservationFS) Realpath(path string) string {
+func (fs *inputObservationFS) Realpath(path shimtspath.RootedPath) shimtspath.RootedPath {
   realpath := fs.FS.Realpath(path)
-  fs.observe(path, observedInput{
-    proof: transformInputObservation{Realpath: realpathObservation(realpath)},
+  fs.observe(path.AsString(), observedInput{
+    proof: transformInputObservation{Realpath: realpathObservation(realpath.AsString())},
   })
   return realpath
 }
 
 // currentRealpath obtains the identity predicate beside an existing-object
 // query without routing that supporting call back through the observer.
-func (fs *inputObservationFS) currentRealpath(path string) *transformInputRealpathObservation {
-  return realpathObservation(fs.FS.Realpath(path))
+func (fs *inputObservationFS) currentRealpath(path shimtspath.RootedPath) *transformInputRealpathObservation {
+  return realpathObservation(fs.FS.Realpath(path).AsString())
 }
 
 // realpathObservation distinguishes an empty adapter result from its cleaned
@@ -264,10 +264,7 @@ func (fs *inputObservationFS) observationKey(path string) string {
   if !filepath.IsAbs(path) {
     return ""
   }
-  return shimtspath.GetCanonicalFileName(
-    shimtspath.NormalizePath(path),
-    fs.caseSensitive,
-  )
+  return fs.caseSensitivity.Canonicalize(shimtspath.NormalizePath(path))
 }
 
 // observe merges under the ledger lock and preserves first lexical spelling.

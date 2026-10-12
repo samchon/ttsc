@@ -180,7 +180,7 @@ func typeOverridesToString(checker *shimchecker.Checker, t *shimchecker.Type) bo
   if prop == nil {
     return false
   }
-  for _, decl := range prop.Declarations {
+  for _, decl := range prop.Declarations() {
     if decl == nil {
       continue
     }

@@ -56,7 +56,7 @@ func TestProjectSourceFilesFollowTsconfigSelection(t *testing.T) {
   defer prog.close()
   imported := map[string]int{"src/extra.ts": 0, "src/data.json": 0}
   for _, file := range prog.tsProgram.SourceFiles() {
-    name := filepath.ToSlash(filepath.Clean(file.FileName()))
+    name := filepath.ToSlash(filepath.Clean(file.FileName().AsString()))
     for expected := range imported {
       if name == filepath.ToSlash(filepath.Join(root, expected)) {
         imported[expected]++
@@ -71,7 +71,7 @@ func TestProjectSourceFilesFollowTsconfigSelection(t *testing.T) {
 
   names := make([]string, 0)
   for _, file := range prog.projectSourceFiles() {
-    rel, err := filepath.Rel(root, file.FileName())
+    rel, err := filepath.Rel(root, file.FileName().AsString())
     if err != nil {
       t.Fatal(err)
     }

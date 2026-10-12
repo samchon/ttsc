@@ -26,6 +26,8 @@ The Checker is not a faster AST. Use it when meaning matters: aliases, inherited
 
 TypeScript-Go internals are Go packages, many of them internal. `ttsc` exposes a narrow shim boundary under `github.com/microsoft/typescript-go/shim/...`.
 
+The compiler itself is the `github.com/microsoft/TypeScript/tsc` module. Go lets only an import path rooted at that module reach its `internal/` tree, so `ttsc` maintains the bridge modules `github.com/microsoft/TypeScript/tsc/shim/...`. Every `github.com/microsoft/typescript-go/shim/...` package is a generated facade over the bridge of the same name: its types are aliases of the bridge's types, its constants and variables take the bridge's values, and its functions forward to the bridge's, so both import paths name one compiler's AST, Checker and Program. Keep importing the `typescript-go` paths below.
+
 Plugin source imports the shim:
 
 ```go
@@ -77,7 +79,7 @@ Useful shim sub-packages:
 | `shim/vfs` | the `FS` interface plus `DirEntry`, `WalkDirFunc`, `SkipDir` / `SkipAll` sentinels. Use when implementing a custom VFS. |
 | `shim/lsp` | Legacy in-process LSP access for custom host experiments, not used by `ttscserver` and not for plugin authors. |
 
-Do not import `github.com/microsoft/typescript-go/internal/...` directly. The shim is the plugin boundary.
+Do not import `github.com/microsoft/TypeScript/tsc/internal/...` directly. The shim is the plugin boundary.
 
 ## Bootstrap with the driver
 

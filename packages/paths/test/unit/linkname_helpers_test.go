@@ -9,6 +9,7 @@ import (
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   _ "github.com/samchon/ttsc/packages/paths/driver"
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -69,10 +70,10 @@ func pathsPatternPrefixLength(pattern string) int
 func pathsOptionalPath(value string, cwd string) string
 
 //go:linkname pathsInferredRootDir github.com/samchon/ttsc/packages/paths/driver.inferredRootDir
-func pathsInferredRootDir(configFilePath string, fileNames []string, currentDirectory string, useCaseSensitiveFileNames bool) string
+func pathsInferredRootDir(configFilePath string, fileNames []string, currentDirectory string, caseSensitivity shimtspath.CaseSensitivity) string
 
 //go:linkname pathsCommonSourceDir github.com/samchon/ttsc/packages/paths/driver.commonSourceDir
-func pathsCommonSourceDir(fileNames []string, currentDirectory string, useCaseSensitiveFileNames bool) string
+func pathsCommonSourceDir(fileNames []string, currentDirectory string, caseSensitivity shimtspath.CaseSensitivity) string
 
 //go:linkname pathsNormalizePath github.com/samchon/ttsc/packages/paths/driver.normalizePath
 func pathsNormalizePath(value string) string

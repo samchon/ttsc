@@ -5,6 +5,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -62,8 +63,8 @@ func TestEmitWithPluginTransformersPropagateLinkedApplyErrors(t *testing.T) {
   defer prog.Close()
 
   emitted := map[string]string{}
-  _, err = prog.EmitWithPluginTransformers(nil, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    emitted[fileName] = text
+  _, err = prog.EmitWithPluginTransformers(nil, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[fileName.AsString()] = text
     return nil
   })
   if err == nil || !strings.Contains(err.Error(), "linked apply boom") {
@@ -118,8 +119,8 @@ func TestEmitWithPluginTransformersReportLatchedLinkedApplyErrors(t *testing.T) 
     t.Fatal("expected program sources despite the swallowed apply failure")
   }
   emitted := map[string]string{}
-  _, err = prog.EmitWithPluginTransformers(nil, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    emitted[fileName] = text
+  _, err = prog.EmitWithPluginTransformers(nil, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[fileName.AsString()] = text
     return nil
   })
   if err == nil || !strings.Contains(err.Error(), "linked apply boom") {

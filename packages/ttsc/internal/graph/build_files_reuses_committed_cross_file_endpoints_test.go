@@ -67,15 +67,15 @@ export class Impl implements Base {
   implFile := sourceFile(t, prog, "impl.ts").FileName()
   baseFile := sourceFile(t, prog, "base.ts").FileName()
   unrelatedFile := sourceFile(t, prog, "unrelated.ts").FileName()
-  partial := BuildFiles(prog, []string{implFile}, complete.Nodes)
+  partial := BuildFiles(prog, []string{implFile.AsString()}, complete.Nodes)
 
-  implMethod := nodeID(implFile, "Impl.run", NodeMethod)
-  baseMethod := nodeID(baseFile, "Base.run", NodeMethod)
+  implMethod := nodeID(implFile.AsString(), "Impl.run", NodeMethod)
+  baseMethod := nodeID(baseFile.AsString(), "Base.run", NodeMethod)
   if partial.Nodes[implMethod] == nil {
     t.Fatalf("partial build omitted selected method %s", implMethod)
   }
   for _, node := range partial.Nodes {
-    if node.File == baseFile || node.File == unrelatedFile {
+    if node.File == baseFile.AsString() || node.File == unrelatedFile.AsString() {
       t.Fatalf("partial build re-emitted unchanged node %s", node.ID)
     }
   }

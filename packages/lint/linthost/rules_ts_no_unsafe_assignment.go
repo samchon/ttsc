@@ -511,7 +511,7 @@ func noUnsafeAssignmentCheckObjectDestructure(
     if symbol == nil {
       continue
     }
-    properties[symbol.Name] = shimchecker.Checker_getTypeOfSymbolAtLocation(
+    properties[symbol.Name()] = shimchecker.Checker_getTypeOfSymbolAtLocation(
       ctx.Checker,
       symbol,
       senderNode,

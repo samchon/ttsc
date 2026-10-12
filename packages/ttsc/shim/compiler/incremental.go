@@ -15,18 +15,19 @@ package compiler
 
 import (
   "context"
+  "time"
   _ "unsafe"
 
-  innerast "github.com/microsoft/typescript-go/internal/ast"
-  "github.com/microsoft/typescript-go/internal/collections"
-  innercompiler "github.com/microsoft/typescript-go/internal/compiler"
-  innertsoptions "github.com/microsoft/typescript-go/internal/tsoptions"
-  "github.com/microsoft/typescript-go/internal/tspath"
+  innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
+  "github.com/microsoft/TypeScript/tsc/internal/collections"
+  innercompiler "github.com/microsoft/TypeScript/tsc/internal/compiler"
+  innertsoptions "github.com/microsoft/TypeScript/tsc/internal/tsoptions"
+  "github.com/microsoft/TypeScript/tsc/internal/tspath"
 
   // Imported for EmitFreshWithBuildInfo below, and for the linknamed symbols
   // further down: compiling the package into every shim consumer is what makes
   // those references resolve.
-  "github.com/microsoft/typescript-go/internal/execute/incremental"
+  "github.com/microsoft/TypeScript/tsc/internal/execute/incremental"
 )
 
 // EmitFreshWithBuildInfo emits through a new upstream incremental wrapper
@@ -67,15 +68,16 @@ func EmitFreshWithBuildInfo(ctx context.Context, program *Program, options EmitO
     program,
     nil,
     incremental.CreateHost(program.Host()),
+    time.Now,
     false,
   )
   return incrementalProgram.Emit(ctx, options)
 }
 
-//go:linkname incrementalGetReferencedFiles github.com/microsoft/typescript-go/internal/execute/incremental.getReferencedFiles
-func incrementalGetReferencedFiles(program *innercompiler.Program, file *innerast.SourceFile) *collections.Set[tspath.Path]
+//go:linkname incrementalGetReferencedFiles github.com/microsoft/TypeScript/tsc/internal/execute/incremental.getReferencedFiles
+func incrementalGetReferencedFiles(program *innercompiler.Program, file *innerast.SourceFile) *collections.Set[tspath.PathKey]
 
-//go:linkname incrementalFileAffectsGlobalScope github.com/microsoft/typescript-go/internal/execute/incremental.fileAffectsGlobalScope
+//go:linkname incrementalFileAffectsGlobalScope github.com/microsoft/TypeScript/tsc/internal/execute/incremental.fileAffectsGlobalScope
 func incrementalFileAffectsGlobalScope(file *innerast.SourceFile) bool
 
 // GetReferencedFilePaths adapts the upstream incremental reference set:
@@ -85,7 +87,7 @@ func incrementalFileAffectsGlobalScope(file *innerast.SourceFile) bool
 // is a loaded source. Extensionless path-directive adaptation below can also
 // differ from the raw upstream build-info entry.
 //
-// The returned strings are tspath.Path values (case-canonicalized on
+// The returned keys are tspath.PathKey values (case-canonicalized on
 // case-insensitive filesystems); map them back to real file names through
 // Program.GetSourceFileByPath when the original spelling matters.
 // Extensionless path references are replaced with the source file Program
@@ -98,29 +100,29 @@ func incrementalFileAffectsGlobalScope(file *innerast.SourceFile) bool
 // @evidence contracts/common.md#clear-and-simple-design The exported function owns reference-set adaptation while a private helper resolves resident and virtual declaration sources through one program context.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The extra project-reference lookup addresses supported unbuilt declaration outputs using compiler redirects and supported extensions, rather than guessing filenames or special-casing projects.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs identify reference categories, canonical spelling, extension replacement, same-program premises and unsorted output with descriptive text separate from tags.
-// @evidence contracts/portability.md#os-neutral-implementation Path identity uses Program.UseCaseSensitiveFileNames and compiler path helpers, while project-reference redirects recover the loaded filename rather than inferring native case behavior from the OS.
+// @evidence contracts/portability.md#os-neutral-implementation Path identity uses the Program's own path keys and compiler path helpers, while project-reference redirects recover the loaded filename rather than inferring native case behavior from the OS.
 // @evidence contracts/performance.md#efficient-algorithms Adaptation uses expected linear map/set processing in upstream reference count plus path-directive count, with path-text hashing/canonicalization and a bounded supported-extension search per unresolved directive. Before that, upstream obtains a checker and visits import/augmentation symbols, their declarations and ambient modules; semantic lookup, declaration parent walks and host/project-reference queries are additional delegated work, not bounded by the returned path count alone.
 // @evidence contracts/performance.md#reuse-equivalent-work Loaded Program resolutions, sources and checker state are reused, while the reference set and adaptation maps are rebuilt per invocation. Upstream checker queries may populate semantic caches; this adapter coordinates no cross-Program cache or separate resolver producer.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Upstream acquires a file checker with a deferred release callback and may retain semantic state under its Program/checker owner. Reference, replacement and deduplication sets are invocation-local; returned slice/string ownership transfers to the caller and may share existing path backing storage. The bridge keeps no historical result registry.
-func GetReferencedFilePaths(program *Program, file *innerast.SourceFile) []string {
+func GetReferencedFilePaths(program *Program, file *innerast.SourceFile) []tspath.PathKey {
   set := incrementalGetReferencedFiles(program, file)
   if set == nil {
     return nil
   }
-  resolvedPathReferences := make(map[tspath.Path]tspath.Path, len(file.ReferencedFiles))
-  sourceDirectory := tspath.GetDirectoryPath(file.FileName())
+  resolvedPathReferences := make(map[tspath.PathKey]tspath.PathKey, len(file.ReferencedFiles))
+  sourceDirectory := file.FileName().Directory()
   for _, reference := range file.ReferencedFiles {
-    referencedFile := reference.FileName
+    referencedFile := tspath.ToRootedFilePath(reference.FileName, sourceDirectory)
     if redirect := program.GetParseFileRedirect(referencedFile); redirect != "" {
       referencedFile = redirect
     }
-    rawPath := tspath.ToPath(referencedFile, sourceDirectory, program.UseCaseSensitiveFileNames())
+    rawPath := program.PathKeyForFileName(referencedFile)
     if resolved := getSourceFileFromReference(program, file, reference); resolved != nil {
-      resolvedPathReferences[rawPath] = resolved.Path()
+      resolvedPathReferences[rawPath] = resolved.PathKey()
     }
   }
-  out := make([]string, 0, set.Len())
-  seen := collections.Set[tspath.Path]{}
+  out := make([]tspath.PathKey, 0, set.Len())
+  seen := collections.Set[tspath.PathKey]{}
   for path := range set.Keys() {
     if resolved := resolvedPathReferences[path]; resolved != "" {
       path = resolved
@@ -129,7 +131,7 @@ func GetReferencedFilePaths(program *Program, file *innerast.SourceFile) []strin
       continue
     }
     seen.Add(path)
-    out = append(out, string(path))
+    out = append(out, path)
   }
   return out
 }
@@ -143,14 +145,14 @@ func getSourceFileFromReference(program *Program, file *innerast.SourceFile, ref
   if resolved := program.GetSourceFileFromReference(file, reference); resolved != nil {
     return resolved
   }
-  referencedFile := tspath.ResolvePath(tspath.GetDirectoryPath(file.FileName()), reference.FileName)
-  if tspath.HasExtension(referencedFile) {
+  referencedFile := tspath.ToRootedFilePath(reference.FileName, file.FileName().Directory())
+  if referencedFile.HasExtension() {
     return nil
   }
   supportedExtensions := innertsoptions.GetSupportedExtensions(program.Options(), nil)
   supportedExtensions = innertsoptions.GetSupportedExtensionsWithJsonIfResolveJsonModule(program.Options(), supportedExtensions)
   for _, extension := range supportedExtensions[0] {
-    outputPath := tspath.ToPath(referencedFile+extension, program.GetCurrentDirectory(), program.UseCaseSensitiveFileNames())
+    outputPath := program.PathKeyForFileName(referencedFile.AppendSuffix(extension))
     redirect := program.GetProjectReferenceFromOutputDts(outputPath)
     if redirect == nil {
       continue

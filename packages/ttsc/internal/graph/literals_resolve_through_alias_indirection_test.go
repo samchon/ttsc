@@ -46,18 +46,18 @@ export type Duplicated = Narrow | 'a';
   path := sourceFile(t, prog, "main.ts").FileName()
 
   // One hop: the three members reaching Wide through Narrow are Wide's too.
-  wide := literalsOf(t, graph, nodeID(path, "Wide", NodeTypeAlias))
+  wide := literalsOf(t, graph, nodeID(path.AsString(), "Wide", NodeTypeAlias))
   if want := []string{`"a"`, `"b"`, `"c"`, `"d"`}; !slices.Equal(wide, want) {
     t.Fatalf("alias indirection lost members: got %v, want %v", wide, want)
   }
   // Two authored hops; this result check does not measure resolution cost.
-  wider := literalsOf(t, graph, nodeID(path, "Wider", NodeTypeAlias))
+  wider := literalsOf(t, graph, nodeID(path.AsString(), "Wider", NodeTypeAlias))
   if want := []string{`"a"`, `"b"`, `"c"`, `"d"`, `"e"`}; !slices.Equal(wider, want) {
     t.Fatalf("nested alias indirection lost members: got %v, want %v", wider, want)
   }
   // A member named twice is one member; the checker has already deduped, so the
   // list must not report `"a"` once per mention.
-  duplicated := literalsOf(t, graph, nodeID(path, "Duplicated", NodeTypeAlias))
+  duplicated := literalsOf(t, graph, nodeID(path.AsString(), "Duplicated", NodeTypeAlias))
   if want := []string{`"a"`, `"b"`, `"c"`}; !slices.Equal(duplicated, want) {
     t.Fatalf("a member named twice was reported twice: got %v, want %v", duplicated, want)
   }

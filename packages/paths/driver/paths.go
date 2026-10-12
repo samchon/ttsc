@@ -157,30 +157,28 @@ var sourceLookupExtensions = []string{
 // Patterns are sorted by decreasing specificity (longer literal prefix first)
 // so the most-specific match wins on overlapping patterns.
 func newRewriter(prog *driver.Program) *rewriter {
-  caseSensitive := useCaseSensitiveFileNames(prog)
+  caseSensitivity := fileSystemCaseSensitivity(prog)
   out := &rewriter{
-    canonicalFileName: func(name string) string {
-      return shimtspath.GetCanonicalFileName(name, caseSensitive)
-    },
-    sourceFiles: map[string]string{},
+    canonicalFileName: caseSensitivity.Canonicalize,
+    sourceFiles:       map[string]string{},
   }
   if prog == nil || prog.ParsedConfig == nil || prog.ParsedConfig.ParsedConfig == nil || prog.ParsedConfig.ParsedConfig.CompilerOptions == nil {
     return out
   }
   out.checker = prog.Checker
   options := prog.ParsedConfig.ParsedConfig.CompilerOptions
-  cwd := prog.Host.GetCurrentDirectory()
-  out.basePath = filepath.Clean(options.GetPathsBasePath(cwd))
+  cwd := prog.TSProgram.GetCurrentDirectory()
+  out.basePath = filepath.Clean(options.GetPathsBasePath(cwd).AsString())
   out.jsxPreserve = options.Jsx == shimcore.JsxEmitPreserve
-  out.outDir = optionalPath(options.OutDir, cwd)
-  out.rootDir = optionalPath(options.RootDir, cwd)
+  out.outDir = optionalPath(options.OutDir.AsString(), cwd.AsString())
+  out.rootDir = optionalPath(options.RootDir.AsString(), cwd.AsString())
   files := prog.SourceFiles()
   fileNames := make([]string, 0, len(files))
   for _, file := range files {
-    fileNames = append(fileNames, normalizePath(file.FileName()))
+    fileNames = append(fileNames, normalizePath(file.FileName().AsString()))
   }
   if out.rootDir == "" {
-    out.rootDir = inferredRootDir(options.ConfigFilePath, fileNames, cwd, useCaseSensitiveFileNames(prog))
+    out.rootDir = inferredRootDir(options.ConfigFilePath.AsString(), fileNames, cwd.AsString(), caseSensitivity)
   }
   for _, name := range fileNames {
     out.sourceFiles[out.sourceKey(name)] = name
@@ -197,14 +195,14 @@ func newRewriter(prog *driver.Program) *rewriter {
   return out
 }
 
-// useCaseSensitiveFileNames reports the host filesystem's case sensitivity,
+// fileSystemCaseSensitivity reports the Program filesystem's case policy,
 // defaulting to case-sensitive when the program carries no filesystem (bare
 // rewriters built by unit tests).
-func useCaseSensitiveFileNames(prog *driver.Program) bool {
+func fileSystemCaseSensitivity(prog *driver.Program) shimtspath.CaseSensitivity {
   if prog == nil || prog.FS == nil {
-    return true
+    return shimtspath.CaseSensitive
   }
-  return prog.FS.UseCaseSensitiveFileNames()
+  return prog.FS.CaseSensitivity()
 }
 
 // apply rewrites all module specifiers in file that match a tsconfig paths pattern.
@@ -217,7 +215,7 @@ func (r *rewriter) apply(file *shimast.SourceFile) {
       return
     }
     spec := lit.Text()
-    rewritten, ok := r.rewrite(file.FileName(), spec)
+    rewritten, ok := r.rewrite(file.FileName().AsString(), spec)
     if ok && rewritten != spec {
       lit.AsStringLiteral().Text = rewritten
       lit.Flags |= shimast.NodeFlagsSynthesized
@@ -302,9 +300,9 @@ func isModuleLoader(checker *shimchecker.Checker, expression *shimast.Node) bool
   if symbol == nil {
     return true
   }
-  return symbol.Flags&shimast.SymbolFlagsAlias == 0 &&
-    symbol.ValueDeclaration != nil &&
-    symbol.ValueDeclaration.Flags&shimast.NodeFlagsAmbient != 0
+  return symbol.Flags()&shimast.SymbolFlagsAlias == 0 &&
+    symbol.ValueDeclaration() != nil &&
+    symbol.ValueDeclaration().Flags&shimast.NodeFlagsAmbient != 0
 }
 
 // rewrite resolves specifier from fromSource using the tsconfig paths table and
@@ -560,11 +558,11 @@ func optionalPath(value string, cwd string) string {
 // directory fallback serves only a Program built without one. That fallback
 // intersects every file name it is given, whereas TypeScript-Go excludes
 // declaration files; the caller passes the Program's full source list.
-func inferredRootDir(configFilePath string, fileNames []string, currentDirectory string, useCaseSensitiveFileNames bool) string {
+func inferredRootDir(configFilePath string, fileNames []string, currentDirectory string, caseSensitivity shimtspath.CaseSensitivity) string {
   if configFilePath != "" {
     return normalizePath(filepath.Dir(configFilePath))
   }
-  return commonSourceDir(fileNames, currentDirectory, useCaseSensitiveFileNames)
+  return commonSourceDir(fileNames, currentDirectory, caseSensitivity)
 }
 
 // commonSourceDir mirrors TypeScript-Go's
@@ -577,7 +575,7 @@ func inferredRootDir(configFilePath string, fileNames []string, currentDirectory
 // the backslash form ("C:\") while the termination guard compared it against
 // the slash-normalized cursor ("C:/"), re-normalizing the same directory
 // forever.
-func commonSourceDir(fileNames []string, currentDirectory string, useCaseSensitiveFileNames bool) string {
+func commonSourceDir(fileNames []string, currentDirectory string, caseSensitivity shimtspath.CaseSensitivity) string {
   var common []string
   for _, fileName := range fileNames {
     components := shimtspath.GetNormalizedPathComponents(fileName, currentDirectory)
@@ -590,8 +588,8 @@ func commonSourceDir(fileNames []string, currentDirectory string, useCaseSensiti
     shared := 0
     limit := min(len(common), len(components))
     for shared < limit &&
-      shimtspath.GetCanonicalFileName(common[shared], useCaseSensitiveFileNames) ==
-        shimtspath.GetCanonicalFileName(components[shared], useCaseSensitiveFileNames) {
+      caseSensitivity.Canonicalize(common[shared]) ==
+        caseSensitivity.Canonicalize(components[shared]) {
       shared++
     }
     if shared == 0 {

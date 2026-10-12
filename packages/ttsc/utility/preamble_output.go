@@ -32,17 +32,17 @@ type preambleInsertion struct {
 // can leave partial disk output, as with the underlying compiler writer.
 func newPreambleOutputWriter(prog *driver.Program) (shimcompiler.WriteFile, func() error) {
   if shouldRemoveComments(prog) {
-    return func(name, text string, _ *shimcompiler.WriteFileData) error {
-      return driver.DefaultWriteFile(name, text)
+    return func(name shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+      return driver.DefaultWriteFile(name.AsString(), text)
     }, func() error { return nil }
   }
   program := prog.TSProgram
-  key := func(name string) shimtspath.Path {
-    return shimtspath.ToPath(name, program.GetCurrentDirectory(), program.UseCaseSensitiveFileNames())
+  key := func(name shimtspath.RootedFilePath) shimtspath.PathKey {
+    return program.PathKeyForFileName(name)
   }
-  pairs := map[shimtspath.Path]shimtspath.Path{}
-  for _, source := range shimcompiler.GetSourceFilesToEmit(program, nil, false) {
-    paths := shimcompiler.GetOutputPathsFor(source, program.Options(), program, false)
+  pairs := map[shimtspath.PathKey]shimtspath.PathKey{}
+  for _, source := range shimcompiler.GetSourceFilesToEmit(program, nil, false, false) {
+    paths := shimcompiler.GetOutputPathsFor(source, program.Options(), program, shimcompiler.ForceEmitPaths{})
     if paths.SourceMapFilePath() != "" && paths.JsFilePath() != "" {
       pairs[key(paths.SourceMapFilePath())] = key(paths.JsFilePath())
     }
@@ -51,20 +51,20 @@ func newPreambleOutputWriter(prog *driver.Program) (shimcompiler.WriteFile, func
     }
   }
   type pendingMap struct {
-    name string
+    name shimtspath.RootedFilePath
     text string
   }
-  pending := map[shimtspath.Path]pendingMap{}
-  decisions := map[shimtspath.Path]preambleInsertion{}
+  pending := map[shimtspath.PathKey]pendingMap{}
+  decisions := map[shimtspath.PathKey]preambleInsertion{}
   var mutex sync.Mutex
-  writeMap := func(name, text string, insertion preambleInsertion) error {
+  writeMap := func(name shimtspath.RootedFilePath, text string, insertion preambleInsertion) error {
     shifted, err := shiftPreambleMap(text, insertion)
     if err != nil {
       return fmt.Errorf("ttsc utility: generated source map %s: %w", name, err)
     }
-    return driver.DefaultWriteFile(name, shifted)
+    return driver.DefaultWriteFile(name.AsString(), shifted)
   }
-  writer := func(name, text string, _ *shimcompiler.WriteFileData) error {
+  writer := func(name shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
     mutex.Lock()
     defer mutex.Unlock()
     output := key(name)
@@ -76,7 +76,7 @@ func newPreambleOutputWriter(prog *driver.Program) (shimcompiler.WriteFile, func
       return nil
     }
     insertion := preambleInsertion{}
-    if shouldEnsureSourcePreamble(name, text, prog.SourcePreamble) {
+    if shouldEnsureSourcePreamble(name.AsString(), text, prog.SourcePreamble) {
       insertion = preambleInsertionFor(text, prog.SourcePreamble)
       var err error
       text, err = shiftPreambleInlineMap(text, insertion)
@@ -94,7 +94,7 @@ func newPreambleOutputWriter(prog *driver.Program) (shimcompiler.WriteFile, func
         }
       }
     }
-    return driver.DefaultWriteFile(name, text)
+    return driver.DefaultWriteFile(name.AsString(), text)
   }
   finish := func() error {
     mutex.Lock()

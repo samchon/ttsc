@@ -209,7 +209,7 @@ func unicornNoUnnecessaryPolyfillsSpecifier(node *shimast.Node) *shimast.Node {
 // no targets resolve, which silences the rule like upstream's early returns
 // and catch blocks.
 func unicornNoUnnecessaryPolyfillsUnavailableSet(ctx *Context, options unicornNoUnnecessaryPolyfillsOptions) (map[string]struct{}, bool) {
-  dirname := filepath.Dir(ctx.File.FileName())
+  dirname := filepath.Dir(ctx.File.FileName().AsString())
   browserslistOptions := browserslistOpts{path: dirname, env: "production"}
 
   var targets interface{}

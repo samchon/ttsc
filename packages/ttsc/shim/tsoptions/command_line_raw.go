@@ -3,8 +3,8 @@
 package tsoptions
 
 import (
-  "github.com/microsoft/typescript-go/internal/collections"
-  "github.com/microsoft/typescript-go/internal/tsoptions"
+  "github.com/microsoft/TypeScript/tsc/internal/collections"
+  "github.com/microsoft/TypeScript/tsc/internal/tsoptions"
 )
 
 // CommandLineRawOptions returns the options a parsed command line spelled out,

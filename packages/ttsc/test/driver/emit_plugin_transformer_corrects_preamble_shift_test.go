@@ -8,6 +8,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -75,8 +76,8 @@ func TestEmitWithPluginTransformerCorrectsPreambleShift(t *testing.T) {
     return sf
   }
   emitted := map[string]string{}
-  if _, err := prog.EmitWithPluginTransformer(identity, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    emitted[filepath.Base(fileName)] = text
+  if _, err := prog.EmitWithPluginTransformer(identity, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[filepath.Base(fileName.AsString())] = text
     return nil
   }); err != nil {
     t.Fatal(err)

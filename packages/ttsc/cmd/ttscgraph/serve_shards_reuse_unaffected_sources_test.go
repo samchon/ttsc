@@ -55,16 +55,16 @@ func TestServeShardsReuseUnaffectedSources(t *testing.T) {
   valueKeyFile := valueSource.FileName()
   consumerKeyFile := consumerSource.FileName()
   unrelatedKeyFile := unrelatedSource.FileName()
-  initialValueKey := session.graphStore.sourceKeys[valueKeyFile]
-  initialConsumerKey := session.graphStore.sourceKeys[consumerKeyFile]
-  initialUnrelatedKey := session.graphStore.sourceKeys[unrelatedKeyFile]
+  initialValueKey := session.graphStore.sourceKeys[valueKeyFile.AsString()]
+  initialConsumerKey := session.graphStore.sourceKeys[consumerKeyFile.AsString()]
+  initialUnrelatedKey := session.graphStore.sourceKeys[unrelatedKeyFile.AsString()]
   if initialValueKey == "" || initialConsumerKey == "" || initialUnrelatedKey == "" {
     t.Fatal("initial generation omitted a fixture source key")
   }
-  unrelatedWireFile := session.graphStore.wireSources[unrelatedKeyFile]
+  unrelatedWireFile := session.graphStore.wireSources[unrelatedKeyFile.AsString()]
   alteredUnrelatedProvenance := false
   for index := range session.graphStore.provenance.Sources {
-    if session.graphStore.provenance.Sources[index].File != unrelatedKeyFile {
+    if session.graphStore.provenance.Sources[index].File != unrelatedKeyFile.AsString() {
       continue
     }
     if runtime.GOOS == "windows" {
@@ -92,7 +92,7 @@ func TestServeShardsReuseUnaffectedSources(t *testing.T) {
   if delta == nil || mode != serveModeIncremental || !changed || delta.BaseSequence != initial.Sequence || delta.BaseGeneration != initial.Generation {
     t.Fatalf("incremental coordinates: snapshot=%#v mode=%q changed=%v", delta, mode, changed)
   }
-  nextValueKey := session.graphStore.sourceKeys[valueKeyFile]
+  nextValueKey := session.graphStore.sourceKeys[valueKeyFile.AsString()]
   if nextValueKey == "" || nextValueKey == initialValueKey {
     t.Fatal("changed source retained its content-addressed shard key")
   }
@@ -102,10 +102,10 @@ func TestServeShardsReuseUnaffectedSources(t *testing.T) {
   if !containsString(delta.Deletes, initialValueKey) {
     t.Fatalf("delta did not delete superseded source shard %q: %v", initialValueKey, delta.Deletes)
   }
-  if session.graphStore.sourceKeys[consumerKeyFile] != initialConsumerKey || session.graphStore.sourceKeys[unrelatedKeyFile] != initialUnrelatedKey {
+  if session.graphStore.sourceKeys[consumerKeyFile.AsString()] != initialConsumerKey || session.graphStore.sourceKeys[unrelatedKeyFile.AsString()] != initialUnrelatedKey {
     t.Fatal("body edit moved an unchanged source shard identity")
   }
-  if len(session.graphStore.extractedFiles) != 1 || session.graphStore.extractedFiles[0] != valueKeyFile {
+  if len(session.graphStore.extractedFiles) != 1 || session.graphStore.extractedFiles[0] != valueKeyFile.AsString() {
     t.Fatalf("private body edit extracted %v, want only %s", session.graphStore.extractedFiles, valueKeyFile)
   }
   wireFilePreserved := false

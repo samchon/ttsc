@@ -77,7 +77,7 @@ func parallelFindingFingerprint(findings []*Finding) string {
   for _, f := range findings {
     name := ""
     if f.File != nil {
-      name = f.File.FileName()
+      name = f.File.FileName().AsString()
     }
     rows = append(rows, name+"|"+f.Rule+"|"+strconv.Itoa(f.Pos))
   }

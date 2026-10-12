@@ -35,12 +35,12 @@ func extendTypeScriptInventories(
 ) {
   bases := typeScriptMatchBases(config, root)
   for _, file := range sources {
-    if file == nil || !isTypeScriptPath(file.FileName()) {
+    if file == nil || !isTypeScriptPath(file.FileName().AsString()) {
       continue
     }
     for _, entry := range bases {
       base := entry.base
-      relative, ok := entry.relativeOf(file.FileName())
+      relative, ok := entry.relativeOf(file.FileName().AsString())
       if !ok || !isTypeScriptPath(relative) {
         continue
       }
@@ -2050,11 +2050,11 @@ func recordGovernedTypeScriptFiles(
   }
   bases := typeScriptMatchBases(declared, root)
   for _, file := range sources {
-    if file == nil || !isTypeScriptPath(file.FileName()) {
+    if file == nil || !isTypeScriptPath(file.FileName().AsString()) {
       continue
     }
     for _, entry := range bases {
-      relative, ok := entry.relativeOf(file.FileName())
+      relative, ok := entry.relativeOf(file.FileName().AsString())
       if !ok || !isTypeScriptPath(relative) {
         continue
       }

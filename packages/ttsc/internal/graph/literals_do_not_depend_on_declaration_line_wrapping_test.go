@@ -57,8 +57,8 @@ export type Flat = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h';
   path := sourceFile(t, prog, "main.ts").FileName()
 
   want := []string{`"a"`, `"b"`, `"c"`, `"d"`, `"e"`, `"f"`, `"g"`, `"h"`}
-  wrapped := literalsOf(t, graph, nodeID(path, "Wrapped", NodeTypeAlias))
-  flat := literalsOf(t, graph, nodeID(path, "Flat", NodeTypeAlias))
+  wrapped := literalsOf(t, graph, nodeID(path.AsString(), "Wrapped", NodeTypeAlias))
+  flat := literalsOf(t, graph, nodeID(path.AsString(), "Flat", NodeTypeAlias))
 
   if !slices.Equal(wrapped, want) {
     t.Fatalf("wrapped union under-reported its members: got %v, want %v", wrapped, want)

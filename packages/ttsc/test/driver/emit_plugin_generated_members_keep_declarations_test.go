@@ -9,6 +9,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -81,8 +82,8 @@ func TestEmitPluginGeneratedMembersKeepDeclarations(t *testing.T) {
         }
         for iteration := 0; iteration < 2; iteration++ {
           outputs := map[string]string{}
-          diagnostics, err := program.EmitWithPluginTransformer(transform, func(name, source string, _ *shimcompiler.WriteFileData) error {
-            outputs[filepath.Base(name)] = source
+          diagnostics, err := program.EmitWithPluginTransformer(transform, func(name shimtspath.RootedFilePath, source string, _ *shimcompiler.WriteFileData) error {
+            outputs[filepath.Base(name.AsString())] = source
             return nil
           })
           if err != nil || len(diagnostics) != 0 {

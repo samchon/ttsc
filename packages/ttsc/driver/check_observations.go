@@ -41,7 +41,7 @@ func WriteCheckObservationsJSON(fileName string, program *Program) error {
   }
   if program != nil {
     if program.TSProgram != nil {
-      graph = NewTransformGraph(program, program.TSProgram.GetCurrentDirectory())
+      graph = NewTransformGraph(program, program.TSProgram.GetCurrentDirectory().AsString())
     }
     if recorded := program.PluginHostInputs(); recorded != nil {
       inputs = recorded

@@ -157,7 +157,7 @@ func noUnsafeEnumComparisonEnumDeclaration(t *shimchecker.Type) *shimast.Node {
     if sym == nil {
       return nil
     }
-    for _, decl := range sym.Declarations {
+    for _, decl := range sym.Declarations() {
       if decl == nil {
         continue
       }

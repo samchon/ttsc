@@ -1,7 +1,7 @@
 package vfs
 
 import (
-  _ "github.com/microsoft/typescript-go/internal/vfs/osvfs"
+  _ "github.com/microsoft/TypeScript/tsc/internal/vfs/osvfs"
   _ "unsafe"
 )
 
@@ -22,5 +22,5 @@ import (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work DecodeBytes declares a signature only; the implementation owns any shared work.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation DecodeBytes is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
 //
-//go:linkname DecodeBytes github.com/microsoft/typescript-go/internal/vfs/internal.decodeBytes
+//go:linkname DecodeBytes github.com/microsoft/TypeScript/tsc/internal/vfs/internal.decodeBytes
 func DecodeBytes(s string) (contents string, ok bool)

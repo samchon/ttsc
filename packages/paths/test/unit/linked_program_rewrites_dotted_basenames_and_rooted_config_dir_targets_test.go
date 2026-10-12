@@ -7,6 +7,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   _ "github.com/samchon/ttsc/packages/paths/driver"
   "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -52,8 +53,8 @@ export const value = [dotted, explicit, rooted, plain, missing];`,
     t.Fatal(err)
   }
   written := map[string]string{}
-  _, diagnostics, err = prog.EmitAllRaw(func(name, contents string, _ *shimcompiler.WriteFileData) error {
-    written[filepath.ToSlash(name)] = contents
+  _, diagnostics, err = prog.EmitAllRaw(func(name shimtspath.RootedFilePath, contents string, _ *shimcompiler.WriteFileData) error {
+    written[filepath.ToSlash(name.AsString())] = contents
     return nil
   })
   if err != nil || len(diagnostics) != 0 {

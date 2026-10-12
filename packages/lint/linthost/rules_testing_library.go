@@ -733,7 +733,7 @@ func (s *testingLibraryState) reportInconsistentDataTestIDs(ctx *Context) {
   if err := ctx.DecodeOptions(&opts); err != nil || opts.TestIDPattern == "" {
     return
   }
-  pattern := strings.ReplaceAll(opts.TestIDPattern, "{fileName}", testingLibraryFileName(ctx.File.FileName()))
+  pattern := strings.ReplaceAll(opts.TestIDPattern, "{fileName}", testingLibraryFileName(ctx.File.FileName().AsString()))
   re, err := regexp.Compile(pattern)
   if err != nil {
     return

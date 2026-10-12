@@ -362,8 +362,8 @@ func switchExhaustivenessCheckTypeName(
       if name := shimchecker.Checker_symbolToValueString(checker, symbol, location); name != "" {
         return "typeof " + name
       }
-      if symbol.Name != "" {
-        return "typeof " + symbol.Name
+      if symbol.Name() != "" {
+        return "typeof " + symbol.Name()
       }
     }
   }

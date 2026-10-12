@@ -11,6 +11,7 @@ import (
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/microsoft/typescript-go/shim/vfs"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -247,15 +248,15 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   }
   emittedFiles := map[string]struct{}{}
   finalWriteFile := writeFile
-  eDiags, err := prog.EmitWithPluginTransformers(nil, func(fileName, text string, data *shimcompiler.WriteFileData) error {
+  eDiags, err := prog.EmitWithPluginTransformers(nil, func(fileName shimtspath.RootedFilePath, text string, data *shimcompiler.WriteFileData) error {
     var err error
     if finalWriteFile != nil {
       err = finalWriteFile(fileName, text, data)
     } else {
-      err = driver.DefaultWriteFile(fileName, text)
+      err = driver.DefaultWriteFile(fileName.AsString(), text)
     }
     if err == nil && (data == nil || !data.SkippedDtsWrite) {
-      emittedFiles[fileName] = struct{}{}
+      emittedFiles[fileName.AsString()] = struct{}{}
     }
     return err
   })
@@ -353,7 +354,7 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
           nil,
           file,
         )
-        key := apiOutputKey(opts.cwd, file.FileName())
+        key := apiOutputKey(opts.cwd, file.FileName().AsString())
         out.TypeScript[key] = text
         // A source preamble sits in the parsed text, not in the author's
         // file, so both the comparison and the map use the authored text.

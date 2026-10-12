@@ -43,7 +43,7 @@ func TestServeShardsRefreshCrossFileImplementation(t *testing.T) {
   if serviceSource == nil {
     t.Fatal("service source was absent from resident program")
   }
-  serviceKey := session.graphStore.sourceKeys[serviceSource.FileName()]
+  serviceKey := session.graphStore.sourceKeys[serviceSource.FileName().AsString()]
   initialService, exists := session.graphStore.shards[serviceKey]
   if serviceKey == "" || !exists || initialService.digest == "" {
     t.Fatal("initial Service shard has no committed identity or digest")
@@ -73,7 +73,7 @@ func TestServeShardsRefreshCrossFileImplementation(t *testing.T) {
   if session.graphStore.shards[serviceKey].digest == before {
     t.Fatal("declaration shard retained its cross-file implementation evidence")
   }
-  currentServiceKey := session.graphStore.sourceKeys[serviceSource.FileName()]
+  currentServiceKey := session.graphStore.sourceKeys[serviceSource.FileName().AsString()]
   currentService, exists := session.graphStore.shards[currentServiceKey]
   if currentServiceKey == "" || !exists || currentService.digest == "" || currentService.digest == before {
     t.Fatalf("current Service shard was not replaced with a changed digest: key=%q shard=%#v", currentServiceKey, currentService)

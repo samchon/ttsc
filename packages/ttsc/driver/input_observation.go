@@ -142,7 +142,7 @@ type observedInput struct {
 // of attaching post-compile disk hashes to an earlier result.
 type inputObservationFS struct {
   vfs.FS
-  caseSensitive        bool
+  caseSensitivity      shimtspath.CaseSensitivity
   mu                   sync.Mutex
   observations         map[string]observedInput
   observationOrder     []string
@@ -152,14 +152,15 @@ type inputObservationFS struct {
 func newInputObservationFS(inner vfs.FS) *inputObservationFS {
   return &inputObservationFS{
     FS:                   inner,
-    caseSensitive:        inner.UseCaseSensitiveFileNames(),
+    caseSensitivity:      inner.CaseSensitivity(),
     observations:         map[string]observedInput{},
     observationSpellings: map[string]string{},
   }
 }
 
-func (fs *inputObservationFS) FileExists(path string) bool {
-  exists := fs.FS.FileExists(path)
+func (fs *inputObservationFS) FileExists(file shimtspath.RootedFilePath) bool {
+  exists := fs.FS.FileExists(file)
+  path := file.AsPath()
   proof := TransformInputObservation{FileExists: boolPointer(exists)}
   if exists {
     // Existence participates in resolution, but only ReadFile returns bytes
@@ -171,8 +172,9 @@ func (fs *inputObservationFS) FileExists(path string) bool {
   return exists
 }
 
-func (fs *inputObservationFS) ReadFile(path string) (string, bool) {
-  contents, ok := fs.FS.ReadFile(path)
+func (fs *inputObservationFS) ReadFile(file shimtspath.RootedFilePath) (string, bool) {
+  contents, ok := fs.FS.ReadFile(file)
+  path := file.AsPath()
   if ok {
     digest := sha256.Sum256([]byte(contents))
     hash := hex.EncodeToString(digest[:])
@@ -192,8 +194,9 @@ func (fs *inputObservationFS) ReadFile(path string) (string, bool) {
   return contents, ok
 }
 
-func (fs *inputObservationFS) DirectoryExists(path string) bool {
-  exists := fs.FS.DirectoryExists(path)
+func (fs *inputObservationFS) DirectoryExists(directory shimtspath.RootedDirectoryPath) bool {
+  exists := fs.FS.DirectoryExists(directory)
+  path := directory.AsPath()
   proof := TransformInputObservation{DirectoryExists: boolPointer(exists)}
   if exists {
     proof.Realpath = fs.currentRealpath(path)
@@ -202,9 +205,9 @@ func (fs *inputObservationFS) DirectoryExists(path string) bool {
   return exists
 }
 
-func (fs *inputObservationFS) GetAccessibleEntries(path string) vfs.Entries {
-  entries := fs.FS.GetAccessibleEntries(path)
-  fs.observe(path, observedInput{
+func (fs *inputObservationFS) GetAccessibleEntries(directory shimtspath.RootedDirectoryPath) vfs.Entries {
+  entries := fs.FS.GetAccessibleEntries(directory)
+  fs.observe(directory.AsPath(), observedInput{
     proof: TransformInputObservation{
       AccessibleEntries: &TransformInputEntriesObservation{
         Directories: append([]string{}, entries.Directories...),
@@ -215,7 +218,7 @@ func (fs *inputObservationFS) GetAccessibleEntries(path string) vfs.Entries {
   return entries
 }
 
-func (fs *inputObservationFS) Stat(path string) vfs.FileInfo {
+func (fs *inputObservationFS) Stat(path shimtspath.RootedPath) vfs.FileInfo {
   info := fs.FS.Stat(path)
   kind := "missing"
   if info == nil {
@@ -242,16 +245,16 @@ func (fs *inputObservationFS) Stat(path string) vfs.FileInfo {
   return info
 }
 
-func (fs *inputObservationFS) Realpath(path string) string {
+func (fs *inputObservationFS) Realpath(path shimtspath.RootedPath) shimtspath.RootedPath {
   realpath := fs.FS.Realpath(path)
   fs.observe(path, observedInput{
-    proof: TransformInputObservation{Realpath: realpathObservation(realpath)},
+    proof: TransformInputObservation{Realpath: realpathObservation(realpath.AsString())},
   })
   return realpath
 }
 
-func (fs *inputObservationFS) currentRealpath(path string) *TransformInputRealpathObservation {
-  return realpathObservation(fs.FS.Realpath(path))
+func (fs *inputObservationFS) currentRealpath(path shimtspath.RootedPath) *TransformInputRealpathObservation {
+  return realpathObservation(fs.FS.Realpath(path).AsString())
 }
 
 func realpathObservation(realpath string) *TransformInputRealpathObservation {
@@ -272,13 +275,11 @@ func (fs *inputObservationFS) observationKey(path string) string {
   if !filepath.IsAbs(path) {
     return ""
   }
-  return shimtspath.GetCanonicalFileName(
-    shimtspath.NormalizePath(path),
-    fs.caseSensitive,
-  )
+  return fs.caseSensitivity.Canonicalize(shimtspath.NormalizePath(path))
 }
 
-func (fs *inputObservationFS) observe(path string, next observedInput) {
+func (fs *inputObservationFS) observe(rooted shimtspath.RootedPath, next observedInput) {
+  path := rooted.AsString()
   key := fs.observationKey(path)
   if key == "" {
     return

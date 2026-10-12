@@ -77,11 +77,11 @@ void echoed;
   if raw == nil {
     t.Fatal("GetSymbolAtLocation returned nil for the call-site reference")
   }
-  if raw.Flags&shimast.SymbolFlagsAlias == 0 {
+  if raw.Flags()&shimast.SymbolFlagsAlias == 0 {
     t.Fatal("premise broken: the call-site reference is not an alias, so there is no barrel hop to unwrap")
   }
-  if rawFile := declarationFile(raw); rawFile == nil || !strings.HasSuffix(rawFile.FileName(), "main.ts") {
-    t.Fatalf("naive stop did not land on the import in main.ts: %v", raw.Declarations)
+  if rawFile := declarationFile(raw); rawFile == nil || !strings.HasSuffix(rawFile.FileName().AsString(), "main.ts") {
+    t.Fatalf("naive stop did not land on the import in main.ts: %v", raw.Declarations())
   }
 
   // The bridged walk: Resolve unwraps the alias chain to the real declaration.
@@ -89,7 +89,7 @@ void echoed;
   if resolved == nil {
     t.Fatal("Resolve returned nil for the call-site reference")
   }
-  if resolved.Symbol == nil || resolved.Symbol.Name != "target" {
+  if resolved.Symbol == nil || resolved.Symbol.Name() != "target" {
     t.Fatalf("Resolve did not land on the target symbol: %+v", resolved.Symbol)
   }
   if !strings.HasSuffix(resolved.File, "impl.ts") {
@@ -105,7 +105,7 @@ void echoed;
   // The helper selects the local declaration's first value identifier; it is a
   // workspace node, not an external leaf.
   local := Resolve(checker, identifier(t, main, "value"))
-  if local == nil || local.Symbol == nil || local.Symbol.Name != "value" {
+  if local == nil || local.Symbol == nil || local.Symbol.Name() != "value" {
     t.Fatalf("Resolve did not bind the local const reference: %+v", local)
   }
   if !strings.HasSuffix(local.File, "main.ts") || local.External {
@@ -124,7 +124,7 @@ void echoed;
 func sourceFile(t *testing.T, prog *driver.Program, suffix string) *shimast.SourceFile {
   t.Helper()
   for _, file := range prog.SourceFiles() {
-    if strings.HasSuffix(file.FileName(), suffix) {
+    if strings.HasSuffix(file.FileName().AsString(), suffix) {
       return file
     }
   }

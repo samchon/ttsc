@@ -6,7 +6,7 @@
 package ast
 
 import (
-  innerast "github.com/microsoft/typescript-go/internal/ast"
+  innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
 )
 
 // CallExpression exposes the upstream call-expression payload without copying it.
@@ -847,6 +847,36 @@ type TypeReferenceNode = innerast.TypeReferenceNode
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type SourceFile = innerast.SourceFile
+
+// SourceFileDataKey identifies one kind of lazily computed value that
+// SourceFile.GetOrComputeData caches on a source file. Each key from
+// NewSourceFileDataKey is distinct, so independent consumers never share a slot.
+//
+// @evidence contracts/common.md#principled-implementation The generic alias preserves the upstream key identity that SourceFile.GetOrComputeData requires.
+// @evidence contracts/common.md#clear-and-simple-design The upstream key type is the cache slot handle; the shim adds no parallel registry.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No shim-side cache replaces the compiler's per-file data storage.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the key's role and uniqueness, with a blank line before tags.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+type SourceFileDataKey[T any] = innerast.SourceFileDataKey[T]
+
+// NewSourceFileDataKey returns a fresh key for values of type T cached on
+// source files through SourceFile.GetOrComputeData. Create a key once, for
+// example in a package-level variable, and reuse it for every file.
+//
+// @evidence contracts/common.md#principled-implementation Delegating to the upstream constructor keeps key allocation under the compiler's own counter, so shim keys cannot collide with compiler keys.
+// @evidence contracts/common.md#clear-and-simple-design One forwarding constructor is the only producer the cache API needs.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No key is fabricated from a zero value; every key comes from upstream allocation.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains key freshness and the intended create-once usage.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned key is a small value whose lifetime belongs to the caller; the call holds nothing.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One atomic counter increment in upstream is the whole operation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call must produce a distinct key, so there is nothing to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Key allocation opens no file, builds no path and calls no platform API.
+func NewSourceFileDataKey[T any]() *SourceFileDataKey[T] {
+  return innerast.NewSourceFileDataKey[T]()
+}
 
 // StringLiteral exposes the upstream quoted-string syntax payload and methods.
 //

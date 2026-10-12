@@ -24,7 +24,7 @@ func (g *Graph) addEdges(prog *driver.Program, selected map[string]bool, partial
     if !IsWorkspaceSourceFile(file) {
       continue
     }
-    if partial && !selected[file.FileName()] {
+    if partial && !selected[file.FileName().AsString()] {
       continue
     }
     g.markExports(checker, file)
@@ -34,7 +34,7 @@ func (g *Graph) addEdges(prog *driver.Program, selected map[string]bool, partial
     g.collectDocRefs(checker, file)
     g.collectLiterals(checker, file)
     if file.Statements != nil {
-      g.collectDecorators(file.FileName(), file.Statements.Nodes)
+      g.collectDecorators(file.FileName().AsString(), file.Statements.Nodes)
     }
   }
 }
@@ -72,7 +72,7 @@ func (g *Graph) collectHeritage(checker *shimchecker.Checker, file *shimast.Sour
   if file.Statements == nil {
     return
   }
-  g.collectHeritageIn(checker, file.FileName(), file.Statements.Nodes)
+  g.collectHeritageIn(checker, file.FileName().AsString(), file.Statements.Nodes)
 }
 
 // collectHeritageIn adds heritage edges for the class/interface statements in a
@@ -100,7 +100,7 @@ func (g *Graph) collectHeritageIn(checker *shimchecker.Checker, path string, sta
 // records a heritage edge from node to the resolved base node.
 func (g *Graph) heritageEdges(checker *shimchecker.Checker, path string, node *shimast.Node, kind NodeKind, clauses []*shimast.Node) {
   symbol := node.Symbol()
-  if symbol == nil || symbol.Name == "" {
+  if symbol == nil || symbol.Name() == "" {
     return
   }
   from := nodeID(path, qualifiedName(symbol), kind)
@@ -117,11 +117,11 @@ func (g *Graph) heritageEdges(checker *shimchecker.Checker, path string, node *s
       origin = "extends"
     }
     for _, typeNode := range clause.Types.Nodes {
-      base := typeNode.AsExpressionWithTypeArguments()
-      if base == nil || base.Expression == nil {
+      name := heritageElementName(typeNode)
+      if name == nil {
         continue
       }
-      target := g.resolve(checker, base.Expression)
+      target := g.resolve(checker, name)
       if target == nil || target.Symbol == nil {
         continue
       }
@@ -129,10 +129,21 @@ func (g *Graph) heritageEdges(checker *shimchecker.Checker, path string, node *s
       if to == "" {
         continue
       }
-      g.addEdgeAt(from, to, EdgeHeritage, origin, base.Expression.Pos(), base.Expression.End())
+      g.addEdgeAt(from, to, EdgeHeritage, origin, name.Pos(), name.End())
       g.memberRelationEdges(checker, node, kind, typeNode, target, origin)
     }
   }
+}
+
+// heritageElementName is the name a heritage clause element refers to. The
+// parser represents an interface's `extends` and a class's `implements`
+// element as a type reference when it is an entity name, and every other
+// element as an expression with type arguments.
+func heritageElementName(element *shimast.Node) *shimast.Node {
+  if element.Kind == shimast.KindTypeReference {
+    return element.AsTypeReferenceNode().TypeName
+  }
+  return element.AsExpressionWithTypeArguments().Expression
 }
 
 // memberRelationEdges records the directly declared member pairs that a
@@ -183,8 +194,8 @@ func (g *Graph) memberRelationEdges(
       continue
     }
 
-    derivedProperty := checker.GetPropertyOfType(derivedType, derivedMemberSymbol.Name)
-    baseProperty := checker.GetPropertyOfType(baseType, derivedMemberSymbol.Name)
+    derivedProperty := checker.GetPropertyOfType(derivedType, derivedMemberSymbol.Name())
+    baseProperty := checker.GetPropertyOfType(baseType, derivedMemberSymbol.Name())
     if derivedProperty == nil || baseProperty == nil ||
       !propertyRootsAt(checker, derivedProperty, derivedMemberSymbol) {
       continue
@@ -233,7 +244,7 @@ func declaredTypeMembers(symbol *shimast.Symbol) []*shimast.Node {
     return nil
   }
   var members []*shimast.Node
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range symbol.Declarations() {
     members = append(members, classMembers(declaration)...)
   }
   return members
@@ -259,7 +270,7 @@ func inheritedMemberForProperty(
     if root == nil {
       continue
     }
-    for _, declaration := range root.Declarations {
+    for _, declaration := range root.Declarations() {
       if declaration == nil ||
         shimast.GetCombinedModifierFlags(declaration)&shimast.ModifierFlagsStatic != 0 ||
         declaration.Kind == shimast.KindConstructor {
@@ -327,14 +338,14 @@ func graphMemberNodeID(g *Graph, member *shimast.Node) string {
   if file == nil || name == "" {
     return ""
   }
-  id := nodeID(file.FileName(), name, kind)
+  id := nodeID(file.FileName().AsString(), name, kind)
   stored, ok := g.lookupNode(id)
   if !ok {
     return ""
   }
-  for _, declaration := range member.Symbol().Declarations {
+  for _, declaration := range member.Symbol().Declarations() {
     declarationFile := shimast.GetSourceFileOfNode(declaration)
-    if declarationFile != nil && declarationFile.FileName() == stored.File &&
+    if declarationFile != nil && declarationFile.FileName().AsString() == stored.File &&
       declaration.Pos() == stored.Pos && declaration.End() == stored.End {
       return id
     }
@@ -348,7 +359,7 @@ func graphMemberNodeID(g *Graph, member *shimast.Node) string {
 // top-level variable binding, or the class itself for a member that is not a
 // method (a property initializer).
 func (g *Graph) collectCalls(checker *shimchecker.Checker, file *shimast.SourceFile) {
-  forEachContainer(file.FileName(), file, func(from string, node *shimast.Node) {
+  forEachContainer(file.FileName().AsString(), file, func(from string, node *shimast.Node) {
     g.callsWithin(checker, from, node)
   })
 }
@@ -420,7 +431,7 @@ func moduleID(path string) string {
 // pass recorded.
 func topLevelID(path string, statement *shimast.Node, kind NodeKind) string {
   symbol := statement.Symbol()
-  if symbol == nil || symbol.Name == "" {
+  if symbol == nil || symbol.Name() == "" {
     return ""
   }
   return nodeID(path, qualifiedName(symbol), kind)
@@ -501,7 +512,7 @@ func forEachVariable(path string, statement *shimast.Node, fn func(string, *shim
   }
   for _, binding := range list.Declarations.Nodes {
     symbol := binding.Symbol()
-    if symbol == nil || symbol.Name == "" {
+    if symbol == nil || symbol.Name() == "" {
       continue
     }
     fn(nodeID(path, qualifiedName(symbol), NodeVariable), binding)
@@ -652,14 +663,14 @@ func (g *Graph) recordImplementation(id string, assignment *shimast.Node) string
     sources = map[string]bool{}
     g.ImplementationSources[id] = sources
   }
-  sources[file.FileName()] = true
+  sources[file.FileName().AsString()] = true
   current := g.Nodes[id]
   if current != nil && current.ImplementationFile == "" {
-    current.ImplementationFile = file.FileName()
+    current.ImplementationFile = file.FileName().AsString()
     current.ImplementationPos = assignment.Pos()
     current.ImplementationEnd = assignment.End()
   }
-  return file.FileName()
+  return file.FileName().AsString()
 }
 
 func (g *Graph) withEdgeEvidenceFile(from, file string, visit func()) {
@@ -760,7 +771,7 @@ func (g *Graph) valueUseEdge(checker *shimchecker.Checker, from string, targetEx
 // the unit of truth: an `import type` or annotation-only dependency relates two
 // symbols without any runtime call.
 func (g *Graph) collectTypeRefs(checker *shimchecker.Checker, file *shimast.SourceFile) {
-  forEachContainer(file.FileName(), file, func(from string, node *shimast.Node) {
+  forEachContainer(file.FileName().AsString(), file, func(from string, node *shimast.Node) {
     g.typeRefsWithin(checker, from, node)
   })
 }
@@ -794,7 +805,7 @@ func (g *Graph) typeRefsWithin(checker *shimchecker.Checker, from string, node *
       if target := g.assignedFunctionTarget(checker, from, child); target != "" {
         file := ""
         if source := shimast.GetSourceFileOfNode(child); source != nil {
-          file = source.FileName()
+          file = source.FileName().AsString()
         }
         g.withEdgeEvidenceFile(target, file, func() {
           g.typeRefsWithin(checker, target, child.AsBinaryExpression().Right)
@@ -853,7 +864,7 @@ func (g *Graph) ensureTargetNode(target *Target) string {
     }
     return ""
   }
-  if kind == NodeVariable && target.External && target.Symbol.Flags&shimast.SymbolFlagsProperty != 0 {
+  if kind == NodeVariable && target.External && target.Symbol.Flags()&shimast.SymbolFlagsProperty != 0 {
     return ""
   }
   name := qualifiedName(target.Symbol)
@@ -892,7 +903,7 @@ func (g *Graph) ensureTargetNode(target *Target) string {
 // closureTargetID returns the node id of a closure the checker resolved to, or ""
 // when the target is not one Build recorded.
 func (g *Graph) closureTargetID(target *Target) string {
-  for _, declaration := range target.Symbol.Declarations {
+  for _, declaration := range target.Symbol.Declarations() {
     if !IsClosure(declaration) {
       continue
     }
@@ -918,7 +929,7 @@ func (g *Graph) closureTargetID(target *Target) string {
 // resolved as NodeVariable even though Build recorded the getter/setter as a
 // NodeMethod.
 func symbolNodeKind(symbol *shimast.Symbol) NodeKind {
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range symbol.Declarations() {
     switch declaration.Kind {
     case shimast.KindClassDeclaration:
       return NodeClass
@@ -939,21 +950,21 @@ func symbolNodeKind(symbol *shimast.Symbol) NodeKind {
     }
   }
   switch {
-  case symbol.Flags&shimast.SymbolFlagsClass != 0:
+  case symbol.Flags()&shimast.SymbolFlagsClass != 0:
     return NodeClass
-  case symbol.Flags&shimast.SymbolFlagsInterface != 0:
+  case symbol.Flags()&shimast.SymbolFlagsInterface != 0:
     return NodeInterface
-  case symbol.Flags&shimast.SymbolFlagsTypeAlias != 0:
+  case symbol.Flags()&shimast.SymbolFlagsTypeAlias != 0:
     return NodeTypeAlias
-  case symbol.Flags&shimast.SymbolFlagsEnum != 0:
+  case symbol.Flags()&shimast.SymbolFlagsEnum != 0:
     return NodeEnum
-  case symbol.Flags&shimast.SymbolFlagsFunction != 0:
+  case symbol.Flags()&shimast.SymbolFlagsFunction != 0:
     return NodeFunction
-  case symbol.Flags&(shimast.SymbolFlagsMethod|shimast.SymbolFlagsConstructor|shimast.SymbolFlagsGetAccessor|shimast.SymbolFlagsSetAccessor) != 0:
+  case symbol.Flags()&(shimast.SymbolFlagsMethod|shimast.SymbolFlagsConstructor|shimast.SymbolFlagsGetAccessor|shimast.SymbolFlagsSetAccessor) != 0:
     return NodeMethod
-  case symbol.Flags&shimast.SymbolFlagsProperty != 0:
+  case symbol.Flags()&shimast.SymbolFlagsProperty != 0:
     return NodeVariable
-  case symbol.Flags&shimast.SymbolFlagsVariable != 0:
+  case symbol.Flags()&shimast.SymbolFlagsVariable != 0:
     return NodeVariable
   default:
     return ""

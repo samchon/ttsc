@@ -178,8 +178,10 @@ function rewritePublishedGoMod() {
     ) {
       continue;
     }
+    // Both the bridge namespace and the facade namespace resolve beneath
+    // ../ttsc/shim; the facade directories live under shim/typescript-go/.
     const shimMatch = trimmed.match(
-      /^(github\.com\/microsoft\/typescript-go\/shim\/[A-Za-z0-9_/]+)\s+=>\s+\.\.\/ttsc\/shim\/([A-Za-z0-9_/]+)$/,
+      /^(github\.com\/microsoft\/(?:TypeScript\/tsc|typescript-go)\/shim\/[A-Za-z0-9_/]+)\s+=>\s+\.\.\/ttsc\/shim\/([A-Za-z0-9_/-]+)$/,
     );
     if (shimMatch) {
       const indent = line.match(/^\s*/)[0];

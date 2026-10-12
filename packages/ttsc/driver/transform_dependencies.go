@@ -93,7 +93,7 @@ func (p *Program) TransformDependenciesFor(cwd string) TransformDependencies {
   files := p.sourceFilesRaw()
   keys := make([]string, 0, len(files))
   for _, file := range files {
-    keys = append(keys, TransformOutputKey(cwd, file.FileName()))
+    keys = append(keys, TransformOutputKey(cwd, file.FileName().AsString()))
   }
   return p.plugins.transformDependencies(keys)
 }

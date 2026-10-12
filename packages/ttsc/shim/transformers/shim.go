@@ -7,7 +7,7 @@
 // itself, no text-splice needed.
 package transformers
 
-import innertransformers "github.com/microsoft/typescript-go/internal/transformers"
+import innertransformers "github.com/microsoft/TypeScript/tsc/internal/transformers"
 
 // Transformer is one stage of tsgo's emit transformer chain.
 // TransformSourceFile returns the visited source file, which may replace the

@@ -183,7 +183,7 @@ func buildServeCache(opts hostOptions) (map[string]string, bool) {
   printer := shimprinter.NewPrinter(shimprinter.PrinterOptions{}, shimprinter.PrintHandlers{}, nil)
   cache := map[string]string{}
   for _, file := range prog.SourceFiles() {
-    cache[apiOutputKey(opts.cwd, file.FileName())] = shimprinter.EmitSourceFile(printer, file)
+    cache[apiOutputKey(opts.cwd, file.FileName().AsString())] = shimprinter.EmitSourceFile(printer, file)
   }
   if opts.observationsIncomplete != nil {
     *opts.observationsIncomplete = prog.PluginObservationsIncomplete()

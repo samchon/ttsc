@@ -11,7 +11,7 @@ import (
   "io"
   _ "unsafe"
 
-  innerlsp "github.com/microsoft/typescript-go/internal/lsp"
+  innerlsp "github.com/microsoft/TypeScript/tsc/internal/lsp"
 )
 
 // Server is the opaque LSP server type from tsgo.
@@ -78,7 +78,7 @@ type Writer = innerlsp.Writer
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work NewServer declares a signature only; the implementation owns any shared work.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NewServer is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
 //
-//go:linkname NewServer github.com/microsoft/typescript-go/internal/lsp.NewServer
+//go:linkname NewServer github.com/microsoft/TypeScript/tsc/internal/lsp.NewServer
 func NewServer(opts *ServerOptions) *Server
 
 // ToReader adapts an io.Reader into the upstream framed-message decoder.
@@ -93,7 +93,7 @@ func NewServer(opts *ServerOptions) *Server
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ToReader declares a signature only; the implementation owns any shared work.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ToReader is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
 //
-//go:linkname ToReader github.com/microsoft/typescript-go/internal/lsp.ToReader
+//go:linkname ToReader github.com/microsoft/TypeScript/tsc/internal/lsp.ToReader
 func ToReader(r io.Reader) Reader
 
 // ToWriter adapts an io.Writer into the upstream framed-message encoder.
@@ -108,5 +108,5 @@ func ToReader(r io.Reader) Reader
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ToWriter declares a signature only; the implementation owns any shared work.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ToWriter is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
 //
-//go:linkname ToWriter github.com/microsoft/typescript-go/internal/lsp.ToWriter
+//go:linkname ToWriter github.com/microsoft/TypeScript/tsc/internal/lsp.ToWriter
 func ToWriter(w io.Writer) Writer

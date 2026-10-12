@@ -9,6 +9,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -118,7 +119,8 @@ export function optional(value?: { answer: number }) { return value?.answer; }
         t.Fatalf("unexpected program diagnostics: %#v", diagnostics)
       }
       var output string
-      _, emitDiags, err := prog.EmitAllRaw(func(name, text string, _ *shimcompiler.WriteFileData) error {
+      _, emitDiags, err := prog.EmitAllRaw(func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+        name := fileName.AsString()
         if filepath.Base(name) == "index.js" {
           output = text
         }

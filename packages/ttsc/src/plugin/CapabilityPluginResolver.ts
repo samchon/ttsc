@@ -68,7 +68,7 @@ export class CapabilityPluginResolver {
     return {
       status: value.status,
       plugins: value.plugins,
-      isCurrent: async ({ signal } = {}) =>
+      isCurrent: async ({ signal }: { signal?: AbortSignal } = {}) =>
         released || this.closed
           ? false
           : ((await this.request(

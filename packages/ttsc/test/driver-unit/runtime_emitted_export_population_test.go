@@ -10,6 +10,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/microsoft/typescript-go/shim/vfs/osvfs"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -45,7 +46,7 @@ func TestRuntimeEmittedExportPopulation(t *testing.T) {
     if err != nil {
       t.Fatal(err)
     }
-    source = osvfs.FS().Realpath(absolute)
+    source = osvfs.FS().Realpath(shimtspath.RootedPathFromAbsolute(absolute)).AsString()
     var visit func(string, string, []os.FileInfo) error
     visit = func(name, output string, ancestors []os.FileInfo) error {
       entry, err := os.Stat(name)
@@ -118,7 +119,8 @@ func TestRuntimeEmittedExportPopulation(t *testing.T) {
   }
   defer prog.Close()
   emitted := make(map[string]bool)
-  _, diagnostics, err = prog.EmitAllRaw(func(name, text string, _ *shimcompiler.WriteFileData) error {
+  _, diagnostics, err = prog.EmitAllRaw(func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    name := fileName.AsString()
     write(name, []byte(text))
     emitted[filepath.Clean(name)] = true
     return nil
@@ -236,7 +238,8 @@ const load=(name)=>require(path.join(root,name));
   }
   defer ordinary.Close()
   ordinaryOutput := make(map[string]string)
-  _, diagnostics, err = ordinary.EmitAllRaw(func(name, text string, _ *shimcompiler.WriteFileData) error {
+  _, diagnostics, err = ordinary.EmitAllRaw(func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    name := fileName.AsString()
     ordinaryOutput[filepath.Clean(name)] = text
     return nil
   })

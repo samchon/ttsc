@@ -5,7 +5,7 @@
 // compiler.GetScriptTransformers when assembling the emit pipeline.
 package printer
 
-import innerprinter "github.com/microsoft/typescript-go/internal/printer"
+import innerprinter "github.com/microsoft/TypeScript/tsc/internal/printer"
 
 // EmitHost is the per-emit host interface tsgo's transformers query (Options,
 // SourceFiles, GetEmitResolver, GetEmitModuleFormatOfFile, WriteFile, ...).

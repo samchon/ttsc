@@ -1,8 +1,8 @@
-// Code generated from github.com/microsoft/typescript-go/internal/ast. DO NOT EDIT.
+// Code generated from github.com/microsoft/TypeScript/tsc/internal/ast. DO NOT EDIT.
 
 package ast
 
-import innerast "github.com/microsoft/typescript-go/internal/ast"
+import innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
 
 // Public type aliases that were not part of the original hand-written shim.
 // Keeping these aliases broad lets source plugins use the same node factory

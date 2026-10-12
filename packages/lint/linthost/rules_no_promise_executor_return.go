@@ -75,7 +75,7 @@ func isGlobalPromiseConstructor(ctx *Context, callee *shimast.Node) bool {
   if resolved != global {
     return false
   }
-  for _, declaration := range resolved.Declarations {
+  for _, declaration := range resolved.Declarations() {
     if declaration != nil && shimast.GetSourceFileOfNode(declaration) == ctx.File &&
       promiseDeclarationIntroducesValue(declaration) {
       return false

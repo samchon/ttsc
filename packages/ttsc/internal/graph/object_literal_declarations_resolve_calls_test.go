@@ -84,8 +84,8 @@ export namespace Names {
   }
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
-  caller := nodeID(path, "caller", NodeFunction)
-  helper := nodeID(path, "helper", NodeFunction)
+  caller := nodeID(path.AsString(), "caller", NodeFunction)
+  helper := nodeID(path.AsString(), "helper", NodeFunction)
   for _, item := range []struct {
     name     string
     kind     NodeKind
@@ -109,7 +109,7 @@ export namespace Names {
     {"api.computed", NodeMethod, EdgeValueCall},
     {"api.value", NodeMethod, EdgeValueAccess},
   } {
-    id := nodeID(path, item.name, item.kind)
+    id := nodeID(path.AsString(), item.name, item.kind)
     node := graph.Nodes[id]
     if node == nil || node.Pos <= 0 || node.End <= node.Pos {
       t.Errorf("missing member/span %s: %+v", item.name, node)
@@ -122,12 +122,12 @@ export namespace Names {
       t.Errorf("missing member-to-helper relation from %s", item.name)
     }
   }
-  if !hasEdge(graph, nodeID(path, "control", NodeFunction), nodeID(path, "Control.run", NodeMethod), EdgeValueCall) {
+  if !hasEdge(graph, nodeID(path.AsString(), "control", NodeFunction), nodeID(path.AsString(), "Control.run", NodeMethod), EdgeValueCall) {
     t.Error("ordinary class method call was lost")
   }
   for _, name := range []string{`Names.api["a[\"\"]"]`, `Names.api.a[""]`} {
-    id := nodeID(path, name, NodeMethod)
-    if graph.Nodes[id] == nil || !hasEdge(graph, nodeID(path, "Names.caller", NodeFunction), id, EdgeValueCall) || !hasEdge(graph, id, helper, EdgeValueCall) {
+    id := nodeID(path.AsString(), name, NodeMethod)
+    if graph.Nodes[id] == nil || !hasEdge(graph, nodeID(path.AsString(), "Names.caller", NodeFunction), id, EdgeValueCall) || !hasEdge(graph, id, helper, EdgeValueCall) {
       t.Errorf("namespace object identity/relationships missing: %s", name)
     }
   }
@@ -146,18 +146,18 @@ export namespace Names {
     {"Control.prefix__#7@#read", "prefix__#7@#read", NodeMethod, EdgeValueAccess},
     {"Control.#value", "#value", NodeMethod, EdgeValueCall},
   } {
-    id := nodeID(path, item.qualified, item.kind)
+    id := nodeID(path.AsString(), item.qualified, item.kind)
     node := graph.Nodes[id]
     if node == nil || node.Simple != item.simple || node.Pos <= 0 || node.End <= node.Pos {
       t.Errorf("literal/private identity %q: %+v, want simple %q", item.qualified, node, item.simple)
       continue
     }
     if item.qualified == "Control.#value" {
-      if !hasEdge(graph, nodeID(path, "Control.__#41@#value", NodeMethod), id, EdgeValueCall) {
+      if !hasEdge(graph, nodeID(path.AsString(), "Control.__#41@#value", NodeMethod), id, EdgeValueCall) {
         t.Error("public literal method lost its distinct private call target")
       }
     } else if len(item.qualified) >= len("Control.") && item.qualified[:len("Control.")] == "Control." {
-      if !hasEdge(graph, nodeID(path, "control", NodeFunction), id, item.relation) {
+      if !hasEdge(graph, nodeID(path.AsString(), "control", NodeFunction), id, item.relation) {
         t.Errorf("missing control caller relation to %q", item.qualified)
       }
     }

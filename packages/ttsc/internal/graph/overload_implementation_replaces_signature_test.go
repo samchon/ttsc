@@ -50,7 +50,7 @@ func TestOverloadImplementationReplacesSignature(t *testing.T) {
   graph := Build(prog)
   file := sourceFile(t, prog, "main.ts")
   path := file.FileName()
-  id := nodeID(path, "Query.join", NodeMethod)
+  id := nodeID(path.AsString(), "Query.join", NodeMethod)
   node := graph.Nodes[id]
   if node == nil {
     t.Fatalf("missing node Query.join; have %v", nodeIDSet(graph))
@@ -59,7 +59,7 @@ func TestOverloadImplementationReplacesSignature(t *testing.T) {
   if !strings.Contains(source, "return this.realJoin") {
     t.Fatalf("expected Query.join node to cover the implementation body, got:\n%s", source)
   }
-  if !hasEdge(graph, id, nodeID(path, "Query.realJoin", NodeMethod), EdgeValueCall) {
+  if !hasEdge(graph, id, nodeID(path.AsString(), "Query.realJoin", NodeMethod), EdgeValueCall) {
     t.Fatalf("missing value-call edge Query.join -> Query.realJoin; edges: %v", graph.Edges)
   }
 }

@@ -442,10 +442,10 @@ func securityValueBindingModule(ctx *Context, identifier *shimast.Node) string {
   if target == nil {
     return ""
   }
-  if module := securityRequiredModuleFromDeclaration(target.ValueDeclaration); module != "" {
+  if module := securityRequiredModuleFromDeclaration(target.ValueDeclaration()); module != "" {
     return module
   }
-  for _, declaration := range target.Declarations {
+  for _, declaration := range target.Declarations() {
     if module := securityRequiredModuleFromDeclaration(declaration); module != "" {
       return module
     }
@@ -545,10 +545,10 @@ func securitySymbolHasDeclarationInFile(symbol *shimast.Symbol, file *shimast.So
     }
     return false
   }
-  if belongs(symbol.ValueDeclaration) {
+  if belongs(symbol.ValueDeclaration()) {
     return true
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range symbol.Declarations() {
     if belongs(declaration) {
       return true
     }

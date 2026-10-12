@@ -49,7 +49,7 @@ func TestFileDiagnosticsReportCodeColumnAndMessage(t *testing.T) {
   defer func() { _ = prog.Close() }()
 
   main := sourceFile(t, prog, "main.ts").FileName()
-  got := FileDiagnostics(prog, main)
+  got := FileDiagnostics(prog, main.AsString())
 
   var match *driver.Diagnostic
   for i := range got {

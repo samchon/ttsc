@@ -52,8 +52,8 @@ func TestServeShardsRenameMovesSourceIdentity(t *testing.T) {
   }
   originalKeyFile := originalSource.FileName()
   consumerKeyFile := consumerSource.FileName()
-  originalKey := session.graphStore.sourceKeys[originalKeyFile]
-  initialConsumerKey := session.graphStore.sourceKeys[consumerKeyFile]
+  originalKey := session.graphStore.sourceKeys[originalKeyFile.AsString()]
+  initialConsumerKey := session.graphStore.sourceKeys[consumerKeyFile.AsString()]
   if originalKey == "" || initialConsumerKey == "" {
     t.Fatal("initial generation omitted a fixture source shard")
   }
@@ -74,14 +74,14 @@ func TestServeShardsRenameMovesSourceIdentity(t *testing.T) {
   if !containsString(next.Deletes, originalKey) {
     t.Fatalf("rename did not delete the superseded shard %q: %v", originalKey, next.Deletes)
   }
-  if _, exists := session.graphStore.sourceKeys[originalKeyFile]; exists {
+  if _, exists := session.graphStore.sourceKeys[originalKeyFile.AsString()]; exists {
     t.Fatal("committed store retained the pre-rename source identity")
   }
   renamedSource := session.compiler.Program().SourceFile(renamed)
   if renamedSource == nil {
     t.Fatal("renamed source did not enter the resident program")
   }
-  renamedKey := session.graphStore.sourceKeys[renamedSource.FileName()]
+  renamedKey := session.graphStore.sourceKeys[renamedSource.FileName().AsString()]
   if renamedKey == "" {
     t.Fatal("renamed source did not acquire a committed shard identity")
   }
@@ -91,7 +91,7 @@ func TestServeShardsRenameMovesSourceIdentity(t *testing.T) {
   if !containsUpsertedShardKey(next, renamedKey) {
     t.Fatalf("generation did not publish the renamed source shard %q", renamedKey)
   }
-  nextConsumerKey := session.graphStore.sourceKeys[consumerKeyFile]
+  nextConsumerKey := session.graphStore.sourceKeys[consumerKeyFile.AsString()]
   if nextConsumerKey == "" || nextConsumerKey == initialConsumerKey {
     t.Fatalf("dependent shard identity %q survived a repointed import", nextConsumerKey)
   }

@@ -20,6 +20,7 @@ import (
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
@@ -602,7 +603,7 @@ func filterFindingsForPath(findings []*Finding, target string) []*Finding {
     if finding == nil || finding.File == nil {
       continue
     }
-    if canonicalProjectPath("", realProjectPath(finding.File.FileName())) == target {
+    if canonicalProjectPath("", realProjectPath(finding.File.FileName().AsString())) == target {
       out = append(out, finding)
     }
   }
@@ -631,7 +632,7 @@ func lspRelatedInformationForFinding(finding *Finding) []lspRelatedInformation {
   if finding == nil || len(finding.RelatedInformation) == 0 || finding.File == nil {
     return nil
   }
-  uri := fileURL(finding.File.FileName())
+  uri := fileURL(finding.File.FileName().AsString())
   out := make([]lspRelatedInformation, 0, len(finding.RelatedInformation))
   for _, item := range finding.RelatedInformation {
     out = append(out, lspRelatedInformation{
@@ -1185,9 +1186,13 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
 
   text := content
   converged := false
-  // The tsgo parser asserts on normalized (forward-slash) absolute paths;
-  // `target` comes from filepath.Abs and carries backslashes on Windows.
-  parseName := filepath.ToSlash(target)
+  // The parser takes a rooted file name: the normalized, forward-slash form of
+  // `target`, which filePathFromURI made absolute.
+  parseName, ok := shimtspath.TryRootedFilePathFromAbsolute(target)
+  if !ok {
+    fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP format target is not a rooted path: %s\n", target)
+    return nil, 2
+  }
   for pass := 0; pass < maxFormatPasses; pass++ {
     file := shimparser.ParseSourceFile(shimast.SourceFileParseOptions{FileName: parseName}, text, scriptKind)
     if file == nil || len(file.Diagnostics()) > 0 || len(file.JSDiagnostics()) > 0 {

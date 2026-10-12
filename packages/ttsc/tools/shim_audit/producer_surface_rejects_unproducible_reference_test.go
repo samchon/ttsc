@@ -28,7 +28,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership TestProducerSurfaceRejectsUnproducibleReference is a Go unit test of the shim_audit tool package: it calls the analysis helper in-process on literal or synthetic type-checker values and starts no Go toolchain run.
 func TestProducerSurfaceRejectsUnproducibleReference(t *testing.T) {
   source := `package fixture
-import inner "github.com/microsoft/typescript-go/internal/fixture"
+import inner "github.com/microsoft/TypeScript/tsc/internal/fixture"
 func ConsumeToken(value *inner.Token) {}
 func ProduceToken() []*inner.Token { return nil }
 func Register(handler func(*inner.Event) *inner.Reply) {}
@@ -77,7 +77,7 @@ func hidden(value *inner.Hidden) {}
   }
 
   namedSource := `package fixture
-import inner "github.com/microsoft/typescript-go/internal/fixture"
+import inner "github.com/microsoft/TypeScript/tsc/internal/fixture"
 type Factory func() *inner.FactoryToken
 type Batch []*inner.BatchToken
 type PointerBatch []*inner.PointerBatchToken
@@ -117,7 +117,7 @@ func ProducePointerBatchToken() *inner.PointerBatchToken { return nil }
   upstream.Scope().Insert(upstreamFactoryName)
   upstreamInner := map[string]*packages.Package{"fixture": {Types: upstream}}
   upstreamSource := `package fixture
-import inner "github.com/microsoft/typescript-go/internal/fixture"
+import inner "github.com/microsoft/TypeScript/tsc/internal/fixture"
 func RegisterUpstreamFactory(factory inner.UpstreamFactory) {}
 func ProduceUpstreamToken() *inner.UpstreamToken { return nil }
 `
@@ -131,7 +131,7 @@ func ProduceUpstreamToken() *inner.UpstreamToken { return nil }
   }
 
   cycleSource := `package fixture
-import inner "github.com/microsoft/typescript-go/internal/fixture"
+import inner "github.com/microsoft/TypeScript/tsc/internal/fixture"
 func AFromB(value *inner.B) *inner.A { return nil }
 func BFromA(value *inner.A) *inner.B { return nil }
 func UseA(value *inner.A) {}

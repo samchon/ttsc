@@ -34,21 +34,23 @@ func DefaultFS() vfs.FS {
   return bundled.WrapFS(cachedvfs.From(osvfs.FS()))
 }
 
-// DefaultHost returns a CompilerHost anchored at cwd that can find tsgo's
-// bundled library files via `bundled.LibPath()`.
-// The constructor retains the supplied cwd and FS without independently
-// normalizing or probing that anchor. In noembed builds the native library
-// provider initializes a process-wide disk location, which can perform native
-// queries or panic if its required library layout is unavailable.
+// DefaultHost returns a CompilerHost over fs that can find tsgo's bundled
+// library files via `bundled.LibPath()`. The compiler host carries no current
+// directory: the parsed command line's base directory anchors a Program, and
+// command-line and tsconfig parsing receive their directory explicitly.
+// The constructor retains the supplied FS without probing it. In noembed builds
+// the native library provider initializes a process-wide disk location, which
+// can perform native queries or panic if its required library layout is
+// unavailable.
 //
-// @evidence contracts/common.md#principled-implementation The supplied FS and cwd are passed to the upstream CompilerHost with the matching bundled-library location.
+// @evidence contracts/common.md#principled-implementation The supplied FS is passed to the upstream CompilerHost with the matching bundled-library location.
 // @evidence contracts/common.md#clear-and-simple-design Host construction stays in one adapter used by initial and incremental program creation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported CompilerHost constructor owns behavior without an injected foreign-method replacement.
-// @evidence contracts/common.md#meaningful-documentation Native prose names project anchoring and bundled library lookup under documentation-skill guidance.
+// @evidence contracts/common.md#meaningful-documentation Native prose names where the directory anchor now lives and bundled library lookup under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation The host uses the supplied filesystem's native capabilities and upstream path handling rather than hardcoded OS path rules.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The new host transfers its cwd/library strings and supplied FS reference to the caller; keeping it reachable also keeps that FS stack and its caches reachable. The factory adds no separate host cache, handle or release operation.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The new host transfers its library location and supplied FS reference to the caller; keeping it reachable also keeps that FS stack and its caches reachable. The factory adds no separate host cache, handle or release operation.
 // @evidence contracts/performance.md#efficient-algorithms Host allocation initializes fixed fields; embedded library location is a constant, while first noembed location initialization can query executable/realpath/library metadata under the native provider's once cache. This constructor does not parse source files, but delegated location work is not universally a fixed field assignment.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each returned host retains its supplied cwd/FS without a driver-owned cache or request coordinator; the native library provider owns any process-wide location sharing.
-func DefaultHost(cwd string, fs vfs.FS) shimcompiler.CompilerHost {
-  return shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each returned host retains its supplied FS without a driver-owned cache or request coordinator; the native library provider owns any process-wide location sharing.
+func DefaultHost(fs vfs.FS) shimcompiler.CompilerHost {
+  return shimcompiler.NewCompilerHost(fs, bundled.LibPath(), nil, nil, nil)
 }

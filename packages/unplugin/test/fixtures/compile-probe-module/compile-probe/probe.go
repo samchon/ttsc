@@ -43,7 +43,7 @@ func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransfor
     return nil, fmt.Errorf("unknown shared native pipeline operation %q", operation)
   }
   return func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
-    nativeEmissionSource := sf != nil && strings.HasSuffix(filepath.ToSlash(sf.FileName()), "/tools/native-emission/src/main.ts")
+    nativeEmissionSource := sf != nil && strings.HasSuffix(filepath.ToSlash(sf.FileName().AsString()), "/tools/native-emission/src/main.ts")
     var visitor *shimast.NodeVisitor
     visitor = ec.NewNodeVisitor(func(node *shimast.Node) *shimast.Node {
       if node != nil && node.Kind == shimast.KindVariableDeclaration {
@@ -252,13 +252,13 @@ func reportConfiguredDependencies(program *driver.Program, context driver.Plugin
       continue
     }
     if programSourcesPresent {
-      actual = append(actual, source.FileName())
+      actual = append(actual, source.FileName().AsString())
       continue
     }
-    key := resolve(source.FileName())
+    key := resolve(source.FileName().AsString())
     if seen, wanted := selected[key]; wanted && !seen {
       selected[key] = true
-      actual = append(actual, source.FileName())
+      actual = append(actual, source.FileName().AsString())
     }
   }
   for file, found := range selected {

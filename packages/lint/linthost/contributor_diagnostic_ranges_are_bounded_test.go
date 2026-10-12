@@ -31,12 +31,12 @@ func TestContributorDiagnosticRangesAreBounded(t *testing.T) {
   }
   contributor := &boundedDiagnosticRangeContributor{
     spans: map[string][2]int{
-      files[0].FileName(): {-7, 5},
-      files[1].FileName(): {8, 3},
-      files[2].FileName(): {999, 1200},
-      files[3].FileName(): {len(files[3].Text()), len(files[3].Text())},
-      files[4].FileName(): {-4, 12},
-      files[5].FileName(): {6, 11},
+      files[0].FileName().AsString(): {-7, 5},
+      files[1].FileName().AsString(): {8, 3},
+      files[2].FileName().AsString(): {999, 1200},
+      files[3].FileName().AsString(): {len(files[3].Text()), len(files[3].Text())},
+      files[4].FileName().AsString(): {-4, 12},
+      files[5].FileName().AsString(): {6, 11},
     },
   }
   metadata, err := inspectContributor(contributor)
@@ -56,23 +56,23 @@ func TestContributorDiagnosticRangesAreBounded(t *testing.T) {
     t.Fatalf("findings = %d, want %d: %+v", got, want, findings)
   }
   expected := map[string][2]int{
-    files[0].FileName(): {0, 5},
-    files[1].FileName(): {8, 9},
-    files[2].FileName(): {len(files[2].Text()), len(files[2].Text())},
-    files[3].FileName(): {len(files[3].Text()), len(files[3].Text())},
-    files[4].FileName(): {0, 0},
-    files[5].FileName(): {6, 11},
+    files[0].FileName().AsString(): {0, 5},
+    files[1].FileName().AsString(): {8, 9},
+    files[2].FileName().AsString(): {len(files[2].Text()), len(files[2].Text())},
+    files[3].FileName().AsString(): {len(files[3].Text()), len(files[3].Text())},
+    files[4].FileName().AsString(): {0, 0},
+    files[5].FileName().AsString(): {6, 11},
   }
   seen := map[string]bool{}
   for _, finding := range findings {
-    want, ok := expected[finding.File.FileName()]
+    want, ok := expected[finding.File.FileName().AsString()]
     if !ok {
       t.Fatalf("unexpected finding file: %+v", finding)
     }
-    if seen[finding.File.FileName()] || finding.Message != "explicit contributor range" {
+    if seen[finding.File.FileName().AsString()] || finding.Message != "explicit contributor range" {
       t.Fatalf("duplicate file or lost contributor message: %+v", finding)
     }
-    seen[finding.File.FileName()] = true
+    seen[finding.File.FileName().AsString()] = true
     if finding.Pos != want[0] || finding.End != want[1] {
       t.Fatalf("range for %s = [%d,%d), want [%d,%d)",
         finding.File.FileName(), finding.Pos, finding.End, want[0], want[1])
@@ -86,8 +86,8 @@ func TestContributorDiagnosticRangesAreBounded(t *testing.T) {
 
     diagnostic := shimdw.NewLintDiagnostic(
       finding.File,
-      contributor.spans[finding.File.FileName()][0],
-      contributor.spans[finding.File.FileName()][1],
+      contributor.spans[finding.File.FileName().AsString()][0],
+      contributor.spans[finding.File.FileName().AsString()][1],
       9501,
       shimdw.LintCategoryError,
       "bounded contributor diagnostic",
@@ -118,8 +118,8 @@ func (*boundedDiagnosticRangeContributor) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
 func (r *boundedDiagnosticRangeContributor) Check(ctx *publicrule.Context, _ *shimast.Node) {
-  span := r.spans[ctx.File.FileName()]
-  if ctx.File.FileName() == r.fixFile {
+  span := r.spans[ctx.File.FileName().AsString()]
+  if ctx.File.FileName().AsString() == r.fixFile {
     ctx.ReportRangeFix(span[0], span[1], "explicit contributor range", publicrule.TextEdit{
       Pos:  0,
       End:  5,

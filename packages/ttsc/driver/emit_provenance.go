@@ -50,43 +50,40 @@ func (p *Program) NewEmitProvenanceRecorder(writeFile shimcompiler.WriteFile) (s
   program := p.TSProgram
   observer := p.inputObserver
   cwd := program.GetCurrentDirectory()
-  caseSensitive := program.UseCaseSensitiveFileNames()
+  caseSensitivity := program.CaseSensitivity()
   nativePath := func(name string) string {
     return filepath.FromSlash(shimtspath.GetNormalizedAbsolutePath(name, cwd))
   }
   coordinateKey := func(name string) string {
-    return shimtspath.GetCanonicalFileName(
-      shimtspath.NormalizePath(nativePath(name)),
-      caseSensitive,
-    )
+    return caseSensitivity.Canonicalize(shimtspath.NormalizePath(nativePath(name)))
   }
   candidates := map[string][]string{}
   host := &pluginEmitHost{program: program}
-  for _, source := range shimcompiler.GetSourceFilesToEmit(host, nil, false) {
-    output := shimcompiler.GetOutputPathsFor(source, program.Options(), host, false).JsFilePath()
-    switch strings.ToLower(filepath.Ext(output)) {
+  for _, source := range shimcompiler.GetSourceFilesToEmit(host, nil, false, false) {
+    output := shimcompiler.GetOutputPathsFor(source, program.Options(), host, shimcompiler.ForceEmitPaths{}).JsFilePath()
+    switch strings.ToLower(filepath.Ext(output.AsString())) {
     case ".js", ".jsx", ".mjs", ".cjs":
-      key := coordinateKey(output)
-      candidates[key] = append(candidates[key], nativePath(source.FileName()))
+      key := coordinateKey(output.AsString())
+      candidates[key] = append(candidates[key], nativePath(source.FileName().AsString()))
     }
   }
   if writeFile == nil {
-    writeFile = func(name, text string, _ *shimcompiler.WriteFileData) error {
-      return DefaultWriteFile(name, text)
+    writeFile = func(name shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+      return DefaultWriteFile(name.AsString(), text)
     }
   }
   written := map[string]string{}
   var mu sync.Mutex
-  record := func(name, text string, data *shimcompiler.WriteFileData) error {
+  record := func(name shimtspath.RootedFilePath, text string, data *shimcompiler.WriteFileData) error {
     mu.Lock()
     defer mu.Unlock()
     if err := writeFile(name, text, data); err != nil {
       return err
     }
     if data == nil || !data.SkippedDtsWrite {
-      switch strings.ToLower(filepath.Ext(name)) {
+      switch strings.ToLower(filepath.Ext(name.AsString())) {
       case ".js", ".jsx", ".mjs", ".cjs":
-        written[nativePath(name)] = coordinateKey(name)
+        written[nativePath(name.AsString())] = coordinateKey(name.AsString())
       }
     }
     return nil

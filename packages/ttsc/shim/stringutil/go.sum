@@ -1,2 +1,2 @@
-github.com/microsoft/typescript-go v0.0.0-20260610182825-7fc57c005063 h1:UUVrjTrD+7nkVvkJTjxwA5+SaZ5n1uyAffm2zX2gn+o=
-github.com/microsoft/typescript-go v0.0.0-20260610182825-7fc57c005063/go.mod h1:s3yhRRZ7nzSZaiKicku520Tj9Mvewr9y2UtrvpwOmDE=
+github.com/microsoft/TypeScript/tsc v0.0.0-20261008195036-6ad8c56f9b5a h1:dr0YJ0YZUswY3rnA8dn4F3fFaFnhSt77c02+t6LRvxw=
+github.com/microsoft/TypeScript/tsc v0.0.0-20261008195036-6ad8c56f9b5a/go.mod h1:28hWKaTYwRARPm0T9Y0XvdvYpU2HtjONzsMqAdYLucY=

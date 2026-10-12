@@ -21,8 +21,7 @@ type option struct {
 // Read exported declarations from the same pinned module as ParseCommandLine.
 func main() {
   options := []option{}
-  declarations := append(append([]*tsoptions.CommandLineOption{}, tsoptions.OptionsDeclarations...), tsoptions.OptionsForWatch...)
-  for _, declaration := range declarations {
+  for _, declaration := range tsoptions.OptionsDeclarations {
     entry := option{Name: declaration.Name, Alias: declaration.ShortName, Kind: string(declaration.Kind), ConfigOnly: declaration.IsTSConfigOnly}
     if declaration.Kind == "list" {
       entry.Element = string(declaration.Elements().Kind)

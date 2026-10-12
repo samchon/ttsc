@@ -63,11 +63,11 @@ export class SubExt extends Ext {}
   implPath := sourceFile(t, prog, "impl.ts").FileName()
 
   // Barrel traversal: the base resolved to the sibling source, not the index.
-  base := nodeID(implPath, "Base", NodeClass)
+  base := nodeID(implPath.AsString(), "Base", NodeClass)
   if node, ok := graph.Nodes[base]; !ok || node.External {
     t.Fatalf("Base node missing or misclassified external (barrel not traversed): %+v", node)
   }
-  sub := nodeID(mainPath, "Sub", NodeClass)
+  sub := nodeID(mainPath.AsString(), "Sub", NodeClass)
   if !hasEdge(graph, sub, base, EdgeHeritage) {
     t.Fatalf("missing heritage edge Sub -> Base@impl.ts; edges: %v", graph.Edges)
   }
@@ -81,7 +81,7 @@ export class SubExt extends Ext {}
   if !ext.External || !strings.Contains(ext.File, "/node_modules/") {
     t.Fatalf("Ext should be an external node_modules leaf: %+v", ext)
   }
-  subExt := nodeID(mainPath, "SubExt", NodeClass)
+  subExt := nodeID(mainPath.AsString(), "SubExt", NodeClass)
   if !hasEdge(graph, subExt, ext.ID, EdgeHeritage) {
     t.Fatalf("missing heritage edge SubExt -> Ext (external); edges: %v", graph.Edges)
   }

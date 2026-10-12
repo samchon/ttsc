@@ -8,6 +8,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -39,8 +40,8 @@ func TestEmitPluginWriteErrorsFailBuild(t *testing.T) {
         }
         defer p.Close()
         failed := false
-        _, err = p.EmitWithPluginTransformers(nil, func(name, _ string, _ *shimcompiler.WriteFileData) error {
-          if filepath.Base(name) == file {
+        _, err = p.EmitWithPluginTransformers(nil, func(name shimtspath.RootedFilePath, _ string, _ *shimcompiler.WriteFileData) error {
+          if filepath.Base(name.AsString()) == file {
             failed = true
             return errors.New("output device unavailable")
           }

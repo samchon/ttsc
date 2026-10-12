@@ -4,7 +4,7 @@ import (
   "strings"
   "testing"
 
-  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimast "github.com/microsoft/TypeScript/tsc/shim/ast"
 )
 
 // TestNodeTextJoinsMultiHopQualifiedName verifies NodeText joins a

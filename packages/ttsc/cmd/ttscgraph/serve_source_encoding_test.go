@@ -106,10 +106,10 @@ func TestServeSourceEncodingKeepsRawIdentityAndDecodedResidentText(t *testing.T)
         t.Errorf("%s %s decoded text=%q want=%q", stage, name, source.Text(), text(name, suffix))
       }
       rawHash := sha256.Sum256(bytesOf(name, text(name, suffix)))
-      if hashes[source.FileName()] != rawHash {
+      if hashes[source.FileName().AsString()] != rawHash {
         t.Errorf("%s %s invalidation identity differs from raw bytes", stage, name)
       }
-      if digests[source.FileName()] != graph.Digest(rawHash) {
+      if digests[source.FileName().AsString()] != graph.Digest(rawHash) {
         t.Errorf("%s %s disk digest differs from raw bytes", stage, name)
       }
     }

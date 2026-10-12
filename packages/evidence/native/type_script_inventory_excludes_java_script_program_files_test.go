@@ -4,6 +4,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "path/filepath"
   "testing"
 )
@@ -30,7 +31,7 @@ func TestTypeScriptInventoryExcludesJavaScriptProgramFiles(t *testing.T) {
   parse := func(name string, kind shimcore.ScriptKind) *shimast.SourceFile {
     return shimparser.ParseSourceFile(
       shimast.SourceFileParseOptions{
-        FileName: filepath.ToSlash(filepath.Join(root, name)),
+        FileName: shimtspath.RootedFilePathFromAbsolute(filepath.Join(root, name)),
       },
       "export function run(): void {}",
       kind,

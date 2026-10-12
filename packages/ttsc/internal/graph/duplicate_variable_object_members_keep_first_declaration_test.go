@@ -39,7 +39,7 @@ export var duplicate = { second: 2 };
 
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
-  node := graph.Nodes[nodeID(path, "duplicate", NodeVariable)]
+  node := graph.Nodes[nodeID(path.AsString(), "duplicate", NodeVariable)]
   if node == nil {
     t.Fatalf("missing duplicate variable; nodes: %v", nodeIDSet(graph))
   }

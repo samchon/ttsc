@@ -65,11 +65,11 @@ export class Service<T extends Constraint> extends Base<Payload> {}
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  service := nodeID(path, "Service", NodeClass)
-  injectable := nodeID(path, "Injectable", NodeFunction)
-  base := nodeID(path, "Base", NodeClass)
-  payload := nodeID(path, "Payload", NodeInterface)
-  constraint := nodeID(path, "Constraint", NodeInterface)
+  service := nodeID(path.AsString(), "Service", NodeClass)
+  injectable := nodeID(path.AsString(), "Injectable", NodeFunction)
+  base := nodeID(path.AsString(), "Base", NodeClass)
+  payload := nodeID(path.AsString(), "Payload", NodeInterface)
+  constraint := nodeID(path.AsString(), "Constraint", NodeInterface)
 
   // The decorator factory call is a fact, not an edge: no value-call to
   // Injectable, but a recorded decorator on the Service node.

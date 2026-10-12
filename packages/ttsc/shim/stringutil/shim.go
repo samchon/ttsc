@@ -2,28 +2,28 @@
 
 package stringutil
 
-import "github.com/microsoft/typescript-go/internal/stringutil"
+import "github.com/microsoft/TypeScript/tsc/internal/stringutil"
 import _ "unsafe"
 
-//go:linkname AddUTF8ByteOrderMark github.com/microsoft/typescript-go/internal/stringutil.AddUTF8ByteOrderMark
+//go:linkname AddUTF8ByteOrderMark github.com/microsoft/TypeScript/tsc/internal/stringutil.AddUTF8ByteOrderMark
 func AddUTF8ByteOrderMark(text string) string
 
-//go:linkname CodePointToSurrogatePair github.com/microsoft/typescript-go/internal/stringutil.CodePointToSurrogatePair
+//go:linkname CodePointToSurrogatePair github.com/microsoft/TypeScript/tsc/internal/stringutil.CodePointToSurrogatePair
 func CodePointToSurrogatePair(ch rune) (high rune, low rune)
 
-//go:linkname CombineSurrogatePairs github.com/microsoft/typescript-go/internal/stringutil.CombineSurrogatePairs
+//go:linkname CombineSurrogatePairs github.com/microsoft/TypeScript/tsc/internal/stringutil.CombineSurrogatePairs
 func CombineSurrogatePairs(s string) string
 
-//go:linkname CompareStringsCaseInsensitive github.com/microsoft/typescript-go/internal/stringutil.CompareStringsCaseInsensitive
+//go:linkname CompareStringsCaseInsensitive github.com/microsoft/TypeScript/tsc/internal/stringutil.CompareStringsCaseInsensitive
 func CompareStringsCaseInsensitive(a string, b string) stringutil.Comparison
 
-//go:linkname CompareStringsCaseInsensitiveEslintCompatible github.com/microsoft/typescript-go/internal/stringutil.CompareStringsCaseInsensitiveEslintCompatible
+//go:linkname CompareStringsCaseInsensitiveEslintCompatible github.com/microsoft/TypeScript/tsc/internal/stringutil.CompareStringsCaseInsensitiveEslintCompatible
 func CompareStringsCaseInsensitiveEslintCompatible(a string, b string) stringutil.Comparison
 
-//go:linkname CompareStringsCaseInsensitiveThenSensitive github.com/microsoft/typescript-go/internal/stringutil.CompareStringsCaseInsensitiveThenSensitive
+//go:linkname CompareStringsCaseInsensitiveThenSensitive github.com/microsoft/TypeScript/tsc/internal/stringutil.CompareStringsCaseInsensitiveThenSensitive
 func CompareStringsCaseInsensitiveThenSensitive(a string, b string) stringutil.Comparison
 
-//go:linkname CompareStringsCaseSensitive github.com/microsoft/typescript-go/internal/stringutil.CompareStringsCaseSensitive
+//go:linkname CompareStringsCaseSensitive github.com/microsoft/TypeScript/tsc/internal/stringutil.CompareStringsCaseSensitive
 func CompareStringsCaseSensitive(a string, b string) stringutil.Comparison
 
 type Comparison = stringutil.Comparison
@@ -32,88 +32,100 @@ const ComparisonEqual = stringutil.ComparisonEqual
 const ComparisonGreaterThan = stringutil.ComparisonGreaterThan
 const ComparisonLessThan = stringutil.ComparisonLessThan
 
-//go:linkname DecodeJSStringRune github.com/microsoft/typescript-go/internal/stringutil.DecodeJSStringRune
+//go:linkname DecodeJSStringRune github.com/microsoft/TypeScript/tsc/internal/stringutil.DecodeJSStringRune
 func DecodeJSStringRune(s string) (rune, int)
 
-//go:linkname EncodeJSStringRune github.com/microsoft/typescript-go/internal/stringutil.EncodeJSStringRune
+//go:linkname EncodeJSStringRune github.com/microsoft/TypeScript/tsc/internal/stringutil.EncodeJSStringRune
 func EncodeJSStringRune(ch rune) string
 
-//go:linkname EncodeURI github.com/microsoft/typescript-go/internal/stringutil.EncodeURI
+//go:linkname EncodeURI github.com/microsoft/TypeScript/tsc/internal/stringutil.EncodeURI
 func EncodeURI(s string) string
 
-//go:linkname EquateStringCaseInsensitive github.com/microsoft/typescript-go/internal/stringutil.EquateStringCaseInsensitive
+//go:linkname EquateStringCaseInsensitive github.com/microsoft/TypeScript/tsc/internal/stringutil.EquateStringCaseInsensitive
 func EquateStringCaseInsensitive(a string, b string) bool
 
-//go:linkname EquateStringCaseSensitive github.com/microsoft/typescript-go/internal/stringutil.EquateStringCaseSensitive
+//go:linkname EquateStringCaseSensitive github.com/microsoft/TypeScript/tsc/internal/stringutil.EquateStringCaseSensitive
 func EquateStringCaseSensitive(a string, b string) bool
 
-//go:linkname GetStringComparer github.com/microsoft/typescript-go/internal/stringutil.GetStringComparer
+//go:linkname GetStringComparer github.com/microsoft/TypeScript/tsc/internal/stringutil.GetStringComparer
 func GetStringComparer(ignoreCase bool) func(a string, b string) stringutil.Comparison
 
-//go:linkname GetStringEqualityComparer github.com/microsoft/typescript-go/internal/stringutil.GetStringEqualityComparer
+//go:linkname GetStringEqualityComparer github.com/microsoft/TypeScript/tsc/internal/stringutil.GetStringEqualityComparer
 func GetStringEqualityComparer(ignoreCase bool) func(a string, b string) bool
 
-//go:linkname GuessIndentation github.com/microsoft/typescript-go/internal/stringutil.GuessIndentation
+//go:linkname GuessIndentation github.com/microsoft/TypeScript/tsc/internal/stringutil.GuessIndentation
 func GuessIndentation(lines []string) int
 
-//go:linkname HasPrefix github.com/microsoft/typescript-go/internal/stringutil.HasPrefix
+//go:linkname HasPrefix github.com/microsoft/TypeScript/tsc/internal/stringutil.HasPrefix
 func HasPrefix(s string, prefix string, caseSensitive bool) bool
 
-//go:linkname HasPrefixAndSuffixWithoutOverlap github.com/microsoft/typescript-go/internal/stringutil.HasPrefixAndSuffixWithoutOverlap
+//go:linkname HasPrefixAndSuffixWithoutOverlap github.com/microsoft/TypeScript/tsc/internal/stringutil.HasPrefixAndSuffixWithoutOverlap
 func HasPrefixAndSuffixWithoutOverlap(s string, prefix string, suffix string, caseSensitive bool) bool
 
-//go:linkname HasSuffix github.com/microsoft/typescript-go/internal/stringutil.HasSuffix
+//go:linkname HasSuffix github.com/microsoft/TypeScript/tsc/internal/stringutil.HasSuffix
 func HasSuffix(s string, suffix string, caseSensitive bool) bool
 
-//go:linkname IsASCIILetter github.com/microsoft/typescript-go/internal/stringutil.IsASCIILetter
+//go:linkname IsASCIILetter github.com/microsoft/TypeScript/tsc/internal/stringutil.IsASCIILetter
 func IsASCIILetter(ch rune) bool
 
-//go:linkname IsDigit github.com/microsoft/typescript-go/internal/stringutil.IsDigit
+//go:linkname IsDigit github.com/microsoft/TypeScript/tsc/internal/stringutil.IsDigit
 func IsDigit(ch rune) bool
 
-//go:linkname IsHexDigit github.com/microsoft/typescript-go/internal/stringutil.IsHexDigit
+//go:linkname IsHexDigit github.com/microsoft/TypeScript/tsc/internal/stringutil.IsHexDigit
 func IsHexDigit(ch rune) bool
 
-//go:linkname IsHighSurrogate github.com/microsoft/typescript-go/internal/stringutil.IsHighSurrogate
+//go:linkname IsHighSurrogate github.com/microsoft/TypeScript/tsc/internal/stringutil.IsHighSurrogate
 func IsHighSurrogate(ch rune) bool
 
-//go:linkname IsLineBreak github.com/microsoft/typescript-go/internal/stringutil.IsLineBreak
+//go:linkname IsLineBreak github.com/microsoft/TypeScript/tsc/internal/stringutil.IsLineBreak
 func IsLineBreak(ch rune) bool
 
-//go:linkname IsLowSurrogate github.com/microsoft/typescript-go/internal/stringutil.IsLowSurrogate
+//go:linkname IsLowSurrogate github.com/microsoft/TypeScript/tsc/internal/stringutil.IsLowSurrogate
 func IsLowSurrogate(ch rune) bool
 
-//go:linkname IsOctalDigit github.com/microsoft/typescript-go/internal/stringutil.IsOctalDigit
+//go:linkname IsOctalDigit github.com/microsoft/TypeScript/tsc/internal/stringutil.IsOctalDigit
 func IsOctalDigit(ch rune) bool
 
-//go:linkname IsSurrogate github.com/microsoft/typescript-go/internal/stringutil.IsSurrogate
+//go:linkname IsSurrogate github.com/microsoft/TypeScript/tsc/internal/stringutil.IsSurrogate
 func IsSurrogate(ch rune) bool
 
-//go:linkname IsWhiteSpaceLike github.com/microsoft/typescript-go/internal/stringutil.IsWhiteSpaceLike
+//go:linkname IsUnicodeIdentifierPart github.com/microsoft/TypeScript/tsc/internal/stringutil.IsUnicodeIdentifierPart
+func IsUnicodeIdentifierPart(ch rune) bool
+
+//go:linkname IsUnicodeIdentifierStart github.com/microsoft/TypeScript/tsc/internal/stringutil.IsUnicodeIdentifierStart
+func IsUnicodeIdentifierStart(ch rune) bool
+
+//go:linkname IsWhiteSpaceLike github.com/microsoft/TypeScript/tsc/internal/stringutil.IsWhiteSpaceLike
 func IsWhiteSpaceLike(ch rune) bool
 
-//go:linkname IsWhiteSpaceSingleLine github.com/microsoft/typescript-go/internal/stringutil.IsWhiteSpaceSingleLine
+//go:linkname IsWhiteSpaceSingleLine github.com/microsoft/TypeScript/tsc/internal/stringutil.IsWhiteSpaceSingleLine
 func IsWhiteSpaceSingleLine(ch rune) bool
 
-//go:linkname LowerFirstChar github.com/microsoft/typescript-go/internal/stringutil.LowerFirstChar
+//go:linkname LowerFirstChar github.com/microsoft/TypeScript/tsc/internal/stringutil.LowerFirstChar
 func LowerFirstChar(str string) string
 
-//go:linkname RemoveByteOrderMark github.com/microsoft/typescript-go/internal/stringutil.RemoveByteOrderMark
+//go:linkname RemoveByteOrderMark github.com/microsoft/TypeScript/tsc/internal/stringutil.RemoveByteOrderMark
 func RemoveByteOrderMark(text string) string
 
-//go:linkname SplitLines github.com/microsoft/typescript-go/internal/stringutil.SplitLines
+//go:linkname SplitLines github.com/microsoft/TypeScript/tsc/internal/stringutil.SplitLines
 func SplitLines(text string) []string
 
-//go:linkname StripQuotes github.com/microsoft/typescript-go/internal/stringutil.StripQuotes
+//go:linkname StripQuotes github.com/microsoft/TypeScript/tsc/internal/stringutil.StripQuotes
 func StripQuotes(name string) string
 
 const SurrogateLowStart = stringutil.SurrogateLowStart
 
-//go:linkname SurrogatePairToCodePoint github.com/microsoft/typescript-go/internal/stringutil.SurrogatePairToCodePoint
+//go:linkname SurrogatePairToCodePoint github.com/microsoft/TypeScript/tsc/internal/stringutil.SurrogatePairToCodePoint
 func SurrogatePairToCodePoint(high rune, low rune) rune
 
-//go:linkname TruncateByRunes github.com/microsoft/typescript-go/internal/stringutil.TruncateByRunes
+//go:linkname ToLowerJS github.com/microsoft/TypeScript/tsc/internal/stringutil.ToLowerJS
+func ToLowerJS(str string) string
+
+//go:linkname ToUpperJS github.com/microsoft/TypeScript/tsc/internal/stringutil.ToUpperJS
+func ToUpperJS(str string) string
+
+//go:linkname TruncateByRunes github.com/microsoft/TypeScript/tsc/internal/stringutil.TruncateByRunes
 func TruncateByRunes(str string, maxLength int) string
 
-//go:linkname UnquoteString github.com/microsoft/typescript-go/internal/stringutil.UnquoteString
+//go:linkname UnquoteString github.com/microsoft/TypeScript/tsc/internal/stringutil.UnquoteString
 func UnquoteString(str string) string

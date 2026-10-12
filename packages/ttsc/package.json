@@ -72,6 +72,8 @@
     "go:vet": "go vet ./...",
     "shim:audit": "go -C tools/shim_audit run -mod=readonly . -check -anchor ../../shim/ast -shim ../../shim",
     "shim:audit:test": "go -C tools/shim_audit test -mod=readonly -count=1 ./...",
+    "shim:facade": "go -C tools/gen_facade run .",
+    "shim:facade:check": "go -C tools/gen_facade run . -check",
     "evidence": "evidence"
   },
   "repository": {

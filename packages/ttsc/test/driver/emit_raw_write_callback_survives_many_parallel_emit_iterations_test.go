@@ -7,6 +7,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -61,11 +62,11 @@ func TestDriverEmitRawWriteCallbackSurvivesManyParallelEmitIterations(t *testing
   const iterations = 200
   for iter := 0; iter < iterations; iter++ {
     emitted := map[string]int{}
-    _, emitDiags, err := prog.EmitAllRaw(func(fileName, _ string, _ *shimcompiler.WriteFileData) error {
+    _, emitDiags, err := prog.EmitAllRaw(func(fileName shimtspath.RootedFilePath, _ string, _ *shimcompiler.WriteFileData) error {
       // Read then write the unguarded map: both touch the bucket array,
       // without adding synchronization in the caller itself.
       _ = len(emitted)
-      emitted[fileName]++
+      emitted[fileName.AsString()]++
       return nil
     })
     if err != nil {

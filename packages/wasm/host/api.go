@@ -12,6 +12,7 @@ import (
   "strings"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -47,8 +48,8 @@ func Build(cwd, tsconfigPath string) ([]byte, int, error) {
   if prog != nil {
     rewrites := driver.NewRewriteSet()
     writeFile := shimcompiler.WriteFile(
-      func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-        output[apiOutputKey(cwd, fileName)] = text
+      func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+        output[apiOutputKey(cwd, fileName.AsString())] = text
         return nil
       },
     )
@@ -142,7 +143,7 @@ func Transform(cwd, tsconfigPath string) ([]byte, int, error) {
   if prog != nil {
     defer prog.Close()
     for _, file := range prog.SourceFiles() {
-      typescript[apiOutputKey(cwd, file.FileName())] = file.Text()
+      typescript[apiOutputKey(cwd, file.FileName().AsString())] = file.Text()
     }
     diags = append(diags, prog.Diagnostics()...)
   }

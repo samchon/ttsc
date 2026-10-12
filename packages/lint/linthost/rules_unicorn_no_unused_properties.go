@@ -206,7 +206,7 @@ func unusedPropertiesCollectReferences(
   names := make(map[string]struct{}, len(candidates))
   for _, candidate := range candidates {
     symbol := unusedPropertiesDeclaredSymbol(ctx, candidate)
-    if symbol == nil || len(symbol.Declarations) != 1 || bySymbol[symbol] != nil {
+    if symbol == nil || len(symbol.Declarations()) != 1 || bySymbol[symbol] != nil {
       candidate.container = nil
       continue
     }
@@ -286,8 +286,8 @@ func unusedPropertiesSymbolAtIdentifier(
   if symbol == nil {
     return nil
   }
-  if symbol.Flags&shimast.SymbolFlagsExportValue != 0 && symbol.ExportSymbol != nil {
-    symbol = symbol.ExportSymbol
+  if symbol.Flags()&shimast.SymbolFlagsExportValue != 0 && symbol.ExportSymbol() != nil {
+    symbol = symbol.ExportSymbol()
   }
   return ctx.Checker.GetMergedSymbol(symbol)
 }

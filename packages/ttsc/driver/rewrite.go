@@ -27,6 +27,7 @@ import (
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // Rewrite describes one emit-time patch: the replacement JS fragment a linked
@@ -97,7 +98,7 @@ func (rs *RewriteSet) Add(r Rewrite) {
   if r.File == nil {
     return
   }
-  path := filepath.ToSlash(r.File.FileName())
+  path := filepath.ToSlash(r.File.FileName().AsString())
   rs.byPath[path] = append(rs.byPath[path], r)
 }
 
@@ -181,7 +182,7 @@ func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.Em
   // lock contention are included in emission cost; this does not change the
   // native generation threading policy.
   var wfMu sync.Mutex
-  wf := func(fileName, text string, data *shimcompiler.WriteFileData) error {
+  wf := func(fileName shimtspath.RootedFilePath, text string, data *shimcompiler.WriteFileData) error {
     wfMu.Lock()
     defer wfMu.Unlock()
     if p.outputEscapesOutDir(fileName) {
@@ -195,7 +196,7 @@ func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.Em
     if writeFile != nil {
       return writeFile(fileName, text, data)
     }
-    return DefaultWriteFile(fileName, text)
+    return DefaultWriteFile(fileName.AsString(), text)
   }
   result := p.emitProgram(shimcompiler.EmitOptions{
     WriteFile: wf,
@@ -239,7 +240,7 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
   // output map) must likewise see one writer at a time. Rewriting, destination
   // work and lock contention remain part of this emission's cost.
   var wfMu sync.Mutex
-  wf := func(fileName, text string, data *shimcompiler.WriteFileData) error {
+  wf := func(fileName shimtspath.RootedFilePath, text string, data *shimcompiler.WriteFileData) error {
     wfMu.Lock()
     defer wfMu.Unlock()
     if p.outputEscapesOutDir(fileName) {
@@ -255,7 +256,7 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
     patched := text
     if !p.isBuildInfoOutput(fileName) {
       var err error
-      patched, err = applyRewrites(fileName, text, rs, cursors)
+      patched, err = applyRewrites(fileName.AsString(), text, rs, cursors)
       if err != nil {
         return err
       }
@@ -263,12 +264,16 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
     if writeFile != nil {
       return writeFile(fileName, patched, data)
     }
-    return DefaultWriteFile(fileName, patched)
+    return DefaultWriteFile(fileName.AsString(), patched)
   }
 
+  var targets []*ast.SourceFile
+  if target != nil {
+    targets = []*ast.SourceFile{target}
+  }
   result := p.emitProgram(shimcompiler.EmitOptions{
-    TargetSourceFile: target,
-    WriteFile:        wf,
+    TargetSourceFiles: targets,
+    WriteFile:         wf,
   })
   return result, p.convertProgramDiagnostics(result.Diagnostics), nil
 }
@@ -287,11 +292,11 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
 //
 // A single-file emit stays on the plain lane. Build information describes a
 // whole program, and tsgo's incremental program returns early on a
-// `TargetSourceFile` request without writing any, so routing it there would
+// `TargetSourceFiles` request without writing any, so routing it there would
 // only add a snapshot computation nothing reads.
 func (p *Program) emitProgram(options shimcompiler.EmitOptions) *shimcompiler.EmitResult {
   ctx := context.Background()
-  if options.TargetSourceFile == nil && p.emitsBuildInfo() {
+  if options.TargetSourceFiles == nil && p.emitsBuildInfo() {
     return shimcompiler.EmitFreshWithBuildInfo(ctx, p.TSProgram, options)
   }
   return p.TSProgram.Emit(ctx, options)
@@ -350,7 +355,7 @@ func parseRewriteOutput(outputName, text string) *ast.SourceFile {
   if strings.EqualFold(filepath.Ext(outputName), ".jsx") {
     kind = shimcore.ScriptKindJSX
   }
-  return shimparser.ParseSourceFile(ast.SourceFileParseOptions{FileName: parseName}, text, kind)
+  return shimparser.ParseSourceFile(ast.SourceFileParseOptions{FileName: shimtspath.RootedFilePathFromAbsolute(parseName)}, text, kind)
 }
 
 // rewriteHeaderStart preserves the byte-order mark and interpreter directive.

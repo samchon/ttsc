@@ -7,10 +7,10 @@ package diagnosticwriter
 import (
   "io"
 
-  "github.com/microsoft/typescript-go/internal/ast"
-  inner "github.com/microsoft/typescript-go/internal/diagnosticwriter"
-  "github.com/microsoft/typescript-go/internal/locale"
-  "github.com/microsoft/typescript-go/internal/tspath"
+  "github.com/microsoft/TypeScript/tsc/internal/ast"
+  inner "github.com/microsoft/TypeScript/tsc/internal/diagnosticwriter"
+  "github.com/microsoft/TypeScript/tsc/internal/locale"
+  "github.com/microsoft/TypeScript/tsc/internal/tspath"
 )
 
 // FormatASTDiagnosticsWithColorAndContext writes TypeScript-style pretty
@@ -35,13 +35,22 @@ func FormatASTDiagnosticsWithColorAndContext(output io.Writer, diagnostics []*as
   }
   formatted := inner.FromASTDiagnostics(diagnostics)
   options := &inner.FormattingOptions{
-    Locale: locale.Default,
-    ComparePathsOptions: tspath.ComparePathsOptions{
-      CurrentDirectory:          currentDirectory,
-      UseCaseSensitiveFileNames: true,
-    },
-    NewLine: "\n",
+    Locale:           locale.Default,
+    CaseSensitivity:  tspath.CaseSensitive,
+    CurrentDirectory: displayDirectory(currentDirectory),
+    NewLine:          "\n",
   }
   inner.FormatDiagnosticsWithColorAndContext(output, formatted, options)
   inner.WriteErrorSummaryText(output, formatted, options)
+}
+
+// displayDirectory is the rooted base the formatter renders file names
+// relative to. An absent or relative currentDirectory has no rooted spelling,
+// so it yields the empty base and the formatter prints absolute file names.
+func displayDirectory(currentDirectory string) tspath.RootedDirectoryPath {
+  path, ok := tspath.TryRootedPathFromAbsolute(currentDirectory)
+  if !ok {
+    return ""
+  }
+  return tspath.RootedDirectoryPathFromPath(path)
 }

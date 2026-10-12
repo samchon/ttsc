@@ -70,7 +70,7 @@ func (r jsdocLintRule) Visits() []shimast.Kind {
 }
 
 func (r jsdocLintRule) Check(ctx *Context, node *shimast.Node) {
-  if ctx == nil || ctx.File == nil || r.check == nil || !isTypeScriptSourceName(ctx.File.FileName()) {
+  if ctx == nil || ctx.File == nil || r.check == nil || !isTypeScriptSourceName(ctx.File.FileName().AsString()) {
     return
   }
   src := ctx.File.Text()

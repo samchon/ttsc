@@ -19,6 +19,7 @@ import (
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 var ruleExpectationPattern = regexp.MustCompile(`//\s*expect:\s*([@\w/-]+)\s+(error|warn)\s*$`)
@@ -61,9 +62,9 @@ func parseTS(t *testing.T, source string) *shimast.SourceFile {
 func parseTSFile(t *testing.T, fileName, source string) *shimast.SourceFile {
   t.Helper()
   opts := shimast.SourceFileParseOptions{
-    // The tsgo parser asserts on normalized absolute paths; Windows
-    // t.TempDir() callers would otherwise panic it with backslashes.
-    FileName: filepath.ToSlash(fileName),
+    // RootedFilePathFromAbsolute normalizes separators, so Windows t.TempDir()
+    // callers hand the parser the same rooted spelling as POSIX ones.
+    FileName: shimtspath.RootedFilePathFromAbsolute(fileName),
   }
   file := shimparser.ParseSourceFile(opts, source, shimcore.ScriptKindTS)
   if file == nil {
@@ -84,7 +85,7 @@ func parseTSXFile(t *testing.T, fileName, source string) *shimast.SourceFile {
   t.Helper()
   opts := shimast.SourceFileParseOptions{
     // Same normalization as parseTSFile — see the comment there.
-    FileName: filepath.ToSlash(fileName),
+    FileName: shimtspath.RootedFilePathFromAbsolute(fileName),
   }
   file := shimparser.ParseSourceFile(opts, source, shimcore.ScriptKindTSX)
   if file == nil {

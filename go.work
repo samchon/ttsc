@@ -1,4 +1,4 @@
-go 1.26
+go 1.27
 
 use (
 	./packages/banner
@@ -22,9 +22,28 @@ use (
 	./packages/ttsc/shim/transformers
 	./packages/ttsc/shim/tsoptions
 	./packages/ttsc/shim/tspath
+	./packages/ttsc/shim/typescript-go/ast
+	./packages/ttsc/shim/typescript-go/astnav
+	./packages/ttsc/shim/typescript-go/bundled
+	./packages/ttsc/shim/typescript-go/checker
+	./packages/ttsc/shim/typescript-go/compiler
+	./packages/ttsc/shim/typescript-go/core
+	./packages/ttsc/shim/typescript-go/diagnosticwriter
+	./packages/ttsc/shim/typescript-go/lsp
+	./packages/ttsc/shim/typescript-go/parser
+	./packages/ttsc/shim/typescript-go/printer
+	./packages/ttsc/shim/typescript-go/scanner
+	./packages/ttsc/shim/typescript-go/stringutil
+	./packages/ttsc/shim/typescript-go/transformers
+	./packages/ttsc/shim/typescript-go/tsoptions
+	./packages/ttsc/shim/typescript-go/tspath
+	./packages/ttsc/shim/typescript-go/vfs
+	./packages/ttsc/shim/typescript-go/vfs/cachedvfs
+	./packages/ttsc/shim/typescript-go/vfs/osvfs
 	./packages/ttsc/shim/vfs
 	./packages/ttsc/shim/vfs/cachedvfs
 	./packages/ttsc/shim/vfs/osvfs
+	./packages/ttsc/tools/gen_facade
 	./packages/ttsc/tools/gen_shims
 	./packages/ttsc/tools/shim_audit
 	./packages/wasm

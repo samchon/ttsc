@@ -6,6 +6,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -74,8 +75,8 @@ export const value = plugin.make("input");
   // Emit assertion: capture WriteFile output in memory so the test observes the
   // emitted contract without depending on filesystem timing or cleanup.
   emitted := map[string]string{}
-  result, emitDiags, err := prog.EmitAll(rewrites, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    emitted[filepath.Base(fileName)] = text
+  result, emitDiags, err := prog.EmitAll(rewrites, func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[filepath.Base(fileName.AsString())] = text
     return nil
   })
   if err != nil {

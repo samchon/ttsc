@@ -270,7 +270,7 @@ func joinDocTagLines(text string) string {
 // relation, and privileging a tag would put one convention's name inside the
 // compiler host.
 func (g *Graph) collectDocRefs(checker *shimchecker.Checker, file *shimast.SourceFile) {
-  for _, host := range g.docHosts[file.FileName()] {
+  for _, host := range g.docHosts[file.FileName().AsString()] {
     for _, doc := range documentationOf(host.declaration, file) {
       g.docRefsWithin(checker, host.target, doc)
     }
@@ -312,7 +312,7 @@ func (g *Graph) recordDocHost(target string, declaration *shimast.Node) {
     g.docHosts = map[string][]docHost{}
   }
   path := file.FileName()
-  g.docHosts[path] = append(g.docHosts[path], docHost{
+  g.docHosts[path.AsString()] = append(g.docHosts[path.AsString()], docHost{
     target:      target,
     declaration: declaration,
   })

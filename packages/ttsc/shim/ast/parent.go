@@ -1,6 +1,6 @@
 package ast
 
-import innerast "github.com/microsoft/typescript-go/internal/ast"
+import innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
 
 // SetParentInChildren sets Parent pointers along the compiler's ForEachChild
 // traversal to each child's containing node.

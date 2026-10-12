@@ -3,18 +3,17 @@
 package compiler
 
 import (
-  "strings"
   "time"
 
-  "github.com/microsoft/typescript-go/internal/ast"
-  "github.com/microsoft/typescript-go/internal/collections"
-  "github.com/microsoft/typescript-go/internal/core"
-  "github.com/microsoft/typescript-go/internal/module"
-  "github.com/microsoft/typescript-go/internal/symlinks"
-  "github.com/microsoft/typescript-go/internal/tsoptions"
-  "github.com/microsoft/typescript-go/internal/tspath"
-  "github.com/microsoft/typescript-go/internal/vfs"
-  "github.com/microsoft/typescript-go/internal/vfs/cachedvfs"
+  "github.com/microsoft/TypeScript/tsc/internal/ast"
+  "github.com/microsoft/TypeScript/tsc/internal/collections"
+  "github.com/microsoft/TypeScript/tsc/internal/core"
+  "github.com/microsoft/TypeScript/tsc/internal/module"
+  "github.com/microsoft/TypeScript/tsc/internal/symlinks"
+  "github.com/microsoft/TypeScript/tsc/internal/tsoptions"
+  "github.com/microsoft/TypeScript/tsc/internal/tspath"
+  "github.com/microsoft/TypeScript/tsc/internal/vfs"
+  "github.com/microsoft/TypeScript/tsc/internal/vfs/cachedvfs"
 )
 
 // ProgramResolutionKind distinguishes module and type-reference resolution.
@@ -53,7 +52,7 @@ const (
 type ProgramResolutionTask struct {
   // ContainingFile is recovered source/config context when available, otherwise
   // the resident canonical cache-key spelling used for replay.
-  ContainingFile string
+  ContainingFile tspath.RootedFilePath
 
   // Kind selects module or type-reference resolution.
   Kind ProgramResolutionKind
@@ -65,20 +64,21 @@ type ProgramResolutionTask struct {
   Name string
 
   // ResolvedFile is the resident resolver's target spelling, or empty if unresolved.
-  ResolvedFile string
+  ResolvedFile tspath.RootedFilePath
 
   // SourceFile names the loaded containing source, or is empty when none was
   // found, including automatic directives.
-  SourceFile string
+  SourceFile tspath.RootedFilePath
 
   // TargetFile names the loaded target after project-reference substitution, if available.
-  TargetFile string
+  TargetFile tspath.RootedFilePath
 
   // Universal marks automatic directives whose containing context is synthetic.
   Universal bool
 
   compilerOptions     *core.CompilerOptions
-  currentDirectory    string
+  currentDirectory    tspath.RootedDirectoryPath
+  extraExtensions     []string
   expected            programResolutionResult
   projectReferences   *projectReferenceResolutionContext
   redirectedReference module.ResolvedProjectReference
@@ -107,33 +107,34 @@ func ProgramResolutionTasks(program *Program) []ProgramResolutionTask {
   }
   projectReferences := newProjectReferenceResolutionContext(program)
   tasks := []ProgramResolutionTask{}
-  appendTask := func(kind ProgramResolutionKind, name string, mode core.ResolutionMode, filePath tspath.Path, expected programResolutionResult) {
-    containingFile := string(filePath)
-    sourceFile := ""
-    targetFile := ""
+  appendTask := func(kind ProgramResolutionKind, name string, mode core.ResolutionMode, filePath tspath.PathKey, expected programResolutionResult, target *module.ResolvedModule) {
+    // A cache key is canonical rooted text (lowercased on case-insensitive
+    // filesystems); it stands in for the lexical name only when no loaded
+    // source or configuration context recovers that spelling.
+    containingFile, _ := tspath.TryRootedFilePathFromNormalized(filePath.AsString())
+    sourceFile := tspath.RootedFilePath("")
+    targetFile := tspath.RootedFilePath("")
     var redirectedReference module.ResolvedProjectReference
     if source := program.GetSourceFileByPath(filePath); source != nil {
       sourceFile = source.FileName()
       redirectedReference, containingFile = programResolutionContext(program, source)
-    } else if kind == ProgramResolutionKindTypeReference && strings.HasSuffix(containingFile, module.InferredTypesContainingFile) {
+    } else if kind == ProgramResolutionKindTypeReference && filePath.BaseName() == module.InferredTypesContainingFile {
       // filePath is a cache key, lowercased on case-insensitive filesystems,
       // not the lexical filename used by the resolver. Automatic types have
       // no SourceFile to recover that spelling from. Mirror upstream
-      // fileLoader.addAutomaticTypeDirectiveTasks: the semantic config owns
-      // their containing directory, falling back to cwd for configless hosts.
-      // Secondary lookup (package subpaths and relative types) preserves this
-      // spelling in resolvedFileName or a symlink's originalPath. Replaying a
-      // lowercased key would falsely reject unchanged programs. Restore
-      // the input context here; keep the strict result comparison below so
-      // actual target, package and link changes still invalidate the program.
-      containingDirectory := program.GetCurrentDirectory()
-      if configFile := program.Options().ConfigFilePath; configFile != "" {
-        containingDirectory = tspath.GetDirectoryPath(configFile)
-      }
-      containingFile = tspath.CombinePaths(containingDirectory, module.InferredTypesContainingFile)
+      // fileLoader.addAutomaticTypeDirectiveTasks: the configuration's base
+      // directory owns their containing file. Secondary lookup (package
+      // subpaths and relative types) preserves this spelling in
+      // resolvedFileName or a symlink's originalPath. Replaying a lowercased
+      // key would falsely reject unchanged programs. Restore the input context
+      // here; keep the strict result comparison below so actual target,
+      // package and link changes still invalidate the program.
+      containingFile = program.BaseDirectory().ResolveFile(module.InferredTypesContainingFile)
     }
-    if target := program.GetSourceFileForResolvedModule(expected.resolvedFileName); target != nil {
-      targetFile = target.FileName()
+    if target != nil && target.ResolvedFileName != "" {
+      if loaded := program.GetSourceFileForResolvedModule(target); loaded != nil {
+        targetFile = loaded.FileName()
+      }
     }
     tasks = append(tasks, ProgramResolutionTask{
       ContainingFile:      containingFile,
@@ -143,19 +144,26 @@ func ProgramResolutionTasks(program *Program) []ProgramResolutionTask {
       ResolvedFile:        expected.resolvedFileName,
       SourceFile:          sourceFile,
       TargetFile:          targetFile,
-      Universal:           strings.HasSuffix(containingFile, module.InferredTypesContainingFile),
+      Universal:           containingFile != "" && containingFile.BaseName() == module.InferredTypesContainingFile,
       compilerOptions:     program.Options(),
       currentDirectory:    program.GetCurrentDirectory(),
+      extraExtensions:     program.ContentMapperExtensions(),
       expected:            expected,
       projectReferences:   projectReferences,
       redirectedReference: redirectedReference,
     })
   }
-  program.ForEachResolvedModule(func(resolution *module.ResolvedModule, name string, mode core.ResolutionMode, filePath tspath.Path) {
-    appendTask(ProgramResolutionKindModule, name, mode, filePath, moduleResolutionResult(resolution))
+  program.ForEachResolvedModule(func(resolution *module.ResolvedModule, name string, mode core.ResolutionMode, filePath tspath.PathKey) {
+    appendTask(ProgramResolutionKindModule, name, mode, filePath, moduleResolutionResult(resolution), resolution)
   }, nil)
-  program.ForEachResolvedTypeReferenceDirective(func(resolution *module.ResolvedTypeReferenceDirective, name string, mode core.ResolutionMode, filePath tspath.Path) {
-    appendTask(ProgramResolutionKindTypeReference, name, mode, filePath, typeReferenceResolutionResult(resolution))
+  program.ForEachResolvedTypeReferenceDirective(func(resolution *module.ResolvedTypeReferenceDirective, name string, mode core.ResolutionMode, filePath tspath.PathKey) {
+    var target *module.ResolvedModule
+    if resolution != nil {
+      // GetSourceFileForResolvedModule reads only the resolved name and key,
+      // which a type-reference resolution carries under the same fields.
+      target = &module.ResolvedModule{ResolvedFileName: resolution.ResolvedFileName, ResolvedPath: resolution.ResolvedPath}
+    }
+    appendTask(ProgramResolutionKindTypeReference, name, mode, filePath, typeReferenceResolutionResult(resolution), target)
   }, nil)
   return tasks
 }
@@ -163,11 +171,11 @@ func ProgramResolutionTasks(program *Program) []ProgramResolutionTask {
 // programResolutionContext mirrors projectReferenceFileMapper's containing
 // file substitution using the public Program maps. The selected source path is
 // part of resolution semantics, not merely diagnostic provenance.
-func programResolutionContext(program *Program, source ast.HasFileName) (module.ResolvedProjectReference, string) {
-  if redirected := program.GetProjectReferenceFromSource(source.Path()); redirected != nil {
+func programResolutionContext(program *Program, source ast.HasFileName) (module.ResolvedProjectReference, tspath.RootedFilePath) {
+  if redirected := program.GetProjectReferenceFromSource(source.PathKey()); redirected != nil {
     return redirected.Resolved, redirected.Source
   }
-  if redirected := program.GetProjectReferenceFromOutputDts(source.Path()); redirected != nil {
+  if redirected := program.GetProjectReferenceFromOutputDts(source.PathKey()); redirected != nil {
     return redirected.Resolved, redirected.Source
   }
   redirect := program.GetRedirectForResolution(source)
@@ -177,9 +185,8 @@ func programResolutionContext(program *Program, source ast.HasFileName) (module.
   // The remaining redirect form is a preserved node_modules symlink whose
   // physical declaration belongs to a project reference. Resolve the same
   // physical key the compiler mapper used and retain the original source name.
-  realpath := program.Host().FS().Realpath(source.FileName())
-  path := tspath.ToPath(realpath, program.GetCurrentDirectory(), program.UseCaseSensitiveFileNames())
-  if redirected := program.GetProjectReferenceFromOutputDts(path); redirected != nil {
+  realpath := tspath.RootedFilePathFromPath(program.Host().FS().Realpath(source.FileName().AsPath()))
+  if redirected := program.GetProjectReferenceFromOutputDts(program.PathKeyForFileName(realpath)); redirected != nil {
     return redirected.Resolved, redirected.Source
   }
   // A concurrent retarget can make the public lookup disappear after the
@@ -213,13 +220,17 @@ func ReplayProgramResolutions(tasks []ProgramResolutionTask, filesystem vfs.FS) 
     filesystem:       first.projectReferences.filesystem(filesystem),
     currentDirectory: first.currentDirectory,
   }
-  resolver := module.NewResolver(host, first.compilerOptions, "", "")
+  resolver := module.NewResolver(module.ResolverOptions{
+    Host:            host,
+    CompilerOptions: first.compilerOptions,
+    ExtraExtensions: first.extraExtensions,
+  })
   matches := true
   for _, task := range tasks {
     var actual programResolutionResult
     switch task.Kind {
     case ProgramResolutionKindModule:
-      resolution, _ := resolver.ResolveModuleName(task.Name, task.ContainingFile, task.Mode, task.redirectedReference)
+      resolution, _, _ := resolver.ResolveModuleName(task.Name, task.ContainingFile, task.Mode, task.redirectedReference)
       actual = moduleResolutionResult(resolution)
     case ProgramResolutionKindTypeReference:
       resolution, _ := resolver.ResolveTypeReferenceDirective(task.Name, task.ContainingFile, task.Mode, task.redirectedReference)
@@ -241,19 +252,18 @@ func ReplayProgramResolutions(tasks []ProgramResolutionTask, filesystem vfs.FS) 
 // source exists; the resolver must see the virtual declaration before Program
 // substitutes that source into the loaded graph.
 type projectReferenceResolutionContext struct {
-  currentDirectory            string
-  dtsDirectories              collections.Set[tspath.Path]
-  outputDtsToProjectReference map[tspath.Path]*tsoptions.SourceOutputAndProjectReference
+  dtsDirectories              collections.Set[tspath.PathKey]
+  outputDtsToProjectReference map[tspath.PathKey]*tsoptions.SourceOutputAndProjectReference
 }
 
 func newProjectReferenceResolutionContext(program *Program) *projectReferenceResolutionContext {
   if program == nil {
     return nil
   }
-  outputDtsToProjectReference := map[tspath.Path]*tsoptions.SourceOutputAndProjectReference{}
-  dtsDirectories := collections.Set[tspath.Path]{}
+  outputDtsToProjectReference := map[tspath.PathKey]*tsoptions.SourceOutputAndProjectReference{}
+  dtsDirectories := collections.Set[tspath.PathKey]{}
   useSourceOfProjectReference := false
-  program.RangeResolvedProjectReference(func(_ tspath.Path, config *tsoptions.ParsedCommandLine, _ *tsoptions.ParsedCommandLine, _ int) bool {
+  program.RangeResolvedProjectReference(func(_ tspath.PathKey, config *tsoptions.ParsedCommandLine, _ *tsoptions.ParsedCommandLine, _ int) bool {
     if config == nil {
       return true
     }
@@ -269,7 +279,7 @@ func newProjectReferenceResolutionContext(program *Program) *projectReferenceRes
       declarationDirectory = config.CompilerOptions().OutDir
     }
     if declarationDirectory != "" {
-      dtsDirectories.Add(tspath.ToPath(declarationDirectory, program.GetCurrentDirectory(), program.UseCaseSensitiveFileNames()))
+      dtsDirectories.Add(program.CaseSensitivity().PathKey(declarationDirectory.AsPath()))
     }
     return true
   })
@@ -277,7 +287,6 @@ func newProjectReferenceResolutionContext(program *Program) *projectReferenceRes
     return nil
   }
   return &projectReferenceResolutionContext{
-    currentDirectory:            program.GetCurrentDirectory(),
     dtsDirectories:              dtsDirectories,
     outputDtsToProjectReference: outputDtsToProjectReference,
   }
@@ -289,7 +298,6 @@ func (context *projectReferenceResolutionContext) filesystem(filesystem vfs.FS) 
   }
   return cachedvfs.From(&projectReferenceResolutionFS{
     filesystem:                  filesystem,
-    currentDirectory:            context.currentDirectory,
     dtsDirectories:              context.dtsDirectories,
     knownSymlinks:               symlinks.KnownSymlinks{},
     outputDtsToProjectReference: context.outputDtsToProjectReference,
@@ -300,158 +308,179 @@ func (context *projectReferenceResolutionContext) filesystem(filesystem vfs.FS) 
 // projectReferenceDtsFakingVfs over the caller's observation filesystem.
 type projectReferenceResolutionFS struct {
   filesystem                  vfs.FS
-  currentDirectory            string
-  dtsDirectories              collections.Set[tspath.Path]
+  dtsDirectories              collections.Set[tspath.PathKey]
   knownSymlinks               symlinks.KnownSymlinks
-  outputDtsToProjectReference map[tspath.Path]*tsoptions.SourceOutputAndProjectReference
+  outputDtsToProjectReference map[tspath.PathKey]*tsoptions.SourceOutputAndProjectReference
 }
 
 var _ vfs.FS = (*projectReferenceResolutionFS)(nil)
 
-func (fs *projectReferenceResolutionFS) UseCaseSensitiveFileNames() bool {
-  return fs.filesystem.UseCaseSensitiveFileNames()
+func (fs *projectReferenceResolutionFS) CaseSensitivity() tspath.CaseSensitivity {
+  return fs.filesystem.CaseSensitivity()
 }
 
-func (fs *projectReferenceResolutionFS) FileExists(path string) bool {
+func (fs *projectReferenceResolutionFS) FileExists(path tspath.RootedFilePath) bool {
   if fs.filesystem.FileExists(path) {
     return true
   }
-  if !tspath.IsDeclarationFileName(path) {
+  if !path.IsDeclarationFile() {
     return false
   }
-  return fs.fileOrDirectoryExistsUsingSource(path, true)
+  return fs.fileExistsUsingSource(path)
 }
 
-func (fs *projectReferenceResolutionFS) ReadFile(path string) (string, bool) {
+func (fs *projectReferenceResolutionFS) ReadFile(path tspath.RootedFilePath) (string, bool) {
   return fs.filesystem.ReadFile(path)
 }
 
-func (fs *projectReferenceResolutionFS) WriteFile(string, string) error {
+func (fs *projectReferenceResolutionFS) WriteFile(tspath.RootedFilePath, string) error {
   panic("should not be called by resolver")
 }
 
-func (fs *projectReferenceResolutionFS) AppendFile(string, string) error {
+func (fs *projectReferenceResolutionFS) AppendFile(tspath.RootedFilePath, string) error {
   panic("should not be called by resolver")
 }
 
-func (fs *projectReferenceResolutionFS) Remove(string) error {
+func (fs *projectReferenceResolutionFS) Remove(tspath.RootedPath) error {
   panic("should not be called by resolver")
 }
 
-func (fs *projectReferenceResolutionFS) Chtimes(string, time.Time, time.Time) error {
+func (fs *projectReferenceResolutionFS) Chtimes(tspath.RootedPath, time.Time, time.Time) error {
   panic("should not be called by resolver")
 }
 
-func (fs *projectReferenceResolutionFS) DirectoryExists(path string) bool {
+func (fs *projectReferenceResolutionFS) DirectoryExists(path tspath.RootedDirectoryPath) bool {
   if fs.filesystem.DirectoryExists(path) {
     fs.handleDirectoryCouldBeSymlink(path)
     return true
   }
-  return fs.fileOrDirectoryExistsUsingSource(path, false)
+  return fs.directoryExistsUsingSource(path)
 }
 
-func (fs *projectReferenceResolutionFS) GetAccessibleEntries(string) vfs.Entries {
+func (fs *projectReferenceResolutionFS) GetAccessibleEntries(tspath.RootedDirectoryPath) vfs.Entries {
   panic("should not be called by resolver")
 }
 
-func (fs *projectReferenceResolutionFS) Stat(string) vfs.FileInfo {
+func (fs *projectReferenceResolutionFS) Stat(tspath.RootedPath) vfs.FileInfo {
   panic("should not be called by resolver")
 }
 
-func (fs *projectReferenceResolutionFS) WalkDir(string, vfs.WalkDirFunc) error {
-  panic("should not be called by resolver")
-}
-
-func (fs *projectReferenceResolutionFS) Realpath(path string) string {
-  if result, ok := fs.knownSymlinks.Files().Load(fs.toPath(path)); ok {
-    return result
+func (fs *projectReferenceResolutionFS) Realpath(path tspath.RootedPath) tspath.RootedPath {
+  if result, ok := fs.knownSymlinks.Files().Load(fs.pathKey(path)); ok {
+    return result.AsPath()
   }
   return fs.filesystem.Realpath(path)
 }
 
-func (fs *projectReferenceResolutionFS) toPath(path string) tspath.Path {
-  return tspath.ToPath(path, fs.currentDirectory, fs.UseCaseSensitiveFileNames())
+func (fs *projectReferenceResolutionFS) pathKey(path tspath.RootedPath) tspath.PathKey {
+  return fs.CaseSensitivity().PathKey(path)
 }
 
-func (fs *projectReferenceResolutionFS) handleDirectoryCouldBeSymlink(directory string) {
-  if tspath.ContainsIgnoredPath(directory) || !strings.Contains(directory, "/node_modules/") {
+func (fs *projectReferenceResolutionFS) handleDirectoryCouldBeSymlink(directory tspath.RootedDirectoryPath) {
+  if tspath.ContainsIgnoredDirectory(directory) || !directory.ContainsLowercaseDirectorySequence("/node_modules/") {
     return
   }
-  directoryPath := tspath.Path(tspath.EnsureTrailingDirectorySeparator(string(fs.toPath(directory))))
+  directoryPath := fs.pathKey(directory.AsPath())
   if _, ok := fs.knownSymlinks.Directories().Load(directoryPath); ok {
     return
   }
-  realDirectory := fs.Realpath(directory)
+  realDirectory := tspath.RootedDirectoryPathFromPath(fs.Realpath(directory.AsPath()))
   if realDirectory == directory {
     return
   }
-  realPath := tspath.Path(tspath.EnsureTrailingDirectorySeparator(string(fs.toPath(realDirectory))))
+  realPath := fs.pathKey(realDirectory.AsPath())
   if realPath == directoryPath {
     return
   }
   fs.knownSymlinks.SetDirectory(directory, directoryPath, &symlinks.KnownDirectoryLink{
-    Real:     tspath.EnsureTrailingDirectorySeparator(realDirectory),
+    Real:     realDirectory,
     RealPath: realPath,
   })
 }
 
-func (fs *projectReferenceResolutionFS) fileOrDirectoryExistsUsingSource(fileOrDirectory string, isFile bool) bool {
-  existence := fs.directoryExistsIfProjectReferenceDeclarationDirectory
-  if isFile {
-    existence = fs.fileExistsIfProjectReferenceDeclaration
-  }
-  result := existence(fileOrDirectory)
+func (fs *projectReferenceResolutionFS) fileExistsUsingSource(file tspath.RootedFilePath) bool {
+  filePath := fs.pathKey(file.AsPath())
+  return fs.fileOrDirectoryExistsUsingSource(
+    file.AsPath(),
+    func(path tspath.RootedPath) core.Tristate {
+      return fs.fileExistsIfProjectReferenceDeclaration(tspath.RootedFilePathFromPath(path))
+    },
+    module.NodeModulePackageRootForFile(file),
+    func(realFile tspath.RootedFilePath) {
+      fs.knownSymlinks.SetFile(file, filePath, realFile)
+    },
+  )
+}
+
+func (fs *projectReferenceResolutionFS) directoryExistsUsingSource(directory tspath.RootedDirectoryPath) bool {
+  return fs.fileOrDirectoryExistsUsingSource(
+    directory.AsPath(),
+    func(path tspath.RootedPath) core.Tristate {
+      return fs.directoryExistsIfProjectReferenceDeclarationDirectory(tspath.RootedDirectoryPathFromPath(path))
+    },
+    module.NodeModulePackageRootForDirectory(directory),
+    nil,
+  )
+}
+
+func (fs *projectReferenceResolutionFS) fileOrDirectoryExistsUsingSource(
+  fileOrDirectory tspath.RootedPath,
+  existsUsingSource func(tspath.RootedPath) core.Tristate,
+  packageRoot tspath.RootedDirectoryPath,
+  onFileExists func(tspath.RootedFilePath),
+) bool {
+  result := existsUsingSource(fileOrDirectory)
   if result != core.TSUnknown {
     return result == core.TSTrue
+  }
+  fileOrDirectoryPath := fs.pathKey(fileOrDirectory)
+  if !fileOrDirectoryPath.ContainsLowercaseDirectorySequence("/node_modules/") {
+    return false
+  }
+  if packageRoot != "" {
+    fs.handleDirectoryCouldBeSymlink(packageRoot)
   }
   knownDirectoryLinks := fs.knownSymlinks.Directories()
   if knownDirectoryLinks.Size() == 0 {
     return false
   }
-  fileOrDirectoryPath := fs.toPath(fileOrDirectory)
-  if !strings.Contains(string(fileOrDirectoryPath), "/node_modules/") {
-    return false
-  }
-  if isFile {
+  if onFileExists != nil {
     if _, ok := fs.knownSymlinks.Files().Load(fileOrDirectoryPath); ok {
       return true
     }
   }
   exists := false
-  knownDirectoryLinks.Range(func(directoryPath tspath.Path, knownDirectoryLink *symlinks.KnownDirectoryLink) bool {
-    relative, hasPrefix := strings.CutPrefix(string(fileOrDirectoryPath), string(directoryPath))
-    if !hasPrefix {
+  knownDirectoryLinks.Range(func(directoryPath tspath.PathKey, knownDirectoryLink *symlinks.KnownDirectoryLink) bool {
+    if directoryPath == fileOrDirectoryPath || !directoryPath.ContainsPath(fileOrDirectoryPath) {
       return true
     }
-    if exists = existence(string(knownDirectoryLink.RealPath) + relative).IsTrue(); !exists {
-      return true
+    realFileOrDirectory, ok := knownDirectoryLink.ResolveFilePath(tspath.RootedFilePathFromPath(fileOrDirectory), fs.CaseSensitivity())
+    if !ok {
+      panic("canonical symlink path did not match its presentation path")
     }
-    if isFile {
-      absolutePath := tspath.GetNormalizedAbsolutePath(fileOrDirectory, fs.currentDirectory)
-      fs.knownSymlinks.SetFile(
-        absolutePath,
-        fileOrDirectoryPath,
-        knownDirectoryLink.Real+absolutePath[len(directoryPath):],
-      )
+    if exists = existsUsingSource(realFileOrDirectory.AsPath()).IsTrue(); exists {
+      if onFileExists != nil {
+        onFileExists(realFileOrDirectory)
+      }
+      return false
     }
-    return false
+    return true
   })
   return exists
 }
 
-func (fs *projectReferenceResolutionFS) fileExistsIfProjectReferenceDeclaration(file string) core.Tristate {
-  reference := fs.outputDtsToProjectReference[fs.toPath(file)]
+func (fs *projectReferenceResolutionFS) fileExistsIfProjectReferenceDeclaration(file tspath.RootedFilePath) core.Tristate {
+  reference := fs.outputDtsToProjectReference[fs.pathKey(file.AsPath())]
   if reference == nil {
     return core.TSUnknown
   }
   return core.IfElse(fs.filesystem.FileExists(reference.Source), core.TSTrue, core.TSFalse)
 }
 
-func (fs *projectReferenceResolutionFS) directoryExistsIfProjectReferenceDeclarationDirectory(directory string) core.Tristate {
-  directoryPath := fs.toPath(directory)
-  directoryPathWithSeparator := directoryPath + "/"
+func (fs *projectReferenceResolutionFS) directoryExistsIfProjectReferenceDeclarationDirectory(directory tspath.RootedDirectoryPath) core.Tristate {
+  directoryPath := fs.pathKey(directory.AsPath())
   for declarationDirectoryPath := range fs.dtsDirectories.Keys() {
-    if directoryPath == declarationDirectoryPath || strings.HasPrefix(string(declarationDirectoryPath), string(directoryPathWithSeparator)) || strings.HasPrefix(string(directoryPath), string(declarationDirectoryPath)+"/") {
+    if directoryPath.ContainsPath(declarationDirectoryPath) || declarationDirectoryPath.ContainsPath(directoryPath) {
       return core.TSTrue
     }
   }
@@ -464,14 +493,14 @@ func (fs *projectReferenceResolutionFS) directoryExistsIfProjectReferenceDeclara
 // Explicit non-wildcard types can return without filesystem enumeration.
 // Wildcard discovery also reads package manifests to omit typings-null packages;
 // this function discards the returned names, not filesystem observation state.
-// Default wildcard roots require a config path or nonempty resident cwd, as
-// required by the upstream effective-root helper.
+// Default wildcard roots derive from the Program's base directory, the same
+// base the compiler's own file loader passes to the upstream helper.
 //
-// @evidence contracts/common.md#principled-implementation The compiler's automatic-type directive enumeration receives the resident options and current directory over the observation filesystem, reproducing wildcard discovery inputs rather than inferring them from only previously resolved targets.
-// @evidence contracts/common.md#clear-and-simple-design A minimal resolution host exposes filesystem and cwd directly to the owning discovery helper; enumeration results need not be retained because observation is the required effect.
+// @evidence contracts/common.md#principled-implementation The compiler's automatic-type directive enumeration receives the resident options and base directory over the observation filesystem, reproducing wildcard discovery inputs rather than inferring them from only previously resolved targets.
+// @evidence contracts/common.md#clear-and-simple-design The observation filesystem and base directory go directly to the owning discovery helper; enumeration results need not be retained because observation is the required effect.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Replay preserves real enumeration effects through a supported host instead of injecting assumed type-package names or patching the compiler's cache.
 // @evidence contracts/common.md#meaningful-documentation Native prose states wildcard discovery's observation purpose and nil-input no-op behavior, with separate tags.
-// @evidence contracts/portability.md#os-neutral-implementation Discovery obtains directories and entries from the caller's filesystem and resident cwd through the compiler host, without inferring type-root availability or casing from the OS.
+// @evidence contracts/portability.md#os-neutral-implementation Discovery obtains directories and entries from the caller's filesystem and the Program's rooted base directory, without inferring type-root availability or casing from the OS.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Upstream owns effective-root construction, directory enumeration, package-manifest reads/parsing, wildcard substitution and name deduplication. Costs include ancestor/path text, entries, manifest bytes and selected type-name population; this direct adapter chooses no separate discovery algorithm and discards only the returned names.
 // @evidence contracts/performance.md#reuse-equivalent-work Enumeration itself is the input-observation effect, so a resident list cannot replace traversal on a new filesystem observation; callers may share the resulting observation proof only when its filesystem snapshot is equivalent.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Upstream discovery can allocate root/name lists, package buffers and parsed manifest state during the synchronous call. The result is discarded here, while compiler options and any filesystem caches or collected observation entries remain under their existing owners. This adapter keeps no independent historical name registry or running task and imposes no bound on caller-owned observation retention.
@@ -479,32 +508,31 @@ func ReplayAutomaticTypeDirectiveDiscovery(program *Program, filesystem vfs.FS) 
   if program == nil || filesystem == nil || program.Options() == nil {
     return
   }
-  module.GetAutomaticTypeDirectiveNames(program.Options(), resolutionHost{
-    filesystem:       filesystem,
-    currentDirectory: program.GetCurrentDirectory(),
-  })
+  module.GetAutomaticTypeDirectiveNames(program.Options(), program.BaseDirectory(), filesystem)
 }
 
 type resolutionHost struct {
   filesystem       vfs.FS
-  currentDirectory string
+  currentDirectory tspath.RootedDirectoryPath
 }
 
 func (host resolutionHost) FS() vfs.FS { return host.filesystem }
 
-func (host resolutionHost) GetCurrentDirectory() string { return host.currentDirectory }
+func (host resolutionHost) GetCurrentDirectory() tspath.RootedDirectoryPath {
+  return host.currentDirectory
+}
 
 type programResolutionResult struct {
-  alternateResult          string
+  alternateResult          tspath.RootedFilePath
   extension                string
   isExternalLibraryImport  bool
-  originalPath             string
+  originalPath             tspath.RootedFilePath
   packageName              string
   packagePeerDependencies  string
   packageSubModuleName     string
   packageVersion           string
   primary                  bool
-  resolvedFileName         string
+  resolvedFileName         tspath.RootedFilePath
   resolvedUsingTsExtension bool
 }
 

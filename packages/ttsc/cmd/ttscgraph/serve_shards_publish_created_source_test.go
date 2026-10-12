@@ -48,7 +48,7 @@ func TestServeShardsPublishCreatedSource(t *testing.T) {
     t.Fatal("fixture source was absent from resident program")
   }
   consumerKeyFile := consumerSource.FileName()
-  initialConsumerKey := session.graphStore.sourceKeys[consumerKeyFile]
+  initialConsumerKey := session.graphStore.sourceKeys[consumerKeyFile.AsString()]
   if initialConsumerKey == "" {
     t.Fatal("initial generation omitted the dependent source shard")
   }
@@ -67,7 +67,7 @@ func TestServeShardsPublishCreatedSource(t *testing.T) {
   if createdSource == nil {
     t.Fatal("created source did not enter the resident program")
   }
-  createdKey := session.graphStore.sourceKeys[createdSource.FileName()]
+  createdKey := session.graphStore.sourceKeys[createdSource.FileName().AsString()]
   if createdKey == "" {
     t.Fatal("created source did not acquire a committed shard identity")
   }
@@ -76,7 +76,7 @@ func TestServeShardsPublishCreatedSource(t *testing.T) {
   }
   // The unchanged consumer text must acquire a different published shard key;
   // the call-edge contents are not independently checked here.
-  nextConsumerKey := session.graphStore.sourceKeys[consumerKeyFile]
+  nextConsumerKey := session.graphStore.sourceKeys[consumerKeyFile.AsString()]
   if nextConsumerKey == "" || nextConsumerKey == initialConsumerKey {
     t.Fatalf("dependent shard identity %q survived a newly resolved import", nextConsumerKey)
   }

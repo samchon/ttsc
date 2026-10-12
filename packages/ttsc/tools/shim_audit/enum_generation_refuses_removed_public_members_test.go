@@ -35,12 +35,12 @@ func TestEnumGenerationRefusesRemovedPublicMembers(t *testing.T) {
     t.Fatal(err)
   }
   authored := `package ast
-import innerast "github.com/microsoft/typescript-go/internal/ast"
+import innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
 type Mode = innerast.Mode
 const Alpha = innerast.Alpha
 `
   previous := []byte(`package ast
-import innerast "github.com/microsoft/typescript-go/internal/ast"
+import innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
 const Delta = innerast.Delta
 `)
   output := filepath.Join(directory, "enums_gen.go")

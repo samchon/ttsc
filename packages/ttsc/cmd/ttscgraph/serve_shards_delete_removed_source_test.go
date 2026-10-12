@@ -40,7 +40,7 @@ func TestServeShardsDeleteRemovedSource(t *testing.T) {
   }
   removedKeyFile := removedSource.FileName()
   keepKeyFile := keepSource.FileName()
-  removedKey := session.graphStore.sourceKeys[removedKeyFile]
+  removedKey := session.graphStore.sourceKeys[removedKeyFile.AsString()]
   if removedKey == "" {
     t.Fatal("initial generation omitted removable source shard")
   }
@@ -58,10 +58,10 @@ func TestServeShardsDeleteRemovedSource(t *testing.T) {
   if !containsString(replacement.Deletes, removedKey) {
     t.Fatalf("replacement did not delete removed source shard %q: %v", removedKey, replacement.Deletes)
   }
-  if _, exists := session.graphStore.sourceKeys[removedKeyFile]; exists {
+  if _, exists := session.graphStore.sourceKeys[removedKeyFile.AsString()]; exists {
     t.Fatal("committed store retained removed source identity")
   }
-  if session.graphStore.sourceKeys[keepKeyFile] == "" {
+  if session.graphStore.sourceKeys[keepKeyFile.AsString()] == "" {
     t.Fatal("replacement generation dropped remaining source")
   }
 }
