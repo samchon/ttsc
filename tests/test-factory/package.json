@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-factory",
-  "version": "0.31.6",
+  "version": "0.31.5",
   "description": "Unit tests for @ttsc/factory.",
   "type": "module",
   "scripts": {
