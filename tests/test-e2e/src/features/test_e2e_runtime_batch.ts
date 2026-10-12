@@ -1,4 +1,8 @@
-import { FileSystemIterator, RuntimeDescendantController, TestProject } from "@ttsc/testing";
+import {
+  FileSystemIterator,
+  RuntimeDescendantController,
+  TestProject,
+} from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -15,12 +19,15 @@ import { runtimeFrontdoorsCorpus } from "../batch/runtimeFrontdoorsCorpus";
 import { runtimeMapsCorpus } from "../batch/runtimeMapsCorpus";
 import { assertRuntimeNodeCorpus } from "../batch/runtimeNodeCorpus";
 import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation";
+import { readE2eTracePayload } from "../internal/readE2eTracePayload";
 import {
   denyWrites,
   runsAsRoot,
 } from "../internal/ttsc/internal/read-only-directory";
-import { readE2eTracePayload } from "../internal/readE2eTracePayload";
-import { readRuntimeTraceWriter, verifyRuntimeCleanup } from "../internal/ttsc/internal/runtime-native-root-links";
+import {
+  readRuntimeTraceWriter,
+  verifyRuntimeCleanup,
+} from "../internal/ttsc/internal/runtime-native-root-links";
 import { test_plain_launch_proves_its_runtime_and_compiler_without_streaming } from "./ttsc/compiler/test_plain_launch_proves_its_runtime_and_compiler_without_streaming";
 import { test_plugin_corpus_source_plugin_warm_load_proves_inputs_without_go_selection } from "./ttsc/native-plugins/corpus-source/test_plugin_corpus_source_plugin_warm_load_proves_inputs_without_go_selection";
 import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/project/test_owned_native_process_joins_cancelled_command_trees";
@@ -176,10 +183,9 @@ import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/
  * only the installed store's independently expected default ttsc build cache;
  * all authored files and the remaining population still detect adjacent emit.
  *
- *
- * Normal CLI cleanup is checked separately from payload and API assertions.
- * Its completed original invocation and raw owner probes require removal only
- * after every owner is locally absent; a valid short-circuit preserves the
+ * Normal CLI cleanup is checked separately from payload and API assertions. Its
+ * completed original invocation and raw owner probes require removal only after
+ * every owner is locally absent; a valid short-circuit preserves the
  * independently attributed main generation and its actual owner/source bytes.
  * Original EXIT/CLOSE records do not imply immediate numeric PID absence.
  *
@@ -301,7 +307,9 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     visit(root);
     return files;
   };
-  const runtimeBoundaryInputs = runtimeBoundaryRoots.map(readRuntimeBoundaryInputs);
+  const runtimeBoundaryInputs = runtimeBoundaryRoots.map(
+    readRuntimeBoundaryInputs,
+  );
   const jsxRuntimeRoot = path.join(workspace.root, "node_modules/myjsx");
   const jsxOrphanRoot = path.join(workspace.root, "node_modules/orphan-view");
   const jsxInputs = workspace.installationOnly
@@ -353,10 +361,18 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   let nestedBorrowersKnown = workspace.installationOnly;
   let mainRuntimeAfter: number | undefined;
   let mainContextReceipts: Record<string, unknown>[] | undefined;
-  let observer: Awaited<ReturnType<ReturnType<typeof NativeProcessObserver.prepare>["open"]>> | undefined;
-  let controller: ReturnType<typeof RuntimeDescendantController.create> | undefined;
+  let observer:
+    | Awaited<
+        ReturnType<ReturnType<typeof NativeProcessObserver.prepare>["open"]>
+      >
+    | undefined;
+  let controller:
+    | ReturnType<typeof RuntimeDescendantController.create>
+    | undefined;
   let controllerRoot: string | undefined;
-  let controllerAddress: Awaited<ReturnType<NonNullable<typeof controller>["listen"]>> | undefined;
+  let controllerAddress:
+    | Awaited<ReturnType<NonNullable<typeof controller>["listen"]>>
+    | undefined;
   let runtimeTraceRoot: string | undefined;
   const readWriter = (pid: number): Record<string, any>[] => {
     assert.ok(runtimeTraceRoot);
@@ -364,10 +380,20 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   };
   let mainTraceBefore = new Set<string>();
   let mainRunsBefore: string[] = [];
-  const automaticManifest = path.join(workspace.root, "packages/batch-auto-discovery/package.json");
-  const automaticBytes = workspace.installationOnly ? undefined : fs.readFileSync(automaticManifest);
-  const registeredLazyFile = path.join(workspace.root, "src/runtime-corpus/descendant-lazy.cts");
-  const registeredLazyBytes = workspace.installationOnly ? undefined : fs.readFileSync(registeredLazyFile);
+  const automaticManifest = path.join(
+    workspace.root,
+    "packages/batch-auto-discovery/package.json",
+  );
+  const automaticBytes = workspace.installationOnly
+    ? undefined
+    : fs.readFileSync(automaticManifest);
+  const registeredLazyFile = path.join(
+    workspace.root,
+    "src/runtime-corpus/descendant-lazy.cts",
+  );
+  const registeredLazyBytes = workspace.installationOnly
+    ? undefined
+    : fs.readFileSync(registeredLazyFile);
   const readonlyRoot = path.join(
     workspace.root,
     "tools/runtime-negative/readonly",
@@ -456,10 +482,15 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   try {
     if (!workspace.installationOnly) {
       observer = await NativeProcessObserver.prepare().open();
-      controller = RuntimeDescendantController.create(observer, ["registered", "descendant", "sibling"]);
+      controller = RuntimeDescendantController.create(observer, [
+        "registered",
+        "descendant",
+        "sibling",
+      ]);
       controllerRoot = TestProject.tmpdir("ttsc-runtime-descendants-");
       controllerAddress = await controller.listen(controllerRoot);
-      runtimeTraceRoot = process.env.TTSC_E2E_TRACE ?? path.join(controllerRoot, "trace");
+      runtimeTraceRoot =
+        process.env.TTSC_E2E_TRACE ?? path.join(controllerRoot, "trace");
       assert.ok(path.isAbsolute(runtimeTraceRoot));
       fs.mkdirSync(runtimeTraceRoot, { recursive: true });
     }
@@ -478,12 +509,20 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     }
     if (!workspace.installationOnly) {
       const mainIndex = path.join(runtimeCliCache, "project");
-      mainRunsBefore = fs.existsSync(mainIndex) ? fs.readdirSync(mainIndex) : [];
-      assert.deepEqual(mainRunsBefore, [], "the selected main cache must start without an earlier runtime generation");
+      mainRunsBefore = fs.existsSync(mainIndex)
+        ? fs.readdirSync(mainIndex)
+        : [];
+      assert.deepEqual(
+        mainRunsBefore,
+        [],
+        "the selected main cache must start without an earlier runtime generation",
+      );
     }
     const previousTrace = process.env.TTSC_E2E_TRACE;
     if (runtimeTraceRoot) {
-      mainTraceBefore = new Set(readWriter(process.pid).map((row) => row.invocation));
+      mainTraceBefore = new Set(
+        readWriter(process.pid).map((row) => row.invocation),
+      );
       process.env.TTSC_E2E_TRACE = runtimeTraceRoot;
     }
     try {
@@ -526,7 +565,9 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       if (previousTrace === undefined) delete process.env.TTSC_E2E_TRACE;
       else process.env.TTSC_E2E_TRACE = previousTrace;
     }
-    mainJoined = result.error === undefined && (result.pid ?? 0) > 0 &&
+    mainJoined =
+      result.error === undefined &&
+      (result.pid ?? 0) > 0 &&
       (result.status !== null || result.signal !== null);
     mainJoinedAt = new Date().toISOString();
     mainContextReceipts = BatchWorkspace.readContextReceipts(workspace);
@@ -538,33 +579,85 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       // Admission survives later protocol failure. Cleanup chooses the actual
       // admitted phase atomically; strict scenario requests remain unchanged.
       for (const receipt of controller.snapshot()) {
-        try { await controller.settle(receipt.role); }
-        catch (cause) { combinedFailures.push(new Error("Runtime role cleanup settlement: " + receipt.role, { cause })); }
+        try {
+          await controller.settle(receipt.role);
+        } catch (cause) {
+          combinedFailures.push(
+            new Error("Runtime role cleanup settlement: " + receipt.role, {
+              cause,
+            }),
+          );
+        }
       }
-      try { await controller.close(); }
-      catch (cause) { combinedFailures.push(cause); }
+      try {
+        await controller.close();
+      } catch (cause) {
+        combinedFailures.push(cause);
+      }
       try {
         const outcomes = new Map<string, Record<string, any>>();
         let owner: number | undefined;
         // Preloads execute in order. A final failed earlier preload explicitly
         // excludes later actors; a missing receipt after success proves nothing.
         for (const name of ["declared", "clean", "owned"]) {
-          const outcome = JSON.parse(fs.readFileSync(path.join(controllerRoot!, name + "-outcome.json"), "utf8"));
-          assert.equal(outcome.nonce, controller.nonce, "nested actor receipt must belong to this original controller");
-          assert.equal(Number.isSafeInteger(outcome.owner) && outcome.owner > 0, true);
+          const outcome = JSON.parse(
+            fs.readFileSync(
+              path.join(controllerRoot!, name + "-outcome.json"),
+              "utf8",
+            ),
+          );
+          assert.equal(
+            outcome.nonce,
+            controller.nonce,
+            "nested actor receipt must belong to this original controller",
+          );
+          assert.equal(
+            Number.isSafeInteger(outcome.owner) && outcome.owner > 0,
+            true,
+          );
           if (owner === undefined) owner = outcome.owner;
-          else assert.equal(outcome.owner, owner, "all preload/entry receipts must identify their actual common main actor");
-          assert.equal(outcome.finished, true, "nested actor must finish publishing its borrower population");
-          assert.equal(outcome.actors !== null && typeof outcome.actors === "object" && !Array.isArray(outcome.actors), true);
-          for (const actor of Object.values(outcome.actors) as Record<string, any>[]) {
+          else
+            assert.equal(
+              outcome.owner,
+              owner,
+              "all preload/entry receipts must identify their actual common main actor",
+            );
+          assert.equal(
+            outcome.finished,
+            true,
+            "nested actor must finish publishing its borrower population",
+          );
+          assert.equal(
+            outcome.actors !== null &&
+              typeof outcome.actors === "object" &&
+              !Array.isArray(outcome.actors),
+            true,
+          );
+          for (const actor of Object.values(outcome.actors) as Record<
+            string,
+            any
+          >[]) {
             assert.equal(actor.attempted, true);
-            assert.equal(actor.closed, true, "each attempted nested launcher must have its actual original close");
-            assert.equal(Number.isSafeInteger(actor.pid) && actor.pid > 0, true);
-            assert.equal(typeof actor.status === "number" || typeof actor.signal === "string", true, "a close without an original terminal outcome cannot certify the borrower");
+            assert.equal(
+              actor.closed,
+              true,
+              "each attempted nested launcher must have its actual original close",
+            );
+            assert.equal(
+              Number.isSafeInteger(actor.pid) && actor.pid > 0,
+              true,
+            );
+            assert.equal(
+              typeof actor.status === "number" ||
+                typeof actor.signal === "string",
+              true,
+              "a close without an original terminal outcome cannot certify the borrower",
+            );
           }
           if (name === "declared") {
             assert.equal(outcome.inputsRestored, true);
-            if (outcome.registerRestorationRequired) assert.equal(outcome.registerRestored, true);
+            if (outcome.registerRestorationRequired)
+              assert.equal(outcome.registerRestored, true);
           } else if (name === "clean") {
             assert.equal(outcome.emittedRestored, true);
             assert.equal(outcome.inputsRestored, true);
@@ -577,38 +670,88 @@ export async function test_e2e_runtime_batch(): Promise<void> {
           }
         }
         const required = new Map([
-          ["registered", outcomes.get("declared")?.actors.registered !== undefined],
+          [
+            "registered",
+            outcomes.get("declared")?.actors.registered !== undefined,
+          ],
           ["descendant", outcomes.get("owned")?.actors.parent !== undefined],
           ["sibling", outcomes.get("owned")?.actors.sibling !== undefined],
         ]);
         const roles = controller.snapshot();
         for (const [role, attempted] of required) {
           const receipt = roles.find((candidate) => candidate.role === role);
-          if (!attempted) assert.equal(receipt, undefined, "an unattempted nested actor cannot own an admitted role");
+          if (!attempted)
+            assert.equal(
+              receipt,
+              undefined,
+              "an unattempted nested actor cannot own an admitted role",
+            );
           else {
-            assert.ok(receipt?.parent && receipt.target, "attempted descendant must retain its authenticated original admission");
-            assert.equal(receipt.parentRetired && receipt.childRetired, true, "both admitted original kernel targets must retire");
+            assert.ok(
+              receipt?.parent && receipt.target,
+              "attempted descendant must retain its authenticated original admission",
+            );
+            assert.equal(
+              receipt.parentRetired && receipt.childRetired,
+              true,
+              "both admitted original kernel targets must retire",
+            );
           }
         }
         const owned = outcomes.get("owned");
         if (owned && owned.semanticErrors.length === 0) {
-          const descendant = roles.find((receipt) => receipt.role === "descendant")!;
-          assert.equal(owned.descendantAdmission.parent.targetId, descendant.parent!.targetId);
-          assert.equal(owned.descendantAdmission.target.targetId, descendant.target!.targetId);
-          assert.equal(owned.traces.cli.pid, owned.actors.clean.pid, "selection evidence must belong to the actual closed clean launcher");
-          assert.equal(owned.traces.api.pid, owned.owner, "API selection evidence must belong to the actual main actor");
+          const descendant = roles.find(
+            (receipt) => receipt.role === "descendant",
+          )!;
+          assert.equal(
+            owned.descendantAdmission.parent.targetId,
+            descendant.parent!.targetId,
+          );
+          assert.equal(
+            owned.descendantAdmission.target.targetId,
+            descendant.target!.targetId,
+          );
+          assert.equal(
+            owned.traces.cli.pid,
+            owned.actors.clean.pid,
+            "selection evidence must belong to the actual closed clean launcher",
+          );
+          assert.equal(
+            owned.traces.api.pid,
+            owned.owner,
+            "API selection evidence must belong to the actual main actor",
+          );
           assert.equal(owned.cleanupScans.cli.length, 2);
           assert.ok(owned.cleanupScans.api.length > 0);
-          const live = owned.cleanupScans.cli.filter((scan: any) => scan.owners.some((owner: any) => owner.owner.pid === descendant.target!.pid));
+          const live = owned.cleanupScans.cli.filter((scan: any) =>
+            scan.owners.some(
+              (owner: any) => owner.owner.pid === descendant.target!.pid,
+            ),
+          );
           assert.equal(live.length, 1);
-          assert.equal(live[0].protected, true, "the authenticated held descendant requires its actual protective scan");
-          for (const scan of [...owned.cleanupScans.cli, ...owned.cleanupScans.api])
-            assert.ok(scan.rows.length > 0 && scan.owners.length > 0, "successful cleanup must retain its bound raw probe population");
+          assert.equal(
+            live[0].protected,
+            true,
+            "the authenticated held descendant requires its actual protective scan",
+          );
+          for (const scan of [
+            ...owned.cleanupScans.cli,
+            ...owned.cleanupScans.api,
+          ])
+            assert.ok(
+              scan.rows.length > 0 && scan.owners.length > 0,
+              "successful cleanup must retain its bound raw probe population",
+            );
         }
         allRoleAdmissionsKnown = true;
         nestedBorrowersKnown = true;
       } catch (cause) {
-        combinedFailures.push(new Error("Runtime nested borrower or restoration acknowledgement unavailable", { cause }));
+        combinedFailures.push(
+          new Error(
+            "Runtime nested borrower or restoration acknowledgement unavailable",
+            { cause },
+          ),
+        );
       }
     }
     const permissionFailures: unknown[] = [];
@@ -630,35 +773,64 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       BatchWorkspace.retain(
         "readonly input permissions could not be restored and acknowledged by actual writes",
       );
-    const lifetimeKnown = mainJoined && nestedBorrowersKnown && allRoleAdmissionsKnown &&
+    const lifetimeKnown =
+      mainJoined &&
+      nestedBorrowersKnown &&
+      allRoleAdmissionsKnown &&
       (workspace.installationOnly || controller?.joined() === true);
     if (!lifetimeKnown && !workspace.installationOnly) {
-      BatchWorkspace.retain("original Runtime parent or descendant lifetime remains unresolved");
-      if (controllerRoot) TestProject.retainTemporaryDirectory(controllerRoot, "Runtime original targets unresolved");
+      BatchWorkspace.retain(
+        "original Runtime parent or descendant lifetime remains unresolved",
+      );
+      if (controllerRoot)
+        TestProject.retainTemporaryDirectory(
+          controllerRoot,
+          "Runtime original targets unresolved",
+        );
     }
     if (!workspace.installationOnly && lifetimeKnown) {
-      try { fs.writeFileSync(path.join(workspace.root, "tsconfig.json"), config); }
-      catch (cause) { permissionFailures.push(cause); }
-      try { fs.writeFileSync(automaticManifest, automaticBytes!); }
-      catch (cause) { permissionFailures.push(cause); }
+      try {
+        fs.writeFileSync(path.join(workspace.root, "tsconfig.json"), config);
+      } catch (cause) {
+        permissionFailures.push(cause);
+      }
+      try {
+        fs.writeFileSync(automaticManifest, automaticBytes!);
+      } catch (cause) {
+        permissionFailures.push(cause);
+      }
       if (!permissionFailures.length) {
-        try { fs.unlinkSync(base); }
-        catch (cause) { permissionFailures.push(cause); }
+        try {
+          fs.unlinkSync(base);
+        } catch (cause) {
+          permissionFailures.push(cause);
+        }
       }
     }
     if (permissionFailures.length) {
-      BatchWorkspace.retain("shared Runtime originals could not be restored exactly after all borrowers joined");
-      combinedFailures.push(new AggregateError(
-        permissionFailures,
-        "shared Runtime input and permission restoration failed",
-      ));
+      BatchWorkspace.retain(
+        "shared Runtime originals could not be restored exactly after all borrowers joined",
+      );
+      combinedFailures.push(
+        new AggregateError(
+          permissionFailures,
+          "shared Runtime input and permission restoration failed",
+        ),
+      );
     }
   }
   if (!workspace.installationOnly) {
     try {
       await BatchWorkspace.open();
-      if (!mainJoined || !allRoleAdmissionsKnown || controller?.joined() !== true || !observer)
-        throw new Error("Native controls blocked by unresolved Runtime controller/session prerequisite");
+      if (
+        !mainJoined ||
+        !allRoleAdmissionsKnown ||
+        controller?.joined() !== true ||
+        !observer
+      )
+        throw new Error(
+          "Native controls blocked by unresolved Runtime controller/session prerequisite",
+        );
       await test_owned_native_process_joins_cancelled_command_trees(
         workspace.root,
         { observer },
@@ -667,10 +839,13 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       combinedFailures.push(error);
     } finally {
       if (observer) {
-        try { await observer.close(); }
-        catch (cause) {
+        try {
+          await observer.close();
+        } catch (cause) {
           combinedFailures.push(cause);
-          BatchWorkspace.retain("Runtime shared observer original closure remains unresolved");
+          BatchWorkspace.retain(
+            "Runtime shared observer original closure remains unresolved",
+          );
         }
       }
     }
@@ -708,29 +883,71 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       assert.ok(result && mainJoined && runtimeTraceRoot);
       assert.equal(result.status, 0, result.stderr);
       const parentRows = readWriter(process.pid);
-      const starts = parentRows.filter((row) => row.event === "process-start" &&
-        row.pid === result!.pid && !mainTraceBefore.has(row.invocation));
-      assert.equal(starts.length, 1, "the original CLI must have one newly admitted launch");
+      const starts = parentRows.filter(
+        (row) =>
+          row.event === "process-start" &&
+          row.pid === result!.pid &&
+          !mainTraceBefore.has(row.invocation),
+      );
+      assert.equal(
+        starts.length,
+        1,
+        "the original CLI must have one newly admitted launch",
+      );
       const start = starts[0]!;
-      assert.deepEqual(start.argv, [process.execPath, workspace.installedTtsx, ...selected,
-        "src/runtime.mts", "--config", "x", "--port", "3", "--help"]);
+      assert.deepEqual(start.argv, [
+        process.execPath,
+        workspace.installedTtsx,
+        ...selected,
+        "src/runtime.mts",
+        "--config",
+        "x",
+        "--port",
+        "3",
+        "--help",
+      ]);
       assert.equal(start.cwd, callerDirectory);
-      const departures = parentRows.filter((row) =>
-        row.instance === start.instance && row.invocation === start.invocation &&
-        (row.event === "process-exit" || row.event === "process-close"));
-      assert.deepEqual(departures.map((row) => [row.event, row.pid, row.status, row.signal]),
-        [["process-exit", result.pid, 0, null], ["process-close", result.pid, 0, null]]);
-      assert.ok(start.sequence < departures[0]!.sequence && departures[0]!.sequence < departures[1]!.sequence);
-      const { mainEpochOwner } = JSON.parse(fs.readFileSync(
-        path.join(workspace.root, "tools/runtime-declared-observed.json"), "utf8"));
+      const departures = parentRows.filter(
+        (row) =>
+          row.instance === start.instance &&
+          row.invocation === start.invocation &&
+          (row.event === "process-exit" || row.event === "process-close"),
+      );
+      assert.deepEqual(
+        departures.map((row) => [row.event, row.pid, row.status, row.signal]),
+        [
+          ["process-exit", result.pid, 0, null],
+          ["process-close", result.pid, 0, null],
+        ],
+      );
+      assert.ok(
+        start.sequence < departures[0]!.sequence &&
+          departures[0]!.sequence < departures[1]!.sequence,
+      );
+      const { mainEpochOwner } = JSON.parse(
+        fs.readFileSync(
+          path.join(workspace.root, "tools/runtime-declared-observed.json"),
+          "utf8",
+        ),
+      );
       assert.ok(Number.isSafeInteger(mainEpochOwner) && mainEpochOwner > 0);
       verifyRuntimeCleanup({
-        traceRoot: runtimeTraceRoot, launcher: result.pid, owner: mainEpochOwner,
-        argv: start.argv, cwd: callerDirectory, cache: runtimeCliCache,
-        entry: path.join(workspace.root, "src/runtime.mts"), source, before: mainRunsBefore,
+        traceRoot: runtimeTraceRoot,
+        launcher: result.pid,
+        owner: mainEpochOwner,
+        argv: start.argv,
+        cwd: callerDirectory,
+        cache: runtimeCliCache,
+        entry: path.join(workspace.root, "src/runtime.mts"),
+        source,
+        before: mainRunsBefore,
         lifetime: { start: start.at, close: departures[1]!.at },
       });
-    } catch (error) { combinedFailures.push(new Error("main CLI cleanup eligibility", { cause: error })); }
+    } catch (error) {
+      combinedFailures.push(
+        new Error("main CLI cleanup eligibility", { cause: error }),
+      );
+    }
   }
   try {
     assert.ok(result);
@@ -919,9 +1136,26 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         registerAfter: number;
         registerCompletedAt: string;
         mainEpochOwner: number;
-        descendantAdmission: { announcement: { pid: number; parentPid: number }; target: unknown; parent: unknown };
+        descendantAdmission: {
+          announcement: { pid: number; parentPid: number };
+          target: unknown;
+          parent: unknown;
+        };
         descendantRelease: { target: unknown; operation: string; at: string };
-        descendantJoin: { target: unknown; parent: unknown; retired: boolean; completion: { nonce: string; role: string; pid: number; event: string; value: string; completedAt: string; error?: unknown } };
+        descendantJoin: {
+          target: unknown;
+          parent: unknown;
+          retired: boolean;
+          completion: {
+            nonce: string;
+            role: string;
+            pid: number;
+            event: string;
+            value: string;
+            completedAt: string;
+            error?: unknown;
+          };
+        };
       };
       try {
         assert.deepEqual(
@@ -967,29 +1201,51 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         ),
         JSON.stringify(declarationObservation.produced),
       );
-      assert.ok(mainContextReceipts && mainRuntimeAfter !== undefined && mainJoinedAt && runtimeTraceRoot);
+      assert.ok(
+        mainContextReceipts &&
+          mainRuntimeAfter !== undefined &&
+          mainJoinedAt &&
+          runtimeTraceRoot,
+      );
       const allNativeReceipts = mainContextReceipts;
       // Original writers are joined before these bounded, identity-checked
       // reads. Only the selected writer PIDs are opened, never payload history.
 
       try {
         const rows = readWriter(declarationObservation.mainEpochOwner);
-        assert.ok(rows.length > 0, "the original main writer must retain its actual API observations");
+        assert.ok(
+          rows.length > 0,
+          "the original main writer must retain its actual API observations",
+        );
         const missingGo = path.join(workspace.root, "tools/api-missing-go.exe");
-        const attempts = rows.filter((row) =>
-          row.event === "process-attempt" && Array.isArray(row.argv) && row.argv[0] === missingGo);
+        const attempts = rows.filter(
+          (row) =>
+            row.event === "process-attempt" &&
+            Array.isArray(row.argv) &&
+            row.argv[0] === missingGo,
+        );
         // The package-selection identity reads the Go environment before the
         // selection it may answer, so the alias is selected twice: by that
         // reading, then by the live selection the failed reading falls back to.
-        assert.deepEqual(attempts.map((attempt) => attempt.argv[1]),
+        assert.deepEqual(
+          attempts.map((attempt) => attempt.argv[1]),
           process.platform === "win32" ? ["env", "mod"] : [],
-          "only Windows constructor aliases select the deliberately missing Go executable");
+          "only Windows constructor aliases select the deliberately missing Go executable",
+        );
         for (const attempt of attempts) {
           assert.equal(attempt.data.origin, "windows-go-tool");
           assert.equal(attempt.pid, null);
-          const results = rows.filter((row) => row.event === "process-result" &&
-            row.instance === attempt.instance && row.invocation === attempt.invocation);
-          assert.equal(results.length, 1, "the selected Go attempt must have its own actual native result");
+          const results = rows.filter(
+            (row) =>
+              row.event === "process-result" &&
+              row.instance === attempt.instance &&
+              row.invocation === attempt.invocation,
+          );
+          assert.equal(
+            results.length,
+            1,
+            "the selected Go attempt must have its own actual native result",
+          );
           const result = results[0]!;
           assert.ok(result.sequence > attempt.sequence);
           assert.deepEqual(result.argv, attempt.argv);
@@ -1002,13 +1258,23 @@ export async function test_e2e_runtime_batch(): Promise<void> {
           assert.equal(result.data.signal, null);
           assert.equal(result.data.error?.code, "ENOENT");
         }
-      } catch (error) { combinedFailures.push(new Error("public API constructor Go selection", { cause: error })); }
+      } catch (error) {
+        combinedFailures.push(
+          new Error("public API constructor Go selection", { cause: error }),
+        );
+      }
       try {
         const admission = declarationObservation.descendantAdmission;
         const release = declarationObservation.descendantRelease;
         const joined = declarationObservation.descendantJoin;
-        assert.equal(admission.announcement.pid, declarationObservation.descendantPid);
-        assert.equal(admission.announcement.parentPid, declarationObservation.registerPid);
+        assert.equal(
+          admission.announcement.pid,
+          declarationObservation.descendantPid,
+        );
+        assert.equal(
+          admission.announcement.parentPid,
+          declarationObservation.registerPid,
+        );
         assert.deepEqual(release.target, admission.target);
         assert.equal(release.operation, "release");
         assert.deepEqual(joined.target, admission.target);
@@ -1016,39 +1282,90 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         assert.equal(joined.retired, true);
         assert.equal(joined.completion.nonce, controller!.nonce);
         assert.equal(joined.completion.role, "registered");
-        assert.equal(joined.completion.pid, declarationObservation.descendantPid);
+        assert.equal(
+          joined.completion.pid,
+          declarationObservation.descendantPid,
+        );
         assert.equal(joined.completion.event, "complete");
         assert.equal(joined.completion.error, undefined);
         assert.equal(joined.completion.value, "descendant-ready");
         const lower = Date.parse(release.at);
         const upper = Date.parse(joined.completion.completedAt);
-        assert.ok(Number.isFinite(lower) && Number.isFinite(upper) && lower <= upper);
-        const preparations = readWriter(declarationObservation.descendantPid).filter((row) =>
-          row.event === "runtime-source-preparation" &&
-          row.data.origin === "ttsx-commonjs-source-load" &&
-          typeof row.data.filename === "string" && path.basename(row.data.filename) === path.basename(registeredLazyFile) &&
-          fs.realpathSync.native(row.data.filename) === fs.realpathSync.native(registeredLazyFile) &&
-          Date.parse(row.at) >= lower && Date.parse(row.at) <= upper);
-        assert.ok(preparations.length > 0, "the authenticated child must consume compiler-prepared lazy source after actual default clean/release");
+        assert.ok(
+          Number.isFinite(lower) && Number.isFinite(upper) && lower <= upper,
+        );
+        const preparations = readWriter(
+          declarationObservation.descendantPid,
+        ).filter(
+          (row) =>
+            row.event === "runtime-source-preparation" &&
+            row.data.origin === "ttsx-commonjs-source-load" &&
+            typeof row.data.filename === "string" &&
+            path.basename(row.data.filename) ===
+              path.basename(registeredLazyFile) &&
+            fs.realpathSync.native(row.data.filename) ===
+              fs.realpathSync.native(registeredLazyFile) &&
+            Date.parse(row.at) >= lower &&
+            Date.parse(row.at) <= upper,
+        );
+        assert.ok(
+          preparations.length > 0,
+          "the authenticated child must consume compiler-prepared lazy source after actual default clean/release",
+        );
         for (const row of preparations) {
           assert.equal(row.data.selectedFormat, "commonjs");
           assert.equal(row.data.sourceEncoding, "utf16le");
           assert.equal(row.data.representation, "consumed-javascript-string");
-          const bytes: Buffer = readE2eTracePayload(runtimeTraceRoot, row as { writerPid: number; instance: string; invocation: string }, row.data.source).bytes;
+          const bytes: Buffer = readE2eTracePayload(
+            runtimeTraceRoot,
+            row as { writerPid: number; instance: string; invocation: string },
+            row.data.source,
+          ).bytes;
           assert.equal(bytes.length, row.data.sourceCodeUnits * 2);
           const javascript = bytes.toString("utf16le");
           assert.notEqual(javascript, registeredLazyBytes!.toString("utf8"));
-          const encoded = /sourceMappingURL=data:application\/json(?:;charset=utf-8)?;base64,([^\s]+)/.exec(javascript);
-          assert.ok(encoded, "the consumed child JavaScript must carry its real inline source map");
-          const map = JSON.parse(Buffer.from(encoded[1]!, "base64").toString("utf8"));
+          const encoded =
+            /sourceMappingURL=data:application\/json(?:;charset=utf-8)?;base64,([^\s]+)/.exec(
+              javascript,
+            );
+          assert.ok(
+            encoded,
+            "the consumed child JavaScript must carry its real inline source map",
+          );
+          const map = JSON.parse(
+            Buffer.from(encoded[1]!, "base64").toString("utf8"),
+          );
           assert.equal(map.version, 3);
-          const sourceIndex = (map.sources as string[]).findIndex((source) =>
-            fs.realpathSync.native(source.startsWith("file:") ? fileURLToPath(source) : path.resolve(path.dirname(registeredLazyFile), map.sourceRoot ?? "", source)) === fs.realpathSync.native(registeredLazyFile));
+          const sourceIndex = (map.sources as string[]).findIndex(
+            (source) =>
+              fs.realpathSync.native(
+                source.startsWith("file:")
+                  ? fileURLToPath(source)
+                  : path.resolve(
+                      path.dirname(registeredLazyFile),
+                      map.sourceRoot ?? "",
+                      source,
+                    ),
+              ) === fs.realpathSync.native(registeredLazyFile),
+          );
           assert.notEqual(sourceIndex, -1);
-          assert.equal(map.sourcesContent[sourceIndex], registeredLazyBytes!.toString("utf8"));
+          assert.equal(
+            map.sourcesContent[sourceIndex],
+            registeredLazyBytes!.toString("utf8"),
+          );
         }
-        assert.deepEqual(fs.readFileSync(registeredLazyFile), registeredLazyBytes);
-      } catch (error) { combinedFailures.push(new Error("registered child post-clean consumed-source and original-target proof", { cause: error })); }
+        assert.deepEqual(
+          fs.readFileSync(registeredLazyFile),
+          registeredLazyBytes,
+        );
+      } catch (error) {
+        combinedFailures.push(
+          new Error(
+            "registered child post-clean consumed-source and original-target proof",
+            { cause: error },
+          ),
+        );
+      }
       assert.ok(
         Number.isInteger(declarationObservation.nativeEmitBefore) &&
           declarationObservation.nativeEmitBefore > receiptOffset,
@@ -1088,27 +1405,71 @@ export async function test_e2e_runtime_batch(): Promise<void> {
             declarationObservation.registerBefore,
       );
       assert.ok(mainRuntimeAfter >= declarationObservation.registerAfter);
-      assert.equal(allNativeReceipts.length, mainRuntimeAfter,
-        "MAIN receipt endpoint belongs to the actual original main join, before later corpora");
+      assert.equal(
+        allNativeReceipts.length,
+        mainRuntimeAfter,
+        "MAIN receipt endpoint belongs to the actual original main join, before later corpora",
+      );
       try {
-        const mainLower = Date.parse(declarationObservation.registerCompletedAt);
+        const mainLower = Date.parse(
+          declarationObservation.registerCompletedAt,
+        );
         const mainUpper = Date.parse(mainJoinedAt);
         assert.ok(Number.isFinite(mainLower) && mainLower <= mainUpper);
         const mainRows = readWriter(declarationObservation.mainEpochOwner);
-        const builds = mainRows.filter((row) =>
-          row.event === "process-result" && Date.parse(row.at) >= mainLower &&
-          Date.parse(row.at) <= mainUpper && Array.isArray(row.argv) &&
-          row.argv.includes("build") && row.argv.some((argument: unknown) =>
-            typeof argument === "string" && argument.startsWith("--plugins-json=")))
+        const builds = mainRows
+          .filter(
+            (row) =>
+              row.event === "process-result" &&
+              Date.parse(row.at) >= mainLower &&
+              Date.parse(row.at) <= mainUpper &&
+              Array.isArray(row.argv) &&
+              row.argv.includes("build") &&
+              row.argv.some(
+                (argument: unknown) =>
+                  typeof argument === "string" &&
+                  argument.startsWith("--plugins-json="),
+              ),
+          )
           .sort((left, right) => Date.parse(left.at) - Date.parse(right.at));
         const expected: Record<string, unknown>[] = [];
         const literalEntries: Record<string, Record<string, unknown>> = {
-          "shared-real-program-probe": { name: "shared-real-program-probe", operation: null, prefix: "a:", suffix: ":z" },
-          "native-order-prefix": { name: "native-order-prefix", operation: "prefix", prefix: "a:", suffix: null },
-          "native-order-identity": { name: "native-order-identity", operation: "identity", prefix: null, suffix: null },
-          "native-order-upper": { name: "native-order-upper", operation: "upper", prefix: null, suffix: null },
-          "native-order-suffix": { name: "native-order-suffix", operation: "suffix", prefix: null, suffix: ":z" },
-          "native-auto-discovery": { name: "native-auto-discovery", operation: "identity", prefix: null, suffix: null },
+          "shared-real-program-probe": {
+            name: "shared-real-program-probe",
+            operation: null,
+            prefix: "a:",
+            suffix: ":z",
+          },
+          "native-order-prefix": {
+            name: "native-order-prefix",
+            operation: "prefix",
+            prefix: "a:",
+            suffix: null,
+          },
+          "native-order-identity": {
+            name: "native-order-identity",
+            operation: "identity",
+            prefix: null,
+            suffix: null,
+          },
+          "native-order-upper": {
+            name: "native-order-upper",
+            operation: "upper",
+            prefix: null,
+            suffix: null,
+          },
+          "native-order-suffix": {
+            name: "native-order-suffix",
+            operation: "suffix",
+            prefix: null,
+            suffix: ":z",
+          },
+          "native-auto-discovery": {
+            name: "native-auto-discovery",
+            operation: "identity",
+            prefix: null,
+            suffix: null,
+          },
         };
         for (const build of builds) {
           assert.equal(build.data.started, true);
@@ -1116,44 +1477,108 @@ export async function test_e2e_runtime_batch(): Promise<void> {
           assert.ok(Number.isInteger(build.data.status));
           assert.equal(build.data.signal, null);
           assert.equal(build.data.error, null);
-          const programs = readWriter(build.pid).filter((row) =>
-            row.event === "program-construction" && row.data.origin === "driver-create" &&
-            row.data.outcome === "constructor-returned" &&
-            Date.parse(row.at) >= mainLower && Date.parse(row.at) <= Date.parse(build.at));
-          assert.equal(programs.length, 1, "each MAIN native build must expose its actual driver constructor");
+          const programs = readWriter(build.pid).filter(
+            (row) =>
+              row.event === "program-construction" &&
+              row.data.origin === "driver-create" &&
+              row.data.outcome === "constructor-returned" &&
+              Date.parse(row.at) >= mainLower &&
+              Date.parse(row.at) <= Date.parse(build.at),
+          );
+          assert.equal(
+            programs.length,
+            1,
+            "each MAIN native build must expose its actual driver constructor",
+          );
           const program = programs[0]!;
           assert.deepEqual(program.argv, build.argv);
           assert.equal(program.cwd, build.cwd);
-          const selector = (program.argv as string[]).find((argument) => argument.startsWith("--plugins-json="))!;
+          const selector = (program.argv as string[]).find((argument) =>
+            argument.startsWith("--plugins-json="),
+          )!;
           const entries = JSON.parse(selector.slice("--plugins-json=".length));
-          const reporters = entries.filter((entry: any) => entry.config?.contextReceipt === workspace.contextReceipt);
+          const reporters = entries.filter(
+            (entry: any) =>
+              entry.config?.contextReceipt === workspace.contextReceipt,
+          );
           if (reporters.length > 0) assert.equal(build.data.status, 0);
           else if (build.data.status !== 0) {
-            const selectedConfigs = (build.argv as string[]).filter((argument) => argument.startsWith("--tsconfig="));
-            const outputDirectories = (build.argv as string[]).filter((argument) => argument.startsWith("--outDir="));
+            const selectedConfigs = (build.argv as string[]).filter(
+              (argument) => argument.startsWith("--tsconfig="),
+            );
+            const outputDirectories = (build.argv as string[]).filter(
+              (argument) => argument.startsWith("--outDir="),
+            );
             assert.equal(selectedConfigs.length, 1);
             assert.equal(outputDirectories.length, 1);
-            const selectedConfig = selectedConfigs[0]!.slice("--tsconfig=".length);
-            const outputDirectory = outputDirectories[0]!.slice("--outDir=".length);
-            assert.ok(path.isAbsolute(selectedConfig) && path.isAbsolute(outputDirectory));
+            const selectedConfig = selectedConfigs[0]!.slice(
+              "--tsconfig=".length,
+            );
+            const outputDirectory = outputDirectories[0]!.slice(
+              "--outDir=".length,
+            );
+            assert.ok(
+              path.isAbsolute(selectedConfig) &&
+                path.isAbsolute(outputDirectory),
+            );
             const served = mainRows.filter((row) => {
               const attribution = row.data.emitAttribution;
               const servedAt = Date.parse(row.at);
-              if (row.event !== "runtime-source-preparation" || row.instance !== build.instance ||
-                row.sequence <= build.sequence || !Number.isFinite(servedAt) || servedAt < Date.parse(build.at) ||
-                servedAt > mainUpper || attribution?.buildScope !== "project" ||
-                attribution.selectedTsconfig !== selectedConfig || typeof attribution.emittedFile !== "string") return false;
-              const relative = path.relative(outputDirectory, attribution.emittedFile);
-              return relative.length > 0 && !path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(".." + path.sep);
+              if (
+                row.event !== "runtime-source-preparation" ||
+                row.instance !== build.instance ||
+                row.sequence <= build.sequence ||
+                !Number.isFinite(servedAt) ||
+                servedAt < Date.parse(build.at) ||
+                servedAt > mainUpper ||
+                attribution?.buildScope !== "project" ||
+                attribution.selectedTsconfig !== selectedConfig ||
+                typeof attribution.emittedFile !== "string"
+              )
+                return false;
+              const relative = path.relative(
+                outputDirectory,
+                attribution.emittedFile,
+              );
+              return (
+                relative.length > 0 &&
+                !path.isAbsolute(relative) &&
+                relative !== ".." &&
+                !relative.startsWith(".." + path.sep)
+              );
             });
-            assert.ok(served.length > 0, "a nonreporting emit-only nonzero result must retain actual serving from its own native output generation");
+            assert.ok(
+              served.length > 0,
+              "a nonreporting emit-only nonzero result must retain actual serving from its own native output generation",
+            );
             for (const row of served) {
-              assert.ok(["ttsx-commonjs-source-load", "ttsx-esm-source-load"].includes(row.data.origin));
-              assert.equal(row.data.filename, row.data.emitAttribution.sourceFile);
+              assert.ok(
+                ["ttsx-commonjs-source-load", "ttsx-esm-source-load"].includes(
+                  row.data.origin,
+                ),
+              );
+              assert.equal(
+                row.data.filename,
+                row.data.emitAttribution.sourceFile,
+              );
               assert.equal(row.data.sourceEncoding, "utf16le");
-              assert.equal(row.data.representation, "consumed-javascript-string");
-              assert.ok(Number.isSafeInteger(row.data.sourceCodeUnits) && row.data.sourceCodeUnits > 0);
-              const bytes: Buffer = readE2eTracePayload(runtimeTraceRoot, row as { writerPid: number; instance: string; invocation: string }, row.data.source).bytes;
+              assert.equal(
+                row.data.representation,
+                "consumed-javascript-string",
+              );
+              assert.ok(
+                Number.isSafeInteger(row.data.sourceCodeUnits) &&
+                  row.data.sourceCodeUnits > 0,
+              );
+              const bytes: Buffer = readE2eTracePayload(
+                runtimeTraceRoot,
+                row as {
+                  writerPid: number;
+                  instance: string;
+                  invocation: string;
+                },
+                row.data.source,
+              ).bytes;
               assert.equal(bytes.length, row.data.sourceCodeUnits * 2);
             }
           }
@@ -1167,32 +1592,74 @@ export async function test_e2e_runtime_batch(): Promise<void> {
             expected.push(literal);
           }
         }
-        assert.ok(expected.some((record) => record.name === "native-auto-discovery"),
-          "the real MAIN package boundary must admit its own Program and automatic contributor");
-        assert.deepEqual(allNativeReceipts.slice(declarationObservation.registerAfter, mainRuntimeAfter), expected,
-          "MAIN contexts must match independently observed successful driver Programs and literal fixture contributions");
-      } catch (error) { combinedFailures.push(new Error("MAIN valid-Program reporting receipt epoch", { cause: error })); }
-      assert.ok(Number.isSafeInteger(declarationObservation.apiEnvironmentBefore));
-      assert.ok(Number.isSafeInteger(declarationObservation.apiEnvironmentAfter));
+        assert.ok(
+          expected.some((record) => record.name === "native-auto-discovery"),
+          "the real MAIN package boundary must admit its own Program and automatic contributor",
+        );
+        assert.deepEqual(
+          allNativeReceipts.slice(
+            declarationObservation.registerAfter,
+            mainRuntimeAfter,
+          ),
+          expected,
+          "MAIN contexts must match independently observed successful driver Programs and literal fixture contributions",
+        );
+      } catch (error) {
+        combinedFailures.push(
+          new Error("MAIN valid-Program reporting receipt epoch", {
+            cause: error,
+          }),
+        );
+      }
+      assert.ok(
+        Number.isSafeInteger(declarationObservation.apiEnvironmentBefore),
+      );
+      assert.ok(
+        Number.isSafeInteger(declarationObservation.apiEnvironmentAfter),
+      );
       assert.ok(declarationObservation.apiEnvironmentBefore >= receiptOffset);
-      assert.ok(declarationObservation.apiEnvironmentAfter >= declarationObservation.apiEnvironmentBefore);
-      assert.ok(declarationObservation.apiEnvironmentAfter <= declarationObservation.nativeEmitBefore);
+      assert.ok(
+        declarationObservation.apiEnvironmentAfter >=
+          declarationObservation.apiEnvironmentBefore,
+      );
+      assert.ok(
+        declarationObservation.apiEnvironmentAfter <=
+          declarationObservation.nativeEmitBefore,
+      );
       const apiEnvironmentRecords = allNativeReceipts.slice(
         declarationObservation.apiEnvironmentBefore,
         declarationObservation.apiEnvironmentAfter,
       );
       BatchWorkspace.assertContextReceipts(apiEnvironmentRecords);
       assert.deepEqual(
-        apiEnvironmentRecords.filter((receipt) => receipt.name === "native-auto-discovery"),
+        apiEnvironmentRecords.filter(
+          (receipt) => receipt.name === "native-auto-discovery",
+        ),
         [
-          { name: "native-auto-discovery", operation: "identity", prefix: null, suffix: null },
-          { name: "native-auto-discovery", operation: "identity", prefix: null, suffix: null },
+          {
+            name: "native-auto-discovery",
+            operation: "identity",
+            prefix: null,
+            suffix: null,
+          },
+          {
+            name: "native-auto-discovery",
+            operation: "identity",
+            prefix: null,
+            suffix: null,
+          },
         ],
         "the constructor environment compile and transform each retain real automatic native discovery",
       );
       const nativeReceipts = [
-        ...allNativeReceipts.slice(receiptOffset, declarationObservation.apiEnvironmentBefore),
-        ...allNativeReceipts.slice(declarationObservation.apiEnvironmentAfter, declarationObservation.nativeEmitBefore),
+        ...allNativeReceipts.slice(
+          receiptOffset,
+          declarationObservation.apiEnvironmentBefore,
+        ),
+        ...allNativeReceipts.slice(
+          declarationObservation.apiEnvironmentAfter,
+          declarationObservation.nativeEmitBefore,
+        ),
       ];
       BatchWorkspace.assertContextReceipts(
         allNativeReceipts.slice(
@@ -1541,36 +2008,82 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     for (const verify of [
       () => {
         assert.ok(result);
-        const payload = BatchWorkspace.readPayload(result.stdout) as { packageStars: any };
+        const payload = BatchWorkspace.readPayload(result.stdout) as {
+          packageStars: any;
+        };
         assert.deepEqual(payload.packageStars.named, {
-          named: ["package-foo", "require-condition", "owned-source", "cycle-a", "cycle-b", "direct"],
-          defaults: ["package-foo", "require-condition", "owned-source", "cycle-a", "cycle-b", "direct"],
-          identity: true, loads: [1, 1], typeOnlyAbsent: true, importConditionAbsent: true,
+          named: [
+            "package-foo",
+            "require-condition",
+            "owned-source",
+            "cycle-a",
+            "cycle-b",
+            "direct",
+          ],
+          defaults: [
+            "package-foo",
+            "require-condition",
+            "owned-source",
+            "cycle-a",
+            "cycle-b",
+            "direct",
+          ],
+          identity: true,
+          loads: [1, 1],
+          typeOnlyAbsent: true,
+          importConditionAbsent: true,
         });
       },
       () => {
         assert.ok(result);
-        const payload = BatchWorkspace.readPayload(result.stdout) as { packageStars: any };
-        assert.equal(payload.packageStars.blocked.code, "ERR_PACKAGE_PATH_NOT_EXPORTED");
+        const payload = BatchWorkspace.readPayload(result.stdout) as {
+          packageStars: any;
+        };
+        assert.equal(
+          payload.packageStars.blocked.code,
+          "ERR_PACKAGE_PATH_NOT_EXPORTED",
+        );
       },
       () => {
         assert.ok(result);
-        const payload = BatchWorkspace.readPayload(result.stdout) as { packageStars: any };
+        const payload = BatchWorkspace.readPayload(result.stdout) as {
+          packageStars: any;
+        };
         assert.equal(payload.packageStars.missing.code, "MODULE_NOT_FOUND");
       },
       () => {
         assert.ok(result);
-        const payload = BatchWorkspace.readPayload(result.stdout) as { installedBoundary: unknown };
-        const expected = JSON.parse(fs.readFileSync(path.join(workspace.root, "tools/runtime-package-boundary/expected.json"), "utf8"));
+        const payload = BatchWorkspace.readPayload(result.stdout) as {
+          installedBoundary: unknown;
+        };
+        const expected = JSON.parse(
+          fs.readFileSync(
+            path.join(
+              workspace.root,
+              "tools/runtime-package-boundary/expected.json",
+            ),
+            "utf8",
+          ),
+        );
         assert.deepEqual(payload.installedBoundary, expected);
       },
     ]) {
-      try { verify(); } catch (error) { combinedFailures.push(error); }
+      try {
+        verify();
+      } catch (error) {
+        combinedFailures.push(error);
+      }
     }
     for (const [index, root] of runtimeBoundaryRoots.entries()) {
       try {
-        assert.deepEqual(readRuntimeBoundaryInputs(root), runtimeBoundaryInputs[index], "runtime package fixtures retain all input bytes and contain no adjacent emit outside the selected build cache");
-      } catch (error) { combinedFailures.push(error); }
+        assert.deepEqual(
+          readRuntimeBoundaryInputs(root),
+          runtimeBoundaryInputs[index],
+          "runtime package fixtures retain all input bytes and contain no adjacent emit outside the selected build cache",
+        );
+      } catch (error) {
+        combinedFailures.push(error);
+      }
     }
   }
   if (!workspace.installationOnly) {

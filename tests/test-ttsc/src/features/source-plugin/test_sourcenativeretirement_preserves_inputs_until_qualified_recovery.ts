@@ -114,22 +114,36 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
                     ready,
                     lost,
                   ],
-                  { stdio: ["ignore", "ignore", "ignore", "ipc"], windowsHide: true },
+                  {
+                    stdio: ["ignore", "ignore", "ignore", "ipc"],
+                    windowsHide: true,
+                  },
                 );
                 child.on("error", record);
                 readerReady = new Promise<void>((resolve, reject) => {
                   child!.once("message", (value) => {
                     try {
-                      assert.deepEqual(value, { event: "ready", file: ready, pid: child!.pid });
+                      assert.deepEqual(value, {
+                        event: "ready",
+                        file: ready,
+                        pid: child!.pid,
+                      });
                       resolve();
-                    } catch (error) { reject(error); }
+                    } catch (error) {
+                      reject(error);
+                    }
                   });
                   child!.once("error", reject);
-                  child!.once("close", () => reject(new Error("reader closed before readiness")));
+                  child!.once("close", () =>
+                    reject(new Error("reader closed before readiness")),
+                  );
                 });
                 void readerReady.catch(() => undefined);
                 closed = new Promise((resolve) => {
-                  child!.once("close", (code) => { joined = true; resolve(code); });
+                  child!.once("close", (code) => {
+                    joined = true;
+                    resolve(code);
+                  });
                 });
                 SourceNativeRetirement.settle(
                   "actual-reader-boundary",
@@ -292,20 +306,24 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
         "independent-key-task",
       );
       const otherLock = `${path.join(plugins, "independent")}.lock`;
-      SourceNativeRetirement.run(otherScope, () => OwnedSynchronousProcess.run(
-        { cancel: new SharedArrayBuffer(4), retirements, failures }, () => {
-        const other = acquirePluginBuildLock(otherLock);
-        assert.ok(other);
-        try {
-          withGoBuildCacheLease(go, true, (shared) => {
-            assert.equal(shared, go);
-            SourceNativeRetirement.begin("independent-command");
-            SourceNativeRetirement.settle("independent-command", "joined");
-          });
-        } finally {
-          releasePluginBuildLock(otherLock, other);
-        }
-      }));
+      SourceNativeRetirement.run(otherScope, () =>
+        OwnedSynchronousProcess.run(
+          { cancel: new SharedArrayBuffer(4), retirements, failures },
+          () => {
+            const other = acquirePluginBuildLock(otherLock);
+            assert.ok(other);
+            try {
+              withGoBuildCacheLease(go, true, (shared) => {
+                assert.equal(shared, go);
+                SourceNativeRetirement.begin("independent-command");
+                SourceNativeRetirement.settle("independent-command", "joined");
+              });
+            } finally {
+              releasePluginBuildLock(otherLock, other);
+            }
+          },
+        ),
+      );
       assert.equal(SourceNativeRetirement.isProtected(go), true);
       assert.equal(
         GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(
@@ -359,11 +377,17 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
     const read = new Promise<unknown>((resolve, reject) => {
       reader.once("message", resolve);
       reader.once("error", reject);
-      reader.once("close", () => reject(new Error("reader closed before its post-maintenance read")));
+      reader.once("close", () =>
+        reject(new Error("reader closed before its post-maintenance read")),
+      );
     });
     void read.catch(() => undefined);
     child.send("read");
-    assert.deepEqual(await read, { event: "read", pid: child.pid, bytes: "reader input" });
+    assert.deepEqual(await read, {
+      event: "read",
+      pid: child.pid,
+      bytes: "reader input",
+    });
     check("reader still owns input", () => {
       process.kill(child!.pid!, 0);
       assert.equal(fs.readFileSync(input, "utf8"), "reader input");
@@ -415,7 +439,11 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
     record(error);
   } finally {
     if (child !== undefined && !joined) {
-      try { child.kill(); } catch (error) { record(error); }
+      try {
+        child.kill();
+      } catch (error) {
+        record(error);
+      }
       if (closed === undefined)
         record(new Error("reader admission has no original CLOSE observation"));
       else await closed;

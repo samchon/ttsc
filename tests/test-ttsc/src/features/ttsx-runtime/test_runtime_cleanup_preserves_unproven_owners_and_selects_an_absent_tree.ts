@@ -51,14 +51,34 @@ export function test_runtime_cleanup_preserves_unproven_owners_and_selects_an_ab
   assert.deepEqual([...plan.kept].sort(), [legacy, unknown].sort());
   assert.deepEqual(plan.targets, []);
   const actorRoot = TestProject.tmpdir("runtime-clean-observation-");
-  const actor = TestProject.spawn(process.execPath, [
-    "--import", new URL("../../../../../config/register-unit-loader.mjs", import.meta.url).href,
-    fileURLToPath(new URL("../../internal/runtime-clean-observation-actor.ts", import.meta.url)), actorRoot,
-  ], { env: { NODE_OPTIONS: undefined, TTSC_E2E_TRACE: undefined } });
+  const actor = TestProject.spawn(
+    process.execPath,
+    [
+      "--import",
+      new URL("../../../../../config/register-unit-loader.mjs", import.meta.url)
+        .href,
+      fileURLToPath(
+        new URL(
+          "../../internal/runtime-clean-observation-actor.ts",
+          import.meta.url,
+        ),
+      ),
+      actorRoot,
+    ],
+    { env: { NODE_OPTIONS: undefined, TTSC_E2E_TRACE: undefined } },
+  );
   if (actor.error || actor.signal !== null || actor.status === null)
-    TestProject.retainTemporaryDirectory(actorRoot, "cleanup source actor closure is uncertain");
+    TestProject.retainTemporaryDirectory(
+      actorRoot,
+      "cleanup source actor closure is uncertain",
+    );
   assert.equal(actor.error, undefined);
   assert.equal(actor.signal, null);
   assert.equal(actor.status, 0, actor.stdout + "\n" + actor.stderr);
-  assert.deepEqual(JSON.parse(actor.stdout), { disabled: true, observed: ["invalid-record", "present", "remote"], sinkFailurePreservedPlan: true, nativeErrorPreserved: true });
+  assert.deepEqual(JSON.parse(actor.stdout), {
+    disabled: true,
+    observed: ["invalid-record", "present", "remote"],
+    sinkFailurePreservedPlan: true,
+    nativeErrorPreserved: true,
+  });
 }

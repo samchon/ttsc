@@ -13,7 +13,8 @@ import { realPath } from "./realPath";
  * become resolution origins. Targets are not evaluated. Failed resolution adds
  * no names and leaves the eventual native load to report its error, whereas a
  * reader's ownership error propagates. Root default metadata is retained for
- * the facade's native own-property ordering; nested default is not re-exported.
+ * the facade's native own-property ordering; nested default is not
+ * re-exported.
  *
  * @evidence contracts/common.md#principled-implementation Node createRequire resolves each edge from the physical source module using require conditions; the runtime supplies its existing source-rescue resolver on supported hook variants. Owned compiler bytes retain TypeScript elision and lowering. Static parsing discovers possible names, while the original loaded helper and facade own values and property semantics.
  * @evidence contracts/common.md#clear-and-simple-design One traversal serves both JavaScript and TypeScript facades. A call-scoped physical seen set prevents mixed-source cycles and duplicate reads without separate emitted/source resolution policies.
@@ -28,8 +29,10 @@ export function commonJsExportNames(
   source: string,
   filename: string,
   readSource: (file: string) => string | null,
-  resolve: (parent: string, specifier: string) => string = (parent, specifier) =>
-    createRequire(parent).resolve(specifier),
+  resolve: (parent: string, specifier: string) => string = (
+    parent,
+    specifier,
+  ) => createRequire(parent).resolve(specifier),
 ): string[] {
   const names = new Set<string>();
   const seen = new Set<string>();
@@ -42,7 +45,11 @@ export function commonJsExportNames(
       if (root || name !== "default") names.add(name);
     for (const specifier of parsed.reexports) {
       let target: string;
-      try { target = resolve(real, specifier); } catch { continue; }
+      try {
+        target = resolve(real, specifier);
+      } catch {
+        continue;
+      }
       if (!path.isAbsolute(target)) continue;
       if ([".json", ".node", ".mjs"].includes(path.extname(target))) continue;
       const physical = realPath(target);

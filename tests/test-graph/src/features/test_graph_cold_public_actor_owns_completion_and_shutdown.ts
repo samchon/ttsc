@@ -8,8 +8,8 @@ import { ColdGraphActorLifecycle } from "../../../utils/src/ColdGraphActorLifecy
  *
  * A real pending operation has no test-duration result. Competing close and
  * operation-failure requests must share one terminal sequence without a queue
- * awaiting its own shutdown. These controls do not fabricate a successful
- * Graph Session; the two cold E2E scenes retain that native/artifact boundary.
+ * awaiting its own shutdown. These controls do not fabricate a successful Graph
+ * Session; the two cold E2E scenes retain that native/artifact boundary.
  *
  * 1. Deliver progress, error, disconnect and close in contrasting orders.
  * 2. Hold shutdown, queue drain and publication with owned promises.
@@ -30,10 +30,16 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
     });
     return { promise, resolve, reject };
   };
-  const tick = async (): Promise<void> => { await Promise.resolve(); await Promise.resolve(); };
+  const tick = async (): Promise<void> => {
+    await Promise.resolve();
+    await Promise.resolve();
+  };
   let acknowledge!: (error: Error | null) => void;
   const channel = {
-    send(message: string | Record<string, unknown>, callback: (error: Error | null) => void): boolean {
+    send(
+      message: string | Record<string, unknown>,
+      callback: (error: Error | null) => void,
+    ): boolean {
       assert.strictEqual(this, channel);
       assert.equal(message, "close");
       acknowledge = callback;
@@ -41,7 +47,9 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
     },
   };
   let sent = false;
-  const sending = ColdGraphActorLifecycle.send(channel, "close").then(() => { sent = true; });
+  const sending = ColdGraphActorLifecycle.send(channel, "close").then(() => {
+    sent = true;
+  });
   await tick();
   assert.equal(sent, false);
   acknowledge(null);
@@ -49,18 +57,34 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
   assert.equal(sent, true);
   const channelError = new Error("original asynchronous channel error");
   const sendFailure = ColdGraphActorLifecycle.send(channel, "close");
-  const failedSend = assert.rejects(sendFailure, (error) => error === channelError);
+  const failedSend = assert.rejects(
+    sendFailure,
+    (error) => error === channelError,
+  );
   acknowledge(channelError);
   await failedSend;
-  await assert.rejects(ColdGraphActorLifecycle.send({}, "close"), /no original IPC channel/);
-  await assert.rejects(ColdGraphActorLifecycle.send({
-    send: () => { throw channelError; },
-  }, "close"), (error) => error === channelError);
+  await assert.rejects(
+    ColdGraphActorLifecycle.send({}, "close"),
+    /no original IPC channel/,
+  );
+  await assert.rejects(
+    ColdGraphActorLifecycle.send(
+      {
+        send: () => {
+          throw channelError;
+        },
+      },
+      "close",
+    ),
+    (error) => error === channelError,
+  );
 
   const source = new EventEmitter();
   const progress = ColdGraphActorLifecycle.observe(source);
   let settled = false;
-  const pending = progress.wait("recovered").then(() => { settled = true; });
+  const pending = progress.wait("recovered").then(() => {
+    settled = true;
+  });
   assert.doesNotThrow(() => progress.check());
   await tick();
   assert.equal(settled, false, "pending work must not manufacture an outcome");
@@ -71,7 +95,10 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
   assert.equal(settled, true);
   const original = new Error("original actor error");
   source.emit("error", original);
-  assert.throws(() => progress.check(), (error) => error === original);
+  assert.throws(
+    () => progress.check(),
+    (error) => error === original,
+  );
   await progress.wait("recovered");
   await assert.rejects(progress.wait("closed"), (error) => error === original);
   source.emit("message", { event: "closed" });
@@ -80,7 +107,12 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
   for (const event of ["message", "error", "disconnect", "close"])
     assert.equal(source.listenerCount(event), 0, event);
 
-  for (const event of ["failed", "close-failed", "disconnect", "close"] as const) {
+  for (const event of [
+    "failed",
+    "close-failed",
+    "disconnect",
+    "close",
+  ] as const) {
     const emitter = new EventEmitter();
     const observation = ColdGraphActorLifecycle.observe(emitter);
     const wait = observation.wait("recovered");
@@ -99,13 +131,27 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
   await disposedWait;
   assert.throws(() => disposed.check(), /disposed/);
 
-  const closing = deferred(), drained = deferred(), publication = deferred();
-  const closeStarted = deferred(), drainStarted = deferred(), publishStarted = deferred();
+  const closing = deferred(),
+    drained = deferred(),
+    publication = deferred();
+  const closeStarted = deferred(),
+    drainStarted = deferred(),
+    publishStarted = deferred();
   const stages: string[] = [];
   const terminal = ColdGraphActorLifecycle.terminal({
-    close: async () => { stages.push("close"); closeStarted.resolve(); await closing.promise; },
-    drain: async () => { stages.push("drain"); drainStarted.resolve(); await drained.promise; },
-    verify: async () => { stages.push("verify"); },
+    close: async () => {
+      stages.push("close");
+      closeStarted.resolve();
+      await closing.promise;
+    },
+    drain: async () => {
+      stages.push("drain");
+      drainStarted.resolve();
+      await drained.promise;
+    },
+    verify: async () => {
+      stages.push("verify");
+    },
     publish: async (failures) => {
       assert.deepEqual(failures, []);
       assert.equal(Object.isFrozen(failures), true);
@@ -113,7 +159,9 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
       publishStarted.resolve();
       await publication.promise;
     },
-    disconnect: () => { stages.push("disconnect"); },
+    disconnect: () => {
+      stages.push("disconnect");
+    },
   });
   const first = terminal();
   assert.strictEqual(terminal(), first);
@@ -128,7 +176,13 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
   assert.strictEqual(terminal(), first);
   publication.resolve();
   await first;
-  assert.deepEqual(stages, ["close", "drain", "verify", "publish", "disconnect"]);
+  assert.deepEqual(stages, [
+    "close",
+    "drain",
+    "verify",
+    "publish",
+    "disconnect",
+  ]);
   assert.strictEqual(terminal(), first);
 
   const operation = deferred();
@@ -137,11 +191,23 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
   let requestedFromQueue: Promise<void> | undefined;
   let queue = Promise.resolve();
   const finish = ColdGraphActorLifecycle.terminal({
-    close: async () => { raced.push("close"); operation.reject(operationError); },
-    drain: async () => { raced.push("drain"); await queue; },
-    verify: async () => { raced.push("verify"); },
-    publish: async () => { raced.push("publish"); },
-    disconnect: () => { raced.push("disconnect"); },
+    close: async () => {
+      raced.push("close");
+      operation.reject(operationError);
+    },
+    drain: async () => {
+      raced.push("drain");
+      await queue;
+    },
+    verify: async () => {
+      raced.push("verify");
+    },
+    publish: async () => {
+      raced.push("publish");
+    },
+    disconnect: () => {
+      raced.push("disconnect");
+    },
   });
   queue = operation.promise.catch((error) => {
     assert.strictEqual(error, operationError);
@@ -152,21 +218,45 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
   const explicit = finish();
   await explicit;
   assert.strictEqual(requestedFromQueue, explicit);
-  assert.deepEqual(raced, ["close", "failed", "drain", "verify", "publish", "disconnect"]);
+  assert.deepEqual(raced, [
+    "close",
+    "failed",
+    "drain",
+    "verify",
+    "publish",
+    "disconnect",
+  ]);
 
-  const errors = ["shutdown", "drain", "verification", "publication", "disconnect"]
-    .map((stage) => new Error(stage));
+  const errors = [
+    "shutdown",
+    "drain",
+    "verification",
+    "publication",
+    "disconnect",
+  ].map((stage) => new Error(stage));
   const failureStages: string[] = [];
   const broken = ColdGraphActorLifecycle.terminal({
-    close: async () => { failureStages.push("close"); throw errors[0]; },
-    drain: async () => { failureStages.push("drain"); throw errors[1]; },
-    verify: async () => { failureStages.push("verify"); throw errors[2]; },
+    close: async () => {
+      failureStages.push("close");
+      throw errors[0];
+    },
+    drain: async () => {
+      failureStages.push("drain");
+      throw errors[1];
+    },
+    verify: async () => {
+      failureStages.push("verify");
+      throw errors[2];
+    },
     publish: async (failures) => {
       failureStages.push("publish");
       assert.deepEqual(failures, errors.slice(0, 3));
       throw errors[3];
     },
-    disconnect: () => { failureStages.push("disconnect"); throw errors[4]; },
+    disconnect: () => {
+      failureStages.push("disconnect");
+      throw errors[4];
+    },
   });
   const brokenResult = broken();
   await assert.rejects(brokenResult, (error) => {
@@ -175,5 +265,11 @@ export async function test_graph_cold_public_actor_owns_completion_and_shutdown(
     return true;
   });
   assert.strictEqual(broken(), brokenResult);
-  assert.deepEqual(failureStages, ["close", "drain", "verify", "publish", "disconnect"]);
+  assert.deepEqual(failureStages, [
+    "close",
+    "drain",
+    "verify",
+    "publish",
+    "disconnect",
+  ]);
 }

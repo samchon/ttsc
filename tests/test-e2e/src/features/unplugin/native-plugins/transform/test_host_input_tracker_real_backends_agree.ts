@@ -1,4 +1,3 @@
-import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -8,6 +7,7 @@ import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../../../packages/unp
 import type { TtscTrackedInputScope } from "../../../../../../../packages/unplugin/lib/core/transform/tracker/TtscTrackedInputScope.mjs";
 import { createHostInputMutationTracker } from "../../../../../../../packages/unplugin/lib/core/transform/tracker/createHostInputMutationTracker.mjs";
 import { settleMutationTrackers } from "../../../../../../../packages/unplugin/lib/core/transform/tracker/settleMutationTrackers.mjs";
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { settleFilesystemNotifications } from "../../../../internal/unplugin/internal/filesystem-notifications/settleFilesystemNotifications";
 
@@ -72,12 +72,21 @@ export async function test_host_input_tracker_real_backends_agree(): Promise<voi
   );
   /** Settle until `done` holds, so a slow backend is waited for, not raced. */
   const until = async (done: () => boolean, label: string): Promise<void> => {
-    await waitFor(async () => {
-      await settleMutationTrackers([tracker]);
-      return !tracker.failed && done();
-    }, label, {
-      check: () => assert.equal(tracker.failed, false, "the actual native tracker failed before its expected mutation"),
-    });
+    await waitFor(
+      async () => {
+        await settleMutationTrackers([tracker]);
+        return !tracker.failed && done();
+      },
+      label,
+      {
+        check: () =>
+          assert.equal(
+            tracker.failed,
+            false,
+            "the actual native tracker failed before its expected mutation",
+          ),
+      },
+    );
   };
   const recorded = (): string[] =>
     [...tracker.changes].map((changed) =>

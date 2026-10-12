@@ -17,9 +17,8 @@ const RESOLVE_FAIL = /could not resolve the ttscgraph binary/u;
  * source units; these observations retain the actual dump, viewer and loader
  * process connections with a real producer.
  *
- * 1. Reuse the installation's cold dump from an unrelated directory, then
- *    contrast an installation without its platform package and an absolute
- *    override.
+ * 1. Reuse the installation's cold dump from an unrelated directory, then contrast
+ *    an installation without its platform package and an absolute override.
  * 2. Reach a real native configuration failure through the installation's viewer
  *    and loader.
  * 3. Require the actionable missing-binary diagnostic from the installation
@@ -159,10 +158,7 @@ export async function case_ttscgraph_installed_consumers_resolve_their_own_nativ
     }
   }
   if (errors.length !== 0)
-    throw new AggregateError(
-      errors,
-      "installed consumer assertions failed",
-    );
+    throw new AggregateError(errors, "installed consumer assertions failed");
 }
 
 function withoutOverride(body: () => void): void {

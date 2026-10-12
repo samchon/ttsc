@@ -47,14 +47,13 @@ import { someSet } from "./someSet";
  * One recursive scope observes the project root, pinned once the observer
  * opens, and at most 16 external scopes the inputs outside it, each closed when
  * its last input leaves. Every native scope retains authority only while its
- * physical root still matches its configured spelling. A healthy external
- * scope admits newly registered descendants while its root identity and
- * physical containment still hold; the scope cap is checked only when no
- * existing scope covers them.
- * Ordinary files use events after their initial subscription is observed;
- * one shared poll verifies each occupied scope's location, not each file.
- * Missing spellings and directory predicates use the recursive observer for
- * their nearest available scope. Inputs a native scope cannot safely cover
+ * physical root still matches its configured spelling. A healthy external scope
+ * admits newly registered descendants while its root identity and physical
+ * containment still hold; the scope cap is checked only when no existing scope
+ * covers them. Ordinary files use events after their initial subscription is
+ * observed; one shared poll verifies each occupied scope's location, not each
+ * file. Missing spellings and directory predicates use the recursive observer
+ * for their nearest available scope. Inputs a native scope cannot safely cover
  * share one bounded fallback poll; linked files also share topology checks
  * because retargeting a junction need not emit events on its old descendants.
  * Every event is re-checked against the input's recorded condition before an

@@ -366,7 +366,9 @@ function openBroker(fsevents: string | null | undefined) {
   };
   const childDisconnect = (): void => {
     if (!closing) {
-      const error = new Error("watch broker IPC disconnected before supported shutdown");
+      const error = new Error(
+        "watch broker IPC disconnected before supported shutdown",
+      );
       childFailure ??= error;
       fail(error);
     }
@@ -450,49 +452,55 @@ function openBroker(fsevents: string | null | undefined) {
       await drain();
     },
     unresolvedChild: (): boolean => child.pid !== undefined && !joined,
-    close: (): Promise<void> => closure ??= (async () => {
-      closing = true;
-      fail(new Error("watch broker fixture closing"));
-      const shutdown = Promise.all([exited, disconnected]).then(() => {
-        joined = true;
-      });
-      let disconnectError: unknown;
-      try {
-        if (child.connected) child.disconnect();
-      } catch (error) {
-        disconnectError = error;
-        try { child.kill("SIGKILL"); }
-        catch (killError) {
-          disconnectError = new AggregateError([error, killError], "broker disconnect and owned retirement failed", { cause: error });
+    close: (): Promise<void> =>
+      (closure ??= (async () => {
+        closing = true;
+        fail(new Error("watch broker fixture closing"));
+        const shutdown = Promise.all([exited, disconnected]).then(() => {
+          joined = true;
+        });
+        let disconnectError: unknown;
+        try {
+          if (child.connected) child.disconnect();
+        } catch (error) {
+          disconnectError = error;
+          try {
+            child.kill("SIGKILL");
+          } catch (killError) {
+            disconnectError = new AggregateError(
+              [error, killError],
+              "broker disconnect and owned retirement failed",
+              { cause: error },
+            );
+          }
         }
-      }
-      try {
-        await shutdown;
-      } finally {
-        child.off("message", receive);
-        child.off("error", childError);
-        if (joined) {
-          child.off("exit", childExit);
-          child.off("disconnect", childDisconnect);
+        try {
+          await shutdown;
+        } finally {
+          child.off("message", receive);
+          child.off("error", childError);
+          if (joined) {
+            child.off("exit", childExit);
+            child.off("disconnect", childDisconnect);
+          }
         }
-      }
-      if (disconnectError !== undefined) throw disconnectError;
-      if (childFailure !== undefined) throw childFailure;
-      assert.deepEqual(
-        child.stdio,
-        [null, null, null, null],
-        "this broker owns no stdio pipes requiring a stream-close join",
-      );
-      assert.equal(child.connected, false);
-      assert.equal(child.channel, null);
-      assert.equal(child.exitCode, 0);
-      assert.equal(child.signalCode, null);
-      assert.ok(child.pid !== undefined);
-      assert.throws(
-        () => process.kill(child.pid!, 0),
-        (error: unknown) => (error as NodeJS.ErrnoException).code === "ESRCH",
-        "the actually exited broker PID must be gone",
-      );
-    })(),
+        if (disconnectError !== undefined) throw disconnectError;
+        if (childFailure !== undefined) throw childFailure;
+        assert.deepEqual(
+          child.stdio,
+          [null, null, null, null],
+          "this broker owns no stdio pipes requiring a stream-close join",
+        );
+        assert.equal(child.connected, false);
+        assert.equal(child.channel, null);
+        assert.equal(child.exitCode, 0);
+        assert.equal(child.signalCode, null);
+        assert.ok(child.pid !== undefined);
+        assert.throws(
+          () => process.kill(child.pid!, 0),
+          (error: unknown) => (error as NodeJS.ErrnoException).code === "ESRCH",
+          "the actually exited broker PID must be gone",
+        );
+      })()),
   };
 }

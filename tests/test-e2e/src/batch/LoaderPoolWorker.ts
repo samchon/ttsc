@@ -32,36 +32,36 @@ export interface LoaderPoolOutcome {
 /**
  * Own one real resident adapter process and join its actual close receipt.
  *
- * Requests remain owned until an actual reply, transport error, cancellation or child close. An
- * optional deliveredSource carries the caller's earlier bytes independently of
- * the current disk input, without changing the worker or compiler options. A
- * graphProof command uses this same resident and the public filesystem seam;
- * its two actual native captures have a separate publication/receipt epoch. An
- * opt-in first-consumer installation calls public prepare in this resident
- * before its readiness line. Preparation adds one descriptor/build admission
- * call and no Program; delivery starts only after the caller awaits
- * readiness. Startup error/close rejects readiness, and the caller retains
- * actual process close responsibility. This is not a readiness time guarantee.
- * Cache withdrawal schedules disposal and does not certify backend closure. A
- * descriptorFlow command uses the same Node caller before adapter admission; it
- * does not start a worker and its evaluator attempts remain actual cost. A
- * mixed lint input graph uses that same command and worker stdout/stderr to
- * carry contributor results and joined logs; factory re-evaluations are actual
- * internal calls, not a zero-cost or one-Program assertion. A plugin-lock
- * command retains actual lease/fence state in these same two residents; twelve
- * command/reply barriers add no adapter delivery. An exited seed is a
- * separately recorded real process, not a unit-only observation. Cancellation
- * rejects command interest but does not certify original child closure.
- * Parent-owned command observations retain ids, authored phase labels and the
- * actual child PID in the existing runner trace. Each resident writes at most
- * 256 ordinary rows plus its actual close row; no source or reply payload is
- * copied. A failed diagnostic sink reports once on stderr without replacing
- * transport outcomes or certifying closure.
- * Stdout decodes continuous UTF-8 before framing JSON replies. Original child
- * stderr bytes are retained beside that JSONL file at actual close,
- * including an error reply followed by a normal exit. Close drains the stream
- * before writing; diagnostic text decodes the accumulated bytes without changing
- * the retained artifact. Retention does not establish a successful delivery.
+ * Requests remain owned until an actual reply, transport error, cancellation or
+ * child close. An optional deliveredSource carries the caller's earlier bytes
+ * independently of the current disk input, without changing the worker or
+ * compiler options. A graphProof command uses this same resident and the public
+ * filesystem seam; its two actual native captures have a separate
+ * publication/receipt epoch. An opt-in first-consumer installation calls public
+ * prepare in this resident before its readiness line. Preparation adds one
+ * descriptor/build admission call and no Program; delivery starts only after
+ * the caller awaits readiness. Startup error/close rejects readiness, and the
+ * caller retains actual process close responsibility. This is not a readiness
+ * time guarantee. Cache withdrawal schedules disposal and does not certify
+ * backend closure. A descriptorFlow command uses the same Node caller before
+ * adapter admission; it does not start a worker and its evaluator attempts
+ * remain actual cost. A mixed lint input graph uses that same command and
+ * worker stdout/stderr to carry contributor results and joined logs; factory
+ * re-evaluations are actual internal calls, not a zero-cost or one-Program
+ * assertion. A plugin-lock command retains actual lease/fence state in these
+ * same two residents; twelve command/reply barriers add no adapter delivery. An
+ * exited seed is a separately recorded real process, not a unit-only
+ * observation. Cancellation rejects command interest but does not certify
+ * original child closure. Parent-owned command observations retain ids,
+ * authored phase labels and the actual child PID in the existing runner trace.
+ * Each resident writes at most 256 ordinary rows plus its actual close row; no
+ * source or reply payload is copied. A failed diagnostic sink reports once on
+ * stderr without replacing transport outcomes or certifying closure. Stdout
+ * decodes continuous UTF-8 before framing JSON replies. Original child stderr
+ * bytes are retained beside that JSONL file at actual close, including an error
+ * reply followed by a normal exit. Close drains the stream before writing;
+ * diagnostic text decodes the accumulated bytes without changing the retained
+ * artifact. Retention does not establish a successful delivery.
  *
  * The final resident may receive a private project-view argument carrying
  * public Metro options. This keeps Metro's host root independent of its
@@ -225,8 +225,9 @@ export function createLoaderPoolWorker(props: {
     if (!preparationPending) resolve(undefined);
   });
   void ready.catch(() => undefined);
-  let state: "starting" | "open" | "closing" | "closed" =
-    preparationPending ? "starting" : "open";
+  let state: "starting" | "open" | "closing" | "closed" = preparationPending
+    ? "starting"
+    : "open";
   let transportFailed = false;
   let transportError: unknown;
   let descriptorCommandCompleted = false;
@@ -268,9 +269,12 @@ export function createLoaderPoolWorker(props: {
       });
       observe("sent", { id, phase });
       try {
-        child.stdin.write(JSON.stringify({ id, ...payload }) + "\n", (error) => {
-          if (error) fail(error);
-        });
+        child.stdin.write(
+          JSON.stringify({ id, ...payload }) + "\n",
+          (error) => {
+            if (error) fail(error);
+          },
+        );
       } catch (error) {
         fail(error);
       }
@@ -316,20 +320,19 @@ export function createLoaderPoolWorker(props: {
           if (!preparationPending)
             throw new Error(`${props.mode}: unexpected readiness ${line}`);
           preparationPending = false;
-          if (reply.error !== undefined)
-            fail(new Error(reply.error));
+          if (reply.error !== undefined) fail(new Error(reply.error));
           else if (
             reply.preparation === undefined ||
             !Array.isArray(reply.preparation.binaries) ||
-            !reply.preparation.binaries.every((binary) => typeof binary === "string") ||
+            !reply.preparation.binaries.every(
+              (binary) => typeof binary === "string",
+            ) ||
             typeof reply.preparation.startedAt !== "string" ||
             typeof reply.preparation.finishedAt !== "string" ||
             !Number.isFinite(reply.preparation.elapsedMs) ||
             reply.preparation.elapsedMs < 0
           )
-            fail(
-              new Error(`${props.mode}: preparation result is missing`),
-            );
+            fail(new Error(`${props.mode}: preparation result is missing`));
           else {
             if (state === "starting") state = "open";
             resolvePreparation(reply.preparation);
@@ -376,7 +379,9 @@ export function createLoaderPoolWorker(props: {
       state = "closed";
       props.signal?.removeEventListener("abort", cancel);
       if (buffered.length !== 0)
-        fail(new Error(`${props.mode}: trailing incomplete response ${buffered}`));
+        fail(
+          new Error(`${props.mode}: trailing incomplete response ${buffered}`),
+        );
       const closeErrors: unknown[] = [];
       try {
         fs.writeFileSync(diagnosticsFile, Buffer.concat(stderr), {
@@ -391,12 +396,18 @@ export function createLoaderPoolWorker(props: {
       if (processError !== undefined && !closeErrors.includes(processError))
         closeErrors.push(processError);
       if (code !== 0 || signal !== null)
-        closeErrors.push(new Error(
-          `${props.mode}: status=${code} signal=${signal}\n${diagnostics()}`,
-        ));
-      const error = closeErrors.length > 1
-        ? new AggregateError(closeErrors, `${props.mode}: terminal transport and diagnostics`)
-        : closeErrors[0];
+        closeErrors.push(
+          new Error(
+            `${props.mode}: status=${code} signal=${signal}\n${diagnostics()}`,
+          ),
+        );
+      const error =
+        closeErrors.length > 1
+          ? new AggregateError(
+              closeErrors,
+              `${props.mode}: terminal transport and diagnostics`,
+            )
+          : closeErrors[0];
       if (preparationPending) {
         preparationPending = false;
         rejectPreparation(
@@ -420,9 +431,12 @@ export function createLoaderPoolWorker(props: {
       }
       observe("close-sent", { pending: pending.size });
       try {
-        child.stdin.end(JSON.stringify({ close: true }) + "\n", (error?: Error | null) => {
-          if (error) fail(error);
-        });
+        child.stdin.end(
+          JSON.stringify({ close: true }) + "\n",
+          (error?: Error | null) => {
+            if (error) fail(error);
+          },
+        );
       } catch (error) {
         fail(error);
       }
@@ -479,7 +493,10 @@ export function createLoaderPoolWorker(props: {
       ),
     diagnostics,
     pluginLock: (input: { root: string; api: string; action: string }) =>
-      send({ pluginLock: input }, ("plugin-lock:" + input.action).slice(0, 128)),
+      send(
+        { pluginLock: input },
+        ("plugin-lock:" + input.action).slice(0, 128),
+      ),
     close,
   };
 }

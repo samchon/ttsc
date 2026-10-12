@@ -100,13 +100,15 @@ export function mappedResolutionWitnessCorpus(options: {
       tsconfig,
       JSON.stringify({
         compilerOptions: {
-          plugins: [{
-            transform: descriptor,
-            fixtureSource: options.fixtureSource,
-            evaluationCounter: counter,
-            nearPackage: near,
-            createNear: change,
-          }],
+          plugins: [
+            {
+              transform: descriptor,
+              fixtureSource: options.fixtureSource,
+              evaluationCounter: counter,
+              nearPackage: near,
+              createNear: change,
+            },
+          ],
         },
       }),
     );
@@ -117,11 +119,12 @@ export function mappedResolutionWitnessCorpus(options: {
     assert.equal((process.env.NODE_OPTIONS ?? "").trim(), "");
     collect("stable ordinary capability publication and replay", () => {
       const project = prepare("stable", false);
-      const query = () => resolveCapabilityPluginResolution({
-        cwd: project.cwd,
-        tsconfig: project.tsconfig,
-        capability: "probe",
-      });
+      const query = () =>
+        resolveCapabilityPluginResolution({
+          cwd: project.cwd,
+          tsconfig: project.tsconfig,
+          capability: "probe",
+        });
       const first = query();
       assert.equal(first.status, "resolved");
       assert.equal(first.plugins.length, 1);
@@ -151,11 +154,12 @@ export function mappedResolutionWitnessCorpus(options: {
     });
     collect("ordinary capability refusal recovery and replay", () => {
       const project = prepare("capability-change", true);
-      const query = () => resolveCapabilityPluginResolution({
-        cwd: project.cwd,
-        tsconfig: project.tsconfig,
-        capability: "probe",
-      });
+      const query = () =>
+        resolveCapabilityPluginResolution({
+          cwd: project.cwd,
+          tsconfig: project.tsconfig,
+          capability: "probe",
+        });
       const changed = query();
       assert.equal(changed.status, "resolved");
       assert.equal(changed.plugins.length, 1);

@@ -1,8 +1,8 @@
 import path from "node:path";
 
-import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
 import { CONFIG_DIR_TEMPLATE_LIST_OPTIONS } from "./CONFIG_DIR_TEMPLATE_LIST_OPTIONS";
 import { CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS } from "./CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS";
+import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
 import { absolutizePathsTarget } from "./absolutizePathsTarget";
 import { findDeclaredCompilerOption } from "./findDeclaredCompilerOption";
 import { findDeclaredPaths } from "./findDeclaredPaths";

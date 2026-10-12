@@ -122,9 +122,9 @@ function prepare(coordinates?: {
 
 /**
  * Lay out an installed `@ttsc/graph` under `directory`: a copy of the built
- * package and links to the dependencies it loads. The copy is a real
- * directory, so Node module resolution for its platform package starts from
- * the installation rather than from the checkout.
+ * package and links to the dependencies it loads. The copy is a real directory,
+ * so Node module resolution for its platform package starts from the
+ * installation rather than from the checkout.
  */
 function installGraph(directory: string): {
   launcher: string;
@@ -182,7 +182,9 @@ export function launch(
   const result = TestProject.spawn(
     process.execPath,
     [
-      options.launcher ?? prepared?.installed.launcher ?? resolveGraphLauncher(),
+      options.launcher ??
+        prepared?.installed.launcher ??
+        resolveGraphLauncher(),
       ...args,
     ],
     {

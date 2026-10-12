@@ -31,22 +31,22 @@ func TestDriverRewriteMarkerHeader(t *testing.T) {
     file := shimparser.ParseSourceFile(ast.SourceFileParseOptions{FileName: "/marker.js"}, text, shimcore.ScriptKindJS)
     return insertSentinel(text, file)
   }
-  for _, test := range []struct { name, input, expected string }{
+  for _, test := range []struct{ name, input, expected string }{
     {"empty", "", marker},
-    {"plain", "value();\n", marker+"value();\n"},
-    {"strict", "\"use strict\";\nvalue();", "\"use strict\";\n"+marker+"value();"},
-    {"single-strict-crlf", "'use strict';\r\nvalue();", "'use strict';\r\n"+marker+"value();"},
-    {"directives", "\"use strict\";\n\"custom\";\nvalue();", "\"use strict\";\n\"custom\";\n"+marker+"value();"},
-    {"same-line-directives", "\"use strict\";\"custom\";value();", "\"use strict\";\"custom\";\n"+marker+"value();"},
-    {"bom", "\uFEFFvalue();", "\uFEFF"+marker+"value();"},
-    {"shebang", "#!/usr/bin/env node\nvalue();", "#!/usr/bin/env node\n"+marker+"value();"},
-    {"shebang-eof", "#!/usr/bin/env node", "#!/usr/bin/env node\n"+marker},
-    {"directive-data", "\"/* @ttsc-rewritten */\";\nvalue();", "\"/* @ttsc-rewritten */\";\n"+marker+"value();"},
-    {"string", "const marker = \"/* @ttsc-rewritten */\";", marker+"const marker = \"/* @ttsc-rewritten */\";"},
-    {"template", "const marker = `/* @ttsc-rewritten */`;", marker+"const marker = `/* @ttsc-rewritten */`;"},
-    {"line-comment", "// /* @ttsc-rewritten */\nvalue();", marker+"// /* @ttsc-rewritten */\nvalue();"},
-    {"larger-comment", "/* prefix /* @ttsc-rewritten */\nvalue();", marker+"/* prefix /* @ttsc-rewritten */\nvalue();"},
-    {"body-comment", "value();\n/* @ttsc-rewritten */\nother();", marker+"value();\n/* @ttsc-rewritten */\nother();"},
+    {"plain", "value();\n", marker + "value();\n"},
+    {"strict", "\"use strict\";\nvalue();", "\"use strict\";\n" + marker + "value();"},
+    {"single-strict-crlf", "'use strict';\r\nvalue();", "'use strict';\r\n" + marker + "value();"},
+    {"directives", "\"use strict\";\n\"custom\";\nvalue();", "\"use strict\";\n\"custom\";\n" + marker + "value();"},
+    {"same-line-directives", "\"use strict\";\"custom\";value();", "\"use strict\";\"custom\";\n" + marker + "value();"},
+    {"bom", "\uFEFFvalue();", "\uFEFF" + marker + "value();"},
+    {"shebang", "#!/usr/bin/env node\nvalue();", "#!/usr/bin/env node\n" + marker + "value();"},
+    {"shebang-eof", "#!/usr/bin/env node", "#!/usr/bin/env node\n" + marker},
+    {"directive-data", "\"/* @ttsc-rewritten */\";\nvalue();", "\"/* @ttsc-rewritten */\";\n" + marker + "value();"},
+    {"string", "const marker = \"/* @ttsc-rewritten */\";", marker + "const marker = \"/* @ttsc-rewritten */\";"},
+    {"template", "const marker = `/* @ttsc-rewritten */`;", marker + "const marker = `/* @ttsc-rewritten */`;"},
+    {"line-comment", "// /* @ttsc-rewritten */\nvalue();", marker + "// /* @ttsc-rewritten */\nvalue();"},
+    {"larger-comment", "/* prefix /* @ttsc-rewritten */\nvalue();", marker + "/* prefix /* @ttsc-rewritten */\nvalue();"},
+    {"body-comment", "value();\n/* @ttsc-rewritten */\nother();", marker + "value();\n/* @ttsc-rewritten */\nother();"},
   } {
     t.Run(test.name, func(t *testing.T) {
       got := insert(test.input)
@@ -59,8 +59,8 @@ func TestDriverRewriteMarkerHeader(t *testing.T) {
     })
   }
   for _, legacy := range []string{
-    marker+"\"use strict\";\n\"custom\";\nvalue();",
-    "\"use strict\";\n"+marker+"\"custom\";\nvalue();",
+    marker + "\"use strict\";\n\"custom\";\nvalue();",
+    "\"use strict\";\n" + marker + "\"custom\";\nvalue();",
   } {
     if got := insert(legacy); got != legacy {
       t.Fatalf("historical marker changed: %q", got)

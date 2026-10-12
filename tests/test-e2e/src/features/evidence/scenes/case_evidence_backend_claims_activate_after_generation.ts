@@ -6,8 +6,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 import { sanitizeBenchmarkEnvironment } from "../../../../../../benchmarks/evidence/src/sanitizeBenchmarkEnvironment";
-import { CompilerArtifactPreparation } from "../../../../../utils/src/CompilerArtifactPreparation";
 import type { CompilerArchives } from "../../../../../utils/src/CompilerArchives";
+import { CompilerArtifactPreparation } from "../../../../../utils/src/CompilerArtifactPreparation";
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { EvidenceProcessOwnership } from "../../../../../utils/src/evidence/EvidenceProcessOwnership";
 import { BackendActivation } from "../../../internal/evidence/BackendActivation";
@@ -229,8 +229,9 @@ export async function case_evidence_backend_claims_activate_after_generation(
       workspace,
     );
     const backend = path.join(workspace, "packages/backend");
-    const compilerManifest = createRequire(path.join(backend, "package.json"))
-      .resolve("ttsc/package.json");
+    const compilerManifest = createRequire(
+      path.join(backend, "package.json"),
+    ).resolve("ttsc/package.json");
     const nativeManifest = createRequire(compilerManifest).resolve(
       `@ttsc/${process.platform}-${process.arch}/package.json`,
     );

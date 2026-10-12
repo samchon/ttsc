@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { WatchBuildObservation } from "../../../../utils/src/WatchBuildObservation";
 
 /**
- * Verifies watch observations follow actual markers, terminal events and silence.
+ * Verifies watch observations follow actual markers, terminal events and
+ * silence.
  *
  * The same portable observer used by WatchSession consumes authored chunks;
  * direct calls distinguish stream splits and queued cycles without a process.
@@ -22,13 +23,21 @@ export async function test_watch_build_observation_uses_actual_markers_and_termi
   assert.equal(watch.completed(), 0);
   assert.doesNotThrow(() => watch.assertRunning());
   let completed = false;
-  const first = watch.waitForBuilds(1).then(() => { completed = true; });
-  watch.append("[ttsc] rebuilding at first\nnoise watch build complete\n[ttsc] watch bu", "stdout");
+  const first = watch.waitForBuilds(1).then(() => {
+    completed = true;
+  });
+  watch.append(
+    "[ttsc] rebuilding at first\nnoise watch build complete\n[ttsc] watch bu",
+    "stdout",
+  );
   watch.append("ild complete\n", "stderr");
   await Promise.resolve();
   assert.equal(completed, false);
   assert.equal(watch.completed(), 0);
-  watch.append("ild complete\n[ttsc] rebuilding at second\n[ttsc] watch build fai", "stdout");
+  watch.append(
+    "ild complete\n[ttsc] rebuilding at second\n[ttsc] watch build fai",
+    "stdout",
+  );
   await first;
   assert.equal(watch.completed(), 1);
   watch.append("led\n", "stdout");
@@ -43,18 +52,32 @@ export async function test_watch_build_observation_uses_actual_markers_and_termi
   const original = new Error("original stream error");
   const missing = failed.waitForBuilds(1);
   failed.fail(original);
-  assert.throws(() => failed.assertRunning(), (error: Error) => error === original);
+  assert.throws(
+    () => failed.assertRunning(),
+    (error: Error) => error === original,
+  );
   await assert.rejects(missing, (error: Error) => error.cause === original);
-  await assert.rejects(failed.waitForSettled(0), (error: Error) => error.cause === original);
-  await assert.rejects(failed.waitForQuiet(0), (error: Error) => error === original);
+  await assert.rejects(
+    failed.waitForSettled(0),
+    (error: Error) => error.cause === original,
+  );
+  await assert.rejects(
+    failed.waitForQuiet(0),
+    (error: Error) => error === original,
+  );
 
   const pending = new WatchBuildObservation("queued watch");
   pending.append("[ttsc] rebuilding at first\n", "stderr");
   let settled = false;
-  const settlement = pending.waitForSettled(0).then(() => { settled = true; });
+  const settlement = pending.waitForSettled(0).then(() => {
+    settled = true;
+  });
   await Promise.resolve();
   assert.equal(settled, false);
-  pending.append("[ttsc] watch build complete\n[ttsc] rebuilding at queued\n", "stderr");
+  pending.append(
+    "[ttsc] watch build complete\n[ttsc] rebuilding at queued\n",
+    "stderr",
+  );
   await Promise.resolve();
   assert.equal(settled, false);
   pending.append("[ttsc] watch build failed\n", "stderr");
@@ -65,8 +88,10 @@ export async function test_watch_build_observation_uses_actual_markers_and_termi
   for (const transition of ["start", "complete", "error", "close"] as const) {
     const observed = new WatchBuildObservation(transition);
     const quiet = observed.waitForQuiet(10_000);
-    if (transition === "start") observed.append("[ttsc] rebuilding at next\n", "stdout");
-    else if (transition === "complete") observed.append("[ttsc] watch build complete\n", "stderr");
+    if (transition === "start")
+      observed.append("[ttsc] rebuilding at next\n", "stdout");
+    else if (transition === "complete")
+      observed.append("[ttsc] watch build complete\n", "stderr");
     else if (transition === "error") observed.fail(original);
     else observed.close();
     await assert.rejects(quiet);

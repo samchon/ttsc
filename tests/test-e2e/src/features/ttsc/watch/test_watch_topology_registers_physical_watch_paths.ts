@@ -78,7 +78,9 @@ export const test_watch_topology_registers_physical_watch_paths =
       },
       {
         onError: (location, error) => {
-          topologyFailure ??= new Error(`watch error on ${location}`, { cause: error });
+          topologyFailure ??= new Error(`watch error on ${location}`, {
+            cause: error,
+          });
         },
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => undefined,
@@ -95,12 +97,16 @@ export const test_watch_topology_registers_physical_watch_paths =
           .map((change) => change.path)
           .filter((location): location is string => location !== undefined)
           .filter((location) => path.basename(location) === "main.ts");
-      await waitFor(() => {
-        owner.check();
-        if (sourceChanges().length !== 0) return true;
-        fs.writeFileSync(source, "export const value = 2;\n", "utf8");
-        return false;
-      }, "aliased project source event", owner);
+      await waitFor(
+        () => {
+          owner.check();
+          if (sourceChanges().length !== 0) return true;
+          fs.writeFileSync(source, "export const value = 2;\n", "utf8");
+          return false;
+        },
+        "aliased project source event",
+        owner,
+      );
       const reported = sourceChanges();
       assert.equal(
         reported.every((location) => location === source),

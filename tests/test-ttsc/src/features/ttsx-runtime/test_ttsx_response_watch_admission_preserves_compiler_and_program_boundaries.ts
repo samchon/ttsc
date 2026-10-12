@@ -7,9 +7,10 @@ import { assertTtsxNoWatch } from "../../../../../packages/ttsc/src/launcher/int
 import { parseTtsxCLI } from "../../../../../packages/ttsc/src/launcher/internal/parseTtsxCLI";
 
 /**
- * Verifies one-shot mode admission over real response files at the compiler cwd.
- * Parsing keeps the entry/program boundary; preparation's exact shared guard
- * observes only the compiler projection. No compiler, program or watcher runs.
+ * Verifies one-shot mode admission over real response files at the compiler
+ * cwd. Parsing keeps the entry/program boundary; preparation's exact shared
+ * guard observes only the compiler projection. No compiler, program or watcher
+ * runs.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual parser feeds its compiler projection to the actual pre-build guard with a real selected-project directory and authored response bytes; supported requests return and unsupported or unreadable requests throw.
  * @evidence contracts/testing.md#independent-expectations One-shot execution refuses every watch spelling even with false/null operands; scalar @ values and program arguments are data, and relative nested frames retain the compiler cwd.
@@ -99,7 +100,10 @@ export function test_ttsx_response_watch_admission_preserves_compiler_and_progra
       });
     check("incomplete UTF16 and missing response fail", () => {
       fs.writeFileSync(file, Buffer.from([0xff, 0xfe, 0x20]));
-      assert.throws(() => admit(["@flags.rsp", "entry.ts"]), /Incomplete UTF-16/);
+      assert.throws(
+        () => admit(["@flags.rsp", "entry.ts"]),
+        /Incomplete UTF-16/,
+      );
       fs.unlinkSync(file);
       assert.throws(() => admit(["@flags.rsp", "entry.ts"]), /ENOENT/);
     });

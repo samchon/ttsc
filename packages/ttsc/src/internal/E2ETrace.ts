@@ -51,7 +51,9 @@ export namespace E2ETrace {
   export function runtimeCleanup(
     directory: string,
     runtimeCacheDir: string,
-    origin: "ttsx-runtime-cleanup" | "runtime-clean-selection" = "ttsx-runtime-cleanup",
+    origin:
+      | "ttsx-runtime-cleanup"
+      | "runtime-clean-selection" = "ttsx-runtime-cleanup",
   ):
     | ((
         phase: string,

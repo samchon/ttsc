@@ -89,7 +89,9 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
       },
       {
         onError: (location, error) => {
-          topologyFailure ??= new Error(`watch error on ${location}`, { cause: error });
+          topologyFailure ??= new Error(`watch error on ${location}`, {
+            cause: error,
+          });
         },
         onInputChange: (change) => changes.push(change),
         onProjectInputWatchRoots: (roots) => {
@@ -112,7 +114,12 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
 
       await writeAndWait(owner, changes, exact, "exact\n");
       await writeAndWait(owner, changes, exactInput, "case-distinct output\n");
-      await writeAndWait(owner, changes, path.join(globRoot, "openapi.json"), "{}\n");
+      await writeAndWait(
+        owner,
+        changes,
+        path.join(globRoot, "openapi.json"),
+        "{}\n",
+      );
     } finally {
       topology.close();
     }
@@ -127,15 +134,19 @@ async function writeAndWait(
   const count = changes.length;
   fs.mkdirSync(path.dirname(location), { recursive: true });
   fs.writeFileSync(location, content, "utf8");
-  await waitFor(() => changes
-      .slice(count)
-      .some(
-        (change) =>
-          change.kind === "project" &&
-          change.path !== undefined &&
-          pathMatchesOrContains(change.path, location),
-      ),
-    `project change for ${location}`, owner);
+  await waitFor(
+    () =>
+      changes
+        .slice(count)
+        .some(
+          (change) =>
+            change.kind === "project" &&
+            change.path !== undefined &&
+            pathMatchesOrContains(change.path, location),
+        ),
+    `project change for ${location}`,
+    owner,
+  );
   owner.check();
   await delay();
   owner.check();

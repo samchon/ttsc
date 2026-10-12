@@ -5,8 +5,8 @@ import path from "node:path";
 import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-import { isOrdinarilyClosedReadonlyLauncher } from "../../../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
 import { waitFor } from "../../../../../utils/src/internal/waitFor";
+import { isOrdinarilyClosedReadonlyLauncher } from "../../../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
 
 /**
  * Verifies response-selected native products agree with real watch delivery.
@@ -85,7 +85,10 @@ export async function case_watch_topology_preserves_response_file_products(
   // Keep a native case witness in the future output directory before resolving
   // its missing product. This also prevents empty-directory probing on Windows.
   fs.mkdirSync(path.dirname(final));
-  fs.writeFileSync(path.join(path.dirname(final), "CaseProof.txt"), "case proof");
+  fs.writeFileSync(
+    path.join(path.dirname(final), "CaseProof.txt"),
+    "case proof",
+  );
   if (
     !(await capture("initial native product bootstrap", async () => {
       emit(selected);
@@ -105,7 +108,9 @@ export async function case_watch_topology_preserves_response_file_products(
     },
     {
       onError: (location, cause) => {
-        const failure = new Error("response topology error at " + location, { cause });
+        const failure = new Error("response topology error at " + location, {
+          cause,
+        });
         topologyFailure ??= failure;
         failures.push(failure);
       },
@@ -143,7 +148,11 @@ export async function case_watch_topology_preserves_response_file_products(
           );
         }),
       "response topology " + kind + ": " + file,
-      { check: () => { if (topologyFailure) throw topologyFailure; } },
+      {
+        check: () => {
+          if (topologyFailure) throw topologyFailure;
+        },
+      },
     );
     await settle();
   };
@@ -193,8 +202,9 @@ export async function case_watch_topology_preserves_response_file_products(
         "response-selected topology refresh",
         async () => topology.refresh(false),
       );
-      const emitted = await capture("final native product bootstrap", async () =>
-        emit(final),
+      const emitted = await capture(
+        "final native product bootstrap",
+        async () => emit(final),
       );
       if (refreshed && emitted)
         await capture("actual final product stays quiet", () =>

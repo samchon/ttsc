@@ -31,8 +31,8 @@ func TestCompletionHintsPublicationPreservesTerminalOutcomes(t *testing.T) {
   t.Setenv("TTSC_E2E_TRACE", root)
   for _, entry := range []struct {
     outcome string
-    hints int
-    err error
+    hints   int
+    err     error
   }{
     {"published", 0, nil},
     {"published", 2, nil},
@@ -47,22 +47,32 @@ func TestCompletionHintsPublicationPreservesTerminalOutcomes(t *testing.T) {
     t.Fatalf("observer sink: %v %v", entries, err)
   }
   body, err := os.ReadFile(filepath.Join(root, entries[0].Name()))
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   lines := strings.Split(strings.TrimSuffix(string(body), "\n"), "\n")
-  expected := []struct{ outcome string; hints float64; err string }{
+  expected := []struct {
+    outcome string
+    hints   float64
+    err     string
+  }{
     {"published", 0, ""}, {"published", 2, ""},
     {"run-failed", 0, "native failed"}, {"decode-failed", 0, "invalid JSON"},
     {"superseded", 2, ""},
   }
-  if len(lines) != len(expected) { t.Fatalf("got %d terminal records", len(lines)) }
+  if len(lines) != len(expected) {
+    t.Fatalf("got %d terminal records", len(lines))
+  }
   for index, line := range lines {
     var record struct {
-      Schema int `json:"schema"`
-      Event string `json:"event"`
-      Cwd string `json:"cwd"`
-      Data map[string]any `json:"data"`
+      Schema int            `json:"schema"`
+      Event  string         `json:"event"`
+      Cwd    string         `json:"cwd"`
+      Data   map[string]any `json:"data"`
     }
-    if err := json.Unmarshal([]byte(line), &record); err != nil { t.Fatal(err) }
+    if err := json.Unmarshal([]byte(line), &record); err != nil {
+      t.Fatal(err)
+    }
     want := expected[index]
     if record.Schema != 1 || record.Event != "lsp-hints-publication" || record.Cwd != "project" ||
       record.Data["producer"] != "producer" || record.Data["generation"] != float64(7) ||
@@ -70,7 +80,11 @@ func TestCompletionHintsPublicationPreservesTerminalOutcomes(t *testing.T) {
       t.Errorf("terminal %d: %s", index, line)
     }
     if want.err == "" {
-      if _, exists := record.Data["error"]; exists { t.Errorf("unexpected terminal error: %s", line) }
-    } else if record.Data["error"] != want.err { t.Errorf("terminal error: %s", line) }
+      if _, exists := record.Data["error"]; exists {
+        t.Errorf("unexpected terminal error: %s", line)
+      }
+    } else if record.Data["error"] != want.err {
+      t.Errorf("terminal error: %s", line)
+    }
   }
 }

@@ -23,7 +23,10 @@ export namespace CompilerArtifactPreparation {
    * that child loads the same implementation as the TypeScript facade.
    */
   export const runtimePath = fileURLToPath(
-    new URL("./internal/CompilerArtifactPreparationRuntime.cjs", import.meta.url),
+    new URL(
+      "./internal/CompilerArtifactPreparationRuntime.cjs",
+      import.meta.url,
+    ),
   );
   const runtime = createRequire(import.meta.url)(runtimePath) as {
     prepareArtifacts: typeof prepare;

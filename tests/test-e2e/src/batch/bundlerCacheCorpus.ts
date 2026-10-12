@@ -205,7 +205,9 @@ export async function bundlerCacheCorpus(
   ): Promise<void> => {
     if (releaseUnconfirmed) {
       failures.push(
-        new Error(name + " blocked by unconfirmed host release or fixture state"),
+        new Error(
+          name + " blocked by unconfirmed host release or fixture state",
+        ),
       );
       return;
     }
@@ -277,8 +279,14 @@ export async function bundlerCacheCorpus(
         assert.ok(first);
         assert.match(first.code, /ID: STRING/);
         const acceptedCalls = observedCompilerCalls();
-        assert.ok(acceptedCalls > beforeCalls, "the accepted cold generation requires actual native delivery");
-        console.info("accepted record cold compiler calls", acceptedCalls - beforeCalls);
+        assert.ok(
+          acceptedCalls > beforeCalls,
+          "the accepted cold generation requires actual native delivery",
+        );
+        console.info(
+          "accepted record cold compiler calls",
+          acceptedCalls - beforeCalls,
+        );
         assert.equal(cache.size, 1);
         const owner = [...cache.values()][0]!;
         const generation = await owner;
@@ -304,7 +312,11 @@ export async function bundlerCacheCorpus(
                 : reject(new Error("opening webpack returned no stats")),
           ),
         );
-        assert.equal(stats.hasErrors(), false, stats.toString({ errors: true }));
+        assert.equal(
+          stats.hasErrors(),
+          false,
+          stats.toString({ errors: true }),
+        );
         assert.equal(stats.compilation.entries.size, 0);
         assert.equal(fs.existsSync(record), false);
         const opened = opening;
@@ -314,7 +326,11 @@ export async function bundlerCacheCorpus(
         assert.equal((await deliver())?.code, first.code);
         assert.equal([...cache.values()][0], owner);
         assert.equal(await owner, generation);
-        assert.equal(observedCompilerCalls(), acceptedCalls, "record recovery reuses the accepted native generation");
+        assert.equal(
+          observedCompilerCalls(),
+          acceptedCalls,
+          "record recovery reuses the accepted native generation",
+        );
         assert.equal(handed.length, 2);
         assert.equal(handed[1]!.record, record);
         assert.equal(handed[1]!.inputs(), snapshot);
@@ -333,7 +349,11 @@ export async function bundlerCacheCorpus(
         assert.equal(handed[2]!.digest, handed[1]!.digest);
         assert.equal(handed[2]!.inputs(), snapshot);
         assert.equal([...cache.values()][0], owner);
-        assert.equal(observedCompilerCalls(), acceptedCalls, "record recovery reuses the accepted native generation");
+        assert.equal(
+          observedCompilerCalls(),
+          acceptedCalls,
+          "record recovery reuses the accepted native generation",
+        );
       } catch (error) {
         errors.push(error);
       } finally {
@@ -365,12 +385,16 @@ export async function bundlerCacheCorpus(
           releaseUnconfirmed = true;
           BatchWorkspace.retain("bundler cache cwd restoration failed");
         } finally {
-          if (previousPolling === undefined) delete process.env.WATCHPACK_POLLING;
+          if (previousPolling === undefined)
+            delete process.env.WATCHPACK_POLLING;
           else process.env.WATCHPACK_POLLING = previousPolling;
         }
       }
       if (errors.length)
-        throw new AggregateError(errors, "accepted record host recovery failed");
+        throw new AggregateError(
+          errors,
+          "accepted record host recovery failed",
+        );
     });
     await collect("webpack watch delivery and content frontier", async () => {
       const beforeCalls = observedCompilerCalls();
@@ -499,12 +523,18 @@ export async function bundlerCacheCorpus(
         ]);
         for (const [index, close] of closes.entries()) {
           if (close.status !== "rejected") continue;
-          observeWatch(index === 0 ? "watch-close-failed" : "compiler-close-failed", {
-            phase, error: diagnosticError(close.reason),
-          });
+          observeWatch(
+            index === 0 ? "watch-close-failed" : "compiler-close-failed",
+            {
+              phase,
+              error: diagnosticError(close.reason),
+            },
+          );
           errors.push(close.reason);
           releaseUnconfirmed = true;
-          BatchWorkspace.retain("webpack original watcher/compiler closure unqualified");
+          BatchWorkspace.retain(
+            "webpack original watcher/compiler closure unqualified",
+          );
         }
         observeWatch("watch-settled", {
           phase,

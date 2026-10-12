@@ -1,10 +1,10 @@
 import { TestProject, retainNativeLintProducer } from "@ttsc/testing";
-import { LspCompletionPublication } from "../../../utils/src/LspCompletionPublication";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { LspCompletionPublication } from "../../../utils/src/LspCompletionPublication";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { lspSelectionCorpus } from "../batch/lspSelectionCorpus";
 import {
@@ -995,18 +995,15 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
           // VS Code asks for on a ttsc squiggle.
           const actions = await step(
             "textDocument/codeAction",
-            client.request<CodeAction[] | null>(
-              "textDocument/codeAction",
-              {
-                context: {
-                  diagnostics: [savedLint],
-                  only: ["source.fixAll.ttsc"],
-                  triggerKind: 1,
-                },
-                range: savedLint.range,
-                textDocument: { uri },
+            client.request<CodeAction[] | null>("textDocument/codeAction", {
+              context: {
+                diagnostics: [savedLint],
+                only: ["source.fixAll.ttsc"],
+                triggerKind: 1,
               },
-            ),
+              range: savedLint.range,
+              textDocument: { uri },
+            }),
           );
           const fixAll = (actions ?? []).find(
             (action) => action.command?.command === "ttsc.lint.fixAll",
@@ -1025,13 +1022,10 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
           // The advertised native command receives malformed semantic arguments,
           // exits through its real stderr path, and must not retire this session.
           await assert.rejects(
-            client.request(
-              "workspace/executeCommand",
-              {
-                arguments: [],
-                command: "ttsc.lint.fixAll",
-              },
-            ),
+            client.request("workspace/executeCommand", {
+              arguments: [],
+              command: "ttsc.lint.fixAll",
+            }),
             /ttsc command "ttsc\.lint\.fixAll" failed:[\s\S]*lsp-execute-command failed:[\s\S]*missing URI argument/,
           );
           assert.equal(
@@ -1043,13 +1037,10 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
           // itself, so the sidecar must not touch the file.
           const edit = await step(
             "workspace/executeCommand",
-            client.request<WorkspaceEdit>(
-              "workspace/executeCommand",
-              {
-                arguments: fixAll.command?.arguments,
-                command: "ttsc.lint.fixAll",
-              },
-            ),
+            client.request<WorkspaceEdit>("workspace/executeCommand", {
+              arguments: fixAll.command?.arguments,
+              command: "ttsc.lint.fixAll",
+            }),
           );
           const edits = edit.changes?.[uri] ?? [];
           assert.ok(edits.length > 0, "expected WorkspaceEdit changes");
@@ -1172,20 +1163,17 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
             });
             const actions = await step(
               control.filename + " code action",
-              client.request<CodeAction[]>(
-                "textDocument/codeAction",
-                {
-                  textDocument: { uri: controlUri },
-                  range: {
-                    start: { line: 0, character: 0 },
-                    end: {
-                      line: control.wholeRange ? 0 : 2,
-                      character: control.wholeRange ? control.source.length : 0,
-                    },
+              client.request<CodeAction[]>("textDocument/codeAction", {
+                textDocument: { uri: controlUri },
+                range: {
+                  start: { line: 0, character: 0 },
+                  end: {
+                    line: control.wholeRange ? 0 : 2,
+                    character: control.wholeRange ? control.source.length : 0,
                   },
-                  context: { diagnostics: [], only: [control.only] },
                 },
-              ),
+                context: { diagnostics: [], only: [control.only] },
+              }),
             );
             const action = actions.find(
               (candidate) => candidate.command?.command === control.command,
@@ -1197,10 +1185,10 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
             assert.equal(action.kind, control.only);
             const edit = await step(
               control.filename + " execute command",
-              client.request<WorkspaceEdit>(
-                "workspace/executeCommand",
-                { command: control.command, arguments: [controlUri] },
-              ),
+              client.request<WorkspaceEdit>("workspace/executeCommand", {
+                command: control.command,
+                arguments: [controlUri],
+              }),
             );
             const edits = edit.changes?.[controlUri] ?? [];
             assert.ok(edits.length > 0);
@@ -1234,13 +1222,10 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
               assert.equal(fs.readFileSync(controlFile, "utf8"), FORMAT_DISK);
               const dirtyEdits = await step(
                 "editor-format dirty buffer formatting",
-                client.request<TextEdit[]>(
-                  "textDocument/formatting",
-                  {
-                    textDocument: { uri: controlUri },
-                    options: { tabSize: 2, insertSpaces: true },
-                  },
-                ),
+                client.request<TextEdit[]>("textDocument/formatting", {
+                  textDocument: { uri: controlUri },
+                  options: { tabSize: 2, insertSpaces: true },
+                }),
               );
               assert.equal(dirtyEdits.length, 1);
               assert.equal(dirtyEdits[0]?.newText, FORMAT_FIXED);
@@ -1255,13 +1240,10 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
               });
               const cleanEdit = await step(
                 "editor-format clean buffer formatting",
-                client.request<TextEdit[]>(
-                  "textDocument/formatting",
-                  {
-                    textDocument: { uri: controlUri },
-                    options: { tabSize: 2, insertSpaces: true },
-                  },
-                ),
+                client.request<TextEdit[]>("textDocument/formatting", {
+                  textDocument: { uri: controlUri },
+                  options: { tabSize: 2, insertSpaces: true },
+                }),
               );
               assert.deepEqual(cleanEdit, []);
               assert.equal(fs.readFileSync(controlFile, "utf8"), FORMAT_DISK);
@@ -1545,7 +1527,9 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
             );
           }
         }
-        console.error("LSP format and completion observations retained: " + retained);
+        console.error(
+          "LSP format and completion observations retained: " + retained,
+        );
       }
     } catch (retentionError) {
       failures.push(retentionError);

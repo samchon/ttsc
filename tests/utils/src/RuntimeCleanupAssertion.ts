@@ -3,13 +3,14 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Validates one completed cleanup invocation against its raw owner observations.
+ * Validates one completed cleanup invocation against its raw owner
+ * observations.
  *
  * The caller supplies independently admitted launcher/main identities, the
  * selected generation and actual retained record names. Cleanup records carry
  * the launcher's native process cwd; the requested launch spelling may differ
- * while naming that same directory. Every frame must retain one raw cwd.
- * This assertion does not join processes, probe PIDs or delete outputs.
+ * while naming that same directory. Every frame must retain one raw cwd. This
+ * assertion does not join processes, probe PIDs or delete outputs.
  *
  * @evidence contracts/common.md#principled-implementation Native realpath binds the recorded process cwd to the requested directory, while exact invocation frames and raw ESRCH/presence/remote/unknown observations independently determine removal or protection.
  * @evidence contracts/common.md#clear-and-simple-design One existing scan assertion serves E2E and direct units; the caller retains actual launcher completion, source/map evidence and physical deletion checks.
@@ -22,13 +23,27 @@ import path from "node:path";
  */
 export function assertRuntimeCleanupEligibility(
   rows: Record<string, any>[],
-  expected: { launcher: number; owner: number; hostname: string; directory: string;
-    cache: string; argv: string[]; cwd: string; ownerNames?: string[] },
+  expected: {
+    launcher: number;
+    owner: number;
+    hostname: string;
+    directory: string;
+    cache: string;
+    argv: string[];
+    cwd: string;
+    ownerNames?: string[];
+  },
 ): boolean {
-  assert.ok(rows.length >= 6, "cleanup must retain its complete original invocation");
+  assert.ok(
+    rows.length >= 6,
+    "cleanup must retain its complete original invocation",
+  );
   const first = rows[0]!;
   assert.ok(path.isAbsolute(first.cwd) && path.isAbsolute(expected.cwd));
-  assert.equal(fs.realpathSync.native(first.cwd), fs.realpathSync.native(expected.cwd));
+  assert.equal(
+    fs.realpathSync.native(first.cwd),
+    fs.realpathSync.native(expected.cwd),
+  );
   assert.ok(Number.isSafeInteger(first.sequence) && first.sequence > 0);
   const seen = new Set<string>();
   let unknown = false;
@@ -40,10 +55,21 @@ export function assertRuntimeCleanupEligibility(
     assert.equal(row.pid, expected.launcher);
     assert.equal(row.instance, first.instance);
     assert.equal(row.invocation, first.invocation);
-    assert.ok(typeof row.instance === "string" && row.invocation.startsWith(row.instance + ":"));
-    assert.equal(row.sequence, first.sequence + index, "no cleanup frame may be missing");
+    assert.ok(
+      typeof row.instance === "string" &&
+        row.invocation.startsWith(row.instance + ":"),
+    );
+    assert.equal(
+      row.sequence,
+      first.sequence + index,
+      "no cleanup frame may be missing",
+    );
     assert.deepEqual(row.argv, expected.argv);
-    assert.equal(row.cwd, first.cwd, "one cleanup invocation must preserve its recorded cwd");
+    assert.equal(
+      row.cwd,
+      first.cwd,
+      "one cleanup invocation must preserve its recorded cwd",
+    );
     assert.equal(row.data.origin, "ttsx-runtime-cleanup");
     assert.equal(row.data.directory, expected.directory);
     assert.equal(row.data.runtimeCacheDir, expected.cache);
@@ -53,34 +79,71 @@ export function assertRuntimeCleanupEligibility(
   assert.equal(rows[0]!.data.phase, "attempt");
   assert.equal(rows[1]!.data.phase, "lock-entered");
   const observations = rows.slice(2, -3);
-  assert.ok(observations.length > 0, "the actual main owner cannot be an unowned run");
+  assert.ok(
+    observations.length > 0,
+    "the actual main owner cannot be an unowned run",
+  );
   for (const row of observations) {
     assert.equal(row.data.phase, "owner-observation");
     assert.equal(live, false, "a scan stops at its first non-gone owner");
     const observation = row.data.ownerObservation;
-    assert.ok(observation && typeof observation.record === "string" && observation.record === path.basename(observation.record) && observation.record.startsWith("owner-") && observation.record.endsWith(".json"));
+    assert.ok(
+      observation &&
+        typeof observation.record === "string" &&
+        observation.record === path.basename(observation.record) &&
+        observation.record.startsWith("owner-") &&
+        observation.record.endsWith(".json"),
+    );
     assert.equal(seen.has(observation.record), false);
     seen.add(observation.record);
-    assert.notEqual(observation.record, `owner-${expected.launcher}.json`, "the completed CLI relinquishes only its own claim");
+    assert.notEqual(
+      observation.record,
+      `owner-${expected.launcher}.json`,
+      "the completed CLI relinquishes only its own claim",
+    );
     if (observation.result === "invalid-record") {
       assert.equal(observation.owner, undefined);
       unknown = true;
       continue;
     }
-    assert.ok(observation.owner && Number.isSafeInteger(observation.owner.pid) && observation.owner.pid > 0);
+    assert.ok(
+      observation.owner &&
+        Number.isSafeInteger(observation.owner.pid) &&
+        observation.owner.pid > 0,
+    );
     assert.equal(observation.record, `owner-${observation.owner.pid}.json`);
-    assert.ok(typeof observation.owner.hostname === "string" && observation.owner.hostname.length > 0);
+    assert.ok(
+      typeof observation.owner.hostname === "string" &&
+        observation.owner.hostname.length > 0,
+    );
     if (observation.result === "remote") {
-      assert.notEqual(observation.owner.hostname.toLowerCase(), expected.hostname.toLowerCase());
+      assert.notEqual(
+        observation.owner.hostname.toLowerCase(),
+        expected.hostname.toLowerCase(),
+      );
       assert.equal(observation.errorCode, undefined);
       live = true;
     } else {
-      assert.equal(observation.owner.hostname.toLowerCase(), expected.hostname.toLowerCase());
+      assert.equal(
+        observation.owner.hostname.toLowerCase(),
+        expected.hostname.toLowerCase(),
+      );
       // ESRCH, a Linux /proc read the collection raced (ENOENT), or a last-thread zombie (/proc state Z or X).
-      if (observation.result === "absent") assert.ok(observation.errorCode === "ESRCH" || (observation.errorCode === "ENOENT" && process.platform === "linux") || (observation.errorCode === undefined && (observation.state === "Z" || observation.state === "X")), JSON.stringify(observation));
+      if (observation.result === "absent")
+        assert.ok(
+          observation.errorCode === "ESRCH" ||
+            (observation.errorCode === "ENOENT" &&
+              process.platform === "linux") ||
+            (observation.errorCode === undefined &&
+              (observation.state === "Z" || observation.state === "X")),
+          JSON.stringify(observation),
+        );
       else {
-        assert.ok(observation.result === "present" || observation.result === "unknown");
-        if (observation.result === "present") assert.equal(observation.errorCode, undefined);
+        assert.ok(
+          observation.result === "present" || observation.result === "unknown",
+        );
+        if (observation.result === "present")
+          assert.equal(observation.errorCode, undefined);
         else assert.notEqual(observation.errorCode, "ESRCH");
         live = true;
       }
@@ -88,16 +151,28 @@ export function assertRuntimeCleanupEligibility(
   }
   const retained = live || unknown;
   const ownership = live ? "live" : unknown ? "unknown" : "abandoned";
-  assert.deepEqual(rows.slice(-3).map((row) => [row.data.phase, row.data.ownership]),
-    [["ownership", ownership], [retained ? "retained" : "removed", ownership], ["completed", undefined]]);
+  assert.deepEqual(
+    rows.slice(-3).map((row) => [row.data.phase, row.data.ownership]),
+    [
+      ["ownership", ownership],
+      [retained ? "retained" : "removed", ownership],
+      ["completed", undefined],
+    ],
+  );
   if (retained) {
     const ownerNames = expected.ownerNames;
     assert.ok(ownerNames, "a protected run must retain its owner records");
-    assert.ok(ownerNames.includes(`owner-${expected.owner}.json`), "the original main owner must remain independently recorded");
+    assert.ok(
+      ownerNames.includes(`owner-${expected.owner}.json`),
+      "the original main owner must remain independently recorded",
+    );
     assert.deepEqual(ownerNames.slice(0, observations.length), [...seen]);
     if (!live) assert.equal(ownerNames.length, observations.length);
   } else {
-    assert.ok(seen.has(`owner-${expected.owner}.json`), "every recognized owner, including the original main, must prove ESRCH");
+    assert.ok(
+      seen.has(`owner-${expected.owner}.json`),
+      "every recognized owner, including the original main, must prove ESRCH",
+    );
     assert.equal(expected.ownerNames, undefined);
   }
   return retained;

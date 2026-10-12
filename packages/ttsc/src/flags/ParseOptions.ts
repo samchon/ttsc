@@ -29,8 +29,8 @@ export interface ParseOptions {
   readonly errorPrefix: string;
 
   /**
-   * Observe a validated launcher assignment at its compiler-frame position.
-   * The canonical schema name and parsed value retain alias/value semantics;
+   * Observe a validated launcher assignment at its compiler-frame position. The
+   * canonical schema name and parsed value retain alias/value semantics;
    * passthroughIndex counts compiler tokens already forwarded at this point.
    * Exceptions propagate from the caller's observer.
    *

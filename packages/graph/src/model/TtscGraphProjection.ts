@@ -351,22 +351,24 @@ function synthesize(
   // small — the two copies are 17% of the document, 55 MB of VS Code's 323 MB,
   // paid again in the encode, the pipe, the parse and the validation. Nothing
   // downstream of this line sees a span without its file.
-  const nodes: SynthesizedNode[] = dump.nodes.flatMap((n): SynthesizedNode[] => {
-    if (n.kind === "module") return [];
-    const { evidence, implementation, ...rest } = n;
-    return [
-      {
-        ...rest,
-        kind: n.kind,
-        ...(evidence !== undefined
-          ? { evidence: spanIn(evidence, n.file) }
-          : {}),
-        ...(implementation !== undefined
-          ? { implementation: spanIn(implementation, n.file) }
-          : {}),
-      },
-    ];
-  });
+  const nodes: SynthesizedNode[] = dump.nodes.flatMap(
+    (n): SynthesizedNode[] => {
+      if (n.kind === "module") return [];
+      const { evidence, implementation, ...rest } = n;
+      return [
+        {
+          ...rest,
+          kind: n.kind,
+          ...(evidence !== undefined
+            ? { evidence: spanIn(evidence, n.file) }
+            : {}),
+          ...(implementation !== undefined
+            ? { implementation: spanIn(implementation, n.file) }
+            : {}),
+        },
+      ];
+    },
+  );
   const edges: TtscGraphReadonly<ITtscGraphEdge>[] = dump.edges.map((edge) => {
     const { evidence, ...rest } = edge;
     const from = moduleIds.get(edge.from);

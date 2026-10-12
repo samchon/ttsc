@@ -417,17 +417,18 @@ export namespace SourceNativeRetirement {
    * still exists. Cleanup can then remove that root without another realpath.
    * Only successful cleanup drops the exact captured registration; a failed
    * cleanup or a replacement registration remains owned. Unknown boundaries
-   * defer the same callback and identity through the original release protocol.
+   * defer the same callback and identity through the original release
+   * protocol.
    *
-   * The optional task failure distinguishes an earlier thrown undefined from
-   * no earlier failure. It is combined with a cleanup refusal, never rethrown
+   * The optional task failure distinguishes an earlier thrown undefined from no
+   * earlier failure. It is combined with a cleanup refusal, never rethrown
    * after successful cleanup or deferred recovery. Ordinary unscoped callers
    * perform cleanup without observing or inventing a registration.
    *
-   * Enabled private tracing observes the original callback's execution, not
-   * its deferral. Scalar own error properties are read without invoking
-   * getters; reflection or sink failures leave the original outcome intact.
-   * Synchronous trace writes can change scheduling and prove only that run.
+   * Enabled private tracing observes the original callback's execution, not its
+   * deferral. Scalar own error properties are read without invoking getters;
+   * reflection or sink failures leave the original outcome intact. Synchronous
+   * trace writes can change scheduling and prove only that run.
    *
    * @evidence contracts/common.md#principled-implementation Physical identity and the exact resource object are captured before destruction; only successful cleanup removes that identical registration from the original scope, while failure and replacement retain ownership.
    * @evidence contracts/common.md#clear-and-simple-design One operation combines destructive cleanup with registration release, using the existing release/recover protocol instead of making each caller order physical lookup around removal.
@@ -460,15 +461,31 @@ export namespace SourceNativeRetirement {
       OwnedSynchronousProcess.reportFailure(combined);
       throw combined;
     }
-    const resource = root === undefined ? undefined : scope!.resources.get(root);
+    const resource =
+      root === undefined ? undefined : scope!.resources.get(root);
     const observe = !process.env.TTSC_E2E_TRACE
       ? undefined
       : (phase: string, error?: unknown): void => {
           try {
-            const detail: Record<string, string | number | boolean | null | undefined> = {};
-            if (error !== null && (typeof error === "object" || typeof error === "function"))
-              for (const field of ["code", "errno", "syscall", "path", "dest"]) {
-                const descriptor = Object.getOwnPropertyDescriptor(error, field);
+            const detail: Record<
+              string,
+              string | number | boolean | null | undefined
+            > = {};
+            if (
+              error !== null &&
+              (typeof error === "object" || typeof error === "function")
+            )
+              for (const field of [
+                "code",
+                "errno",
+                "syscall",
+                "path",
+                "dest",
+              ]) {
+                const descriptor = Object.getOwnPropertyDescriptor(
+                  error,
+                  field,
+                );
                 const value: unknown = descriptor?.value;
                 if (typeof value === "string" || typeof value === "number")
                   detail[field] = value;
@@ -478,14 +495,20 @@ export namespace SourceNativeRetirement {
               resourceRoot: root ?? fenceRoot,
               ...detail,
             });
-            if (phase === "source-resource-cleanup-started" && scope !== undefined)
+            if (
+              phase === "source-resource-cleanup-started" &&
+              scope !== undefined
+            )
               for (const [boundary, state] of scope.boundaries)
-                E2ETrace.capabilityResolution("source-resource-cleanup-boundary", {
-                  taskToken: scope.taskToken,
-                  resourceRoot: root,
-                  boundary,
-                  retirement: state.state,
-                });
+                E2ETrace.capabilityResolution(
+                  "source-resource-cleanup-boundary",
+                  {
+                    taskToken: scope.taskToken,
+                    resourceRoot: root,
+                    boundary,
+                    retirement: state.state,
+                  },
+                );
           } catch {
             // Diagnostic reflection and IO cannot replace original cleanup.
           }

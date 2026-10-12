@@ -46,12 +46,12 @@ func TestResolveLaunchUsesNativeFlagAuthority(t *testing.T) {
   defer func() { getwd, runLSPServer, notifyContext = previousGetwd, previousHost, previousNotify }()
 
   for _, test := range []struct {
-    name string
-    args []string
-    cwd string
-    config string
+    name     string
+    args     []string
+    cwd      string
+    config   string
     explicit bool
-    tsgo string
+    tsgo     string
   }{
     {"last assignments", []string{"--stdio", "--cwd", "/a", "-cwd=/b", "--tsconfig=first.json", "-tsconfig", "last.json", "--tsgo=/first", "-tsgo", "/last"}, "/b", "last.json", true, "/last"},
     {"equal duplicates", []string{"-stdio", "-cwd=/b", "--cwd", "/b", "-tsconfig=last.json", "--tsconfig=last.json"}, "/b", "last.json", true, "/environment-tsgo"},
@@ -107,8 +107,8 @@ func TestResolveLaunchUsesNativeFlagAuthority(t *testing.T) {
   }
 
   for _, test := range []struct {
-    name string
-    args []string
+    name       string
+    args       []string
     diagnostic string
   }{
     {"unknown", []string{"--stdio", "--cwd=/missing", "--unknown"}, "flag provided but not defined: -unknown"},

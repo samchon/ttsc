@@ -2,11 +2,11 @@
  * Interpret fsutil's case-sensitivity query without assuming a display
  * language.
  *
- * English messages identify the state in the final field of the complete
- * native message. The echoed directory path supplies no status evidence. For
- * every other locale, the volume-root query supplies the raw localized suffix
- * for the ordinary disabled state. A target with that suffix is insensitive;
- * a different successful message is the enabled state.
+ * English messages identify the state in the final field of the complete native
+ * message. The echoed directory path supplies no status evidence. For every
+ * other locale, the volume-root query supplies the raw localized suffix for the
+ * ordinary disabled state. A target with that suffix is insensitive; a
+ * different successful message is the enabled state.
  *
  * Inputs must be successful fsutil query responses. The opaque comparison
  * assumes the volume-root response represents the ordinary disabled state;

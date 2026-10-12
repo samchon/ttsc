@@ -14,15 +14,14 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
  * then copies one transformed JavaScript file to this path, so project-mode
  * declaration, map, build-info, outFile, and broad outDir products are not
  * positional outputs. Explicit output mirrors cwd for contained sources and
- * uses the source basename for outside-layout or different-volume sources.
- * A supplied invocation project owns placement without
- * resolving the original locator again. Forwarded JSX uses the supplied native
- * argv frames and does not expand response-file requests here. CLI enum
- * normalization; an explicit reset selects the default suffix instead of
- * reviving the configured JSX. Placement-setting read failures use the
- * no-project fallback; that fallback does not certify a successful build or
- * valid configuration. Physical spelling is a current native observation, not a
- * pinned filesystem object.
+ * uses the source basename for outside-layout or different-volume sources. A
+ * supplied invocation project owns placement without resolving the original
+ * locator again. Forwarded JSX uses the supplied native argv frames and does
+ * not expand response-file requests here. CLI enum normalization; an explicit
+ * reset selects the default suffix instead of reviving the configured JSX.
+ * Placement-setting read failures use the no-project fallback; that fallback
+ * does not certify a successful build or valid configuration. Physical spelling
+ * is a current native observation, not a pinned filesystem object.
  *
  * @evidence contracts/common.md#principled-implementation CLI output wins over the selected project output; a contained cwd-relative source mirrors its layout while an outside-layout or cross-volume source uses its basename inside that explicit root. Supported extensions choose the emitted suffix, and physical root/file relation preserves configured project layout through links.
  * @evidence contracts/common.md#clear-and-simple-design Output placement delegates project settings and isolates containment, extension and forwarded-option readers; it does not materialize compiler side products.

@@ -83,7 +83,9 @@ export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
       { cwd: root, files: [source], projectRoot: root, tsconfig: config },
       {
         onError: (location, error) => {
-          const failure = new Error(`watch error on ${location}`, { cause: error });
+          const failure = new Error(`watch error on ${location}`, {
+            cause: error,
+          });
           topologyFailure ??= failure;
           failures.push(failure);
         },
@@ -199,12 +201,21 @@ async function waitForPath(
   stimulus: () => void,
 ): Promise<void> {
   const before = changes.length;
-  await waitFor(() => {
-    owner.check();
-    if (changes.slice(before).some((change) => change.kind === kind && change.path === file)) return true;
-    stimulus();
-    return false;
-  }, `expected ${kind} change for ${file}`, owner);
+  await waitFor(
+    () => {
+      owner.check();
+      if (
+        changes
+          .slice(before)
+          .some((change) => change.kind === kind && change.path === file)
+      )
+        return true;
+      stimulus();
+      return false;
+    },
+    `expected ${kind} change for ${file}`,
+    owner,
+  );
 }
 
 function within(root: string, location: string): boolean {

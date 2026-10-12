@@ -30,13 +30,19 @@ export function resolveNativeSource(
   plugin: ITtscPlugin,
   config: ITtscProjectPluginConfig,
   index: number,
-  options?: { env?: NodeJS.ProcessEnv; observation?: NativeSourcePackages.Package },
+  options?: {
+    env?: NodeJS.ProcessEnv;
+    observation?: NativeSourcePackages.Package;
+  },
 ): { kind: "executable" | "linked"; moduleRoot: string } {
   const label = pluginLabel(plugin, config, index);
   requirePluginSource(source, label);
   const { moduleRoot } = resolvePluginGoModule(source, label);
-  const observation = options?.observation ?? NativeSourcePackages.propose([
-    { source, label, ownModule: plugin.stage === "check" },
-  ], SidecarEnvironment.merge(options?.env ?? process.env))[0]!.observation;
+  const observation =
+    options?.observation ??
+    NativeSourcePackages.propose(
+      [{ source, label, ownModule: plugin.stage === "check" }],
+      SidecarEnvironment.merge(options?.env ?? process.env),
+    )[0]!.observation;
   return { kind: NativeSourcePackages.kind(observation, label), moduleRoot };
 }

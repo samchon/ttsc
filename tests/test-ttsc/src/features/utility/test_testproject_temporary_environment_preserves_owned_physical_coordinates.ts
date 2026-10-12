@@ -8,7 +8,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * Verifies temporary environment selection preserves owned native coordinates.
  *
  * Environment objects keep the operation independent of the running suite's
- * startup state while actual directories and junctions establish path identity.
+ * startup state while actual directories and junctions establish path
+ * identity.
  *
  * 1. Preserve an ignored parent and resolve a linked spelling to that parent.
  * 2. Replace outside, unignored, missing and file parents with checkout storage.

@@ -13,16 +13,16 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * Verifies an interrupted real holder cannot strand a shared native claim.
  *
  * Each actual native invocation stays behind an authenticated fixture gate
- * until this owner acquires its original kernel lifetime. Numeric PID
- * occupancy cannot replace original retirement or authorize shared reuse.
+ * until this owner acquires its original kernel lifetime. Numeric PID occupancy
+ * cannot replace original retirement or authorize shared reuse.
  *
  * 1. Bind the holder's claim and first receipt to an acquired live original.
- * 2. Interrupt the owned Node holder, release its native gate and observe
- *    original retirement while preserving the residual claim token.
- * 3. Require real takeover, PROBED and two further native responsiveness
- *    epochs, then independently settle workers, natives and observer.
- * 4. Restore exact source bytes only after qualified borrower retirement;
- *    retain unknown lifetimes and collect release/close/restore errors.
+ * 2. Interrupt the owned Node holder, release its native gate and observe original
+ *    retirement while preserving the residual claim token.
+ * 3. Require real takeover, PROBED and two further native responsiveness epochs,
+ *    then independently settle workers, natives and observer.
+ * 4. Restore exact source bytes only after qualified borrower retirement; retain
+ *    unknown lifetimes and collect release/close/restore errors.
  *
  * @evidence contracts/testing.md#behavioral-verification Two actual public API workers share one claim. Authenticated native receipts are enrolled through the existing observer before release; the killed holder leaves its token and the survivor must return PROBED and release the final lock.
  * @evidence contracts/testing.md#independent-expectations Literal PROBE/PROBED source, the original holder token, fresh nonce/token/PID receipts and retained kernel identities distinguish real takeover from deleting a lock or returning cached output. Current PID disappearance is not an oracle.
@@ -126,7 +126,9 @@ export async function deadCompilerClaimCorpus(
       },
     );
     let joined!: () => void;
-    const closed = new Promise<void>((resolve) => { joined = resolve; });
+    const closed = new Promise<void>((resolve) => {
+      joined = resolve;
+    });
     const actor: (typeof actors)[number] = { child, closed };
     actors.push(actor);
     let stdout = "",
@@ -153,12 +155,18 @@ export async function deadCompilerClaimCorpus(
     await waitFor(
       () => {
         if (actor.error) throw actor.error;
-        assert.equal(actor.result, undefined, "worker closed before native enrollment");
-        const candidates = fs.readdirSync(gates).filter(
-          (name) =>
-            name.endsWith(".json") &&
-            !natives.some(({ receipt }) => name === receipt.token + ".json"),
+        assert.equal(
+          actor.result,
+          undefined,
+          "worker closed before native enrollment",
         );
+        const candidates = fs
+          .readdirSync(gates)
+          .filter(
+            (name) =>
+              name.endsWith(".json") &&
+              !natives.some(({ receipt }) => name === receipt.token + ".json"),
+          );
         assert.ok(candidates.length <= 1, "ambiguous native lifetime receipts");
         if (candidates.length) {
           const file = path.join(gates, candidates[0]!);
@@ -167,7 +175,11 @@ export async function deadCompilerClaimCorpus(
           if (!bytes.length || bytes.at(-1) !== 10) return false;
           const value: unknown = JSON.parse(bytes.toString("utf8"));
           assert.ok(value !== null && typeof value === "object");
-          assert.deepEqual(Object.keys(value).sort(), ["pid", "session", "token"]);
+          assert.deepEqual(Object.keys(value).sort(), [
+            "pid",
+            "session",
+            "token",
+          ]);
           assert.ok("session" in value && value.session === nonce);
           assert.ok("token" in value && typeof value.token === "string");
           assert.match(value.token, /^[0-9a-f]{32}$/);
@@ -197,10 +209,16 @@ export async function deadCompilerClaimCorpus(
         return false;
       },
       "authenticated held native invocation",
-      { check: () => {
-        if (actor.error) throw actor.error;
-        assert.equal(actor.result, undefined, "worker closed before native enrollment");
-      } },
+      {
+        check: () => {
+          if (actor.error) throw actor.error;
+          assert.equal(
+            actor.result,
+            undefined,
+            "worker closed before native enrollment",
+          );
+        },
+      },
     );
     assert.ok(native !== undefined && observer !== undefined);
     native.target = await observer.acquire(native.receipt.pid);
@@ -227,13 +245,10 @@ export async function deadCompilerClaimCorpus(
     );
     assert.equal(native.retirementAttempted, false);
     native.retirementAttempted = true;
-    await waitFor(
-      async () => {
-        native.retired = await observer!.retired(native.target!);
-        return native.retired;
-      },
-      "original native lifetime retirement",
-    );
+    await waitFor(async () => {
+      native.retired = await observer!.retired(native.target!);
+      return native.retired;
+    }, "original native lifetime retirement");
   };
   const failures: unknown[] = [];
   try {
@@ -243,14 +258,24 @@ export async function deadCompilerClaimCorpus(
       await waitFor(
         () => {
           if (holder.error) throw holder.error;
-          assert.equal(holder.result, undefined, "holder closed before live claim publication");
+          assert.equal(
+            holder.result,
+            undefined,
+            "holder closed before live claim publication",
+          );
           return locks().length === 1 && nativePids().length === 1;
         },
         "actual dead-claim holder lock and native invocation",
-        { check: () => {
-          if (holder.error) throw holder.error;
-          assert.equal(holder.result, undefined, "holder closed before claim publication");
-        } },
+        {
+          check: () => {
+            if (holder.error) throw holder.error;
+            assert.equal(
+              holder.result,
+              undefined,
+              "holder closed before claim publication",
+            );
+          },
+        },
       );
     } catch (error) {
       throw new Error(
@@ -330,7 +355,10 @@ export async function deadCompilerClaimCorpus(
       assert.match(observation.code ?? "", /PROBED/);
       assert.deepEqual(observation.after, observation.before);
       assert.ok(observation.elapsedMs >= 5000, JSON.stringify(observation));
-      assert.ok(Number.isFinite(observation.maximumGapMs) && observation.maximumGapMs >= 0);
+      assert.ok(
+        Number.isFinite(observation.maximumGapMs) &&
+          observation.maximumGapMs >= 0,
+      );
       console.info("native-claim survivor timing", JSON.stringify(observation));
     }
     assert.deepEqual(
@@ -364,7 +392,8 @@ export async function deadCompilerClaimCorpus(
     for (const native of natives)
       if (native.target && !native.retired && observer)
         try {
-          if (native.released && !native.retirementAttempted) await retire(native);
+          if (native.released && !native.retirementAttempted)
+            await retire(native);
           else native.retired = await observer.retired(native.target);
         } catch (error) {
           failures.push(error);
@@ -392,7 +421,8 @@ export async function deadCompilerClaimCorpus(
     if (!workersJoined || !nativesJoined || !observerJoined) {
       try {
         BatchWorkspace.retain(
-          "dead-claim original lifetime remained unresolved; retained gate directory: " + gates,
+          "dead-claim original lifetime remained unresolved; retained gate directory: " +
+            gates,
         );
       } catch (error) {
         failures.push(error);
@@ -427,7 +457,13 @@ export async function deadCompilerClaimCorpus(
     }
     console.error(
       "Dead claim lifetime settlement: " +
-        JSON.stringify({ gates, workersJoined, nativesJoined, observerJoined, natives }),
+        JSON.stringify({
+          gates,
+          workersJoined,
+          nativesJoined,
+          observerJoined,
+          natives,
+        }),
     );
   }
   if (failures.length)

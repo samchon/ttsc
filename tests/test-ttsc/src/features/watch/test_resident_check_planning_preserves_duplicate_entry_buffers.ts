@@ -113,10 +113,18 @@ export const test_resident_check_planning_preserves_duplicate_entry_buffers =
       "forwarded compiler payload participates in process identity",
     );
     assert.notEqual(
-      planResidentCheckEntries([plugin], () => [...args], '["@flags.rsp"]', "A")[0]!
-        .key,
-      planResidentCheckEntries([plugin], () => [...args], '["@flags.rsp"]', "B")[0]!
-        .key,
+      planResidentCheckEntries(
+        [plugin],
+        () => [...args],
+        '["@flags.rsp"]',
+        "A",
+      )[0]!.key,
+      planResidentCheckEntries(
+        [plugin],
+        () => [...args],
+        '["@flags.rsp"]',
+        "B",
+      )[0]!.key,
       "compiler argument cwd participates in process identity",
     );
     assert.deepEqual(

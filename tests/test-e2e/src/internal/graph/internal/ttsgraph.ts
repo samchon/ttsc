@@ -290,7 +290,10 @@ export class TtsgraphClient {
     if (this.failure !== undefined) throw this.failure;
   }
 
-  /** A failed caller policy or lost transport may still have a native input reader. */
+  /**
+   * A failed caller policy or lost transport may still have a native input
+   * reader.
+   */
   inputsHaveUnconfirmedReaders(): boolean {
     return this.unconfirmedTransport;
   }

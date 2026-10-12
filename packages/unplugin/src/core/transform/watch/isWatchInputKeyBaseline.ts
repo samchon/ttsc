@@ -115,9 +115,11 @@ function isNativePredicateBaselines(value: unknown): boolean {
       stableStringify(Object.keys(state).sort()) !==
         stableStringify(["digest", "realpath"]) ||
       !isContentHash(state.digest) ||
-      !(state.realpath === null ||
+      !(
+        state.realpath === null ||
         (typeof state.realpath === "string" &&
-          isAbsoluteFilesystemPath(state.realpath)))
+          isAbsoluteFilesystemPath(state.realpath))
+      )
     ) {
       return false;
     }

@@ -20,8 +20,8 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * 1. Contrast response B, a later visible A and missing initial configuration.
  * 2. Require actual public copies and successful quiet/verbose presentations,
  *    explicit-root containment, failed-copy refusal and warm cache adoption.
- * 3. Reuse one installed watch for source and response edits, then join its
- *    actual nonce-bound close before restoring any shared input bytes.
+ * 3. Reuse one installed watch for source and response edits, then join its actual
+ *    nonce-bound close before restoring any shared input bytes.
  *
  * @evidence contracts/testing.md#behavioral-verification Real installed ttsc commands require selected B summaries, transformed marker100 and the single public JSX path, contrast default/explicit quiet with verbose, and retain analysis and failed-copy absence. Actual binary bytes/mtime and absent competing compiled-plugin cache distinguish preserved relative cache selection from a discarded field. Independent nested ttsx invocations may use inherited TTSC_CACHE_DIR for transient runtime generations. One installed watch retains native transformation after a source edit and stops public emission after response selection returns to A.
  * @evidence contracts/testing.md#independent-expectations Static A/B configurations independently set noEmit and products-a/products-b; the authored marker0 must become the existing native probe's literal100. Relative/absolute explicit roots name view.jsx directly, and the failed string-to-number assignment requires TS2322 without a public copy. No product result supplies another request's expected output.
@@ -61,7 +61,10 @@ export async function positionalCompilerCorpus(
     (entry: Record<string, unknown>, index: number) => {
       const selected = { ...entry };
       for (const field of ["transform", "config", "configFile"])
-        if (typeof selected[field] === "string" && selected[field].startsWith("."))
+        if (
+          typeof selected[field] === "string" &&
+          selected[field].startsWith(".")
+        )
           selected[field] = path.resolve(workspace.root, selected[field]);
       for (const field of [
         "runLog",
@@ -107,11 +110,15 @@ export async function positionalCompilerCorpus(
           process.platform === "win32" ? "plugin.exe" : "plugin",
         );
         if (!fs.existsSync(file)) return [];
-        return [{
-          file,
-          mtimeMs: fs.statSync(file).mtimeMs,
-          hash: createHash("sha256").update(fs.readFileSync(file)).digest("hex"),
-        }];
+        return [
+          {
+            file,
+            mtimeMs: fs.statSync(file).mtimeMs,
+            hash: createHash("sha256")
+              .update(fs.readFileSync(file))
+              .digest("hex"),
+          },
+        ];
       })
       .sort((left, right) => left.file.localeCompare(right.file));
   };
@@ -122,12 +129,16 @@ export async function positionalCompilerCorpus(
   );
   const run = (cwd: string, args: readonly string[]) => {
     if (!joined) throw new Error("positional input ownership is unresolved");
-    const result = E2eProcessTrace.spawnSync(process.execPath, [launcher, ...args], {
-      cwd,
-      env,
-      encoding: "utf8",
-      windowsHide: true,
-    });
+    const result = E2eProcessTrace.spawnSync(
+      process.execPath,
+      [launcher, ...args],
+      {
+        cwd,
+        env,
+        encoding: "utf8",
+        windowsHide: true,
+      },
+    );
     if (!isOrdinarilyClosedReadonlyLauncher(result)) {
       joined = false;
       BatchWorkspace.retain("positional launcher did not close ordinarily");
@@ -175,22 +186,29 @@ export async function positionalCompilerCorpus(
       ["check", ["check", "--verbose", "--noEmit"], true, false],
     ] as const) {
       await capture("positional selection/cache/presentation: " + name, () => {
-        if (!joined) throw new Error("positional input ownership is unresolved");
+        if (!joined)
+          throw new Error("positional input ownership is unresolved");
         fs.rmSync(copied, { force: true });
         const prefix = args[0] === "check" ? ["check"] : [];
         const extra = args[0] === "check" ? args.slice(1) : args;
         const result = run(driver, [
           ...prefix,
-          "--cwd", root,
-          "--cache-dir", selectedCache,
-          "-p", name === "missing locator" ? "missing.json" : "selected-a.json",
+          "--cwd",
+          root,
+          "--cache-dir",
+          selectedCache,
+          "-p",
+          name === "missing locator" ? "missing.json" : "selected-a.json",
           "@selector.rsp",
           ...extra,
           "src/view.tsx",
         ]);
         assert.equal(result.status, 0, result.stdout + result.stderr);
         assert.equal(fs.existsSync(copied), emit);
-        assert.equal(fs.existsSync(path.join(root, "products-a/view.jsx")), false);
+        assert.equal(
+          fs.existsSync(path.join(root, "products-a/view.jsx")),
+          false,
+        );
         assert.doesNotMatch(result.stdout, /ttsc-single-file-/);
         if (emit) {
           assert.match(
@@ -201,9 +219,11 @@ export async function positionalCompilerCorpus(
         }
         if (verbose) {
           assert.match(result.stdout, /\/\/ ttsc: tsconfig=/);
-          assert.ok(result.stdout.includes(
-            name === "later A" ? "selected-a.json" : "selected-b.json",
-          ));
+          assert.ok(
+            result.stdout.includes(
+              name === "later A" ? "selected-a.json" : "selected-b.json",
+            ),
+          );
           assert.ok(result.stdout.includes("emit=" + emit));
           if (emit) assert.match(result.stdout, /emitted=1 files/);
           else assert.doesNotMatch(result.stdout, /emitted=/);
@@ -218,37 +238,51 @@ export async function positionalCompilerCorpus(
       });
     }
     for (const outDir of ["contained", path.join(driver, "absolute")])
-      await capture("explicit destination contains parent source: " + outDir, () => {
-        const result = run(driver, [
-          "--cwd", driver,
-          "--cache-dir", workspace.cache,
-          "-p", "../selected-b.json",
-          "--outDir", outDir,
-          "../src/view.tsx",
-        ]);
-        assert.equal(result.status, 0, result.stdout + result.stderr);
-        assert.match(
-          fs.readFileSync(path.resolve(driver, outDir, "view.jsx"), "utf8"),
-          /__TTSC_OWN_MARKER__\s*=\s*100/,
-        );
-        assert.equal(fs.existsSync(path.join(driver, "src/view.jsx")), false);
-        assert.equal(fs.existsSync(path.join(root, "src/view.jsx")), false);
-      });
+      await capture(
+        "explicit destination contains parent source: " + outDir,
+        () => {
+          const result = run(driver, [
+            "--cwd",
+            driver,
+            "--cache-dir",
+            workspace.cache,
+            "-p",
+            "../selected-b.json",
+            "--outDir",
+            outDir,
+            "../src/view.tsx",
+          ]);
+          assert.equal(result.status, 0, result.stdout + result.stderr);
+          assert.match(
+            fs.readFileSync(path.resolve(driver, outDir, "view.jsx"), "utf8"),
+            /__TTSC_OWN_MARKER__\s*=\s*100/,
+          );
+          assert.equal(fs.existsSync(path.join(driver, "src/view.jsx")), false);
+          assert.equal(fs.existsSync(path.join(root, "src/view.jsx")), false);
+        },
+      );
     await capture("failed positional copy remains absent", () => {
       if (!joined) throw new Error("positional input ownership is unresolved");
       try {
         fs.writeFileSync(source, 'export const value: number = "invalid";\n');
         const result = run(driver, [
-          "--cwd", driver,
-          "--cache-dir", workspace.cache,
-          "-p", "../selected-b.json",
-          "--outDir", "failed",
+          "--cwd",
+          driver,
+          "--cache-dir",
+          workspace.cache,
+          "-p",
+          "../selected-b.json",
+          "--outDir",
+          "failed",
           "../src/view.tsx",
         ]);
         assert.notEqual(result.status, 0);
         assert.match(result.stdout + result.stderr, /TS2322/);
         assert.doesNotMatch(result.stdout, /\/\/ ttsc:/);
-        assert.equal(fs.existsSync(path.join(driver, "failed/view.jsx")), false);
+        assert.equal(
+          fs.existsSync(path.join(driver, "failed/view.jsx")),
+          false,
+        );
       } finally {
         if (joined) fs.writeFileSync(source, originals.get(source)!);
       }
@@ -259,32 +293,44 @@ export async function positionalCompilerCorpus(
       const watch = new WatchSession(root, {
         launcher,
         args: [
-          "--cache-dir", selectedCache,
-          "-p", "selected-a.json",
-          "@selector.rsp", "--verbose", "src/view.tsx",
+          "--cache-dir",
+          selectedCache,
+          "-p",
+          "selected-a.json",
+          "@selector.rsp",
+          "--verbose",
+          "src/view.tsx",
         ],
         env,
         ownershipRoot: workspace.root,
       });
       try {
-        const count = () => (
-          watch.transcript().match(/\[ttsc\] watch build (?:complete|failed)/g) ?? []
-        ).length;
+        const count = () =>
+          (
+            watch
+              .transcript()
+              .match(/\[ttsc\] watch build (?:complete|failed)/g) ?? []
+          ).length;
         let initialReady = false;
-        await capture("installed positional watch initial B publication", async () => {
-          await watch.waitForBuilds(1);
-          assert.match(watch.transcript(), /\[ttsc\] watch build complete/);
-          assert.match(
-            fs.readFileSync(copied, "utf8"),
-            /__TTSC_OWN_MARKER__\s*=\s*100/,
-          );
-          await watch.waitForSettled();
-          await watch.waitForQuiet();
-          initialReady = true;
-        });
+        await capture(
+          "installed positional watch initial B publication",
+          async () => {
+            await watch.waitForBuilds(1);
+            assert.match(watch.transcript(), /\[ttsc\] watch build complete/);
+            assert.match(
+              fs.readFileSync(copied, "utf8"),
+              /__TTSC_OWN_MARKER__\s*=\s*100/,
+            );
+            await watch.waitForSettled();
+            await watch.waitForQuiet();
+            initialReady = true;
+          },
+        );
         await capture("installed positional watch source reload", async () => {
           if (!initialReady)
-            throw new Error("source reload blocked by initial publication failure");
+            throw new Error(
+              "source reload blocked by initial publication failure",
+            );
           const completed = count();
           fs.appendFileSync(source, "\nexport const later = 2;\n");
           await watch.waitForBuilds(completed + 1);
@@ -295,30 +341,41 @@ export async function positionalCompilerCorpus(
             /__TTSC_OWN_MARKER__\s*=\s*100/,
           );
         });
-        await capture("installed positional watch response reload to analysis A", async () => {
-          if (!initialReady)
-            throw new Error("response reload blocked by initial publication failure");
-          await watch.waitForSettled();
-          await watch.waitForQuiet();
-          fs.rmSync(copied, { force: true });
-          const completed = count();
-          const beforeResponse = watch.transcript().length;
-          fs.writeFileSync(response, "--project selected-a.json\n");
-          await watch.waitForBuilds(completed + 1);
-          await watch.waitForSettled();
-          const responseBuild = watch.transcript().slice(beforeResponse);
-          assert.match(responseBuild, /\[ttsc\] watch build complete/);
-          assert.doesNotMatch(responseBuild, /\[ttsc\] watch build failed/);
-          assert.equal(fs.existsSync(copied), false);
-          assert.equal(fs.existsSync(path.join(root, "products-a/view.jsx")), false);
-          assert.doesNotMatch(watch.transcript(), /\/\/ ttsc:|building source plugin/);
-          assert.equal(
-            fs.existsSync(competingPluginCache),
-            false,
-            "explicit --cache-dir must own the compiled-plugin cache",
-          );
-          assert.deepEqual(binaries(), beforeBinaries);
-        });
+        await capture(
+          "installed positional watch response reload to analysis A",
+          async () => {
+            if (!initialReady)
+              throw new Error(
+                "response reload blocked by initial publication failure",
+              );
+            await watch.waitForSettled();
+            await watch.waitForQuiet();
+            fs.rmSync(copied, { force: true });
+            const completed = count();
+            const beforeResponse = watch.transcript().length;
+            fs.writeFileSync(response, "--project selected-a.json\n");
+            await watch.waitForBuilds(completed + 1);
+            await watch.waitForSettled();
+            const responseBuild = watch.transcript().slice(beforeResponse);
+            assert.match(responseBuild, /\[ttsc\] watch build complete/);
+            assert.doesNotMatch(responseBuild, /\[ttsc\] watch build failed/);
+            assert.equal(fs.existsSync(copied), false);
+            assert.equal(
+              fs.existsSync(path.join(root, "products-a/view.jsx")),
+              false,
+            );
+            assert.doesNotMatch(
+              watch.transcript(),
+              /\/\/ ttsc:|building source plugin/,
+            );
+            assert.equal(
+              fs.existsSync(competingPluginCache),
+              false,
+              "explicit --cache-dir must own the compiled-plugin cache",
+            );
+            assert.deepEqual(binaries(), beforeBinaries);
+          },
+        );
       } finally {
         await capture("installed positional watch owned close", async () => {
           await watch.close();
@@ -355,8 +412,14 @@ export async function positionalCompilerCorpus(
             throw cause;
           }
         });
-    } else BatchWorkspace.retain("positional inputs remain owned by unresolved launcher");
+    } else
+      BatchWorkspace.retain(
+        "positional inputs remain owned by unresolved launcher",
+      );
   }
   if (failures.length)
-    throw new AggregateError(failures, "installed positional compiler boundaries failed");
+    throw new AggregateError(
+      failures,
+      "installed positional compiler boundaries failed",
+    );
 }

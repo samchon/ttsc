@@ -5,8 +5,8 @@ import path from "node:path";
 import type { WatchInputChange } from "../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
-import { case_watch_topology_preserves_response_file_products } from "../features/ttsc/watch/case_watch_topology_preserves_response_file_products";
 import { waitFor } from "../../../utils/src/internal/waitFor";
+import { case_watch_topology_preserves_response_file_products } from "../features/ttsc/watch/case_watch_topology_preserves_response_file_products";
 
 /**
  * Verifies compiler membership and native notifications on one staged graph.
@@ -19,8 +19,8 @@ import { waitFor } from "../../../utils/src/internal/waitFor";
  *    products.
  * 3. Exercise external references, reload targets and config recovery, then select
  *    the immutable execution-root and capability-gated case profiles.
- * 4. Emit response-selected products in the staged sibling and distinguish
- *    their quiet writes from data/source changes and response reload.
+ * 4. Emit response-selected products in the staged sibling and distinguish their
+ *    quiet writes from data/source changes and response reload.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual built WatchTopology uses its native listFilesOnly reader and native observer. Explicit declaration/JS inputs survive predicted products; JSON/JS/declaration/build-info products stay out of the project lane, adjacent external data and referenced-project data deliver, and config deletion/recreation/replacement preserves subscription.
  * @evidence contracts/testing.md#independent-expectations Authored files/configuration define literal roles and filenames; each positive changes only its target after a settled ledger, while each quiet negative declares that precise predicted product. Filesystem identity is independently read for named delivery rather than assumed from platform spelling.
@@ -50,7 +50,10 @@ export async function nativeCompilerTopologyCorpus(
           !(error instanceof Error) ||
           !error.message.includes("tsconfig.json")
         ) {
-          const failure = new Error("native compiler topology error at " + location, { cause: error });
+          const failure = new Error(
+            "native compiler topology error at " + location,
+            { cause: error },
+          );
           topologyFailure ??= failure;
           failures.push(failure);
         }
@@ -59,7 +62,11 @@ export async function nativeCompilerTopologyCorpus(
       onTopologyChange: () => undefined,
     },
   );
-  const topologyOwner = { check: () => { if (topologyFailure) throw topologyFailure; } };
+  const topologyOwner = {
+    check: () => {
+      if (topologyFailure) throw topologyFailure;
+    },
+  };
   const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 500));
   const capture = async (name: string, body: () => Promise<void>) => {
     // onError reports incomplete coverage while earlier watches may stay live.
@@ -362,7 +369,9 @@ export async function nativeCompilerTopologyCorpus(
       },
       {
         onError: (location, error) => {
-          const failure = new Error("forwarded topology error at " + location, { cause: error });
+          const failure = new Error("forwarded topology error at " + location, {
+            cause: error,
+          });
           forwardedFailure ??= failure;
           failures.push(failure);
         },
@@ -399,7 +408,11 @@ export async function nativeCompilerTopologyCorpus(
       await waitFor(
         () => projectCount() > before,
         "forwarded build-info adjacent external input",
-        { check: () => { if (forwardedFailure) throw forwardedFailure; } },
+        {
+          check: () => {
+            if (forwardedFailure) throw forwardedFailure;
+          },
+        },
       );
     } finally {
       try {
@@ -475,7 +488,9 @@ export async function nativeCompilerTopologyCorpus(
       { cwd: caseRoot, files: [], projectRoot: caseRoot, tsconfig: caseConfig },
       {
         onError: (location, error) => {
-          const failure = new Error("case topology error at " + location, { cause: error });
+          const failure = new Error("case topology error at " + location, {
+            cause: error,
+          });
           caseFailure ??= failure;
           failures.push(failure);
         },
@@ -519,7 +534,11 @@ export async function nativeCompilerTopologyCorpus(
               .slice(before)
               .some((change) => change.kind === "project"),
           "case-distinct input attention: " + file,
-          { check: () => { if (caseFailure) throw caseFailure; } },
+          {
+            check: () => {
+              if (caseFailure) throw caseFailure;
+            },
+          },
         );
       }
     } finally {

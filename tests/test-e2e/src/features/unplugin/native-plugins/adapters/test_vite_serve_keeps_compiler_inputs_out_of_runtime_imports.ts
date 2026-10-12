@@ -7,10 +7,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { assertFixtureDerivesMissingCandidate } from "../../../../internal/unplugin/internal/adapter-vite-serve/assertFixtureDerivesMissingCandidate";
 import { observeReloadEvents } from "../../../../internal/unplugin/internal/adapter-vite-serve/observeReloadEvents";
-import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 import { positionOf } from "../../../../internal/unplugin/internal/source-map/positionOf";
 
 /**
@@ -215,7 +215,9 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     await request();
 
     fs.unlinkSync(dependency);
-    await waitFor(() => !loaded[0].transformResult, "dependency deletion", { check: () => observedEvents.check() });
+    await waitFor(() => !loaded[0].transformResult, "dependency deletion", {
+      check: () => observedEvents.check(),
+    });
     await assert.rejects(request(), /secret\.server/);
     events.length = 0;
     fs.writeFileSync(dependency, 'export type Secret = "recovered";\n');
@@ -234,7 +236,11 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
       if (observedEvents.joined) events = undefined;
       else clientJoined = false;
     }
-    assert.equal(observedEvents.joined, true, "original publication client joins before intentional restart");
+    assert.equal(
+      observedEvents.joined,
+      true,
+      "original publication client joins before intentional restart",
+    );
     await server.restart();
     assert.match((await request()).code, /RECOVERED/);
     if (preparedRoot !== undefined) {
@@ -310,7 +316,10 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     const restartedServer = server.httpServer;
     const restartFailures: unknown[] = [];
     const failed = (error: unknown) => restartFailures.push(error);
-    const closed = () => restartFailures.push(new Error("restarted Vite server closed before dependency publication"));
+    const closed = () =>
+      restartFailures.push(
+        new Error("restarted Vite server closed before dependency publication"),
+      );
     restartedServer.on("error", failed);
     restartedServer.on("close", closed);
     try {
@@ -318,11 +327,20 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
       await waitFor(
         () => !restarted.transformResult,
         "dependency edit after server restart",
-        { check: () => {
-          if (restartFailures.length !== 0)
-            throw new AggregateError(restartFailures, "restarted Vite server observation");
-          assert.equal(restartedServer.listening, true, "restarted Vite server closed before dependency publication");
-        } },
+        {
+          check: () => {
+            if (restartFailures.length !== 0)
+              throw new AggregateError(
+                restartFailures,
+                "restarted Vite server observation",
+              );
+            assert.equal(
+              restartedServer.listening,
+              true,
+              "restarted Vite server closed before dependency publication",
+            );
+          },
+        },
       );
     } finally {
       restartedServer.off("error", failed);
@@ -343,7 +361,8 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
       Promise.resolve().then(() => server.close()),
     ]);
     if (events !== undefined && !events.joined) clientJoined = false;
-    for (const close of closes) if (close.status === "rejected") failures.push(close.reason);
+    for (const close of closes)
+      if (close.status === "rejected") failures.push(close.reason);
     if (closes[1]!.status === "fulfilled" && clientJoined) onServerClosed?.();
   }
   if (failures.length)

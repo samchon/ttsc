@@ -81,7 +81,10 @@ export namespace TsgoArguments {
       args.push("--noEmitOnError");
     }
     args.push(
-      ...CompilerProjectSelection.readGuard(execution.compilerSelection, options.passthrough),
+      ...CompilerProjectSelection.readGuard(
+        execution.compilerSelection,
+        options.passthrough,
+      ),
     );
     return args;
   }

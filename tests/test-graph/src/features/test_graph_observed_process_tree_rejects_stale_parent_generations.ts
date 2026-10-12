@@ -49,7 +49,10 @@ export function test_graph_observed_process_tree_rejects_stale_parent_generation
   assert.deepEqual(keys(recorded), [28132, 45336, 54124, 57360, 70384]);
   updateObservedProcessTree(recorded, 45336, actual.slice(5), "win32");
   assert.deepEqual(keys(recorded), [28132, 45336, 54124, 57360, 70384]);
-  assert.equal(actual.slice(5).some((row) => recorded.has(row.pid)), false);
+  assert.equal(
+    actual.slice(5).some((row) => recorded.has(row.pid)),
+    false,
+  );
 
   const root = reading(1, 0, win("0000020"));
   const child = reading(2, 1, win("0000030"));
@@ -58,82 +61,150 @@ export function test_graph_observed_process_tree_rejects_stale_parent_generation
   const equal = reading(5, 1, root.identity);
   const fractional = new Map<number, ObservedProcessReading>();
   updateObservedProcessTree(
-    fractional, 1, [grandchild, earlier, equal, child, root], "win32",
+    fractional,
+    1,
+    [grandchild, earlier, equal, child, root],
+    "win32",
   );
   assert.deepEqual(keys(fractional), [1, 2, 3, 5]);
   assert.strictEqual(fractional.get(1), root);
   assert.strictEqual(fractional.get(2), child);
   updateObservedProcessTree(
-    fractional, 1, [{ ...child, command: "changed display" }, root], "win32",
+    fractional,
+    1,
+    [{ ...child, command: "changed display" }, root],
+    "win32",
   );
   assert.strictEqual(fractional.get(2), child);
 
   for (const platform of ["linux", "darwin"] as const) {
     const tree = new Map<number, ObservedProcessReading>();
     const parent = reading(1, 0, "Fri Oct  9 01:15:59 2026");
-    updateObservedProcessTree(tree, 1, [
-      reading(4, 3, "Sat Oct 10 00:00:00 2026"),
-      reading(2, 1, "Fri Oct 9 01:15:59 2026"),
-      reading(3, 1, "Sat Oct 10 00:00:00 2026"),
-      reading(5, 1, "Thu Oct  8 23:59:59 2026"),
-      parent,
-    ], platform);
+    updateObservedProcessTree(
+      tree,
+      1,
+      [
+        reading(4, 3, "Sat Oct 10 00:00:00 2026"),
+        reading(2, 1, "Fri Oct 9 01:15:59 2026"),
+        reading(3, 1, "Sat Oct 10 00:00:00 2026"),
+        reading(5, 1, "Thu Oct  8 23:59:59 2026"),
+        parent,
+      ],
+      platform,
+    );
     assert.deepEqual(keys(tree), [1, 2, 3, 4], platform);
     assert.strictEqual(tree.get(1), parent);
 
     const calendar = new Map<number, ObservedProcessReading>();
-    updateObservedProcessTree(calendar, 1, [
-      reading(1, 0, "Wed Dec 31 23:59:59 2025"),
-      reading(2, 1, "Thu Jan  1 00:00:00 2026"),
-      reading(3, 2, "Sun Feb  1 00:00:00 2026"),
-    ], platform);
+    updateObservedProcessTree(
+      calendar,
+      1,
+      [
+        reading(1, 0, "Wed Dec 31 23:59:59 2025"),
+        reading(2, 1, "Thu Jan  1 00:00:00 2026"),
+        reading(3, 2, "Sun Feb  1 00:00:00 2026"),
+      ],
+      platform,
+    );
     assert.deepEqual(keys(calendar), [1, 2, 3], platform);
     for (const identity of [
       "Fri Oct  9 01:15:59 2026 UTC",
       "Thu Oct  9 01:15:59 2026",
       "Mon Feb 30 00:00:00 2026",
       "unknown",
-    ]) assert.throws(() => updateObservedProcessTree(
-      new Map(), 1, [parent, reading(2, 1, identity)], platform,
-    ), /Unknown .* process creation identity/);
+    ])
+      assert.throws(
+        () =>
+          updateObservedProcessTree(
+            new Map(),
+            1,
+            [parent, reading(2, 1, identity)],
+            platform,
+          ),
+        /Unknown .* process creation identity/,
+      );
   }
 
   const leap = new Map<number, ObservedProcessReading>();
-  updateObservedProcessTree(leap, 1, [
-    reading(1, 0, "2024-02-29T23:59:59.9999990Z"),
-    reading(2, 1, "2024-03-01T00:00:00.0000000Z"),
-  ], "win32");
+  updateObservedProcessTree(
+    leap,
+    1,
+    [
+      reading(1, 0, "2024-02-29T23:59:59.9999990Z"),
+      reading(2, 1, "2024-03-01T00:00:00.0000000Z"),
+    ],
+    "win32",
+  );
   assert.deepEqual(keys(leap), [1, 2]);
   for (const identity of [
-    "", "not-a-date", "2026-02-29T00:00:00.0000000Z",
-    "2026-10-09T24:00:00.0000000Z", "2026-10-09T00:60:00.0000000Z",
-    "2026-10-09T00:00:60.0000000Z", "2026-10-09T00:00:00.000000Z",
-    "2026-10-09T00:00:00.0000000+00:00", "0000-01-01T00:00:00.0000000Z",
-  ]) assert.throws(() => updateObservedProcessTree(
-    new Map(), 1, [root, reading(2, 1, identity)], "win32",
-  ), /Unknown win32 process creation identity/);
-  assert.throws(() => updateObservedProcessTree(
-    new Map(), 1, [reading(1, 0, "unknown")], "win32",
-  ), /Unknown win32 process creation identity/);
-  assert.throws(() => updateObservedProcessTree(
-    new Map(), 1, [root], "freebsd",
-  ), /Unknown freebsd process creation identity/);
+    "",
+    "not-a-date",
+    "2026-02-29T00:00:00.0000000Z",
+    "2026-10-09T24:00:00.0000000Z",
+    "2026-10-09T00:60:00.0000000Z",
+    "2026-10-09T00:00:60.0000000Z",
+    "2026-10-09T00:00:00.000000Z",
+    "2026-10-09T00:00:00.0000000+00:00",
+    "0000-01-01T00:00:00.0000000Z",
+  ])
+    assert.throws(
+      () =>
+        updateObservedProcessTree(
+          new Map(),
+          1,
+          [root, reading(2, 1, identity)],
+          "win32",
+        ),
+      /Unknown win32 process creation identity/,
+    );
+  assert.throws(
+    () =>
+      updateObservedProcessTree(
+        new Map(),
+        1,
+        [reading(1, 0, "unknown")],
+        "win32",
+      ),
+    /Unknown win32 process creation identity/,
+  );
+  assert.throws(
+    () => updateObservedProcessTree(new Map(), 1, [root], "freebsd"),
+    /Unknown freebsd process creation identity/,
+  );
   for (const pid of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])
-    assert.throws(() => updateObservedProcessTree(
-      new Map(), 1, [root, reading(pid, 1, win("0000030"))], "win32",
-    ), /Unknown win32 process creation identity/);
+    assert.throws(
+      () =>
+        updateObservedProcessTree(
+          new Map(),
+          1,
+          [root, reading(pid, 1, win("0000030"))],
+          "win32",
+        ),
+      /Unknown win32 process creation identity/,
+    );
 
   const unrelated = new Map<number, ObservedProcessReading>();
-  updateObservedProcessTree(unrelated, 1, [
-    root, reading(99, 98, "unknown"), reading(7, 6, win("0000040")),
-  ], "win32");
+  updateObservedProcessTree(
+    unrelated,
+    1,
+    [root, reading(99, 98, "unknown"), reading(7, 6, win("0000040"))],
+    "win32",
+  );
   assert.deepEqual(keys(unrelated), [1]);
-  assert.throws(() => updateObservedProcessTree(
-    new Map(), 1, [root, { ...root }], "win32",
-  ), /Ambiguous observed process generation for PID 1/);
-  assert.throws(() => updateObservedProcessTree(
-    new Map(), 1, [root, child, { ...child, identity: win("0000040") }], "win32",
-  ), /Ambiguous observed process generation for PID 2/);
+  assert.throws(
+    () => updateObservedProcessTree(new Map(), 1, [root, { ...root }], "win32"),
+    /Ambiguous observed process generation for PID 1/,
+  );
+  assert.throws(
+    () =>
+      updateObservedProcessTree(
+        new Map(),
+        1,
+        [root, child, { ...child, identity: win("0000040") }],
+        "win32",
+      ),
+    /Ambiguous observed process generation for PID 2/,
+  );
 
   const generations = new Map<number, ObservedProcessReading>();
   updateObservedProcessTree(generations, 1, [root, child], "win32");
@@ -141,17 +212,34 @@ export function test_graph_observed_process_tree_rejects_stale_parent_generation
   const foreignChild = reading(6, 1, win("0000060"));
   const orphanChild = reading(7, 2, win("0000070"));
   updateObservedProcessTree(
-    generations, 1, [replacement, foreignChild, child, orphanChild], "win32",
+    generations,
+    1,
+    [replacement, foreignChild, child, orphanChild],
+    "win32",
   );
   assert.deepEqual(keys(generations), [1, 2, 7]);
   assert.strictEqual(generations.get(1), root);
   assert.strictEqual(generations.get(2), child);
-  assert.throws(() => updateObservedProcessTree(
-    generations, 1, [reading(2, 0, "unknown")], "win32",
-  ), /Unknown win32 process creation identity/);
-  assert.throws(() => updateObservedProcessTree(
-    generations, 1, [child, { ...child, identity: win("0000080") }], "win32",
-  ), /Ambiguous observed process generation for PID 2/);
+  assert.throws(
+    () =>
+      updateObservedProcessTree(
+        generations,
+        1,
+        [reading(2, 0, "unknown")],
+        "win32",
+      ),
+    /Unknown win32 process creation identity/,
+  );
+  assert.throws(
+    () =>
+      updateObservedProcessTree(
+        generations,
+        1,
+        [child, { ...child, identity: win("0000080") }],
+        "win32",
+      ),
+    /Ambiguous observed process generation for PID 2/,
+  );
   updateObservedProcessTree(generations, 1, [orphanChild], "win32");
   assert.deepEqual(keys(generations), [1, 2, 7]);
   updateObservedProcessTree(generations, 1, [], "win32");
@@ -164,7 +252,12 @@ export function test_graph_observed_process_tree_rejects_stale_parent_generation
   updateObservedProcessTree(reusedParent, 1, [newChild, newParent], "win32");
   assert.deepEqual(keys(reusedParent), [1, 2]);
   assert.strictEqual(reusedParent.get(2), child);
-  updateObservedProcessTree(reusedParent, 1, [newChild, newParent, root], "win32");
+  updateObservedProcessTree(
+    reusedParent,
+    1,
+    [newChild, newParent, root],
+    "win32",
+  );
   assert.deepEqual(keys(reusedParent), [1, 2, 8]);
   assert.strictEqual(reusedParent.get(2), newParent);
   assert.strictEqual(reusedParent.get(8), newChild);

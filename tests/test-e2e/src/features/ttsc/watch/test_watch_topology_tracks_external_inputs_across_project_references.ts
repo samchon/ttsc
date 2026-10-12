@@ -81,7 +81,9 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
       },
       {
         onError: (location, error) => {
-          topologyFailure ??= new Error(`watch error on ${location}`, { cause: error });
+          topologyFailure ??= new Error(`watch error on ${location}`, {
+            cause: error,
+          });
         },
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => {},
@@ -128,8 +130,11 @@ async function nextProjectChange(
   changes: readonly WatchInputChange[],
   previous: number,
 ): Promise<void> {
-  await waitFor(() => projectChanges(changes) > previous,
-    `project change after ${previous}`, owner);
+  await waitFor(
+    () => projectChanges(changes) > previous,
+    `project change after ${previous}`,
+    owner,
+  );
   owner.check();
   await delay();
   owner.check();

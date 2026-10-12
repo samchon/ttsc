@@ -49,7 +49,9 @@ export function test_runtime_mapped_resolution_preserves_earlier_witnesses(): vo
     }
   };
   const refused = (
-    records: ReturnType<ReturnType<typeof observeMappedDescriptorResolution>["commit"]>,
+    records: ReturnType<
+      ReturnType<typeof observeMappedDescriptorResolution>["commit"]
+    >,
     file: string,
   ): void => {
     const record = records.find((item) => item.resolved === file);
@@ -70,16 +72,28 @@ export function test_runtime_mapped_resolution_preserves_earlier_witnesses(): vo
         const app = path.join(directory, "app");
         const parent = path.join(app, "entry.cjs");
         write(parent, "// importer");
-        write(path.join(app, "package.json"), JSON.stringify({ imports: { "#dep": target } }));
+        write(
+          path.join(app, "package.json"),
+          JSON.stringify({ imports: { "#dep": target } }),
+        );
         const packageName = target.startsWith("@") ? "@scope/pkg" : "pkg";
         const near = path.join(app, "node_modules", packageName);
         fs.mkdirSync(path.dirname(near), { recursive: true });
         const far = path.join(directory, "node_modules", packageName);
         const entry = packageAt(far);
-        if (target.endsWith("/sub.cjs")) write(path.join(far, "sub.cjs"), "module.exports='SUB';");
-        const window = observeMappedDescriptorResolution("#dep", parent, [".cjs", ".js", ".json", ".node"]);
+        if (target.endsWith("/sub.cjs"))
+          write(path.join(far, "sub.cjs"), "module.exports='SUB';");
+        const window = observeMappedDescriptorResolution("#dep", parent, [
+          ".cjs",
+          ".js",
+          ".json",
+          ".node",
+        ]);
         const selected = createRequire(parent).resolve("#dep");
-        assert.equal(selected, target.endsWith("/sub.cjs") ? path.join(far, "sub.cjs") : entry);
+        assert.equal(
+          selected,
+          target.endsWith("/sub.cjs") ? path.join(far, "sub.cjs") : entry,
+        );
         if (changed) packageAt(near);
         const records = window.commit(selected);
         for (const leaf of ["package.json", "index.cjs"]) {
@@ -107,25 +121,55 @@ export function test_runtime_mapped_resolution_preserves_earlier_witnesses(): vo
     check("conditional-cutoff", (directory) => {
       const parent = path.join(directory, "app", "entry.cjs");
       write(parent, "// importer");
-      write(path.join(directory, "app", "package.json"), JSON.stringify({ imports: { "#dep": { require: "@scope/pkg", default: "unused" } } }));
-      const selected = packageAt(path.join(directory, "node_modules", "@scope/pkg"));
-      const window = observeMappedDescriptorResolution("#dep", pathToFileURL(parent).href, [".cjs", ".js"]);
+      write(
+        path.join(directory, "app", "package.json"),
+        JSON.stringify({
+          imports: { "#dep": { require: "@scope/pkg", default: "unused" } },
+        }),
+      );
+      const selected = packageAt(
+        path.join(directory, "node_modules", "@scope/pkg"),
+      );
+      const window = observeMappedDescriptorResolution(
+        "#dep",
+        pathToFileURL(parent).href,
+        [".cjs", ".js"],
+      );
       assert.equal(createRequire(parent).resolve("#dep"), selected);
       const records = window.commit(selected);
-      assert.equal(records.find((item) => item.resolved === selected)?.hash, digest("module.exports='FAR';"));
-      assert.ok(!records.some((item) => item.resolved.includes(`${path.sep}unused`)));
-      assert.ok(!records.some((item) => item.resolved === path.join(root, "node_modules", "@scope/pkg", "package.json")));
+      assert.equal(
+        records.find((item) => item.resolved === selected)?.hash,
+        digest("module.exports='FAR';"),
+      );
+      assert.ok(
+        !records.some((item) => item.resolved.includes(`${path.sep}unused`)),
+      );
+      assert.ok(
+        !records.some(
+          (item) =>
+            item.resolved ===
+            path.join(root, "node_modules", "@scope/pkg", "package.json"),
+        ),
+      );
     });
     check("javascript-source-candidate", (directory) => {
       const parent = path.join(directory, "app", "entry.cjs");
       write(parent, "// importer");
-      write(path.join(directory, "app", "package.json"), '{"imports":{"#dep":"@scope/pkg/implementation.js"}}');
+      write(
+        path.join(directory, "app", "package.json"),
+        '{"imports":{"#dep":"@scope/pkg/implementation.js"}}',
+      );
       const pkg = path.join(directory, "node_modules", "@scope/pkg");
       packageAt(pkg);
       const selected = path.join(pkg, "implementation.js");
       const source = path.join(pkg, "implementation.ts");
       write(selected, "module.exports=1;");
-      const window = observeMappedDescriptorResolution("#dep", parent, [".ts", ".tsx", ".js", ".cjs"]);
+      const window = observeMappedDescriptorResolution("#dep", parent, [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".cjs",
+      ]);
       assert.equal(createRequire(parent).resolve("#dep"), selected);
       write(source, "export default 2;");
       refused(window.commit(selected), source);
@@ -134,10 +178,15 @@ export function test_runtime_mapped_resolution_preserves_earlier_witnesses(): vo
       const parent = path.join(directory, "entry.cjs");
       const selected = path.join(directory, "local.cjs");
       write(parent, "// importer");
-      write(path.join(directory, "package.json"), '{"imports":{"#dep":"./local.cjs"}}');
+      write(
+        path.join(directory, "package.json"),
+        '{"imports":{"#dep":"./local.cjs"}}',
+      );
       write(selected, "module.exports=1;");
       const before = fs.statSync(selected, { bigint: true });
-      const window = observeMappedDescriptorResolution("#dep", parent, [".cjs"]);
+      const window = observeMappedDescriptorResolution("#dep", parent, [
+        ".cjs",
+      ]);
       assert.equal(createRequire(parent).resolve("#dep"), selected);
       fs.renameSync(selected, selected + ".original");
       write(selected, "module.exports=1;");
@@ -149,29 +198,49 @@ export function test_runtime_mapped_resolution_preserves_earlier_witnesses(): vo
     check("failed-created", (directory) => {
       const parent = path.join(directory, "entry.cjs");
       write(parent, "// importer");
-      write(path.join(directory, "package.json"), '{"imports":{"#dep":"@scope/pkg"}}');
-      const window = observeMappedDescriptorResolution("#dep", parent, [".cjs"]);
+      write(
+        path.join(directory, "package.json"),
+        '{"imports":{"#dep":"@scope/pkg"}}',
+      );
+      const window = observeMappedDescriptorResolution("#dep", parent, [
+        ".cjs",
+      ]);
       assert.throws(() => createRequire(parent).resolve("#dep"));
-      const selected = packageAt(path.join(directory, "node_modules", "@scope/pkg"));
+      const selected = packageAt(
+        path.join(directory, "node_modules", "@scope/pkg"),
+      );
       refused(window.commit(undefined), selected);
     });
     for (const changed of [false, true])
       check(changed ? "linked-retarget" : "linked-stable", (directory) => {
         const parent = path.join(directory, "app", "entry.cjs");
         write(parent, "// importer");
-        write(path.join(directory, "app", "package.json"), '{"imports":{"#dep":"@scope/pkg"}}');
+        write(
+          path.join(directory, "app", "package.json"),
+          '{"imports":{"#dep":"@scope/pkg"}}',
+        );
         const first = path.join(directory, "first");
         const second = path.join(directory, "second");
         const selected = packageAt(first);
         packageAt(second);
         const link = path.join(directory, "app", "node_modules", "@scope/pkg");
         fs.mkdirSync(path.dirname(link), { recursive: true });
-        fs.symlinkSync(first, link, process.platform === "win32" ? "junction" : "dir");
-        const window = observeMappedDescriptorResolution("#dep", parent, [".cjs"]);
+        fs.symlinkSync(
+          first,
+          link,
+          process.platform === "win32" ? "junction" : "dir",
+        );
+        const window = observeMappedDescriptorResolution("#dep", parent, [
+          ".cjs",
+        ]);
         assert.equal(createRequire(parent).resolve("#dep"), selected);
         if (changed) {
           fs.unlinkSync(link);
-          fs.symlinkSync(second, link, process.platform === "win32" ? "junction" : "dir");
+          fs.symlinkSync(
+            second,
+            link,
+            process.platform === "win32" ? "junction" : "dir",
+          );
         }
         const records = window.commit(selected);
         const file = path.join(link, "index.cjs");

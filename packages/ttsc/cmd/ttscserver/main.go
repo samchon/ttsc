@@ -108,8 +108,8 @@ type lspLaunchOptions struct {
   PluginsFile                    string        `json:"-"`
   ProgressDelay                  time.Duration `json:"-"`
   SuppressExecuteCommandProvider bool          `json:"-"`
-  SuppressedExecuteCommandIDs     string        `json:"-"`
-  ExecuteCommandIDPrefix          string        `json:"-"`
+  SuppressedExecuteCommandIDs    string        `json:"-"`
+  ExecuteCommandIDPrefix         string        `json:"-"`
 }
 
 // resolveLaunch is a private launcher/native protocol. It uses the same parser

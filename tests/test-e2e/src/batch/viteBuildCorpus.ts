@@ -20,7 +20,15 @@ import { BatchWorkspace } from "./BatchWorkspace";
 /** Concrete mutation receipts; missing identity never authorizes restoration. */
 export interface ViteRecordTransition {
   /** Original regular file before its exclusive move to heldPrimary. */
-  primary?: { bytes: string; identity: { realpath: string; dev: number; ino: number; birthtimeMs: number } };
+  primary?: {
+    bytes: string;
+    identity: {
+      realpath: string;
+      dev: number;
+      ino: number;
+      birthtimeMs: number;
+    };
+  };
 
   /** Exclusively created empty blocker, observed before later host work. */
   blocker?: { dev: number; ino: number; birthtimeMs: number };
@@ -32,14 +40,18 @@ export interface ViteRecordTransition {
 /** The actor borrows prepared paths and values, never the preparation owner. */
 export interface ViteBuildRequest {
   /** Serializable prepared paths and independent values; no archive authority. */
-  workspace: Pick<BatchWorkspace.Workspace, "root" | "cache" | "contextReceipt" | "pathsReceipt" | "expected">;
+  workspace: Pick<
+    BatchWorkspace.Workspace,
+    "root" | "cache" | "contextReceipt" | "pathsReceipt" | "expected"
+  >;
 
   /** Exclusive ignored operational receipt, read only after original join. */
   journal: string;
 }
 
 /**
- * Verifies one retained Vite build across primary, fallback and restored records.
+ * Verifies one retained Vite build across primary, fallback and restored
+ * records.
  *
  * Public close may precede a queued build. The original actor keeps shared
  * inputs borrowed through its real termination; the parent owns restoration.
@@ -57,17 +69,26 @@ export interface ViteBuildRequest {
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The actor records exclusive primary-file/blocker identities and never restores shared bytes. Known output/watch closes and errors are collected; natural actor termination plus the parent's native join, not close return or an idle interval, authorizes restoration.
  * @evidence contracts/e2e.md#preserved-coverage Every original value/map/path/native receipt and record assertion stays in this operation. The parent preserves independent restoration errors and unknown-lifetime retention; this operation does not certify later serve/native-watch scenarios.
  */
-export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> {
+export async function viteBuildCorpus(
+  request: ViteBuildRequest,
+): Promise<void> {
   const workspace = request.workspace;
   const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
     begin(): string | undefined;
-    record(event: string, invocation: string | undefined, fields: Record<string, unknown>): void;
+    record(
+      event: string,
+      invocation: string | undefined,
+      fields: Record<string, unknown>,
+    ): void;
   };
   const invocation = trace.begin();
-  const phase = (phase: string, data: Record<string, unknown> = {}): void => trace.record("vite-lifecycle", invocation, { pid: process.pid, data: { phase, ...data } });
+  const phase = (phase: string, data: Record<string, unknown> = {}): void =>
+    trace.record("vite-lifecycle", invocation, {
+      pid: process.pid,
+      data: { phase, ...data },
+    });
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
-  const pathsReceiptOffset =
-    BatchWorkspace.readPathsReceipts(workspace).length;
+  const pathsReceiptOffset = BatchWorkspace.readPathsReceipts(workspace).length;
   process.env.TTSC_CACHE_DIR = workspace.cache;
   let watcher: RollupWatcher | undefined;
   const declaration = path.join(workspace.root, "src/console.d.ts");
@@ -89,7 +110,8 @@ export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> 
   const heldPrimary = `${primary}.vite-held`;
   assert.equal(fs.existsSync(heldPrimary), false);
   const transition: ViteRecordTransition = {};
-  const checkpoint = (): void => fs.writeFileSync(request.journal, JSON.stringify(transition));
+  const checkpoint = (): void =>
+    fs.writeFileSync(request.journal, JSON.stringify(transition));
   checkpoint();
   let mutationEpoch = 0;
   const generations: {
@@ -108,18 +130,34 @@ export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> 
   const captures = new Set<Promise<void>>();
   const pendingBuilds = new Set<Promise<void>>();
   const closureFailures: unknown[] = [];
-  let currentBuild: { epoch: number; done: Promise<void>; finish(): void; fail(cause: unknown): void } | undefined;
+  let currentBuild:
+    | {
+        epoch: number;
+        done: Promise<void>;
+        finish(): void;
+        fail(cause: unknown): void;
+      }
+    | undefined;
   let closingRequested = false;
   let originalClose: Promise<void> | undefined;
   const closeAtIdle = (): void => {
-    if (closingRequested && watcher !== undefined && currentBuild === undefined && originalClose === undefined) {
+    if (
+      closingRequested &&
+      watcher !== undefined &&
+      currentBuild === undefined &&
+      originalClose === undefined
+    ) {
       originalClose = watcher.close();
       // Observe the same operation immediately; cleanup awaits its original promise.
       void originalClose.catch(() => undefined);
     }
   };
   const startBuild = (): void => {
-    if (currentBuild !== undefined || (closingRequested && originalClose !== undefined)) return;
+    if (
+      currentBuild !== undefined ||
+      (closingRequested && originalClose !== undefined)
+    )
+      return;
     let finish!: () => void;
     let fail!: (cause: unknown) => void;
     const done = new Promise<void>((resolve, reject) => {
@@ -135,9 +173,7 @@ export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> 
     const plugins: ITtscProjectPluginConfig[] = JSON.parse(
       fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8"),
     ).compilerOptions.plugins.map((entry: ITtscProjectPluginConfig) =>
-      entry.name === "native-order-prefix"
-        ? { ...entry, prefix: "d:" }
-        : entry,
+      entry.name === "native-order-prefix" ? { ...entry, prefix: "d:" } : entry,
     );
     // The public preparation pays actual native build cost before watch admission; it creates no Program and does not certify later reuse.
     const preparationStarted = performance.now();
@@ -192,7 +228,8 @@ export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> 
             phase("rollup-build-started");
           },
           buildEnd(error) {
-            if (error != null && !failures.includes(error)) failures.push(error);
+            if (error != null && !failures.includes(error))
+              failures.push(error);
             phase("rollup-build-ended", {
               error: error === undefined ? undefined : String(error),
             });
@@ -225,11 +262,17 @@ export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> 
     watcher = result as RollupWatcher;
     watcher.on("close", () => {
       if (currentBuild !== undefined) {
-        const error = new Error("original Vite host closed before its admitted generation reached END");
+        const error = new Error(
+          "original Vite host closed before its admitted generation reached END",
+        );
         failures.push(error);
         currentBuild.fail(error);
       } else if (!closingRequested) {
-        failures.push(new Error("original Vite host closed before required record publication"));
+        failures.push(
+          new Error(
+            "original Vite host closed before required record publication",
+          ),
+        );
       }
     });
     watcher.on("event", (event) => {
@@ -250,9 +293,9 @@ export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> 
       const ownedBuild = currentBuild;
       const capture = (async () => {
         try {
-          if (event.code === "ERROR" && !failures.includes(event.error)) failures.push(event.error);
-          const delivered =
-            event.code === "BUNDLE_END" ? generated : undefined;
+          if (event.code === "ERROR" && !failures.includes(event.error))
+            failures.push(event.error);
+          const delivered = event.code === "BUNDLE_END" ? generated : undefined;
           generated = undefined;
           if (event.result !== null && event.result !== undefined) {
             phase("bundle-result-close-started", {
@@ -273,8 +316,15 @@ export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> 
               delivered,
               "the actual host must render its graph before BUNDLE_END",
             );
-            assert.ok(ownedBuild, "a delivered output belongs to an admitted original build");
-            generations.push({ ...delivered, epoch: ownedBuild.epoch, completed: ownedBuild.done });
+            assert.ok(
+              ownedBuild,
+              "a delivered output belongs to an admitted original build",
+            );
+            generations.push({
+              ...delivered,
+              epoch: ownedBuild.epoch,
+              completed: ownedBuild.done,
+            });
           }
         } catch (error) {
           failures.push(error);
@@ -284,28 +334,54 @@ export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> 
       captures.add(tracked);
       return tracked;
     });
-    const nextGeneration = async (offset: number, expectedRecord: string, epoch: number) => {
+    const nextGeneration = async (
+      offset: number,
+      expectedRecord: string,
+      epoch: number,
+    ) => {
       let selected: (typeof generations)[number] | undefined;
-      await waitFor(() => {
-        for (const candidate of generations.slice(offset)) {
-          const matches = candidate.watchFiles.some((file) => path.resolve(file) === path.resolve(expectedRecord));
-          if (!matches && candidate.epoch < epoch) continue;
-          assert.ok(matches,
-            "the generation admitted after this mutation must deliver record " + expectedRecord +
-            " actual: " + JSON.stringify(candidate.watchFiles));
-          selected = candidate;
-          return true;
-        }
-        return false;
-      }, "retained Vite record publication", {
-        check: () => {
-          if (failures.length !== 0) throw new AggregateError([...failures], "shared Vite record state failed");
-          assert.equal(closingRequested, false, "the original watch owner closed before required publication");
+      await waitFor(
+        () => {
+          for (const candidate of generations.slice(offset)) {
+            const matches = candidate.watchFiles.some(
+              (file) => path.resolve(file) === path.resolve(expectedRecord),
+            );
+            if (!matches && candidate.epoch < epoch) continue;
+            assert.ok(
+              matches,
+              "the generation admitted after this mutation must deliver record " +
+                expectedRecord +
+                " actual: " +
+                JSON.stringify(candidate.watchFiles),
+            );
+            selected = candidate;
+            return true;
+          }
+          return false;
         },
-      });
+        "retained Vite record publication",
+        {
+          check: () => {
+            if (failures.length !== 0)
+              throw new AggregateError(
+                [...failures],
+                "shared Vite record state failed",
+              );
+            assert.equal(
+              closingRequested,
+              false,
+              "the original watch owner closed before required publication",
+            );
+          },
+        },
+      );
       assert.ok(selected);
       await selected.completed;
-      if (failures.length !== 0) throw new AggregateError([...failures], "shared Vite generation failed");
+      if (failures.length !== 0)
+        throw new AggregateError(
+          [...failures],
+          "shared Vite generation failed",
+        );
       return selected;
     };
     const initial = await nextGeneration(0, primary, mutationEpoch);
@@ -318,10 +394,7 @@ export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> 
       workspace.expected,
     );
     const map = chunks[0]!.map;
-    assert.ok(
-      map,
-      "the Rollup-backed Vite host must publish its composed map",
-    );
+    assert.ok(map, "the Rollup-backed Vite host must publish its composed map");
     assert.equal(map.version, 3);
     const marker = '"map-coordinate-control"';
     const generatedPosition = positionOf(code, marker);
@@ -417,23 +490,33 @@ export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> 
     assert.equal(primaryStat.isFile() && !primaryStat.isSymbolicLink(), true);
     transition.primary = {
       bytes: primaryBefore.toString("base64"),
-      identity: { realpath: fs.realpathSync.native(primary), dev: primaryStat.dev, ino: primaryStat.ino, birthtimeMs: primaryStat.birthtimeMs },
+      identity: {
+        realpath: fs.realpathSync.native(primary),
+        dev: primaryStat.dev,
+        ino: primaryStat.ino,
+        birthtimeMs: primaryStat.birthtimeMs,
+      },
     };
     checkpoint();
     fs.renameSync(primary, heldPrimary);
     fs.mkdirSync(primary);
     const blockedStat = fs.lstatSync(primary);
-    transition.blocker = { dev: blockedStat.dev, ino: blockedStat.ino, birthtimeMs: blockedStat.birthtimeMs };
+    transition.blocker = {
+      dev: blockedStat.dev,
+      ino: blockedStat.ino,
+      birthtimeMs: blockedStat.birthtimeMs,
+    };
     checkpoint();
-    fs.appendFileSync(
-      declaration,
-      "\n// shared record fallback generation\n",
-    );
+    fs.appendFileSync(declaration, "\n// shared record fallback generation\n");
     fs.appendFileSync(
       entry,
       "\n// same host requests the changed declaration generation\n",
     );
-    const blocked = await nextGeneration(blockedOffset, fallback, mutationEpoch);
+    const blocked = await nextGeneration(
+      blockedOffset,
+      fallback,
+      mutationEpoch,
+    );
     assert.deepEqual(
       fs.readFileSync(heldPrimary),
       primaryBefore,
@@ -468,7 +551,11 @@ export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> 
       sibling,
       "\n// sibling delivery acknowledges restored primary publication\n",
     );
-    const restored = await nextGeneration(restoredOffset, primary, mutationEpoch);
+    const restored = await nextGeneration(
+      restoredOffset,
+      primary,
+      mutationEpoch,
+    );
     assert.notDeepEqual(
       fs.readFileSync(primary),
       primaryBefore,
@@ -497,27 +584,47 @@ export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> 
         closeAtIdle();
         const independentCloses = await Promise.allSettled([
           Promise.resolve().then(async () => {
-            assert.ok(originalClose, "the original host close must be requested at its END boundary");
+            assert.ok(
+              originalClose,
+              "the original host close must be requested at its END boundary",
+            );
             await originalClose;
           }),
           Promise.all([...captures]),
         ]);
         const joinFailures = [...generationsJoined, ...independentCloses]
-          .filter((outcome): outcome is PromiseRejectedResult => outcome.status === "rejected")
+          .filter(
+            (outcome): outcome is PromiseRejectedResult =>
+              outcome.status === "rejected",
+          )
           .map((outcome) => outcome.reason);
         if (joinFailures.length !== 0)
-          throw new AggregateError(joinFailures, "shared Vite original generation, host and capture joins");
-        assert.equal(pendingBuilds.size, 0, "every observed pre-close generation reached its END boundary");
+          throw new AggregateError(
+            joinFailures,
+            "shared Vite original generation, host and capture joins",
+          );
+        assert.equal(
+          pendingBuilds.size,
+          0,
+          "every observed pre-close generation reached its END boundary",
+        );
         assert.equal(captures.size, 0, "no output capture survives host close");
         if (closureFailures.length !== 0)
-          throw new AggregateError(closureFailures, "shared Vite output closure failed");
+          throw new AggregateError(
+            closureFailures,
+            "shared Vite output closure failed",
+          );
         phase("watcher-close-returned");
         phase("close-captures-join-returned");
       } catch (error) {
         failures.push(error);
       }
     } else if (pendingBuilds.size !== 0 || captures.size !== 0) {
-      failures.push(new Error("shared Vite partial initialization left an unjoined generation"));
+      failures.push(
+        new Error(
+          "shared Vite partial initialization left an unjoined generation",
+        ),
+      );
     }
     // No source or record restoration belongs to this actor. The parent
     // requires original native retirement, including any queued post-close run.
@@ -526,5 +633,8 @@ export async function viteBuildCorpus(request: ViteBuildRequest): Promise<void> 
   // buildEnd callbacks can still contribute genuine failures before this point.
   await once(process, "beforeExit");
   if (failures.length !== 0)
-    throw new AggregateError(failures, "shared Vite execution and original closure");
+    throw new AggregateError(
+      failures,
+      "shared Vite execution and original closure",
+    );
 }

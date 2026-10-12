@@ -12,9 +12,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * Verifies runtime source-root metadata before any project build executes.
  *
  * The private authored operation is extracted as an AST declaration and bound
- * to its actual private layout owner and receives the prepared option reader.
- * A separate null value exercises the documented rejected-response outcome; it does
- * not manufacture a compiler rejection or certify emitted artifacts.
+ * to its actual private layout owner and receives the prepared option reader. A
+ * separate null value exercises the documented rejected-response outcome; it
+ * does not manufacture a compiler rejection or certify emitted artifacts.
  *
  * 1. Resolve configured, explicit-reset, overridden and absent roots with the real
  *    reader.

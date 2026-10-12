@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { Session } from "node:inspector/promises";
 import os from "node:os";
 import path from "node:path";
-import { isMainThread, Worker } from "node:worker_threads";
+import { Worker, isMainThread } from "node:worker_threads";
 
 import { findDeclaredValue } from "../../../../../packages/unplugin/src/core/tsconfig/findDeclaredValue";
 import { readEffectiveTsconfigPaths } from "../../../../../packages/unplugin/src/core/tsconfig/readEffectiveTsconfigPaths";
@@ -20,10 +20,12 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * many paths; fixture node/edge counts define bounded observation work.
  *
  * 1. Read singleton, duplicate-base and layered DAG policies twice independently.
- * 2. Assert literal membership, origins and ordered source observations, plus
- *    one parse/identity per node and one resolution per distinct outgoing specifier.
+ * 2. Assert literal membership, origins and ordered source observations, plus one
+ *    parse/identity per node and one resolution per distinct outgoing
+ *    specifier.
  * 3. Count actual absent-value selections and exercise paths and both template
- *    views on the same DAG, preserving raw invalid list elements and configDir.
+ *    views on the same DAG, preserving raw invalid list elements and
+ *    configDir.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the actual membership reader and all three wrapper-view readers; V8 counts production parse/realpath/extends operations and a supplied generic selector counts actual absent selections. Assertions cover usable lists, output exclusions, flags, source order, paths and raw template list elements.
  * @evidence contracts/testing.md#independent-expectations Authored depth gives 2d+2 nodes and 4d distinct outgoing specifiers for d>=1; singleton and duplicate-base counts follow their literal topology. Explicit base values and lexical/configDir anchors define expected policy/template paths independently of traversal results.
@@ -35,7 +37,10 @@ export async function test_membership_policy_reuses_shared_config_dags(): Promis
   // functions. Earlier suite entries can leave binary-only coverage records;
   // keep this measurement's Inspector and source execution in one fresh isolate.
   if (isMainThread) {
-    const loader = new URL("../../../../../config/register-unit-loader.mjs", import.meta.url).href;
+    const loader = new URL(
+      "../../../../../config/register-unit-loader.mjs",
+      import.meta.url,
+    ).href;
     await new Promise<void>((resolve, reject) => {
       const worker = new Worker(
         `import("node:worker_threads").then(async ({ parentPort }) => {
@@ -54,22 +59,35 @@ export async function test_membership_policy_reuses_shared_config_dags(): Promis
       worker.on("message", (message: unknown) => {
         receipt = message;
       });
-      worker.once("error", (error) => { failed = true; failure = error; });
+      worker.once("error", (error) => {
+        failed = true;
+        failure = error;
+      });
       worker.once("exit", (code) => {
         if (failed || code !== 0)
-          reject(new Error(
-            `DAG measurement worker exited ${code}, error event ${failed}`,
-            { cause: failure },
-          ));
+          reject(
+            new Error(
+              `DAG measurement worker exited ${code}, error event ${failed}`,
+              { cause: failure },
+            ),
+          );
         else {
           try {
             assert.deepEqual(receipt, {
-              completed: true, loader, execArgv: process.execArgv,
-              cwd: process.cwd(), temporaryRoot: os.tmpdir(),
+              completed: true,
+              loader,
+              execArgv: process.execArgv,
+              cwd: process.cwd(),
+              temporaryRoot: os.tmpdir(),
             });
             resolve();
           } catch (cause) {
-            reject(new Error(`DAG measurement worker exited ${code} without a matching completion receipt`, { cause }));
+            reject(
+              new Error(
+                `DAG measurement worker exited ${code} without a matching completion receipt`,
+                { cause },
+              ),
+            );
           }
         }
       });
@@ -150,32 +168,58 @@ export async function test_membership_policy_reuses_shared_config_dags(): Promis
             .filter((entry) => entry.functionName === name);
           assert.ok(functions.length <= 1, `${name} coverage identity`);
           if ((functions[0]?.ranges[0]?.count ?? 0) !== 0)
-            assert.equal(functions[0]?.isBlockCoverage, true, JSON.stringify(functions));
+            assert.equal(
+              functions[0]?.isBlockCoverage,
+              true,
+              JSON.stringify(functions),
+            );
           return functions[0]?.ranges[0]?.count ?? 0;
         };
         if (policy === undefined) continue;
         const actualPolicy = policy;
         check(`depth ${depth} read ${invocation} bounded observations`, () => {
           assert.equal(calls("parseJsonc", "parseJsonc"), nodes);
-          assert.equal(calls("resolveExtendsConfig", "resolveExtendsConfig"), edges);
+          assert.equal(
+            calls("resolveExtendsConfig", "resolveExtendsConfig"),
+            edges,
+          );
           assert.equal(
             calls("resolveRealPath", "resolveRealPath"),
             nodes + 1,
-            JSON.stringify(coverage.result.filter((script) =>
-              script.url.replaceAll("\\", "/").endsWith("/resolveRealPath.ts"),
-            )),
+            JSON.stringify(
+              coverage.result.filter((script) =>
+                script.url
+                  .replaceAll("\\", "/")
+                  .endsWith("/resolveRealPath.ts"),
+              ),
+            ),
           );
         });
-        check(`depth ${depth} read ${invocation} membership and origins`, () => {
-          assert.deepEqual(actualPolicy.sources, expectedSources);
-          assert.deepEqual(actualPolicy.rootFileSpecs?.files, depth < 0 ? [] : [pattern("main.ts")]);
-          assert.deepEqual(actualPolicy.rootFileSpecs?.include, depth < 0 ? [pattern("**/*")] : []);
-          assert.deepEqual(actualPolicy.excludedDirectories, depth < 0 ? [] : [at("out")]);
-          assert.deepEqual(actualPolicy.inputExtensions, [
-            ".ts", ".tsx", ".mts", ".cts",
-            ...(depth < 0 ? [] : [".js", ".jsx", ".mjs", ".cjs"]),
-          ]);
-        });
+        check(
+          `depth ${depth} read ${invocation} membership and origins`,
+          () => {
+            assert.deepEqual(actualPolicy.sources, expectedSources);
+            assert.deepEqual(
+              actualPolicy.rootFileSpecs?.files,
+              depth < 0 ? [] : [pattern("main.ts")],
+            );
+            assert.deepEqual(
+              actualPolicy.rootFileSpecs?.include,
+              depth < 0 ? [pattern("**/*")] : [],
+            );
+            assert.deepEqual(
+              actualPolicy.excludedDirectories,
+              depth < 0 ? [] : [at("out")],
+            );
+            assert.deepEqual(actualPolicy.inputExtensions, [
+              ".ts",
+              ".tsx",
+              ".mts",
+              ".cts",
+              ...(depth < 0 ? [] : [".js", ".jsx", ".mjs", ".cjs"]),
+            ]);
+          },
+        );
       }
       check(`depth ${depth} absent selection reuse`, () => {
         let selected = 0;
@@ -192,13 +236,26 @@ export async function test_membership_policy_reuses_shared_config_dags(): Promis
       });
       await session.post("Profiler.takePreciseCoverage");
       for (const [name, read, expected] of [
-        ["compiler templates", readEffectiveTsconfigTemplateCompilerOptions, depth < 0 ? {} : {
-          outDir: at("out"), rootDirs: [at("roots"), at("ordinary")],
-          paths: { "@/*": [pattern("shared/*"), pattern("ordinary/*")] },
-        }],
-        ["file templates", readEffectiveTsconfigTemplateFileSpecs, depth < 0 ? {} : {
-          files: [pattern("main.ts"), 7],
-        }],
+        [
+          "compiler templates",
+          readEffectiveTsconfigTemplateCompilerOptions,
+          depth < 0
+            ? {}
+            : {
+                outDir: at("out"),
+                rootDirs: [at("roots"), at("ordinary")],
+                paths: { "@/*": [pattern("shared/*"), pattern("ordinary/*")] },
+              },
+        ],
+        [
+          "file templates",
+          readEffectiveTsconfigTemplateFileSpecs,
+          depth < 0
+            ? {}
+            : {
+                files: [pattern("main.ts"), 7],
+              },
+        ],
       ] as const) {
         let result: Record<string, unknown> | undefined;
         check(`depth ${depth} ${name} operation`, () => {
@@ -208,20 +265,33 @@ export async function test_membership_policy_reuses_shared_config_dags(): Promis
         if (result === undefined) continue;
         check(`depth ${depth} ${name} shared edges and values`, () => {
           const entries = coverage.result
-            .filter((script) => script.url.replaceAll("\\", "/").endsWith("/resolveExtendsConfig.ts"))
+            .filter((script) =>
+              script.url
+                .replaceAll("\\", "/")
+                .endsWith("/resolveExtendsConfig.ts"),
+            )
             .flatMap((script) => script.functions)
             .filter((entry) => entry.functionName === "resolveExtendsConfig");
           assert.ok(entries.length <= 1, "template edge coverage identity");
           if ((entries[0]?.ranges[0]?.count ?? 0) !== 0)
-            assert.equal(entries[0]?.isBlockCoverage, true, JSON.stringify(entries));
+            assert.equal(
+              entries[0]?.isBlockCoverage,
+              true,
+              JSON.stringify(entries),
+            );
           assert.equal(entries[0]?.ranges[0]?.count ?? 0, edges);
           assert.deepEqual(result, expected);
         });
       }
       check(`depth ${depth} effective paths`, () => {
-        assert.deepEqual(readEffectiveTsconfigPaths(at("entry.json")), depth < 0 ? {} : {
-          "@/*": [pattern("shared/*"), pattern("ordinary/*")],
-        });
+        assert.deepEqual(
+          readEffectiveTsconfigPaths(at("entry.json")),
+          depth < 0
+            ? {}
+            : {
+                "@/*": [pattern("shared/*"), pattern("ordinary/*")],
+              },
+        );
       });
       await session.post("Profiler.takePreciseCoverage");
     }

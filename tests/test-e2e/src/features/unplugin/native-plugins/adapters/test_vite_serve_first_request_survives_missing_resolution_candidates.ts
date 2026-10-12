@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 import type { IViteServeCandidateFixture } from "../../../../internal/unplugin/internal/adapter-vite-serve/IViteServeCandidateFixture";
 import { assertFixtureDerivesMissingCandidate } from "../../../../internal/unplugin/internal/adapter-vite-serve/assertFixtureDerivesMissingCandidate";
 import { createLinkedWorkspaceFixture } from "../../../../internal/unplugin/internal/adapter-vite-serve/createLinkedWorkspaceFixture";
@@ -9,7 +10,6 @@ import { mainModuleNode } from "../../../../internal/unplugin/internal/adapter-v
 import { observeReloadEvents } from "../../../../internal/unplugin/internal/adapter-vite-serve/observeReloadEvents";
 import { requestMainModule } from "../../../../internal/unplugin/internal/adapter-vite-serve/requestMainModule";
 import { startViteServer } from "../../../../internal/unplugin/internal/adapter-vite-serve/startViteServer";
-import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies one real dev-server lifetime tracks missing candidates, replacement
@@ -171,8 +171,13 @@ export async function test_vite_serve_first_request_survives_missing_resolution_
         Promise.resolve().then(() => server.close()),
       ])),
     );
-    for (const close of closes) if (close.status === "rejected")
-      failures.push(new Error("original Vite client/server closure", { cause: close.reason }));
+    for (const close of closes)
+      if (close.status === "rejected")
+        failures.push(
+          new Error("original Vite client/server closure", {
+            cause: close.reason,
+          }),
+        );
   }
   if (failures.length !== 0)
     throw new AggregateError(

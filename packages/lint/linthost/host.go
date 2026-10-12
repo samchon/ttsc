@@ -81,7 +81,7 @@ type loadProgramOptions struct {
   // `--target es2020`, …). They are parsed through TypeScript-Go's own
   // command-line parser into a CompilerOptions overlay that wins over the
   // tsconfig, exactly as tsgo's CLI merges them.
-  tsgoArgs        []string
+  tsgoArgs []string
   // tsgoArgsCwd anchors response and CLI option parsing without changing the
   // Program, rule-input or plugin project root. Empty retains cwd.
   tsgoArgsCwd     string

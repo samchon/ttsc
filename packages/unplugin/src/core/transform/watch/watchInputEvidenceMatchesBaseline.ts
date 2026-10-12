@@ -10,8 +10,7 @@ import { isWatchInputKeyBaseline } from "./isWatchInputKeyBaseline";
  *
  * A codec matches only the facts the baseline actually captured. Native,
  * listing and plugin-tree observations require their optional payloads;
- * membership is a
- * separate project walk and cannot match one path's baseline.
+ * membership is a separate project walk and cannot match one path's baseline.
  *
  * @evidence contracts/common.md#principled-implementation Identity and every recorded codec fact must agree with a validated baseline; native predicates additionally require a supported version, stable producer identity, matching raw digest and physical target. Narrow discovery facts and absent optional native/listing/tree payloads cannot establish broader observations.
  * @evidence contracts/common.md#clear-and-simple-design Codec branches reuse the strict baseline guard and native realpath comparator, with one private refinement exposing the broader carrier.

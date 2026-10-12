@@ -1,11 +1,10 @@
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../packages/ttsc/lib/compiler/internal/sharedHost/SidecarEnvironment.js";
-
 import { E2eProcessTrace } from "./E2eProcessTrace";
 
 // Every temp dir handed out by this module is tracked here for process-exit
@@ -107,15 +106,15 @@ export namespace TestProject {
   /**
    * Bind test children to an ignored physical temporary parent in the checkout.
    *
-   * E2E startup calls this before entering the suite's native carrier.
-   * An already ignored repository parent retains its authority. Other inherited
+   * E2E startup calls this before entering the suite's native carrier. An
+   * already ignored repository parent retains its authority. Other inherited
    * roots select the checkout's ignored cache directory, keeping junctioned
-   * workspace declarations on the same filesystem root as their consumers.
-   * The physical parent also fences implicit Git discovery so standalone
-   * fixtures do not inherit the checkout's ignore rules. Existing ceiling
-   * entries and explicit Git directory/work-tree selectors retain authority.
-   * Individual allocations retain their existing cleanup and retention owners;
-   * this operation does not remove the shared cache infrastructure directory.
+   * workspace declarations on the same filesystem root as their consumers. The
+   * physical parent also fences implicit Git discovery so standalone fixtures
+   * do not inherit the checkout's ignore rules. Existing ceiling entries and
+   * explicit Git directory/work-tree selectors retain authority. Individual
+   * allocations retain their existing cleanup and retention owners; this
+   * operation does not remove the shared cache infrastructure directory.
    *
    * @evidence contracts/common.md#principled-implementation Native realpath and relative containment validate physical coordinates, and Git verifies ignore policy before fallback creation. Temporary names and a supported Git discovery ceiling bind before child inheritance; explicit Git selectors remain caller-owned.
    * @evidence contracts/common.md#clear-and-simple-design The existing temporary allocation owner selects one parent; startup delegates here without adding an allocation registry or changing fixture populations.
@@ -140,11 +139,15 @@ export namespace TestProject {
         relative.startsWith(".." + path.sep)
       )
         return false;
-      const result = spawnSync("git", ["check-ignore", "--quiet", "--", relative], {
-        cwd: workspace,
-        encoding: "utf8",
-        windowsHide: true,
-      });
+      const result = spawnSync(
+        "git",
+        ["check-ignore", "--quiet", "--", relative],
+        {
+          cwd: workspace,
+          encoding: "utf8",
+          windowsHide: true,
+        },
+      );
       if (result.error) throw result.error;
       if (result.status !== 0 && result.status !== 1)
         throw new Error(
@@ -169,7 +172,9 @@ export namespace TestProject {
     ) {
       const fallback = path.join(workspace, ".cache");
       if (!ignored(fallback))
-        throw new Error("Test temporary parent must be Gitignored: " + fallback);
+        throw new Error(
+          "Test temporary parent must be Gitignored: " + fallback,
+        );
       const existing = physical(fallback);
       if (existing !== undefined && !ignored(existing))
         throw new Error(
@@ -179,7 +184,8 @@ export namespace TestProject {
       parent = fs.realpathSync.native(fallback);
       if (!ignored(parent))
         throw new Error(
-          "Created test temporary parent escapes ignored checkout storage: " + fallback,
+          "Created test temporary parent escapes ignored checkout storage: " +
+            fallback,
         );
     }
     env.TEMP = parent;
@@ -626,16 +632,12 @@ export namespace TestProject {
    */
   export function spawn(command: string, args: string[], options: any = {}) {
     const selected = processInputs(command, args, options);
-    const result = E2eProcessTrace.spawnSync(
-      selected.command,
-      selected.args,
-      {
-        ...selected.options,
-        encoding: "utf8",
-        maxBuffer: 1024 * 1024 * 64,
-        windowsHide: true,
-      },
-    );
+    const result = E2eProcessTrace.spawnSync(selected.command, selected.args, {
+      ...selected.options,
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024 * 64,
+      windowsHide: true,
+    });
     if (result.error && !result.stderr) {
       result.stderr = result.error.message;
     }
@@ -664,11 +666,18 @@ export namespace TestProject {
     options: any = {},
   ): Promise<SpawnSyncReturns<string>> {
     const selected = processInputs(command, args, options);
-    if (options.input !== undefined && typeof options.input !== "string" &&
-        !ArrayBuffer.isView(options.input))
+    if (
+      options.input !== undefined &&
+      typeof options.input !== "string" &&
+      !ArrayBuffer.isView(options.input)
+    )
       throw new TypeError("Command input must be a string or byte view");
     const input = ArrayBuffer.isView(options.input)
-      ? Buffer.from(options.input.buffer, options.input.byteOffset, options.input.byteLength)
+      ? Buffer.from(
+          options.input.buffer,
+          options.input.byteOffset,
+          options.input.byteLength,
+        )
       : options.input;
     return await new Promise<SpawnSyncReturns<string>>((resolve) => {
       const chunks: Buffer[][] = [[], []];
@@ -686,26 +695,51 @@ export namespace TestProject {
         sizes[index] = sizes[index]! + Math.min(value.length, available);
         if (value.length > available && !overflowRequested) {
           overflowRequested = true;
-          const overflow = Object.assign(new Error("Command output exceeds 64MiB"), { code: "ENOBUFS" });
-          error = error ? new AggregateError([error, overflow], "Command output overflow") : overflow;
-          try { child.kill(options.killSignal ?? "SIGTERM"); }
-          catch (cause) {
-            error = new AggregateError([error, cause], "Output overflow termination failed");
+          const overflow = Object.assign(
+            new Error("Command output exceeds 64MiB"),
+            { code: "ENOBUFS" },
+          );
+          error = error
+            ? new AggregateError([error, overflow], "Command output overflow")
+            : overflow;
+          try {
+            child.kill(options.killSignal ?? "SIGTERM");
+          } catch (cause) {
+            error = new AggregateError(
+              [error, cause],
+              "Output overflow termination failed",
+            );
           }
         }
       };
       child.stdout?.on("data", (value: Buffer) => capture(0, value));
       child.stderr?.on("data", (value: Buffer) => capture(1, value));
-      child.stdout?.on("error", (cause) => { error ??= cause; });
-      child.stderr?.on("error", (cause) => { error ??= cause; });
-      child.once("error", (cause) => { error ??= cause; });
+      child.stdout?.on("error", (cause) => {
+        error ??= cause;
+      });
+      child.stderr?.on("error", (cause) => {
+        error ??= cause;
+      });
+      child.once("error", (cause) => {
+        error ??= cause;
+      });
       child.once("close", (status, signal) => {
         const stdout = Buffer.concat(chunks[0]!).toString("utf8");
-        const stderr = Buffer.concat(chunks[1]!).toString("utf8") || error?.message || "";
-        resolve({ pid: child.pid ?? 0, status, signal, error,
-          stdout, stderr, output: [null, stdout, stderr] });
+        const stderr =
+          Buffer.concat(chunks[1]!).toString("utf8") || error?.message || "";
+        resolve({
+          pid: child.pid ?? 0,
+          status,
+          signal,
+          error,
+          stdout,
+          stderr,
+          output: [null, stdout, stderr],
+        });
       });
-      child.stdin?.on("error", (cause) => { error ??= cause; });
+      child.stdin?.on("error", (cause) => {
+        error ??= cause;
+      });
       child.stdin?.end(input);
     });
   }

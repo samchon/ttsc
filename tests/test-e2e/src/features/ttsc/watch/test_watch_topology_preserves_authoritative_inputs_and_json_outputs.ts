@@ -65,7 +65,12 @@ async function verifyDeclarationInputCollision(): Promise<void> {
   try {
     topology.refresh(false);
     fs.writeFileSync(declaration, "export declare const external: 2;\n");
-    await waitForCompilerChange(owner, changes, 0, "declaration input collision");
+    await waitForCompilerChange(
+      owner,
+      changes,
+      0,
+      "declaration input collision",
+    );
   } finally {
     topology.close();
   }
@@ -104,7 +109,12 @@ async function verifyJavaScriptExtensionInputs(): Promise<void> {
     await waitForCompilerChange(owner, changes, 0, ".mjs output extension");
     const previous = compilerChangeCount(changes);
     fs.writeFileSync(commonInput, "export const value = 2;\n");
-    await waitForCompilerChange(owner, changes, previous, ".cjs output extension");
+    await waitForCompilerChange(
+      owner,
+      changes,
+      previous,
+      ".cjs output extension",
+    );
 
     for (const output of [
       path.join(root, "dist", "src", "module.mjs"),
@@ -154,7 +164,7 @@ async function verifyJsonCopyIsProduct(): Promise<void> {
       fs.mkdirSync(path.dirname(output), { recursive: true });
       fs.writeFileSync(output, "compiler product\n");
       await expectProjectQuiet(
-      owner,
+        owner,
         changes,
         `${path.basename(output)} retriggered the project-input lane`,
       );
@@ -168,7 +178,7 @@ async function verifyJsonCopyIsProduct(): Promise<void> {
     const previous = projectChangeCount(changes);
     fs.writeFileSync(nearbyNonProduct, "external data\n");
     await waitForProjectChange(
-          owner,
+      owner,
       changes,
       previous,
       "nearby external data was classified as a product",
@@ -205,7 +215,7 @@ async function verifyRemovedOutFileLayout(): Promise<void> {
     fs.mkdirSync(path.dirname(configuredBundle), { recursive: true });
     fs.writeFileSync(configuredBundle, "external bundle\n");
     await waitForProjectChange(
-          owner,
+      owner,
       changes,
       0,
       "removed outFile was still classified as a product",
@@ -257,7 +267,7 @@ async function verifyCompilerFacingPathsUseTheirExecutionRoots(): Promise<void> 
       fs.mkdirSync(path.dirname(output), { recursive: true });
       fs.writeFileSync(output, "compiler product\n");
       await expectProjectQuiet(
-      owner,
+        owner,
         changes,
         `${output} used the wrong compiler execution root`,
       );
@@ -268,7 +278,7 @@ async function verifyCompilerFacingPathsUseTheirExecutionRoots(): Promise<void> 
     const nearbyChanges = projectChangeCount(changes);
     fs.writeFileSync(nearby, '{"external":true}\n');
     await waitForProjectChange(
-          owner,
+      owner,
       changes,
       nearbyChanges,
       "nearby passthrough-relative data was classified as build info",
@@ -368,7 +378,7 @@ async function verifyOutOfRootDiagnosticRecoveryOutputs(): Promise<void> {
       topology.setProjectInputs({ root, files: [output], globs: [] });
       fs.writeFileSync(output, "compiler recovery product\n");
       await expectProjectQuiet(
-      owner,
+        owner,
         changes,
         `${path.basename(output)} diagnostic-recovery emit was not excluded`,
       );
@@ -379,7 +389,7 @@ async function verifyOutOfRootDiagnosticRecoveryOutputs(): Promise<void> {
     const externalJsonChanges = projectChangeCount(changes);
     fs.writeFileSync(externalJson, '{"external":true}\n');
     await waitForProjectChange(
-          owner,
+      owner,
       changes,
       externalJsonChanges,
       "external JSON was incorrectly modeled as diagnostic-recovery emit",
@@ -416,7 +426,9 @@ function createTopology(
     },
     {
       onError: (location, error) => {
-        topologyFailure ??= new Error(`watch error on ${location}`, { cause: error });
+        topologyFailure ??= new Error(`watch error on ${location}`, {
+          cause: error,
+        });
       },
       onInputChange: (change) => changes.push(change),
       onTopologyChange: () => undefined,
@@ -440,8 +452,11 @@ async function waitForCompilerChange(
   previous: number,
   label: string,
 ): Promise<void> {
-  await waitFor(() => compilerChangeCount(changes) > previous,
-    `${label}: compiler input edit was not observed`, owner);
+  await waitFor(
+    () => compilerChangeCount(changes) > previous,
+    `${label}: compiler input edit was not observed`,
+    owner,
+  );
   owner.check();
 }
 

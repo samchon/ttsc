@@ -16,14 +16,15 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
  * These are persistence-owner calls over actual files and a literal generation,
  * without claiming that a compiler produced or admitted that generation.
  *
- * 1. Reuse one snapshot and digest while repeating callback effects; leave
- *    corrupt existing bytes to the record reader's proof.
+ * 1. Reuse one snapshot and digest while repeating callback effects; leave corrupt
+ *    existing bytes to the record reader's proof.
  * 2. Remove the config, refresh its accepted record, restore exact bytes and
  *    recover with both the same generation and a fresh-generation control.
  * 3. Block removed primary/fallback locations with ordinary files and require
- *    fallback recovery, watching refusal or unchanged failed/one-shot semantics.
- * 4. Replace an accepted file with a directory or dangling link, then restore
- *    a regular target and retain the host's lexical record spelling.
+ *    fallback recovery, watching refusal or unchanged failed/one-shot
+ *    semantics.
+ * 4. Replace an accepted file with a directory or dangling link, then restore a
+ *    regular target and retain the host's lexical record spelling.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual notifyProjectRecord and refreshProjectRecordFile calls must hand over existing regular records with matching written digests after removal. Repeated callbacks, one input derivation, stable snapshot, corrupt-existing bytes, fallback repair and typed watching refusal distinguish persistence recovery from generation recapture and content proof.
  * @evidence contracts/testing.md#independent-expectations Exact fixture config bytes and the public handoff contract require a usable file before success. Literal registration counts, original snapshot identity, original corrupt bytes, independently hashed persisted bytes and the typed error distinguish unavailable paths from accepted records.
@@ -73,7 +74,15 @@ export function test_project_record_recovers_an_accepted_missing_path(): void {
       );
     };
     verify();
-    return { cached, deliver, handed, project, reads: () => reads, record, verify };
+    return {
+      cached,
+      deliver,
+      handed,
+      project,
+      reads: () => reads,
+      record,
+      verify,
+    };
   };
   try {
     run("accepted memo and reader-owned corrupt bytes", () => {
@@ -86,7 +95,10 @@ export function test_project_record_recovers_an_accepted_missing_path(): void {
       assert.equal(state.handed[1]!.digest, first.digest);
       fs.writeFileSync(state.record, "corrupt existing record");
       assert.equal(state.deliver(), true);
-      assert.equal(fs.readFileSync(state.record, "utf8"), "corrupt existing record");
+      assert.equal(
+        fs.readFileSync(state.record, "utf8"),
+        "corrupt existing record",
+      );
       assert.equal(state.handed[2]!.digest, first.digest);
       assert.equal(readProjectRecordFile(state.record), undefined);
       fs.unlinkSync(state.record);
@@ -139,7 +151,11 @@ export function test_project_record_recovers_an_accepted_missing_path(): void {
       fs.unlinkSync(state.record);
       fs.rmdirSync(path.dirname(state.record));
       fs.writeFileSync(path.dirname(state.record), "blocked primary");
-      const fallbackToolDirectory = path.join(root, ".ttsc", "blocked-fallback");
+      const fallbackToolDirectory = path.join(
+        root,
+        ".ttsc",
+        "blocked-fallback",
+      );
       fs.writeFileSync(fallbackToolDirectory, "blocked fallback");
       assert.throws(
         () => state.deliver({ fallbackToolDirectory }),
@@ -148,7 +164,10 @@ export function test_project_record_recovers_an_accepted_missing_path(): void {
           error.record === state.record &&
           error.cause !== undefined,
       );
-      assert.equal(state.deliver({ fallbackToolDirectory, watching: false }), false);
+      assert.equal(
+        state.deliver({ fallbackToolDirectory, watching: false }),
+        false,
+      );
       assert.equal(state.deliver({ fallbackToolDirectory }, true), false);
       assert.equal(state.handed.length, 1);
       fs.unlinkSync(path.dirname(state.record));
@@ -171,7 +190,10 @@ export function test_project_record_recovers_an_accepted_missing_path(): void {
       const targetDirectory = path.join(root, ".ttsc", "linked-target");
       fs.mkdirSync(targetDirectory);
       const parent = path.dirname(state.record);
-      const targetRecord = path.join(targetDirectory, path.basename(state.record));
+      const targetRecord = path.join(
+        targetDirectory,
+        path.basename(state.record),
+      );
       fs.renameSync(state.record, targetRecord);
       fs.rmdirSync(parent);
       fs.symlinkSync(targetDirectory, parent, "junction");

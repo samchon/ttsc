@@ -141,10 +141,11 @@ export function test_vite_build_control_releases_only_restored_retired_allocatio
       failures.push(new Error("Vite build control: " + scenario, { cause }));
     } finally {
       try {
-        if (fs.existsSync(parent))
-          fs.rmSync(parent, { recursive: true });
+        if (fs.existsSync(parent)) fs.rmSync(parent, { recursive: true });
       } catch (cause) {
-        failures.push(new Error("Vite control fixture cleanup: " + scenario, { cause }));
+        failures.push(
+          new Error("Vite control fixture cleanup: " + scenario, { cause }),
+        );
       }
     }
   }

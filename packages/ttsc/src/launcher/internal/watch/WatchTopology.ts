@@ -46,12 +46,12 @@ import { watchDirectory } from "./watchDirectory";
  * output for source and declaration membership. An explicit reader supplies the
  * same absolute-path membership and failure contract for each resolved project.
  * Configuration files, project-reference roots, output inference and native
- * filesystem identity remain this topology's responsibility.
- * Response frames are observed once per project refresh at its compiler cwd;
- * that option view serves all project-output queries while the original argv
- * reaches compiler membership. A second observation rejects response changes
- * across membership resolution. Response files join the config reload set;
- * these observations do not pin files or detect a change restored in between.
+ * filesystem identity remain this topology's responsibility. Response frames
+ * are observed once per project refresh at its compiler cwd; that option view
+ * serves all project-output queries while the original argv reaches compiler
+ * membership. A second observation rejects response changes across membership
+ * resolution. Response files join the config reload set; these observations do
+ * not pin files or detect a change restored in between.
  *
  * `TTSC_WATCH_DEBUG_INPUTS` reports the named event, observed population deltas
  * and reload decision. These diagnostics reuse the decision's existing inputs;
@@ -1836,7 +1836,10 @@ function resolveWatchTopology(
       addPaths(reloadFiles, inspected.responseFiles, identities);
       const compilerInputs = getCompilerInputs(project, options);
       CompilerProjectSelection.assertCurrent(selection);
-      const compilerOutputs = resolveCompilerOutputs(project, inspected.options);
+      const compilerOutputs = resolveCompilerOutputs(
+        project,
+        inspected.options,
+      );
       addPaths(outputFiles, compilerOutputs.files, identities);
       addPaths(
         outputFiles,

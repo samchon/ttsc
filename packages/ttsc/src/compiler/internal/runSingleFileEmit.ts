@@ -20,10 +20,11 @@ import { readEffectiveCompilerOptions } from "./readEffectiveCompilerOptions";
  * failure propagates on success and is aggregated with an earlier operation
  * failure rather than replacing it.
  *
- * A launcher-supplied selection shares its project and original compiler argument
- * cwd with public output planning. Response freshness is checked before native
- * work and publication; these sequential checks do not pin bytes atomically.
- * Callers without that record retain explicit config/nearest-file discovery.
+ * A launcher-supplied selection shares its project and original compiler
+ * argument cwd with public output planning. Response freshness is checked
+ * before native work and publication; these sequential checks do not pin bytes
+ * atomically. Callers without that record retain explicit config/nearest-file
+ * discovery.
  *
  * @returns The transformed JavaScript source text.
  * @throws When the build exits non-zero, proves no JavaScript for the requested
@@ -59,7 +60,8 @@ export function runSingleFileEmit(
     });
   const tsconfig = project.path;
   const compilerArgsCwd = selection?.compilerArgsCwd ?? project.root;
-  if (selection !== undefined) CompilerProjectSelection.assertCurrent(selection);
+  if (selection !== undefined)
+    CompilerProjectSelection.assertCurrent(selection);
   // The root tsgo lays the outputs against: a `--rootDir` forwarded on the
   // command line, which reaches it after the config; otherwise the declared
   // one, which `readProjectConfig` already absolutized; otherwise the project's
@@ -75,7 +77,8 @@ export function runSingleFileEmit(
     typeof effective === "string"
       ? path.resolve(compilerArgsCwd, effective)
       : project.root;
-  if (selection !== undefined) CompilerProjectSelection.assertCurrent(selection);
+  if (selection !== undefined)
+    CompilerProjectSelection.assertCurrent(selection);
   const outDir = createCanonicalTempDirectory("ttsc-single-file-");
   let failed = false;
   let failure: unknown;
@@ -119,7 +122,8 @@ export function runSingleFileEmit(
       );
     }
     const transformed = fs.readFileSync(emitted, "utf8");
-    if (selection !== undefined) CompilerProjectSelection.assertCurrent(selection);
+    if (selection !== undefined)
+      CompilerProjectSelection.assertCurrent(selection);
     if (options.out) {
       const target = path.isAbsolute(options.out)
         ? options.out

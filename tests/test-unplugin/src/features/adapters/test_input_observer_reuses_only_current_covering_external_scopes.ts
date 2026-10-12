@@ -1,10 +1,10 @@
-import { waitFor } from "../../../../utils/src/internal/waitFor";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { createInputObserver } from "../../../../../packages/unplugin/src/core/observer/createInputObserver";
 import { TestProject } from "../../../../utils/src/TestProject";
+import { waitFor } from "../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies external descendants share current recursive watch authority.
@@ -145,9 +145,18 @@ export async function test_input_observer_reuses_only_current_covering_external_
         );
         fs.writeFileSync(children[0]!.file, "export {};\n");
         parent.event("rename", children[0]!.file);
-        await waitFor(() => changed.has(childOwner), "shared scope change reaches its descendant owner", {
-          check: () => assert.equal(parent.closed, 0, "the current shared scope closed before its callback"),
-        });
+        await waitFor(
+          () => changed.has(childOwner),
+          "shared scope change reaches its descendant owner",
+          {
+            check: () =>
+              assert.equal(
+                parent.closed,
+                0,
+                "the current shared scope closed before its callback",
+              ),
+          },
+        );
         assert.ok(
           changed.has(childOwner),
           "a shared scope event reaches its descendant owner",

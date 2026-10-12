@@ -2,8 +2,9 @@
  * One OS process-list reading, including its original creation representation.
  *
  * Windows identities are UTC CIM creation dates formatted with seven fractional
- * digits. Linux/Darwin identities are C-locale ps lstart values observed in UTC,
- * with second precision. Neither representation is a held kernel lifetime.
+ * digits. Linux/Darwin identities are C-locale ps lstart values observed in
+ * UTC, with second precision. Neither representation is a held kernel
+ * lifetime.
  *
  * @evidence contracts/common.md#principled-implementation PID and numeric parent remain separate from the creation identity; a parent number alone cannot identify its original generation.
  * @evidence contracts/common.md#clear-and-simple-design The record retains the scanner's existing identity, parent and diagnostic command fields without introducing a second process protocol.
@@ -153,9 +154,10 @@ function processCreation(
     second = Number(match[6]);
     fraction = match[7]!;
   } else if (platform === "linux" || platform === "darwin") {
-    match = /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) {1,2}(\d{1,2}) (\d{2}):(\d{2}):(\d{2}) (\d{4})$/.exec(
-      row.identity,
-    );
+    match =
+      /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) {1,2}(\d{1,2}) (\d{2}):(\d{2}):(\d{2}) (\d{4})$/.exec(
+        row.identity,
+      );
     if (match === null) return invalid();
     weekday = match[1]!;
     month = MONTHS.indexOf(match[2]!) + 1;
@@ -168,8 +170,15 @@ function processCreation(
   const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
   const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   if (
-    year < 1 || year > 9999 || month < 1 || month > 12 ||
-    day < 1 || day > days[month - 1]! || hour > 23 || minute > 59 || second > 59
+    year < 1 ||
+    year > 9999 ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > days[month - 1]! ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
   )
     return invalid();
   if (weekday !== undefined) {
@@ -182,7 +191,17 @@ function processCreation(
 }
 
 const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

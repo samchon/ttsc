@@ -25,7 +25,8 @@
  *
  * Native contributor codecs retain separate per-path kind requests; their raw
  * byte, entry and directory facts are captured anew for the next key. Schema
- * four snapshots cannot establish those requests and restart with a fresh epoch.
+ * four snapshots cannot establish those requests and restart with a fresh
+ * epoch.
  *
  * Snapshot layout: one main file carrying a random epoch id plus per-worker
  * files with unique names, so concurrent workers never race a shared write.
@@ -1919,10 +1920,12 @@ export function createSnapshotRecorder(runId?: string): {
         const predicates = input.evidence.state.observation.nativePredicates;
         if (predicates !== undefined && predicates.length !== 0) {
           const previous = state.nativePredicates[file] ?? [];
-          const kinds = [...new Set([
-            ...previous,
-            ...predicates.map((predicate) => predicate.kind),
-          ])].sort();
+          const kinds = [
+            ...new Set([
+              ...previous,
+              ...predicates.map((predicate) => predicate.kind),
+            ]),
+          ].sort();
           if (kinds.length !== previous.length) {
             state.files.add(file);
             state.nativePredicates[file] = kinds;
@@ -2347,7 +2350,10 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
     return undefined;
   }
   return {
-    nativePredicates: document.nativePredicates as Record<string, NativeInputKind[]>,
+    nativePredicates: document.nativePredicates as Record<
+      string,
+      NativeInputKind[]
+    >,
     accessibleEntries: document.accessibleEntries as string[],
     ...(Array.isArray(document.compacted)
       ? { compacted: document.compacted as string[] }
@@ -2373,7 +2379,10 @@ function mergeNativePredicateRequests(
 }
 
 /** Validate persisted native requests against their retained file universe. */
-function isNativePredicateRequests(value: unknown, files: Set<unknown>): boolean {
+function isNativePredicateRequests(
+  value: unknown,
+  files: Set<unknown>,
+): boolean {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return false;
   }
@@ -2383,8 +2392,9 @@ function isNativePredicateRequests(value: unknown, files: Set<unknown>): boolean
       !Array.isArray(kinds) ||
       kinds.length === 0 ||
       kinds.length > 4 ||
-      kinds.some((kind) =>
-        !["directory", "entry", "file", "optional-file"].includes(kind),
+      kinds.some(
+        (kind) =>
+          !["directory", "entry", "file", "optional-file"].includes(kind),
       ) ||
       stableStringify(kinds) !== stableStringify([...new Set(kinds)].sort())
     ) {

@@ -68,17 +68,18 @@ import {
  * from active-profile oracles. An actual root junction preserves the
  * excluded-entry alias boundary where supported. Unresolved launch metadata
  * stops input changes and retains both the consumer root. The corpus and its
- * later staged profiles declare local workspaces so default caches remain
- * owned here under an ambient ancestor workspace. The nearer nested workspace
- * is authored only after the outer-workspace host finishes; its empty
- * installation remains a separate observed input, not the sole cache selector.
+ * later staged profiles declare local workspaces so default caches remain owned
+ * here under an ambient ancestor workspace. The nearer nested workspace is
+ * authored only after the outer-workspace host finishes; its empty installation
+ * remains a separate observed input, not the sole cache selector.
  *
  * The existing configured and nested hosts also check normal cleanup from their
  * own completed launcher writers and actual program/source attribution. Locally
  * absent owners require removal; present or unknown owners preserve the run and
- * its emitted/map/source evidence. Missing trace proof fails. Synchronous return
- * is not an invented asynchronous CLOSE or arbitrary descendant-join receipt.
- * Earlier cache generations are a real pre-call population, not this run's proof.
+ * its emitted/map/source evidence. Missing trace proof fails. Synchronous
+ * return is not an invented asynchronous CLOSE or arbitrary descendant-join
+ * receipt. Earlier cache generations are a real pre-call population, not this
+ * run's proof.
  *
  * 1. Run included collisions and raw packages together; preserve suppression in
  *    the configured-output host.
@@ -106,7 +107,9 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
     ),
   );
   linkTtscPackage(root);
-  const traceRoot = process.env.TTSC_E2E_TRACE || TestProject.tmpdir("ttsc-canonical-runtime-trace-");
+  const traceRoot =
+    process.env.TTSC_E2E_TRACE ||
+    TestProject.tmpdir("ttsc-canonical-runtime-trace-");
   const failures: unknown[] = [];
   const completedHosts: ReturnType<typeof TestProject.spawn>[] = [];
   let launchInputsSettled = true;
@@ -140,7 +143,10 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
       if (!launchInputsSettled) throw cause;
     }
   };
-  const launchProofs = new Map<ReturnType<typeof TestProject.spawn>, { writer: number; before: string[] }>();
+  const launchProofs = new Map<
+    ReturnType<typeof TestProject.spawn>,
+    { writer: number; before: string[] }
+  >();
   const launch = (
     entry: string,
     flags: string[] = [],
@@ -148,7 +154,9 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
     env: NodeJS.ProcessEnv = {},
   ) => {
     let result: ReturnType<typeof TestProject.spawn>;
-    const before = readRuntimeTraceWriter(traceRoot, process.pid).map((row) => row.invocation);
+    const before = readRuntimeTraceWriter(traceRoot, process.pid).map(
+      (row) => row.invocation,
+    );
     const previousTrace = process.env.TTSC_E2E_TRACE;
     process.env.TTSC_E2E_TRACE = traceRoot;
     try {
@@ -328,12 +336,32 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
     assert.equal(dirname.error, undefined);
     const synchronous = launchProofs.get(dirname);
     assert.ok(synchronous);
-    verifyRuntimeCleanup({ traceRoot, launcher: dirname.pid, synchronous,
-      argv: [process.execPath, TestProject.TTSX_BIN, "--cwd", root, "--cache-dir", ".ttsx-cache",
-        "--noEmit", "--emitDeclarationOnly", "--declaration", "src/dirname.ts"],
-      cwd: driver, cache: path.join(root, ".ttsx-cache"), entry: path.join(root, "src/dirname.ts"),
-      source: dirnameSource, before: dirnameBefore });
-    assert.equal(fs.realpathSync.native(path.join(root, ".ttsx-cache/project")), fs.realpathSync.native(physicalRuns));
+    verifyRuntimeCleanup({
+      traceRoot,
+      launcher: dirname.pid,
+      synchronous,
+      argv: [
+        process.execPath,
+        TestProject.TTSX_BIN,
+        "--cwd",
+        root,
+        "--cache-dir",
+        ".ttsx-cache",
+        "--noEmit",
+        "--emitDeclarationOnly",
+        "--declaration",
+        "src/dirname.ts",
+      ],
+      cwd: driver,
+      cache: path.join(root, ".ttsx-cache"),
+      entry: path.join(root, "src/dirname.ts"),
+      source: dirnameSource,
+      before: dirnameBefore,
+    });
+    assert.equal(
+      fs.realpathSync.native(path.join(root, ".ttsx-cache/project")),
+      fs.realpathSync.native(physicalRuns),
+    );
   });
   check("native propagated child", () =>
     receipt(
@@ -510,7 +538,9 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
       ),
     );
     const nestedProject = path.join(expected, "ttsx", "project");
-    const nestedBefore = fs.existsSync(nestedProject) ? fs.readdirSync(nestedProject) : [];
+    const nestedBefore = fs.existsSync(nestedProject)
+      ? fs.readdirSync(nestedProject)
+      : [];
     const nestedSource = fs.readFileSync(path.join(root, "nested/main.ts"));
     const nestedRun = launch("nested/main.ts", [
       "--project",
@@ -532,10 +562,25 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
       assert.equal(nestedRun.error, undefined);
       const synchronous = launchProofs.get(nestedRun);
       assert.ok(synchronous);
-      verifyRuntimeCleanup({ traceRoot, launcher: nestedRun.pid, synchronous,
-        argv: [process.execPath, TestProject.TTSX_BIN, "--cwd", root, "--project", "nested/tsconfig.json", "nested/main.ts"],
-        cwd: root, cache: path.join(expected, "ttsx"), entry: path.join(root, "nested/main.ts"),
-        source: nestedSource, before: nestedBefore });
+      verifyRuntimeCleanup({
+        traceRoot,
+        launcher: nestedRun.pid,
+        synchronous,
+        argv: [
+          process.execPath,
+          TestProject.TTSX_BIN,
+          "--cwd",
+          root,
+          "--project",
+          "nested/tsconfig.json",
+          "nested/main.ts",
+        ],
+        cwd: root,
+        cache: path.join(expected, "ttsx"),
+        entry: path.join(root, "nested/main.ts"),
+        source: nestedSource,
+        before: nestedBefore,
+      });
       if (name === "outer declared workspace")
         assert.equal(fs.existsSync(path.join(nested, "node_modules")), false);
     });

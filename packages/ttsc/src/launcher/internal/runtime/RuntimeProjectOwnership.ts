@@ -24,8 +24,8 @@ export namespace RuntimeProjectOwnership {
   const cache = new Map<string, Lookup>();
 
   /**
-   * Whether a physical source path passes through an installed directory.
-   * A linked workspace physically outside that directory remains user source.
+   * Whether a physical source path passes through an installed directory. A
+   * linked workspace physically outside that directory remains user source.
    * Alternate spellings count only when the native lowercase installed spelling
    * resolves to the same physical directory; failed identity reads prove none.
    *
@@ -39,7 +39,7 @@ export namespace RuntimeProjectOwnership {
    * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous walk retains no handles or historical identities.
    */
   export function isInstalledPackageSource(real: string): boolean {
-    for (let directory = path.dirname(real);;) {
+    for (let directory = path.dirname(real); ; ) {
       if (isInstalledDirectory(directory)) return true;
       const parent = path.dirname(directory);
       if (parent === directory) return false;
@@ -54,8 +54,9 @@ export namespace RuntimeProjectOwnership {
    * Cached walks recheck both candidate files and the native boundary topology.
    * Creating/deleting a config or adding/removing an installed alias therefore
    * cannot retain an earlier consumer or isolated selection. The observer
-   * brackets config candidates and alternate directory identities for descriptor
-   * dependency recording; it does not pin the filesystem during compilation.
+   * brackets config candidates and alternate directory identities for
+   * descriptor dependency recording; it does not pin the filesystem during
+   * compilation.
    *
    * @evidence contracts/common.md#principled-implementation Upward traversal selects the first existing config before the installed boundary. Cache entries retain ordered candidates and their stopping boundary; current candidate and native topology checks establish whether the old selection still applies.
    * @evidence contracts/common.md#clear-and-simple-design The same private predicate serves fresh lookup, cached topology validation and installed-source classification. One directory-keyed cache shares the walked suffix without a second casing policy.
@@ -79,18 +80,28 @@ export namespace RuntimeProjectOwnership {
       if (cached !== undefined) {
         observe(cached.candidates);
         const topologyCurrent =
-          (cached.boundary === undefined || isInstalledDirectory(cached.boundary, observe)) &&
-          cached.candidates.every((candidate) => !isInstalledDirectory(path.dirname(candidate), observe));
+          (cached.boundary === undefined ||
+            isInstalledDirectory(cached.boundary, observe)) &&
+          cached.candidates.every(
+            (candidate) =>
+              !isInstalledDirectory(path.dirname(candidate), observe),
+          );
         const current = nearestExisting(cached.candidates);
         observe(cached.candidates);
         if (topologyCurrent && current === cached.result)
-          return remember(chain, cached.result, cached.candidates, cached.boundary);
+          return remember(
+            chain,
+            cached.result,
+            cached.candidates,
+            cached.boundary,
+          );
         cache.delete(directory);
       }
       chain.push(directory);
       const candidate = path.join(directory, "tsconfig.json");
       observe([candidate]);
-      if (RuntimeFilesystem.isFile(candidate)) return remember(chain, candidate);
+      if (RuntimeFilesystem.isFile(candidate))
+        return remember(chain, candidate);
       const parent = path.dirname(directory);
       if (parent === directory) return remember(chain, null);
       directory = parent;
@@ -108,7 +119,9 @@ export namespace RuntimeProjectOwnership {
     const inputs = [directory, lowercase];
     observe(inputs);
     try {
-      return fs.realpathSync.native(directory) === fs.realpathSync.native(lowercase);
+      return (
+        fs.realpathSync.native(directory) === fs.realpathSync.native(lowercase)
+      );
     } catch {
       return false;
     } finally {

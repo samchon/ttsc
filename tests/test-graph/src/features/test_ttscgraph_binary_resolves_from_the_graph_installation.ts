@@ -17,8 +17,8 @@ import { resolveGraphBinary } from "../../../../packages/graph/src/resolveGraphB
  * project in the layout earlier releases resolved from, its `ttsc` platform
  * package holding a `ttscgraph`. No binary is executed.
  *
- * 1. Resolve from the installed fixture and from the installation that lacks
- *    the platform package.
+ * 1. Resolve from the installed fixture and from the installation that lacks the
+ *    platform package.
  * 2. Check absolute override precedence and a relative override being ignored.
  * 3. Require the public resolver to ignore the target project's old layout.
  * 4. Construct and close a session for a project with no `ttsc` at all.
@@ -30,7 +30,8 @@ import { resolveGraphBinary } from "../../../../packages/graph/src/resolveGraphB
  */
 export async function test_ttscgraph_binary_resolves_from_the_graph_installation(): Promise<void> {
   const platform = `${process.platform}-${process.arch}`;
-  const executable = process.platform === "win32" ? "ttscgraph.exe" : "ttscgraph";
+  const executable =
+    process.platform === "win32" ? "ttscgraph.exe" : "ttscgraph";
 
   const installed = TestProject.tmpdir("ttscgraph-installed-");
   const anchor = writeGraphPackage(installed);
@@ -51,7 +52,10 @@ export async function test_ttscgraph_binary_resolves_from_the_graph_installation
     binary,
   );
   assert.equal(
-    InstalledGraphBinary.resolve({ TTSC_GRAPH_BINARY: "ttscgraph" }, missingAnchor),
+    InstalledGraphBinary.resolve(
+      { TTSC_GRAPH_BINARY: "ttscgraph" },
+      missingAnchor,
+    ),
     null,
   );
   const relative = InstalledGraphBinary.resolve(

@@ -73,10 +73,9 @@ const HANDED = new WeakMap<
  * loses acceptance and enters persistence again without rereading generation
  * inputs. Hosts and bridge readers own current byte proof, including concurrent
  * changes and unreadable/torn bytes; availability here cannot exclude removal
- * after the check. A host that keeps no
- * snapshot of the file, Rollup's cache, is handed the digest of the bytes
- * written for the generation to compare against instead
- * (`TtscProjectRegistration.digest`).
+ * after the check. A host that keeps no snapshot of the file, Rollup's cache,
+ * is handed the digest of the bytes written for the generation to compare
+ * against instead (`TtscProjectRegistration.digest`).
  *
  * A record lives below the host's tool directory, or, when that cannot be
  * written, below the fallback the host accepts (`fallbackToolDirectory`,

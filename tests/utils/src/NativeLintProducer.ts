@@ -1,5 +1,5 @@
-import crypto from "node:crypto";
 import type { SpawnSyncReturns } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -130,12 +130,13 @@ export function retainNativeLintProducer(reason: string): void {
  * linked rather than copied: production build witnesses still own dependency,
  * SDK, toolchain and flag validity. This captures package bytes, not a binary
  * or an assertion that another source identity can reuse one. Go's `list -find`
- * selects exact non-embedded test declarations without resolving package imports;
- * module-graph discovery may still download modules and report progress on stderr.
- * inherited and workspace/proxy-isolated source selections must agree. All
- * other files, including ignored OS alternatives, remain copied. Reuse refuses
- * changed selection environment, bytes, manifest or installation link. A
- * retained producer with unknown readers also refuses subsequent consumers.
+ * selects exact non-embedded test declarations without resolving package
+ * imports; module-graph discovery may still download modules and report
+ * progress on stderr. inherited and workspace/proxy-isolated source selections
+ * must agree. All other files, including ignored OS alternatives, remain
+ * copied. Reuse refuses changed selection environment, bytes, manifest or
+ * installation link. A retained producer with unknown readers also refuses
+ * subsequent consumers.
  *
  * @evidence contracts/common.md#principled-implementation The shared producer is published only after independent before/copy/after content readings agree; changing authored input is refused rather than accepted under an earlier identity.
  * @evidence contracts/common.md#clear-and-simple-design One process-owned package snapshot and manifest serve explicitly opted-in consumers; cold and source-mutating callers keep the workspace package.

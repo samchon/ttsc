@@ -54,9 +54,15 @@ export function test_native_source_classification_keeps_fake_labels_out_of_host_
   );
   const mainA = path.join(root, "fake-banner");
   const mainB = path.join(root, "fake-strip");
-  const sources = [mainA, mainB, path.join(root, "linked"), path.join(root, "no-package")];
+  const sources = [
+    mainA,
+    mainB,
+    path.join(root, "linked"),
+    path.join(root, "no-package"),
+  ];
   const observations = NativeSourcePackages.ownPackages(
-    sources.map((source) => ({ source, label: path.basename(source) })), process.env,
+    sources.map((source) => ({ source, label: path.basename(source) })),
+    process.env,
   );
   const classify = (source: string, name: string) =>
     resolveNativeSource(
@@ -115,7 +121,10 @@ export function test_native_source_classification_keeps_fake_labels_out_of_host_
     /multiple compiler native backends/,
   );
   const invalid = path.join(root, "no-package");
-  assert.throws(() => classify(invalid, "missing-package"), /expected 'package'/);
+  assert.throws(
+    () => classify(invalid, "missing-package"),
+    /expected 'package'/,
+  );
   assert.equal(
     pluginLabel(
       { name: "chosen", source: mainA },

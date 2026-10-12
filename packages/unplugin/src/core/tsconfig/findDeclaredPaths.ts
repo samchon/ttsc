@@ -1,5 +1,5 @@
-import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
 import type { IDeclaredPaths } from "./IDeclaredPaths";
+import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
 import { findDeclaredValue } from "./findDeclaredValue";
 
 /**
@@ -7,8 +7,8 @@ import { findDeclaredValue } from "./findDeclaredValue";
  * rooted at `tsconfig`. The own config wins over its bases; within an `extends`
  * array, later entries win over earlier ones. `seen` breaks circular chains;
  * the compiler reports the actual config error. Optional decoded sources or
- * graph observations share only within the caller's current read; physical cycle
- * guards remain branch-local.
+ * graph observations share only within the caller's current read; physical
+ * cycle guards remain branch-local.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The selector accepts a non-array paths record and the shared value reader

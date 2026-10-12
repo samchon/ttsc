@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership This direct Go matrix invokes the actual output-rewrite owner through rewriteTextForTest with a parsed filename identity and authored output text; TestDriverRewriteLexicalCallSites owns all named cases without a native build, consumer installation or process host.
 func TestDriverRewriteLexicalCallSites(t *testing.T) {
   rewrite := driver.Rewrite{RootName: "plugin", Method: "make", Replacement: "42", ConsumeParens: true}
-  for _, test := range []struct { name, prefix string }{
+  for _, test := range []struct{ name, prefix string }{
     {"double-string", `const data = "plugin.make()"; `},
     {"single-string", `const data = 'plugin.make()'; `},
     {"escaped-string", `const data = "\"plugin.make(\""; `},
@@ -36,22 +36,22 @@ func TestDriverRewriteLexicalCallSites(t *testing.T) {
     {"unicode-identifier", "橘plugin.make(); "},
   } {
     t.Run(test.name, func(t *testing.T) {
-      input := test.prefix+"const value = plugin.make();"
-      expected := driver.RewriteSentinel+"\n"+test.prefix+"const value = 42;"
+      input := test.prefix + "const value = plugin.make();"
+      expected := driver.RewriteSentinel + "\n" + test.prefix + "const value = 42;"
       got, err := rewriteTextForTest(input, rewrite)
       if err != nil || got != expected {
         t.Fatalf("rewrite = %q err=%v; want %q", got, err, expected)
       }
     })
   }
-  for _, test := range []struct { name, input, expected string }{
+  for _, test := range []struct{ name, input, expected string }{
     {"template-expression", "const value = `plugin.make() ${plugin.make()}`;", "const value = `plugin.make() ${42}`;"},
     {"nested-template-regex", "const value = plugin.make(`x${/}/.test('}') ? `nested ${/\\)/.source}` : ''}`);", "const value = 42;"},
     {"property-trivia", "const value = plugin /* root */ . /* method */ make /* call */ ();", "const value = 42;"},
   } {
     t.Run(test.name, func(t *testing.T) {
       got, err := rewriteTextForTest(test.input, rewrite)
-      expected := driver.RewriteSentinel+"\n"+test.expected
+      expected := driver.RewriteSentinel + "\n" + test.expected
       if err != nil || got != expected {
         t.Fatalf("rewrite = %q err=%v; want %q", got, err, expected)
       }

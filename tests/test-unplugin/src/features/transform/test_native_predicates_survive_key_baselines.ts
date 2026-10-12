@@ -54,7 +54,9 @@ export async function test_native_predicates_survive_key_baselines(): Promise<vo
     });
     assert.ok(baseline);
     assert.ok(isWatchInputKeyBaseline(baseline));
-    const physical = fs.existsSync(selected) ? fs.realpathSync.native(selected) : null;
+    const physical = fs.existsSync(selected)
+      ? fs.realpathSync.native(selected)
+      : null;
     assert.deepEqual(baseline.nativePredicates?.[kind], {
       digest,
       realpath: physical,
@@ -70,11 +72,20 @@ export async function test_native_predicates_survive_key_baselines(): Promise<vo
     const evidence = {
       identity: baseline.identity,
       missing: !baseline.fileExists,
-      state: { codec: "predicates" as const, observation: { nativePredicates: [predicate] } },
+      state: {
+        codec: "predicates" as const,
+        observation: { nativePredicates: [predicate] },
+      },
     };
     const matches = (predicates: Predicate[], against = baseline): boolean =>
       watchInputEvidenceMatchesBaseline(
-        { ...evidence, state: { codec: "predicates", observation: { nativePredicates: predicates } } },
+        {
+          ...evidence,
+          state: {
+            codec: "predicates",
+            observation: { nativePredicates: predicates },
+          },
+        },
         against,
       );
     assert.ok(matches([predicate]));
@@ -82,8 +93,14 @@ export async function test_native_predicates_survive_key_baselines(): Promise<vo
     assert.ok(matches([predicate], JSON.parse(JSON.stringify(baseline))));
     assert.equal(matches([{ ...predicate, identityStable: false }]), false);
     assert.equal(matches([{ ...predicate, digest: sha("other") }]), false);
-    assert.equal(matches([{ ...predicate, version: 2 } as unknown as Predicate]), false);
-    assert.equal(matches([predicate, { ...predicate, digest: sha("conflict") }]), false);
+    assert.equal(
+      matches([{ ...predicate, version: 2 } as unknown as Predicate]),
+      false,
+    );
+    assert.equal(
+      matches([predicate, { ...predicate, digest: sha("conflict") }]),
+      false,
+    );
     assert.equal(matches([{ ...predicate, realpath: root }]), false);
     const ordinary = captureWatchInputBaseline(selected);
     assert.ok(ordinary);
@@ -93,7 +110,10 @@ export async function test_native_predicates_survive_key_baselines(): Promise<vo
     nativePredicates: ["file", "optional-file", "entry"],
   });
   assert.ok(fileBaseline);
-  assert.notEqual(fileBaseline.graphReadHash, fileBaseline.nativePredicates?.file?.digest);
+  assert.notEqual(
+    fileBaseline.graphReadHash,
+    fileBaseline.nativePredicates?.file?.digest,
+  );
   for (const malformed of [
     {},
     { alien: { digest: sha(""), realpath: root } },
@@ -102,7 +122,10 @@ export async function test_native_predicates_survive_key_baselines(): Promise<vo
     { file: { digest: sha(""), realpath: root, extra: true } },
     [],
   ]) {
-    assert.equal(isWatchInputKeyBaseline({ ...fileBaseline, nativePredicates: malformed }), false);
+    assert.equal(
+      isWatchInputKeyBaseline({ ...fileBaseline, nativePredicates: malformed }),
+      false,
+    );
   }
   fs.writeFileSync(file, Buffer.from([0xff, 0xfe, 0x42, 0x00]));
   fs.writeFileSync(path.join(directory, "appeared"), "member");
@@ -110,20 +133,30 @@ export async function test_native_predicates_survive_key_baselines(): Promise<vo
   fs.rmSync(entry);
   fs.mkdirSync(entry);
   for (const [selected, kind, digest] of rows) {
-    const current = captureWatchInputBaseline(selected, undefined, { nativePredicates: [kind] });
+    const current = captureWatchInputBaseline(selected, undefined, {
+      nativePredicates: [kind],
+    });
     assert.ok(current);
     const expectedChange =
       (selected === file && kind !== "entry") ||
       (selected === directory && kind === "directory") ||
-      selected === missing || selected === entry;
-    assert.equal(current.nativePredicates?.[kind]?.digest !== digest, expectedChange);
+      selected === missing ||
+      selected === entry;
+    assert.equal(
+      current.nativePredicates?.[kind]?.digest !== digest,
+      expectedChange,
+    );
   }
   assert.equal(
-    captureWatchInputBaseline(directory, {
-      ...DEFAULT_FILESYSTEM_OPERATIONS,
-      platform: "linux",
-      readdirRaw: undefined,
-    }, { nativePredicates: ["directory"] }),
+    captureWatchInputBaseline(
+      directory,
+      {
+        ...DEFAULT_FILESYSTEM_OPERATIONS,
+        platform: "linux",
+        readdirRaw: undefined,
+      },
+      { nativePredicates: ["directory"] },
+    ),
     undefined,
     "an unavailable native byte-name capability cannot establish listing proof",
   );
@@ -133,19 +166,23 @@ export async function test_native_predicates_survive_key_baselines(): Promise<vo
       fs.writeFileSync(path.join(directory, "between-phases"), "changed");
     }
   };
-  const unstable = captureWatchInputBaseline(directory, {
-    ...DEFAULT_FILESYSTEM_OPERATIONS,
-    readdir(selected) {
-      const entries = DEFAULT_FILESYSTEM_OPERATIONS.readdir(selected);
-      if (selected === directory) observeMutation();
-      return entries;
+  const unstable = captureWatchInputBaseline(
+    directory,
+    {
+      ...DEFAULT_FILESYSTEM_OPERATIONS,
+      readdir(selected) {
+        const entries = DEFAULT_FILESYSTEM_OPERATIONS.readdir(selected);
+        if (selected === directory) observeMutation();
+        return entries;
+      },
+      readdirRaw(selected) {
+        const entries = DEFAULT_FILESYSTEM_OPERATIONS.readdirRaw!(selected);
+        if (selected === directory) observeMutation();
+        return entries;
+      },
     },
-    readdirRaw(selected) {
-      const entries = DEFAULT_FILESYSTEM_OPERATIONS.readdirRaw!(selected);
-      if (selected === directory) observeMutation();
-      return entries;
-    },
-  }, { nativePredicates: ["directory"] });
+    { nativePredicates: ["directory"] },
+  );
   assert.ok(nativeReads >= 2);
   assert.equal(unstable, undefined, "independent native captures must agree");
 }

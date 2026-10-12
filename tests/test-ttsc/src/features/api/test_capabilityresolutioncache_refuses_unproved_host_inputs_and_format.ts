@@ -46,8 +46,8 @@ interface IEntry extends Omit<IAnswer, "pluginSources"> {
  * 2. Re-record a valid entry before each change, then change the tsconfig, change
  *    and delete the manifest, delete the binary, corrupt the entry and empty
  *    its recorded inputs, requiring the cache to decline each time.
- * 3. Refuse the prior producer proof generation even at the same product
- *    version, then contrast a new-generation hit and another-version miss.
+ * 3. Refuse the prior producer proof generation even at the same product version,
+ *    then contrast a new-generation hit and another-version miss.
  *
  * @evidence contracts/testing.md#behavioral-verification writeCapabilityResolution then readCapabilityResolution run over real files in a temp cache: an unchanged entry hits and returns the recorded graphNodes declaration, while changed/deleted host inputs, a deleted binary, malformed/empty proof and the prior producer format each return null. Rewriting through the current producer restores a hit without changing the product version.
  * @evidence contracts/testing.md#independent-expectations The expected outcomes follow from the cache's fail-closed rule rather than from its code: every authored mutation (rewritten file bytes, rmSync, a literal '{not json', a hand-emptied entry, version 1.2.3 versus 1.2.4) must produce null, and verifyWalksAgain first asserts the re-recorded entry is non-null so each null is attributable to that one change.

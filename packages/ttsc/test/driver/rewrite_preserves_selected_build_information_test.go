@@ -45,7 +45,7 @@ func TestDriverRewritePreservesSelectedBuildInformation(t *testing.T) {
           "compilerOptions": map[string]any{
             "module": "commonjs", "target": "es2020", "strict": true,
             "rootDir": "src", "outDir": "dist", "incremental": true,
-            "tsBuildInfoFile": "cache/input"+extension, "noEmit": noEmit,
+            "tsBuildInfoFile": "cache/input" + extension, "noEmit": noEmit,
           },
           "files": []string{"src/input.ts"},
         })
@@ -83,7 +83,9 @@ export const value = plugin.make();
         if err != nil || len(diagnostics) != 0 {
           t.Errorf("rewrite: diagnostics=%#v err=%v", diagnostics, err)
         }
-        var document struct { Version string `json:"version"` }
+        var document struct {
+          Version string `json:"version"`
+        }
         if jsonErr := json.Unmarshal([]byte(raw[state]), &document); jsonErr != nil || document.Version == "" {
           t.Errorf("raw selected state is not versioned JSON: %v %q", jsonErr, raw[state])
         }

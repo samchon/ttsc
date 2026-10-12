@@ -40,8 +40,8 @@ import { RuntimeIsolatedEmit } from "./RuntimeIsolatedEmit";
 import { RuntimeLoaderCapabilities } from "./RuntimeLoaderCapabilities";
 import type { RuntimeManifest } from "./RuntimeManifest";
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
-import { RuntimeProjectOwnership } from "./RuntimeProjectOwnership";
 import { RuntimeModuleFormat } from "./RuntimeModuleFormat";
+import { RuntimeProjectOwnership } from "./RuntimeProjectOwnership";
 import { checkNodeRuntimeSupport } from "./checkNodeRuntimeSupport";
 import { commonJsExportNames } from "./commonJsExportNames";
 import { commonJsImportFacade } from "./commonJsImportFacade";
@@ -390,7 +390,9 @@ function observePluginDescriptorResolutionCandidates(
         appendPluginDescriptorInputs(
           observation
             .commit(
-              selectedURL === undefined ? undefined : runtimeFilePath(selectedURL),
+              selectedURL === undefined
+                ? undefined
+                : runtimeFilePath(selectedURL),
             )
             .map((record) => `${JSON.stringify({ parent, ...record })}\n`),
         );
@@ -1003,13 +1005,17 @@ function servesCommonJsFromSource(url: string): boolean {
 }
 
 /** Scan both facade lanes from source paths using their actual require policy. */
-function runtimeCommonJsExportNames(filename: string, source: string): string[] {
+function runtimeCommonJsExportNames(
+  filename: string,
+  source: string,
+): string[] {
   return commonJsExportNames(
     source,
     filename,
-    (target) => isTypeScriptSource(target)
-      ? emitCommonJsForNameScan(target)
-      : readFileOrNull(target),
+    (target) =>
+      isTypeScriptSource(target)
+        ? emitCommonJsForNameScan(target)
+        : readFileOrNull(target),
     (parent, specifier) => {
       const native = createRequire(parent).resolve;
       return resolveCommonJsRequest(native, specifier, undefined, parent);

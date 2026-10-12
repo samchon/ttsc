@@ -2,12 +2,12 @@
  * Observe a condition while its actual owner remains available.
  *
  * Polling schedules inspection without defining a completion deadline. The
- * predicate must accept only a qualified publication. The caller supplies
- * a terminal check for an unmet condition and a cancellation signal, and still
- * owns original process/native joins before releasing observed inputs.
- * Failure keeps its original cause under the named observation. Cancellation
- * stops this observation; it does not certify that an in-flight predicate's
- * underlying operation or its descendants have retired.
+ * predicate must accept only a qualified publication. The caller supplies a
+ * terminal check for an unmet condition and a cancellation signal, and still
+ * owns original process/native joins before releasing observed inputs. Failure
+ * keeps its original cause under the named observation. Cancellation stops this
+ * observation; it does not certify that an in-flight predicate's underlying
+ * operation or its descendants have retired.
  *
  * @evidence contracts/common.md#principled-implementation Only the real predicate result, its actual exception, an owning terminal check or AbortSignal settles observation; clock age supplies no result.
  * @evidence contracts/common.md#clear-and-simple-design One predicate loop owns its polling handle and abort listener; callers retain their concrete producer and restoration operations.

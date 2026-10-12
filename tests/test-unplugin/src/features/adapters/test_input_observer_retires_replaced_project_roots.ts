@@ -210,7 +210,9 @@ export async function test_input_observer_retires_replaced_project_roots(): Prom
           new Error(`${scenario}: retired callbacks changed the epoch`),
         );
       if (pollCloses !== polls.length)
-        failures.push(new Error(`${scenario}: poll ownership was not released`));
+        failures.push(
+          new Error(`${scenario}: poll ownership was not released`),
+        );
     }
   }
   if (failures.length !== 0)

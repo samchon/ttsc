@@ -6,8 +6,8 @@ import { BuildExecution } from "../../../../../packages/ttsc/src/compiler/intern
 import { NativePluginArguments } from "../../../../../packages/ttsc/src/compiler/internal/build/NativePluginArguments";
 import { TsgoArguments } from "../../../../../packages/ttsc/src/compiler/internal/build/TsgoArguments";
 import { CompilerProjectSelection } from "../../../../../packages/ttsc/src/compiler/internal/project/CompilerProjectSelection";
-import { clearInheritedTsgoArgs } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/clearInheritedTsgoArgs";
 import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/SidecarEnvironment";
+import { clearInheritedTsgoArgs } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/clearInheritedTsgoArgs";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -64,7 +64,11 @@ export function test_native_compiler_argument_cwd_preserves_protocol_ownership()
   const env = compose('["@args.rsp"]');
   assert.equal(env.TTSC_TSGO_ARGS, '["@args.rsp"]');
   assert.equal(env.TTSC_TSGO_ARGS_CWD, a);
-  const args = NativePluginArguments.createNativeCheckArgs(execution, options, plugin);
+  const args = NativePluginArguments.createNativeCheckArgs(
+    execution,
+    options,
+    plugin,
+  );
   assert.ok(args.includes("--cwd=" + b));
   assert.ok(args.includes("--tsconfig=" + path.join(b, "tsconfig.json")));
   // A host that predates the capability, a plugin library's own executable,
@@ -78,8 +82,12 @@ export function test_native_compiler_argument_cwd_preserves_protocol_ownership()
     compilerSelection: { ...execution.compilerSelection, compilerArgsCwd: b },
   };
   const legacy = BuildExecution.composeNativePluginEnv(
-    {}, undefined, same, process.execPath,
-    { ...plugin, capabilities: undefined }, '["--strict"]',
+    {},
+    undefined,
+    same,
+    process.execPath,
+    { ...plugin, capabilities: undefined },
+    '["--strict"]',
   );
   assert.equal(legacy.TTSC_TSGO_ARGS, '["--strict"]');
   assert.equal(legacy.TTSC_TSGO_ARGS_CWD, undefined);
@@ -88,20 +96,34 @@ export function test_native_compiler_argument_cwd_preserves_protocol_ownership()
   clearInheritedTsgoArgs(retained, caller);
   assert.deepEqual(retained, caller);
   const aliases = SidecarEnvironment.merge({
-    TTSC_TSGO_ARGS_CWD: "/outer", ttsc_tsgo_args_cwd: "/other",
+    TTSC_TSGO_ARGS_CWD: "/outer",
+    ttsc_tsgo_args_cwd: "/other",
   });
   clearInheritedTsgoArgs(aliases, undefined);
-  assert.equal(SidecarEnvironment.read(aliases, "TTSC_TSGO_ARGS_CWD"), undefined);
-  assert.equal(aliases.ttsc_tsgo_args_cwd, process.platform === "win32" ? undefined : "/other");
+  assert.equal(
+    SidecarEnvironment.read(aliases, "TTSC_TSGO_ARGS_CWD"),
+    undefined,
+  );
+  assert.equal(
+    aliases.ttsc_tsgo_args_cwd,
+    process.platform === "win32" ? undefined : "/other",
+  );
   const live = TsgoArguments.createTsgoBuildArgs(
-    execution, { ...options, passthrough: ["@args.rsp", "--strict"] },
+    execution,
+    { ...options, passthrough: ["@args.rsp", "--strict"] },
     { listEmittedFiles: false },
   );
   assert.ok(live.includes("--strict"));
   assert.deepEqual(live.slice(-2), ["-p", execution.tsconfig]);
   assert.deepEqual(
-    CompilerProjectSelection.readGuard(execution.compilerSelection, ["--outDir"]), [],
+    CompilerProjectSelection.readGuard(execution.compilerSelection, [
+      "--outDir",
+    ]),
+    [],
   );
   fs.writeFileSync(response, "--project tsconfig.json");
-  assert.throws(() => compose('["@args.rsp"]'), /changed after project selection/);
+  assert.throws(
+    () => compose('["@args.rsp"]'),
+    /changed after project selection/,
+  );
 }

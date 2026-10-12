@@ -213,7 +213,9 @@ export namespace CompilerArchives {
     if (props.allocation !== undefined && props.allocation !== props.output) {
       const allocation = fs.realpathSync.native(props.allocation);
       if (allocation !== output && !inside(allocation, output))
-        throw new Error("Compiler archive output must be inside its allocation");
+        throw new Error(
+          "Compiler archive output must be inside its allocation",
+        );
       if (allocation === output)
         allocations[0]!.spellings.push(props.allocation);
       else

@@ -23,9 +23,9 @@ import { installedTargetBoundary } from "../internal/graph/internal/installedTar
 import { TtsgraphClient } from "../internal/graph/internal/ttsgraph";
 import { case_capability_worker_environment_preserves_runtime_authority } from "./graph/scenes/case_capability_worker_environment_preserves_runtime_authority";
 import { case_ttscgraph_cold_artifact_preparation_owns_cancel_and_eof } from "./graph/scenes/case_ttscgraph_cold_artifact_preparation_owns_cancel_and_eof";
+import { case_ttscgraph_installed_consumers_resolve_their_own_native_binary } from "./graph/scenes/case_ttscgraph_installed_consumers_resolve_their_own_native_binary";
 import { case_ttscgraph_launcher_repairs_non_executable_dump_binary } from "./graph/scenes/case_ttscgraph_launcher_repairs_non_executable_dump_binary";
 import { case_ttscgraph_resident_projection_matches_fresh_full } from "./graph/scenes/case_ttscgraph_resident_projection_matches_fresh_full";
-import { case_ttscgraph_installed_consumers_resolve_their_own_native_binary } from "./graph/scenes/case_ttscgraph_installed_consumers_resolve_their_own_native_binary";
 import { case_ttscgraph_view_owns_http_server_lifecycle } from "./graph/scenes/case_ttscgraph_view_owns_http_server_lifecycle";
 
 type NodeDetails = {

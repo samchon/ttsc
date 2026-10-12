@@ -47,7 +47,10 @@ func TestDriverRewriteLexicalIdentityRuntime(t *testing.T) {
     t.Fatal("SourceFile did not find both lexical fixtures")
   }
   rewrites.Add(driver.Rewrite{File: marker, RootName: "plugin", Method: "make", Replacement: `"marker-replaced"`, ConsumeParens: true})
-  for _, replacement := range []struct { text string; consume bool }{
+  for _, replacement := range []struct {
+    text    string
+    consume bool
+  }{
     {`"first"`, true}, {`"inside"`, true}, {`(input => "outer:" + input)`, false}, {`"inner"`, true},
   } {
     rewrites.Add(driver.Rewrite{File: contexts, RootName: "plugin", Namespaces: []string{"ns"}, Method: "make", Replacement: replacement.text, ConsumeParens: replacement.consume})
@@ -107,7 +110,7 @@ func TestDriverRewriteLexicalIdentityRuntime(t *testing.T) {
         if source == "contexts" && (!strings.Contains(js, "// plugin.ns.make()") || !strings.Contains(js, "/* plugin.ns.make() */")) {
           t.Error("inert emitted call comments changed")
         }
-        inputs = append(inputs, rewriteRuntimeInput{Name: mode+"/"+source, File: filepath.Join(root, mode, source+".js")})
+        inputs = append(inputs, rewriteRuntimeInput{Name: mode + "/" + source, File: filepath.Join(root, mode, source+".js")})
       })
     }
   }
@@ -125,7 +128,7 @@ func TestDriverRewriteLexicalIdentityRuntime(t *testing.T) {
   }
 
   expected := map[string]map[string]string{
-    "marker": {"marker": driver.RewriteSentinel, "value": "marker-replaced"},
+    "marker":   {"marker": driver.RewriteSentinel, "value": "marker-replaced"},
     "contexts": {"quoted": "plugin.ns.make()", "templateText": "plugin.ns.make()", "regexText": "plugin.ns.make()", "receiver": "original", "adjacent": "adjacent", "first": "first", "templateExpression": "before plugin.ns.make() inside after", "nested": "outer:inner", "unicode": "unicode-replaced"},
   }
   if len(inputs) != 0 {

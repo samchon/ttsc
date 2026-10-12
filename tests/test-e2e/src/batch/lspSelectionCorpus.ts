@@ -7,8 +7,8 @@ import { test_ttscserver_launcher_uses_native_flag_authority } from "../features
 import { BatchWorkspace } from "./BatchWorkspace";
 
 /**
- * Preserve native launch authority and terminal plugin-selection transitions
- * on upfront islands in the shared consumer.
+ * Preserve native launch authority and terminal plugin-selection transitions on
+ * upfront islands in the shared consumer.
  *
  * @evidence contracts/testing.md#behavioral-verification The launch-authority body requires actual B plugin/upstream contexts, B diagnostics, logical alias URI, project-relative runtime and native refusal controls. Original terminal bodies still require selection notifications and native sentinel exit1 for adding/removing configured plugins, adding an automatically discovered dependency and changing copied Go source/descriptor; the intermediate configured server must publish real no-var and the source-edit server the exact edited native rule message.
  * @evidence contracts/testing.md#independent-expectations Authored A/B rule contrasts and literal final arguments establish launch selection; authored var source, configured no-var and original literal diagnostic/sentinel establish terminal selection before and after each mutation. The owning bodies assert actual protocol/process observations rather than inferring success from fingerprints or synthetic events.

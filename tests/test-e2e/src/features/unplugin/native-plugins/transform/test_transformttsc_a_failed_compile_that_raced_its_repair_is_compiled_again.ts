@@ -63,8 +63,16 @@ export async function test_transformttsc_a_failed_compile_that_raced_its_repair_
     let failed = false;
     let failure: unknown;
     const returned = delivery.then(
-      (value: Awaited<typeof delivery>) => { completed = true; return value; },
-      (error: unknown) => { completed = true; failed = true; failure = error; throw error; },
+      (value: Awaited<typeof delivery>) => {
+        completed = true;
+        return value;
+      },
+      (error: unknown) => {
+        completed = true;
+        failed = true;
+        failure = error;
+        throw error;
+      },
     );
     original = returned;
     void returned.catch(() => undefined);
@@ -72,12 +80,14 @@ export async function test_transformttsc_a_failed_compile_that_raced_its_repair_
     await waitFor(
       () => fs.existsSync(readStamp),
       "the compile to read the marked module",
-      { check: () => {
-        if (!fs.existsSync(readStamp) && completed)
-          throw new Error("compiler completed before publishing its read", {
-            cause: failed ? failure : undefined,
-          });
-      } },
+      {
+        check: () => {
+          if (!fs.existsSync(readStamp) && completed)
+            throw new Error("compiler completed before publishing its read", {
+              cause: failed ? failure : undefined,
+            });
+        },
+      },
     );
     fs.writeFileSync(module, repaired);
     const result = await returned;
@@ -102,5 +112,6 @@ export async function test_transformttsc_a_failed_compile_that_raced_its_repair_
       failures.push(error);
     }
   }
-  if (failures.length) throw new AggregateError(failures, "repair delivery and cache release");
+  if (failures.length)
+    throw new AggregateError(failures, "repair delivery and cache release");
 }

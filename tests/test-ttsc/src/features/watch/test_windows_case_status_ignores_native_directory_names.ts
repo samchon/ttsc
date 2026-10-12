@@ -61,7 +61,8 @@ export function test_windows_case_status_ignores_native_directory_names():
         const physical = fs.realpathSync.native(witness);
         const aliasExists = fs.existsSync(alternate);
         const sensitive =
-          aliasExists === false || fs.realpathSync.native(alternate) !== physical;
+          aliasExists === false ||
+          fs.realpathSync.native(alternate) !== physical;
         const plan = planCompilerDirectoryWatchEvent({
           changed: alternate,
           event: "change",
@@ -124,5 +125,8 @@ export function test_windows_case_status_ignores_native_directory_names():
     }
   }
   if (failures.length !== 0)
-    throw new AggregateError(failures, "native Windows case-status observations");
+    throw new AggregateError(
+      failures,
+      "native Windows case-status observations",
+    );
 }

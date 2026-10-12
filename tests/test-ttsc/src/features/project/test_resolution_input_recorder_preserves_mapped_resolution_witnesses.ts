@@ -29,7 +29,8 @@ const { createResolutionInputRecorder } = createRequire(import.meta.url)(
 };
 
 /**
- * Verifies mapped resolutions cannot replace an earlier witness with later state.
+ * Verifies mapped resolutions cannot replace an earlier witness with later
+ * state.
  *
  * Node selects actual owned modules between recorder begin/end calls. Changes
  * in that window must withdraw proof while stable selected-and-nearer inputs
@@ -86,57 +87,96 @@ export function test_resolution_input_recorder_preserves_mapped_resolution_witne
         const app = path.join(directory, "app");
         const parent = path.join(app, "entry.cjs");
         write(parent, "// importer");
-        write(path.join(app, "package.json"), JSON.stringify({ imports: { "#dep": target } }));
+        write(
+          path.join(app, "package.json"),
+          JSON.stringify({ imports: { "#dep": target } }),
+        );
         const packageName = target.startsWith("@") ? "@scope/pkg" : "pkg";
         const near = path.join(app, "node_modules", packageName);
         fs.mkdirSync(path.dirname(near), { recursive: true });
         const far = path.join(directory, "node_modules", packageName);
         const farEntry = packageAt(far, "module.exports='FAR';");
-        if (target.endsWith("/sub.cjs")) write(path.join(far, "sub.cjs"), "module.exports='SUB';");
-        const recorder = createResolutionInputRecorder({ extensions: [".cjs", ".js", ".json", ".node"] });
+        if (target.endsWith("/sub.cjs"))
+          write(path.join(far, "sub.cjs"), "module.exports='SUB';");
+        const recorder = createResolutionInputRecorder({
+          extensions: [".cjs", ".js", ".json", ".node"],
+        });
         const specifier = mapped ? "#dep" : target;
         const token = recorder.beginResolution(specifier, parent);
         const selected = createRequire(parent).resolve(specifier);
-        assert.equal(selected, target.endsWith("/sub.cjs") ? path.join(far, "sub.cjs") : farEntry);
+        assert.equal(
+          selected,
+          target.endsWith("/sub.cjs") ? path.join(far, "sub.cjs") : farEntry,
+        );
         if (mutate) {
           packageAt(near, "module.exports='NEAR';");
-          if (target.endsWith("/sub.cjs")) write(path.join(near, "sub.cjs"), "module.exports='NEAR-SUB';");
+          if (target.endsWith("/sub.cjs"))
+            write(path.join(near, "sub.cjs"), "module.exports='NEAR-SUB';");
         }
         recorder.endResolution(token, selected);
         const result = recorder.finish();
-        for (const file of [path.join(near, "package.json"), path.join(near, "index.cjs")]) {
+        for (const file of [
+          path.join(near, "package.json"),
+          path.join(near, "index.cjs"),
+        ]) {
           if (mutate) refused(result, file);
           else {
             assert.equal(result.hashes[file], null);
             assert.equal(result.realpaths[file], null);
           }
         }
-        if (mutate && target.endsWith("/sub.cjs")) refused(result, path.join(near, "sub.cjs"));
+        if (mutate && target.endsWith("/sub.cjs"))
+          refused(result, path.join(near, "sub.cjs"));
         if (!mutate) {
-          assert.equal(result.hashes[farEntry], digest("module.exports='FAR';"));
-          assert.equal(result.realpaths[farEntry], fs.realpathSync.native(farEntry));
+          assert.equal(
+            result.hashes[farEntry],
+            digest("module.exports='FAR';"),
+          );
+          assert.equal(
+            result.realpaths[farEntry],
+            fs.realpathSync.native(farEntry),
+          );
           assert.equal(result.complete, true);
-          assert.ok(!result.inputs.includes(path.join(root, "node_modules", packageName, "package.json")));
+          assert.ok(
+            !result.inputs.includes(
+              path.join(root, "node_modules", packageName, "package.json"),
+            ),
+          );
         }
       });
     check("conditional-cutoff", (directory) => {
       const parent = path.join(directory, "app", "entry.cjs");
       write(parent, "// importer");
-      write(path.join(directory, "app", "package.json"), JSON.stringify({ imports: { "#dep": { require: "@scope/pkg", default: "unused" } } }));
-      const selected = packageAt(path.join(directory, "node_modules", "@scope/pkg"), "module.exports=1;");
-      const recorder = createResolutionInputRecorder({ extensions: [".cjs", ".js"] });
+      write(
+        path.join(directory, "app", "package.json"),
+        JSON.stringify({
+          imports: { "#dep": { require: "@scope/pkg", default: "unused" } },
+        }),
+      );
+      const selected = packageAt(
+        path.join(directory, "node_modules", "@scope/pkg"),
+        "module.exports=1;",
+      );
+      const recorder = createResolutionInputRecorder({
+        extensions: [".cjs", ".js"],
+      });
       const token = recorder.beginResolution("#dep", parent);
       assert.equal(createRequire(parent).resolve("#dep"), selected);
       recorder.endResolution(token, selected);
       const result = recorder.finish();
       assert.equal(result.hashes[selected], digest("module.exports=1;"));
-      assert.ok(!result.inputs.some((file) => file.includes(`${path.sep}unused`)));
+      assert.ok(
+        !result.inputs.some((file) => file.includes(`${path.sep}unused`)),
+      );
     });
     check("local-changed", (directory) => {
       const parent = path.join(directory, "entry.cjs");
       const selected = path.join(directory, "local.cjs");
       write(parent, "// importer");
-      write(path.join(directory, "package.json"), '{"imports":{"#dep":"./local.cjs"}}');
+      write(
+        path.join(directory, "package.json"),
+        '{"imports":{"#dep":"./local.cjs"}}',
+      );
       write(selected, "module.exports=1;");
       const recorder = createResolutionInputRecorder({ extensions: [".cjs"] });
       const token = recorder.beginResolution("#dep", parent);
@@ -148,11 +188,17 @@ export function test_resolution_input_recorder_preserves_mapped_resolution_witne
     check("failed-created", (directory) => {
       const parent = path.join(directory, "entry.cjs");
       write(parent, "// importer");
-      write(path.join(directory, "package.json"), '{"imports":{"#dep":"@scope/pkg"}}');
+      write(
+        path.join(directory, "package.json"),
+        '{"imports":{"#dep":"@scope/pkg"}}',
+      );
       const recorder = createResolutionInputRecorder({ extensions: [".cjs"] });
       const token = recorder.beginResolution("#dep", parent);
       assert.throws(() => createRequire(parent).resolve("#dep"));
-      const selected = packageAt(path.join(directory, "node_modules", "@scope/pkg"), "module.exports=1;");
+      const selected = packageAt(
+        path.join(directory, "node_modules", "@scope/pkg"),
+        "module.exports=1;",
+      );
       recorder.endResolution(token, undefined);
       refused(recorder.finish(), selected);
     });
@@ -160,20 +206,33 @@ export function test_resolution_input_recorder_preserves_mapped_resolution_witne
       check(changed ? "linked-retarget" : "linked-stable", (directory) => {
         const parent = path.join(directory, "app", "entry.cjs");
         write(parent, "// importer");
-        write(path.join(directory, "app", "package.json"), '{"imports":{"#dep":"@scope/pkg"}}');
+        write(
+          path.join(directory, "app", "package.json"),
+          '{"imports":{"#dep":"@scope/pkg"}}',
+        );
         const first = path.join(directory, "first");
         const second = path.join(directory, "second");
         const selected = packageAt(first, "module.exports=1;");
         packageAt(second, "module.exports=1;");
         const link = path.join(directory, "app", "node_modules", "@scope/pkg");
         fs.mkdirSync(path.dirname(link), { recursive: true });
-        fs.symlinkSync(first, link, process.platform === "win32" ? "junction" : "dir");
-        const recorder = createResolutionInputRecorder({ extensions: [".cjs"] });
+        fs.symlinkSync(
+          first,
+          link,
+          process.platform === "win32" ? "junction" : "dir",
+        );
+        const recorder = createResolutionInputRecorder({
+          extensions: [".cjs"],
+        });
         const token = recorder.beginResolution("#dep", parent);
         assert.equal(createRequire(parent).resolve("#dep"), selected);
         if (changed) {
           fs.unlinkSync(link);
-          fs.symlinkSync(second, link, process.platform === "win32" ? "junction" : "dir");
+          fs.symlinkSync(
+            second,
+            link,
+            process.platform === "win32" ? "junction" : "dir",
+          );
         }
         recorder.endResolution(token, selected);
         const result = recorder.finish();
@@ -181,14 +240,20 @@ export function test_resolution_input_recorder_preserves_mapped_resolution_witne
         else {
           const file = path.join(link, "index.cjs");
           assert.equal(result.hashes[file], digest("module.exports=1;"));
-          assert.equal(result.realpaths[file], fs.realpathSync.native(selected));
+          assert.equal(
+            result.realpaths[file],
+            fs.realpathSync.native(selected),
+          );
           assert.equal(result.complete, true);
         }
       });
     check("repeated-first-witness", (directory) => {
       const parent = path.join(directory, "entry.cjs");
       write(parent, "// importer");
-      write(path.join(directory, "package.json"), '{"imports":{"#dep":"./local.cjs"}}');
+      write(
+        path.join(directory, "package.json"),
+        '{"imports":{"#dep":"./local.cjs"}}',
+      );
       const selected = path.join(directory, "local.cjs");
       write(selected, "module.exports=1;");
       const recorder = createResolutionInputRecorder({ extensions: [".cjs"] });

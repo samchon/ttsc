@@ -1,7 +1,7 @@
 import { TestProject } from "@ttsc/testing";
-import { WatchBuildObservation } from "../../../../../utils/src/WatchBuildObservation";
 import { randomUUID } from "node:crypto";
 
+import { WatchBuildObservation } from "../../../../../utils/src/WatchBuildObservation";
 import {
   assert,
   child_process,
@@ -104,8 +104,12 @@ export class WatchSession {
       this.startupError = error;
       this.observation.fail(error);
     });
-    stdout.on("data", (chunk: Buffer) => this.observation.append(chunk.toString("utf8"), "stdout"));
-    stderr.on("data", (chunk: Buffer) => this.observation.append(chunk.toString("utf8"), "stderr"));
+    stdout.on("data", (chunk: Buffer) =>
+      this.observation.append(chunk.toString("utf8"), "stdout"),
+    );
+    stderr.on("data", (chunk: Buffer) =>
+      this.observation.append(chunk.toString("utf8"), "stderr"),
+    );
     stdout.on("error", (error) => this.observation.fail(error));
     stderr.on("error", (error) => this.observation.fail(error));
   }
@@ -147,7 +151,8 @@ export class WatchSession {
    *
    * A killed launcher alone does not establish descendant closure. Missing or
    * invalid joined receipts retain tracked inputs. An unresolved close stays
-   * pending until the native containing owner adjudicates operator cancellation.
+   * pending until the native containing owner adjudicates operator
+   * cancellation.
    */
   public close(): Promise<void> {
     return (this.closeOperation ??= this.closeOwnedSession());
