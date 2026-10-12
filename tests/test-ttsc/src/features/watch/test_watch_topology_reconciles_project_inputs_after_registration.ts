@@ -5,6 +5,7 @@ import path from "node:path";
 import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
 import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
 import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import { settleWatchEvents } from "../../../../utils/src/RecordedWatchers";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -308,6 +309,7 @@ async function verifyReconciliationRegistersNewPhysicalOwner(): Promise<void> {
 
     fs.writeFileSync(second, "# second\n", "utf8");
     externalRegistration.listener("rename", path.basename(second));
+    await settleWatchEvents();
     assert.deepEqual(changes, [
       { kind: "project", path: fs.realpathSync.native(first) },
       { kind: "project", path: fs.realpathSync.native(second) },

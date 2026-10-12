@@ -34,6 +34,7 @@ import type { OwningModuleOptions } from "./OwningModuleOptions";
 import { PluginDescriptorInputObservation } from "./PluginDescriptorInputObservation";
 import type { ResolveResult } from "./ResolveResult";
 import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
+import { RuntimeEntrySources } from "./RuntimeEntrySources";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
 import type { RuntimeHookOptions } from "./RuntimeHookOptions";
 import { RuntimeIsolatedEmit } from "./RuntimeIsolatedEmit";
@@ -1233,20 +1234,20 @@ function resolveServedSource(
   prepareAsEntry: boolean = false,
 ): ServedSource {
   const real = realPath(filename);
-  let served = serveEntryEmit(real);
+  let served = serveInlinedEntryEmit(real, prepareAsEntry);
   if (served !== null) {
-    return withInlineSourceMap(served);
+    return served;
   }
   // Only the public preload can prepare a newly discovered root; direct ttsx
   // prepared its one entry before the child started.
   const prepareEntry = prepareAsEntry ? prepareRuntimeEntry : undefined;
   if (prepareEntry !== undefined) {
     RuntimeManifestRegistry.registerManifest(prepareEntry(real));
-    served = serveEntryEmit(real);
+    served = serveInlinedEntryEmit(real, true);
     if (served === null) {
       throw new Error(`ttsx: prepared entry emit not found for ${filename}`);
     }
-    return withInlineSourceMap(served);
+    return served;
   }
   const built = serveProjectEmit(real);
   if (built !== null) {
@@ -1730,9 +1731,35 @@ class RuntimeEmitOwnershipError extends Error {}
  */
 function serveEntryEmit(real: string): ServedSource | null {
   const owner = RuntimeManifestRegistry.findEntryEmit(real);
+  return owner === null ? null : entryEmitSource(owner, real);
+}
+
+/**
+ * {@link serveEntryEmit} with the emit's source map inlined, as a module load
+ * serves it. A checked entry build's emit is immutable for the run, so an entry
+ * load, which Node 22.15 repeats for the process entry, reads and source-maps
+ * each emitted file once (`RuntimeEntrySources`, samchon/ttsc#1749). Other
+ * modules are not remembered: Node keeps each loaded module, and holding every
+ * served text beside it would retain the whole program's emit.
+ */
+function serveInlinedEntryEmit(
+  real: string,
+  entry: boolean,
+): ServedSource | null {
+  const owner = RuntimeManifestRegistry.findEntryEmit(real);
   if (owner === null) {
     return null;
   }
+  const prepare = () => withInlineSourceMap(entryEmitSource(owner, real));
+  return entry
+    ? RuntimeEntrySources.serve(owner.manifest, owner.emittedFile, prepare)
+    : prepare();
+}
+
+function entryEmitSource(
+  owner: NonNullable<ReturnType<typeof RuntimeManifestRegistry.findEntryEmit>>,
+  real: string,
+): ServedSource {
   return {
     emittedFile: owner.emittedFile,
     moduleOptions: owner.manifest.moduleOptions ?? {},
@@ -2345,15 +2372,24 @@ function owningTsconfig(real: string): string | null {
     recordPluginDescriptorProjectInputs,
   );
   if (nearest === null) return null;
-  // Config spelling and target identity do not prove that inherited options,
-  // reference roots or directory membership are unchanged. The resolver owns
-  // lookup-scoped reuse; a later import must ask it for a current answer.
+  // The project this selects is built once per process (`ensureProjectBuilt`),
+  // so the reference roots that select it are kept for the process as well;
+  // re-expanding them for every module cost a compiler run per referenced
+  // project (samchon/ttsc#1747). A file created after an expansion is still
+  // expanded for afresh.
   return resolveOwningProjectConfig({
+    expansions: ownerExpansions,
     file: real,
     onConfig: (config) => recordPluginDescriptorProjectInputs([config]),
     tsconfig: nearest,
   });
 }
+
+/** Reference roots `owningTsconfig` expanded in this process, by config. */
+const ownerExpansions = new Map<
+  string,
+  { files: readonly string[]; takenAt: number }
+>();
 
 function readFileOrNull(file: string | null): string | null {
   if (file === null) {

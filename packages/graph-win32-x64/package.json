@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/graph-win32-x64",
-  "version": "0.31.6",
+  "version": "0.31.5",
   "description": "Windows x64 native ttscgraph binary for @ttsc/graph.",
   "os": ["win32"],
   "cpu": ["x64"],

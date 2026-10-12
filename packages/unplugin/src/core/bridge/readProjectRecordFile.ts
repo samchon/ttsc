@@ -47,11 +47,15 @@ export function readProjectRecordFile(
     typeof candidate.signal !== "number" ||
     !Number.isFinite(candidate.signal) ||
     !isInputEvidenceMap(candidate.inputs) ||
-    !isMembership(candidate.membership)
+    !isMembership(candidate.membership) ||
+    (candidate.dependencies !== undefined && !isStrings(candidate.dependencies))
   ) {
     return undefined;
   }
   return {
+    ...(candidate.dependencies === undefined
+      ? {}
+      : { dependencies: candidate.dependencies }),
     inputs: candidate.inputs,
     membership: candidate.membership,
     root: candidate.root,

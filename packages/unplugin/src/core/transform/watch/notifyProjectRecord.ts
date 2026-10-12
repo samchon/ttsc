@@ -225,7 +225,9 @@ function recordOf(
   cached: TtscCachedProjectTransform,
   inputs: readonly TtscWatchInput[],
 ): TtscProjectRecord {
+  const dependencies = cached.externalDependencyInputs ?? [];
   const record: TtscProjectRecord = {
+    ...(dependencies.length === 0 ? {} : { dependencies }),
     inputs: {},
     membership:
       cached.projectDirectories === undefined

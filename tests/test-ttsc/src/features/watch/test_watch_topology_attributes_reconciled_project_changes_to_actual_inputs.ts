@@ -5,6 +5,7 @@ import path from "node:path";
 import type { WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
 import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
 import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import { settleWatchEvents } from "../../../../utils/src/RecordedWatchers";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -172,6 +173,7 @@ async function verifyScenario(
           ? dataRoot
           : attention,
     );
+    await settleWatchEvents();
     const expectedPath =
       scenario === "multiple" ||
       scenario === "unrelated-directories" ||
@@ -190,7 +192,7 @@ async function verifyScenario(
       scenario === "unrelated-directories"
     )
       deliver(second);
-    await Promise.resolve();
+    await settleWatchEvents();
     assert.deepEqual(
       changes,
       [{ kind: expectedKind, path: expectedPath }],

@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/graph-linux-x64",
-  "version": "0.31.6",
+  "version": "0.31.5",
   "description": "Linux x64 native ttscgraph binary for @ttsc/graph.",
   "os": [
     "linux"
