@@ -117,6 +117,19 @@ One claim: the components under `src` implement the docs, so every H2 and H3 und
 
 The configuration is written once. The tags are written forever: `@evidence` cites, `@evidenceReview` verifies, and `@evidenceExclude` declines. [The tag reference](https://ttsc.dev/docs/evidence/tags) has the full grammar.
 
+A reason that needs paragraphs, a list or subheadings goes under an H2 to H4 heading, with the target on the heading and the explanation below it:
+
+```ts
+/**
+ * ## @evidence docs/discount.md#coupon-stacking
+ *
+ * Renders the per-issuer limit this section defines.
+ *
+ * - Reads the limit from props.
+ * - Names the issuer that reached it.
+ */
+```
+
 A false tag removes the error, not the problem. `@evidenceReview` asks for a separate statement of what was verified, which a human then judges:
 
 ```ts

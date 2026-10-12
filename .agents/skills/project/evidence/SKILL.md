@@ -30,6 +30,10 @@ Keep `declarationLine`'s whitespace boundary after `@evidence`. It distinguishes
 
 Check a fingerprint's exact length as well as its opening `#`. A requirement anchor such as `#req-search-policies` has the same opening shape.
 
+Every consumer that asks whether a line carries a tag must recognize the H2-H4 heading form as well as the one-line form: the parsers, unreadable-comment reporting, the Prisma misplaced-comment checks and the Markdown prose reporter. A consumer that matches only `declarationLine` on the line lets a heading-form tag in an unreadable position pass silently. `openAnnotation` answers for the forms that open an annotation; the Markdown reporter also reads tag-shaped H1, H5 and H6 titles, which open none and must still be reported.
+
+Split a heading section's target from its heading alone. Explanation prose may supply the reason but never the target, and an unterminated link on the heading must not borrow a brace from the prose below. A one-line annotation keeps its cross-line target split.
+
 Decide a target's kind from its token independently of reference context. A path target is one token; only a code target may use braces as a boundary. A citation-only import remains unused to `@typescript-eslint/no-unused-vars` because that rule does not count JSDoc usage.
 
 Resolve a file-qualified target's path from the citing file and its segmented accessor from that module's public exports. Preserve import-scoped inline links and reject bare cross-module symbol lookup.
@@ -69,6 +73,8 @@ Report unsupported tags in `//` comments, runs of three or four slashes and comm
 Confine that reporting to the claim populations as declared, including inactive claims. A file whose declarations are all commented out still belongs to those declared globs. Program files outside every matching claim glob are out of scope, including dependency files. Package-reference globs select installed package files and confer no claim ownership here.
 
 Report a scan problem to every population reading that file, matched against that population's own symbol set. A malformed heading or unaddressable path can lose either reference units or claim hosts. A file-level problem uses the wildcard symbol because it concerns the file, not one heading kind.
+
+Treat a visible Markdown annotation heading as metadata owned by the nearest outline heading shallower than its own, or the file. Its section materializes no unit, never enters the outline stack that parents later headings, and is excluded from every digest; comments inside it take the same owner. Decide annotation headings from the same lexical heading view the outline uses, or a heading the outline does not see could carry a citation, or one it does see could silently carry nothing. A tag-shaped heading that opens no section is reported as unreadable.
 
 Judge claim scan problems before activation, so a file that empties its claim still reports its cause. Judge reference scan problems only after activation: inactive claims do not run their reference loaders. Do not combine these into one activation rule.
 

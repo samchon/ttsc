@@ -12,7 +12,7 @@ One target, one reason, on the declaration that owes the answer.
 @evidenceExcludeReview <target> #<fingerprint> <description>
 ```
 
-The target is one whitespace-delimited token, except that an inline link runs to its closing brace and a file accessor's quoted bracket segment can contain spaces. A declaration may carry any number of tags, and each is validated on its own.
+The target is one whitespace-delimited token, except that an inline link runs to its closing brace and a file accessor's quoted bracket segment can contain spaces. A declaration may carry any number of tags, and each is validated on its own. A reason that needs paragraphs, a list or subheadings goes under a heading instead, as [Heading sections](#heading-sections) describes.
 
 ## The four tags
 
@@ -47,6 +47,40 @@ An exclusion's reason carries more, because it records a decision rather than de
 Where the target does not apply at all, say what makes it inapplicable rather than asserting that it is. A principle about fixing root causes does not reach a component that only renders, and "No failure to fix." is the whole reason, because a reviewer can check it against the declaration in one look.
 
 Nothing scores any of this, and [that is deliberate](/docs/evidence/claims#evidencedocumented). A graded reason becomes a reason written for the grader, and the sentence stops being worth a reviewer's time.
+
+## Heading sections
+
+A reason that needs paragraphs, a list or subheadings of its own goes under a heading. An H2, H3 or H4 heading whose title opens with one of the tags starts the annotation, the target is written on the heading, and everything below it is the explanation.
+
+```ts
+/**
+ * Handles one checkout request.
+ *
+ * ## @evidence docs/requirements.md#authentication
+ *
+ * Validates the token before accepting the request.
+ *
+ * ### Validation steps
+ *
+ * - Checks the signature with the configured key.
+ * - Rejects expired tokens.
+ *
+ * ### @evidenceExclude docs/requirements.md#billing
+ *
+ * Billing belongs to an external service.
+ */
+export function handle(request: IRequest): IResponse;
+```
+
+- The explanation ends at the next heading of the same or a shallower level, or at the next annotation in either form. A deeper ordinary heading, like `Validation steps` above, stays inside it.
+- The target must be on the heading. The prose below can supply the reason but never the target, so a heading without one is malformed whatever follows it.
+- An example inside the explanation is skipped and the explanation resumes after it. An explanation with no prose outside its examples is no reason.
+- Inside a JSDoc block or a Prisma comment, a line opening another tool's tag such as `@param` ends the explanation, as it ends a one-line reason.
+- Closing hashes and an explicit `{#anchor}` on the heading are heading syntax and belong to neither the target nor the reason.
+- A review takes the same form: `## @evidenceReview <target> #<fingerprint>` with what was checked below it. The fingerprint may also open the first line below the heading.
+- An H1, H5 or H6 heading, a heading missing the space after its hashes, and a heading indented four or more columns past the comment's margin are ordinary text. In a Markdown document a tagged H1, H5 or H6 heading is reported instead, as [Where a tag may live](#where-a-tag-may-live) describes.
+
+Both forms may sit in one block, a heading section and a one-line tag in either order, and each annotation is still validated on its own.
 
 ## Targets
 
@@ -128,7 +162,7 @@ A tag is read only from a comment the parser attached to a declaration. One writ
 | --- | --- | --- |
 | **TypeScript** | A JSDoc block on the declaration | `//` lines, comments inside a binding pattern |
 | **Prisma** | A `///` run or block comment above the declaration | `//` lines, comments above a closing brace |
-| **Markdown** | An HTML comment | Rendered prose |
+| **Markdown** | An HTML comment, or an H2-H4 annotation heading | Rendered prose, any other heading |
 
 ```prisma
 /// @evidence docs/requirements/pricing.md#sale-price Sale price derives from this section.
@@ -144,7 +178,21 @@ model Sale {
 
 Markdown uses an HTML comment so the citation renders invisibly and the document a reader sees stays clean. The tag must be the first content on its line, though a bullet or quote marker in front of it is read through, so a sentence merely mentioning a tag goes on describing it. Code and rendered examples supply no annotations, reviews, or heading units, and remain part of the containing unit's review fingerprint. Closing an example resumes reading the remaining original text on that line, where a genuine HTML comment can carry metadata; the original line position and prefix rules still apply. Escaped delimiters and delimiters inside another example cannot open an example or comment. Genuine closed HTML comments are excluded from the fingerprint. Original paragraph and container boundaries and heading titles remain authoritative.
 
-Inside TypeScript and Prisma documentation comments, fenced examples and HTML comments supply no citations, exclusions, reviews, or review withdrawals. Indentation is measured after removing the comment decoration and common documentation margin: a fence may have up to three columns of indentation, while four columns, including tab expansion, leave it as literal text. A fence ends any pending citation reason or review description, so an empty reason cannot be supplied by the example or by prose after it. A later tag starts a new annotation. Markdown's outer HTML comment remains a tag host.
+A visible [heading section](#heading-sections) carries the same annotations where a long explanation should stay readable on the page. It answers for the section it is nested in, which is the nearest heading shallower than its own, or the file when none precedes it. Write it one level deeper than the heading it answers for:
+
+```md
+## Coupon stacking {#coupon-stacking}
+
+A buyer may apply at most one coupon per issuer.
+
+### @evidence docs/ideas/checkout.md#stacking-limit
+
+Turns the note's per-issuer idea into a testable limit.
+```
+
+The annotation heading and everything under it, up to the next heading of its depth or shallower or the next annotation heading, is metadata like a comment. It adds no heading unit and owes nothing, and it is excluded from every review fingerprint, so writing or editing it expires no review of the section it answers for. A comment written inside it belongs to the same section, and so does a visible `@evidenceReview` heading beside the citation, so either one pairs with it. Prose under the heading explains only outside code and rendered examples, and a prose line opening a tag inside it is reported like any other. An H1, H5 or H6 heading, or a heading inside a blockquote or a list, whose title opens a tag reaches no host and is reported.
+
+Inside TypeScript and Prisma documentation comments, fenced examples and HTML comments supply no citations, exclusions, reviews, or review withdrawals. Indentation is measured after removing the comment decoration and common documentation margin: a fence may have up to three columns of indentation, while four columns, including tab expansion, leave it as literal text. A fence ends any pending one-line citation reason or review description, so an empty reason cannot be supplied by the example or by prose after it. A heading section skips the example and resumes after it instead, and the example supplies nothing there either. A later tag starts a new annotation. Markdown's outer HTML comment remains a tag host.
 
 Prisma follows Prisma's own rule that a comment documents the declaration immediately below it. A blank line before a top-level block detaches the comment, and a comment above a block attribute or a closing brace documents nothing. One exception exists on the exclusion side: an unattached top-level `/// @evidenceExclude` run is a file-level carrier, which supports a lint-only `.schema` ledger outside Prisma generation.
 
