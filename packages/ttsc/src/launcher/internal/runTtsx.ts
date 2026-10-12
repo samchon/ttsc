@@ -245,10 +245,12 @@ async function runJavaScriptEntry(
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     // ttsc's own helpers run with what the user passed (#1740).
-    [TtsxNodeOptions.RECEIVED]: TtsxNodeOptions.received(process.env),
-    NODE_OPTIONS: appendNodeOption(
-      process.env.NODE_OPTIONS,
-      `--require ${JSON.stringify(path.join(__dirname, "..", "..", "register.js"))}`,
+    ...TtsxNodeOptions.give(
+      process.env,
+      appendNodeOption(
+        process.env.NODE_OPTIONS,
+        `--require ${JSON.stringify(path.join(__dirname, "..", "..", "register.js"))}`,
+      ),
     ),
     ...(parsed.binary !== undefined
       ? { TTSC_TSGO_BINARY: path.resolve(cwd, parsed.binary) }
@@ -328,13 +330,15 @@ async function runPreparedEntry(
     const runtimeEnv: NodeJS.ProcessEnv = {
       ...process.env,
       // ttsc's own helpers run with what the user passed (#1740).
-      [TtsxNodeOptions.RECEIVED]: TtsxNodeOptions.received(process.env),
-      NODE_OPTIONS: appendNodeOption(
-        prependNodeOption(
-          process.env.NODE_OPTIONS,
-          `--require ${JSON.stringify(path.join(__dirname, "runtimeOwnerPreload.js"))}`,
+      ...TtsxNodeOptions.give(
+        process.env,
+        appendNodeOption(
+          prependNodeOption(
+            process.env.NODE_OPTIONS,
+            `--require ${JSON.stringify(path.join(__dirname, "runtimeOwnerPreload.js"))}`,
+          ),
+          `--require ${JSON.stringify(path.join(__dirname, "runtimeHookPreload.js"))}`,
         ),
-        `--require ${JSON.stringify(path.join(__dirname, "runtimeHookPreload.js"))}`,
       ),
       // The compiler this run resolved, which already honours an inherited
       // `TTSC_TSGO_BINARY` when no `--binary` was given.
