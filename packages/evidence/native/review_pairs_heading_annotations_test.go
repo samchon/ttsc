@@ -62,4 +62,3 @@ export interface ISale {
   }
   assertProblemContains(t, runReviewRule(t, "src/ISale.ts", withoutReview), "docs/spec.md#pricing")
 }
-
