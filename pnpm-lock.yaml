@@ -266,6 +266,70 @@ importers:
       typescript:
         specifier: catalog:typescript
         version: 7.0.2
+    optionalDependencies:
+      '@ttsc/graph-darwin-arm64':
+        specifier: workspace:*
+        version: link:../graph-darwin-arm64
+      '@ttsc/graph-darwin-x64':
+        specifier: workspace:*
+        version: link:../graph-darwin-x64
+      '@ttsc/graph-linux-arm':
+        specifier: workspace:*
+        version: link:../graph-linux-arm
+      '@ttsc/graph-linux-arm64':
+        specifier: workspace:*
+        version: link:../graph-linux-arm64
+      '@ttsc/graph-linux-x64':
+        specifier: workspace:*
+        version: link:../graph-linux-x64
+      '@ttsc/graph-win32-arm64':
+        specifier: workspace:*
+        version: link:../graph-win32-arm64
+      '@ttsc/graph-win32-x64':
+        specifier: workspace:*
+        version: link:../graph-win32-x64
+
+  packages/graph-darwin-arm64:
+    devDependencies:
+      '@wrtnlabs/evidence':
+        specifier: catalog:samchon
+        version: 0.5.0(ttsc@0.31.5)(typescript@7.0.2)
+
+  packages/graph-darwin-x64:
+    devDependencies:
+      '@wrtnlabs/evidence':
+        specifier: catalog:samchon
+        version: 0.5.0(ttsc@0.31.5)(typescript@7.0.2)
+
+  packages/graph-linux-arm:
+    devDependencies:
+      '@wrtnlabs/evidence':
+        specifier: catalog:samchon
+        version: 0.5.0(ttsc@0.31.5)(typescript@7.0.2)
+
+  packages/graph-linux-arm64:
+    devDependencies:
+      '@wrtnlabs/evidence':
+        specifier: catalog:samchon
+        version: 0.5.0(ttsc@0.31.5)(typescript@7.0.2)
+
+  packages/graph-linux-x64:
+    devDependencies:
+      '@wrtnlabs/evidence':
+        specifier: catalog:samchon
+        version: 0.5.0(ttsc@0.31.5)(typescript@7.0.2)
+
+  packages/graph-win32-arm64:
+    devDependencies:
+      '@wrtnlabs/evidence':
+        specifier: catalog:samchon
+        version: 0.5.0(ttsc@0.31.5)(typescript@7.0.2)
+
+  packages/graph-win32-x64:
+    devDependencies:
+      '@wrtnlabs/evidence':
+        specifier: catalog:samchon
+        version: 0.5.0(ttsc@0.31.5)(typescript@7.0.2)
 
   packages/lint:
     devDependencies:

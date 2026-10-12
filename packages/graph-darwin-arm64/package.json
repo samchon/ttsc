@@ -1,0 +1,35 @@
+{
+  "name": "@ttsc/graph-darwin-arm64",
+  "version": "0.31.5",
+  "description": "macOS arm64 native ttscgraph binary for @ttsc/graph.",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "scripts": {
+    "evidence": "evidence",
+    "build": "node ../ttsc/build/platform-package.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT",
+  "files": [
+    "bin",
+    "package.json",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "executableFiles": [
+      "./bin/ttscgraph"
+    ]
+  },
+  "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon"
+  }
+}

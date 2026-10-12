@@ -40,26 +40,49 @@ export async function test_transformttsc_pooled_workers_recover_from_a_dead_comp
   const locks = () =>
     fs.readdirSync(session).filter((entry) => entry.endsWith(".lock"));
 
-  const actors: { child: ChildProcess; closed: Promise<void>; joined: boolean }[] = [];
+  const actors: {
+    child: ChildProcess;
+    closed: Promise<void>;
+    joined: boolean;
+  }[] = [];
   const own = (child: ChildProcess) => {
     let close!: () => void;
-    const actor = { child, closed: new Promise<void>((resolve) => { close = resolve; }), joined: false };
-    child.once("close", () => { actor.joined = true; close(); });
+    const actor = {
+      child,
+      closed: new Promise<void>((resolve) => {
+        close = resolve;
+      }),
+      joined: false,
+    };
+    child.once("close", () => {
+      actor.joined = true;
+      close();
+    });
     actors.push(actor);
   };
   const killed = runPooledWorker({ file: file!, onSpawn: own, session });
   let completed = false;
   let producerResult: unknown;
   const returned = killed.then(
-    (value) => { completed = true; producerResult = value; return value; },
-    (error) => { completed = true; producerResult = error; throw error; },
+    (value) => {
+      completed = true;
+      producerResult = value;
+      return value;
+    },
+    (error) => {
+      completed = true;
+      producerResult = error;
+      throw error;
+    },
   );
   void returned.catch(() => undefined);
   const errors: unknown[] = [];
   try {
     await waitFor(() => {
       if (completed || actors[0]!.joined)
-        throw new Error("holder completed before its live claim", { cause: producerResult });
+        throw new Error("holder completed before its live claim", {
+          cause: producerResult,
+        });
       return locks().length === 1 && compiles() === 1;
     }, "the first worker to hold the lock and start compiling");
     assert.equal(actors[0]!.child.kill("SIGKILL"), true);
@@ -68,7 +91,11 @@ export async function test_transformttsc_pooled_workers_recover_from_a_dead_comp
     assert.equal(interrupted.killed, true);
     assert.equal(locks().length, 1, "a killed holder leaves its lock behind");
 
-    const survivor = await runPooledWorker({ file: file!, onSpawn: own, session });
+    const survivor = await runPooledWorker({
+      file: file!,
+      onSpawn: own,
+      session,
+    });
     await actors[1]!.closed;
     assert.equal(survivor.error, undefined, survivor.error);
     assert.match(survivor.code ?? "", /PROBED/);
@@ -77,11 +104,18 @@ export async function test_transformttsc_pooled_workers_recover_from_a_dead_comp
   } catch (error) {
     errors.push(error);
   } finally {
-    const closes = await Promise.allSettled(actors.map(async (actor) => {
-      if (!actor.joined) actor.child.kill("SIGKILL");
-      await actor.closed;
-    }));
-    for (const close of closes) if (close.status === "rejected") errors.push(close.reason);
+    const closes = await Promise.allSettled(
+      actors.map(async (actor) => {
+        if (!actor.joined) actor.child.kill("SIGKILL");
+        await actor.closed;
+      }),
+    );
+    for (const close of closes)
+      if (close.status === "rejected") errors.push(close.reason);
   }
-  if (errors.length) throw new AggregateError(errors, "pooled producer and original worker closure");
+  if (errors.length)
+    throw new AggregateError(
+      errors,
+      "pooled producer and original worker closure",
+    );
 }

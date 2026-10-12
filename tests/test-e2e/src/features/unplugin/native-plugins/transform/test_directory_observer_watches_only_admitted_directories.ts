@@ -86,7 +86,9 @@ export async function test_directory_observer_watches_only_admitted_directories(
     () => undefined,
     () => failures.push("second"),
   );
-  const owner = { check: () => assert.deepEqual(failures, [], "native observer failure") };
+  const owner = {
+    check: () => assert.deepEqual(failures, [], "native observer failure"),
+  };
   try {
     assert.deepEqual(
       [await first.ready, await second.ready],
@@ -102,7 +104,10 @@ export async function test_directory_observer_watches_only_admitted_directories(
     fs.mkdirSync(at("src", "later"));
     fs.mkdirSync(at("node_modules", "pkg-new"));
     await waitFor(
-      () => { owner.check(); return watchedBelowRoot().includes("src/later"); },
+      () => {
+        owner.check();
+        return watchedBelowRoot().includes("src/later");
+      },
       "the created directory to be watched",
       owner,
     );

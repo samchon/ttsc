@@ -453,10 +453,7 @@ export async function observeColdPublicSessionCancellation(
     );
     await ColdGraphActorLifecycle.send(child, "close");
     await progress.wait("closed");
-    assert.deepEqual(
-      await completion,
-      { code: 0, signal: null },
-    );
+    assert.deepEqual(await completion, { code: 0, signal: null });
     await observed.joined();
     retiredWork = workSnapshot(row.goTmp);
     const receipts = nativeReceipts(nativeReceipt);

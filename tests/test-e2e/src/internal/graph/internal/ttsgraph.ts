@@ -14,9 +14,10 @@ const { spawn } = E2eProcessTrace;
 export { default as assert } from "node:assert/strict";
 
 /**
- * Resolve the native `ttscgraph` data binary built next to `ttsc` by `pnpm
- * build:current`. The MCP server keeps its `ttscgraph serve` compiler session
- * resident; the test points the launcher at it through `TTSC_GRAPH_BINARY`.
+ * Resolve the native `ttscgraph` data binary the build placed in this
+ * checkout's `@ttsc/graph-<platform>-<arch>` package. The MCP server keeps its
+ * `ttscgraph serve` compiler session resident; the test points the launcher at
+ * it through `TTSC_GRAPH_BINARY`.
  */
 export function resolveTtscgraphBinary(): string {
   const override = process.env.TTSC_GRAPH_BINARY;
@@ -24,7 +25,13 @@ export function resolveTtscgraphBinary(): string {
     return override;
   }
   const exe = process.platform === "win32" ? "ttscgraph.exe" : "ttscgraph";
-  return path.join(path.dirname(TestProject.NATIVE_BINARY), exe);
+  return path.join(
+    TestProject.WORKSPACE_ROOT,
+    "packages",
+    `graph-${process.platform}-${process.arch}`,
+    "bin",
+    exe,
+  );
 }
 
 /**
@@ -283,7 +290,10 @@ export class TtsgraphClient {
     if (this.failure !== undefined) throw this.failure;
   }
 
-  /** A failed caller policy or lost transport may still have a native input reader. */
+  /**
+   * A failed caller policy or lost transport may still have a native input
+   * reader.
+   */
   inputsHaveUnconfirmedReaders(): boolean {
     return this.unconfirmedTransport;
   }

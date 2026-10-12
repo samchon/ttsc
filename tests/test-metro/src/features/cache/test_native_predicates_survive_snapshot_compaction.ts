@@ -9,13 +9,14 @@ import { pathToFileURL } from "node:url";
 import { TestMetroRuntime } from "../../internal/metro-runtime";
 
 /**
- * Retain native requests through persistence and observe current facts on restart.
+ * Retain native requests through persistence and observe current facts on
+ * restart.
  *
  * 1. Record all four native kinds outside the project walk and compact them.
  * 2. A fresh Node reader must produce the same key from the retained requests.
- * 3. Each native transition moves a stable current key while same-run
- *    publication refuses to replace its immutable baseline. Mismatching
- *    generation evidence taints a reusable run; invalid snapshots withdraw proof.
+ * 3. Each native transition moves a stable current key while same-run publication
+ *    refuses to replace its immutable baseline. Mismatching generation evidence
+ *    taints a reusable run; invalid snapshots withdraw proof.
  * 4. Same-path kind unions and native-admitted volume-root aliases retain all
  *    requested facts in both the immutable baseline and the final key.
  * 5. A failed worker write retains all four requests in recovery storage;
@@ -48,23 +49,44 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
     [optional, "optional-file", sha("missing\0")],
     [entry, "entry", sha("file\0")],
   ] as const;
-  const input = (file: string, kind: string, digest: string, scope = "cache") => ({
+  const input = (
+    file: string,
+    kind: string,
+    digest: string,
+    scope = "cache",
+  ) => ({
     file,
     evidence: {
       identity: fs.existsSync(file) ? fs.realpathSync.native(file) : file,
       missing: !fs.existsSync(file),
       state: {
         codec: "predicates",
-        observation: { nativePredicates: [{
-          version: 1, kind, digest, scope, identityStable: true,
-          realpath: fs.existsSync(file) ? fs.realpathSync.native(file) : null,
-        }] },
+        observation: {
+          nativePredicates: [
+            {
+              version: 1,
+              kind,
+              digest,
+              scope,
+              identityStable: true,
+              realpath: fs.existsSync(file)
+                ? fs.realpathSync.native(file)
+                : null,
+            },
+          ],
+        },
       },
     },
   });
   const recorder = fingerprint.createSnapshotRecorder();
-  recorder.recordMany({ project, inputs: kinds.map(([file, kind, digest]) => input(file, kind, digest)) });
-  recorder.recordMany({ project, inputs: [input(directory, "directory", sha(""), "watch")] });
+  recorder.recordMany({
+    project,
+    inputs: kinds.map(([file, kind, digest]) => input(file, kind, digest)),
+  });
+  recorder.recordMany({
+    project,
+    inputs: [input(directory, "directory", sha(""), "watch")],
+  });
   const run = fingerprint.prepareSnapshot(root);
   const keyOptions = { projectRoot: root, runId: run };
   const key = fingerprint.computeProjectFingerprint(keyOptions);
@@ -75,9 +97,19 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
     assert.ok(retained.files.includes(file));
     assert.deepEqual(retained.nativePredicates[file], [kind]);
   }
-  assert.deepEqual(retained.accessibleEntries, [], "native listings are not compiler listings");
-  const main = path.join(root, "node_modules/.cache/ttsc-metro/graph-inputs.json");
-  const baselinePath = path.join(path.dirname(main), `key-baseline-${run}.json`);
+  assert.deepEqual(
+    retained.accessibleEntries,
+    [],
+    "native listings are not compiler listings",
+  );
+  const main = path.join(
+    root,
+    "node_modules/.cache/ttsc-metro/graph-inputs.json",
+  );
+  const baselinePath = path.join(
+    path.dirname(main),
+    `key-baseline-${run}.json`,
+  );
   const baselineBytes = fs.readFileSync(baselinePath);
   const baseline = JSON.parse(baselineBytes.toString("utf8"));
   assert.deepEqual(
@@ -86,18 +118,42 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
       .filter((input) => input !== undefined),
     [{ digest: sha(""), realpath: fs.realpathSync.native(directory) }],
   );
-  const childResult = await new Promise<{ stdout: string; pid: number }>((resolve, reject) => {
-    const child = execFile(process.execPath, [
-      "--import", pathToFileURL(path.join(TestProject.WORKSPACE_ROOT, "config/register-unit-loader.mjs")).href,
-      "--input-type=module", "-e",
-      "const f=await import(process.argv[1]); const root=process.argv[2]; console.log(JSON.stringify({state:f.readSnapshotState(root),key:f.computeProjectFingerprint({projectRoot:root})}));",
-      pathToFileURL(path.join(TestProject.WORKSPACE_ROOT, "packages/metro/src/core/fingerprint.ts")).href,
-      root,
-    ], { windowsHide: true }, (error, stdout, stderr) => {
-      if (error) reject(new Error(`Snapshot reader ${child.pid}: ${stderr}`, { cause: error }));
-      else resolve({ stdout, pid: child.pid! });
-    });
-  });
+  const childResult = await new Promise<{ stdout: string; pid: number }>(
+    (resolve, reject) => {
+      const child = execFile(
+        process.execPath,
+        [
+          "--import",
+          pathToFileURL(
+            path.join(
+              TestProject.WORKSPACE_ROOT,
+              "config/register-unit-loader.mjs",
+            ),
+          ).href,
+          "--input-type=module",
+          "-e",
+          "const f=await import(process.argv[1]); const root=process.argv[2]; console.log(JSON.stringify({state:f.readSnapshotState(root),key:f.computeProjectFingerprint({projectRoot:root})}));",
+          pathToFileURL(
+            path.join(
+              TestProject.WORKSPACE_ROOT,
+              "packages/metro/src/core/fingerprint.ts",
+            ),
+          ).href,
+          root,
+        ],
+        { windowsHide: true },
+        (error, stdout, stderr) => {
+          if (error)
+            reject(
+              new Error(`Snapshot reader ${child.pid}: ${stderr}`, {
+                cause: error,
+              }),
+            );
+          else resolve({ stdout, pid: child.pid! });
+        },
+      );
+    },
+  );
   assert.notEqual(childResult.pid, process.pid);
   const restarted = JSON.parse(childResult.stdout);
   assert.equal(restarted.key, key);
@@ -107,7 +163,10 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
     () => fs.writeFileSync(path.join(directory, "new-member"), "member"),
     () => fs.writeFileSync(file, "changed"),
     () => fs.writeFileSync(optional, "present"),
-    () => { fs.rmSync(entry); fs.mkdirSync(entry); },
+    () => {
+      fs.rmSync(entry);
+      fs.mkdirSync(entry);
+    },
   ]) {
     mutate();
     assert.match(
@@ -116,7 +175,9 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
       "changed native facts cannot replace the original run's immutable baseline",
     );
     assert.deepEqual(fs.readFileSync(baselinePath), baselineBytes);
-    const current = fingerprint.computeProjectFingerprint({ projectRoot: root });
+    const current = fingerprint.computeProjectFingerprint({
+      projectRoot: root,
+    });
     assert.doesNotMatch(current, /^nonce:/);
     assert.notEqual(current, previous);
     assert.equal(
@@ -127,7 +188,10 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
     previous = current;
   }
   const late = fingerprint.createSnapshotRecorder(run);
-  late.recordMany({ project, inputs: [input(directory, "directory", sha("new-member\0file\0"))] });
+  late.recordMany({
+    project,
+    inputs: [input(directory, "directory", sha("new-member\0file\0"))],
+  });
   assert.equal(fingerprint.readSnapshotState(root).tainted, true);
   const oldEpoch = retained.id;
   fingerprint.prepareSnapshot(root);
@@ -139,9 +203,15 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
     { [directory]: ["directory", "directory"] },
     { [path.join(external, "unrecorded")]: ["file"] },
   ]) {
-    fs.writeFileSync(main, JSON.stringify({ ...JSON.parse(valid), nativePredicates }));
+    fs.writeFileSync(
+      main,
+      JSON.stringify({ ...JSON.parse(valid), nativePredicates }),
+    );
     assert.equal(fingerprint.readSnapshotState(root), undefined);
-    assert.match(fingerprint.computeProjectFingerprint({ projectRoot: root }), /^nonce:/);
+    assert.match(
+      fingerprint.computeProjectFingerprint({ projectRoot: root }),
+      /^nonce:/,
+    );
   }
   fs.writeFileSync(main, valid);
   const legacy = JSON.parse(valid);
@@ -167,12 +237,19 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
   for (const alternate of spellings) {
     if (
       !fs.existsSync(alternate) ||
-      fs.realpathSync.native(alternate) !== fs.realpathSync.native(aliasDirectory)
-    ) continue;
+      fs.realpathSync.native(alternate) !==
+        fs.realpathSync.native(aliasDirectory)
+    )
+      continue;
     const aliasProjectRoot = TestProject.tmpdir("ttsc-metro-native-alias-");
-    fs.writeFileSync(path.join(aliasProjectRoot, "tsconfig.json"), '{"files":[]}');
+    fs.writeFileSync(
+      path.join(aliasProjectRoot, "tsconfig.json"),
+      '{"files":[]}',
+    );
     fingerprint.prepareSnapshot(aliasProjectRoot);
-    const aliasProject = fingerprint.resolveProjectView({ projectRoot: aliasProjectRoot });
+    const aliasProject = fingerprint.resolveProjectView({
+      projectRoot: aliasProjectRoot,
+    });
     const entries = fs.readdirSync(aliasDirectory).sort();
     const digest = sha(entries.map((name) => `${name}\0file\0`).join("\0"));
     fingerprint.createSnapshotRecorder().recordMany({
@@ -183,33 +260,61 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
       ],
     });
     const uncompacted = fingerprint.readSnapshotState(aliasProjectRoot);
-    assert.deepEqual(uncompacted.nativePredicates[aliasDirectory],
-      alternate === aliasDirectory ? ["directory", "entry"] : ["directory"]);
-    const beforeCompaction = fingerprint.computeProjectFingerprint({ projectRoot: aliasProjectRoot });
+    assert.deepEqual(
+      uncompacted.nativePredicates[aliasDirectory],
+      alternate === aliasDirectory ? ["directory", "entry"] : ["directory"],
+    );
+    const beforeCompaction = fingerprint.computeProjectFingerprint({
+      projectRoot: aliasProjectRoot,
+    });
     assert.doesNotMatch(beforeCompaction, /^nonce:/);
     const aliasRun = fingerprint.prepareSnapshot(aliasProjectRoot);
-    const keyed = fingerprint.computeProjectFingerprint({ projectRoot: aliasProjectRoot, runId: aliasRun });
+    const keyed = fingerprint.computeProjectFingerprint({
+      projectRoot: aliasProjectRoot,
+      runId: aliasRun,
+    });
     assert.equal(keyed, beforeCompaction);
-    const aliasBaseline = JSON.parse(fs.readFileSync(path.join(
-      aliasProjectRoot, "node_modules/.cache/ttsc-metro", `key-baseline-${aliasRun}.json`,
-    ), "utf8"));
+    const aliasBaseline = JSON.parse(
+      fs.readFileSync(
+        path.join(
+          aliasProjectRoot,
+          "node_modules/.cache/ttsc-metro",
+          `key-baseline-${aliasRun}.json`,
+        ),
+        "utf8",
+      ),
+    );
     const nativeFacts = Object.values(aliasBaseline.inputs)
       .map((value: any) => value.nativePredicates)
       .filter((value) => value !== undefined);
     assert.equal(nativeFacts.length, 1);
-    assert.deepEqual(Object.keys(nativeFacts[0]).sort(), ["directory", "entry"]);
+    assert.deepEqual(Object.keys(nativeFacts[0]).sort(), [
+      "directory",
+      "entry",
+    ]);
     fs.writeFileSync(path.join(aliasDirectory, `member-${++member}`), "member");
-    const changed = fingerprint.computeProjectFingerprint({ projectRoot: aliasProjectRoot });
+    const changed = fingerprint.computeProjectFingerprint({
+      projectRoot: aliasProjectRoot,
+    });
     assert.doesNotMatch(changed, /^nonce:/);
-    assert.notEqual(changed, keyed, "every admitted spelling retains directory membership in the key");
+    assert.notEqual(
+      changed,
+      keyed,
+      "every admitted spelling retains directory membership in the key",
+    );
   }
 
   const recoveryRoot = TestProject.tmpdir("ttsc-metro-native-recovery-");
   fs.writeFileSync(path.join(recoveryRoot, "tsconfig.json"), '{"files":[]}');
   fingerprint.prepareSnapshot(recoveryRoot);
-  const recoveryProject = fingerprint.resolveProjectView({ projectRoot: recoveryRoot });
+  const recoveryProject = fingerprint.resolveProjectView({
+    projectRoot: recoveryRoot,
+  });
   const originalEpoch = fingerprint.readSnapshotState(recoveryRoot).id;
-  const recoveryDirectory = path.join(recoveryRoot, "node_modules/.cache/ttsc-metro");
+  const recoveryDirectory = path.join(
+    recoveryRoot,
+    "node_modules/.cache/ttsc-metro",
+  );
   const aside = `${recoveryDirectory}.aside`;
   const recoverable = [
     input(directory, "directory", sha("new-member\0file\0")),
@@ -230,12 +335,19 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
       project: recoveryProject,
       inputs: recoverable,
     });
-    const recoveryFiles = fs.readdirSync(path.dirname(recoveryDirectory))
-      .filter((name) => name.startsWith("ttsc-metro.unhealthy-") && name.endsWith(".json"));
+    const recoveryFiles = fs
+      .readdirSync(path.dirname(recoveryDirectory))
+      .filter(
+        (name) =>
+          name.startsWith("ttsc-metro.unhealthy-") && name.endsWith(".json"),
+      );
     assert.equal(recoveryFiles.length, 1);
-    const recoveredDocument = JSON.parse(fs.readFileSync(path.join(
-      path.dirname(recoveryDirectory), recoveryFiles[0]!,
-    ), "utf8"));
+    const recoveredDocument = JSON.parse(
+      fs.readFileSync(
+        path.join(path.dirname(recoveryDirectory), recoveryFiles[0]!),
+        "utf8",
+      ),
+    );
     assert.deepEqual(recoveredDocument.nativePredicates, expectedRequests);
     assert.equal(fingerprint.readSnapshotState(recoveryRoot), undefined);
   } finally {
@@ -247,17 +359,27 @@ export async function test_native_predicates_survive_snapshot_compaction(): Prom
   const recoveredState = fingerprint.readSnapshotState(recoveryRoot);
   assert.notEqual(recoveredState.id, originalEpoch);
   assert.deepEqual(recoveredState.nativePredicates, expectedRequests);
-  let recoveredKey = fingerprint.computeProjectFingerprint({ projectRoot: recoveryRoot });
+  let recoveredKey = fingerprint.computeProjectFingerprint({
+    projectRoot: recoveryRoot,
+  });
   assert.doesNotMatch(recoveredKey, /^nonce:/);
-  assert.equal(recoveredKey, fingerprint.computeProjectFingerprint({ projectRoot: recoveryRoot }));
+  assert.equal(
+    recoveredKey,
+    fingerprint.computeProjectFingerprint({ projectRoot: recoveryRoot }),
+  );
   for (const mutate of [
     () => fs.writeFileSync(path.join(directory, "recovery-member"), "member"),
     () => fs.writeFileSync(file, "recovered-change"),
     () => fs.rmSync(optional),
-    () => { fs.rmdirSync(entry); fs.writeFileSync(entry, "returned-file"); },
+    () => {
+      fs.rmdirSync(entry);
+      fs.writeFileSync(entry, "returned-file");
+    },
   ]) {
     mutate();
-    const changed = fingerprint.computeProjectFingerprint({ projectRoot: recoveryRoot });
+    const changed = fingerprint.computeProjectFingerprint({
+      projectRoot: recoveryRoot,
+    });
     assert.doesNotMatch(changed, /^nonce:/);
     assert.notEqual(changed, recoveredKey);
     recoveredKey = changed;

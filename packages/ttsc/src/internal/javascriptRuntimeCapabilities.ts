@@ -9,6 +9,7 @@ import { PluginLoadAnswers } from "../plugin/internal/source/PluginLoadAnswers";
 import { E2ETrace } from "./E2ETrace";
 import type { IJavaScriptRuntimeCapabilities } from "./IJavaScriptRuntimeCapabilities";
 import { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
+import { TtsxNodeOptions } from "./TtsxNodeOptions";
 import { isSpawnSyncFdExhaustion } from "./isSpawnSyncFdExhaustion";
 import { runtimeExecutableIdentity } from "./runtimeExecutableIdentity";
 import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
@@ -45,7 +46,11 @@ export function javascriptRuntimeCapabilities(
   cwd: string,
   identities?: PluginContentIdentities.Store,
 ): IJavaScriptRuntimeCapabilities {
-  const effectiveEnv = SidecarEnvironment.merge(process.env, env);
+  // Inside a ttsx run this is the user's NODE_OPTIONS, not ttsx's preloads,
+  // which would refuse the cache and run in the probe (#1740).
+  const effectiveEnv = TtsxNodeOptions.forHelpers(
+    SidecarEnvironment.merge(process.env, env),
+  );
   const cacheKey = runtimeCapabilityCacheKey(runtime, effectiveEnv);
   const beforeIdentity =
     cacheKey === undefined

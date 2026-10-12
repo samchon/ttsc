@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createProjectInputPathIdentityContext";
 import { parseWindowsDirectoryCaseSensitivity } from "../../../../../packages/ttsc/src/internal/parseWindowsDirectoryCaseSensitivity";
+import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createProjectInputPathIdentityContext";
 import { planCompilerDirectoryWatchEvent } from "../../../../../packages/ttsc/src/launcher/internal/watch/planCompilerDirectoryWatchEvent";
 
 /**
@@ -237,7 +237,10 @@ export const test_windows_directory_case_sensitivity_parser_is_locale_independen
           identities.lexicalKey(source) === identities.lexicalKey(alias),
           authority === false,
         );
-        assert.equal(identities.lexicalMatches(source, alias), authority !== true);
+        assert.equal(
+          identities.lexicalMatches(source, alias),
+          authority !== true,
+        );
         assert.deepEqual(plan, {
           changes: authority === true ? [] : [source],
           rearm: [],

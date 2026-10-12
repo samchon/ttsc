@@ -13,8 +13,9 @@ import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
  * anchored at the named declaring config, including independent link aliases.
  *
  * @returns The list and its directory, undefined when no array is selected, or
- *   null when the root config cannot be read as an object. A supplied transaction
- *   belongs to this freshness observation; later reads require a fresh owner.
+ *   null when the root config cannot be read as an object. A supplied
+ *   transaction belongs to this freshness observation; later reads require a
+ *   fresh owner.
  * @evidence contracts/common.md#principled-implementation
  *   Own invalid values stop inheritance at that node. Forward inherited
  *   traversal keeps the last array and ignores empty selections, preserving

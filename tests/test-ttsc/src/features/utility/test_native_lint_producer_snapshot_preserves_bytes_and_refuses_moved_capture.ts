@@ -28,8 +28,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 3. Corrupt the copy, edit the source during capture, add an unaccounted source
  *    link, change the package identity and reuse a destination, requiring each
  *    to be refused.
- * 4. Decode successful Go selection with download progress on stderr, and
- *    refuse failed or signaled processes and malformed or truncated metadata.
+ * 4. Decode successful Go selection with download progress on stderr, and refuse
+ *    failed or signaled processes and malformed or truncated metadata.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the owning snapshot capture against authored file fixtures, requiring exact bytes, a signed sorted manifest and the real installation link; corrupt, moved, foreign or occupied inputs refuse publication or reuse. The real subprocess-result decoder accepts successful metadata with progress stderr and refuses launch, status, signal and authored malformed/truncated metadata failures.
  * @evidence contracts/testing.md#independent-expectations Literal distinct file contents and independently calculated SHA-256 values establish the copied population and manifest signature; authored terminal observations and package records establish decoder outcomes independently of its output, with literal diagnostic retention and refusal contracts.

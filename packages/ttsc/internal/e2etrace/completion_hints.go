@@ -23,10 +23,10 @@ func CompletionHintsPublication(cwd, producer string, generation uint64, outcome
     return
   }
   data := map[string]any{
-    "producer": producer,
+    "producer":   producer,
     "generation": generation,
-    "outcome": outcome,
-    "hints": hints,
+    "outcome":    outcome,
+    "hints":      hints,
   }
   if err != nil {
     data["error"] = err.Error()

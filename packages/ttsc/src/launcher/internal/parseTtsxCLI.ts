@@ -14,10 +14,11 @@ import { assertTtsxNoWatch } from "./assertTtsxNoWatch";
  * Compiler flags before the first entry, repeated preloads and launcher-owned
  * settings are separated once through the shared flag schema. Terminal requests
  * are recognized only before the entry; unsupported watch/build requests fail
- * before a check, build or program is started. These decisions inspect the supplied
- * argv frame; this parser does not read response-file contents or certify their
- * eventual native effects. Preparation inspects response frames at the selected
- * project's actual compiler directory before requesting its build.
+ * before a check, build or program is started. These decisions inspect the
+ * supplied argv frame; this parser does not read response-file contents or
+ * certify their eventual native effects. Preparation inspects response frames
+ * at the selected project's actual compiler directory before requesting its
+ * build.
  *
  * @param argv Command tokens as received from the launcher.
  * @returns A terminal request or the launcher's typed option record.

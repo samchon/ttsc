@@ -86,8 +86,8 @@ export interface TtscCommonOptions {
   }[];
 
   /**
-   * Retained native compiler argument base when project selection redirects
-   * the Program to a different root. Absent retains the selected project root.
+   * Retained native compiler argument base when project selection redirects the
+   * Program to a different root. Absent retains the selected project root.
    * Response frames and relative native options use this base; plugin/rule
    * context and config-relative paths retain their separate project authority.
    */

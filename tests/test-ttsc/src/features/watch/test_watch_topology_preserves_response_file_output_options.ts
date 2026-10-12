@@ -72,7 +72,8 @@ export async function test_watch_topology_preserves_response_file_output_options
             fs.realpathSync.native(path.join(directory, alternate));
             return true;
           } catch (error) {
-            if ((error as NodeJS.ErrnoException).code !== "ENOENT") return false;
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+              return false;
             return fs.existsSync(path.join(directory, name));
           }
         }),
@@ -93,32 +94,47 @@ export async function test_watch_topology_preserves_response_file_output_options
     {
       name: "moved outDir",
       text: "--outDir selected",
-      expected: [["configured/data.md", true], ["selected/data.md", false]],
+      expected: [
+        ["configured/data.md", true],
+        ["selected/data.md", false],
+      ],
     },
     {
       name: "later direct assignment",
       text: "--outDir selected",
       after: ["--outDir", "final"],
-      expected: [["selected/data.md", true], ["final/data.md", false]],
+      expected: [
+        ["selected/data.md", true],
+        ["final/data.md", false],
+      ],
     },
     {
       name: "noEmit overrides wrapper emit",
       text: "--noEmit",
       emit: true,
-      expected: [["configured/view.js", true], ["configured/view.d.ts", true]],
+      expected: [
+        ["configured/view.js", true],
+        ["configured/view.d.ts", true],
+      ],
     },
     {
       name: "false overrides wrapper noEmit",
       text: "--noEmit false",
       config: { outDir: null },
       emit: false,
-      expected: [["view.jsx", false], ["view.js", true]],
+      expected: [
+        ["view.jsx", false],
+        ["view.js", true],
+      ],
     },
     {
       name: "null clears configured noEmit",
       text: "--noEmit null",
       config: { noEmit: true, outDir: null },
-      expected: [["view.jsx", false], ["view.js", true]],
+      expected: [
+        ["view.jsx", false],
+        ["view.js", true],
+      ],
     },
     {
       name: "declaration-only and maps",
@@ -151,29 +167,44 @@ export async function test_watch_topology_preserves_response_file_output_options
       name: "inline map removes separate product",
       text: "--jsx react --sourceMap --inlineSourceMap",
       config: { outDir: null },
-      expected: [["view.js", false], ["view.js.map", true]],
+      expected: [
+        ["view.js", false],
+        ["view.js.map", true],
+      ],
     },
     {
       name: "false map reset",
       text: "--jsx react --sourceMap false",
       config: { sourceMap: true, outDir: null },
-      expected: [["view.js", false], ["view.js.map", true]],
+      expected: [
+        ["view.js", false],
+        ["view.js.map", true],
+      ],
     },
     ...["null", '""'].map((value) => ({
       name: `JSX reset ${value}`,
       text: `--jsx ${value}`,
       config: { outDir: null },
-      expected: [["view.js", false], ["view.jsx", true]] as const,
+      expected: [
+        ["view.js", false],
+        ["view.jsx", true],
+      ] as const,
     })),
     {
       name: "path reset",
       text: "--outDir null --jsx react",
-      expected: [["view.js", false], ["configured/view.js", true]],
+      expected: [
+        ["view.js", false],
+        ["configured/view.js", true],
+      ],
     },
     {
       name: "literal @ operand",
       text: "--outDir @literal",
-      expected: [["@literal/data.md", false], ["configured/data.md", true]],
+      expected: [
+        ["@literal/data.md", false],
+        ["configured/data.md", true],
+      ],
     },
     {
       name: "output root overlaps real inputs",
@@ -195,12 +226,18 @@ export async function test_watch_topology_preserves_response_file_output_options
       name: encoding,
       text: "--outDir selected",
       encoding,
-      expected: [["selected/data.md", false], ["configured/data.md", true]] as const,
+      expected: [
+        ["selected/data.md", false],
+        ["configured/data.md", true],
+      ] as const,
     })),
     {
       name: "nested frames retain native cwd",
       text: "@nested/inner.rsp @nested/inner.rsp",
-      expected: [["selected/data.md", false], ["configured/data.md", true]],
+      expected: [
+        ["selected/data.md", false],
+        ["configured/data.md", true],
+      ],
     },
     {
       name: "positional copy retains launcher destination",
@@ -276,7 +313,8 @@ export async function test_watch_topology_preserves_response_file_output_options
       if (profile.encoding === "utf16be") bytes.swap16();
       fs.writeFileSync(response, bytes);
       const targets = profile.expected.map(([name]) => path.join(root, name));
-      for (const target of targets) fs.writeFileSync(target, `initial:${index}`);
+      for (const target of targets)
+        fs.writeFileSync(target, `initial:${index}`);
       topology.refresh(false);
       topology.setProjectInputs({ root, files: targets, globs: [] });
       await settleWatchEvents();
@@ -287,9 +325,11 @@ export async function test_watch_topology_preserves_response_file_output_options
           deliverWatchEvent(observed.watchers, target, "change");
           await settleWatchEvents();
           assert.equal(
-            changes.slice(previous).some(
-              (change) => change.kind === "project" && change.path === target,
-            ),
+            changes
+              .slice(previous)
+              .some(
+                (change) => change.kind === "project" && change.path === target,
+              ),
             profile.expected[targetIndex]![1],
             profile.expected[targetIndex]![0],
           );
@@ -303,9 +343,11 @@ export async function test_watch_topology_preserves_response_file_output_options
         deliverWatchEvent(observed.watchers, response, "change");
         await settleWatchEvents();
         assert.ok(
-          changes.slice(previous).some(
-            (change) => change.kind === "config" && change.path === response,
-          ),
+          changes
+            .slice(previous)
+            .some(
+              (change) => change.kind === "config" && change.path === response,
+            ),
         );
         topology.refresh(false);
         topology.setProjectInputs({ root, files: targets, globs: [] });
@@ -315,9 +357,12 @@ export async function test_watch_topology_preserves_response_file_output_options
         deliverWatchEvent(observed.watchers, targets[1]!, "change");
         await settleWatchEvents();
         assert.ok(
-          changes.slice(beforeData).some(
-            (change) => change.kind === "project" && change.path === targets[1],
-          ),
+          changes
+            .slice(beforeData)
+            .some(
+              (change) =>
+                change.kind === "project" && change.path === targets[1],
+            ),
         );
         fs.unlinkSync(response);
         assert.throws(() => topology.refresh(false), /ENOENT/);
@@ -337,9 +382,11 @@ export async function test_watch_topology_preserves_response_file_output_options
       deliverWatchEvent(observed.watchers, source, "change");
       await settleWatchEvents();
       assert.ok(
-        changes.slice(beforeSource).some(
-          (change) => change.kind === "compiler" && change.path === source,
-        ),
+        changes
+          .slice(beforeSource)
+          .some(
+            (change) => change.kind === "compiler" && change.path === source,
+          ),
       );
     } catch (cause) {
       fail("setup or reload", cause);
@@ -355,13 +402,20 @@ export async function test_watch_topology_preserves_response_file_output_options
   for (const directory of [other, child]) {
     fs.mkdirSync(directory);
     fs.mkdirSync(path.join(directory, "products"));
-    fs.writeFileSync(path.join(directory, "input.ts"), "export const value = 1;\n");
+    fs.writeFileSync(
+      path.join(directory, "input.ts"),
+      "export const value = 1;\n",
+    );
     fs.writeFileSync(path.join(directory, "data.md"), "declared data");
-    fs.writeFileSync(path.join(directory, "products", "data.md"), "product data");
+    fs.writeFileSync(
+      path.join(directory, "products", "data.md"),
+      "product data",
+    );
     fs.writeFileSync(
       path.join(directory, "tsconfig.json"),
       JSON.stringify({
-        compilerOptions: { outDir: "products" }, files: ["input.ts"],
+        compilerOptions: { outDir: "products" },
+        files: ["input.ts"],
         ...(directory === other ? { references: [{ path: "../child" }] } : {}),
       }),
     );
@@ -376,7 +430,8 @@ export async function test_watch_topology_preserves_response_file_output_options
   const selectedTopology = new WatchTopology(
     { cwd: root, files: [], passthrough: ["@flags.rsp"] },
     {
-      onError: (location, cause) => failures.push(new Error(location, { cause })),
+      onError: (location, cause) =>
+        failures.push(new Error(location, { cause })),
       onInputChange: (change) => selectedChanges.push(change),
       onTopologyChange: () => undefined,
     },
@@ -388,7 +443,9 @@ export async function test_watch_topology_preserves_response_file_output_options
       assert.equal(options.compilerArgsCwd, root);
       assert.equal(options.pinCompilerProject, true);
       assert.deepEqual(options.passthrough, ["@flags.rsp"]);
-      return [project.root === root ? source : path.join(project.root, "input.ts")];
+      return [
+        project.root === root ? source : path.join(project.root, "input.ts"),
+      ];
     },
   );
   try {
@@ -400,7 +457,11 @@ export async function test_watch_topology_preserves_response_file_output_options
       [path.join(child, "data.md"), true],
       [path.join(child, "products/data.md"), false],
     ] as const;
-    selectedTopology.setProjectInputs({ root, files: controls.map(([file]) => file), globs: [] });
+    selectedTopology.setProjectInputs({
+      root,
+      files: controls.map(([file]) => file),
+      globs: [],
+    });
     await settleWatchEvents();
     for (const [file, expected] of controls) {
       try {
@@ -409,21 +470,37 @@ export async function test_watch_topology_preserves_response_file_output_options
         deliverWatchEvent(selectedWatchers.watchers, file, "change");
         await settleWatchEvents();
         assert.equal(
-          selectedChanges.slice(before).some((change) => change.kind === "project" && change.path === file),
+          selectedChanges
+            .slice(before)
+            .some(
+              (change) => change.kind === "project" && change.path === file,
+            ),
           expected,
           file,
         );
       } catch (cause) {
-        failures.push(new Error("response-selected project/ref callback " + file, { cause }));
+        failures.push(
+          new Error("response-selected project/ref callback " + file, {
+            cause,
+          }),
+        );
       }
     }
     const before = selectedChanges.length;
     fs.writeFileSync(response, "--project tsconfig.json");
     deliverWatchEvent(selectedWatchers.watchers, response, "change");
     await settleWatchEvents();
-    assert.ok(selectedChanges.slice(before).some((change) => change.kind === "config" && change.path === response));
+    assert.ok(
+      selectedChanges
+        .slice(before)
+        .some((change) => change.kind === "config" && change.path === response),
+    );
     selectedTopology.refresh(false);
-    selectedTopology.setProjectInputs({ root, files: controls.map(([file]) => file), globs: [] });
+    selectedTopology.setProjectInputs({
+      root,
+      files: controls.map(([file]) => file),
+      globs: [],
+    });
     await settleWatchEvents();
     const formerProduct = path.join(other, "products/data.md");
     const prior = selectedChanges.length;
@@ -433,12 +510,14 @@ export async function test_watch_topology_preserves_response_file_output_options
     // Reload changes several product/data memberships, so the first input
     // event establishes the new baseline with one aggregate invalidation.
     assert.ok(
-      selectedChanges.slice(prior).some(
-        (change) =>
-          change.kind === "project" &&
-          change.invalidate === true &&
-          change.path === undefined,
-      ),
+      selectedChanges
+        .slice(prior)
+        .some(
+          (change) =>
+            change.kind === "project" &&
+            change.invalidate === true &&
+            change.path === undefined,
+        ),
     );
     // Once that baseline is current, former root/reference products are
     // ordinary declared inputs, while the newly selected product stays quiet.
@@ -453,18 +532,24 @@ export async function test_watch_topology_preserves_response_file_output_options
         deliverWatchEvent(selectedWatchers.watchers, file, "change");
         await settleWatchEvents();
         assert.equal(
-          selectedChanges.slice(beforeInput).some(
-            (change) => change.kind === "project" && change.path === file,
-          ),
+          selectedChanges
+            .slice(beforeInput)
+            .some(
+              (change) => change.kind === "project" && change.path === file,
+            ),
           expected,
           file,
         );
       } catch (cause) {
-        failures.push(new Error("response-reloaded input callback " + file, { cause }));
+        failures.push(
+          new Error("response-reloaded input callback " + file, { cause }),
+        );
       }
     }
   } catch (cause) {
-    failures.push(new Error("response-selected project/reference reload", { cause }));
+    failures.push(
+      new Error("response-selected project/reference reload", { cause }),
+    );
   } finally {
     selectedTopology.close();
     assert.ok(selectedWatchers.watchers.every((watcher) => !watcher.active));
@@ -475,21 +560,25 @@ export async function test_watch_topology_preserves_response_file_output_options
     path.join(root, "configured/view.js"),
     path.join(other, "products/view.js"),
   ];
-  for (const file of positionalProducts) fs.writeFileSync(file, "copied product");
+  for (const file of positionalProducts)
+    fs.writeFileSync(file, "copied product");
   fs.writeFileSync(response, "--project other/tsconfig.json");
   const positionalChanges: WatchInputChange[] = [];
   const positionalWatchers = recordWatchers(watchDirectoryThroughFsWatch);
   const positionalTopology = new WatchTopology(
     { cwd: root, files: [source], passthrough: ["@flags.rsp"] },
     {
-      onError: (location, cause) => failures.push(new Error(location, { cause })),
+      onError: (location, cause) =>
+        failures.push(new Error(location, { cause })),
       onInputChange: (change) => positionalChanges.push(change),
       onTopologyChange: () => undefined,
     },
     positionalWatchers.openDirectoryWatch,
     positionalWatchers.openFileWatch,
     fs.readdirSync,
-    () => { throw new Error("positional lane requested project membership"); },
+    () => {
+      throw new Error("positional lane requested project membership");
+    },
   );
   try {
     positionalTopology.refresh(false);
@@ -503,9 +592,13 @@ export async function test_watch_topology_preserves_response_file_output_options
         fs.writeFileSync(response, "--project tsconfig.json");
         deliverWatchEvent(positionalWatchers.watchers, response, "change");
         await settleWatchEvents();
-        assert.ok(positionalChanges.slice(beforeReload).some(
-          (change) => change.kind === "config" && change.path === response,
-        ));
+        assert.ok(
+          positionalChanges
+            .slice(beforeReload)
+            .some(
+              (change) => change.kind === "config" && change.path === response,
+            ),
+        );
         positionalTopology.refresh(false);
         positionalTopology.setProjectInputs({ root, files: inputs, globs: [] });
         await settleWatchEvents();
@@ -520,14 +613,18 @@ export async function test_watch_topology_preserves_response_file_output_options
           deliverWatchEvent(positionalWatchers.watchers, file, "change");
           await settleWatchEvents();
           assert.equal(
-            positionalChanges.slice(before).some(
-              (change) => change.kind === "project" && change.path === file,
-            ),
+            positionalChanges
+              .slice(before)
+              .some(
+                (change) => change.kind === "project" && change.path === file,
+              ),
             index !== selected,
             file,
           );
         } catch (cause) {
-          failures.push(new Error("positional selected copied path " + file, { cause }));
+          failures.push(
+            new Error("positional selected copied path " + file, { cause }),
+          );
         }
       }
     }
@@ -538,5 +635,8 @@ export async function test_watch_topology_preserves_response_file_output_options
     assert.ok(positionalWatchers.watchers.every((watcher) => !watcher.active));
   }
   if (failures.length !== 0)
-    throw new AggregateError(failures, "response output callback matrix failed");
+    throw new AggregateError(
+      failures,
+      "response output callback matrix failed",
+    );
 }

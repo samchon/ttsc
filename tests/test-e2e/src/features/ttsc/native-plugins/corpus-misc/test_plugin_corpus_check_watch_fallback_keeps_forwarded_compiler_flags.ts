@@ -81,7 +81,10 @@ export async function test_plugin_corpus_check_watch_fallback_keeps_forwarded_co
 
     process.kill(pid);
     fs.appendFileSync(source, "// edited after the resident host died\n");
-    await session.waitForBuilds((healthy.match(/\[ttsc\] watch build (?:complete|failed)/g)?.length ?? 0) + 1);
+    await session.waitForBuilds(
+      (healthy.match(/\[ttsc\] watch build (?:complete|failed)/g)?.length ??
+        0) + 1,
+    );
     await session.waitForSettled(300);
     const recovered = session.transcript();
     assert.equal(

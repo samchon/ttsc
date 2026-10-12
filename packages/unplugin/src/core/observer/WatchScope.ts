@@ -47,9 +47,9 @@ export interface WatchScope {
   /**
    * The device and file id `root` resolved to when this observer opened,
    * including the pinned project root. Absence cannot authorize coverage.
-   * Registration, native callbacks and the bounded poll verify this location:
-   * a moved watch can keep following the old directory while its spelling names
-   * a replacement. A mismatch fails the scope and hands its entries to the poll
+   * Registration, native callbacks and the bounded poll verify this location: a
+   * moved watch can keep following the old directory while its spelling names a
+   * replacement. A mismatch fails the scope and hands its entries to the poll
    * (samchon/ttsc#1384).
    */
   identity?: string;

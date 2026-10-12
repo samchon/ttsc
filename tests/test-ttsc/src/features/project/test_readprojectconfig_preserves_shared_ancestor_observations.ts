@@ -1,5 +1,10 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
+import {
+  assert,
+  fs,
+  path,
+  readProjectConfig,
+} from "../../internal/project-unit";
 
 /**
  * Verifies shared config reuse preserves selection premises and merge owners.
@@ -69,49 +74,64 @@ export function test_readprojectconfig_preserves_shared_ancestor_observations():
   };
   const read = (name = "entry.json") =>
     readProjectConfig({ tsconfig: path.join(project, name) });
-  check("shared aliases retain selection observations and declaring owners", () => {
-    const result = read();
-    assert.deepEqual(result.configPaths, [
-      path.join(shared, "foundation.json"),
-      path.join(shared, "base.json"),
-      path.join(project, "left.json"),
-      path.join(project, "right.json"),
-      path.join(project, "entry.json"),
-    ]);
-    assert.deepEqual(
-      result.configInputs,
-      [
-        path.join(aliasA, "base"),
-        path.join(aliasA, "base.json"),
-        path.join(aliasB, "base"),
-        path.join(aliasB, "base.json"),
-        path.join(shared, "foundation"),
+  check(
+    "shared aliases retain selection observations and declaring owners",
+    () => {
+      const result = read();
+      assert.deepEqual(result.configPaths, [
         path.join(shared, "foundation.json"),
-        path.join(project, "entry.json"),
+        path.join(shared, "base.json"),
         path.join(project, "left.json"),
         path.join(project, "right.json"),
-      ].sort(),
-    );
-    assert.equal(result.configInputsComplete, true);
-    assert.equal(result.compilerOptions.strict, true);
-    assert.equal(result.compilerOptions.baseUrl, path.join(shared, "sources"));
-    assert.equal(result.compilerOptions.rootDir, path.join(shared, "sources"));
-    assert.equal(result.compilerOptions.outDir, path.join(project, "out"));
-    assert.deepEqual(result.compilerOptions.plugins, [
-      { transform: "./plugin.cjs" },
-    ]);
-    assert.deepEqual(result.pluginBaseDirs, [shared]);
-  });
-  check("later cached branch preserves empty plugins and null output reset", () => {
-    write(project, "entry.json", {
-      extends: ["./right.json", "./left.json", "./empty.json"],
-    });
-    const result = read();
-    assert.equal(result.compilerOptions.outDir, undefined);
-    assert.deepEqual(result.compilerOptions.plugins, []);
-    assert.deepEqual(result.pluginBaseDirs, []);
-    assert.equal(result.compilerOptions.rootDir, path.join(shared, "sources"));
-  });
+        path.join(project, "entry.json"),
+      ]);
+      assert.deepEqual(
+        result.configInputs,
+        [
+          path.join(aliasA, "base"),
+          path.join(aliasA, "base.json"),
+          path.join(aliasB, "base"),
+          path.join(aliasB, "base.json"),
+          path.join(shared, "foundation"),
+          path.join(shared, "foundation.json"),
+          path.join(project, "entry.json"),
+          path.join(project, "left.json"),
+          path.join(project, "right.json"),
+        ].sort(),
+      );
+      assert.equal(result.configInputsComplete, true);
+      assert.equal(result.compilerOptions.strict, true);
+      assert.equal(
+        result.compilerOptions.baseUrl,
+        path.join(shared, "sources"),
+      );
+      assert.equal(
+        result.compilerOptions.rootDir,
+        path.join(shared, "sources"),
+      );
+      assert.equal(result.compilerOptions.outDir, path.join(project, "out"));
+      assert.deepEqual(result.compilerOptions.plugins, [
+        { transform: "./plugin.cjs" },
+      ]);
+      assert.deepEqual(result.pluginBaseDirs, [shared]);
+    },
+  );
+  check(
+    "later cached branch preserves empty plugins and null output reset",
+    () => {
+      write(project, "entry.json", {
+        extends: ["./right.json", "./left.json", "./empty.json"],
+      });
+      const result = read();
+      assert.equal(result.compilerOptions.outDir, undefined);
+      assert.deepEqual(result.compilerOptions.plugins, []);
+      assert.deepEqual(result.pluginBaseDirs, []);
+      assert.equal(
+        result.compilerOptions.rootDir,
+        path.join(shared, "sources"),
+      );
+    },
+  );
   check("fresh consumer anchors configDir independently", () => {
     write(consumer, "entry.json", {
       extends: ["../alias-a/base", "../alias-b/base"],
@@ -131,39 +151,49 @@ export function test_readprojectconfig_preserves_shared_ancestor_observations():
     tsconfig: "../../config/base.json",
   });
   for (const specifier of ["example-preset", "#preset"]) {
-    check(`${specifier} keeps incomplete authority after an equivalent file branch`, () => {
-      write(project, "module.json", {
-        extends: ["../config/base.json", specifier],
-      });
-      const result = read("module.json");
-      assert.equal(result.configInputsComplete, false);
-      assert.equal(result.compilerOptions.outDir, path.join(project, "out"));
-      assert.deepEqual(result.configPaths, [
-        path.join(shared, "foundation.json"),
-        path.join(shared, "base.json"),
-        path.join(project, "module.json"),
-      ]);
-      assert.ok(result.configInputs);
-      assert.ok(result.configInputs.includes(path.join(shared, "base.json")));
-      if (specifier === "example-preset")
-        assert.ok(result.configInputs.includes(path.join(preset, "package.json")));
-    });
+    check(
+      `${specifier} keeps incomplete authority after an equivalent file branch`,
+      () => {
+        write(project, "module.json", {
+          extends: ["../config/base.json", specifier],
+        });
+        const result = read("module.json");
+        assert.equal(result.configInputsComplete, false);
+        assert.equal(result.compilerOptions.outDir, path.join(project, "out"));
+        assert.deepEqual(result.configPaths, [
+          path.join(shared, "foundation.json"),
+          path.join(shared, "base.json"),
+          path.join(project, "module.json"),
+        ]);
+        assert.ok(result.configInputs);
+        assert.ok(result.configInputs.includes(path.join(shared, "base.json")));
+        if (specifier === "example-preset")
+          assert.ok(
+            result.configInputs.includes(path.join(preset, "package.json")),
+          );
+      },
+    );
   }
   check("next invocation observes changed ancestor bytes", () => {
     write(shared, "foundation.json", { compilerOptions: { strict: false } });
     assert.equal(read().compilerOptions.strict, false);
   });
-  check("next invocation observes creation of a previously missing candidate", () => {
-    write(shared, "foundation", {
-      compilerOptions: { strict: true, target: "ES2022" },
-    });
-    const result = read();
-    assert.equal(result.compilerOptions.strict, true);
-    assert.equal(result.compilerOptions.target, "ES2022");
-    assert.ok(result.configPaths.includes(path.join(shared, "foundation")));
-    assert.ok(result.configInputs);
-    assert.ok(!result.configInputs.includes(path.join(shared, "foundation.json")));
-  });
+  check(
+    "next invocation observes creation of a previously missing candidate",
+    () => {
+      write(shared, "foundation", {
+        compilerOptions: { strict: true, target: "ES2022" },
+      });
+      const result = read();
+      assert.equal(result.compilerOptions.strict, true);
+      assert.equal(result.compilerOptions.target, "ES2022");
+      assert.ok(result.configPaths.includes(path.join(shared, "foundation")));
+      assert.ok(result.configInputs);
+      assert.ok(
+        !result.configInputs.includes(path.join(shared, "foundation.json")),
+      );
+    },
+  );
   check("next invocation observes a retargeted alias", () => {
     write(other, "base.json", {
       compilerOptions: {

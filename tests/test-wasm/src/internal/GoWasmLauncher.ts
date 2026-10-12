@@ -60,7 +60,8 @@ export namespace GoWasmLauncher {
   }
 
   /**
-   * Launch one fixture, optionally cancelling its original process after readiness.
+   * Launch one fixture, optionally cancelling its original process after
+   * readiness.
    *
    * @evidence contracts/common.md#principled-implementation The original ChildProcess supplies exit and close authority; the fixture readiness report supplies runtime identity. A separate release file lets a nested fixture finish without a numeric-PID signal.
    * @evidence contracts/common.md#clear-and-simple-design Fixture preparation, readiness, cancellation and result collection belong to one call; each test owns its expected status, environment and argument values.
@@ -71,54 +72,94 @@ export namespace GoWasmLauncher {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Every call executes independent process and filesystem effects, so results cannot replace later cases.
    * @evidence contracts/performance.md#bound-retention-and-release-resources One child and input directory are held through original exit and pipe closure. The fixture release gate covers cancellation failure; a mismatched runtime retains inputs and leaves descendant containment to the enclosing bounded verification command. The result records ordinary cleanup before this helper removes a remaining known-owned directory.
    */
-  export async function run(props: {
-    args?: string[];
-    env?: NodeJS.ProcessEnv;
-    cancel?: boolean;
-    missingRunner?: boolean;
-  } = {}) {
-    const owner = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-go-runner-fixture-")));
+  export async function run(
+    props: {
+      args?: string[];
+      env?: NodeJS.ProcessEnv;
+      cancel?: boolean;
+      missingRunner?: boolean;
+    } = {},
+  ) {
+    const owner = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-go-runner-fixture-")),
+    );
     const gate = path.join(owner, "release");
-    const fixture = fileURLToPath(new URL("../../fixtures/go-wasm-runner.cjs", import.meta.url));
-    const runner = props.missingRunner ? path.join(owner, "missing-runner.cjs") : fixture;
-    const launcher = fileURLToPath(new URL("../../../../packages/wasm/test/go-js-wasm-exec.mjs", import.meta.url));
-    const args = props.cancel ? ["hold", gate] : props.args ?? ["probe", "0"];
-    const child = spawn(process.execPath, ["--stack-size=8192", launcher, runner, ...args], {
-      cwd: owner,
-      env: { ...process.env, NODE_OPTIONS: "", TTSC_WASM_TEST_ROOT: "", ...props.env },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
+    const fixture = fileURLToPath(
+      new URL("../../fixtures/go-wasm-runner.cjs", import.meta.url),
+    );
+    const runner = props.missingRunner
+      ? path.join(owner, "missing-runner.cjs")
+      : fixture;
+    const launcher = fileURLToPath(
+      new URL(
+        "../../../../packages/wasm/test/go-js-wasm-exec.mjs",
+        import.meta.url,
+      ),
+    );
+    const args = props.cancel ? ["hold", gate] : (props.args ?? ["probe", "0"]);
+    const child = spawn(
+      process.execPath,
+      ["--stack-size=8192", launcher, runner, ...args],
+      {
+        cwd: owner,
+        env: {
+          ...process.env,
+          NODE_OPTIONS: "",
+          TTSC_WASM_TEST_ROOT: "",
+          ...props.env,
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    const exited = new Promise<{
+      code: number | null;
+      signal: NodeJS.Signals | null;
+    }>((resolve, reject) => {
       child.once("exit", (code, signal) => resolve({ code, signal }));
       child.once("error", reject);
     });
-    const closed = new Promise<void>(resolve => child.once("close", () => resolve()));
-    let stdout = "", stderr = "";
+    const closed = new Promise<void>((resolve) =>
+      child.once("close", () => resolve()),
+    );
+    let stdout = "",
+      stderr = "";
     let reading: Reading | undefined;
     let readyResolve: (value: Reading | undefined) => void;
     let readyReject: (error: unknown) => void;
-    const ready = new Promise<Reading | undefined>((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
+    const ready = new Promise<Reading | undefined>((resolve, reject) => {
+      readyResolve = resolve;
+      readyReject = reject;
+    });
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
       stdout += chunk;
       if (reading === undefined && stdout.includes("\n")) {
         try {
-          const value = JSON.parse(stdout.slice(0, stdout.indexOf("\n"))) as Reading;
+          const value = JSON.parse(
+            stdout.slice(0, stdout.indexOf("\n")),
+          ) as Reading;
           assert.ok(Number.isSafeInteger(value.pid));
           assert.equal(typeof value.cwd, "string");
           reading = value;
           readyResolve(value);
-        } catch (error) { readyReject(error); }
+        } catch (error) {
+          readyReject(error);
+        }
       }
     });
-    child.stderr.on("data", (chunk: string) => { stderr += chunk; });
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
     child.once("close", () => readyResolve(undefined));
     let killAccepted: boolean | undefined;
     let result: Awaited<typeof exited>;
     try {
       if (props.cancel) {
-        assert.ok(await ready, "Cancellation requires an actual runner readiness report");
+        assert.ok(
+          await ready,
+          "Cancellation requires an actual runner readiness report",
+        );
         killAccepted = child.kill("SIGTERM");
         assert.equal(killAccepted, true);
       }
@@ -128,21 +169,40 @@ export namespace GoWasmLauncher {
       await closed;
     }
     const originalRuntime = reading?.pid === child.pid;
-    const temporaryExistedAfterExit = reading !== undefined && reading.cwd !== owner && fs.existsSync(reading.cwd);
+    const temporaryExistedAfterExit =
+      reading !== undefined &&
+      reading.cwd !== owner &&
+      fs.existsSync(reading.cwd);
     if (originalRuntime && reading !== undefined) {
       const temporary = reading.cwd;
       if (temporary !== owner && fs.existsSync(temporary)) {
-        assert.equal(fs.realpathSync(path.dirname(temporary)), fs.realpathSync(os.tmpdir()));
+        assert.equal(
+          fs.realpathSync(path.dirname(temporary)),
+          fs.realpathSync(os.tmpdir()),
+        );
         assert.ok(path.basename(temporary).startsWith("ttsc-wasm-tests-"));
         fs.rmSync(temporary, { recursive: true });
       }
     }
     // With no runtime report, a failed load has no admitted fixture reader.
     if (originalRuntime || reading === undefined) {
-      assert.equal(fs.realpathSync(path.dirname(owner)), fs.realpathSync(os.tmpdir()));
+      assert.equal(
+        fs.realpathSync(path.dirname(owner)),
+        fs.realpathSync(os.tmpdir()),
+      );
       assert.ok(path.basename(owner).startsWith("ttsc-go-runner-fixture-"));
       fs.rmSync(owner, { recursive: true });
     }
-    return { ...result!, pid: child.pid, reading, stdout, stderr, killAccepted, owner, fixture, temporaryExistedAfterExit };
+    return {
+      ...result!,
+      pid: child.pid,
+      reading,
+      stdout,
+      stderr,
+      killAccepted,
+      owner,
+      fixture,
+      temporaryExistedAfterExit,
+    };
   }
 }

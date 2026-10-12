@@ -45,8 +45,6 @@ const (
   methodExecuteCommand         = "workspace/executeCommand"
   methodCancelRequest          = "$/cancelRequest"
   methodFormatting             = "textDocument/formatting"
-  methodDocumentSymbol         = "textDocument/documentSymbol"
-  methodReferences             = "textDocument/references"
   methodCompletion             = "textDocument/completion"
   methodCompletionResolve      = "completionItem/resolve"
   methodInitialized            = "initialized"
@@ -129,21 +127,6 @@ type ProxyOptions struct {
   // run multiple proxy instances in one global command registry use this to
   // avoid collisions; incoming prefixed ids are mapped back before dispatch.
   ExecuteCommandIDPrefix string
-
-  // SymbolProvider answers textDocument/documentSymbol and
-  // textDocument/references from ttsc's compiler-backed code graph. tsgo
-  // implements both methods, so the proxy forwards to tsgo whenever it
-  // advertises the capability and consults this provider only as a fallback
-  // (tsgo did not advertise) or when ForceLocalSymbolProvider is set. Nil leaves
-  // both methods forwarded to tsgo unconditionally.
-  SymbolProvider SymbolProvider
-
-  // ForceLocalSymbolProvider answers documentSymbol/references from
-  // SymbolProvider even when upstream tsgo advertises the capability. It serves
-  // a raw-LSP graph consumer (such as @samchon/graph) that wants graph-derived
-  // declarations and usages instead of tsgo's language-service answers. Ignored
-  // when SymbolProvider is nil.
-  ForceLocalSymbolProvider bool
 }
 
 // Proxy bridges the editor and an upstream tsgo LSP process, intercepting
@@ -174,8 +157,6 @@ type Proxy struct {
   suppressExecuteCommandProvider bool
   suppressedExecuteCommandIDs    map[string]struct{}
   executeCommandIDPrefix         string
-  symbolProvider                 SymbolProvider
-  forceLocalSymbolProvider       bool
 
   writeMu         sync.Mutex // serializes WriteFrame calls to editorOut
   upstreamWriteMu sync.Mutex // serializes writes to upstreamIn
@@ -206,10 +187,8 @@ type Proxy struct {
   pendingInitialize        map[string]struct{}
   clientRequestSequence    atomic.Uint64
 
-  capabilityMu                   sync.Mutex
-  upstreamCodeActionProvider     bool
-  upstreamDocumentSymbolProvider bool
-  upstreamReferencesProvider     bool
+  capabilityMu               sync.Mutex
+  upstreamCodeActionProvider bool
 
   // initializeAnswered records that the editor has received the augmented
   // capabilities, which is what makes a later trigger character "late".
@@ -328,8 +307,6 @@ func NewProxy(opts ProxyOptions) *Proxy {
     suppressExecuteCommandProvider: opts.SuppressExecuteCommandProvider,
     suppressedExecuteCommandIDs:    commandIDSet(opts.SuppressedExecuteCommandIDs),
     executeCommandIDPrefix:         opts.ExecuteCommandIDPrefix,
-    symbolProvider:                 opts.SymbolProvider,
-    forceLocalSymbolProvider:       opts.ForceLocalSymbolProvider,
     asyncErrCh:                     make(chan error, 1),
     pendingActions:                 make(map[string]pendingCodeActionRequest),
     pendingAugmentingActions:       make(map[string]struct{}),
@@ -499,7 +476,6 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
     }
   case methodDidSave:
     if env.IsNotification() {
-      p.invalidateSymbolProvider()
       p.invalidateResidentPlugins(env)
       p.refreshPluginCompletionHints()
       p.publishPluginDiagnosticsForDocumentNotification(env)
@@ -516,7 +492,6 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
     }
   case methodDidChange:
     if env.IsNotification() {
-      p.invalidateSymbolProvider()
       // No resident invalidation on didChange: the buffer is dirty but disk is
       // unchanged, so the warm Program (built from disk) stays valid, and plugin
       // diagnostics and code actions are suppressed while dirty anyway. didSave
@@ -555,14 +530,6 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
     if env.IsRequest() {
       return p.handleCodeActionRequest(env)
     }
-  case methodDocumentSymbol:
-    if env.IsRequest() {
-      return p.handleDocumentSymbolRequest(env)
-    }
-  case methodReferences:
-    if env.IsRequest() {
-      return p.handleReferencesRequest(env)
-    }
   case methodCompletion:
     return p.handleCompletionRequest(env)
   case methodCompletionResolve:
@@ -591,9 +558,9 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
 // client offers `general.positionEncodings`, the server picks one, and every
 // position on that session is counted in the winner. tsgo selects `utf-8`
 // whenever a client offers it, but ttsc computes positions of its own — the
-// incremental buffer cache, plugin completion, the lint sidecar's diagnostic,
-// fix, suggestion and formatting ranges, and the graph symbol provider — and
-// every one of those counts UTF-16 code units. Because the sidecar protocol
+// incremental buffer cache, plugin completion, and the lint sidecar's
+// diagnostic, fix, suggestion and formatting ranges — and every one of those
+// counts UTF-16 code units. Because the sidecar protocol
 // carries no encoding field, a session negotiated as `utf-8` would put tsgo's
 // half of each response on byte columns and ttsc's half on UTF-16 columns.
 //
@@ -1445,16 +1412,15 @@ func (p *Proxy) publishPluginDiagnosticsForDidOpen(env Envelope) error {
   p.markDocumentClean(params.TextDocument.URI)
   // A clean open is a disk-snapshot boundary, not merely a diagnostics trigger.
   // The buffer equalling disk right now says nothing about when the warm Program
-  // and the symbol graph last read that file: the document may have been closed
-  // across a branch switch, a `git pull`, a generator run, or an edit in a second
-  // editor. Refresh both compiler-backed caches for this document before the
+  // last read that file: the document may have been closed across a branch
+  // switch, a `git pull`, a generator run, or an edit in a second editor.
+  // Refresh the resident plugin Program for this document before the
   // asynchronous Diagnostics call below is scheduled, so the published findings
   // describe the text the editor just opened.
   //
   // The dirty branch above deliberately does not invalidate: it publishes an
   // empty set and reports nothing until the buffer reaches disk, so there is no
   // stale answer to prevent.
-  p.invalidateSymbolProvider()
   p.invalidateResidentPluginsForURIs(params.TextDocument.URI)
   generation, projectGeneration := p.nextDiagnosticsGenerations(params.TextDocument.URI)
   go p.publishMergedPluginDiagnostics(params.TextDocument.URI, params.TextDocument.Version, false, generation, projectGeneration)
@@ -2074,11 +2040,6 @@ func (p *Proxy) augmentInitializeResult(env Envelope) ([]byte, bool) {
   }
   codeActionProvider := caps["codeActionProvider"]
   p.setUpstreamCodeActionProvider(codeActionProvider)
-  // Record whether upstream tsgo answers documentSymbol/references itself. The
-  // per-method handlers forward to tsgo when it does, so this must be set before
-  // the shouldAnswer* checks below read it.
-  p.setUpstreamDocumentSymbolProvider(caps["documentSymbolProvider"])
-  p.setUpstreamReferencesProvider(caps["referencesProvider"])
   codeActionKinds := p.pluginCodeActionKinds()
   changed := false
   if (len(sourceCommands) > 0 || len(codeActionKinds) > 0) && codeActionProvider == nil {
@@ -2132,20 +2093,6 @@ func (p *Proxy) augmentInitializeResult(env Envelope) ([]byte, bool) {
       caps["documentFormattingProvider"] = true
       changed = true
     }
-  }
-  // Advertise documentSymbol/references only when the proxy will actually answer
-  // them locally — upstream tsgo did not advertise the capability (fallback) or
-  // ForceLocalSymbolProvider is set. When tsgo advertises and the flag is off,
-  // the method is forwarded to tsgo, whose own capability already tells the
-  // editor to send the request, so its (possibly richer) capability is left
-  // untouched here.
-  if p.shouldAnswerDocumentSymbolLocally() && !capabilityAdvertised(caps["documentSymbolProvider"]) {
-    caps["documentSymbolProvider"] = true
-    changed = true
-  }
-  if p.shouldAnswerReferencesLocally() && !capabilityAdvertised(caps["referencesProvider"]) {
-    caps["referencesProvider"] = true
-    changed = true
   }
   if !changed {
     return nil, false
@@ -2403,57 +2350,6 @@ func (p *Proxy) setUpstreamCodeActionProvider(value any) {
   p.upstreamCodeActionProvider = provides
 }
 
-func (p *Proxy) setUpstreamDocumentSymbolProvider(value any) {
-  p.capabilityMu.Lock()
-  defer p.capabilityMu.Unlock()
-  p.upstreamDocumentSymbolProvider = capabilityAdvertised(value)
-}
-
-func (p *Proxy) setUpstreamReferencesProvider(value any) {
-  p.capabilityMu.Lock()
-  defer p.capabilityMu.Unlock()
-  p.upstreamReferencesProvider = capabilityAdvertised(value)
-}
-
-// shouldAnswerDocumentSymbolLocally reports whether the proxy answers
-// textDocument/documentSymbol from the local SymbolProvider instead of
-// forwarding to upstream tsgo: a provider must be wired, and either the caller
-// forced it or tsgo did not advertise the capability.
-func (p *Proxy) shouldAnswerDocumentSymbolLocally() bool {
-  if p.symbolProvider == nil {
-    return false
-  }
-  if p.forceLocalSymbolProvider {
-    return true
-  }
-  p.capabilityMu.Lock()
-  defer p.capabilityMu.Unlock()
-  return !p.upstreamDocumentSymbolProvider
-}
-
-// shouldAnswerReferencesLocally mirrors shouldAnswerDocumentSymbolLocally for
-// textDocument/references.
-func (p *Proxy) shouldAnswerReferencesLocally() bool {
-  if p.symbolProvider == nil {
-    return false
-  }
-  if p.forceLocalSymbolProvider {
-    return true
-  }
-  p.capabilityMu.Lock()
-  defer p.capabilityMu.Unlock()
-  return !p.upstreamReferencesProvider
-}
-
-// invalidateSymbolProvider drops the SymbolProvider's cached compiler state so
-// the next documentSymbol/references request reflects the latest sources. It is
-// a no-op when no provider is wired.
-func (p *Proxy) invalidateSymbolProvider() {
-  if p.symbolProvider != nil {
-    p.symbolProvider.Invalidate()
-  }
-}
-
 // invalidateResidentPlugins tells a resident plugin source that a document
 // changed on disk, passing the saved document's URI so the daemon can update
 // that file incrementally; an unparseable notification falls back to a full
@@ -2546,7 +2442,7 @@ const (
   fileChangeTypeDeleted = 3
 )
 
-// invalidateForWatchedFileChanges refreshes both compiler-backed caches for a
+// invalidateForWatchedFileChanges refreshes the resident plugin Program for a
 // workspace/didChangeWatchedFiles batch, which is the only notification carrying
 // an on-disk change to a file the editor does not have open.
 //
@@ -2572,7 +2468,6 @@ func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) error {
     } `json:"changes"`
   }
   if len(env.Params) == 0 || json.Unmarshal(env.Params, &params) != nil {
-    p.invalidateSymbolProvider()
     p.invalidateResidentPluginsForURIs()
     p.refreshPluginCompletionHints()
     return nil
@@ -2635,7 +2530,6 @@ func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) error {
     }
     uris = append(uris, change.URI)
   }
-  p.invalidateSymbolProvider()
   if !localizable || len(uris) == 0 {
     p.invalidateResidentPluginsForURIs()
   } else {
@@ -3125,20 +3019,6 @@ func (p *Proxy) shutdownResidentPlugins() {
       source.shutdownResidents()
     }
   })
-}
-
-// capabilityAdvertised reports whether an LSP server-capability value means the
-// server implements the capability: boolean true, or an options object. Absent
-// (nil), false, or any other shape counts as unsupported.
-func capabilityAdvertised(value any) bool {
-  switch v := value.(type) {
-  case bool:
-    return v
-  case map[string]any:
-    return v != nil
-  default:
-    return false
-  }
 }
 
 func mergeCommandIDs(existing any, additions []string) []string {

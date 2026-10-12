@@ -62,7 +62,7 @@ npm install -D ttsc @ttsc/graph typescript
 }
 ```
 
-Start the agent from your project root so the server finds your `tsconfig.json`, or name the project with `--cwd` and `--tsconfig`. The native binary is resolved from the project being graphed, which is why `ttsc` is installed alongside.
+Start the agent from your project root so the server finds your `tsconfig.json`, or name the project with `--cwd` and `--tsconfig`. The native binary comes from the platform package installed with `@ttsc/graph`, not from the project being graphed.
 
 The server never writes into your `CLAUDE.md`, `AGENTS.md`, or any other agent config, so installing it changes nothing in your repository.
 

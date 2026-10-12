@@ -8,10 +8,11 @@ export namespace OwnedE2eEntry {
    * Join one Node entry and its descendants before releasing caller inputs.
    *
    * The entry inherits Node flags unless its owner supplies an explicit vector.
-   * Flags and environment retain Node's semantics in the selected child cwd;
-   * a relocated builtin-only control must own its compatible startup context.
-   * Target input is closed; resident command pipes belong to the contained suite.
-   * Cancellation rejects only after the native owner adjudicates retirement.
+   * Flags and environment retain Node's semantics in the selected child cwd; a
+   * relocated builtin-only control must own its compatible startup context.
+   * Target input is closed; resident command pipes belong to the contained
+   * suite. Cancellation rejects only after the native owner adjudicates
+   * retirement.
    *
    * @evidence contracts/testing.md#behavioral-verification The ordinary index and real carrier controls invoke the existing native owner with exact Node entry arguments and retain its status, streams and retirement classification.
    * @evidence contracts/testing.md#independent-expectations Static targets report their actual Node flags, argv/context and literal output; the native empty-boundary receipt, rather than process absence, supplies closure authority.

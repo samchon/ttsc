@@ -79,12 +79,12 @@ func TestWindowsTargetOwnsSuspendedAdmission(t *testing.T) {
         t.Fatal(err)
       }
       for name, invalid := range map[string]windowsStarted{
-        "missing": {},
-        "version": {Version: 2, Pid: identity.Pid, Created: identity.Created},
-        "pid": {Version: 1, Created: identity.Created},
-        "foreign-pid": {Version: 1, Pid: uint32(os.Getpid()), Created: identity.Created},
+        "missing":          {},
+        "version":          {Version: 2, Pid: identity.Pid, Created: identity.Created},
+        "pid":              {Version: 1, Created: identity.Created},
+        "foreign-pid":      {Version: 1, Pid: uint32(os.Getpid()), Created: identity.Created},
         "missing-creation": {Version: 1, Pid: identity.Pid},
-        "creation": {Version: 1, Pid: identity.Pid, Created: identity.Created + 1},
+        "creation":         {Version: 1, Pid: identity.Pid, Created: identity.Created + 1},
       } {
         t.Run(name, func(t *testing.T) {
           handle, err := retainWindowsTarget(invalid, job)

@@ -14,8 +14,8 @@ import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResu
 import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonOptions";
 import type { TtscPluginSourceInputsHandler } from "../../../structures/internal/TtscSingleFileEmitOptions";
 import { outputText } from "../outputText";
-import { readProjectConfig } from "../project/readProjectConfig";
 import { CompilerProjectSelection } from "../project/CompilerProjectSelection";
+import { readProjectConfig } from "../project/readProjectConfig";
 import { readEffectiveCompilerOptions } from "../readEffectiveCompilerOptions";
 import { resolveBinary } from "../resolveBinary";
 import { resolveTsgo } from "../resolveTsgo";
@@ -872,7 +872,10 @@ export namespace BuildExecution {
         ...(options.passthrough ?? []),
         ...extraArgs,
         ...TsgoArguments.isolatedTsgoOutputArgs(options, true),
-        ...CompilerProjectSelection.readGuard(execution.compilerSelection, options.passthrough),
+        ...CompilerProjectSelection.readGuard(
+          execution.compilerSelection,
+          options.passthrough,
+        ),
       ],
       {
         cwd: execution.compilerSelection.compilerArgsCwd,

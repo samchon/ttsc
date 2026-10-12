@@ -1,10 +1,10 @@
 import { TestProject, retainNativeLintProducer } from "@ttsc/testing";
-import { LspCompletionPublication } from "../../../utils/src/LspCompletionPublication";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { LspCompletionPublication } from "../../../utils/src/LspCompletionPublication";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { lspSelectionCorpus } from "../batch/lspSelectionCorpus";
 import {
@@ -41,6 +41,7 @@ type InitializeResult = {
   capabilities?: {
     hoverProvider?: unknown;
     documentSymbolProvider?: unknown;
+    referencesProvider?: unknown;
     completionProvider?: unknown;
     codeActionProvider?: boolean | { codeActionKinds?: string[] };
     diagnosticProvider?: unknown;
@@ -66,6 +67,7 @@ type CompletionResponse =
   | { isIncomplete?: boolean; items?: CompletionItem[] }
   | null;
 type DocumentSymbol = { name?: string; children?: DocumentSymbol[] };
+type Location = { range?: Range; uri?: string };
 const DOC_PLUGIN_MARKER = "ttsc/completion-hint/v1";
 const DOC_CARET = { character: 7, line: 3 };
 const DOC_OUTSIDE_BLOCK = { character: 0, line: 5 };
@@ -397,6 +399,10 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
           "the actual upstream symbol provider must survive the plugin proxy",
         );
         assert.ok(
+          capabilities.referencesProvider,
+          "the actual upstream references provider must survive the plugin proxy",
+        );
+        assert.ok(
           capabilities.completionProvider,
           "the actual upstream completion provider must survive the plugin proxy",
         );
@@ -529,6 +535,34 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
                 assert.ok(
                   names.includes("greet"),
                   "documentSymbol must retain the actual upstream declaration",
+                );
+                // The proxy owns neither symbol method, so the upstream checker
+                // answers references too: the authored source declares `legacy`
+                // at 0:4 and reads it once at 2:28. Upstream spells its own
+                // URIs (on Windows a lowercase, percent-encoded drive), so the
+                // locations are matched by file identity, not URI text.
+                const references = await client.request<Location[] | null>(
+                  "textDocument/references",
+                  {
+                    context: { includeDeclaration: true },
+                    position: { character: 5, line: 0 },
+                    textDocument: { uri },
+                  },
+                );
+                assert.deepEqual(
+                  (references ?? [])
+                    .filter(
+                      (location) =>
+                        location.uri?.startsWith("file:") === true &&
+                        path.relative(fileURLToPath(location.uri), file) === "",
+                    )
+                    .map(
+                      (location) =>
+                        `${location.range?.start?.line}:${location.range?.start?.character}`,
+                    )
+                    .sort(),
+                  ["0:4", "2:28"],
+                  "references must return the actual upstream declaration and read",
                 );
                 const completion = await client.request<CompletionResponse>(
                   "textDocument/completion",
@@ -961,18 +995,15 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
           // VS Code asks for on a ttsc squiggle.
           const actions = await step(
             "textDocument/codeAction",
-            client.request<CodeAction[] | null>(
-              "textDocument/codeAction",
-              {
-                context: {
-                  diagnostics: [savedLint],
-                  only: ["source.fixAll.ttsc"],
-                  triggerKind: 1,
-                },
-                range: savedLint.range,
-                textDocument: { uri },
+            client.request<CodeAction[] | null>("textDocument/codeAction", {
+              context: {
+                diagnostics: [savedLint],
+                only: ["source.fixAll.ttsc"],
+                triggerKind: 1,
               },
-            ),
+              range: savedLint.range,
+              textDocument: { uri },
+            }),
           );
           const fixAll = (actions ?? []).find(
             (action) => action.command?.command === "ttsc.lint.fixAll",
@@ -991,13 +1022,10 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
           // The advertised native command receives malformed semantic arguments,
           // exits through its real stderr path, and must not retire this session.
           await assert.rejects(
-            client.request(
-              "workspace/executeCommand",
-              {
-                arguments: [],
-                command: "ttsc.lint.fixAll",
-              },
-            ),
+            client.request("workspace/executeCommand", {
+              arguments: [],
+              command: "ttsc.lint.fixAll",
+            }),
             /ttsc command "ttsc\.lint\.fixAll" failed:[\s\S]*lsp-execute-command failed:[\s\S]*missing URI argument/,
           );
           assert.equal(
@@ -1009,13 +1037,10 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
           // itself, so the sidecar must not touch the file.
           const edit = await step(
             "workspace/executeCommand",
-            client.request<WorkspaceEdit>(
-              "workspace/executeCommand",
-              {
-                arguments: fixAll.command?.arguments,
-                command: "ttsc.lint.fixAll",
-              },
-            ),
+            client.request<WorkspaceEdit>("workspace/executeCommand", {
+              arguments: fixAll.command?.arguments,
+              command: "ttsc.lint.fixAll",
+            }),
           );
           const edits = edit.changes?.[uri] ?? [];
           assert.ok(edits.length > 0, "expected WorkspaceEdit changes");
@@ -1138,20 +1163,17 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
             });
             const actions = await step(
               control.filename + " code action",
-              client.request<CodeAction[]>(
-                "textDocument/codeAction",
-                {
-                  textDocument: { uri: controlUri },
-                  range: {
-                    start: { line: 0, character: 0 },
-                    end: {
-                      line: control.wholeRange ? 0 : 2,
-                      character: control.wholeRange ? control.source.length : 0,
-                    },
+              client.request<CodeAction[]>("textDocument/codeAction", {
+                textDocument: { uri: controlUri },
+                range: {
+                  start: { line: 0, character: 0 },
+                  end: {
+                    line: control.wholeRange ? 0 : 2,
+                    character: control.wholeRange ? control.source.length : 0,
                   },
-                  context: { diagnostics: [], only: [control.only] },
                 },
-              ),
+                context: { diagnostics: [], only: [control.only] },
+              }),
             );
             const action = actions.find(
               (candidate) => candidate.command?.command === control.command,
@@ -1163,10 +1185,10 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
             assert.equal(action.kind, control.only);
             const edit = await step(
               control.filename + " execute command",
-              client.request<WorkspaceEdit>(
-                "workspace/executeCommand",
-                { command: control.command, arguments: [controlUri] },
-              ),
+              client.request<WorkspaceEdit>("workspace/executeCommand", {
+                command: control.command,
+                arguments: [controlUri],
+              }),
             );
             const edits = edit.changes?.[controlUri] ?? [];
             assert.ok(edits.length > 0);
@@ -1200,13 +1222,10 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
               assert.equal(fs.readFileSync(controlFile, "utf8"), FORMAT_DISK);
               const dirtyEdits = await step(
                 "editor-format dirty buffer formatting",
-                client.request<TextEdit[]>(
-                  "textDocument/formatting",
-                  {
-                    textDocument: { uri: controlUri },
-                    options: { tabSize: 2, insertSpaces: true },
-                  },
-                ),
+                client.request<TextEdit[]>("textDocument/formatting", {
+                  textDocument: { uri: controlUri },
+                  options: { tabSize: 2, insertSpaces: true },
+                }),
               );
               assert.equal(dirtyEdits.length, 1);
               assert.equal(dirtyEdits[0]?.newText, FORMAT_FIXED);
@@ -1221,13 +1240,10 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
               });
               const cleanEdit = await step(
                 "editor-format clean buffer formatting",
-                client.request<TextEdit[]>(
-                  "textDocument/formatting",
-                  {
-                    textDocument: { uri: controlUri },
-                    options: { tabSize: 2, insertSpaces: true },
-                  },
-                ),
+                client.request<TextEdit[]>("textDocument/formatting", {
+                  textDocument: { uri: controlUri },
+                  options: { tabSize: 2, insertSpaces: true },
+                }),
               );
               assert.deepEqual(cleanEdit, []);
               assert.equal(fs.readFileSync(controlFile, "utf8"), FORMAT_DISK);
@@ -1511,7 +1527,9 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
             );
           }
         }
-        console.error("LSP format and completion observations retained: " + retained);
+        console.error(
+          "LSP format and completion observations retained: " + retained,
+        );
       }
     } catch (retentionError) {
       failures.push(retentionError);
@@ -1540,7 +1558,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
  * @evidence contracts/e2e.md#necessary-boundary Direct rule or synthetic publication units cannot establish ordered editor notifications, dirty-buffer suppression, saved revalidation and actual command manifest routing, bounded stdout decoding and native stderr failure adaptation across the native bridge. Editor notifications and native termination are actual process boundaries owned by the invoked bodies, not mocked policy calls. Actual native suggestion selection/hash validation, WorkspaceEdit transport and execution of those produced bytes detect connections that direct rule units do not exercise.
  * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer prepares a dedicated editor island with the complete original src/native-errors/docs population, actual module links and lint/Evidence configuration. Transform-only producers and other actors' tools/outputs are outside this command-copy root; their emission assertions remain in their owning batches. This same launcher inherits the island as process cwd and omits --cwd, exercising native Getwd admission through actual initialize, project diagnostics and joined shutdown. The malformed command, ordinary fix and formatter retain their real native requests and complete checker Programs; the cascade transfers its existing requests to the configured-removal lifetime and retains its three fresh fix cycles; positive replies wait for actual completion and no rule is weakened. The five terminal-selection lifetimes remain intact; two additional initialized launch-authority sessions use upfront A/B inputs and the same installed lint producer/cache; an isolated initialized empty-project control adds one native LSP lifetime without installation or a plugin build. Both bodies borrow the same preparation and source producer/cache; shared availability does not certify packed installation, cache hits, child/build totals or Program reuse. Await adds two requests, open/close notifications, actual checker/sidecar work and two Node oracles to the existing editor lifetime; the ordinary editor and five terminal sessions remain intact, the two initialized launch-authority sessions and one initialized empty-project control bring the selected LSP total to nine, and shared preparation remains one, and Node oracle count remains two rather than claiming process savings.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness; dirty edits remain buffer-only until save and command nonmutation is checked against saved bytes. Successful supported shutdown/direct close precedes cleanup, with a separate SHUTDOWN_TIMEOUT shutdown bound. Startup/body/shutdown failure retains the tracked consumer and already-owned snapshot/cache, preserving retention errors. An independently unmatched notification waiter must reject when that same child actually closes, releasing its owned listener on both body failure and normal close. Timeout does not force termination or certify arbitrary descendant closure. Promise.allSettled joins both owners before error propagation. Each body alone owns its shutdown and restoration; failed or unknown closure retains shared inputs. The authored await document is copied before startup, opened and closed in the same editor, never saved, and each Node child receives only its own source with a fresh log and microtask queue.
- * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion. Upfront disjoint alias islands preserve boolean/string and number/string native rejection plus a valid numeric twin; actual source wrapper units own leaf/JSONC/package-preset configuration derivation. This shared checker session does not claim it replays each original wrapper profile. Upfront LF/CR/CRLF saved documents retain buffer-only param/returns, exact edit and resolution, unchanged disk and outside-block negatives. The same upstream retains inferred legacy number, greet symbol and non-plugin completion after capability registration. Explicit configuration competes with discovered no-console-only JSON after the shared base is moved outside discovery names; positive no-var and negative no-console distinguish the handoff. Necessary internal checker updates are not old per-project launcher recipes, and their total is not asserted to be one. Retains the complete ordinary editor body and original config/dependency/source/descriptor selection terminal assertions. Saved code-action/workspace-command eligibility and live-buffer formatting are distinct supported inputs: replacing the saved control only after the original command completes preserves both without bypassing dirty/generation or suggestion validation. Three actual sidecar executions replace the donor two plus the existing one; the donor private build/root retire. This saved edit and extra formatting request are real watcher/checker work, not zero Program cost. Actual extra LSP launcher sessions number eight, including two initialized argument-authority sessions and one initialized empty-project control; native/descendant totals remain unmeasured. The new sessions require final B plugin/upstream contexts, logical alias diagnostic URI and project-relative Node evaluation while preserving original argv and private-manifest consumption. TestAwaitThenableAwaitExpressionOffersExactSuggestion owns finding/suggestion cardinality, automatic-fix zero with unchanged source and exact token/trivia edits; this body owns actual suggestion-to-runtime ordering. No Await donor is removed before actual carrier acceptance.
+ * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion. Upfront disjoint alias islands preserve boolean/string and number/string native rejection plus a valid numeric twin; actual source wrapper units own leaf/JSONC/package-preset configuration derivation. This shared checker session does not claim it replays each original wrapper profile. Upfront LF/CR/CRLF saved documents retain buffer-only param/returns, exact edit and resolution, unchanged disk and outside-block negatives. The same upstream retains inferred legacy number, greet symbol, legacy references (declaration and read) and non-plugin completion after capability registration. Explicit configuration competes with discovered no-console-only JSON after the shared base is moved outside discovery names; positive no-var and negative no-console distinguish the handoff. Necessary internal checker updates are not old per-project launcher recipes, and their total is not asserted to be one. Retains the complete ordinary editor body and original config/dependency/source/descriptor selection terminal assertions. Saved code-action/workspace-command eligibility and live-buffer formatting are distinct supported inputs: replacing the saved control only after the original command completes preserves both without bypassing dirty/generation or suggestion validation. Three actual sidecar executions replace the donor two plus the existing one; the donor private build/root retire. This saved edit and extra formatting request are real watcher/checker work, not zero Program cost. Actual extra LSP launcher sessions number eight, including two initialized argument-authority sessions and one initialized empty-project control; native/descendant totals remain unmeasured. The new sessions require final B plugin/upstream contexts, logical alias diagnostic URI and project-relative Node evaluation while preserving original argv and private-manifest consumption. TestAwaitThenableAwaitExpressionOffersExactSuggestion owns finding/suggestion cardinality, automatic-fix zero with unchanged source and exact token/trivia edits; this body owns actual suggestion-to-runtime ordering. No Await donor is removed before actual carrier acceptance.
  */
 export async function test_e2e_lsp_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();

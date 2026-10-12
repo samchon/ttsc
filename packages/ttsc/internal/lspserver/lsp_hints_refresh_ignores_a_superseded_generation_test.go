@@ -22,10 +22,14 @@ func TestLSPHintsRefreshIgnoresASupersededGeneration(t *testing.T) {
 
   if !source.storeCompletionHints(plugin, 2, []LSPCompletionHint{
     {Scope: "jsdoc", After: "@", Items: []LSPCompletionItem{{Insert: "returns"}}},
-  }) { t.Error("newer corpus was not accepted") }
+  }) {
+    t.Error("newer corpus was not accepted")
+  }
   if source.storeCompletionHints(plugin, 1, []LSPCompletionHint{
     {Scope: "jsdoc", After: "@", Items: []LSPCompletionItem{{Insert: "stale"}}},
-  }) { t.Error("stale corpus claimed publication") }
+  }) {
+    t.Error("stale corpus claimed publication")
+  }
 
   hints := source.CompletionHints()
   if len(hints) != 1 || len(hints[0].Items) != 1 || hints[0].Items[0].Insert != "returns" {
@@ -34,7 +38,9 @@ func TestLSPHintsRefreshIgnoresASupersededGeneration(t *testing.T) {
 
   if !source.storeCompletionHints(plugin, 3, []LSPCompletionHint{
     {Scope: "jsdoc", After: "@", Items: []LSPCompletionItem{{Insert: "param"}}},
-  }) { t.Error("new generation was not accepted") }
+  }) {
+    t.Error("new generation was not accepted")
+  }
   hints = source.CompletionHints()
   if len(hints) != 1 || hints[0].Items[0].Insert != "param" {
     t.Fatalf("the guard rejected a newer generation as well: %#v", hints)

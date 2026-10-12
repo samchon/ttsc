@@ -164,7 +164,10 @@ export async function test_transformttsc_certifies_no_dependency_state_first_see
       }
     }
     if (failures.length)
-      throw new AggregateError(failures, "held dependency delivery and release");
+      throw new AggregateError(
+        failures,
+        "held dependency delivery and release",
+      );
     return result;
   };
 

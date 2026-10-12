@@ -67,13 +67,22 @@ export function resolveRuntimeCleanTargets(cacheRoot: string): {
   const removable: string[] = [];
   for (const entry of entries) {
     const directory = path.join(physicalRuns, entry);
-    const observe = E2ETrace.runtimeCleanup(directory, runtime, "runtime-clean-selection");
+    const observe = E2ETrace.runtimeCleanup(
+      directory,
+      runtime,
+      "runtime-clean-selection",
+    );
     observe?.("selection-started");
     let ownership: ReturnType<typeof ProcessOwnedDirectory.ownership>;
     try {
-      ownership = ProcessOwnedDirectory.ownership(directory, false,
-        observe === undefined ? undefined : (observation) =>
-          observe("owner-observation", undefined, undefined, observation));
+      ownership = ProcessOwnedDirectory.ownership(
+        directory,
+        false,
+        observe === undefined
+          ? undefined
+          : (observation) =>
+              observe("owner-observation", undefined, undefined, observation),
+      );
     } catch (cause) {
       observe?.("selection-failed", undefined, cause);
       throw cause;
@@ -81,7 +90,10 @@ export function resolveRuntimeCleanTargets(cacheRoot: string): {
     observe?.("ownership", ownership);
     if (ownership !== "abandoned") kept.push(directory);
     else removable.push(directory);
-    observe?.(ownership === "abandoned" ? "removal-selected" : "retention-selected", ownership);
+    observe?.(
+      ownership === "abandoned" ? "removal-selected" : "retention-selected",
+      ownership,
+    );
   }
   return {
     kept,

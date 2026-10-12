@@ -170,6 +170,7 @@ import { test_linux_trackers_watch_no_package_tree } from "./unplugin/native-plu
 import { test_linux_watch_helper_keeps_every_watch_honest } from "./unplugin/native-plugins/transform/test_linux_watch_helper_keeps_every_watch_honest";
 import { test_transformttsc_a_failed_compile_that_raced_its_repair_is_compiled_again } from "./unplugin/native-plugins/transform/test_transformttsc_a_failed_compile_that_raced_its_repair_is_compiled_again";
 import { test_transformttsc_a_linked_project_keeps_its_notification_coverage } from "./unplugin/native-plugins/transform/test_transformttsc_a_linked_project_keeps_its_notification_coverage";
+import { test_transformttsc_a_new_process_witnesses_the_dependencies_its_record_names } from "./unplugin/native-plugins/transform/test_transformttsc_a_new_process_witnesses_the_dependencies_its_record_names";
 import { test_transformttsc_a_plugin_writing_below_the_root_leaves_a_pooled_compile_settled } from "./unplugin/native-plugins/transform/test_transformttsc_a_plugin_writing_below_the_root_leaves_a_pooled_compile_settled";
 import { test_transformttsc_a_pooled_session_does_not_publish_a_compile_whose_graph_proof_failed } from "./unplugin/native-plugins/transform/test_transformttsc_a_pooled_session_does_not_publish_a_compile_whose_graph_proof_failed";
 import { test_transformttsc_a_shared_session_serves_a_plugin_input_recreated_after_a_failed_compile } from "./unplugin/native-plugins/transform/test_transformttsc_a_shared_session_serves_a_plugin_input_recreated_after_a_failed_compile";
@@ -944,6 +945,10 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
   [
     "test_transformttsc_a_linked_project_keeps_its_notification_coverage",
     test_transformttsc_a_linked_project_keeps_its_notification_coverage,
+  ],
+  [
+    "test_transformttsc_a_new_process_witnesses_the_dependencies_its_record_names",
+    test_transformttsc_a_new_process_witnesses_the_dependencies_its_record_names,
   ],
   [
     "test_transformttsc_a_plugin_writing_below_the_root_leaves_a_pooled_compile_settled",

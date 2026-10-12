@@ -193,7 +193,7 @@ async function verifyBackendEventWinsReconciliation(): Promise<void> {
       "change",
       path.relative(registration.location, fixture.physicalSource),
     );
-    await Promise.resolve();
+    await settleWatchEvents();
 
     assert.deepEqual(changes, [
       { kind: "compiler", path: fixture.reportedSource },
@@ -413,7 +413,7 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
     compiler.listener("change", path.relative(compiler.location, first));
     compiler.listener("change", path.relative(compiler.location, firstPeer));
     compiler.listener("change", path.relative(compiler.location, other));
-    await Promise.resolve();
+    await settleWatchEvents();
     assert.equal(
       changes.length,
       1,
@@ -457,7 +457,7 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
       path.relative(project.location, path.dirname(mixed)),
     );
     compiler.listener("change", path.relative(compiler.location, mixed));
-    await Promise.resolve();
+    await settleWatchEvents();
     assert.equal(
       topologyChanges,
       1,
@@ -489,7 +489,7 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
       path.relative(project.location, path.dirname(second)),
     );
     compiler.listener("change", path.relative(compiler.location, second));
-    await Promise.resolve();
+    await settleWatchEvents();
     assert.equal(
       changes.length,
       2,
@@ -504,14 +504,14 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
       "the strong-fingerprint case changed file size",
     );
     compiler.listener("change", path.relative(compiler.location, second));
-    await Promise.resolve();
+    await settleWatchEvents();
     assert.deepEqual(changes.at(-1), {
       kind: "config",
       path: second,
     });
     const afterReloadEdit = changes.length;
     project.listener("change", path.relative(project.location, second));
-    await Promise.resolve();
+    await settleWatchEvents();
     assert.equal(
       changes.length,
       afterReloadEdit,
@@ -544,7 +544,7 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
       path.relative(project.location, path.dirname(third)),
     );
     compiler.listener("change", path.relative(compiler.location, third));
-    await Promise.resolve();
+    await settleWatchEvents();
     assert.equal(
       changes.length,
       4,
@@ -730,7 +730,7 @@ async function verifyAtomicReplacementRebindsPosixFileWatcher(): Promise<void> {
       );
     } else
       sourceRegistrations[1]?.listener("change", path.basename(fixture.source));
-    await Promise.resolve();
+    await settleWatchEvents();
 
     assert.deepEqual(changes, [
       { kind: "compiler", path: fixture.reportedSource },

@@ -157,7 +157,10 @@ export function runtimeMapsCorpus(workspace: BatchWorkspace.Workspace): void {
         const queries = observed.processObservations
           .map(
             ({ observation }) =>
-              observation as typeof observation & { argv?: unknown; cwd?: unknown },
+              observation as typeof observation & {
+                argv?: unknown;
+                cwd?: unknown;
+              },
           )
           .filter(
             (row) =>
@@ -169,9 +172,14 @@ export function runtimeMapsCorpus(workspace: BatchWorkspace.Workspace): void {
               row.argv.at(-1) === "--showConfig" &&
               !row.argv.includes("--noEmit"),
           );
-        assert.ok(queries.at(0), "native expansion of the original response is required");
+        assert.ok(
+          queries.at(0),
+          "native expansion of the original response is required",
+        );
         const identities = new Set(
-          queries.map((row) => JSON.stringify({ cwd: row.cwd, argv: row.argv })),
+          queries.map((row) =>
+            JSON.stringify({ cwd: row.cwd, argv: row.argv }),
+          ),
         );
         assert.equal(
           queries.length,

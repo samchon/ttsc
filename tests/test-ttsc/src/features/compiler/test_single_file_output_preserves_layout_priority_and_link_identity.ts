@@ -108,14 +108,25 @@ export function test_single_file_output_preserves_layout_priority_and_link_ident
       check(name, () =>
         assert.equal(resolveSingleFileOutput(options), expected),
       );
-    for (const cwd of [path.join(root, "tools"), path.join(root, "tools/deep")]) {
+    for (const cwd of [
+      path.join(root, "tools"),
+      path.join(root, "tools/deep"),
+    ]) {
       for (const cliOutDir of ["single", path.join(workspace, "explicit")]) {
-        check("explicit root contains source above cwd / " + cwd + cliOutDir, () => {
-          assert.equal(
-            resolveSingleFileOutput({ cwd, file, cliOutDir, tsconfig: configPath }),
-            path.resolve(cwd, cliOutDir, "main.js"),
-          );
-        });
+        check(
+          "explicit root contains source above cwd / " + cwd + cliOutDir,
+          () => {
+            assert.equal(
+              resolveSingleFileOutput({
+                cwd,
+                file,
+                cliOutDir,
+                tsconfig: configPath,
+              }),
+              path.resolve(cwd, cliOutDir, "main.js"),
+            );
+          },
+        );
       }
     }
     for (const [file, name] of [
@@ -137,7 +148,8 @@ export function test_single_file_output_preserves_layout_priority_and_link_ident
       });
     }
     if (process.platform === "win32") {
-      const volume = path.parse(root).root.toLowerCase() === "z:\\" ? "Y:\\" : "Z:\\";
+      const volume =
+        path.parse(root).root.toLowerCase() === "z:\\" ? "Y:\\" : "Z:\\";
       check("explicit cross-volume basename", () => {
         assert.equal(
           resolveSingleFileOutput({
@@ -150,28 +162,41 @@ export function test_single_file_output_preserves_layout_priority_and_link_ident
         );
       });
     }
-    check("selected project owns placement without reparsing old locator", () => {
-      const selectedConfig = path.join(workspace, "selected", "tsconfig.json");
-      fs.mkdirSync(path.dirname(selectedConfig));
-      fs.writeFileSync(
-        selectedConfig,
-        JSON.stringify({
-          compilerOptions: { outDir: "products", rootDir: "../project/src" },
-          files: ["../project/src/nested/main.ts"],
-        }),
-      );
-      const selected = readProjectConfig({ cwd: root, tsconfig: selectedConfig });
-      const options = { cwd: root, file, tsconfig: "missing.json" };
-      assert.equal(
-        resolveSingleFileOutput(options, selected),
-        path.join(workspace, "selected/products/nested/main.js"),
-      );
-      assert.equal(
-        resolveSingleFileOutput({ ...options, cliOutDir: "single" }, selected),
-        path.join(root, "single/src/nested/main.js"),
-      );
-      assert.equal(options.tsconfig, "missing.json");
-    });
+    check(
+      "selected project owns placement without reparsing old locator",
+      () => {
+        const selectedConfig = path.join(
+          workspace,
+          "selected",
+          "tsconfig.json",
+        );
+        fs.mkdirSync(path.dirname(selectedConfig));
+        fs.writeFileSync(
+          selectedConfig,
+          JSON.stringify({
+            compilerOptions: { outDir: "products", rootDir: "../project/src" },
+            files: ["../project/src/nested/main.ts"],
+          }),
+        );
+        const selected = readProjectConfig({
+          cwd: root,
+          tsconfig: selectedConfig,
+        });
+        const options = { cwd: root, file, tsconfig: "missing.json" };
+        assert.equal(
+          resolveSingleFileOutput(options, selected),
+          path.join(workspace, "selected/products/nested/main.js"),
+        );
+        assert.equal(
+          resolveSingleFileOutput(
+            { ...options, cliOutDir: "single" },
+            selected,
+          ),
+          path.join(root, "single/src/nested/main.js"),
+        );
+        assert.equal(options.tsconfig, "missing.json");
+      },
+    );
     for (const [name, config, expected] of [
       [
         "absent rootDir",

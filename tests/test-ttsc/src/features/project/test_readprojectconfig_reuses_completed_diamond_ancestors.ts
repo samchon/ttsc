@@ -2,14 +2,19 @@ import { Session } from "node:inspector/promises";
 
 import { loadProjectPlugins } from "../../../../../packages/ttsc/src/plugin/internal/load/loadProjectPlugins";
 import { TestProject } from "../../../../utils/src/TestProject";
-import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
+import {
+  assert,
+  fs,
+  path,
+  readProjectConfig,
+} from "../../internal/project-unit";
 
 /**
  * Verifies one project read evaluates completed diamond ancestors once.
  *
  * Native V8 call counts observe the actual JSONC reader and extends resolver
- * without replacing filesystem methods or changing production resolution.
- * The topology has two configs per layer but exponentially many paths.
+ * without replacing filesystem methods or changing production resolution. The
+ * topology has two configs per layer but exponentially many paths.
  *
  * 1. Author singleton, duplicate-base and layered diamond configurations.
  * 2. Read each through the production source under precise call coverage.
@@ -106,7 +111,10 @@ export async function test_readprojectconfig_reuses_completed_diamond_ancestors(
         expected.push(path.join(root, "entry.json"));
         assert.deepEqual(result.configPaths, expected);
         assert.equal(result.configInputsComplete, true);
-        assert.equal(result.compilerOptions.strict, depth < 0 ? undefined : true);
+        assert.equal(
+          result.compilerOptions.strict,
+          depth < 0 ? undefined : true,
+        );
         assert.equal(
           result.compilerOptions.outDir,
           depth < 0 ? undefined : path.join(root, "out"),

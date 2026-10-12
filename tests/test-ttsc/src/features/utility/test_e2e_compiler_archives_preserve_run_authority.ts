@@ -4,8 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { linkVirtualEntry } from "../../../../../packages/ttsc/src/launcher/internal/linkVirtualEntry";
-import { CompilerArtifactPreparation } from "../../../../utils/src/CompilerArtifactPreparation";
 import { CompilerArchives } from "../../../../utils/src/CompilerArchives";
+import { CompilerArtifactPreparation } from "../../../../utils/src/CompilerArtifactPreparation";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -118,7 +118,10 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
         const before = archiveState(artifact.archive);
         const virtual = TestProject.tmpdir("compiler-archive-virtual-");
         const entry = fs.readdirSync(root, { withFileTypes: true })[0]!;
-        assert.equal(entry.name, isolated ? ".compiler-archives" : "compiler.tgz");
+        assert.equal(
+          entry.name,
+          isolated ? ".compiler-archives" : "compiler.tgz",
+        );
         const mirrored = path.join(virtual, entry.name);
         linkVirtualEntry(path.join(root, entry.name), mirrored, entry);
         const after = archiveState(artifact.archive);
@@ -467,51 +470,64 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       mutate(fixture, borrower.artifacts[0]!.archive);
       const refusal =
         label === "missing archive" ? /ENOENT/ : /changed before reuse/;
-      assert.throws(() => owner.borrow(), (error: unknown) => {
-        assert.ok(error instanceof Error);
-        assert.match(error.message, refusal);
-        if (label !== "missing archive") {
-          const details = error.cause as {
-            expected: { physical: string; identity: string; sha256: string };
-            current: { physical: string; identity: string; sha256: string };
-            changed: { physical: boolean; identity: boolean; sha256: boolean };
-          };
-          assert.ok(
-            details,
-            "A rejected archive must expose its actual mismatch",
-          );
-          assert.equal(
-            details.expected.physical,
-            borrower.artifacts[0]!.physical,
-          );
-          assert.equal(
-            details.expected.sha256,
-            crypto.createHash("sha256").update("authored archive").digest("hex"),
-          );
-          assert.equal(
-            details.current.physical,
-            fs.realpathSync.native(borrower.artifacts[0]!.archive),
-          );
-          assert.equal(
-            details.current.sha256,
-            crypto
-              .createHash("sha256")
-              .update(fs.readFileSync(borrower.artifacts[0]!.archive))
-              .digest("hex"),
-          );
-          assert.deepEqual(details.changed, {
-            physical: false,
-            identity: true,
-            sha256: label === "corrupt archive same size",
-          });
-          assert.notEqual(details.expected.identity, details.current.identity);
-          assert.ok(
-            error.message.includes(JSON.stringify(details)),
-            "CI stderr must retain the finite mismatch facts",
-          );
-        }
-        return true;
-      });
+      assert.throws(
+        () => owner.borrow(),
+        (error: unknown) => {
+          assert.ok(error instanceof Error);
+          assert.match(error.message, refusal);
+          if (label !== "missing archive") {
+            const details = error.cause as {
+              expected: { physical: string; identity: string; sha256: string };
+              current: { physical: string; identity: string; sha256: string };
+              changed: {
+                physical: boolean;
+                identity: boolean;
+                sha256: boolean;
+              };
+            };
+            assert.ok(
+              details,
+              "A rejected archive must expose its actual mismatch",
+            );
+            assert.equal(
+              details.expected.physical,
+              borrower.artifacts[0]!.physical,
+            );
+            assert.equal(
+              details.expected.sha256,
+              crypto
+                .createHash("sha256")
+                .update("authored archive")
+                .digest("hex"),
+            );
+            assert.equal(
+              details.current.physical,
+              fs.realpathSync.native(borrower.artifacts[0]!.archive),
+            );
+            assert.equal(
+              details.current.sha256,
+              crypto
+                .createHash("sha256")
+                .update(fs.readFileSync(borrower.artifacts[0]!.archive))
+                .digest("hex"),
+            );
+            assert.deepEqual(details.changed, {
+              physical: false,
+              identity: true,
+              sha256: label === "corrupt archive same size",
+            });
+            assert.notEqual(
+              details.expected.identity,
+              details.current.identity,
+            );
+            assert.ok(
+              error.message.includes(JSON.stringify(details)),
+              "CI stderr must retain the finite mismatch facts",
+            );
+          }
+          return true;
+        },
+      );
       assert.throws(() => borrower.assertAvailable(), refusal);
       borrower.release();
     });
@@ -632,10 +648,11 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       };
       const full = [{ name: "already-packed", archive: "caller-owned" }];
       const artifact = { name: "@ttsc/evidence", archive: "caller-evidence" };
-      const request: Parameters<typeof CompilerArtifactPreparation.prepare>[0] = {
-        repository: fixture.repository,
-        root: TestProject.tmpdir("compiler-archive-route-"),
-      };
+      const request: Parameters<typeof CompilerArtifactPreparation.prepare>[0] =
+        {
+          repository: fixture.repository,
+          root: TestProject.tmpdir("compiler-archive-route-"),
+        };
       if (mode === "complete")
         Object.assign(request, { toolchain: full, artifact });
       else if (mode !== "standalone")

@@ -23,7 +23,8 @@ import type { TtscWatchInputFileBaseline } from "./TtscWatchInputFileBaseline";
 export interface TtscWatchInputBaseline extends TtscWatchInputFileBaseline {
   /**
    * Current version-one native codec facts, captured only for requested kinds.
-   * These observations do not certify a producer's identityStable flag or scope.
+   * These observations do not certify a producer's identityStable flag or
+   * scope.
    */
   nativePredicates?: Partial<
     Record<

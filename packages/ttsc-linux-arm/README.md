@@ -6,9 +6,9 @@ This package is normally installed as an optional dependency of `ttsc`. Applicat
 
 ## ARM baseline
 
-Every artifact in this package targets the **ARMv6** baseline. The three executables (`bin/ttsc`, `bin/ttscserver`, `bin/ttscgraph`) are cross-compiled with `GOARM=6`, and the bundled Go SDK is the `linux-armv6l` distribution, so the executables and the SDK share one minimum ARM generation. ARMv6 code runs on later ARM generations (ARMv7, ARMv8/`arm64` in 32-bit mode), so this package supports the broad npm `arm` CPU contract rather than an ARMv7-only subset.
+Every artifact in this package targets the **ARMv6** baseline. The two executables (`bin/ttsc`, `bin/ttscserver`) are cross-compiled with `GOARM=6`, and the bundled Go SDK is the `linux-armv6l` distribution, so the executables and the SDK share one minimum ARM generation. ARMv6 code runs on later ARM generations (ARMv7, ARMv8/`arm64` in 32-bit mode), so this package supports the broad npm `arm` CPU contract rather than an ARMv7-only subset.
 
-It contains the `ttsc` platform helper, the `ttscserver` LSP wrapper, the `ttscgraph` MCP code-graph server, and the Go SDK used when `ttsc` builds Go source plugins. If your package manager skipped optional dependencies, reinstall `ttsc` with optional dependencies enabled.
+It contains the `ttsc` platform helper, the `ttscserver` LSP wrapper, and the Go SDK used when `ttsc` builds Go source plugins. If your package manager skipped optional dependencies, reinstall `ttsc` with optional dependencies enabled.
 
 ## Package contents
 
@@ -16,7 +16,6 @@ This package intentionally ships the prebuilt `linux-arm` artifacts for `ttsc`:
 
 - `bin/ttsc`: the native command helper.
 - `bin/ttscserver`: the native language-server wrapper.
-- `bin/ttscgraph`: the native MCP code-graph server (used by `@ttsc/graph`).
 - `bin/go/`: a pruned Go SDK used to compile source plugins into cached plugin binaries.
 
 Source and build entrypoint: [`packages/ttsc`](https://github.com/samchon/ttsc/tree/master/packages/ttsc) and [`packages/ttsc/build/platform-package.cjs`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/build/platform-package.cjs).

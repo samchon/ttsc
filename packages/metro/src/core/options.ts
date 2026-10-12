@@ -75,8 +75,8 @@ export function serializeOptions(
  * options.
  *
  * All common compiler options, including the output-addressing `projectRoot`,
- * survive this transport without interpreting their paths in the config host.
- * A present `plugins` property is forwarded even when its value is `false`;
+ * survive this transport without interpreting their paths in the config host. A
+ * present `plugins` property is forwarded even when its value is `false`;
  * omission leaves plugin selection to the project. The `include` and `exclude`
  * arrays retain only string entries, while invalid array values become empty
  * filters. Only a non-empty string is accepted as the private run identity.

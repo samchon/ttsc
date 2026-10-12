@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 import { createLinkedWorkspaceFixture } from "../../../../internal/unplugin/internal/adapter-vite-serve/createLinkedWorkspaceFixture";
 import { mainModuleNode } from "../../../../internal/unplugin/internal/adapter-vite-serve/mainModuleNode";
 import { observeReloadEvents } from "../../../../internal/unplugin/internal/adapter-vite-serve/observeReloadEvents";
 import { requestMainModule } from "../../../../internal/unplugin/internal/adapter-vite-serve/requestMainModule";
 import { startViteServer } from "../../../../internal/unplugin/internal/adapter-vite-serve/startViteServer";
-import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies a dev server retransforms an importer when a missing resolution
@@ -79,7 +79,12 @@ export async function test_vite_serve_retransforms_the_importer_when_a_supersedi
         Promise.resolve().then(() => server.close()),
       ])),
     );
-    for (const close of closes) if (close.status === "rejected") failures.push(close.reason);
+    for (const close of closes)
+      if (close.status === "rejected") failures.push(close.reason);
   }
-  if (failures.length) throw new AggregateError(failures, "Vite delivery and original client/server closes");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Vite delivery and original client/server closes",
+    );
 }

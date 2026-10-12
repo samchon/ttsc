@@ -15,8 +15,8 @@ import { TtscCompiler } from "../../../../../packages/ttsc/src/TtscCompiler";
  *
  * 1. Seed ambient, constructor and default cache roots for each selector row.
  * 2. Clean each captured instance and collect every independent outcome.
- * 3. Clean two captured instances independently and protect a user cache
- *    inside an explicit whole root.
+ * 3. Clean two captured instances independently and protect a user cache inside an
+ *    explicit whole root.
  * 4. Distinguish requested reports from physical deletion through a real parent
  *    alias, including relative selectors and protected overlap.
  *
@@ -58,7 +58,10 @@ export function test_ttsccompiler_clean_preserves_native_environment_layers(): v
       check(spelling, () => {
         const project = path.join(root, spelling);
         fs.mkdirSync(project);
-        fs.writeFileSync(path.join(project, "package.json"), '{"private":true}');
+        fs.writeFileSync(
+          path.join(project, "package.json"),
+          '{"private":true}',
+        );
         fs.writeFileSync(path.join(project, "tsconfig.json"), "{}");
         const source = path.join(project, "main.ts");
         fs.writeFileSync(source, "export const intact = 42;\n");
@@ -187,10 +190,12 @@ export function test_ttsccompiler_clean_preserves_native_environment_layers(): v
       const second = new TtscCompiler({ cwd: project, env: secondEnv });
       firstEnv.ttsc_cache_dir = secondRoot;
       secondEnv.TTSC_CACHE_DIR = firstRoot;
-      assert.deepEqual(
-        first.clean(),
-        [path.join(process.platform === "win32" ? firstRoot : ambientRoot, "plugins")],
-      );
+      assert.deepEqual(first.clean(), [
+        path.join(
+          process.platform === "win32" ? firstRoot : ambientRoot,
+          "plugins",
+        ),
+      ]);
       assert.equal(fs.existsSync(secondPlugin), true);
       assert.deepEqual(second.clean(), [path.join(secondRoot, "plugins")]);
       assert.equal(fs.existsSync(firstPlugin), process.platform !== "win32");
@@ -294,8 +299,14 @@ export function test_ttsccompiler_clean_preserves_native_environment_layers(): v
           fs.readFileSync(path.join(directory, "sentinel"), "utf8"),
           "preserve unselected\n",
         );
-      assert.equal(fs.readFileSync(source, "utf8"), "export const intact = 42;\n");
-      assert.deepEqual(names.map((name) => process.env[name]), ambient);
+      assert.equal(
+        fs.readFileSync(source, "utf8"),
+        "export const intact = 42;\n",
+      );
+      assert.deepEqual(
+        names.map((name) => process.env[name]),
+        ambient,
+      );
     });
     if (failures.length)
       throw new AggregateError(failures, "native environment cleanup rows");

@@ -13,7 +13,8 @@ import { TestMetroRuntime } from "../../internal/metro-runtime";
  * the worker actually selects their programs. This exercises the view frozen
  * into the transform and its retained routing evidence without native builds.
  *
- * 1. Select through nested and cyclic references, retaining earlier rejected configs.
+ * 1. Select through nested and cyclic references, retaining earlier rejected
+ *    configs.
  * 2. Change a rejected config's admission and reselect on the next delivery.
  * 3. Distinguish nearest admission, explicit selection and no-match fallback.
  *
@@ -79,7 +80,11 @@ export async function test_project_view_follows_solution_references(): Promise<v
   );
 
   write(first, { include: ["src/**/*.ts"] });
-  assert.equal(resolve().tsconfig, first, "earlier newly admitted project wins");
+  assert.equal(
+    resolve().tsconfig,
+    first,
+    "earlier newly admitted project wins",
+  );
   assert.equal(resolve(app).tsconfig, app, "explicit project bypasses routing");
   write(nearest, {
     include: ["src/**/*.ts"],
@@ -90,5 +95,9 @@ export async function test_project_view_follows_solution_references(): Promise<v
   write(nearest, { files: [], references: [{ path: "./missing.json" }] });
   assert.equal(resolve().tsconfig, nearest, "no-match retains nearest config");
   write(missing, { include: ["src/**/*.ts"] });
-  assert.equal(resolve().tsconfig, missing, "a missing reference can become owner");
+  assert.equal(
+    resolve().tsconfig,
+    missing,
+    "a missing reference can become owner",
+  );
 }

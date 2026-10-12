@@ -15,8 +15,8 @@ const CONFIG_DIR_TEMPLATE_FILE_SPECS = ["exclude", "files", "include"] as const;
  * Lists use the compiler's last-inherited-array rule: a later base declaring
  * null cannot erase an earlier array. Invalid elements are preserved so this
  * overlay does not hide the compiler's configuration diagnostics. The three
- * list searches share graph observations only within this call; a later call reads
- * current bytes in a fresh transaction.
+ * list searches share graph observations only within this call; a later call
+ * reads current bytes in a fresh transaction.
  *
  * @param configDir The directory `${configDir}` stands for, as
  *   `readEffectiveTsconfigTemplateCompilerOptions` takes it.

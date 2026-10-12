@@ -34,7 +34,9 @@ export function test_commonjs_export_names_follow_source_require_resolution(): v
     return target;
   };
   const check = (label: string, action: () => void) => {
-    try { action(); } catch (error) {
+    try {
+      action();
+    } catch (error) {
       failures.push(new Error(label, { cause: error }));
     }
   };
@@ -43,11 +45,18 @@ export function test_commonjs_export_names_follow_source_require_resolution(): v
   try {
     const source = write("app/barrel.cts", "");
     write("private/barrel.cjs", "");
-    write("app/package.json", JSON.stringify({
-      name: "self-package",
-      imports: { "#leaf": { require: "./import-leaf.cjs", import: "./wrong.cjs" } },
-      exports: { "./leaf": { require: "./self-leaf.cjs", import: "./wrong.cjs" } },
-    }));
+    write(
+      "app/package.json",
+      JSON.stringify({
+        name: "self-package",
+        imports: {
+          "#leaf": { require: "./import-leaf.cjs", import: "./wrong.cjs" },
+        },
+        exports: {
+          "./leaf": { require: "./self-leaf.cjs", import: "./wrong.cjs" },
+        },
+      }),
+    );
     write("app/import-leaf.cjs", "exports.importsName = 1;");
     write("app/self-leaf.cjs", "exports.selfName = 1;");
     write("app/wrong.cjs", "exports.wrongImport = 1;");
@@ -59,15 +68,21 @@ export function test_commonjs_export_names_follow_source_require_resolution(): v
     write("app/a.cjs", star("./b.cts") + "exports.a = 1;");
     write("app/b.cts", "export const rawCycleTypeScript = 1;");
     const packageRoot = "app/node_modules/package-leaf/";
-    write(packageRoot + "package.json", JSON.stringify({
-      name: "package-leaf",
-      exports: {
-        ".": { require: "./require.cjs", import: "./import.cjs" },
-        "./mapped": { require: "./mapped.cjs", import: "./import.cjs" },
-        "./blocked": null,
-      },
-    }));
-    write(packageRoot + "require.cjs", "exports.packageName = 1; exports.default = 2; throw new Error('must not execute');");
+    write(
+      packageRoot + "package.json",
+      JSON.stringify({
+        name: "package-leaf",
+        exports: {
+          ".": { require: "./require.cjs", import: "./import.cjs" },
+          "./mapped": { require: "./mapped.cjs", import: "./import.cjs" },
+          "./blocked": null,
+        },
+      }),
+    );
+    write(
+      packageRoot + "require.cjs",
+      "exports.packageName = 1; exports.default = 2; throw new Error('must not execute');",
+    );
     write(packageRoot + "mapped.cjs", "exports.mapped = 1;");
     write(packageRoot + "import.cjs", "exports.wrongImport = 1;");
     write("app/node_modules/@scope/leaf/package.json", '{"main":"index.cjs"}');
@@ -78,11 +93,18 @@ export function test_commonjs_export_names_follow_source_require_resolution(): v
     const reads = new Map<string, number>();
     const read = (file: string): string | null => {
       reads.set(file, (reads.get(file) ?? 0) + 1);
-      if (file === path.join(root, "app/source.cts")) return "exports.sourceOnly = 1;";
-      if (file === path.join(root, "app/b.cts")) return star("./a.cjs") + "exports.b = 1;";
-      try { return fs.readFileSync(file, "utf8"); } catch { return null; }
+      if (file === path.join(root, "app/source.cts"))
+        return "exports.sourceOnly = 1;";
+      if (file === path.join(root, "app/b.cts"))
+        return star("./a.cjs") + "exports.b = 1;";
+      try {
+        return fs.readFileSync(file, "utf8");
+      } catch {
+        return null;
+      }
     };
-    const scan = (body: string) => commonJsExportNames(body, source, read).sort();
+    const scan = (body: string) =>
+      commonJsExportNames(body, source, read).sort();
     for (const [label, body, expected] of [
       ["bare", star("package-leaf"), ["packageName"]],
       ["mapped require condition", star("package-leaf/mapped"), ["mapped"]],
@@ -98,14 +120,25 @@ export function test_commonjs_export_names_follow_source_require_resolution(): v
       ["blocked", star("package-leaf/blocked"), []],
       ["builtin", star("node:fs"), []],
       ["JSON", star("./data.json"), []],
-      ["root default", "exports.default = 1; exports.own = 2;" + star("package-leaf"), ["default", "own", "packageName"]],
-      ["inert", `exports.text = ${JSON.stringify(star("package-leaf"))};`, ["text"]],
+      [
+        "root default",
+        "exports.default = 1; exports.own = 2;" + star("package-leaf"),
+        ["default", "own", "packageName"],
+      ],
+      [
+        "inert",
+        `exports.text = ${JSON.stringify(star("package-leaf"))};`,
+        ["text"],
+      ],
       ["empty", "", []],
-    ] as const) check(label, () => assert.deepEqual(scan(body), [...expected].sort()));
-    check("native blocked authority", () => assert.throws(
-      () => createRequire(source).resolve("package-leaf/blocked"),
-      { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" },
-    ));
+    ] as const)
+      check(label, () => assert.deepEqual(scan(body), [...expected].sort()));
+    check("native blocked authority", () =>
+      assert.throws(
+        () => createRequire(source).resolve("package-leaf/blocked"),
+        { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" },
+      ),
+    );
     check("cycle reads once", () => {
       reads.clear();
       assert.deepEqual(scan(star("./a.cjs") + star("./a.cjs")), ["a", "b"]);
@@ -114,10 +147,20 @@ export function test_commonjs_export_names_follow_source_require_resolution(): v
     });
     check("source reader errors retain ownership", () => {
       const error = new Error("owned source unavailable");
-      assert.throws(() => commonJsExportNames(star("./source.cts"), source, () => { throw error; }), (caught) => caught === error);
+      assert.throws(
+        () =>
+          commonJsExportNames(star("./source.cts"), source, () => {
+            throw error;
+          }),
+        (caught) => caught === error,
+      );
     });
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
-  if (failures.length) throw new AggregateError(failures, "CommonJS source require resolution failed");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "CommonJS source require resolution failed",
+    );
 }

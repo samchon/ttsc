@@ -1,5 +1,10 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
+import {
+  assert,
+  fs,
+  path,
+  readProjectConfig,
+} from "../../internal/project-unit";
 
 /**
  * Verifies completed config reuse retains cycle and native failure boundaries.
@@ -38,13 +43,19 @@ export function test_readprojectconfig_rejects_cycles_after_completed_siblings()
     write("self.json", {
       extends: ["./base.json", "./base.json", "./self.json"],
     });
-    assert.throws(() => read("self.json"), /circular tsconfig extends detected/);
+    assert.throws(
+      () => read("self.json"),
+      /circular tsconfig extends detected/,
+    );
   });
   check("indirect cycle after completed siblings", () => {
     write("entry.json", { extends: ["./base.json", "./branch.json"] });
     write("branch.json", { extends: ["./base.json", "./nested.json"] });
     write("nested.json", { extends: "./entry.json" });
-    assert.throws(() => read("entry.json"), /circular tsconfig extends detected/);
+    assert.throws(
+      () => read("entry.json"),
+      /circular tsconfig extends detected/,
+    );
   });
   check("canonical alias cycle after a completed sibling", () => {
     const directory = path.join(root, "cycle");
@@ -57,7 +68,9 @@ export function test_readprojectconfig_rejects_cycles_after_completed_siblings()
     );
     fs.writeFileSync(
       path.join(directory, "entry.json"),
-      JSON.stringify({ extends: ["../base.json", "../cycle-alias/entry.json"] }),
+      JSON.stringify({
+        extends: ["../base.json", "../cycle-alias/entry.json"],
+      }),
     );
     assert.throws(
       () => read("cycle/entry.json"),
@@ -67,15 +80,18 @@ export function test_readprojectconfig_rejects_cycles_after_completed_siblings()
   check("malformed selected ancestor is named after sibling completion", () => {
     write("entry.json", { extends: ["./base.json", "./broken.json"] });
     fs.writeFileSync(path.join(root, "broken.json"), "{ invalid");
-    assert.throws(() => read("entry.json"), (error: unknown) => {
-      assert.ok(error instanceof Error);
-      assert.ok(
-        error.message.includes(
-          `failed to parse ${path.join(root, "broken.json")}`,
-        ),
-      );
-      return true;
-    });
+    assert.throws(
+      () => read("entry.json"),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.ok(
+          error.message.includes(
+            `failed to parse ${path.join(root, "broken.json")}`,
+          ),
+        );
+        return true;
+      },
+    );
   });
   check("invalid ancestor root remains an error", () => {
     write("broken.json", []);

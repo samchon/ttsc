@@ -79,8 +79,10 @@ export const test_testproject_exit_removes_joined_temporary_roots = () => {
       assert.equal(typeof allocated.root, "string");
       assert.equal(path.dirname(allocated.root), outer);
       assert.equal(allocated.physicalParent, fs.realpathSync.native(outer));
-      assert.match(path.basename(allocated.root), index === 0
-        ? /^child-default-[A-Za-z0-9]+$/ : /^child-[A-Za-z0-9]+$/);
+      assert.match(
+        path.basename(allocated.root),
+        index === 0 ? /^child-default-[A-Za-z0-9]+$/ : /^child-[A-Za-z0-9]+$/,
+      );
       assert.equal(fs.existsSync(allocated.root), false);
     }
     assert.deepEqual(fs.readdirSync(outer), []);

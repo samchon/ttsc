@@ -578,11 +578,11 @@ function printCacheHelp(): void {
 
 /**
  * Adapt one normalized CLI request to its selected private producer and public
- * copy. The existing selection owns config and original argument anchoring;
- * the full request retains cache, reporting and watch callbacks. Only the
- * private helper writes the selected public file. Success presentation follows
- * that completed copy and describes public emission, without private products
- * or a fabricated transform-site count. Watch supplies quiet true itself.
+ * copy. The existing selection owns config and original argument anchoring; the
+ * full request retains cache, reporting and watch callbacks. Only the private
+ * helper writes the selected public file. Success presentation follows that
+ * completed copy and describes public emission, without private products or a
+ * fabricated transform-site count. Watch supplies quiet true itself.
  */
 function runSingleFile(
   options: ReturnType<typeof parseTtscBuildArgs> &

@@ -46,7 +46,9 @@ export class WatchBuildObservation {
     this.streams[stream] += chunk;
     this.builds = Object.values(this.streams).reduce(
       (count, output) =>
-        count + (output.match(/\[ttsc\] watch build (?:complete|failed)/g) ?? []).length,
+        count +
+        (output.match(/\[ttsc\] watch build (?:complete|failed)/g) ?? [])
+          .length,
       0,
     );
     this.starts = Object.values(this.streams).reduce(
@@ -144,8 +146,9 @@ export class WatchBuildObservation {
   }
 
   /**
-   * Await completed started cycles and a finite window with no additional start.
-   * A queued rerun restarts the observation; build duration has no ceiling.
+   * Await completed started cycles and a finite window with no additional
+   * start. A queued rerun restarts the observation; build duration has no
+   * ceiling.
    *
    * @evidence contracts/common.md#principled-implementation Success requires every observed start completed and no new start during the requested quiet interval. A new start resets that interval; actual error or close rejects.
    * @evidence contracts/common.md#clear-and-simple-design A prior-start count and quiet timestamp describe one concrete settled boundary; existing waitFor owns the inspection lifecycle.

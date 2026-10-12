@@ -69,9 +69,7 @@ export function nativeInputPredicateState(
     } else if (kind === "optional-file") {
       try {
         digest = filesystem.stat(file).isFile()
-          ? hash(
-              Buffer.concat([Buffer.from("file\0"), readBytes()]),
-            )
+          ? hash(Buffer.concat([Buffer.from("file\0"), readBytes()]))
           : hash("missing\0");
       } catch (error) {
         if (!missing(error)) return undefined;

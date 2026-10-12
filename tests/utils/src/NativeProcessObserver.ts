@@ -317,13 +317,14 @@ async function openSession(
     if (!failureCauses.has(cause)) {
       failureCauses.add(cause);
       failures.push(cause instanceof Error ? cause : new Error(String(cause)));
-      failure = failures.length === 1
-        ? failures[0]!
-        : new AggregateError(
-            [...failures],
-            "Observer protocol and cleanup failures",
-            { cause: failures[0] },
-          );
+      failure =
+        failures.length === 1
+          ? failures[0]!
+          : new AggregateError(
+              [...failures],
+              "Observer protocol and cleanup failures",
+              { cause: failures[0] },
+            );
       failureCauses.add(failure);
     }
     if (!first) return;
@@ -344,10 +345,12 @@ async function openSession(
   const exited = new Promise<void>((resolve) =>
     child.once("close", (code, signal) => {
       if (code !== 0 || signal !== null)
-        fail(new Error(
-          "Observer original close failed: " +
-            JSON.stringify({ code, signal, stderr, buffer }),
-        ));
+        fail(
+          new Error(
+            "Observer original close failed: " +
+              JSON.stringify({ code, signal, stderr, buffer }),
+          ),
+        );
       else if (!failure && (!closedReceived || buffer.length || pending.size))
         fail(
           new Error(
@@ -364,11 +367,15 @@ async function openSession(
   child.stdout.on("error", fail);
   child.stdout.once("end", () => {
     if (!failure && (!closedReceived || buffer.length || pending.size))
-      fail(new Error("Observer output ended before certified close: " + buffer));
+      fail(
+        new Error("Observer output ended before certified close: " + buffer),
+      );
   });
   child.stdout.once("close", () => {
     if (!failure && (!closedReceived || buffer.length || pending.size))
-      fail(new Error("Observer output closed before certified close: " + buffer));
+      fail(
+        new Error("Observer output closed before certified close: " + buffer),
+      );
   });
   child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
     if (failure) return;
@@ -409,7 +416,9 @@ async function openSession(
               ? "waited"
               : "closed";
         if (frame.event !== expected)
-          throw new Error("Observer response does not match request: " + request.op);
+          throw new Error(
+            "Observer response does not match request: " + request.op,
+          );
         pending.delete(frame.id);
         if (request.op === "close") closedReceived = true;
         request.resolve(frame);
@@ -428,7 +437,8 @@ async function openSession(
       pending.set(id, { resolve, reject, op });
       try {
         child.stdin.write(
-          JSON.stringify({ version: 1, sessionNonce, id, op, ...values }) + "\n",
+          JSON.stringify({ version: 1, sessionNonce, id, op, ...values }) +
+            "\n",
           (error) => {
             if (error) fail(error);
           },

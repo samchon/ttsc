@@ -7,7 +7,8 @@ import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
  * remain anchored at the named config; physical identity only cuts branch
  * cycles. Independent aliases can therefore resolve different relative bases.
  * Missing or malformed configs remain best-effort absence; the compiler owns
- * configuration diagnostics. Unresolved file candidates remain observed inputs.
+ * configuration diagnostics. Unresolved file candidates remain observed
+ * inputs.
  *
  * A supplied transaction shares source, identity and edge observations across
  * keys. A decoded-source map remains supported for callers that own that map;

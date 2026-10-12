@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { E2ETrace } from "../../internal/E2ETrace";
+import { TtsxNodeOptions } from "../../internal/TtsxNodeOptions";
 import { TtsxEntryOptions } from "./TtsxEntryOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { parseTtsxCLI } from "./parseTtsxCLI";
@@ -243,9 +244,13 @@ async function runJavaScriptEntry(
   ];
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    NODE_OPTIONS: appendNodeOption(
-      process.env.NODE_OPTIONS,
-      `--require ${JSON.stringify(path.join(__dirname, "..", "..", "register.js"))}`,
+    // ttsc's own helpers run with what the user passed (#1740).
+    ...TtsxNodeOptions.give(
+      process.env,
+      appendNodeOption(
+        process.env.NODE_OPTIONS,
+        `--require ${JSON.stringify(path.join(__dirname, "..", "..", "register.js"))}`,
+      ),
     ),
     ...(parsed.binary !== undefined
       ? { TTSC_TSGO_BINARY: path.resolve(cwd, parsed.binary) }
@@ -324,12 +329,16 @@ async function runPreparedEntry(
     ];
     const runtimeEnv: NodeJS.ProcessEnv = {
       ...process.env,
-      NODE_OPTIONS: appendNodeOption(
-        prependNodeOption(
-          process.env.NODE_OPTIONS,
-          `--require ${JSON.stringify(path.join(__dirname, "runtimeOwnerPreload.js"))}`,
+      // ttsc's own helpers run with what the user passed (#1740).
+      ...TtsxNodeOptions.give(
+        process.env,
+        appendNodeOption(
+          prependNodeOption(
+            process.env.NODE_OPTIONS,
+            `--require ${JSON.stringify(path.join(__dirname, "runtimeOwnerPreload.js"))}`,
+          ),
+          `--require ${JSON.stringify(path.join(__dirname, "runtimeHookPreload.js"))}`,
         ),
-        `--require ${JSON.stringify(path.join(__dirname, "runtimeHookPreload.js"))}`,
       ),
       // The compiler this run resolved, which already honours an inherited
       // `TTSC_TSGO_BINARY` when no `--binary` was given.

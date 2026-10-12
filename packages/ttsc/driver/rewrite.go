@@ -452,7 +452,7 @@ func collectEmittedRewriteCalls(file *ast.SourceFile) []emittedRewriteCall {
       if call.QuestionDotToken == nil {
         if path := rewriteCallPath(call.Expression); path != "" {
           calls = append(calls, emittedRewriteCall{
-            start: shimscanner.GetTokenPosOfNode(node, file, false),
+            start:     shimscanner.GetTokenPosOfNode(node, file, false),
             calleeEnd: call.Expression.End(), end: node.End(), path: path,
           })
         }

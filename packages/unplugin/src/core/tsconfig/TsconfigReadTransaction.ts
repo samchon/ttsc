@@ -7,14 +7,16 @@ import { resolveExtendsConfig } from "./resolveExtendsConfig";
 import { resolveRealPath } from "./resolveRealPath";
 
 /**
- * Share config observations and contextual selections within one synchronous read.
+ * Share config observations and contextual selections within one synchronous
+ * read.
  *
  * Lexical paths own parsing and relative extends resolution. Physical paths
  * only guard ancestry cycles. A completed selection can be borrowed when the
  * current ancestors intersect its encountered physical identities exactly as
  * they did originally; otherwise a different cycle cut requires evaluation.
  * Ordered source observations travel with a completed selection, including
- * unresolved file candidates, so reuse preserves the caller's invalidation inputs.
+ * unresolved file candidates, so reuse preserves the caller's invalidation
+ * inputs.
  *
  * Create a new transaction for each independent freshness observation. This
  * owner neither validates reuse across reads nor supplies compiler diagnostics.
@@ -94,12 +96,13 @@ export class TsconfigReadTransaction {
   /**
    * Select one declaration, preserving its lexical directory and observations.
    *
-   * An undefined own selection inherits. Null masks inheritance without supplying
-   * a value, as an invalid own file list does; a parent ignores that empty result.
-   * First queries search later bases first; last queries visit all bases forward.
-   * The caller's physical ancestor set is copied once and never mutated.
-   * Selectors must preserve the parsed inputs and give the same declaration for
-   * the same source; query reuse does not repeat their incidental effects.
+   * An undefined own selection inherits. Null masks inheritance without
+   * supplying a value, as an invalid own file list does; a parent ignores that
+   * empty result. First queries search later bases first; last queries visit
+   * all bases forward. The caller's physical ancestor set is copied once and
+   * never mutated. Selectors must preserve the parsed inputs and give the same
+   * declaration for the same source; query reuse does not repeat their
+   * incidental effects.
    *
    * @evidence contracts/common.md#principled-implementation A completed answer is reusable only when its encountered physical identities have the same intersection with current ancestry. That preserves every observed cycle decision, including cuts; own declarations and first/last traversal retain lexical origins and key-specific precedence.
    * @evidence contracts/common.md#clear-and-simple-design A query-local visitor owns selection and contextual completed answers; transaction nodes separately share lexical source, identity and edge observations across keys.

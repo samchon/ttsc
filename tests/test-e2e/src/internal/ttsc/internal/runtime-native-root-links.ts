@@ -53,8 +53,9 @@ export function prepareCanonicalLinkedRuntimeIndex(root: string): string {
 }
 
 /**
- * Read the actual writer snapshot after the caller has joined its selected work.
- * A still-live parent may append later; no selected invocation is synthesized.
+ * Read the actual writer snapshot after the caller has joined its selected
+ * work. A still-live parent may append later; no selected invocation is
+ * synthesized.
  *
  * @evidence contracts/common.md#principled-implementation Native file identity, complete JSONL frames, writer PID/nonce and increasing sequence bind the snapshot without a PID liveness probe.
  * @evidence contracts/common.md#clear-and-simple-design One reader serves the active entry and retained donor; callers own the actual selected invocation and process joins.
@@ -65,21 +66,30 @@ export function prepareCanonicalLinkedRuntimeIndex(root: string): string {
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Every call reads current selected writer bytes; an earlier snapshot cannot certify another invocation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous reads close their handles; retained trace root and writer joins remain caller-owned.
  */
-export function readRuntimeTraceWriter(root: string, pid: number): Record<string, any>[] {
+export function readRuntimeTraceWriter(
+  root: string,
+  pid: number,
+): Record<string, any>[] {
   assert.ok(path.isAbsolute(root));
   const records: Record<string, any>[] = [];
   for (const name of fs.readdirSync(root!)) {
-    if (!name.startsWith(pid + "-") || !/^[0-9]+-[a-f0-9-]+\.jsonl$/.test(name)) continue;
+    if (!name.startsWith(pid + "-") || !/^[0-9]+-[a-f0-9-]+\.jsonl$/.test(name))
+      continue;
     const file = path.join(root!, name);
     const before = fs.lstatSync(file, { bigint: true });
     assert.ok(before.isFile() && before.size <= BigInt(256 * 1024 * 1024));
     const text = fs.readFileSync(file, "utf8");
     const after = fs.lstatSync(file, { bigint: true });
     assert.ok(after.isFile());
-    assert.deepEqual([after.dev, after.ino, after.size, after.mtimeNs, after.ctimeNs],
-      [before.dev, before.ino, before.size, before.mtimeNs, before.ctimeNs]);
+    assert.deepEqual(
+      [after.dev, after.ino, after.size, after.mtimeNs, after.ctimeNs],
+      [before.dev, before.ino, before.size, before.mtimeNs, before.ctimeNs],
+    );
     assert.equal(Buffer.byteLength(text), Number(before.size));
-    assert.ok(text.endsWith("\n"), "the selected writer snapshot must contain complete JSONL frames");
+    assert.ok(
+      text.endsWith("\n"),
+      "the selected writer snapshot must contain complete JSONL frames",
+    );
     let sequence = 0;
     for (const line of text.trimEnd().split(/\r?\n/)) {
       const row = JSON.parse(line);
@@ -96,17 +106,18 @@ export function readRuntimeTraceWriter(root: string, pid: number): Record<string
 }
 
 /**
- * Checks one real completed CLI's normal cleanup from its raw owner probes.
- * The caller owns original launcher completion and a pre-call cache population.
- * Its actual child start and every selected-source preparation identify one new run.
- * Every capture must agree on statements, map and authored source; protection
- * additionally preserves the native emitted artifact for comparison.
- * Earlier generations may be swept on admission and never supply this run's proof.
- * Load hooks may prepare an entry more than once before its one evaluation.
- * Each captured source is checked; inline map encoding and physical source
- * coordinates may differ while statements and normalized map content agree.
- * Maps need not embed source content. Supplied content must match the authored
- * source; its absence does not replace physical source and byte verification.
+ * Checks one real completed CLI's normal cleanup from its raw owner probes. The
+ * caller owns original launcher completion and a pre-call cache population. Its
+ * actual child start and every selected-source preparation identify one new
+ * run. Every capture must agree on statements, map and authored source;
+ * protection additionally preserves the native emitted artifact for comparison.
+ * Earlier generations may be swept on admission and never supply this run's
+ * proof. Load hooks may prepare an entry more than once before its one
+ * evaluation. Each captured source is checked; inline map encoding and physical
+ * source coordinates may differ while statements and normalized map content
+ * agree. Maps need not embed source content. Supplied content must match the
+ * authored source; its absence does not replace physical source and byte
+ * verification.
  *
  * @evidence contracts/common.md#principled-implementation Actual launcher/program/source attribution and the same cleanup invocation bind one new generation before the shared raw-observation policy table determines deletion or protection.
  * @evidence contracts/common.md#clear-and-simple-design One operation joins writer reading, generation attribution and retained source proof for both callers; each caller keeps its own synchronous or asynchronous launcher completion authority.
@@ -118,8 +129,15 @@ export function readRuntimeTraceWriter(root: string, pid: number): Record<string
  * @evidence contracts/performance.md#bound-retention-and-release-resources Reads close before return; caller-owned trace, runtime index, source inputs and original process lifetimes remain retained on uncertainty.
  */
 export function verifyRuntimeCleanup(expected: {
-  traceRoot: string; launcher: number; owner?: number; argv: string[]; cwd: string;
-  cache: string; entry: string; source: Buffer; before: string[];
+  traceRoot: string;
+  launcher: number;
+  owner?: number;
+  argv: string[];
+  cwd: string;
+  cache: string;
+  entry: string;
+  source: Buffer;
+  before: string[];
   synchronous?: { writer: number; before: string[] };
   /** The launch's own start and close, as the parent recorded them. */
   lifetime?: { start: string; close: string };
@@ -141,10 +159,21 @@ export function verifyRuntimeCleanup(expected: {
     return rows.filter((row) => instances.has(row.instance));
   };
   if (expected.synchronous) {
-    const parent = readRuntimeTraceWriter(expected.traceRoot, expected.synchronous.writer);
-    const results = parent.filter((row) => row.event === "process-result" && row.pid === expected.launcher &&
-      !expected.synchronous!.before.includes(row.invocation));
-    assert.equal(results.length, 1, "the original synchronous launcher must have one new result");
+    const parent = readRuntimeTraceWriter(
+      expected.traceRoot,
+      expected.synchronous.writer,
+    );
+    const results = parent.filter(
+      (row) =>
+        row.event === "process-result" &&
+        row.pid === expected.launcher &&
+        !expected.synchronous!.before.includes(row.invocation),
+    );
+    assert.equal(
+      results.length,
+      1,
+      "the original synchronous launcher must have one new result",
+    );
     const result = results[0]!;
     assert.deepEqual(result.argv, expected.argv);
     assert.equal(result.cwd, expected.cwd);
@@ -153,8 +182,12 @@ export function verifyRuntimeCleanup(expected: {
     assert.equal(result.status, 0);
     assert.equal(result.signal, null);
     assert.equal(result.error, undefined);
-    const attempts = parent.filter((row) => row.event === "process-attempt" &&
-      row.instance === result.instance && row.invocation === result.invocation);
+    const attempts = parent.filter(
+      (row) =>
+        row.event === "process-attempt" &&
+        row.instance === result.instance &&
+        row.invocation === result.invocation,
+    );
     assert.equal(attempts.length, 1);
     assert.deepEqual(attempts[0]!.argv, result.argv);
     assert.equal(attempts[0]!.cwd, result.cwd);
@@ -162,14 +195,25 @@ export function verifyRuntimeCleanup(expected: {
     lifetime ??= { start: attempts[0]!.at, close: result.at };
   }
   const rows = ownRows(expected.launcher);
-  const children = rows.filter((row) => row.event === "process-start" && row.data?.origin === "ttsx-runtime");
-  assert.equal(children.length, 1, "the CLI must admit one actual main program");
+  const children = rows.filter(
+    (row) =>
+      row.event === "process-start" && row.data?.origin === "ttsx-runtime",
+  );
+  assert.equal(
+    children.length,
+    1,
+    "the CLI must admit one actual main program",
+  );
   const child = children[0]!;
   const owner = child.pid;
   assert.ok(Number.isSafeInteger(owner) && owner > 0);
   if (expected.owner !== undefined) assert.equal(owner, expected.owner);
-  const closed = rows.filter((row) => row.event === "process-close" &&
-    row.instance === child.instance && row.invocation === child.invocation);
+  const closed = rows.filter(
+    (row) =>
+      row.event === "process-close" &&
+      row.instance === child.instance &&
+      row.invocation === child.invocation,
+  );
   assert.equal(closed.length, 1);
   assert.equal(closed[0]!.pid, owner);
   assert.equal(closed[0]!.data.status, 0);
@@ -181,7 +225,8 @@ export function verifyRuntimeCleanup(expected: {
       .filter((filename) => filename !== undefined)
       .some((filename) => {
         const resolved = path.resolve(filename);
-        if (resolved === path.resolve(expected.entry) || resolved === entry) return true;
+        if (resolved === path.resolve(expected.entry) || resolved === entry)
+          return true;
         try {
           return fs.realpathSync.native(resolved) === entry;
         } catch (error) {
@@ -191,35 +236,84 @@ export function verifyRuntimeCleanup(expected: {
         }
       });
   });
-  assert.ok(preparations.length > 0, "the original program must consume the selected source");
+  assert.ok(
+    preparations.length > 0,
+    "the original program must consume the selected source",
+  );
   const emittedFile = preparations[0]!.data.emitAttribution?.emittedFile;
   assert.equal(typeof emittedFile, "string");
   const project = fs.realpathSync.native(path.join(expected.cache, "project"));
   const relative = path.relative(project, emittedFile);
-  assert.ok(relative && !path.isAbsolute(relative) && relative.split(path.sep)[0] !== "..");
+  assert.ok(
+    relative &&
+      !path.isAbsolute(relative) &&
+      relative.split(path.sep)[0] !== "..",
+  );
   const directory = path.join(project, relative.split(path.sep)[0]!);
-  assert.equal(expected.before.includes(path.basename(directory)), false, "this program must own a newly admitted run");
+  assert.equal(
+    expected.before.includes(path.basename(directory)),
+    false,
+    "this program must own a newly admitted run",
+  );
   const representations = preparations.map((prepared) => {
     assert.equal(prepared.pid, owner);
     assert.equal(fs.realpathSync.native(prepared.data.filename), entry);
     assert.equal(fs.realpathSync.native(prepared.argv[1]), entry);
     const entryArgument = child.argv.length - prepared.argv.length + 1;
     assert.ok(entryArgument > 0);
-    assert.deepEqual(prepared.argv, [child.argv[0], ...child.argv.slice(entryArgument)]);
-    assert.equal(fs.realpathSync.native(prepared.cwd), fs.realpathSync.native(child.cwd));
-    assert.ok(["ttsx-esm-source-load", "ttsx-commonjs-source-load", "ttsx-commonjs-source-import"].includes(prepared.data.origin));
-    assert.equal(prepared.data.selectedFormat, prepared.data.origin === "ttsx-esm-source-load" ? "module" : "commonjs");
-    assert.equal(prepared.data.emitAttribution.emittedFile, emittedFile, "every preparation must name this run's same emitted source");
-    assert.equal(fs.realpathSync.native(prepared.data.emitAttribution.sourceFile), entry);
-    assert.deepEqual(prepared.data.emitAttribution.moduleOptions, preparations[0]!.data.emitAttribution.moduleOptions);
+    assert.deepEqual(prepared.argv, [
+      child.argv[0],
+      ...child.argv.slice(entryArgument),
+    ]);
+    assert.equal(
+      fs.realpathSync.native(prepared.cwd),
+      fs.realpathSync.native(child.cwd),
+    );
+    assert.ok(
+      [
+        "ttsx-esm-source-load",
+        "ttsx-commonjs-source-load",
+        "ttsx-commonjs-source-import",
+      ].includes(prepared.data.origin),
+    );
+    assert.equal(
+      prepared.data.selectedFormat,
+      prepared.data.origin === "ttsx-esm-source-load" ? "module" : "commonjs",
+    );
+    assert.equal(
+      prepared.data.emitAttribution.emittedFile,
+      emittedFile,
+      "every preparation must name this run's same emitted source",
+    );
+    assert.equal(
+      fs.realpathSync.native(prepared.data.emitAttribution.sourceFile),
+      entry,
+    );
+    assert.deepEqual(
+      prepared.data.emitAttribution.moduleOptions,
+      preparations[0]!.data.emitAttribution.moduleOptions,
+    );
     assert.equal(prepared.data.sourceEncoding, "utf16le");
     assert.equal(prepared.data.representation, "consumed-javascript-string");
-    assert.ok(Number.isSafeInteger(prepared.data.sourceCodeUnits) && prepared.data.sourceCodeUnits >= 0);
-    const bytes = readE2eTracePayload(expected.traceRoot, prepared as {
-      writerPid: number; instance: string; invocation: string;
-    }, prepared.data.source).bytes;
+    assert.ok(
+      Number.isSafeInteger(prepared.data.sourceCodeUnits) &&
+        prepared.data.sourceCodeUnits >= 0,
+    );
+    const bytes = readE2eTracePayload(
+      expected.traceRoot,
+      prepared as {
+        writerPid: number;
+        instance: string;
+        invocation: string;
+      },
+      prepared.data.source,
+    ).bytes;
     assert.equal(bytes.length, prepared.data.sourceCodeUnits * 2);
-    const consumed = runtimeSourceRepresentation(bytes.toString("utf16le"), emittedFile, directory);
+    const consumed = runtimeSourceRepresentation(
+      bytes.toString("utf16le"),
+      emittedFile,
+      directory,
+    );
     const index = (consumed.map.sources as string[]).indexOf(entry);
     assert.notEqual(index, -1);
     const content = consumed.map.sourcesContent?.[index];
@@ -228,51 +322,99 @@ export function verifyRuntimeCleanup(expected: {
     return consumed;
   });
   for (const representation of representations)
-    assert.deepEqual(representation, representations[0], "every preparation must preserve this immutable emit's statements and map");
+    assert.deepEqual(
+      representation,
+      representations[0],
+      "every preparation must preserve this immutable emit's statements and map",
+    );
   const cleanupRows = rows.filter((row) => row.event === "runtime-cleanup");
-  assert.ok(cleanupRows.length > 0 && closed[0]!.sequence < cleanupRows[0]!.sequence);
+  assert.ok(
+    cleanupRows.length > 0 && closed[0]!.sequence < cleanupRows[0]!.sequence,
+  );
   const cache = cleanupRows[0]!.data.runtimeCacheDir;
-  assert.equal(fs.realpathSync.native(cache), fs.realpathSync.native(expected.cache));
-  const ownerNames = fs.existsSync(directory) ? fs.readdirSync(directory).filter((name) =>
-    name.startsWith("owner-") && name.endsWith(".json")) : undefined;
+  assert.equal(
+    fs.realpathSync.native(cache),
+    fs.realpathSync.native(expected.cache),
+  );
+  const ownerNames = fs.existsSync(directory)
+    ? fs
+        .readdirSync(directory)
+        .filter((name) => name.startsWith("owner-") && name.endsWith(".json"))
+    : undefined;
   if (ownerNames) {
     const ownerFile = path.join(directory, `owner-${owner}.json`);
     assert.ok(fs.lstatSync(ownerFile).isFile());
-    assert.deepEqual(JSON.parse(fs.readFileSync(ownerFile, "utf8")), { hostname: os.hostname(), pid: owner });
+    assert.deepEqual(JSON.parse(fs.readFileSync(ownerFile, "utf8")), {
+      hostname: os.hostname(),
+      pid: owner,
+    });
   }
   const retained = assertRuntimeCleanupEligibility(cleanupRows, {
-    ...expected, cache, owner, hostname: os.hostname(), directory, ownerNames,
+    ...expected,
+    cache,
+    owner,
+    hostname: os.hostname(),
+    directory,
+    ownerNames,
   });
   const after = fs.readdirSync(project);
-  assert.deepEqual(after.filter((name) => !expected.before.includes(name)), retained ? [path.basename(directory)] : []);
+  assert.deepEqual(
+    after.filter((name) => !expected.before.includes(name)),
+    retained ? [path.basename(directory)] : [],
+  );
   if (retained) {
-    const emitted = runtimeSourceRepresentation(fs.readFileSync(emittedFile, "utf8"), emittedFile, directory);
+    const emitted = runtimeSourceRepresentation(
+      fs.readFileSync(emittedFile, "utf8"),
+      emittedFile,
+      directory,
+    );
     for (const consumed of representations)
-      assert.deepEqual(emitted, consumed, "protection preserves native statements and map apart from runtime coordinate rebasing");
+      assert.deepEqual(
+        emitted,
+        consumed,
+        "protection preserves native statements and map apart from runtime coordinate rebasing",
+      );
   }
   assert.deepEqual(fs.readFileSync(expected.entry), expected.source);
 }
 
 /** Compare actual statements and map content, not the map comment's encoding. */
-function runtimeSourceRepresentation(javascript: string, emittedFile: string, directory: string): {
-  statements: string; map: Record<string, any>;
+function runtimeSourceRepresentation(
+  javascript: string,
+  emittedFile: string,
+  directory: string,
+): {
+  statements: string;
+  map: Record<string, any>;
 } {
-  const reference = /\/\/[#@] sourceMappingURL=([^\r\n]*)[ \t\r\n]*$/.exec(javascript);
+  const reference = /\/\/[#@] sourceMappingURL=([^\r\n]*)[ \t\r\n]*$/.exec(
+    javascript,
+  );
   assert.ok(reference, "the selected runtime source must carry its native map");
   const url = reference[1]!.trim();
   let json: string;
   if (url.startsWith("data:")) {
     const comma = url.indexOf(",");
-    assert.ok(comma > 0 && url.slice(0, comma).split(";")[0] === "data:application/json");
+    assert.ok(
+      comma > 0 &&
+        url.slice(0, comma).split(";")[0] === "data:application/json",
+    );
     const encoded = url.slice(comma + 1);
     if (url.slice(0, comma).split(";").includes("base64")) {
       assert.ok(/^[A-Za-z0-9+/]*={0,2}$/.test(encoded));
       json = Buffer.from(encoded, "base64").toString("utf8");
     } else json = decodeURIComponent(encoded);
   } else {
-    const mapFile = path.resolve(path.dirname(emittedFile), decodeURIComponent(url));
+    const mapFile = path.resolve(
+      path.dirname(emittedFile),
+      decodeURIComponent(url),
+    );
     const relativeMap = path.relative(directory, mapFile);
-    assert.ok(relativeMap && !path.isAbsolute(relativeMap) && relativeMap.split(path.sep)[0] !== "..");
+    assert.ok(
+      relativeMap &&
+        !path.isAbsolute(relativeMap) &&
+        relativeMap.split(path.sep)[0] !== "..",
+    );
     assert.ok(fs.lstatSync(mapFile).isFile());
     json = fs.readFileSync(mapFile, "utf8");
   }
@@ -281,13 +423,23 @@ function runtimeSourceRepresentation(javascript: string, emittedFile: string, di
   assert.ok(Array.isArray(map.sources));
   if (map.sourcesContent !== undefined) {
     assert.ok(Array.isArray(map.sourcesContent));
-    assert.ok(map.sourcesContent.every((content: unknown) =>
-      content === null || typeof content === "string"));
+    assert.ok(
+      map.sourcesContent.every(
+        (content: unknown) => content === null || typeof content === "string",
+      ),
+    );
   }
-  const sourceRoot = typeof map.sourceRoot === "string" && map.sourceRoot.startsWith("file:")
-    ? fileURLToPath(map.sourceRoot) : map.sourceRoot ?? "";
-  map.sources = map.sources.map((file: string) => fs.realpathSync.native(
-    file.startsWith("file:") ? fileURLToPath(file) : path.resolve(path.dirname(emittedFile), sourceRoot, file)));
+  const sourceRoot =
+    typeof map.sourceRoot === "string" && map.sourceRoot.startsWith("file:")
+      ? fileURLToPath(map.sourceRoot)
+      : (map.sourceRoot ?? "");
+  map.sources = map.sources.map((file: string) =>
+    fs.realpathSync.native(
+      file.startsWith("file:")
+        ? fileURLToPath(file)
+        : path.resolve(path.dirname(emittedFile), sourceRoot, file),
+    ),
+  );
   delete map.sourceRoot;
   return { statements: javascript.slice(0, reference.index), map };
 }

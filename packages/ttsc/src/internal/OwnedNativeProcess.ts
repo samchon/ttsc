@@ -42,8 +42,8 @@ export namespace OwnedNativeProcess {
    *
    * Enabled private tracing may receive a frozen scalar copy of an accepted
    * receipt through the existing retirement observer. The original helper has
-   * closed before that copy is made. It contains no command or environment
-   * data and cannot grant closure authority. Trace IO can change scheduling.
+   * closed before that copy is made. It contains no command or environment data
+   * and cannot grant closure authority. Trace IO can change scheduling.
    *
    * @evidence contracts/common.md#principled-implementation A private request carries exact command/options and a structurally checked native receipt is required after helper close; cancellation returns only after joined and empty-boundary proof.
    * @evidence contracts/common.md#clear-and-simple-design Control stdin is separate from target input, target output streams remain unchanged, and one finally owns listeners and private protocol storage.

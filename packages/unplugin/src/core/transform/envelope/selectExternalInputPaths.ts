@@ -10,6 +10,7 @@ import { isProjectWalkPath } from "../project/isProjectWalkPath";
 import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 import { envelopeDerivation } from "./envelopeDerivation";
 import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
+import { generationCaseSensitivity } from "./generationCaseSensitivity";
 
 /**
  * Derive the absolute out-of-walk input set of a whole project transform: the
@@ -63,7 +64,10 @@ export function selectExternalInputPaths(props: {
   }
   const members: string[] = [];
   const filesystem = props.filesystem ?? DEFAULT_FILESYSTEM_OPERATIONS;
-  const identities = createHostPathIdentityContext(filesystem);
+  const identities = createHostPathIdentityContext(
+    filesystem,
+    generationCaseSensitivity({ ...props, filesystem }),
+  );
   const resolutionCandidates = new Set<string>();
   const graph = props.result.graph;
   const graphState = envelopeDerivation({

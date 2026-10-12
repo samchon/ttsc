@@ -48,33 +48,49 @@ export async function test_sourcenativeretirement_pending_waiter_reuses_binary_a
     if (!failures.includes(error)) failures.push(error);
   };
   let child: ReturnType<typeof spawn>;
-  try { child = spawn(
-    process.execPath,
-    [
-      "-e",
-      "const fs=require('node:fs');const [input,ready]=process.argv.slice(1);fs.readFileSync(input);fs.writeFileSync(ready,'ready');process.send({event:'ready',file:ready,pid:process.pid});setInterval(()=>fs.readFileSync(input),5);",
-      input,
-      ready,
-    ],
-    { stdio: ["ignore", "ignore", "ignore", "ipc"], windowsHide: true },
-  ); } catch (error) {
-    TestProject.retainTemporaryDirectory(root, "Reader admission did not return its original handle");
+  try {
+    child = spawn(
+      process.execPath,
+      [
+        "-e",
+        "const fs=require('node:fs');const [input,ready]=process.argv.slice(1);fs.readFileSync(input);fs.writeFileSync(ready,'ready');process.send({event:'ready',file:ready,pid:process.pid});setInterval(()=>fs.readFileSync(input),5);",
+        input,
+        ready,
+      ],
+      { stdio: ["ignore", "ignore", "ignore", "ipc"], windowsHide: true },
+    );
+  } catch (error) {
+    TestProject.retainTemporaryDirectory(
+      root,
+      "Reader admission did not return its original handle",
+    );
     throw error;
   }
   const readerReady = new Promise<void>((resolve, reject) => {
     child.once("message", (value) => {
       try {
-        assert.deepEqual(value, { event: "ready", file: ready, pid: child.pid });
+        assert.deepEqual(value, {
+          event: "ready",
+          file: ready,
+          pid: child.pid,
+        });
         resolve();
-      } catch (error) { reject(error); }
+      } catch (error) {
+        reject(error);
+      }
     });
     child.once("error", reject);
-    child.once("close", () => reject(new Error("reader closed before readiness")));
+    child.once("close", () =>
+      reject(new Error("reader closed before readiness")),
+    );
   });
   let childJoined = false;
   child.on("error", record);
   const childClosed = new Promise<void>((resolve) => {
-    child.once("close", () => { childJoined = true; resolve(); });
+    child.once("close", () => {
+      childJoined = true;
+      resolve();
+    });
   });
   let worker: Worker | undefined;
   let workerExit: Promise<number> | undefined;
@@ -105,8 +121,12 @@ export async function test_sourcenativeretirement_pending_waiter_reuses_binary_a
         eval: true,
         workerData: {
           returned,
-          condition: pathToFileURL(path.resolve(import.meta.dirname,
-            "../../../../utils/src/internal/waitFor.ts")).href,
+          condition: pathToFileURL(
+            path.resolve(
+              import.meta.dirname,
+              "../../../../utils/src/internal/waitFor.ts",
+            ),
+          ).href,
           opts: {
             binaryPath,
             lockDir,
@@ -158,20 +178,44 @@ export async function test_sourcenativeretirement_pending_waiter_reuses_binary_a
     const answer = new Promise<unknown>((resolve, reject) => {
       worker!.once("message", resolve);
       worker!.once("error", reject);
-      worker!.once("exit", () => reject(new Error("waiter exited before its answer")));
+      worker!.once("exit", () =>
+        reject(new Error("waiter exited before its answer")),
+      );
     });
-    worker.once("error", (error) => { workerFailure = { error }; record(error); });
+    worker.once("error", (error) => {
+      workerFailure = { error };
+      record(error);
+    });
     void answer.catch(() => undefined);
-    await waitFor(() => {
-      const observers = path.join(protocol, "current",
-        PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OBSERVERS_DIR);
-      return fs.existsSync(observers) && fs.readdirSync(observers).length !== 0;
-    }, "actual waiter fence", { check: () => {
-      if (workerFailure !== undefined) throw workerFailure.error;
-      assert.equal(workerEnded, false, "waiter closed before fence publication");
-    } });
+    await waitFor(
+      () => {
+        const observers = path.join(
+          protocol,
+          "current",
+          PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OBSERVERS_DIR,
+        );
+        return (
+          fs.existsSync(observers) && fs.readdirSync(observers).length !== 0
+        );
+      },
+      "actual waiter fence",
+      {
+        check: () => {
+          if (workerFailure !== undefined) throw workerFailure.error;
+          assert.equal(
+            workerEnded,
+            false,
+            "waiter closed before fence publication",
+          );
+        },
+      },
+    );
     assert.equal(Atomics.load(new Int32Array(returned), 0), 0);
-    assert.equal(childJoined, false, "reader closed before pending observation");
+    assert.equal(
+      childJoined,
+      false,
+      "reader closed before pending observation",
+    );
     assert.equal(fs.readFileSync(input, "utf8"), "original reader input");
     assert.equal(child.kill(), true);
     await childClosed;
@@ -195,23 +239,42 @@ export async function test_sourcenativeretirement_pending_waiter_reuses_binary_a
     record(error);
   } finally {
     if (worker !== undefined && !workerJoined) {
-      try { await worker.terminate(); } catch (error) { record(error); }
+      try {
+        await worker.terminate();
+      } catch (error) {
+        record(error);
+      }
       await workerExit;
     }
     if (!childJoined) {
-      try { child.kill(); } catch (error) { record(error); }
+      try {
+        child.kill();
+      } catch (error) {
+        record(error);
+      }
       await childClosed;
     }
     if (childJoined) {
-      try { release(); } catch (error) { record(error); }
+      try {
+        release();
+      } catch (error) {
+        record(error);
+      }
     }
-    if (!childJoined || !releaseCompleted || fs.existsSync(path.join(protocol, "current")) ||
-        SourceNativeRetirement.isProtected(protocol))
+    if (
+      !childJoined ||
+      !releaseCompleted ||
+      fs.existsSync(path.join(protocol, "current")) ||
+      SourceNativeRetirement.isProtected(protocol)
+    )
       TestProject.retainTemporaryDirectory(
         root,
         "Original pending native reader closure was not confirmed",
       );
   }
   if (failures.length !== 0)
-    throw new AggregateError(failures, "Pending waiter ownership assertions failed");
+    throw new AggregateError(
+      failures,
+      "Pending waiter ownership assertions failed",
+    );
 }

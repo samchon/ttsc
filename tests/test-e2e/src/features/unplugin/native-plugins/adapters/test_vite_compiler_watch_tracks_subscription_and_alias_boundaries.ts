@@ -4,12 +4,12 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-import { captureWatchInputBaseline } from "../../../../../../../packages/unplugin/lib/core/transform/watch/captureWatchInputBaseline.js";
 import { WATCH_BROKER } from "../../../../../../../packages/unplugin/lib/core/transform/tracker/broker/WATCH_BROKER.js";
+import { captureWatchInputBaseline } from "../../../../../../../packages/unplugin/lib/core/transform/watch/captureWatchInputBaseline.js";
 import { createViteServeInputWatch } from "../../../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
 import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
-import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { waitFor } from "../../../../../../utils/src/internal/waitFor";
+import { FixtureFiles } from "../../../../internal/FixtureFiles";
 
 /**
  * Verifies the Vite serve watcher observes subscription races, lexical aliases,
@@ -271,9 +271,7 @@ export async function test_vite_compiler_watch_tracks_subscription_and_alias_bou
     };
     const register = (): void => {
       current.replace(owner, [{ file: input, evidence: evidence(input) }]);
-      current.replace(retained, [
-        { file: stable, evidence: evidence(stable) },
-      ]);
+      current.replace(retained, [{ file: stable, evidence: evidence(stable) }]);
     };
     const ready = async (): Promise<void> => {
       if (process.platform === "win32" || process.platform === "darwin")
@@ -363,12 +361,17 @@ export async function test_vite_compiler_watch_tracks_subscription_and_alias_bou
       try {
         await current.dispose();
       } catch (error) {
-        prepared?.retain("project root Vite observer disposal was not acknowledged");
+        prepared?.retain(
+          "project root Vite observer disposal was not acknowledged",
+        );
         lifecycleFailures.push(error);
       }
     }
     if (lifecycleFailures.length !== 0)
-      throw new AggregateError(lifecycleFailures, "project root observation and original disposal");
+      throw new AggregateError(
+        lifecycleFailures,
+        "project root observation and original disposal",
+      );
   } catch (error) {
     failures.push(
       new Error("project root native notification lifecycle", { cause: error }),

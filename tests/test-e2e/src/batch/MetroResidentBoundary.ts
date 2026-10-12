@@ -586,10 +586,7 @@ export namespace MetroResidentBoundary {
     assert.equal(lintStderr, worker.diagnostics());
     if (!requireMarkers) return;
     assert.match(lintStderr, /DESCRIPTOR_STDOUT_MARKER loaded/);
-    assert.equal(
-      /factory-env:ambient|absent-ambient/.test(lintStderr),
-      false,
-    );
+    assert.equal(/factory-env:ambient|absent-ambient/.test(lintStderr), false);
     for (const marker of [
       "loading executable lint config",
       "executable lint config warning",

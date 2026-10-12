@@ -85,14 +85,18 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
       },
       {
         onError: (location, error) => {
-          topologyFailure ??= new Error(`watch error on ${location}`, { cause: error });
+          topologyFailure ??= new Error(`watch error on ${location}`, {
+            cause: error,
+          });
         },
         onInputChange: (change) => changes.push(change),
         onProjectInputWatchRoots: (roots) => {
           liveRoots = [...roots];
         },
         onTopologyChange: () => {
-          topologyFailure ??= new Error("external inputs must not alter compiler membership");
+          topologyFailure ??= new Error(
+            "external inputs must not alter compiler membership",
+          );
         },
       },
     );
@@ -139,15 +143,19 @@ async function writeAndWait(
   const count = changes.length;
   fs.mkdirSync(path.dirname(location), { recursive: true });
   fs.writeFileSync(location, content, "utf8");
-  await waitFor(() => changes
-      .slice(count)
-      .some(
-        (change) =>
-          change.kind === "project" &&
-          change.path !== undefined &&
-          pathMatchesOrContains(change.path, location),
-      ),
-    `project change for ${location}`, owner);
+  await waitFor(
+    () =>
+      changes
+        .slice(count)
+        .some(
+          (change) =>
+            change.kind === "project" &&
+            change.path !== undefined &&
+            pathMatchesOrContains(change.path, location),
+        ),
+    `project change for ${location}`,
+    owner,
+  );
   owner.check();
   await delay();
   owner.check();

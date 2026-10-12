@@ -28,7 +28,11 @@ export function test_runtime_project_ownership_preserves_native_installed_bounda
     return fs.realpathSync.native(target);
   };
   const check = (label: string, action: () => void) => {
-    try { action(); } catch (error) { failures.push(new Error(label, { cause: error })); }
+    try {
+      action();
+    } catch (error) {
+      failures.push(new Error(label, { cause: error }));
+    }
   };
   const nearest = RuntimeProjectOwnership.nearestTsconfig;
   const installed = RuntimeProjectOwnership.isInstalledPackageSource;
@@ -47,17 +51,30 @@ export function test_runtime_project_ownership_preserves_native_installed_bounda
     const alias = path.join(path.dirname(store), "node_modules");
     const naturalAlias = fs.existsSync(alias);
     let createdAlias = false;
-    if (!naturalAlias) check("distinct native spelling before alias", () => {
-      assert.equal(installed(upper), false);
-      assert.equal(nearest(upper), config);
-    });
+    if (!naturalAlias)
+      check("distinct native spelling before alias", () => {
+        assert.equal(installed(upper), false);
+        assert.equal(nearest(upper), config);
+      });
     if (!naturalAlias) {
-      fs.symlinkSync(store, alias, process.platform === "win32" ? "junction" : "dir");
+      fs.symlinkSync(
+        store,
+        alias,
+        process.platform === "win32" ? "junction" : "dir",
+      );
       createdAlias = true;
     }
     check("proven physical alias", () => {
-      assert.equal(fs.realpathSync.native(alias), fs.realpathSync.native(store));
-      assert.equal(fs.realpathSync.native(createRequire(path.join(root, "app/entry.cjs")).resolve("pkg")), upper);
+      assert.equal(
+        fs.realpathSync.native(alias),
+        fs.realpathSync.native(store),
+      );
+      assert.equal(
+        fs.realpathSync.native(
+          createRequire(path.join(root, "app/entry.cjs")).resolve("pkg"),
+        ),
+        upper,
+      );
       assert.equal(installed(upper), true);
       assert.equal(nearest(upper), null);
     });
@@ -67,7 +84,9 @@ export function test_runtime_project_ownership_preserves_native_installed_bounda
     check("deleted own config", () => assert.equal(nearest(upper), null));
     const nested = write("app/NODE_MODULES/pkg/node_modules/nested/index.cts");
     write("app/NODE_MODULES/pkg/tsconfig.json", "{}");
-    check("nested installed boundary", () => assert.equal(nearest(nested), null));
+    check("nested installed boundary", () =>
+      assert.equal(nearest(nested), null),
+    );
     fs.unlinkSync(own);
     if (createdAlias) {
       assert.equal(fs.lstatSync(alias).isSymbolicLink(), true);
@@ -79,9 +98,15 @@ export function test_runtime_project_ownership_preserves_native_installed_bounda
     }
     const workspace = write("app/workspace/index.cts");
     const workspaceLink = path.join(store, "workspace");
-    fs.symlinkSync(path.dirname(workspace), workspaceLink, process.platform === "win32" ? "junction" : "dir");
+    fs.symlinkSync(
+      path.dirname(workspace),
+      workspaceLink,
+      process.platform === "win32" ? "junction" : "dir",
+    );
     check("physical workspace", () => {
-      const physical = fs.realpathSync.native(path.join(workspaceLink, "index.cts"));
+      const physical = fs.realpathSync.native(
+        path.join(workspaceLink, "index.cts"),
+      );
       assert.equal(physical, workspace);
       assert.equal(installed(physical), false);
       assert.equal(nearest(physical), config);
@@ -98,6 +123,12 @@ export function test_runtime_project_ownership_preserves_native_installed_bounda
         assert.equal(nearest(literal), config);
       });
     }
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
-  if (failures.length) throw new AggregateError(failures, "Runtime project boundary distinctions failed");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Runtime project boundary distinctions failed",
+    );
 }

@@ -80,7 +80,9 @@ export const test_watch_topology_watches_reload_symlink_targets =
       },
       {
         onError: (location, error) => {
-          topologyFailure ??= new Error(`watch error on ${location}`, { cause: error });
+          topologyFailure ??= new Error(`watch error on ${location}`, {
+            cause: error,
+          });
         },
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => undefined,
@@ -117,10 +119,14 @@ async function waitForConfigChange(
   // ledger is cleared, so a late arrival cannot satisfy the next expectation.
   await new Promise((resolve) => setTimeout(resolve, 250));
   changes.length = 0;
-  await waitFor(() => {
-    owner.check();
-    if (changes.some((change) => change.kind === "config")) return true;
-    stimulus();
-    return false;
-  }, `cold config transition after ${label}`, owner);
+  await waitFor(
+    () => {
+      owner.check();
+      if (changes.some((change) => change.kind === "config")) return true;
+      stimulus();
+      return false;
+    },
+    `cold config transition after ${label}`,
+    owner,
+  );
 }

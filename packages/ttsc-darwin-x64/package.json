@@ -1,7 +1,7 @@
 {
   "name": "@ttsc/darwin-x64",
   "version": "0.31.5",
-  "description": "macOS x64 native ttsc/ttscserver/ttscgraph binaries and bundled Go compiler for ttsc.",
+  "description": "macOS x64 native ttsc/ttscserver binaries and bundled Go compiler for ttsc.",
   "os": [
     "darwin"
   ],
@@ -28,7 +28,6 @@
     "executableFiles": [
       "./bin/ttsc",
       "./bin/ttscserver",
-      "./bin/ttscgraph",
       "./bin/go/bin/go",
       "./bin/go/bin/gofmt",
       "./bin/go/pkg/tool/darwin_amd64/asm",

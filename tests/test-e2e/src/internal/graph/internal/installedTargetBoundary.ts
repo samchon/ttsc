@@ -1,9 +1,12 @@
 import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 import { FixtureFiles } from "../../FixtureFiles";
 import { resolveGraphLauncher, resolveTtscgraphBinary } from "./ttsgraph";
+
+const require_ = createRequire(import.meta.url);
 
 let prepared: ReturnType<typeof prepare> | undefined;
 let unavailable: Error | undefined;
@@ -31,7 +34,7 @@ function prepare(coordinates?: {
       FixtureFiles.read("graph/installedTargetBoundary/inputs-1"),
     );
   // Keep the resident lifetime's original authored declaration in this same
-  // installed project; it does not conflict with the target-resolution witness.
+  // project; it does not conflict with the installation-resolution witness.
   fs.writeFileSync(
     path.join(root, "src", "resident.ts"),
     FixtureFiles.read(
@@ -46,8 +49,23 @@ function prepare(coordinates?: {
   const elsewhere =
     coordinates?.elsewhere ??
     TestProject.tmpdir("ttscgraph-uninstalled-launcher-");
+  // Two installations of the built @ttsc/graph: one beside its platform
+  // package holding a real native copy, one without that package. Neither the
+  // target projects nor the launcher's working directory hold a producer, so
+  // only the installation can supply one.
+  const installation = TestProject.tmpdir("ttscgraph-installation-");
+  const missingInstallation = TestProject.tmpdir(
+    "ttscgraph-uninstalled-graph-",
+  );
+  const installed = installGraph(installation);
+  const missing = installGraph(missingInstallation);
   const platform = `${process.platform}-${process.arch}`;
-  const platformDir = path.join(root, "node_modules", "@ttsc", platform);
+  const platformDir = path.join(
+    installation,
+    "node_modules",
+    "@ttsc",
+    `graph-${platform}`,
+  );
   const binary = path.join(
     platformDir,
     "bin",
@@ -57,25 +75,23 @@ function prepare(coordinates?: {
   fs.copyFileSync(resolveTtscgraphBinary(), binary);
   fs.writeFileSync(
     path.join(platformDir, "package.json"),
-    JSON.stringify({ name: `@ttsc/${platform}`, version: "0.0.0" }),
-  );
-  const ttscDir = path.join(root, "node_modules", "ttsc");
-  fs.mkdirSync(ttscDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(ttscDir, "package.json"),
-    '{"name":"ttsc","version":"0.0.0"}',
+    JSON.stringify({ name: `@ttsc/graph-${platform}`, version: "0.0.0" }),
   );
   if (process.platform !== "win32") fs.chmodSync(binary, 0o644);
   const beforeMode = fs.statSync(binary).mode;
+  const retainAll = (reason: string): void => {
+    if (coordinates === undefined)
+      TestProject.retainTemporaryDirectory(root, reason);
+    else coordinates.retain(reason);
+    TestProject.retainTemporaryDirectory(empty, reason);
+    TestProject.retainTemporaryDirectory(installation, reason);
+    TestProject.retainTemporaryDirectory(missingInstallation, reason);
+  };
   const dump = launch(["dump", "--cwd", root], {
     cwd: elsewhere,
     graphBinary: "",
-    retainUnjoined: (reason) => {
-      if (coordinates === undefined)
-        TestProject.retainTemporaryDirectory(root, reason);
-      else coordinates.retain(reason);
-      TestProject.retainTemporaryDirectory(empty, reason);
-    },
+    launcher: installed.launcher,
+    retainUnjoined: retainAll,
   });
   const afterMode = fs.statSync(binary).mode;
   // A failed process join withdraws reuse and exit-cleanup authority. Later
@@ -87,23 +103,68 @@ function prepare(coordinates?: {
   };
   const retainUnjoined = (reason: string): void => {
     preventReuse(reason);
-    if (coordinates === undefined)
-      TestProject.retainTemporaryDirectory(root, reason);
-    else {
-      coordinates.retain(reason);
-      TestProject.retainTemporaryDirectory(empty, reason);
-    }
+    retainAll(reason);
   };
   return {
     root,
     empty,
     elsewhere,
     binary,
+    installed,
+    missing,
     beforeMode,
     afterMode,
     dump,
     retainUnjoined,
     preventReuse,
+  };
+}
+
+/**
+ * Lay out an installed `@ttsc/graph` under `directory`: a copy of the built
+ * package and links to the dependencies it loads. The copy is a real directory,
+ * so Node module resolution for its platform package starts from the
+ * installation rather than from the checkout.
+ */
+function installGraph(directory: string): {
+  launcher: string;
+  loadGraph(options: { cwd: string; tsconfig: string }): unknown;
+} {
+  const source = path.dirname(require_.resolve("@ttsc/graph/package.json"));
+  const target = path.join(directory, "node_modules", "@ttsc", "graph");
+  fs.mkdirSync(target, { recursive: true });
+  fs.copyFileSync(
+    path.join(source, "package.json"),
+    path.join(target, "package.json"),
+  );
+  TestProject.copyDirectory(path.join(source, "lib"), path.join(target, "lib"));
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(source, "package.json"), "utf8"),
+  ) as {
+    dependencies?: Record<string, string>;
+    peerDependencies?: Record<string, string>;
+  };
+  for (const name of Object.keys({
+    ...manifest.dependencies,
+    ...manifest.peerDependencies,
+  })) {
+    const link = path.join(directory, "node_modules", ...name.split("/"));
+    fs.mkdirSync(path.dirname(link), { recursive: true });
+    fs.symlinkSync(
+      fs.realpathSync.native(path.join(source, "node_modules", name)),
+      link,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+  }
+  const entry = path.join(target, "lib", "index.js");
+  return {
+    launcher: path.join(target, "lib", "bin.js"),
+    loadGraph: (options) =>
+      (
+        require_(entry) as {
+          loadGraph(options: { cwd: string; tsconfig: string }): unknown;
+        }
+      ).loadGraph(options),
   };
 }
 
@@ -113,13 +174,19 @@ export function launch(
   options: {
     cwd: string;
     graphBinary: string;
+    launcher?: string;
     retainUnjoined?(reason: string): void;
   },
 ) {
   if (unavailable !== undefined) throw unavailable;
   const result = TestProject.spawn(
     process.execPath,
-    [resolveGraphLauncher(), ...args],
+    [
+      options.launcher ??
+        prepared?.installed.launcher ??
+        resolveGraphLauncher(),
+      ...args,
+    ],
     {
       cwd: options.cwd,
       env: { TTSC_GRAPH_BINARY: options.graphBinary },

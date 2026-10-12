@@ -30,8 +30,9 @@ async function withEnv(
 
 /**
  * Asserts every option survives the config-process → worker-process env
- * round-trip intact: the ttsc overlay (project/projectRoot/compilerOptions/plugins) plus
- * the Metro-specific include/exclude/upstreamTransformer.
+ * round-trip intact: the ttsc overlay
+ * (project/projectRoot/compilerOptions/plugins) plus the Metro-specific
+ * include/exclude/upstreamTransformer.
  */
 export async function assertOptionsRoundTripThroughEnv(): Promise<void> {
   const source = {

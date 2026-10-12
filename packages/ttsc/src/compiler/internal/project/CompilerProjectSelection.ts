@@ -24,11 +24,11 @@ export namespace CompilerProjectSelection {
    * Resolve one compiler project without rebasing its original argument frame.
    *
    * Validated visible selectors retain their positions beside original response
-   * tokens. The existing observed inspector projects those frames for selection;
-   * the native producer still receives their original bytes and owns validation.
-   * Positional discovery starts at the supplied file until an observed project
-   * assignment selects another config. Explicit resolvedProject callers retain
-   * their independent API authority.
+   * tokens. The existing observed inspector projects those frames for
+   * selection; the native producer still receives their original bytes and owns
+   * validation. Positional discovery starts at the supplied file until an
+   * observed project assignment selects another config. Explicit
+   * resolvedProject callers retain their independent API authority.
    * Observations are sequential and do not pin bytes across a later producer.
    *
    * @evidence contracts/common.md#principled-implementation Existing schema occurrence metadata and observed response inspection establish ordered canonical project assignments; one selected config is returned separately from the retained compiler argument cwd.
@@ -49,7 +49,8 @@ export namespace CompilerProjectSelection {
     },
   ) {
     const cwd = path.resolve(options.cwd ?? process.cwd());
-    const file = options.file ??
+    const file =
+      options.file ??
       (options.files?.length === 1 ? options.files[0] : undefined);
     let initial = options.resolvedProject?.identity;
     let initialError: unknown;
@@ -117,7 +118,8 @@ export namespace CompilerProjectSelection {
     if (responseFrames.length !== 0 && inspectionError === undefined) {
       projectGuard = ["-p", project.path];
     } else if (
-      options.resolvedProject !== undefined && assignments.has("project")
+      options.resolvedProject !== undefined &&
+      assignments.has("project")
     ) {
       // A reporting/selection guard must not become a missing top-level scalar
       // operand. An unsafe native request retains its original diagnostic frame.
@@ -141,8 +143,8 @@ export namespace CompilerProjectSelection {
   }
 
   /**
-   * Reject a changed response generation before a consumer publishes or runs it.
-   * This is a sequential reobservation, not an atomic producer snapshot.
+   * Reject a changed response generation before a consumer publishes or runs
+   * it. This is a sequential reobservation, not an atomic producer snapshot.
    *
    * @evidence contracts/common.md#principled-implementation Current physical/content observations must match every response input admitted by this selection before its consumer proceeds.
    * @evidence contracts/common.md#clear-and-simple-design One loop delegates actual file observation to the existing owner and propagates read failures.
@@ -154,10 +156,7 @@ export namespace CompilerProjectSelection {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous observation retains no handle or history; the selection belongs to its caller.
    */
   export function assertCurrent(
-    selection: Pick<
-      ReturnType<typeof read>,
-      "observations"
-    >,
+    selection: Pick<ReturnType<typeof read>, "observations">,
   ): void {
     for (const [file, observation] of selection.observations)
       if (CompilerArgumentsInspection.observeInputFile(file) !== observation)
@@ -169,7 +168,8 @@ export namespace CompilerProjectSelection {
   /**
    * Pin an established project only after the current forwarded frame is safe.
    * A phase may filter or extend argv after context acquisition; it must retain
-   * that live payload without letting a final flag satisfy an incomplete scalar.
+   * that live payload without letting a final flag satisfy an incomplete
+   * scalar.
    *
    * @evidence contracts/common.md#principled-implementation An unchanged observed frame reuses its admitted guard; changed phase arguments receive the existing conservative inspection before the selected project can be pinned.
    * @evidence contracts/common.md#clear-and-simple-design One guard reader preserves live argv and the context's selected project without duplicating option arity or response grammar.

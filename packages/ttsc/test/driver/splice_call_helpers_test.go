@@ -39,7 +39,7 @@ func spliceForTest(t *testing.T, text string) string {
   if err != nil {
     t.Fatal(err)
   }
-  marker := driver.RewriteSentinel+"\n"
+  marker := driver.RewriteSentinel + "\n"
   if !strings.HasPrefix(got, marker) {
     t.Fatalf("rewritten output omitted its header marker: %q", got)
   }

@@ -106,7 +106,9 @@ export function test_compiler_project_selection_preserves_argument_order_and_cwd
   for (const reset of ["null", '""']) {
     fs.writeFileSync(response, "--project " + reset);
     const resetSelection = CompilerProjectSelection.read({
-      cwd: root, tsconfig: configB, compilerArgsCwd: a,
+      cwd: root,
+      tsconfig: configB,
+      compilerArgsCwd: a,
       passthrough: ["@selector.rsp"],
     });
     assert.equal(resetSelection.project.path, configA);
@@ -122,9 +124,14 @@ export function test_compiler_project_selection_preserves_argument_order_and_cwd
   }
   fs.writeFileSync(path.join(a, "broken.json"), "{ invalid JSON");
   fs.writeFileSync(response, "--project ../B/tsconfig.json");
-  assert.equal(select(["-p", path.join(a, "broken.json"), "@selector.rsp"]).project.path, configB);
+  assert.equal(
+    select(["-p", path.join(a, "broken.json"), "@selector.rsp"]).project.path,
+    configB,
+  );
   const supersededMissing = CompilerProjectSelection.read({
-    cwd: a, tsconfig: "missing.json", passthrough: ["@selector.rsp"],
+    cwd: a,
+    tsconfig: "missing.json",
+    passthrough: ["@selector.rsp"],
   });
   assert.equal(supersededMissing.project.path, configB);
   for (const locator of [configA, path.join(a, "missing.json")]) {
@@ -139,12 +146,18 @@ export function test_compiler_project_selection_preserves_argument_order_and_cwd
     /tsconfig not found/,
   );
   const explicitRoot = CompilerProjectSelection.read({
-    cwd: a, tsconfig: configA, projectRoot: root,
-    compilerArgsCwd: a, passthrough: ["@selector.rsp"],
+    cwd: a,
+    tsconfig: configA,
+    projectRoot: root,
+    compilerArgsCwd: a,
+    passthrough: ["@selector.rsp"],
   });
   assert.equal(explicitRoot.project.path, configB);
   assert.equal(explicitRoot.project.root, root);
   const stale = select(["-p", configA, "@selector.rsp"]);
   fs.writeFileSync(response, "--project tsconfig.json");
-  assert.throws(() => CompilerProjectSelection.assertCurrent(stale), /changed after project selection/);
+  assert.throws(
+    () => CompilerProjectSelection.assertCurrent(stale),
+    /changed after project selection/,
+  );
 }

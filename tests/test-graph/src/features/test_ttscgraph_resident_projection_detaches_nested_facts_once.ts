@@ -170,7 +170,10 @@ export async function test_ttscgraph_resident_projection_detaches_nested_facts_o
       assert.ok(Object.isFrozen(value));
       for (const child of Object.values(value)) assertFrozen(child);
     };
-    for (const [model, source] of [[first, frozen], [cold, input]] as const) {
+    for (const [model, source] of [
+      [first, frozen],
+      [cold, input],
+    ] as const) {
       assert.equal(model.node(member)!.kind, "property");
       assert.equal(source.nodes[1]!.kind, "variable");
       assert.notEqual(model.node(id)!.docTags, source.nodes[0]!.docTags);

@@ -1,5 +1,5 @@
-import fs from "node:fs";
 import { TestProject } from "@ttsc/testing";
+import fs from "node:fs";
 import path from "node:path";
 
 /**
@@ -19,7 +19,8 @@ import path from "node:path";
  * Elsewhere this returns at once: inotify and Windows never report a write made
  * before the watch was added.
  *
- * @throws The original watch or marker-write error. Notification latency is not a failure.
+ * @throws The original watch or marker-write error. Notification latency is not
+ *   a failure.
  */
 export async function settleFilesystemNotifications(): Promise<void> {
   if (process.platform !== "darwin") return;
@@ -42,7 +43,9 @@ export async function settleFilesystemNotifications(): Promise<void> {
         else resolve();
       };
       watcher = fs.watch(directory, () => finish(false));
-      joined = new Promise<void>((resolveClose) => watcher!.once("close", resolveClose));
+      joined = new Promise<void>((resolveClose) =>
+        watcher!.once("close", resolveClose),
+      );
       watcher.on("error", (error) => {
         if (settled) failures.push(error);
         else finish(true, error);
@@ -77,11 +80,18 @@ export async function settleFilesystemNotifications(): Promise<void> {
     }
     try {
       if (safelyJoined) fs.rmSync(directory, { force: true, recursive: true });
-      else TestProject.retainTemporaryDirectory(directory, "filesystem marker watcher closure is unproved");
+      else
+        TestProject.retainTemporaryDirectory(
+          directory,
+          "filesystem marker watcher closure is unproved",
+        );
     } catch (error) {
       failures.push(error);
     }
   }
   if (failures.length !== 0)
-    throw new AggregateError(failures, "filesystem notification marker and original closure");
+    throw new AggregateError(
+      failures,
+      "filesystem notification marker and original closure",
+    );
 }

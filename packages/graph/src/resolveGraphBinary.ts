@@ -1,60 +1,41 @@
-import { createRequire } from "node:module";
-import path from "node:path";
+import { InstalledGraphBinary } from "./internal/InstalledGraphBinary";
 
 /**
- * Resolve the per-platform `ttscgraph` binary, or `null` when it cannot be
- * located.
+ * Resolve the `ttscgraph` binary this `@ttsc/graph` release spawns, or `null`
+ * when it cannot be located.
  *
- * `ttsc` is a peer dependency pinned to this package's own version, installed
- * alongside `@ttsc/graph` in the user's project rather than nested under this
- * launcher, so resolution starts from the user's project, not from this
- * package's own tree.
- *
- * The pin is what keeps the two halves of the graph in step. `literals` and the
- * rest of the node facts are resolved by the Go builder and ride the dump, so a
- * newer `@ttsc/graph` reading an older `ttscgraph` would find those fields
- * simply absent and answer from a graph missing facts it believes are there.
+ * The binary ships in `@ttsc/graph-<platform>-<arch>`, which `@ttsc/graph`
+ * lists as an exact-version optional dependency, so it is resolved from this
+ * package's own installation. The JavaScript client and the native producer
+ * therefore always come from one release, wherever the launcher was started.
+ * That pairing matters because node facts such as `literals` are resolved by
+ * the producer and ride the dump: a client reading an older producer would find
+ * those fields absent and answer from a graph missing facts it believes are
+ * there.
  *
  * Resolution order:
  *
  * 1. `TTSC_GRAPH_BINARY` env var, when set to an absolute path.
- * 2. The per-platform npm package `@ttsc/<platform>-<arch>/bin/ttscgraph[.exe]`.
- *    That package carries `ttsc`, `ttscserver`, and `ttscgraph` together and is
- *    an `optionalDependency` of `ttsc`, so it is resolved from `ttsc`'s
- *    location — found from `cwd`, the project the caller selected (via `--cwd`
- *    or an API `cwd` option), defaulting to `process.cwd()` when no project was
- *    named. A launcher started from an unrelated directory still resolves the
- *    `ttsc` installed under the target project it was asked to graph.
+ * 2. `@ttsc/graph-<platform>-<arch>/bin/ttscgraph[.exe]`, resolved from the
+ *    installed `@ttsc/graph` package.
  *
- * @evidence contracts/common.md#principled-implementation Project-anchored module resolution locates the peer ttsc and then its platform binary; an explicit absolute override has precedence.
- * @evidence contracts/common.md#clear-and-simple-design One resolver owns override and peer-package lookup for all graph launchers.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Resolution uses installed package contracts rather than guessing binary paths from repository layouts.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs and the ordered list explain peer placement, override precedence and target-project anchoring.
- * @evidence contracts/portability.md#os-neutral-implementation Native path checks and module resolution select the platform/architecture package; only Windows's required executable suffix differs explicitly.
+ * `cwd` is still accepted so existing callers keep compiling. It no longer
+ * affects resolution: the binary used to come from the target project's `ttsc`
+ * platform package, and now belongs to `@ttsc/graph` itself.
+ *
+ * @evidence contracts/common.md#principled-implementation The installed-package resolver locates the exact-version platform dependency from this module's own location; an explicit absolute override has precedence.
+ * @evidence contracts/common.md#clear-and-simple-design The public function delegates to the one resolver every launcher, loader and session uses, anchored at this package's installation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Resolution uses the installed package contract rather than repository layouts or the target project's packages.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs and the ordered list explain package ownership, override precedence and the retained but ignored cwd argument.
+ * @evidence contracts/portability.md#os-neutral-implementation The delegated resolver selects the platform/architecture package through Node module resolution; only Windows's executable suffix differs.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a path string and opens no handle.
- * @evidenceExclude contracts/performance.md#efficient-algorithms performs a constant number of module resolutions (ttsc, then its platform package).
+ * @evidenceExclude contracts/performance.md#efficient-algorithms performs at most one module resolution.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work resolves on every call and caches nothing, so a reinstall between calls is honored.
  */
 export function resolveGraphBinary(
   env: NodeJS.ProcessEnv = process.env,
-  cwd: string = process.cwd(),
+  cwd?: string,
 ): string | null {
-  if (env.TTSC_GRAPH_BINARY && path.isAbsolute(env.TTSC_GRAPH_BINARY)) {
-    return env.TTSC_GRAPH_BINARY;
-  }
-  const exe = process.platform === "win32" ? "ttscgraph.exe" : "ttscgraph";
-  try {
-    // Anchor package lookup at the absolute project root so a relative `--cwd`
-    // resolves the same way the native process interprets it.
-    const fromProject = createRequire(
-      path.join(path.resolve(cwd), "package.json"),
-    );
-    const ttscPackageJson = fromProject.resolve("ttsc/package.json");
-    const fromTtsc = createRequire(ttscPackageJson);
-    return fromTtsc.resolve(
-      `@ttsc/${process.platform}-${process.arch}/bin/${exe}`,
-    );
-  } catch {
-    return null;
-  }
+  void cwd;
+  return InstalledGraphBinary.resolve(env, __filename);
 }

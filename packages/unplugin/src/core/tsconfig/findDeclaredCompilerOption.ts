@@ -6,8 +6,9 @@ import { findDeclaredValue } from "./findDeclaredValue";
  *
  * Own key presence is significant even for null or undefined values; the caller
  * decides whether the selected option value is usable. An optional
- * decoded-source map or graph transaction belongs to one caller read; independent
- * option searches retain their selectors and physical ancestry contexts.
+ * decoded-source map or graph transaction belongs to one caller read;
+ * independent option searches retain their selectors and physical ancestry
+ * contexts.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A wrapper preserves key presence through the generic selector, so the own

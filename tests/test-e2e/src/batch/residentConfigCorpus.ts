@@ -261,15 +261,16 @@ export async function residentConfigCorpus(
           current?.reject(error);
         }
       });
-      const closeWithDeadline = async <T>(operation: Promise<T>): Promise<T> => {
+      const closeWithDeadline = async <T>(
+        operation: Promise<T>,
+      ): Promise<T> => {
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {
           return await Promise.race([
             operation,
             new Promise<never>((_, reject) => {
               timer = setTimeout(
-                () =>
-                  reject(new Error("resident close did not settle")),
+                () => reject(new Error("resident close did not settle")),
                 900_000,
               );
             }),

@@ -490,9 +490,9 @@ func nodeFile(id string) string {
   return parts.path
 }
 
-// NodeFile is the graph-symbol provider's shared view of the node-id grammar.
-// Keeping the parser here prevents its LSP path comparison from drifting from
-// the dump producer's edge-evidence lookup.
+// NodeFile is the resident shard producer's shared view of the node-id grammar.
+// Keeping the parser here prevents its per-file shard ownership from drifting
+// from the dump producer's edge-evidence lookup.
 //
 // @evidence contracts/common.md#principled-implementation The shared parser requires an unescaped separator and nonempty name/kind suffix, then decodes the reported path. It does not validate the kind vocabulary, path existence or producer authenticity.
 // @evidence contracts/common.md#clear-and-simple-design One public adapter exposes the same parser used by dump evidence and native graph consumers.

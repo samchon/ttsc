@@ -17,7 +17,8 @@ import { residentConfigCorpus } from "./residentConfigCorpus";
  * The repaired bytes are the original shared producer, not another fixture.
  *
  * 1. Reject the cold external mixed package, then repair only its Go input and
- *    require the first real resident result without touching TypeScript/config.
+ *    require the first real resident result without touching
+ *    TypeScript/config.
  * 2. Preserve the original thirteen membership, duplicate, source/module and
  *    dead-resident stages, accounting separately for the initial failed cycle.
  * 3. Join the original watch before restoring inputs and running config controls.
@@ -42,12 +43,17 @@ export async function nativeWatchCorpus(
   const producer = path.join(workspace.root, "tools/mutable-lint-producer");
   const rule = path.join(producer, "linthost/rules_var.go");
   const module = path.join(producer, "go.mod");
-  const conflictingGo = path.join(producer, "plugin/zz_watch_metadata_failure.go");
+  const conflictingGo = path.join(
+    producer,
+    "plugin/zz_watch_metadata_failure.go",
+  );
   const ignoredPackage = path.join(producer, "node_modules/e2e-watch-pruned");
   assert.equal(fs.existsSync(ignoredPackage), false);
   assert.equal(fs.existsSync(conflictingGo), false);
-  assert.ok(path.relative(root, producer).startsWith(`..${path.sep}`),
-    "the failing Go package must lie outside the watched TypeScript project");
+  assert.ok(
+    path.relative(root, producer).startsWith(`..${path.sep}`),
+    "the failing Go package must lie outside the watched TypeScript project",
+  );
   const originals = new Map(
     [source, config, markdown, rule, module].map((file) => [
       file,
@@ -60,9 +66,19 @@ export async function nativeWatchCorpus(
     lintConfig,
     `module.exports={plugins:{topology:{source:${JSON.stringify(path.join(TestProject.WORKSPACE_ROOT, "packages/lint/test/watch-project-input"))}}},rules:{"topology/project-input":"error","no-var":"warning"}};\n`,
   );
-  const mainSource = fs.readFileSync(path.join(producer, "plugin/main.go"), "utf8");
-  const conflictingSource = mainSource.replace(/^package main(?=\r?$)/m, "package watch_metadata_conflict");
-  assert.notEqual(conflictingSource, mainSource, "the authored main package clause must move");
+  const mainSource = fs.readFileSync(
+    path.join(producer, "plugin/main.go"),
+    "utf8",
+  );
+  const conflictingSource = mainSource.replace(
+    /^package main(?=\r?$)/m,
+    "package watch_metadata_conflict",
+  );
+  assert.notEqual(
+    conflictingSource,
+    mainSource,
+    "the authored main package clause must move",
+  );
   fs.writeFileSync(conflictingGo, conflictingSource);
   const failures: unknown[] = [];
   let joined = false;
@@ -103,17 +119,25 @@ export async function nativeWatchCorpus(
   try {
     await session.waitForBuilds(1);
     await session.waitForSettled(300);
-    assert.match(session.transcript(), /Go package selection failed: found packages main .* and watch_metadata_conflict/);
+    assert.match(
+      session.transcript(),
+      /Go package selection failed: found packages main .* and watch_metadata_conflict/,
+    );
     assert.match(session.transcript(), /\[ttsc\] watch build failed/);
-    assert.deepEqual(samples(session.transcript()), [],
-      "cold package refusal must precede resident execution");
+    assert.deepEqual(
+      samples(session.transcript()),
+      [],
+      "cold package refusal must precede resident execution",
+    );
     // No TypeScript, descriptor or config mutation may supply this retry.
     const recoveryBoundary = session.transcript().length;
     fs.unlinkSync(conflictingGo);
     await session.waitForBuilds(2);
     await session.waitForSettled(300);
-    assert.ok(samples(session.transcript().slice(recoveryBoundary)).length > 0,
-      "repairing only the external Go package must start the real resident");
+    assert.ok(
+      samples(session.transcript().slice(recoveryBoundary)).length > 0,
+      "repairing only the external Go package must start the real resident",
+    );
     assert.equal(samples(session.transcript()).length, 1, session.transcript());
     const pid = samples(session.transcript())[0]!.pid;
     assert.ok(Number.isSafeInteger(pid) && pid > 0 && pid !== process.pid);

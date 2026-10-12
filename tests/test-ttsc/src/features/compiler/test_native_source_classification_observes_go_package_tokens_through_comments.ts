@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { NativeSourcePackages } from "../../../../../packages/ttsc/src/plugin/internal/source/NativeSourcePackages";
 import { resolveNativeSource } from "../../../../../packages/ttsc/src/plugin/internal/load/resolveNativeSource";
+import { NativeSourcePackages } from "../../../../../packages/ttsc/src/plugin/internal/source/NativeSourcePackages";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -65,9 +65,13 @@ export function test_native_source_classification_observes_go_package_tokens_thr
       path.join(root, id, "main.go.txt"),
       path.join(root, id, "main.go"),
     );
-  const observations = NativeSourcePackages.ownPackages(inputs.map(([id]) => ({
-    source: path.join(root, id), label: id,
-  })), process.env);
+  const observations = NativeSourcePackages.ownPackages(
+    inputs.map(([id]) => ({
+      source: path.join(root, id),
+      label: id,
+    })),
+    process.env,
+  );
   const actual = inputs.map(([id], index) => {
     const source = path.join(root, id);
     try {

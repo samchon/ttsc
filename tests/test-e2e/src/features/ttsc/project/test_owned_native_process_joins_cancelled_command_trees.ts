@@ -39,7 +39,9 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
     binary?: string;
     observerBinary?: string;
     /** Borrow only after the lender's requests settle; the lender owns close. */
-    observer?: Awaited<ReturnType<ReturnType<typeof NativeProcessObserver.prepare>["open"]>>;
+    observer?: Awaited<
+      ReturnType<ReturnType<typeof NativeProcessObserver.prepare>["open"]>
+    >;
   } = {},
 ): Promise<void> {
   const installed = createRequire(path.join(consumerRoot, "package.json"));
@@ -73,9 +75,11 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
   );
   const root = TestProject.physicalPath(allocatedRoot);
   const command = path.join(root, "command.cjs");
-  const observer = options.observer ?? await NativeProcessObserver.prepare({
-    binary: options.observerBinary,
-  }).open();
+  const observer =
+    options.observer ??
+    (await NativeProcessObserver.prepare({
+      binary: options.observerBinary,
+    }).open());
   const observerReady = {
     at: Date.now(),
     atNs: process.hrtime.bigint().toString(),

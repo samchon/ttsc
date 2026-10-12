@@ -27,7 +27,6 @@ import (
   "syscall"
   "time"
 
-  "github.com/samchon/ttsc/packages/ttsc/internal/graphsymbols"
   "github.com/samchon/ttsc/packages/ttsc/internal/lspserver"
 )
 
@@ -109,8 +108,8 @@ type lspLaunchOptions struct {
   PluginsFile                    string        `json:"-"`
   ProgressDelay                  time.Duration `json:"-"`
   SuppressExecuteCommandProvider bool          `json:"-"`
-  SuppressedExecuteCommandIDs     string        `json:"-"`
-  ExecuteCommandIDPrefix          string        `json:"-"`
+  SuppressedExecuteCommandIDs    string        `json:"-"`
+  ExecuteCommandIDPrefix         string        `json:"-"`
 }
 
 // resolveLaunch is a private launcher/native protocol. It uses the same parser
@@ -227,14 +226,6 @@ func startLSP(options *lspLaunchOptions) int {
     return 2
   }
 
-  // The SymbolProvider answers textDocument/documentSymbol and
-  // textDocument/references from ttsc's compiler-backed code graph. tsgo
-  // implements both methods itself, so the proxy forwards to tsgo whenever it
-  // advertises the capability and consults this provider only as a fallback
-  // (tsgo did not advertise). It loads the program lazily on the first such
-  // request, so wiring it here adds no startup cost.
-  symbolProvider := graphsymbols.NewProvider(options.Cwd, options.Tsconfig)
-
   err = runLSPServer(ctx, lspserver.LSPServerOptions{
     In:                             stdin,
     Out:                            stdout,
@@ -242,7 +233,6 @@ func startLSP(options *lspLaunchOptions) int {
     Cwd:                            options.Cwd,
     TsgoBinary:                     options.TsgoBinary,
     Source:                         source,
-    SymbolProvider:                 symbolProvider,
     SuppressExecuteCommandProvider: options.SuppressExecuteCommandProvider,
     SuppressedExecuteCommandIDs:    splitCSV(options.SuppressedExecuteCommandIDs),
     ExecuteCommandIDPrefix:         options.ExecuteCommandIDPrefix,

@@ -4,9 +4,9 @@ import type { EventEmitter } from "node:events";
  * Test-only settlement for the cold Graph parent and its public actor.
  *
  * Sending, captured progress and terminal shutdown share one protocol owner;
- * none supplies Graph answers or replaces the original process/native join.
- * The real scene and CJS actor use these operations directly, while portable
- * units control only their own events, callbacks and pending stage promises.
+ * none supplies Graph answers or replaces the original process/native join. The
+ * real scene and CJS actor use these operations directly, while portable units
+ * control only their own events, callbacks and pending stage promises.
  *
  * @evidence contracts/common.md#principled-implementation The namespace groups Node IPC callback settlement, ordered actor observations and one in-flight terminal promise, preserving the distinct send, progress and original retirement meanings.
  * @evidence contracts/common.md#clear-and-simple-design Exposes only the three operations shared by the actual cold Graph parent/actor protocol; there is no runner, message schema, public SDK extension or unrelated process policy.
@@ -47,7 +47,7 @@ export namespace ColdGraphActorLifecycle {
         reject(new Error("Cold Graph actor has no original IPC channel"));
         return;
       }
-      source.send(message, (error) => error ? reject(error) : resolve());
+      source.send(message, (error) => (error ? reject(error) : resolve()));
     });
   }
 
@@ -105,7 +105,9 @@ export namespace ColdGraphActorLifecycle {
       wake();
     };
     const disconnected = (): void =>
-      fail(new Error("Public session actor disconnected before required event"));
+      fail(
+        new Error("Public session actor disconnected before required event"),
+      );
     const closed = (): void =>
       fail(new Error("Public session actor closed before required event"));
     source.on("message", message);
@@ -117,20 +119,24 @@ export namespace ColdGraphActorLifecycle {
       check: () => {
         if (failure) throw failure.error;
       },
-      wait: (event) => new Promise<void>((resolve, reject) => {
-        const check = (): void => {
-          const delivered = order.get(event);
-          if (failure && (delivered === undefined || failure.order < delivered)) {
-            pending.delete(check);
-            reject(failure.error);
-          } else if (delivered !== undefined) {
-            pending.delete(check);
-            resolve();
-          }
-        };
-        pending.add(check);
-        check();
-      }),
+      wait: (event) =>
+        new Promise<void>((resolve, reject) => {
+          const check = (): void => {
+            const delivered = order.get(event);
+            if (
+              failure &&
+              (delivered === undefined || failure.order < delivered)
+            ) {
+              pending.delete(check);
+              reject(failure.error);
+            } else if (delivered !== undefined) {
+              pending.delete(check);
+              resolve();
+            }
+          };
+          pending.add(check);
+          check();
+        }),
       dispose: () => {
         fail(new Error("Public session actor observation disposed"));
         source.removeListener("message", message);
@@ -167,18 +173,31 @@ export namespace ColdGraphActorLifecycle {
     disconnect(): void;
   }): () => Promise<void> {
     let completion: Promise<void> | undefined;
-    return () => completion ??= Promise.resolve().then(async () => {
-      const failures: unknown[] = [];
-      for (const run of [options.close, options.drain, options.verify]) {
-        try { await run(); }
-        catch (error) { failures.push(error); }
-      }
-      try { await options.publish(Object.freeze([...failures])); }
-      catch (error) { failures.push(error); }
-      try { options.disconnect(); }
-      catch (error) { failures.push(error); }
-      if (failures.length)
-        throw new AggregateError(failures, "Cold Graph actor terminal settlement failed");
-    });
+    return () =>
+      (completion ??= Promise.resolve().then(async () => {
+        const failures: unknown[] = [];
+        for (const run of [options.close, options.drain, options.verify]) {
+          try {
+            await run();
+          } catch (error) {
+            failures.push(error);
+          }
+        }
+        try {
+          await options.publish(Object.freeze([...failures]));
+        } catch (error) {
+          failures.push(error);
+        }
+        try {
+          options.disconnect();
+        } catch (error) {
+          failures.push(error);
+        }
+        if (failures.length)
+          throw new AggregateError(
+            failures,
+            "Cold Graph actor terminal settlement failed",
+          );
+      }));
   }
 }

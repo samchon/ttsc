@@ -8,9 +8,8 @@ import (
 )
 
 // ECMALineStarts returns the byte offset of each logical source line. The
-// compiler is the authority for which bytes end a line, so graph evidence and
-// graph-backed LSP locations cannot drift from its LF, CRLF, CR, LS, and PS
-// coordinates.
+// compiler is the authority for which bytes end a line, so graph evidence
+// cannot drift from its LF, CRLF, CR, LS, and PS coordinates.
 //
 // @evidence contracts/common.md#principled-implementation Compiler-produced ECMA line boundaries are copied into graph byte-offset coordinates without substituting a newline convention.
 // @evidence contracts/common.md#clear-and-simple-design This adapter centralizes the compiler-to-graph integer representation so consumers share the same line model.
@@ -27,38 +26,6 @@ func ECMALineStarts(text string) []int {
     starts[i] = int(start)
   }
   return starts
-}
-
-// LineEnd returns the byte offset immediately before line's terminator, or the
-// end of text for its final logical line. starts must come from ECMALineStarts
-// for the same text.
-//
-// @evidence contracts/common.md#principled-implementation The supplied index bounds one logical line and ECMA terminator widths identify its exclusive content end.
-// @evidence contracts/common.md#clear-and-simple-design One bounded scan handles all compiler terminators without allocating a substring or rebuilding the line index.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid line indices return the documented text boundary rather than manufacturing fixture-specific spans.
-// @evidence contracts/common.md#meaningful-documentation The native comment identifies byte units, final-line behavior and the same-text index precondition under the documentation skill.
-// @evidence contracts/performance.md#efficient-algorithms Index lookup is constant time and scanning costs only the selected line's byte length, with constant temporary space.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This calculation consumes a caller-owned reusable line index and creates no cross-request computation owner.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No retained state or native resource is acquired.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation LineEnd computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
-func LineEnd(text string, starts []int, line int) int {
-  if line < 0 || line >= len(starts) {
-    return len(text)
-  }
-  if line+1 == len(starts) {
-    return len(text)
-  }
-  for i := starts[line]; i < starts[line+1]; {
-    if lineTerminatorWidth(text, i) > 0 {
-      return i
-    }
-    _, size := utf8.DecodeRuneInString(text[i:])
-    if size == 0 {
-      return len(text)
-    }
-    i += size
-  }
-  return starts[line+1]
 }
 
 // FirstCodeOffset advances over leading whitespace and comments so a graph

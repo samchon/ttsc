@@ -120,6 +120,25 @@ type LSPDiagnostic struct {
   Message string `json:"message"`
 }
 
+// LSPLocation is the wire shape of an LSP Location: a range inside the document
+// its URI names. Diagnostic related information carries one per secondary site.
+//
+// @evidence contracts/common.md#principled-implementation URI plus range identifies a site independently of the document currently open in the editor.
+// @evidence contracts/common.md#clear-and-simple-design Related diagnostic information shares this one location value.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Locations are producer values rather than guessed local filenames.
+// @evidence contracts/common.md#meaningful-documentation Native prose names the protocol shape and the related-information use, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+type LSPLocation struct {
+  // URI identifies the target document using protocol spelling.
+  URI string `json:"uri"`
+
+  // Range locates the site in that document's session UTF-16 coordinates.
+  Range LSPRange `json:"range"`
+}
+
 // LSPDiagnosticRelatedInformation is one entry of a diagnostic's
 // relatedInformation: a secondary location with a message. It reuses the
 // package's LSPLocation (a URI plus a range). The proxy does not read it — it

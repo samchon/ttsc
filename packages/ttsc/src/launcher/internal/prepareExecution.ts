@@ -325,7 +325,10 @@ function createProjectContext(
     options.passthrough,
     options.binary,
   );
-  const privateEmitRootDir = resolveRuntimeSourceRoot(project, effectiveOptions);
+  const privateEmitRootDir = resolveRuntimeSourceRoot(
+    project,
+    effectiveOptions,
+  );
   // Resolved once: resolution costs a realpath (and, for a missing directory on
   // Windows, a case-sensitivity probe).
   const runtimeRootDir = createFilesystemPathIdentityContext({

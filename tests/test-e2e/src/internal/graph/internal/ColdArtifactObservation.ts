@@ -5,12 +5,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { waitFor } from "../../../../../utils/src/internal/waitFor";
-import { matchesObservedProcessCommand } from "../../../../../utils/src/matchesObservedProcessCommand";
 import {
   type ObservedProcessReading as ProcessReading,
   updateObservedProcessTree,
 } from "../../../../../utils/src/ObservedProcessTree";
+import { waitFor } from "../../../../../utils/src/internal/waitFor";
+import { matchesObservedProcessCommand } from "../../../../../utils/src/matchesObservedProcessCommand";
 
 interface BuildAdmission {
   invocation: string;
@@ -216,160 +216,154 @@ export class ColdArtifactObservation {
     oldWork: ReadonlySet<string> = new Set(),
   ): Promise<BuildAdmission> {
     let admitted: BuildAdmission | undefined;
-    await this.until(
-      () => {
-        const events = traceEvents(traceRoot);
-        const keys = events.filter(
+    await this.until(() => {
+      const events = traceEvents(traceRoot);
+      const keys = events.filter(
+        (event) =>
+          event.event === "capability-resolution" &&
+          event.data?.phase === "plugin-build-environment-key-created",
+      );
+      const attempts = events.filter(
+        (event) =>
+          event.event === "process-attempt" &&
+          event.argv?.[1] === "build" &&
+          typeof event.invocation === "string" &&
+          typeof event.instance === "string" &&
+          typeof event.sequence === "number" &&
+          event.invocation !== excluded?.invocation &&
+          event.cwd !== excluded?.scratch &&
+          (!excluded ||
+            event.instance !== excluded.instance ||
+            event.sequence > excluded.sequence) &&
+          !events.some(
+            (terminal) =>
+              terminal.event === "process-result" &&
+              terminal.invocation === event.invocation,
+          ),
+      );
+      for (const key of keys) {
+        if (typeof key.data?.key !== "string") continue;
+        const sourceKey = key.data.key;
+        const candidates = attempts.filter(
           (event) =>
-            event.event === "capability-resolution" &&
-            event.data?.phase === "plugin-build-environment-key-created",
+            event.instance === key.instance &&
+            event.sequence! > key.sequence! &&
+            event.cwd?.includes(`ttsc-plugin-${sourceKey}-`) &&
+            fs.existsSync(event.cwd),
         );
-        const attempts = events.filter(
-          (event) =>
-            event.event === "process-attempt" &&
-            event.argv?.[1] === "build" &&
-            typeof event.invocation === "string" &&
-            typeof event.instance === "string" &&
-            typeof event.sequence === "number" &&
-            event.invocation !== excluded?.invocation &&
-            event.cwd !== excluded?.scratch &&
+        assert.ok(
+          candidates.length <= 1,
+          "Multiple live source invocations cannot bind one observed Go command",
+        );
+        const scratch = candidates[0];
+        if (!scratch || !fs.existsSync(scratch.cwd!)) continue;
+        const entry = path.join(pluginCache, "plugins", key.data.key);
+        assert.equal(
+          fs.existsSync(
+            path.join(
+              entry,
+              process.platform === "win32" ? "plugin.exe" : "plugin",
+            ),
+          ),
+          false,
+          "cold source profile already has a published executable",
+        );
+        const go = this.latest.find(
+          (row) =>
+            this.tracked.get(row.pid)?.identity === row.identity &&
             (!excluded ||
-              event.instance !== excluded.instance ||
-              event.sequence > excluded.sequence) &&
-            !events.some(
-              (terminal) =>
-                terminal.event === "process-result" &&
-                terminal.invocation === event.invocation,
+              row.pid !== excluded.process.pid ||
+              row.identity !== excluded.process.identity) &&
+            matchesObservedProcessCommand(
+              row.command,
+              scratch.argv!,
+              process.platform,
             ),
         );
-        for (const key of keys) {
-          if (typeof key.data?.key !== "string") continue;
-          const sourceKey = key.data.key;
-          const candidates = attempts.filter(
-            (event) =>
-              event.instance === key.instance &&
-              event.sequence! > key.sequence! &&
-              event.cwd?.includes(`ttsc-plugin-${sourceKey}-`) &&
-              fs.existsSync(event.cwd),
+        const work = compilerWork(goTmp, oldWork);
+        if (!go || !work) continue;
+        const targetOwner = this.latest.find(
+          (row) =>
+            row.pid === go.parent &&
+            this.tracked.get(row.pid)?.identity === row.identity &&
+            row.command?.includes("__source-process"),
+        );
+        if (!targetOwner) continue;
+        // Windows' inner waits for the target; its original outer owns the
+        // Job and joins the whole tree before publishing retirement.
+        const owner =
+          process.platform === "win32"
+            ? this.latest.find(
+                (row) =>
+                  targetOwner.command?.includes("__source-process --inner ") &&
+                  row.pid === targetOwner.parent &&
+                  this.tracked.get(row.pid)?.identity === row.identity &&
+                  row.command?.includes("__source-process --result "),
+              )
+            : targetOwner;
+        if (!owner) continue;
+        // Malformed or unknown guards cannot turn an observed native reader
+        // into permission to reclaim its source/cache inputs.
+        this.incompleteAdmission = true;
+        const scratchGuards = guardRecords(scratch.cwd!);
+        const entryGuards = guardRecords(entry);
+        const guards = scratchGuards.flatMap((first) => {
+          const matched = entryGuards.filter(
+            (next) =>
+              next.record.taskToken === first.record.taskToken &&
+              next.record.boundaryToken === first.record.boundaryToken,
           );
-          assert.ok(
-            candidates.length <= 1,
-            "Multiple live source invocations cannot bind one observed Go command",
-          );
-          const scratch = candidates[0];
-          if (!scratch || !fs.existsSync(scratch.cwd!)) continue;
-          const entry = path.join(pluginCache, "plugins", key.data.key);
-          assert.equal(
-            fs.existsSync(
-              path.join(
-                entry,
-                process.platform === "win32" ? "plugin.exe" : "plugin",
-              ),
-            ),
-            false,
-            "cold source profile already has a published executable",
-          );
-          const go = this.latest.find(
-            (row) =>
-              this.tracked.get(row.pid)?.identity === row.identity &&
-              (!excluded ||
-                row.pid !== excluded.process.pid ||
-                row.identity !== excluded.process.identity) &&
-              matchesObservedProcessCommand(
-                row.command,
-                scratch.argv!,
-                process.platform,
-              ),
-          );
-          const work = compilerWork(goTmp, oldWork);
-          if (!go || !work) continue;
-          const targetOwner = this.latest.find(
-            (row) =>
-              row.pid === go.parent &&
-              this.tracked.get(row.pid)?.identity === row.identity &&
-              row.command?.includes("__source-process"),
-          );
-          if (!targetOwner) continue;
-          // Windows' inner waits for the target; its original outer owns the
-          // Job and joins the whole tree before publishing retirement.
-          const owner =
-            process.platform === "win32"
-              ? this.latest.find(
-                  (row) =>
-                    targetOwner.command?.includes(
-                      "__source-process --inner ",
-                    ) &&
-                    row.pid === targetOwner.parent &&
-                    this.tracked.get(row.pid)?.identity === row.identity &&
-                    row.command?.includes("__source-process --result "),
-                )
-              : targetOwner;
-          if (!owner) continue;
-          // Malformed or unknown guards cannot turn an observed native reader
-          // into permission to reclaim its source/cache inputs.
-          this.incompleteAdmission = true;
-          const scratchGuards = guardRecords(scratch.cwd!);
-          const entryGuards = guardRecords(entry);
-          const guards = scratchGuards.flatMap((first) => {
-            const matched = entryGuards.filter(
-              (next) =>
-                next.record.taskToken === first.record.taskToken &&
-                next.record.boundaryToken === first.record.boundaryToken,
-            );
-            return matched.length ? [first, ...matched] : [];
-          });
-          assert.ok(
-            guards.length >= 2,
-            "Actual admitted source/cache guards missing",
-          );
-          for (const guard of guards)
-            assert.equal(guard.record.state, "pending");
-          admitted = {
-            invocation: scratch.invocation!,
-            instance: scratch.instance!,
-            sequence: scratch.sequence!,
-            process: go,
+          return matched.length ? [first, ...matched] : [];
+        });
+        assert.ok(
+          guards.length >= 2,
+          "Actual admitted source/cache guards missing",
+        );
+        for (const guard of guards) assert.equal(guard.record.state, "pending");
+        admitted = {
+          invocation: scratch.invocation!,
+          instance: scratch.instance!,
+          sequence: scratch.sequence!,
+          process: go,
+          targetOwner,
+          owner,
+          scratch: scratch.cwd!,
+          entry,
+          guards,
+        };
+        this.admissions.push(admitted);
+        const inputFile = path.join(this.directory, "observer-inputs.json");
+        const temporary = `${inputFile}.tmp`;
+        fs.writeFileSync(
+          temporary,
+          JSON.stringify([
+            scratch.cwd!,
+            entry,
+            ...guards.map((guard) => guard.file),
+          ]),
+        );
+        fs.renameSync(temporary, inputFile);
+        fs.appendFileSync(
+          path.join(this.directory, "actual-build-admissions.jsonl"),
+          JSON.stringify({
+            go,
             targetOwner,
             owner,
-            scratch: scratch.cwd!,
+            key: key.data.key,
+            invocation: scratch.invocation,
+            instance: scratch.instance,
+            sequence: scratch.sequence,
+            argv: scratch.argv,
+            cwd: scratch.cwd,
+            work,
             entry,
             guards,
-          };
-          this.admissions.push(admitted);
-          const inputFile = path.join(this.directory, "observer-inputs.json");
-          const temporary = `${inputFile}.tmp`;
-          fs.writeFileSync(
-            temporary,
-            JSON.stringify([
-              scratch.cwd!,
-              entry,
-              ...guards.map((guard) => guard.file),
-            ]),
-          );
-          fs.renameSync(temporary, inputFile);
-          fs.appendFileSync(
-            path.join(this.directory, "actual-build-admissions.jsonl"),
-            JSON.stringify({
-              go,
-              targetOwner,
-              owner,
-              key: key.data.key,
-              invocation: scratch.invocation,
-              instance: scratch.instance,
-              sequence: scratch.sequence,
-              argv: scratch.argv,
-              cwd: scratch.cwd,
-              work,
-              entry,
-              guards,
-            }) + "\n",
-          );
-          return true;
-        }
-        return false;
-      },
-      "Actual cold go build/source key/compiler work admission was not observed",
-    );
+          }) + "\n",
+        );
+        return true;
+      }
+      return false;
+    }, "Actual cold go build/source key/compiler work admission was not observed");
     await this.until(
       () =>
         this.inputs.some(
@@ -459,7 +453,8 @@ export class ColdArtifactObservation {
    * Verify release after actual product close or serial recovery admission.
    *
    * Both fences follow the original task's cleanup. A remaining scratch or
-   * guard is a release failure at that fence, rather than pending timed progress.
+   * guard is a release failure at that fence, rather than pending timed
+   * progress.
    */
   public async retired(admission: BuildAdmission): Promise<void> {
     const failures: unknown[] = [];

@@ -10,7 +10,7 @@ import { assert } from "../../../internal/graph/internal/ttsgraph";
  * from a non-POSIX host. The launcher must recover before spawning ttscgraph so
  * installed @ttsc/graph users do not hit EACCES on the first dump.
  *
- * 1. Borrow the shared target-installed real native binary copy and its cold 0644
+ * 1. Borrow the shared installation's real native binary copy and its cold 0644
  *    receipt.
  * 2. Run the @ttsc/graph dump pass-through against that binary.
  * 3. Assert a real compiler declaration was produced and the binary gained an
@@ -19,9 +19,9 @@ import { assert } from "../../../internal/graph/internal/ttsgraph";
  * @evidence contracts/testing.md#behavioral-verification On POSIX the installed launcher runs a fixture binary initially at mode 0644, produces the literal NativeTargetControl declaration and leaves executable permission bits set.
  * @evidence contracts/testing.md#independent-expectations Literal non-executable mode, successful exit, literal compiler declaration and nonzero executable-bit mask independently require actual permission repair and subsequent execution.
  * @evidence contracts/testing.md#distinguishing-cases Readable-but-not-executable input must change to executable before dump. This existing case returns on Windows and does not certify Windows chmod behavior.
- * @evidence contracts/testing.md#execution-ownership The selected Graph DAG calls this body after its one target-layout cold dump. The actual binary copy and POSIX mode observations belong to that upfront shared target, not a packed graph SDK or in-memory permission predicate.
+ * @evidence contracts/testing.md#execution-ownership The selected Graph DAG calls this body after the installation's one cold dump. The actual binary copy in the installed @ttsc/graph-<platform>-<arch> package and the POSIX mode observations belong to that upfront shared installation, not a packed graph SDK or in-memory permission predicate.
  * @evidence contracts/e2e.md#necessary-boundary Real POSIX access/chmod and child execution must connect through the launcher; an in-memory permission predicate cannot prove the repaired file was runnable.
- * @evidence contracts/e2e.md#shared-execution The target-cwd and permission entries share one authored target package layout, one real binary copy and its first dump receipt. Only this copy begins at 0644; the canonical producer remains immutable.
+ * @evidence contracts/e2e.md#shared-execution The installed-consumer and permission entries share one installation layout, one real binary copy and its first dump receipt. Only this copy begins at 0644; the canonical producer remains immutable.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The shared preparation records mode before and after its sole first dump. Receipt reuse retains the cold 0644 distinction regardless of case order; the synchronous call supplies the direct command outcome, not proof of all descendant termination or inherited-handle closure. TestProject owns project removal subject to the existing unjoined-root retention and reuse-withdrawal authority.
  * @evidence contracts/e2e.md#preserved-coverage Original status-zero and repaired-mode assertions remain with the original POSIX scope. The sentinel marker execution proof becomes an actual native-produced declaration; no fake producer or permission capability stands in for execution.
  */

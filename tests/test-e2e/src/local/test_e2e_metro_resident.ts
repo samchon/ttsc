@@ -11,11 +11,11 @@ import { MetroResidentBoundary } from "../batch/MetroResidentBoundary";
 /**
  * Run only the real initial resident installation/proof/descriptor boundary.
  *
- * The default index selects nine full callbacks. This local
- * diagnostic borrows their actual packed installation/fixture preparation and
- * shared assertions, not their acceptance result. Upfront dead-claim, public
- * cold/cache/failure controls, two-adapter sharing and later
- * mutation/repair/restart controls are not selected and require full Metro.
+ * The default index selects nine full callbacks. This local diagnostic borrows
+ * their actual packed installation/fixture preparation and shared assertions,
+ * not their acceptance result. Upfront dead-claim, public cold/cache/failure
+ * controls, two-adapter sharing and later mutation/repair/restart controls are
+ * not selected and require full Metro.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual Metro worker completes public prepare without a Program tick, then runs the original two native graph captures and descriptor/runtime-input commands with their exact shared assertions and joined stderr markers.
  * @evidence contracts/testing.md#independent-expectations Shared assertion owners retain literal served source/nativePrograms2, actual declaration immutability, exact descriptor failures/contributors and original runtime-input/config fingerprints; this entry cannot replace them with prepared outputs.
@@ -108,7 +108,12 @@ export async function test_e2e_metro_resident(): Promise<void> {
           MetroResidentBoundary.assertDiagnostics(worker, false);
           if (worker.descriptorCommandCompleted)
             MetroResidentBoundary.assertDiagnostics(worker);
-          else failures.push(new Error("Blocked descriptor markers: lint operation has no successful completion reply"));
+          else
+            failures.push(
+              new Error(
+                "Blocked descriptor markers: lint operation has no successful completion reply",
+              ),
+            );
         } catch (error) {
           failures.push(error);
         }
@@ -116,10 +121,24 @@ export async function test_e2e_metro_resident(): Promise<void> {
     } else joined = true;
     if (joined) {
       const restored = await TestExecutor.collectPhases([
-        { name: "restore local config", run: () => fs.writeFileSync(configPath, originalConfig) },
-        { name: "remove local session", run: () => fs.rmSync(session, { recursive: true }) },
+        {
+          name: "restore local config",
+          run: () => fs.writeFileSync(configPath, originalConfig),
+        },
+        {
+          name: "remove local session",
+          run: () => fs.rmSync(session, { recursive: true }),
+        },
         ...(descriptorInputs !== undefined && failures.length === 0
-          ? [{ name: "remove completed local descriptors", run: () => fs.rmSync(descriptorInputs!.descriptorFailureRoot, { recursive: true }) }]
+          ? [
+              {
+                name: "remove completed local descriptors",
+                run: () =>
+                  fs.rmSync(descriptorInputs!.descriptorFailureRoot, {
+                    recursive: true,
+                  }),
+              },
+            ]
           : []),
       ]);
       for (const result of restored)

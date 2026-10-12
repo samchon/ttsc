@@ -113,7 +113,9 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
         },
         {
           onError: (location, error) => {
-            topologyFailure ??= new Error(`watch error on ${location}`, { cause: error });
+            topologyFailure ??= new Error(`watch error on ${location}`, {
+              cause: error,
+            });
           },
           onInputChange: (change) => changes.push(change),
           onTopologyChange: () => undefined,
@@ -129,7 +131,7 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
           test.name,
         );
         const previous = await waitForStableCount(
-            owner,
+          owner,
           () => compilerChangeCount(changes),
           test.name,
           "compiler watch lane",
@@ -177,17 +179,34 @@ async function writeUntilCompilerChange(
   const physicalSource = physicalPath(source);
   let revision = 2;
   let nextWrite = 0;
-  await waitFor(() => {
-    owner.check();
-    if (changes.slice(previousLength).some((change) => change.kind === "compiler" &&
-      change.path !== undefined && physicalPath(change.path) === physicalSource)) return true;
-    // This cadence changes real source bytes; it does not bound delivery age.
-    if (Date.now() >= nextWrite) {
-      fs.writeFileSync(source, `export const value = ${revision++};\n`, "utf8");
-      nextWrite = Date.now() + 250;
-    }
-    return false;
-  }, `${label}: source edit did not reach compiler watch lane`, owner);
+  await waitFor(
+    () => {
+      owner.check();
+      if (
+        changes
+          .slice(previousLength)
+          .some(
+            (change) =>
+              change.kind === "compiler" &&
+              change.path !== undefined &&
+              physicalPath(change.path) === physicalSource,
+          )
+      )
+        return true;
+      // This cadence changes real source bytes; it does not bound delivery age.
+      if (Date.now() >= nextWrite) {
+        fs.writeFileSync(
+          source,
+          `export const value = ${revision++};\n`,
+          "utf8",
+        );
+        nextWrite = Date.now() + 250;
+      }
+      return false;
+    },
+    `${label}: source edit did not reach compiler watch lane`,
+    owner,
+  );
 }
 
 function compilerChangeCount(changes: readonly WatchInputChange[]): number {
@@ -200,8 +219,11 @@ async function waitForProjectChange(
   previous: number,
   label: string,
 ): Promise<void> {
-  await waitFor(() => projectChangeCount(changes) > previous,
-    `${label}: project input inside source output was not observed`, owner);
+  await waitFor(
+    () => projectChangeCount(changes) > previous,
+    `${label}: project input inside source output was not observed`,
+    owner,
+  );
   owner.check();
 }
 
@@ -217,15 +239,19 @@ async function waitForStableCount(
 ): Promise<number> {
   let current = count();
   let stableSince = Date.now();
-  await waitFor(() => {
-    owner.check();
-    const next = count();
-    if (next !== current) {
-      current = next;
-      stableSince = Date.now();
-    }
-    return Date.now() - stableSince >= 750;
-  }, `${label}: ${lane} quiet boundary`, owner);
+  await waitFor(
+    () => {
+      owner.check();
+      const next = count();
+      if (next !== current) {
+        current = next;
+        stableSince = Date.now();
+      }
+      return Date.now() - stableSince >= 750;
+    },
+    `${label}: ${lane} quiet boundary`,
+    owner,
+  );
   return current;
 }
 

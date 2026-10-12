@@ -1,0 +1,35 @@
+{
+  "name": "@ttsc/graph-linux-arm",
+  "version": "0.31.5",
+  "description": "Linux arm native ttscgraph binary for @ttsc/graph.",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm"
+  ],
+  "scripts": {
+    "evidence": "evidence",
+    "build": "node ../ttsc/build/platform-package.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT",
+  "files": [
+    "bin",
+    "package.json",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "executableFiles": [
+      "./bin/ttscgraph"
+    ]
+  },
+  "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon"
+  }
+}

@@ -28,10 +28,16 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership One source-unit entry invokes maintained ownership APIs on real temporary directories and an actual directory alias. Authored cleanup callbacks supply explicit error-boundary oracles without replacing filesystem methods. One fresh Node actor isolates the process-local trace writer through the existing unit loader, starts no product host/compiler/native helper and preserves unconfirmed inputs; its script assertions belong to this entry. The no-process boundary classification exercises policy and does not certify kernel retirement; active actual Go metadata success/error remain in the neighboring context unit.
  */
 export function test_source_native_retirement_releases_removed_roots_after_success(): void {
-  const parent = TestProject.physicalPath(TestProject.tmpdir("native-resource-release-"));
+  const parent = TestProject.physicalPath(
+    TestProject.tmpdir("native-resource-release-"),
+  );
   const errors: unknown[] = [];
   const check = (name: string, task: () => void): void => {
-    try { task(); } catch (cause) { errors.push(new Error(name, { cause })); }
+    try {
+      task();
+    } catch (cause) {
+      errors.push(new Error(name, { cause }));
+    }
   };
   const directory = (name: string): string => {
     const root = path.join(parent, name);
@@ -40,14 +46,19 @@ export function test_source_native_retirement_releases_removed_roots_after_succe
   };
   check("ordinary cleanup", () => {
     const root = directory("ordinary");
-    SourceNativeRetirement.releaseResource(root, () => fs.rmSync(root, { recursive: true }));
+    SourceNativeRetirement.releaseResource(root, () =>
+      fs.rmSync(root, { recursive: true }),
+    );
     assert.equal(fs.existsSync(root), false);
   });
   check("scoped physical identity", () => {
     const root = directory("scoped");
     const scope = SourceNativeRetirement.createScope("scoped-success");
     SourceNativeRetirement.run(scope, () => {
-      SourceNativeRetirement.register({ fenceRoot: root, retainedPaths: [root] });
+      SourceNativeRetirement.register({
+        fenceRoot: root,
+        retainedPaths: [root],
+      });
       const original = scope.resources.get(root);
       SourceNativeRetirement.releaseResource(root, () => {
         assert.equal(scope.resources.get(root), original);
@@ -60,94 +71,179 @@ export function test_source_native_retirement_releases_removed_roots_after_succe
   check("physical alias", () => {
     const root = directory("alias-target");
     const alias = path.join(parent, "alias");
-    fs.symlinkSync(root, alias, process.platform === "win32" ? "junction" : "dir");
+    fs.symlinkSync(
+      root,
+      alias,
+      process.platform === "win32" ? "junction" : "dir",
+    );
     const scope = SourceNativeRetirement.createScope("alias-success");
     try {
       SourceNativeRetirement.run(scope, () => {
-        SourceNativeRetirement.register({ fenceRoot: root, retainedPaths: [root] });
-        SourceNativeRetirement.releaseResource(alias, () => fs.rmSync(root, { recursive: true }));
+        SourceNativeRetirement.register({
+          fenceRoot: root,
+          retainedPaths: [root],
+        });
+        SourceNativeRetirement.releaseResource(alias, () =>
+          fs.rmSync(root, { recursive: true }),
+        );
       });
       assert.equal(fs.existsSync(root), false);
       assert.equal(scope.resources.size, 0);
-    } finally { fs.rmSync(alias, { recursive: true, force: true }); }
+    } finally {
+      fs.rmSync(alias, { recursive: true, force: true });
+    }
   });
   check("failed cleanup retains registration and original refusal", () => {
     const root = directory("failed");
     const scope = SourceNativeRetirement.createScope("cleanup-refusal");
     const refused = new Error("authored removal refusal");
     const failures: unknown[] = [];
-    SourceNativeRetirement.run(scope, () => OwnedSynchronousProcess.run({
-      cancel: new SharedArrayBuffer(4), failures,
-    }, () => {
-      SourceNativeRetirement.register({ fenceRoot: root, retainedPaths: [root], generation: "original" });
-      const original = scope.resources.get(root);
-      assert.throws(() => SourceNativeRetirement.releaseResource(root, () => { throw refused; }), error => error === refused);
-      assert.equal(scope.resources.get(root), original);
-      assert.equal(fs.existsSync(root), true);
-      assert.deepEqual(failures, [refused]);
-      SourceNativeRetirement.releaseResource(root, () => fs.rmSync(root, { recursive: true }));
-    }));
+    SourceNativeRetirement.run(scope, () =>
+      OwnedSynchronousProcess.run(
+        {
+          cancel: new SharedArrayBuffer(4),
+          failures,
+        },
+        () => {
+          SourceNativeRetirement.register({
+            fenceRoot: root,
+            retainedPaths: [root],
+            generation: "original",
+          });
+          const original = scope.resources.get(root);
+          assert.throws(
+            () =>
+              SourceNativeRetirement.releaseResource(root, () => {
+                throw refused;
+              }),
+            (error) => error === refused,
+          );
+          assert.equal(scope.resources.get(root), original);
+          assert.equal(fs.existsSync(root), true);
+          assert.deepEqual(failures, [refused]);
+          SourceNativeRetirement.releaseResource(root, () =>
+            fs.rmSync(root, { recursive: true }),
+          );
+        },
+      ),
+    );
     assert.equal(scope.resources.size, 0);
   });
   check("missing root does not guess identity or invoke cleanup", () => {
     const root = directory("missing");
     const scope = SourceNativeRetirement.createScope("missing-root");
     const failures: unknown[] = [];
-    SourceNativeRetirement.run(scope, () => OwnedSynchronousProcess.run({
-      cancel: new SharedArrayBuffer(4), failures,
-    }, () => {
-      SourceNativeRetirement.register({ fenceRoot: root, retainedPaths: [root] });
-      const original = scope.resources.get(root);
-      fs.rmSync(root, { recursive: true });
-      let invoked = false;
-      assert.throws(() => SourceNativeRetirement.releaseResource(root, () => { invoked = true; }, { error: undefined }), error => {
-        assert.ok(error instanceof AggregateError);
-        assert.equal(error.errors[0], undefined);
-        assert.equal(error.errors[1].code, "ENOENT");
-        assert.equal(failures[0], error);
-        return true;
-      });
-      assert.equal(invoked, false);
-      assert.equal(scope.resources.get(root), original);
-    }));
+    SourceNativeRetirement.run(scope, () =>
+      OwnedSynchronousProcess.run(
+        {
+          cancel: new SharedArrayBuffer(4),
+          failures,
+        },
+        () => {
+          SourceNativeRetirement.register({
+            fenceRoot: root,
+            retainedPaths: [root],
+          });
+          const original = scope.resources.get(root);
+          fs.rmSync(root, { recursive: true });
+          let invoked = false;
+          assert.throws(
+            () =>
+              SourceNativeRetirement.releaseResource(
+                root,
+                () => {
+                  invoked = true;
+                },
+                { error: undefined },
+              ),
+            (error) => {
+              assert.ok(error instanceof AggregateError);
+              assert.equal(error.errors[0], undefined);
+              assert.equal(error.errors[1].code, "ENOENT");
+              assert.equal(failures[0], error);
+              return true;
+            },
+          );
+          assert.equal(invoked, false);
+          assert.equal(scope.resources.get(root), original);
+        },
+      ),
+    );
   });
   for (const original of [new Error("original task diagnostic"), undefined]) {
-    check(`prior failure ${original === undefined ? "undefined" : "Error"}`, () => {
-      const root = directory(original === undefined ? "undefined" : "original-error");
-      const scope = SourceNativeRetirement.createScope("original-failure");
-      const refused = new Error("authored cleanup refusal");
-      const failures: unknown[] = [];
-      SourceNativeRetirement.run(scope, () => OwnedSynchronousProcess.run({
-        cancel: new SharedArrayBuffer(4), failures,
-      }, () => {
-        SourceNativeRetirement.register({ fenceRoot: root, retainedPaths: [root] });
-        let caught: unknown;
-        try { SourceNativeRetirement.releaseResource(root, () => { throw refused; }, { error: original }); }
-        catch (error) { caught = error; }
-        assert.ok(caught instanceof AggregateError);
-        assert.deepEqual(caught.errors, [original, refused]);
-        assert.equal(caught.errors[0], original);
-        assert.equal(caught.errors[1], refused);
-        assert.deepEqual(failures, [caught]);
-        assert.equal(scope.resources.size, 1);
-        SourceNativeRetirement.releaseResource(root, () => fs.rmSync(root, { recursive: true }), { error: original });
-      }));
-      assert.equal(scope.resources.size, 0);
-    });
+    check(
+      `prior failure ${original === undefined ? "undefined" : "Error"}`,
+      () => {
+        const root = directory(
+          original === undefined ? "undefined" : "original-error",
+        );
+        const scope = SourceNativeRetirement.createScope("original-failure");
+        const refused = new Error("authored cleanup refusal");
+        const failures: unknown[] = [];
+        SourceNativeRetirement.run(scope, () =>
+          OwnedSynchronousProcess.run(
+            {
+              cancel: new SharedArrayBuffer(4),
+              failures,
+            },
+            () => {
+              SourceNativeRetirement.register({
+                fenceRoot: root,
+                retainedPaths: [root],
+              });
+              let caught: unknown;
+              try {
+                SourceNativeRetirement.releaseResource(
+                  root,
+                  () => {
+                    throw refused;
+                  },
+                  { error: original },
+                );
+              } catch (error) {
+                caught = error;
+              }
+              assert.ok(caught instanceof AggregateError);
+              assert.deepEqual(caught.errors, [original, refused]);
+              assert.equal(caught.errors[0], original);
+              assert.equal(caught.errors[1], refused);
+              assert.deepEqual(failures, [caught]);
+              assert.equal(scope.resources.size, 1);
+              SourceNativeRetirement.releaseResource(
+                root,
+                () => fs.rmSync(root, { recursive: true }),
+                { error: original },
+              );
+            },
+          ),
+        );
+        assert.equal(scope.resources.size, 0);
+      },
+    );
   }
   check("reentrant replacement is retained", () => {
     const root = directory("replacement");
     const scope = SourceNativeRetirement.createScope("replacement-generation");
     SourceNativeRetirement.run(scope, () => {
-      SourceNativeRetirement.register({ fenceRoot: root, retainedPaths: [root], generation: "first" });
+      SourceNativeRetirement.register({
+        fenceRoot: root,
+        retainedPaths: [root],
+        generation: "first",
+      });
       const original = scope.resources.get(root);
       SourceNativeRetirement.releaseResource(root, () => {
         SourceNativeRetirement.forget(root, "first");
-        SourceNativeRetirement.register({ fenceRoot: root, retainedPaths: [root], generation: "second" });
+        SourceNativeRetirement.register({
+          fenceRoot: root,
+          retainedPaths: [root],
+          generation: "second",
+        });
       });
       assert.notEqual(scope.resources.get(root), original);
       assert.equal(scope.resources.get(root)?.generation, "second");
-      SourceNativeRetirement.releaseResource(root, () => fs.rmSync(root, { recursive: true }));
+      SourceNativeRetirement.releaseResource(root, () =>
+        fs.rmSync(root, { recursive: true }),
+      );
     });
     assert.equal(scope.resources.size, 0);
   });
@@ -161,36 +257,71 @@ export function test_source_native_retirement_releases_removed_roots_after_succe
     const failures: unknown[] = [];
     let attempts = 0;
     SourceNativeRetirement.run(scope, () => {
-      SourceNativeRetirement.register({ fenceRoot: root, retainedPaths: [root], generation: "held" });
+      SourceNativeRetirement.register({
+        fenceRoot: root,
+        retainedPaths: [root],
+        generation: "held",
+      });
       SourceNativeRetirement.begin("authored-no-process-boundary");
-      SourceNativeRetirement.settle("authored-no-process-boundary", "unknown", "authored unresolved classification");
-      SourceNativeRetirement.releaseResource(root, () => {
-        if (++attempts === 1) throw refused;
-        fs.rmSync(root, { recursive: true });
-      }, { error: original });
+      SourceNativeRetirement.settle(
+        "authored-no-process-boundary",
+        "unknown",
+        "authored unresolved classification",
+      );
+      SourceNativeRetirement.releaseResource(
+        root,
+        () => {
+          if (++attempts === 1) throw refused;
+          fs.rmSync(root, { recursive: true });
+        },
+        { error: original },
+      );
     });
     assert.equal(attempts, 0);
     assert.equal(scope.resources.size, 1);
     assert.equal(scope.deferred.length, 1);
     assert.equal(SourceNativeRetirement.isProtected(root), true);
-    assert.throws(() => SourceNativeRetirement.recover(scope, "wrong-boundary", "joined"), /unresolved/);
-    OwnedSynchronousProcess.run({ cancel: new SharedArrayBuffer(4), failures }, () => {
-      assert.throws(() => SourceNativeRetirement.recover(scope, "authored-no-process-boundary", "joined"), error => {
-        assert.ok(error instanceof AggregateError);
-        assert.deepEqual(error.errors, [original, refused]);
-        return true;
-      });
-    });
+    assert.throws(
+      () => SourceNativeRetirement.recover(scope, "wrong-boundary", "joined"),
+      /unresolved/,
+    );
+    OwnedSynchronousProcess.run(
+      { cancel: new SharedArrayBuffer(4), failures },
+      () => {
+        assert.throws(
+          () =>
+            SourceNativeRetirement.recover(
+              scope,
+              "authored-no-process-boundary",
+              "joined",
+            ),
+          (error) => {
+            assert.ok(error instanceof AggregateError);
+            assert.deepEqual(error.errors, [original, refused]);
+            return true;
+          },
+        );
+      },
+    );
     assert.equal(attempts, 1);
     assert.equal(fs.existsSync(root), true);
     assert.equal(scope.resources.size, 1);
     assert.equal(scope.deferred.length, 1);
     assert.equal(failures.length, 1);
     SourceNativeRetirement.run(other, () => {
-      SourceNativeRetirement.register({ fenceRoot: otherRoot, retainedPaths: [otherRoot] });
-      SourceNativeRetirement.recover(scope, "authored-no-process-boundary", "joined");
+      SourceNativeRetirement.register({
+        fenceRoot: otherRoot,
+        retainedPaths: [otherRoot],
+      });
+      SourceNativeRetirement.recover(
+        scope,
+        "authored-no-process-boundary",
+        "joined",
+      );
       assert.equal(other.resources.size, 1);
-      SourceNativeRetirement.releaseResource(otherRoot, () => fs.rmSync(otherRoot, { recursive: true }));
+      SourceNativeRetirement.releaseResource(otherRoot, () =>
+        fs.rmSync(otherRoot, { recursive: true }),
+      );
     });
     assert.equal(attempts, 2);
     assert.equal(fs.existsSync(root), false);
@@ -204,28 +335,47 @@ export function test_source_native_retirement_releases_removed_roots_after_succe
     fs.mkdirSync(trace);
     let joined = false;
     try {
-      const result = childProcess.spawnSync(process.execPath, [
-        "--import",
-        new URL("../../../../../config/register-unit-loader.mjs", import.meta.url).href,
-        fileURLToPath(new URL("../../internal/source-retirement-trace-actor.ts", import.meta.url)),
-        root,
-      ], {
-        encoding: "utf8",
-        windowsHide: true,
-        env: SidecarEnvironment.merge(process.env, {
-          NODE_OPTIONS: undefined,
-          TTSC_E2E_TRACE: trace,
-        }),
-      });
-      joined = result.error === undefined && result.signal === null && result.status !== null;
+      const result = childProcess.spawnSync(
+        process.execPath,
+        [
+          "--import",
+          new URL(
+            "../../../../../config/register-unit-loader.mjs",
+            import.meta.url,
+          ).href,
+          fileURLToPath(
+            new URL(
+              "../../internal/source-retirement-trace-actor.ts",
+              import.meta.url,
+            ),
+          ),
+          root,
+        ],
+        {
+          encoding: "utf8",
+          windowsHide: true,
+          env: SidecarEnvironment.merge(process.env, {
+            NODE_OPTIONS: undefined,
+            TTSC_E2E_TRACE: trace,
+          }),
+        },
+      );
+      joined =
+        result.error === undefined &&
+        result.signal === null &&
+        result.status !== null;
       assert.equal(result.error, undefined);
       assert.equal(result.signal, null);
       assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
       assert.deepEqual(JSON.parse(result.stdout).failures, []);
     } finally {
       if (!joined)
-        TestProject.retainTemporaryDirectory(parent, "Release trace actor closure was not established");
+        TestProject.retainTemporaryDirectory(
+          parent,
+          "Release trace actor closure was not established",
+        );
     }
   });
-  if (errors.length !== 0) throw new AggregateError(errors, "Destructive resource release population");
+  if (errors.length !== 0)
+    throw new AggregateError(errors, "Destructive resource release population");
 }

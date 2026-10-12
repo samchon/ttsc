@@ -166,10 +166,13 @@ interface ISession {
 const resolveGraphBinary = (): string => {
   const override = process.env.TTSC_GRAPH_BINARY;
   if (override !== undefined && path.isAbsolute(override)) return override;
+  // The platform package @ttsc/graph itself depends on, as its resolver finds it.
+  const graph = path.join(resolveDependency("@ttsc/graph"), "package.json");
   return path.join(
-    resolveDependency("ttsc").replace(
-      `${path.sep}packages${path.sep}ttsc`,
-      `${path.sep}packages${path.sep}ttsc-${process.platform}-${process.arch}`,
+    path.dirname(
+      createRequire(graph).resolve(
+        `@ttsc/graph-${process.platform}-${process.arch}/package.json`,
+      ),
     ),
     "bin",
     process.platform === "win32" ? "ttscgraph.exe" : "ttscgraph",

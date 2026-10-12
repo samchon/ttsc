@@ -33,11 +33,7 @@ export function test_testproject_temporary_environment_isolates_implicit_git_dis
     fs.mkdirSync(standalone);
     fs.mkdirSync(own);
     const inherited = { ...process.env };
-    for (const name of [
-      "GIT_DIR",
-      "GIT_WORK_TREE",
-      "GIT_CEILING_DIRECTORIES",
-    ])
+    for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_CEILING_DIRECTORIES"])
       SidecarEnvironment.write(inherited, name, undefined);
     const git = (cwd: string, env: NodeJS.ProcessEnv, ...args: string[]) => {
       const result = spawnSync("git", args, {
@@ -75,7 +71,13 @@ export function test_testproject_temporary_environment_isolates_implicit_git_dis
     const raw = [callerCeiling, path.join(parent, "second"), "", ""].join(
       path.delimiter,
     );
-    for (const previous of [undefined, "", raw, raw + parent, raw + gitParent]) {
+    for (const previous of [
+      undefined,
+      "",
+      raw,
+      raw + parent,
+      raw + gitParent,
+    ]) {
       const env: NodeJS.ProcessEnv = {
         ...inherited,
         TTSC_TEMPORARY_CONTROL: "unchanged",
@@ -177,10 +179,7 @@ export function test_testproject_temporary_environment_isolates_implicit_git_dis
       const env = { ...inherited, GIT_CEILING_DIRECTORIES: "" };
       TestProject.configureTemporaryEnvironment(env, literal);
       assert.equal(env.GIT_CEILING_DIRECTORIES, path.delimiter + literal);
-      assert.equal(
-        git(child, env, "rev-parse", "--show-toplevel").status,
-        128,
-      );
+      assert.equal(git(child, env, "rev-parse", "--show-toplevel").status, 128);
     }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

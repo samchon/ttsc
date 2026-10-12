@@ -31,7 +31,8 @@ Each package's README describes what it does and how to use it. This table recor
 | `packages/unplugin` | Bundler adapters |  |
 | `packages/metro` | The Metro adapter built on `@ttsc/unplugin` |  |
 | `packages/vscode` | The VS Code extension | It wires `vscode-languageclient` to `ttscserver`, bridges the built-in lint and format commands, and executes other plugin command ids with editor-applied `WorkspaceEdit`s. |
-| `packages/ttsc-*` | Per-platform packages |  |
+| `packages/ttsc-*` | Per-platform packages for `ttsc` | The `ttsc` helper, `ttscserver` and the bundled Go SDK. `packages/ttsc/build/platform-package.cjs` builds them and the graph packages below. |
+| `packages/graph-*` | Per-platform packages for `@ttsc/graph` | Only the `ttscgraph` producer, built from `packages/ttsc/cmd/ttscgraph`; `@ttsc/graph` lists them as exact-version optional dependencies and resolves the binary from its own installation. |
 | `tests/test-*` | TypeScript unit suites and the single `tests/test-e2e` boundary module | Placement and experiment construction follow [development testing](../development/testing.md). |
 | `tests/utils` | Shared test helpers (`@ttsc/testing`) |  |
 | `tests/<plugin-name>` | Workspace packages a fixture must `require.resolve` from its `node_modules`, such as `tests/lint-contributor-demo` | `pnpm run build` builds them before tests run. |

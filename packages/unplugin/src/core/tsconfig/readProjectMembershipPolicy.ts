@@ -2,9 +2,9 @@ import path from "node:path";
 
 import { TYPESCRIPT_TRANSFORM_EXTENSIONS } from "../source/TYPESCRIPT_TRANSFORM_EXTENSIONS";
 import type { ITtscProjectMembershipPolicy } from "./ITtscProjectMembershipPolicy";
-import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
 import { JAVASCRIPT_INPUT_EXTENSIONS } from "./JAVASCRIPT_INPUT_EXTENSIONS";
 import { OUTPUT_DIRECTORY_OPTIONS } from "./OUTPUT_DIRECTORY_OPTIONS";
+import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
 import { absolutizePathsTarget } from "./absolutizePathsTarget";
 import { findDeclaredFileSpecs } from "./findDeclaredFileSpecs";
 import { findDeclaredValue } from "./findDeclaredValue";
@@ -40,9 +40,9 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  * refuses to guess in the direction that loses correctness.
  *
  * Source, identity and extends observations share this transaction. Completed
- * selections, including absence, require matching physical ancestry intersections.
- * Later calls start fresh, so unchanged metadata cannot conceal changed source
- * text or resolution.
+ * selections, including absence, require matching physical ancestry
+ * intersections. Later calls start fresh, so unchanged metadata cannot conceal
+ * changed source text or resolution.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Config-derived root specs, allowed extensions and exclusion provenance

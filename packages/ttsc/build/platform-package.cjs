@@ -1,8 +1,13 @@
-// Builds one `@ttsc/{os}-{arch}` package: the ttsc, ttscserver and ttscgraph
-// executables for its target plus the bundled Go compiler.
+// Builds one native platform package for its target.
 //
-// The 32-bit arm package bundles the armv6l SDK, so its executables are built
-// with GOARM=6; without it Go defaults to ARMv7, which that baseline cannot run.
+// `@ttsc/{os}-{arch}` carries the ttsc helper, the ttscserver LSP proxy and the
+// bundled Go compiler that source plugins build with. `@ttsc/graph-{os}-{arch}`
+// carries only the ttscgraph producer that `@ttsc/graph` spawns, so a project
+// without the graph downloads none of it. Both build from packages/ttsc with
+// the same flags and the same version stamp.
+//
+// Every 32-bit arm executable is built with GOARM=6: the arm package bundles the
+// armv6l SDK, and without it Go defaults to ARMv7, which that baseline cannot run.
 const cp = require("node:child_process");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
@@ -11,9 +16,16 @@ const path = require("node:path");
 const cwd = process.cwd();
 const manifestPath = path.join(cwd, "package.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-const [, npmOs, npmArch] =
-  /^@ttsc\/(linux|darwin|win32)-(x64|arm|arm64)$/.exec(manifest.name) ?? [];
+const [, graphPrefix, npmOs, npmArch] =
+  /^@ttsc\/(graph-)?(linux|darwin|win32)-(x64|arm|arm64)$/.exec(manifest.name) ?? [];
 if (!npmOs) throw new Error(`unsupported platform package ${manifest.name}`);
+const graph = graphPrefix !== undefined;
+const commands = graph
+  ? [["ttscgraph", "./cmd/ttscgraph"]]
+  : [
+      ["ttsc", "./cmd/platform"],
+      ["ttscserver", "./cmd/ttscserver"],
+    ];
 
 const goos = npmOs === "win32" ? "windows" : npmOs;
 const goarch = npmArch === "x64" ? "amd64" : npmArch;
@@ -38,11 +50,7 @@ const commit = (() => {
   }
 })();
 const ldflags = `-s -w -X main.version=${manifest.version} -X main.commit=${commit} -X main.date=${new Date().toISOString()}`;
-for (const [name, pkg] of [
-  ["ttsc", "./cmd/platform"],
-  ["ttscserver", "./cmd/ttscserver"],
-  ["ttscgraph", "./cmd/ttscgraph"],
-]) {
+for (const [name, pkg] of commands) {
   cp.execFileSync(
     "go",
     ["build", "-trimpath", `-ldflags=${ldflags}`, "-o", path.join(bin, name + exe), pkg],
@@ -61,23 +69,22 @@ for (const [name, pkg] of [
   if (npmOs !== "win32") fs.chmodSync(path.join(bin, name), 0o755);
 }
 
-copyGo(targetGoRoot());
-const tools = path.join(bundledGo, "pkg", "tool");
-const files = [...(fs.existsSync(tools) ? walk(tools) : [])];
+const executables = commands.map(([name]) => `./bin/${name}`);
+if (!graph) {
+  copyGo(targetGoRoot());
+  const tools = path.join(bundledGo, "pkg", "tool");
+  const files = [...(fs.existsSync(tools) ? walk(tools) : [])];
+  if (npmOs !== "win32")
+    for (const file of [path.join(bundledGo, "bin", "go"), path.join(bundledGo, "bin", "gofmt"), ...files])
+      if (fs.existsSync(file)) fs.chmodSync(file, 0o755);
+  executables.push(
+    "./bin/go/bin/go",
+    "./bin/go/bin/gofmt",
+    ...files.map((file) => `./${path.relative(cwd, file).replace(/\\/g, "/")}`).sort(),
+  );
+}
 if (npmOs !== "win32") {
-  for (const file of [path.join(bundledGo, "bin", "go"), path.join(bundledGo, "bin", "gofmt"), ...files])
-    if (fs.existsSync(file)) fs.chmodSync(file, 0o755);
-  manifest.publishConfig = {
-    ...manifest.publishConfig,
-    executableFiles: [
-      "./bin/ttsc",
-      "./bin/ttscserver",
-      "./bin/ttscgraph",
-      "./bin/go/bin/go",
-      "./bin/go/bin/gofmt",
-      ...files.map((file) => `./${path.relative(cwd, file).replace(/\\/g, "/")}`).sort(),
-    ],
-  };
+  manifest.publishConfig = { ...manifest.publishConfig, executableFiles: executables };
   fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
