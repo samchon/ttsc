@@ -445,6 +445,7 @@ export function loadProjectPlugins(options: {
         effectiveEnv,
         watchReplacements,
         packageReaders,
+        sourceIdentities,
       ))
         if (reportsPluginSource(directory)) interests.add(directory);
     }
@@ -534,6 +535,7 @@ export function loadProjectPlugins(options: {
     effectiveEnv,
     watchReplacements,
     packageReaders,
+    sourceIdentities,
   );
   // Admission can now narrow the provisional interests without restamping the
   // retained package/module baselines. Final host errors still keep these roots.
@@ -2349,6 +2351,7 @@ function pluginBuildDirectories(
   env: NodeJS.ProcessEnv,
   replacements?: Map<string, readonly string[]>,
   readers?: Map<string, SourcePluginWorkspace.GoModReader>,
+  identities?: PluginContentIdentities.Store,
 ): string[] {
   const directories = new Set<string>();
   for (const record of records) {
@@ -2363,6 +2366,7 @@ function pluginBuildDirectories(
         env,
         replacements,
         readers,
+        identities,
       ))
         directories.add(directory);
     }
@@ -2382,17 +2386,20 @@ function pluginReplacementWatchDirectories(
   env: NodeJS.ProcessEnv,
   observed?: Map<string, readonly string[]>,
   readers?: Map<string, SourcePluginWorkspace.GoModReader>,
+  identities?: PluginContentIdentities.Store,
 ): readonly string[] {
   const previous = observed?.get(moduleRoot);
   if (previous !== undefined) return previous;
   let directories: readonly string[];
   try {
+    // The load's store goes with the reader this registers first (#1739).
     directories = pluginModuleReplaceDirectories(
       moduleRoot,
       env,
       undefined,
       undefined,
       readers,
+      identities,
     ).map((replacement) => replacement.directory);
   } catch {
     // An unreadable manifest/tool is not valid metadata. The already observed

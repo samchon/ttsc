@@ -4,6 +4,7 @@ import path from "node:path";
 import { resolvePhysicalPath } from "../../../internal/pathIdentity/resolvePhysicalPath";
 import { GoToolResolution } from "./GoToolResolution";
 import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
+import type { PluginContentIdentities } from "./PluginContentIdentities";
 import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { resolveGoCompiler } from "./resolveGoCompiler";
 import { selectPluginModuleReplaceDirectories } from "./selectPluginModuleReplaceDirectories";
@@ -30,6 +31,8 @@ import { selectPluginModuleReplaceDirectories } from "./selectPluginModuleReplac
  * @param env The build's effective environment.
  * @param goBinary The Go tool the build runs, or `undefined` to resolve it as
  *   the build does.
+ * @param identities The load's record store, carried by a reader this call
+ *   registers so the load's later reads reuse recorded syntax.
  * @returns Each replacement outside the module, sorted by module path: the
  *   replaced module path and version, the target as `go.mod` spells it, and the
  *   target's absolute path.
@@ -52,6 +55,7 @@ export function pluginModuleReplaceDirectories(
   goBinary?: string,
   reader?: SourcePluginWorkspace.GoModReader,
   readers?: Map<string, SourcePluginWorkspace.GoModReader>,
+  identities?: PluginContentIdentities.Store,
 ): IPluginModuleReplaceDirectory[] {
   const root = path.resolve(moduleRoot);
   let text: string;
@@ -72,7 +76,12 @@ export function pluginModuleReplaceDirectories(
       root,
     );
   const parsed = (
-    reader ?? SourcePluginWorkspace.createGoModReader(go, root, env, readers)
+    reader ??
+    // WARNING (#1739): the first reader registered for a Go binary serves the
+    // whole load, so it must carry the load's record store, or every later
+    // reader request of the load gets a store-less one and the go.mod syntax
+    // records are never read or written.
+    SourcePluginWorkspace.createGoModReader(go, root, env, readers, identities)
   ).read(root);
   // Parsed syntax may be shared; physical containment is current native state
   // and must be recomputed even when these manifest bytes are unchanged.
