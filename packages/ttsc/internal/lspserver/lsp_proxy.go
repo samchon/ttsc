@@ -158,7 +158,7 @@ type Proxy struct {
   suppressedExecuteCommandIDs    map[string]struct{}
   executeCommandIDPrefix         string
 
-  writeMu        sync.Mutex // serializes WriteFrame calls to editorOut
+  writeMu         sync.Mutex // serializes WriteFrame calls to editorOut
   upstreamWriteMu sync.Mutex // serializes writes to upstreamIn
   asyncErrCh      chan error
 
@@ -558,9 +558,9 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
 // client offers `general.positionEncodings`, the server picks one, and every
 // position on that session is counted in the winner. tsgo selects `utf-8`
 // whenever a client offers it, but ttsc computes positions of its own — the
-// incremental buffer cache, plugin completion, the lint sidecar's diagnostic,
-// fix, suggestion and formatting ranges, and the graph symbol provider — and
-// every one of those counts UTF-16 code units. Because the sidecar protocol
+// incremental buffer cache, plugin completion, and the lint sidecar's
+// diagnostic, fix, suggestion and formatting ranges — and every one of those
+// counts UTF-16 code units. Because the sidecar protocol
 // carries no encoding field, a session negotiated as `utf-8` would put tsgo's
 // half of each response on byte columns and ttsc's half on UTF-16 columns.
 //
