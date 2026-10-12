@@ -399,6 +399,17 @@ export async function createHostInputMutationTracker(
    * an event the backend could not attribute to a name may concern any input
    * below the watched directory, so it always counts.
    */
+  // Whether a path names an existing object that no other name can reach:
+  // not a link, and not a file with a second hard link, whose writes could
+  // land on a tracked input without an event on its name.
+  const distinctExistingObject = (location: string): boolean => {
+    try {
+      const stats = filesystem.lstat(location);
+      return !stats.isSymbolicLink() && !(stats.isFile() && stats.nlink > 1n);
+    } catch {
+      return false;
+    }
+  };
   const classify = (
     directory: string,
     filename: string | null,
@@ -477,6 +488,13 @@ export async function createHostInputMutationTracker(
         return "mutation";
       }
     }
+    // An object that exists now resolves to its own identity under every alias,
+    // so one that is neither a link nor a second name of a file, and resolves
+    // to nothing tracked above, is a different object. A recursive backend
+    // (macOS, Windows) hears every write below the project root, and
+    // withdrawing authority for each sent every later delivery past its
+    // notifications.
+    if (distinctExistingObject(changed)) return undefined;
     // A missing native alias cannot be recovered by current realpath. Neither
     // ASCII spelling nor OS name proves this event unrelated to a tracked path.
     // Keep exact metadata validation without inventing a membership mutation.
