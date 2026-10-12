@@ -910,11 +910,10 @@ func prismaCommentCarriesTag(body string) bool {
     if region.fence {
       continue
     }
-    trimmed := region.text
-    if _, _, found := declarationLine(trimmed); found {
+    if opensAcknowledgement(region.text, region.heading, region.title) {
       return true
     }
-    if prismaBuriedTag(trimmed) {
+    if prismaBuriedTag(region.text) {
       return true
     }
   }
@@ -936,11 +935,10 @@ func prismaBuriedTagLines(body string) []int {
     if region.fence {
       continue
     }
-    trimmed := region.text
-    if _, _, found := declarationLine(trimmed); found {
+    if opensAcknowledgement(region.text, region.heading, region.title) {
       continue
     }
-    if prismaBuriedTag(trimmed) {
+    if prismaBuriedTag(region.text) {
       offsets = append(offsets, offset)
     }
   }
@@ -965,8 +963,8 @@ func prismaBuriedTag(trimmed string) bool {
   if stripped == trimmed {
     return false
   }
-  _, _, found := declarationLine(stripped)
-  return found
+  heading, title := documentationHeading(stripped)
+  return opensAcknowledgement(stripped, heading, title)
 }
 
 // prismaNormalizationFailure words a rejected schema identically whether the

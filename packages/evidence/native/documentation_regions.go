@@ -13,6 +13,30 @@ type documentationRegionLine struct {
 
   // fence ends pending prose and suppresses tags throughout the example.
   fence bool
+
+  // heading is the ATX depth when the line is a heading, or zero. A heading
+  // annotation's explanation ends at a heading of its own depth or shallower.
+  heading int
+
+  // title is the heading text without closing hashes or an explicit anchor,
+  // which are heading syntax and never part of an annotation's target or reason.
+  title string
+}
+
+// documentationHeading reads an ATX heading from trimmed documentation prose.
+//
+// It uses the Markdown scanner's own heading grammar, so a heading inside a
+// documentation comment and a heading in a Markdown file agree on depth,
+// required spacing and closing hashes. The explicit `{#anchor}` suffix is
+// removed because it names the heading for Markdown addressing, which an
+// annotation's target or reason must never absorb.
+func documentationHeading(text string) (int, string) {
+  level, title, ok := markdownHeading(text)
+  if !ok {
+    return 0, ""
+  }
+  title, _ = markdownHeadingIdentity(title)
+  return level, title
 }
 
 // documentationCommentBody removes only a real native wrapper. Mapped Prisma
@@ -139,6 +163,11 @@ func documentationRegions(body string, slashDecoration bool) []documentationRegi
       at++
     }
     result[index].text = strings.TrimSpace(string(masked))
+    // A heading allows the same three columns of margin a fence does; four or
+    // more make the line indented code, which opens and ends nothing.
+    if relative >= 0 && relative <= 3 {
+      result[index].heading, result[index].title = documentationHeading(result[index].text)
+    }
     offset += len(line) + 1
   }
   return result

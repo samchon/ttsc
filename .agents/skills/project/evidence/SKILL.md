@@ -30,6 +30,10 @@ Keep `declarationLine`'s whitespace boundary after `@evidence`. It distinguishes
 
 Check a fingerprint's exact length as well as its opening `#`. A requirement anchor such as `#req-search-policies` has the same opening shape.
 
+Recognize both annotation forms through `openAnnotation` alone. The one-line form and the H2-H4 heading form must agree in every consumer that asks whether a line carries a tag, including unreadable-comment reporting and the Prisma misplaced-comment checks; a consumer matching `declarationLine` directly lets a heading-form tag in an unreadable position pass silently.
+
+Split a heading section's target from its heading alone. Explanation prose may supply the reason but never the target, and an unterminated link on the heading must not borrow a brace from the prose below. A one-line annotation keeps its cross-line target split.
+
 Decide a target's kind from its token independently of reference context. A path target is one token; only a code target may use braces as a boundary. A citation-only import remains unused to `@typescript-eslint/no-unused-vars` because that rule does not count JSDoc usage.
 
 Resolve a file-qualified target's path from the citing file and its segmented accessor from that module's public exports. Preserve import-scoped inline links and reject bare cross-module symbol lookup.
