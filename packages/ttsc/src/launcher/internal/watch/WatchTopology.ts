@@ -64,8 +64,8 @@ import { watchDirectory } from "./watchDirectory";
  * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node APIs and registration uses realpath; compiler/plugin maps preserve lexical aliases and fold only measured insensitive ASCII components. Project inputs use physical identities, while unknown/native Unicode relations remain conservative event candidates rather than identity proof. Registration paths and read options are passed unchanged; compiler-input readers supply absolute membership paths without replacing the topology's native identity policy. Project-input attribution: The supplied filesystem identity transaction establishes selected names and ancestry without an OS-wide case assumption or lexical alias guess.
  *
  * @evidence contracts/performance.md#efficient-algorithms Identity-keyed maps separate membership, baselines and handle registries; reconciliation delegates project/config discovery, native compiler listing, filesystem traversal/hashing and backend callbacks, with costs described by its members. Construction retains operation references and empty indexes without a filesystem observation or build. Attribution indexed visits additionally pay path/key text, ancestor and native identity work; shared ancestor keys avoid repeating the same walk within a transaction.
- * @evidence contracts/performance.md#reuse-equivalent-work Current membership, content baselines and live registrations belong to one topology; reconciliation owners decide their reuse against fresh premises. Supplied operation identities are retained without adding an observation-result cache or assuming changed inputs remain equivalent. Project-input attribution: This classifier borrows one scan's deltas and identity transaction without retaining cross-event answers.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Current and pending maps and live subscriptions remain topology-owned without a population cap; reconciliation attempts obsolete handle retirement. Constructor acquires no handle; directory arrays and attribution deltas are call-local. close invokes supplied close methods but does not await backend closure, and a thrown close can interrupt later map cleanup; retained snapshots remain until the facade is released.
+ * @evidence contracts/performance.md#reuse-equivalent-work Current membership, content baselines and live registrations belong to one topology; reconciliation owners decide their reuse against fresh premises. Supplied operation identities are retained without assuming changed inputs remain equivalent. Each project's last compiler listing is kept with its arguments and answers only a plugin-input change, which cannot move Program membership; every other refresh lists again. Project-input attribution: This classifier borrows one scan's deltas and identity transaction without retaining cross-event answers.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Current and pending maps and live subscriptions remain topology-owned without a population cap; compiler listings are replaced by each resolution and hold only its projects; reconciliation attempts obsolete handle retirement. Constructor acquires no handle; directory arrays and attribution deltas are call-local. close invokes supplied close methods but does not await backend closure, and a thrown close can interrupt later map cleanup; retained snapshots remain until the facade is released.
  */
 export class WatchTopology {
   private analysisOnly = false;
@@ -102,6 +102,13 @@ export class WatchTopology {
   /** The plugin inputs whose directories the last sync already watched. */
   private watchedExtraInputs = new Set<string>();
   private compilerFileSnapshots = new Map<string, CompilerFileSnapshot>();
+
+  /**
+   * The last compiler listing of each project the topology resolved, by its
+   * config path, with the arguments it was asked under (`listingQuestion`). A
+   * change of plugin inputs reuses it (samchon/ttsc#1741).
+   */
+  private compilerListings = new Map<string, CompilerListing>();
   private files = new Map<string, string>();
   private lexicalIdentities = createProjectInputPathIdentityContext({
     throwOnRealpathError: false,
@@ -183,17 +190,34 @@ export class WatchTopology {
     this.refreshCompilerInputs(notify, false);
   }
 
+  /**
+   * @param reuseListings Answer each project's membership with its last listing
+   *   under the same arguments instead of asking the compiler again. Only a
+   *   refresh whose cause cannot move Program membership passes it.
+   */
   private refreshCompilerInputs(
     notify: boolean,
     skipUnobservedProjectInputWatchRoots: boolean,
+    reuseListings: boolean = false,
   ): void {
     this.beginLexicalTransaction();
+    const listings = new Map<string, CompilerListing>();
     const next = resolveWatchTopology(
       this.options,
       this.extraInputs,
       this.lexicalIdentities,
-      this.getCompilerInputs,
+      (project, options) => {
+        const question = listingQuestion(project, options);
+        const last = this.compilerListings.get(project.path);
+        const inputs =
+          reuseListings && last?.question === question
+            ? last.inputs
+            : this.getCompilerInputs(project, options);
+        listings.set(project.path, { inputs, question });
+        return inputs;
+      },
     );
+    this.compilerListings = listings;
     const compilerProgramMembershipChange =
       next.analysisOnly &&
       WatchPaths.mapsEqual(this.reloadFiles, next.reloadFiles) &&
@@ -353,8 +377,8 @@ export class WatchTopology {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual plugin source digest applies its owning source-selection and pruning policy; named plugins or fixture output do not replace observed input state.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains baseline timing and why existing inputs are not restamped following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and canonical backend registration govern source trees; lexical keys preserve declarations and unknown names, folding ASCII only under measured insensitive parents rather than an OS-derived rule.
-   * @evidence contracts/performance.md#efficient-algorithms Input/path keys deduplicate with text and native case/ancestor work; only newly admitted inputs compute initial source digests, each proven from the selected files' metadata when the load's records hold and read from the selected pruned corpus otherwise; refresh(false) also pays project/compiler listing, directory traversal and watcher reconciliation; fixed publication count does not bound delegated bytes or backend work.
-   * @evidence contracts/performance.md#reuse-equivalent-work Unchanged ordered input sets return immediately; existing inputs reuse their recorded digest until actual notification processing establishes changed consumed state; a new input's digest is the one the load recorded while its metadata holds.
+   * @evidence contracts/performance.md#efficient-algorithms Input/path keys deduplicate with text and native case/ancestor work; only newly admitted inputs compute initial source digests, each proven from the selected files' metadata when the load's records hold and read from the selected pruned corpus otherwise; the following reconciliation pays project configuration, directory traversal and watcher work but answers membership from each project's last compiler listing; fixed publication count does not bound delegated bytes or backend work.
+   * @evidence contracts/performance.md#reuse-equivalent-work Unchanged ordered input sets return immediately; a changed set reuses each project's last compiler listing under the same arguments, since plugin inputs cannot move Program membership; existing inputs reuse their recorded digest until actual notification processing establishes changed consumed state; a new input's digest is the one the load recorded while its metadata holds.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Publications replace input/digest populations and case-observation caches without a population cap; synchronization attempts obsolete watcher closure. Native/supplied closure has its own lifetime and can throw; owner close does not prove every backend has stopped or every retained snapshot byte was released.
    */
   public setExtraInputs(
@@ -382,7 +406,12 @@ export class WatchTopology {
       );
     }
     this.pluginInputStates = states;
-    this.refresh(false);
+    // Plugin inputs join the watched files and directories, never Program
+    // membership, so the compiler's last answer stands. A load reports up to
+    // three different sets, and asking again for each spawned tsgo three times
+    // per load (samchon/ttsc#1741). A membership change meanwhile reaches the
+    // refresh its own notification starts, which lists again.
+    this.refreshCompilerInputs(false, false, true);
   }
 
   /**
@@ -1763,6 +1792,32 @@ type CompilerFileSnapshot = {
   fingerprint: string;
   owner: string;
 };
+
+type CompilerListing = {
+  inputs: readonly string[];
+  question: string;
+};
+
+/**
+ * Everything a compiler listing of `project` is asked with: the project, and
+ * each option `listCompilerInputs` passes to the compiler. Two refreshes with
+ * the same question ask the compiler the same thing; only the disk can answer
+ * them differently.
+ */
+function listingQuestion(
+  project: ITtscParsedProjectConfig,
+  options: WatchTopologyOptions,
+): string {
+  return JSON.stringify([
+    project.path,
+    project.root,
+    options.binary ?? null,
+    options.compilerArgsCwd ?? null,
+    options.env ?? null,
+    options.passthrough ?? null,
+    options.pinCompilerProject ?? null,
+  ]);
+}
 
 type CompilerFileMovement = {
   content: boolean;
