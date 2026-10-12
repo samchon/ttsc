@@ -130,7 +130,9 @@ export async function test_plugin_corpus_check_watch_reuses_resident_program(): 
     assert.equal(samples.length, 5, session.transcript());
     assertFreshSample(samples[4]!, samples[3]!.pid);
 
-    fs.rmSync(added);
+    // A Windows reader of the new file, the resident program or a scanner,
+    // can hold it open for a moment; a file held for good still fails.
+    fs.rmSync(added, { maxRetries: 20, retryDelay: 50 });
     await session.waitForBuilds(6);
     samples = residentSamples(session.transcript());
     assert.equal(samples.length, 6, session.transcript());
