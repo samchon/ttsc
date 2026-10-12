@@ -4,9 +4,7 @@
  * check the same socket's failure/close. Caller cleanup attempts server and
  * client independently, and outer contained cancellation owns unresolved work.
  */
-export async function observeReloadEvents(
-  server: any,
-): Promise<
+export async function observeReloadEvents(server: any): Promise<
   Array<{ type?: string }> & {
     readonly joined: boolean;
     check(): void;
