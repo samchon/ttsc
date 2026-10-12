@@ -322,16 +322,26 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
     `an unreachable external edit must not replace the file's generation (active resources: ${activeResourceSummary()}; reads of the edited file: ${unrelatedReads.join("\n") || "none"}; trackers after: ${trackerStates(unrelatedGeneration)}; generation: ${generationFacts(unrelatedGeneration)})`,
   );
 
+  // The trackers when the asset's delivery reads the edited external, which
+  // only a proof that fell back past its notifications does.
+  const assetReads: string[] = [];
+  watchedRead = (location) => {
+    if (absenceKey(location) === absenceKey(unrelated))
+      assetReads.push(
+        `${trackerStates(unrelatedGeneration)}\n${callerFrames()}`,
+      );
+  };
   fs.writeFileSync(
     path.join(project.root, "fixtures", "unused-0", "nested", "asset.txt"),
     "changed unrelated fixture asset\n",
     "utf8",
   );
   assert.ok(await deliver(main));
+  watchedRead = undefined;
   assert.equal(
     [...cache.values()][0],
     originalGeneration,
-    "an unclassified project asset must not replace the generation",
+    `an unclassified project asset must not replace the generation (reads of the earlier edited external: ${assetReads.join("\n") || "none"})`,
   );
 
   let linkedGeneration = originalGeneration;
