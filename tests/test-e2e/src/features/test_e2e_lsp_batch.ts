@@ -3,7 +3,7 @@ import { LspCompletionPublication } from "../../../utils/src/LspCompletionPublic
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { lspSelectionCorpus } from "../batch/lspSelectionCorpus";
@@ -538,7 +538,9 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
                 );
                 // The proxy owns neither symbol method, so the upstream checker
                 // answers references too: the authored source declares `legacy`
-                // at 0:4 and reads it once at 2:28.
+                // at 0:4 and reads it once at 2:28. Upstream spells its own
+                // URIs (on Windows a lowercase, percent-encoded drive), so the
+                // locations are matched by file identity, not URI text.
                 const references = await client.request<Location[] | null>(
                   "textDocument/references",
                   {
@@ -549,7 +551,11 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
                 );
                 assert.deepEqual(
                   (references ?? [])
-                    .filter((location) => location.uri === uri)
+                    .filter(
+                      (location) =>
+                        location.uri?.startsWith("file:") === true &&
+                        path.relative(fileURLToPath(location.uri), file) === "",
+                    )
                     .map(
                       (location) =>
                         `${location.range?.start?.line}:${location.range?.start?.character}`,
