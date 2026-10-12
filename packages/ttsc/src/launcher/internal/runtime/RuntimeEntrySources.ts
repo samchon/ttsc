@@ -21,6 +21,15 @@ export namespace RuntimeEntrySources {
   /**
    * The served source of entry `url`, prepared by `prepare` on its first load
    * only.
+   *
+   * @evidence contracts/common.md#principled-implementation Only a caller that serves an entry, whose emit is fixed for the run, asks; the first preparation is the answer a repeated one would give.
+   * @evidence contracts/common.md#clear-and-simple-design One lookup or one preparation and insertion.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The caller's own preparation runs unchanged on the first load.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states which load prepares.
+   * @evidence contracts/portability.md#os-neutral-implementation Entries are keyed by the URL Node passes.
+   * @evidence contracts/performance.md#efficient-algorithms One map lookup, and on the first load one insertion.
+   * @evidence contracts/performance.md#reuse-equivalent-work A repeated load returns the first preparation.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources One source per entry URL is retained for the process.
    */
   export function serve<Source>(url: string, prepare: () => Source): Source {
     if (served.has(url)) return served.get(url) as Source;
