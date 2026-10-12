@@ -9,6 +9,7 @@ import { readProjectConfig } from "../../../compiler/internal/project/readProjec
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../../../internal/E2ETrace";
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
+import { TtsxNodeOptions } from "../../../internal/TtsxNodeOptions";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { javascriptRuntimeCapabilities } from "../../../internal/javascriptRuntimeCapabilities";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
@@ -1440,9 +1441,13 @@ class CommonJsDescriptorLoadError extends Error {
 function loadCommonJsDescriptor(
   request: string,
   context: ITtscPluginFactoryContext,
-  effectiveEnv: NodeJS.ProcessEnv,
+  loadEnv: NodeJS.ProcessEnv,
   descriptorCache: DescriptorCacheOptions,
 ): IsolatedPluginDescriptor {
+  // The evaluator is ttsc's own helper: inside a ttsx run it gets the user's
+  // NODE_OPTIONS, not ttsx's preloads, which would refuse the descriptor cache
+  // and run in every evaluation (#1740). The runtime probe below does the same.
+  const effectiveEnv = TtsxNodeOptions.forHelpers(loadEnv);
   const runtime = pluginDescriptorRuntimeBinary(effectiveEnv);
   const ttsx = effectiveEnv.TTSC_TTSX_BINARY ?? process.env.TTSC_TTSX_BINARY;
   const runtimeCapabilities = javascriptRuntimeCapabilities(
