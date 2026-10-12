@@ -93,7 +93,7 @@ export async function test_transformttsc_a_new_process_witnesses_the_dependencie
           "const [file, toolDirectory] = JSON.parse(process.argv[1]);",
           "const cache = api.createTtscTransformCache();",
           "const hooks = { project: { register: () => undefined, toolDirectory } };",
-          'const result = await api.transformTtsc(file, fs.readFileSync(file, "utf8"), api.resolveOptions(), hooks, cache);',
+          'const result = await api.transformTtsc(file, fs.readFileSync(file, "utf8"), api.resolveOptions(), undefined, cache, hooks);',
           'process.stdout.write(result?.code ?? "");',
         ].join("\n"),
         JSON.stringify([main, toolDirectory]),
