@@ -34,6 +34,7 @@ import type { OwningModuleOptions } from "./OwningModuleOptions";
 import { PluginDescriptorInputObservation } from "./PluginDescriptorInputObservation";
 import type { ResolveResult } from "./ResolveResult";
 import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
+import { RuntimeEntrySources } from "./RuntimeEntrySources";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
 import type { RuntimeHookOptions } from "./RuntimeHookOptions";
 import { RuntimeIsolatedEmit } from "./RuntimeIsolatedEmit";
@@ -849,11 +850,12 @@ function load(
   if (!isTypeScriptSource(filename)) {
     return loadJavaScript(url, filename, context, nextLoad);
   }
-  const served = resolveServedSource(
-    filename,
-    url,
-    runtimeEntryUrls.delete(url) || isProcessEntry(filename),
-  );
+  const entry = runtimeEntryUrls.delete(url) || isProcessEntry(filename);
+  const served = entry
+    ? RuntimeEntrySources.serve(url, () =>
+        resolveServedSource(filename, url, true),
+      )
+    : resolveServedSource(filename, url, false);
   const format = RuntimeModuleFormat.moduleFormat(
     filename,
     served.moduleOptions,
