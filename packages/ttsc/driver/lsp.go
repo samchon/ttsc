@@ -201,57 +201,18 @@ type LSPCompletionHint = lspserver.LSPCompletionHint
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPCompletionItem = lspserver.LSPCompletionItem
 
-// LSPSymbolKind carries LSP symbol classification values for editor outlines.
-//
-// @evidence contracts/common.md#principled-implementation The alias retains the server's protocol numeric classifications unchanged.
-// @evidence contracts/common.md#clear-and-simple-design Outline classification remains one enum shared by provider and proxy.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Protocol values are forwarded without source-name or consumer special cases.
-// @evidence contracts/common.md#meaningful-documentation The enum's outline purpose is stated directly under documentation-skill guidance.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
-// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
-type LSPSymbolKind = lspserver.LSPSymbolKind
-
-// LSPDocumentSymbol forms an outline hierarchy; SelectionRange locates the name
-// within the declaration's Range and Children hold nested members.
-//
-// @evidence contracts/common.md#principled-implementation Alias identity keeps hierarchical symbols and their two range roles intact.
-// @evidence contracts/common.md#clear-and-simple-design The provider and proxy share one nested outline representation.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts No flattening adapter or guessed member relationship is introduced.
-// @evidence contracts/common.md#meaningful-documentation Native prose explains hierarchy and range roles following the documentation skill.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
-// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
-type LSPDocumentSymbol = lspserver.LSPDocumentSymbol
-
-// LSPLocation identifies a reference range inside the document named by its URI.
+// LSPLocation identifies a range inside the document named by its URI. Plugin
+// diagnostics carry one per related-information site.
 //
 // @evidence contracts/common.md#principled-implementation The alias preserves the server's URI and LSP coordinate pair.
-// @evidence contracts/common.md#clear-and-simple-design References use the existing location schema instead of a filesystem-path adapter.
+// @evidence contracts/common.md#clear-and-simple-design Related diagnostic information uses the existing location schema instead of a filesystem-path adapter.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No OS path spelling is substituted for a protocol document URI.
-// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes document identity and range using documentation-skill guidance.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes document identity and range and names the related-information use, following documentation-skill guidance.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
 // @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPLocation = lspserver.LSPLocation
-
-// SymbolProvider is the driver-level alias for lspserver.SymbolProvider.
-// It is the seam that answers textDocument/documentSymbol and
-// textDocument/references from ttsc's compiler-backed code graph when upstream
-// tsgo does not advertise them, or when the caller selects local graph answers.
-//
-// @evidence contracts/common.md#principled-implementation The server interface alias preserves the method set required by local symbol routing.
-// @evidence contracts/common.md#clear-and-simple-design Driver embedders implement the existing provider seam without another proxy layer.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts The public extension does not replace upstream methods or patch compiler internals.
-// @evidence contracts/common.md#meaningful-documentation Native prose names the two routed requests and owning graph under documentation-skill guidance.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
-// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
-type SymbolProvider = lspserver.SymbolProvider
 
 // PluginSource is the driver-level alias for lspserver.PluginSource.
 // It is the public seam downstream pipelines implement to contribute

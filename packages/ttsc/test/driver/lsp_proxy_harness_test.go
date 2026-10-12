@@ -257,8 +257,14 @@ func writeLSPDiskFile(t *testing.T, text string) string {
   if err := os.WriteFile(file, []byte(text), 0o644); err != nil {
     t.Fatal(err)
   }
-  uriPath := filepath.ToSlash(file)
-  if filepath.VolumeName(file) != "" && uriPath[0] != '/' {
+  return fileURIForPath(file)
+}
+
+// fileURIForPath encodes an OS path as a file:// uri the same way editors do,
+// prefixing a leading slash for volume-qualified Windows paths.
+func fileURIForPath(path string) string {
+  uriPath := filepath.ToSlash(path)
+  if filepath.VolumeName(path) != "" && uriPath[0] != '/' {
     uriPath = "/" + uriPath
   }
   return (&url.URL{Scheme: "file", Path: uriPath}).String()

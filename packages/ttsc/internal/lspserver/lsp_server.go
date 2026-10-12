@@ -88,13 +88,6 @@ type LSPServerOptions struct {
   // executeCommand handling. Nil falls back to NullPluginSource{}.
   Source PluginSource
 
-  // SymbolProvider answers textDocument/documentSymbol and
-  // textDocument/references from ttsc's compiler-backed code graph when
-  // upstream tsgo does not advertise the capability; RunLSPServer does not
-  // force local answers over an advertised one. Nil leaves those methods
-  // forwarded to upstream tsgo.
-  SymbolProvider SymbolProvider
-
   // SuppressExecuteCommandProvider keeps ttsc command ids out of the
   // initialize response for clients that route wrapper commands themselves.
   SuppressExecuteCommandProvider bool
@@ -281,7 +274,6 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
     SuppressExecuteCommandProvider: opts.SuppressExecuteCommandProvider,
     SuppressedExecuteCommandIDs:    opts.SuppressedExecuteCommandIDs,
     ExecuteCommandIDPrefix:         opts.ExecuteCommandIDPrefix,
-    SymbolProvider:                 opts.SymbolProvider,
   })
 
   serverCtx, cancel := context.WithCancel(ctx)

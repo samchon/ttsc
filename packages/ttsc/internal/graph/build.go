@@ -93,12 +93,11 @@ func BuildFiles(prog *driver.Program, selected []string, baseNodes map[string]*N
 // the compiler AST or into the preceding generation's nodes: resolved is keyed
 // by *shimast.Node, docHosts holds one per documented declaration, and baseNodes
 // is the whole prior endpoint index. A consumer that retains the returned Graph
-// would otherwise pin all of it for as long as it held the graph —
-// internal/graphsymbols retains one for the lifetime of an editor session
-// between invalidations, closing the Program while the maps that reference its
-// AST live on. Clearing them here rather than at that consumer keeps the
-// decision with the producer, which is the only side that knows which fields are
-// scratch.
+// would otherwise pin all of it for as long as it held the graph: the resident
+// serve session in cmd/ttscgraph holds a prepared projection until it publishes,
+// and its compiler session can replace and close the Program in the meantime.
+// Clearing them here rather than at that consumer keeps the decision with the
+// producer, which is the only side that knows which fields are scratch.
 //
 // ExportedTargets and ImplementationSources are deliberately not cleared: the
 // shard expansion path in cmd/ttscgraph/serve_shards.go reads both after this
