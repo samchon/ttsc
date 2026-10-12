@@ -65,7 +65,7 @@ import { watchDirectory } from "./watchDirectory";
  * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node APIs and registration uses realpath; compiler/plugin maps preserve lexical aliases and fold only measured insensitive ASCII components. Project inputs use physical identities, while unknown/native Unicode relations remain conservative event candidates rather than identity proof. Registration paths and read options are passed unchanged; compiler-input readers supply absolute membership paths without replacing the topology's native identity policy. Project-input attribution: The supplied filesystem identity transaction establishes selected names and ancestry without an OS-wide case assumption or lexical alias guess.
  *
  * @evidence contracts/performance.md#efficient-algorithms Identity-keyed maps separate membership, baselines and handle registries; reconciliation delegates project/config discovery, native compiler listing, filesystem traversal/hashing and backend callbacks, with costs described by its members. Construction retains operation references and empty indexes without a filesystem observation or build. Attribution indexed visits additionally pay path/key text, ancestor and native identity work; shared ancestor keys avoid repeating the same walk within a transaction.
- * @evidence contracts/performance.md#reuse-equivalent-work Current membership, content baselines and live registrations belong to one topology; reconciliation owners decide their reuse against fresh premises. Supplied operation identities are retained without assuming changed inputs remain equivalent. Each project's last compiler listing is kept with its arguments and answers only a plugin-input change, which cannot move Program membership; every other refresh lists again. Project-input attribution: This classifier borrows one scan's deltas and identity transaction without retaining cross-event answers.
+ * @evidence contracts/performance.md#reuse-equivalent-work Current membership, content baselines and live registrations belong to one topology; reconciliation owners decide their reuse against fresh premises. Supplied operation identities are retained without assuming changed inputs remain equivalent. Each project's last compiler listing is kept with its arguments and answers only a plugin-input change, which cannot move Program membership; every other refresh lists again. Notifications delivered in one poll iteration are decided together in the check phase, so one change lists and rescans once. Project-input attribution: This classifier borrows one scan's deltas and identity transaction without retaining cross-event answers.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Current and pending maps and live subscriptions remain topology-owned without a population cap; compiler listings are replaced by each resolution and hold only its projects; reconciliation attempts obsolete handle retirement. Constructor acquires no handle; directory arrays and attribution deltas are call-local. close invokes supplied close methods but does not await backend closure, and a thrown close can interrupt later map cleanup; retained snapshots remain until the facade is released.
  */
 export class WatchTopology {
@@ -110,6 +110,13 @@ export class WatchTopology {
    * change of plugin inputs reuses it (samchon/ttsc#1741).
    */
   private compilerListings = new Map<string, CompilerListing>();
+
+  /**
+   * Notifications the current poll iteration delivered, decided together in the
+   * check phase (`deferNotification`).
+   */
+  private pendingNotifications = new Map<string, PendingNotification>();
+  private notificationsScheduled = false;
   private files = new Map<string, string>();
 
   /**
@@ -656,34 +663,17 @@ export class WatchTopology {
         this.openDirectoryWatch(
           watcherRegistrationPath(location),
           process.platform === "win32",
-          (event, filename, gap) => {
-            this.beginLexicalTransaction();
-            const changed =
-              filename === null ? undefined : path.resolve(location, filename);
-            const pluginInput = changed ?? location;
-            if (this.isPluginInput(pluginInput)) {
-              this.notePluginNotification(pluginInput);
-              return;
-            }
-            const plan = planCompilerDirectoryWatchEvent({
-              changed,
-              event,
-              exists: fs.existsSync,
+          (event, filename, gap) =>
+            this.deferNotification({
+              gap: gap === true,
+              lane: "compiler",
               location,
-              identities: this.lexicalIdentities,
-              platform: process.platform,
-              trackedFiles: this.files,
-            });
-            this.rearmFileWatchers(plan.rearm);
-            for (const file of this.compilerChangesToReport(
-              plan.changes,
-              changed,
-              gap === true,
-            )) {
-              this.reportCompilerFileChange(file);
-            }
-            if (plan.refresh) this.refreshFromDirectory(location, changed);
-          },
+              changed:
+                filename === null
+                  ? undefined
+                  : path.resolve(location, filename),
+              rename: event === "rename",
+            }),
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
@@ -691,6 +681,87 @@ export class WatchTopology {
     return [...this.directoryWatchers].some(
       ([key, watcher]) => previous.get(key) !== watcher,
     );
+  }
+
+  /**
+   * Decide a notification in the event loop's check phase, together with every
+   * other notification the same poll iteration delivered (samchon/ttsc#1741).
+   *
+   * One filesystem change usually arrives as several notifications, rename and
+   * change or create and modify, and each listed the compiler inputs or
+   * rescanned the project inputs again. Identical notifications of one lane,
+   * location and path merge, keeping a rename or a gap any of them carried, and
+   * the batch refreshes compiler membership once after deciding them all. The
+   * refresh therefore starts after every notification it absorbs, and one
+   * delivered later schedules another batch.
+   */
+  private deferNotification(notification: PendingNotification): void {
+    if (this.closed) return;
+    const key = [
+      notification.lane,
+      notification.location,
+      notification.changed ?? "",
+    ].join("\0");
+    const pending = this.pendingNotifications.get(key);
+    if (pending !== undefined) {
+      pending.rename ||= notification.rename;
+      pending.gap ||= notification.gap;
+      return;
+    }
+    this.pendingNotifications.set(key, { ...notification });
+    if (this.notificationsScheduled) return;
+    this.notificationsScheduled = true;
+    setImmediate(() => this.decideNotifications());
+  }
+
+  private decideNotifications(): void {
+    this.notificationsScheduled = false;
+    const pending = [...this.pendingNotifications.values()];
+    this.pendingNotifications.clear();
+    if (this.closed) return;
+    const refreshes: DirectoryRefresh[] = [];
+    for (const notification of pending) {
+      if (notification.lane === "project-input") {
+        this.refreshProjectInputs(notification.location, notification.changed);
+        continue;
+      }
+      this.decideCompilerDirectoryNotification(notification, refreshes);
+    }
+    if (refreshes.length === 0 || this.closed) return;
+    this.beginLexicalTransaction();
+    this.refreshFromDirectories(refreshes);
+  }
+
+  /** Decide one merged directory notification of the compiler lane. */
+  private decideCompilerDirectoryNotification(
+    notification: PendingNotification,
+    refreshes: DirectoryRefresh[],
+  ): void {
+    this.beginLexicalTransaction();
+    const { changed, location } = notification;
+    const pluginInput = changed ?? location;
+    if (this.isPluginInput(pluginInput)) {
+      this.notePluginNotification(pluginInput);
+      return;
+    }
+    const plan = planCompilerDirectoryWatchEvent({
+      changed,
+      event: notification.rename ? "rename" : "change",
+      exists: fs.existsSync,
+      location,
+      identities: this.lexicalIdentities,
+      platform: process.platform,
+      trackedFiles: this.files,
+    });
+    this.rearmFileWatchers(plan.rearm);
+    for (const file of this.compilerChangesToReport(
+      plan.changes,
+      changed,
+      notification.gap,
+    )) {
+      this.reportCompilerFileChange(file);
+    }
+    if (plan.refresh) refreshes.push({ changed, location });
   }
 
   /**
@@ -996,11 +1067,17 @@ export class WatchTopology {
         this.openDirectoryWatch(
           watcherRegistrationPath(location),
           true,
-          (_event, filename) => {
-            const changed =
-              filename === null ? undefined : path.resolve(location, filename);
-            this.refreshProjectInputs(location, changed);
-          },
+          (_event, filename) =>
+            this.deferNotification({
+              gap: false,
+              lane: "project-input",
+              location,
+              changed:
+                filename === null
+                  ? undefined
+                  : path.resolve(location, filename),
+              rename: false,
+            }),
         ),
       (location, error) => {
         const key = identities.resolve(location).key;
@@ -1075,11 +1152,17 @@ export class WatchTopology {
         this.openDirectoryWatch(
           watcherRegistrationPath(location),
           false,
-          (_event, filename) => {
-            const changed =
-              filename === null ? undefined : path.resolve(location, filename);
-            this.refreshProjectInputs(location, changed);
-          },
+          (_event, filename) =>
+            this.deferNotification({
+              gap: false,
+              lane: "project-input",
+              location,
+              changed:
+                filename === null
+                  ? undefined
+                  : path.resolve(location, filename),
+              rename: false,
+            }),
         ),
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
@@ -1593,25 +1676,42 @@ export class WatchTopology {
   }
 
   private refreshFromDirectory(location: string, changed?: string): void {
-    if (
-      changed !== undefined &&
-      WatchPaths.isDirectory(changed) &&
-      this.isCompilerOutputDirectory(changed) === false &&
-      this.isProjectInputDirectory(changed) === false
-    ) {
-      this.observedDirectories.set(this.pathKey(changed), changed);
+    this.refreshFromDirectories([{ changed, location }]);
+  }
+
+  /**
+   * Refresh compiler membership once for every directory a decision asked
+   * about. A failed refresh still reports, once each, the reload inputs every
+   * requested change names.
+   */
+  private refreshFromDirectories(refreshes: readonly DirectoryRefresh[]): void {
+    for (const { changed } of refreshes) {
+      if (
+        changed !== undefined &&
+        WatchPaths.isDirectory(changed) &&
+        this.isCompilerOutputDirectory(changed) === false &&
+        this.isProjectInputDirectory(changed) === false
+      ) {
+        this.observedDirectories.set(this.pathKey(changed), changed);
+      }
     }
     try {
       this.refresh(true);
     } catch (error) {
-      for (const reload of reloadInputsForFailedTopologyRefresh(
-        this.reloadFiles.values(),
-        changed,
-        this.lexicalIdentities,
-      )) {
-        this.callbacks.onInputChange({ kind: "config", path: reload });
+      const reported = new Set<string>();
+      for (const { changed } of refreshes) {
+        for (const reload of reloadInputsForFailedTopologyRefresh(
+          this.reloadFiles.values(),
+          changed,
+          this.lexicalIdentities,
+        )) {
+          const key = this.pathKey(reload);
+          if (reported.has(key)) continue;
+          reported.add(key);
+          this.callbacks.onInputChange({ kind: "config", path: reload });
+        }
       }
-      this.callbacks.onError(location, error);
+      this.callbacks.onError(refreshes[0]!.location, error);
     }
   }
 
@@ -1845,6 +1945,19 @@ type CompilerFileSnapshot = {
   content: string;
   fingerprint: string;
   owner: string;
+};
+
+type PendingNotification = {
+  changed: string | undefined;
+  gap: boolean;
+  lane: "compiler" | "project-input";
+  location: string;
+  rename: boolean;
+};
+
+type DirectoryRefresh = {
+  changed: string | undefined;
+  location: string;
 };
 
 type CompilerListing = {
