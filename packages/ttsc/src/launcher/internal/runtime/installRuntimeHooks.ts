@@ -850,12 +850,11 @@ function load(
   if (!isTypeScriptSource(filename)) {
     return loadJavaScript(url, filename, context, nextLoad);
   }
-  const entry = runtimeEntryUrls.delete(url) || isProcessEntry(filename);
-  const served = entry
-    ? RuntimeEntrySources.serve(url, () =>
-        resolveServedSource(filename, url, true),
-      )
-    : resolveServedSource(filename, url, false);
+  const served = resolveServedSource(
+    filename,
+    url,
+    runtimeEntryUrls.delete(url) || isProcessEntry(filename),
+  );
   const format = RuntimeModuleFormat.moduleFormat(
     filename,
     served.moduleOptions,
@@ -1229,20 +1228,20 @@ function resolveServedSource(
   prepareAsEntry: boolean = false,
 ): ServedSource {
   const real = realPath(filename);
-  let served = serveEntryEmit(real);
+  let served = serveInlinedEntryEmit(real);
   if (served !== null) {
-    return withInlineSourceMap(served);
+    return served;
   }
   // Only the public preload can prepare a newly discovered root; direct ttsx
   // prepared its one entry before the child started.
   const prepareEntry = prepareAsEntry ? prepareRuntimeEntry : undefined;
   if (prepareEntry !== undefined) {
     RuntimeManifestRegistry.registerManifest(prepareEntry(real));
-    served = serveEntryEmit(real);
+    served = serveInlinedEntryEmit(real);
     if (served === null) {
       throw new Error(`ttsx: prepared entry emit not found for ${filename}`);
     }
-    return withInlineSourceMap(served);
+    return served;
   }
   const built = serveProjectEmit(real);
   if (built !== null) {
@@ -1726,9 +1725,29 @@ class RuntimeEmitOwnershipError extends Error {}
  */
 function serveEntryEmit(real: string): ServedSource | null {
   const owner = RuntimeManifestRegistry.findEntryEmit(real);
+  return owner === null ? null : entryEmitSource(owner, real);
+}
+
+/**
+ * {@link serveEntryEmit} with the emit's source map inlined, as a module load
+ * serves it. A checked entry build's emit is immutable for the run, so each of
+ * its emitted files is read and source-mapped once (`RuntimeEntrySources`,
+ * samchon/ttsc#1749).
+ */
+function serveInlinedEntryEmit(real: string): ServedSource | null {
+  const owner = RuntimeManifestRegistry.findEntryEmit(real);
   if (owner === null) {
     return null;
   }
+  return RuntimeEntrySources.serve(owner.manifest, owner.emittedFile, () =>
+    withInlineSourceMap(entryEmitSource(owner, real)),
+  );
+}
+
+function entryEmitSource(
+  owner: NonNullable<ReturnType<typeof RuntimeManifestRegistry.findEntryEmit>>,
+  real: string,
+): ServedSource {
   return {
     emittedFile: owner.emittedFile,
     moduleOptions: owner.manifest.moduleOptions ?? {},
