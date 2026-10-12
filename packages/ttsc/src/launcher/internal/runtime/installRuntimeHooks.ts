@@ -2341,15 +2341,24 @@ function owningTsconfig(real: string): string | null {
     recordPluginDescriptorProjectInputs,
   );
   if (nearest === null) return null;
-  // Config spelling and target identity do not prove that inherited options,
-  // reference roots or directory membership are unchanged. The resolver owns
-  // lookup-scoped reuse; a later import must ask it for a current answer.
+  // The project this selects is built once per process (`ensureProjectBuilt`),
+  // so the reference roots that select it are kept for the process as well;
+  // re-expanding them for every module cost a compiler run per referenced
+  // project (samchon/ttsc#1747). A file created after an expansion is still
+  // expanded for afresh.
   return resolveOwningProjectConfig({
+    expansions: ownerExpansions,
     file: real,
     onConfig: (config) => recordPluginDescriptorProjectInputs([config]),
     tsconfig: nearest,
   });
 }
+
+/** Reference roots `owningTsconfig` expanded in this process, by config. */
+const ownerExpansions = new Map<
+  string,
+  { files: readonly string[]; takenAt: number }
+>();
 
 function readFileOrNull(file: string | null): string | null {
   if (file === null) {

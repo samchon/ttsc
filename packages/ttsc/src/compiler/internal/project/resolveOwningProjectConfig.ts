@@ -39,12 +39,15 @@ import { selectReferencedProject } from "./selectReferencedProject";
  * realpaths and case capabilities, retaining best-effort spelling when native
  * identity lookup is unavailable.
  *
- * Graph observations are shared only within this lookup. Later requests can see
- * changed configs, inherited options, directory membership or compiler inputs;
- * a config pathname alone cannot establish that the expansion is still valid.
- * The callback observes direct config reads, not every inherited config or
- * compiler input consulted by expansion. Synchronous compiler work has no
- * explicit execution deadline in this operation.
+ * Graph observations are shared only within this lookup, unless the caller
+ * hands in `expansions`, which keeps each config's expanded roots for as long
+ * as the caller keeps the map. Later requests can otherwise see changed
+ * configs, inherited options, directory membership or compiler inputs; a config
+ * pathname alone cannot establish that the expansion is still valid. A file
+ * created after a kept expansion was taken is still expanded for afresh. The
+ * callback observes direct config reads, not every inherited config or compiler
+ * input consulted by expansion. Synchronous compiler work has no explicit
+ * execution deadline in this operation.
  *
  * @param props.tsconfig - The config project discovery found for the file.
  * @param props.file - The file whose project is asked for.
@@ -57,8 +60,8 @@ import { selectReferencedProject } from "./selectReferencedProject";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state ownership order, fallback, callbacks and lookup-scoped reuse, with parameter explanations separated from acknowledgments.
  * @evidence contracts/portability.md#os-neutral-implementation Node path operations select native config spellings, actual filesystem identity compares target and roots, and spawnNative owns executable representation rather than applying OS-name case guesses.
  * @evidence contracts/performance.md#efficient-algorithms Each distinct observed config identity key is visited once in the DFS and receives at most one expansion plus one ctime-based retry; ctime can change for metadata updates as well as creation. Direct config reads/parsing, reference path text/stat work, delegated identity/case probes and binary selection precede or accompany compiler execution. Root-list decoding and membership scans cost their bytes and entries; DFS stack depth follows the reference chain and native recursion limits still apply. The no-reference path avoids a compiler subprocess, not config I/O.
- * @evidence contracts/performance.md#reuse-equivalent-work The lookup reuses discovered reference edges and filesystem identity observations; visited keys prevent expansion of a repeated observed identity, while later requests rerun because paths alone cannot prove unchanged inheritance, directory membership or compiler selection. Best-effort identity cannot guarantee deduplication of every physical alias.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Identity maps, visited keys and root observations are lookup-local with no historical population retained here. Synchronous expansion delegates capture cleanup to spawnNative's finally path, whose cleanup failures are suppressed; output storage and child duration have no configured ceiling here. A nonterminating child prevents the lookup from finishing, rather than being released by this graph traversal.
+ * @evidence contracts/performance.md#reuse-equivalent-work The lookup reuses discovered reference edges and filesystem identity observations; visited keys prevent expansion of a repeated observed identity, while later requests rerun because paths alone cannot prove unchanged inheritance, directory membership or compiler selection, unless the caller keeps expansions for a lifetime its own builds already assume. Best-effort identity cannot guarantee deduplication of every physical alias.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Identity maps, visited keys and root observations are lookup-local; only a caller-supplied expansions map retains root lists, one per config, for the caller's lifetime. Synchronous expansion delegates capture cleanup to spawnNative's finally path, whose cleanup failures are suppressed; output storage and child duration have no configured ceiling here. A nonterminating child prevents the lookup from finishing, rather than being released by this graph traversal.
  */
 export function resolveOwningProjectConfig(props: {
   /** Absolute or invocation-relative spelling of the discovered config. */
@@ -75,6 +78,13 @@ export function resolveOwningProjectConfig(props: {
 
   /** Observe each directly read config, including ones with no reference edges. */
   onConfig?: (config: string) => void;
+
+  /**
+   * Expanded root files kept across lookups, by config path, for a caller whose
+   * selected builds already hold for the same lifetime: ttsx builds each owning
+   * project once per process (samchon/ttsc#1747).
+   */
+  expansions?: Map<string, { files: readonly string[]; takenAt: number }>;
 }): string {
   const discovered = path.resolve(props.tsconfig);
   const discoveredReferences = readReferences(discovered, props.onConfig);
@@ -108,14 +118,19 @@ export function resolveOwningProjectConfig(props: {
    * root observations.
    */
   function contains(config: string): boolean {
-    const roots = rootFiles(config, props.binary);
+    const roots = props.expansions?.get(config) ?? expand(config);
     if (listed(roots)) return true;
     // Recent ctime permits one retry after a miss; it can reflect a metadata
-    // change rather than creation and is not an atomic freshness proof.
-    return (
-      createdSince(props.file, roots.takenAt) &&
-      listed(rootFiles(config, props.binary))
-    );
+    // change rather than creation and is not an atomic freshness proof. A kept
+    // expansion taken before the file appeared is retried the same way.
+    return createdSince(props.file, roots.takenAt) && listed(expand(config));
+  }
+
+  /** Expand `config` now, and keep the expansion when the caller asked to. */
+  function expand(config: string): RootFiles {
+    const roots = rootFiles(config, props.binary);
+    props.expansions?.set(config, roots);
+    return roots;
   }
   return selectReferencedProject(discovered, discoveredReferences, {
     identity: (config) => identities.resolve(config).key,
