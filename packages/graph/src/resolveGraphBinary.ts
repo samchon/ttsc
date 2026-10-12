@@ -8,6 +8,10 @@ import { InstalledGraphBinary } from "./internal/InstalledGraphBinary";
  * lists as an exact-version optional dependency, so it is resolved from this
  * package's own installation. The JavaScript client and the native producer
  * therefore always come from one release, wherever the launcher was started.
+ * That pairing matters because node facts such as `literals` are resolved by
+ * the producer and ride the dump: a client reading an older producer would find
+ * those fields absent and answer from a graph missing facts it believes are
+ * there.
  *
  * Resolution order:
  *

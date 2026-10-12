@@ -34,7 +34,7 @@ function prepare(coordinates?: {
       FixtureFiles.read("graph/installedTargetBoundary/inputs-1"),
     );
   // Keep the resident lifetime's original authored declaration in this same
-  // installed project; it does not conflict with the target-resolution witness.
+  // project; it does not conflict with the installation-resolution witness.
   fs.writeFileSync(
     path.join(root, "src", "resident.ts"),
     FixtureFiles.read(
