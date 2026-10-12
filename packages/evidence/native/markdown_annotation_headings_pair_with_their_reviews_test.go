@@ -29,10 +29,10 @@ const annotationReviewConfig = `{"claims":[{
  *  2. Add the review as a comment in the section, then as a visible heading,
  *     and require silence for both; change the cited section and require both
  *     to be stale.
- *  3. Raise the review heading to the section's own depth and require a review
- *     finding.
+ *  3. Raise the review heading to the section's own depth and require the
+ *     citation to be reported as unreviewed.
  *
- * @evidence contracts/testing.md#behavioral-verification runIndexRule runs graphRule.Check under a Markdown claim with requireReview; the plan answers the pricing section with a visible H3 citation and a review written either as an HTML comment inside that section or as a sibling H3 `@evidenceReview` heading, and the case asserts silence, stale reviews after the specification changes, and a review finding when the review heading is an H2.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs graphRule.Check under a Markdown claim with requireReview; the plan answers the pricing section with a visible H3 citation and a review written either as an HTML comment inside that section or as a sibling H3 `@evidenceReview` heading, and the case asserts silence, stale reviews after the specification changes, and the citation reported as unreviewed when the review heading is an H2.
  * @evidence contracts/testing.md#independent-expectations Review pairing requires the same host, and the ownership rule gives the comment and the sibling H3 the citation's owner and the H2 review the file; the expected silence, staleness and finding follow from those rules, with the fingerprint used only as the graph's own requested token.
  * @evidence contracts/testing.md#distinguishing-cases Comment versus visible review carriers, current versus changed cited content, and an H3 versus an H2 review heading, which differ only in depth and therefore in owner.
  * @evidence contracts/testing.md#execution-ownership TestMarkdownAnnotationHeadingsPairWithTheirReviews is a native Go unit entry; runIndexRule writes temporary fixtures and calls the graph rule in-process without an installed consumer or product host.
@@ -65,6 +65,6 @@ func TestMarkdownAnnotationHeadingsPairWithTheirReviews(t *testing.T) {
     assertProblemContains(t, runIndexRule(t, map[string]string{
       "docs/spec/rules.md": rules,
       "docs/claim/plan.md": plan,
-    }, annotationReviewConfig), "@evidenceReview")
+    }, annotationReviewConfig), "Unreviewed @evidence for 'docs/spec/rules.md#pricing'")
   })
 }

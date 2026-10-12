@@ -43,7 +43,9 @@ func (region documentationRegionLine) opensTagBoundary() bool {
   return !region.explanatory && strings.HasPrefix(region.text, "@")
 }
 
-// documentationHeading reads an ATX heading from trimmed documentation prose.
+// documentationHeading reads an ATX heading from one line of documentation
+// prose or of a Markdown file's heading view, either of which may keep up to
+// three columns of margin.
 //
 // It uses the Markdown scanner's own heading grammar, so a heading inside a
 // documentation comment and a heading in a Markdown file agree on depth,

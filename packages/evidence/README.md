@@ -117,7 +117,7 @@ One claim: the components under `src` implement the docs, so every H2 and H3 und
 
 The configuration is written once. The tags are written forever: `@evidence` cites, `@evidenceReview` verifies, and `@evidenceExclude` declines. [The tag reference](https://ttsc.dev/docs/evidence/tags) has the full grammar.
 
-A reason that needs more than one line goes under an H2 to H4 heading, with the target on the heading and the explanation below it:
+A reason that needs paragraphs, a list or subheadings goes under an H2 to H4 heading, with the target on the heading and the explanation below it:
 
 ```ts
 /**

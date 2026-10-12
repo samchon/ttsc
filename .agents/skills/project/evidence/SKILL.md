@@ -30,7 +30,7 @@ Keep `declarationLine`'s whitespace boundary after `@evidence`. It distinguishes
 
 Check a fingerprint's exact length as well as its opening `#`. A requirement anchor such as `#req-search-policies` has the same opening shape.
 
-Recognize both annotation forms through `openAnnotation` alone. The one-line form and the H2-H4 heading form must agree in every consumer that asks whether a line carries a tag, including unreadable-comment reporting and the Prisma misplaced-comment checks; a consumer matching `declarationLine` directly lets a heading-form tag in an unreadable position pass silently.
+Every consumer that asks whether a line carries a tag must recognize the H2-H4 heading form as well as the one-line form: the parsers, unreadable-comment reporting, the Prisma misplaced-comment checks and the Markdown prose reporter. A consumer that matches only `declarationLine` on the line lets a heading-form tag in an unreadable position pass silently. `openAnnotation` answers for the forms that open an annotation; the Markdown reporter also reads tag-shaped H1, H5 and H6 titles, which open none and must still be reported.
 
 Split a heading section's target from its heading alone. Explanation prose may supply the reason but never the target, and an unterminated link on the heading must not borrow a brace from the prose below. A one-line annotation keeps its cross-line target split.
 
