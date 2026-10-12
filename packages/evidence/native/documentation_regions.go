@@ -21,6 +21,26 @@ type documentationRegionLine struct {
   // title is the heading text without closing hashes or an explicit anchor,
   // which are heading syntax and never part of an annotation's target or reason.
   title string
+
+  // explanatory marks prose that can only continue an explanation: it opens no
+  // one-line annotation and ends none. Visible Markdown is read this way,
+  // because rendered prose carries annotations only under headings.
+  explanatory bool
+}
+
+// opener reads the annotation this line opens, if any. An explanatory line
+// opens one only as a heading.
+func (region documentationRegionLine) opener() (annotationOpener, bool) {
+  if region.explanatory && region.heading == 0 {
+    return annotationOpener{}, false
+  }
+  return openAnnotation(region.text, region.heading, region.title)
+}
+
+// opensTagBoundary reports whether the line opens some `@tag`, which ends a
+// pending explanation in hosts whose grammar gives tags that meaning.
+func (region documentationRegionLine) opensTagBoundary() bool {
+  return !region.explanatory && strings.HasPrefix(region.text, "@")
 }
 
 // documentationHeading reads an ATX heading from trimmed documentation prose.

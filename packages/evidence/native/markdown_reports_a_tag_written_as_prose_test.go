@@ -31,9 +31,10 @@ func runProseTagRule(t *testing.T, plan string) []string {
 /**
  * Verifies a citation written as prose is reported.
  *
- * A Markdown declaration is read from an HTML comment, so the tag renders
- * invisibly and an author sees the same source whichever way they wrote it.
- * Written as prose it reached no host and was discarded without a word, which
+ * A Markdown declaration is read from an HTML comment or from an H2-H4
+ * annotation heading, and a prose line opening a tag looks like either to an
+ * author reading the source. Written as prose it reached no host and was
+ * discarded without a word, which
  * left the coverage diagnostic that follows naming the reference and suggesting
  * the citation the author had already written. TypeScript answers this shape
  * and the Prisma bridge answers its own; this was the kind left silent.

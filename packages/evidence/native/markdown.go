@@ -665,13 +665,55 @@ func scanMarkdownInventory(
   currentHost := "file"
   currentHostID := fileUnitID
   lexical, commentSpans := scanMarkdownRegions(content, lines)
+  sections := markdownAnnotationSections(lexical)
+  sectionAt := make([]int, len(lines))
+  for index := range sectionAt {
+    sectionAt[index] = -1
+  }
+  for position, section := range sections {
+    for index := section.start; index < section.end; index++ {
+      sectionAt[index] = position
+    }
+  }
+  // The latest outline heading at each depth, so an annotation section can
+  // name the heading it is nested in. Annotation headings never enter it: they
+  // are metadata about a section, not sections of their own.
+  outlineHosts := [7]markdownHost{}
+  sectionOwners := make([]markdownHost, len(sections))
   headingUnitIDs := [5]string{}
   for index := range lines {
+    if position := sectionAt[index]; position >= 0 {
+      section := sections[position]
+      if index == section.start {
+        // An annotation answers for the section it is nested in: the nearest
+        // heading shallower than its own, or the file. A heading of its own
+        // depth is a sibling it does not belong to.
+        sectionOwners[position] = markdownHost{symbol: "file", id: fileUnitID}
+        for depth := section.level - 1; depth >= 1; depth-- {
+          if outlineHosts[depth].symbol != "" {
+            sectionOwners[position] = outlineHosts[depth]
+            break
+          }
+        }
+      }
+      // Every line of the section, including a comment written in it, belongs
+      // to that owner, and none of them is any unit's content: an annotation is
+      // metadata exactly as an HTML comment is, so writing or editing one
+      // expires no review.
+      hostAtLine[index] = sectionOwners[position].symbol
+      hostIDAtLine[index] = sectionOwners[position].id
+      digestHostIDAtLine[index] = ""
+      continue
+    }
     visible := lexical[index].Heading
     level, title, ok := markdownHeading(visible)
     if ok {
       currentHost = "h" + decimal(level)
       currentHostID = "markdown:" + address.Key + ":" + currentHost + ":" + decimal(index+1)
+      outlineHosts[level] = markdownHost{symbol: currentHost, id: currentHostID}
+      for deeper := level + 1; deeper < len(outlineHosts); deeper++ {
+        outlineHosts[deeper] = markdownHost{}
+      }
       if level <= 4 {
         for descendantLevel := level; descendantLevel <= 4; descendantLevel++ {
           headingUnitIDs[descendantLevel] = ""
@@ -750,7 +792,7 @@ func scanMarkdownInventory(
     digestHostIDAtLine[index] = currentDigestHostID
   }
 
-  reportUnreadableMarkdownTags(inventory, address.Display, lexical)
+  reportUnreadableMarkdownTags(inventory, address.Display, lexical, sections)
 
   sequence := 0
   for _, match := range commentSpans {
@@ -795,8 +837,48 @@ func scanMarkdownInventory(
       })
     }
   }
+  for position, section := range sections {
+    owner := sectionOwners[position]
+    regions := markdownSectionRegions(lines, lexical, section)
+    for _, parsed := range parseRegionDeclarations(regions, false, 0) {
+      sequence++
+      line := section.start + 1 + parsed.LineOffset
+      inventory.Declarations = append(inventory.Declarations, &evidenceDeclaration{
+        ID:              "markdown:" + address.Key + ":" + decimal(line) + ":" + decimal(sequence),
+        HostID:          owner.id,
+        SemanticHostIDs: []string{owner.id},
+        Type:            artifactMarkdown,
+        Tag:             parsed.Tag,
+        Target:          parsed.Target,
+        Reason:          parsed.Reason,
+        Hosts:           symbolSet{owner.symbol: true},
+        Path:            address.Display,
+        Line:            line,
+        Sequence:        sequence,
+      })
+    }
+    for _, review := range parseRegionReviews(regions, 0) {
+      inventory.Reviews = append(inventory.Reviews, &evidenceReview{
+        SemanticHostIDs: []string{owner.id},
+        Reviews:         review.Reviews,
+        Type:            artifactMarkdown,
+        Target:          review.Target,
+        Fingerprint:     review.Fingerprint,
+        Description:     review.Description,
+        Path:            address.Display,
+        Line:            section.start + 1 + review.LineOffset,
+      })
+    }
+  }
   assignMarkdownDigests(inventory, content, lines, digestHostIDAtLine, commentSpans)
   return inventory, problems
+}
+
+// markdownHost names the host a Markdown line belongs to: the symbol a claim
+// selects it by and the identity its declarations record.
+type markdownHost struct {
+  symbol string
+  id     string
 }
 
 // assignMarkdownDigests gives every unit the text it alone owns.
@@ -978,6 +1060,132 @@ func selectedByMarkdownPopulation(
   return false
 }
 
+// markdownAnnotationSection is one visible heading annotation: the zero-based
+// line of its opening heading, the line after its explanation, and the
+// opening heading's depth.
+type markdownAnnotationSection struct {
+  start int
+  end   int
+  level int
+}
+
+// markdownAnnotationSections finds every visible H2-H4 annotation heading and
+// the explanation under it.
+//
+// The headings are the outline's own: the lexical heading view decides them,
+// so a heading inside code, a rendered example or a comment opens nothing, and
+// one inside a blockquote or a list is not a heading of the document at all. A
+// section ends at the next heading of its depth or shallower, which is the next
+// part of the document, or at the next annotation heading, which starts its
+// own. A deeper ordinary heading divides the explanation and stays inside it.
+func markdownAnnotationSections(lexical []markdownLexicalLine) []markdownAnnotationSection {
+  sections := []markdownAnnotationSection{}
+  for index := 0; index < len(lexical); {
+    level, title := documentationHeading(lexical[index].Heading)
+    if _, opened := openAnnotation(lexical[index].Heading, level, title); level == 0 || !opened {
+      index++
+      continue
+    }
+    end := index + 1
+    for ; end < len(lexical); end++ {
+      next, nextTitle := documentationHeading(lexical[end].Heading)
+      if next == 0 {
+        continue
+      }
+      if _, opened := openAnnotation(lexical[end].Heading, next, nextTitle); opened || next <= level {
+        break
+      }
+    }
+    sections = append(sections, markdownAnnotationSection{start: index, end: end, level: level})
+    index = end
+  }
+  return sections
+}
+
+// markdownSectionRegions presents one visible annotation section to the shared
+// annotation grammar.
+//
+// Headings keep their outline reading, so the grammar sees the same depths the
+// outline does. Every other line is explanatory prose: it can explain, but in
+// rendered Markdown only a heading carries an annotation, so it opens and ends
+// none.
+func markdownSectionRegions(
+  lines []string,
+  lexical []markdownLexicalLine,
+  section markdownAnnotationSection,
+) []documentationRegionLine {
+  regions := make([]documentationRegionLine, 0, section.end-section.start)
+  for index := section.start; index < section.end; index++ {
+    if level, title := documentationHeading(lexical[index].Heading); level != 0 {
+      regions = append(regions, documentationRegionLine{
+        text:        strings.TrimSpace(lexical[index].Heading),
+        heading:     level,
+        title:       title,
+        explanatory: true,
+      })
+      continue
+    }
+    regions = append(regions, documentationRegionLine{
+      text:        markdownReadableProse(strings.TrimSuffix(lines[index], "\r"), lexical[index]),
+      explanatory: true,
+    })
+  }
+  return regions
+}
+
+// markdownReadableProse returns what a reader of the rendered document reads
+// as prose on one line, or nothing when the line is no prose.
+//
+// Whether a line explains is decided by the prose view: a line left empty once
+// code, rendered examples, comments and escapes are removed is an example or
+// metadata, so an example cannot supply a missing reason. Two visible lines are
+// no prose either. A closing fence is the code block's syntax although the
+// parser leaves it outside the block, and a line opening a tag is an
+// annotation nothing reads, which is reported on its own rather than becoming
+// the explanation of another.
+//
+// What an explaining line says is read from the heading view instead, which
+// removes comments but keeps inline code and the other inline text a reader
+// reads, so a review description shown in a diagnostic keeps its words.
+func markdownReadableProse(line string, lexical markdownLexicalLine) string {
+  if _, opened := markdownProseTag(markdownLineContent(lexical.Prose)); opened {
+    return ""
+  }
+  prose := markdownKeptText(line, lexical.Prose)
+  if prose == "" {
+    return ""
+  }
+  if _, _, _, fence := markdownFence(markdownLineContent(prose)); fence {
+    return ""
+  }
+  return markdownKeptText(line, lexical.Heading)
+}
+
+// markdownKeptText keeps the bytes of a line that a lexical view left
+// unmasked. A view never moves a byte, so comparing positions is exact, and a
+// sentinel a view writes over masked bytes differs from the source it hides.
+func markdownKeptText(line string, view string) string {
+  kept := []byte(line)
+  for index := range kept {
+    if index >= len(view) || view[index] != line[index] {
+      kept[index] = ' '
+    }
+  }
+  return strings.TrimSpace(string(kept))
+}
+
+// markdownProseTag returns the tag a line of visible prose opens, spelled the
+// way an unreadable-tag diagnostic names it.
+func markdownProseTag(content string) (string, bool) {
+  if tag, _, found := declarationLine(content); found {
+    return "@" + string(tag), true
+  }
+  if reviews, _, opened := reviewLine(content); opened {
+    return reviewMarkerFor(reviews), true
+  }
+  return "", false
+}
+
 func markdownFence(line string) (rune, int, string, bool) {
   indent := 0
   for indent < len(line) && line[indent] == ' ' {
@@ -1060,12 +1268,17 @@ func markdownSlug(title string) string {
 // reportUnreadableMarkdownTags records every tag written where this artifact
 // kind cannot read one.
 //
-// A Markdown declaration is read from an HTML comment, so the tag renders
-// invisibly and the author sees the same source either way. Written as prose it
-// reaches no host and used to be discarded without a word, leaving the coverage
-// diagnostic that follows to name the reference and suggest writing the
-// citation the author had already written. TypeScript answers this shape and
-// the Prisma bridge answers its own; this is the kind that was left silent.
+// A Markdown declaration is read from an HTML comment or from an H2, H3 or H4
+// annotation heading of the document. Written as prose it reaches no host and
+// used to be discarded without a word, leaving the coverage diagnostic that
+// follows to name the reference and suggest writing the citation the author
+// had already written. TypeScript answers this shape and the Prisma bridge
+// answers its own; this is the kind that was left silent.
+//
+// A heading whose title opens a tag is the same mistake when it carries
+// nothing: an H1, H5 or H6, or a heading inside a blockquote or a list, which
+// is no heading of the document's outline. Every heading that does open an
+// annotation section is skipped, since the section reads it.
 //
 // A fenced block is an example rather than a citation and stays silent, which
 // is not a concession: this product's own documentation shows tags inside
@@ -1082,18 +1295,28 @@ func reportUnreadableMarkdownTags(
   inventory *artifactInventory,
   location string,
   lexical []markdownLexicalLine,
+  sections []markdownAnnotationSection,
 ) {
   if inventory == nil {
     return
   }
+  openers := make(map[int]bool, len(sections))
+  for _, section := range sections {
+    openers[section.start] = true
+  }
   for index, line := range lexical {
     trimmed := markdownLineContent(line.Prose)
-    if tag, _, found := declarationLine(trimmed); found {
-      inventory.Unreadable = append(inventory.Unreadable, unreadableMarkdownProblem("@"+string(tag), location, index+1))
+    if tag, found := markdownProseTag(trimmed); found {
+      inventory.Unreadable = append(inventory.Unreadable, unreadableMarkdownProblem(tag, location, index+1, false))
       continue
     }
-    if reviews, _, opened := reviewLine(trimmed); opened {
-      inventory.Unreadable = append(inventory.Unreadable, unreadableMarkdownProblem(reviewMarkerFor(reviews), location, index+1))
+    if openers[index] {
+      continue
+    }
+    if level, title := documentationHeading(trimmed); level != 0 {
+      if tag, found := markdownProseTag(title); found {
+        inventory.Unreadable = append(inventory.Unreadable, unreadableMarkdownProblem(tag, location, index+1, true))
+      }
     }
   }
 }
@@ -1145,11 +1368,19 @@ func markdownListMarker(content string) int {
   return digits + 2
 }
 
-// unreadableMarkdownProblem names the position and the move that fixes it.
-func unreadableMarkdownProblem(tag string, location string, line int) string {
-  return "Unreadable " + tag + " at " + location + ":" + decimal(line) +
-    ": a Markdown declaration is read from an HTML comment, and this line is prose, so nothing reads the tag." +
-    " Wrap it as '<!-- " + tag + " <target> " + unreadableMarkdownField(tag) + " -->'."
+// unreadableMarkdownProblem names the position and the moves that fix it.
+//
+// Both carriers are named because either repairs the line: a visible heading
+// keeps a long explanation readable, and a comment keeps a short one out of the
+// rendered page.
+func unreadableMarkdownProblem(tag string, location string, line int, heading bool) string {
+  cause := "a Markdown declaration is read from an HTML comment or from an H2, H3 or H4 annotation heading, and this line is prose"
+  if heading {
+    cause = "a Markdown declaration is read from an HTML comment or from an H2, H3 or H4 heading of the document itself, and this heading is neither"
+  }
+  return "Unreadable " + tag + " at " + location + ":" + decimal(line) + ": " + cause + ", so nothing reads the tag." +
+    " Write it as a '## " + tag + " <target>' heading with " + unreadableMarkdownField(tag) + " below it," +
+    " or wrap it as '<!-- " + tag + " <target> " + unreadableMarkdownField(tag) + " -->'."
 }
 
 // unreadableMarkdownField names what follows a target for this tag.

@@ -74,6 +74,8 @@ Confine that reporting to the claim populations as declared, including inactive 
 
 Report a scan problem to every population reading that file, matched against that population's own symbol set. A malformed heading or unaddressable path can lose either reference units or claim hosts. A file-level problem uses the wildcard symbol because it concerns the file, not one heading kind.
 
+Treat a visible Markdown annotation heading as metadata owned by the nearest outline heading shallower than its own, or the file. Its section materializes no unit, never enters the outline stack that parents later headings, and is excluded from every digest; comments inside it take the same owner. Decide annotation headings from the same lexical heading view the outline uses, or a heading the outline does not see could carry a citation, or one it does see could silently carry nothing. A tag-shaped heading that opens no section is reported as unreadable.
+
 Judge claim scan problems before activation, so a file that empties its claim still reports its cause. Judge reference scan problems only after activation: inactive claims do not run their reference loaders. Do not combine these into one activation rule.
 
 ## Swagger Classification

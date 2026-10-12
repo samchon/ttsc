@@ -104,7 +104,7 @@ func parseRegionDeclarations(
       }
       continue
     }
-    if opener, opened := openAnnotation(region.text, region.heading, region.title); opened {
+    if opener, opened := region.opener(); opened {
       flush()
       // A review closes the declaration above it in every host, and it does so
       // regardless of tagBoundaries. That flag answers whether *another tool's*
@@ -126,7 +126,7 @@ func parseRegionDeclarations(
       flush()
       continue
     }
-    if tagBoundaries && strings.HasPrefix(region.text, "@") {
+    if tagBoundaries && region.opensTagBoundary() {
       flush()
       continue
     }
@@ -453,7 +453,7 @@ func parseRegionReviews(regions []documentationRegionLine, leadingLines int) []p
       }
       continue
     }
-    if opener, opened := openAnnotation(region.text, region.heading, region.title); opened {
+    if opener, opened := region.opener(); opened {
       flush()
       if opener.review {
         pending = &pendingAnnotation{opener: opener, lineOffset: index}
@@ -464,7 +464,7 @@ func parseRegionReviews(regions []documentationRegionLine, leadingLines int) []p
       flush()
       continue
     }
-    if strings.HasPrefix(region.text, "@") {
+    if region.opensTagBoundary() {
       flush()
       continue
     }
