@@ -39,6 +39,7 @@ export namespace ConsumerBatch {
     "readme-markdown-citation",
     "package-population-complete",
     "singular-declarations",
+    "heading-annotations",
   ]);
 
   /** Groups scenes only when their authored compiler overrides are identical. */

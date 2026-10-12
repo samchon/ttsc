@@ -19,7 +19,7 @@ import {
 } from "../../../internal/evidence/internal/startNativeCheck";
 
 /**
- * Verifies file rules and twelve negative consumer phases in one resident
+ * Verifies file rules and thirteen negative consumer phases in one resident
  * consumer.
  *
  * Portable declaration semantics run through seven actual graph-rule Go units,
@@ -36,7 +36,7 @@ import {
  * 3. Compile both optionless typing controls and all typed config entries.
  * 4. Assert every original diagnostic and every clean fixture's silence.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual CLI baseline asserts the retained documented symbol:type options, src/parse.ts diagnostic rendering, clean-prefix silence and both optionless typed controls. SDK-selected native check-serve responses then select twelve original negative configurations and execute their literal callbacks.
+ * @evidence contracts/testing.md#behavioral-verification The actual CLI baseline asserts the retained documented symbol:type options, src/parse.ts diagnostic rendering, clean-prefix silence and both optionless typed controls. SDK-selected native check-serve responses then select thirteen original negative configurations and execute their literal callbacks.
  * @evidence contracts/testing.md#independent-expectations Literal original rule messages and explicitly authored source/citation identities supply the expected findings; the original typed expect-error configurations distinguish accepted from rejected option contracts.
  * @evidence contracts/testing.md#distinguishing-cases Documented narrowed selection and empty JSDoc rendering, plus singular/review optionless typing contracts retain their separate real connection assertions. Nine named native rule units own the original merged/first-declaration/missing-doc/singular/review/todo decisions and independent negative contrasts. Seven named native graph-rule entries contain declaration shape, imported namespace, first-address identity and type-only export-space contrasts; body and default selection do not certify actual survivor execution.
  * @evidence contracts/testing.md#execution-ownership Called by the default family of case_evidence_consumer_batch_accepts_complete_graphs within test_e2e_evidence, which is discovered under src/features and selected by tests/test-e2e/evidence.config.json; this scenario is an exported case function selected by the same claim and runs the real ttsc check against its linked consumer and owns the assertions in this function; helper callbacks execute through this entry rather than independently discovered cases.

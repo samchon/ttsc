@@ -301,7 +301,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * public configuration. Direct rule calls cannot certify this
      * configuration/compiler/parser connection. Shared execution
      * (contracts/e2e.md#shared-execution): Its caller owns one initial CLI
-     * check and one actual SDK-selected native protocol session for twelve
+     * check and one actual SDK-selected native protocol session for thirteen
      * scenes; this scene adds a rule reload and fresh SDK registration lookup,
      * not another installation or Program load when the actual tuple matches.
      * State isolation and reuse validity
@@ -616,7 +616,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * survive actual configuration transport. Direct rule calls cannot certify
      * this configuration/compiler/parser connection. Shared execution
      * (contracts/e2e.md#shared-execution): Its caller owns one initial CLI
-     * check and one actual SDK-selected native protocol session for twelve
+     * check and one actual SDK-selected native protocol session for thirteen
      * scenes; this scene adds a rule reload and fresh SDK registration lookup,
      * not another installation or Program load when the actual tuple matches.
      * State isolation and reuse validity
@@ -782,7 +782,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * claims and diagnostic transport. Direct rule calls cannot certify this
      * configuration/compiler/parser connection. Shared execution
      * (contracts/e2e.md#shared-execution): Its caller owns one initial CLI
-     * check and one actual SDK-selected native protocol session for twelve
+     * check and one actual SDK-selected native protocol session for thirteen
      * scenes; this scene adds a rule reload and fresh SDK registration lookup,
      * not another installation or Program load when the actual tuple matches.
      * State isolation and reuse validity
@@ -1038,7 +1038,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * actual native option transport. Direct rule calls cannot certify this
      * configuration/compiler/parser connection. Shared execution
      * (contracts/e2e.md#shared-execution): Its caller owns one initial CLI
-     * check and one actual SDK-selected native protocol session for twelve
+     * check and one actual SDK-selected native protocol session for thirteen
      * scenes; this scene adds a rule reload and fresh SDK registration lookup,
      * not another installation or Program load when the actual tuple matches.
      * State isolation and reuse validity
@@ -1130,7 +1130,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * obligations. Direct rule calls cannot certify this
      * configuration/compiler/parser connection. Shared execution
      * (contracts/e2e.md#shared-execution): Its caller owns one initial CLI
-     * check and one actual SDK-selected native protocol session for twelve
+     * check and one actual SDK-selected native protocol session for thirteen
      * scenes; this scene adds a rule reload and fresh SDK registration lookup,
      * not another installation or Program load when the actual tuple matches.
      * State isolation and reuse validity
@@ -1202,7 +1202,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * silently choosing a document. Direct rule calls cannot certify this
      * configuration/compiler/parser connection. Shared execution
      * (contracts/e2e.md#shared-execution): Its caller owns one initial CLI
-     * check and one actual SDK-selected native protocol session for twelve
+     * check and one actual SDK-selected native protocol session for thirteen
      * scenes; this scene adds a rule reload and fresh SDK registration lookup,
      * not another installation or Program load when the actual tuple matches.
      * State isolation and reuse validity
@@ -1278,7 +1278,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and native diagnostics. Direct rule calls cannot certify this
      * configuration/compiler/parser connection. Shared execution
      * (contracts/e2e.md#shared-execution): Its caller owns one initial CLI
-     * check and one actual SDK-selected native protocol session for twelve
+     * check and one actual SDK-selected native protocol session for thirteen
      * scenes; this scene adds a rule reload and fresh SDK registration lookup,
      * not another installation or Program load when the actual tuple matches.
      * State isolation and reuse validity
@@ -1352,7 +1352,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * its diagnostic category. Direct rule calls cannot certify this
      * configuration/compiler/parser connection. Shared execution
      * (contracts/e2e.md#shared-execution): Its caller owns one initial CLI
-     * check and one actual SDK-selected native protocol session for twelve
+     * check and one actual SDK-selected native protocol session for thirteen
      * scenes; this scene adds a rule reload and fresh SDK registration lookup,
      * not another installation or Program load when the actual tuple matches.
      * State isolation and reuse validity
@@ -1427,7 +1427,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * bridge transport. Direct rule calls cannot certify this
      * configuration/compiler/parser connection. Shared execution
      * (contracts/e2e.md#shared-execution): Its caller owns one initial CLI
-     * check and one actual SDK-selected native protocol session for twelve
+     * check and one actual SDK-selected native protocol session for thirteen
      * scenes; this scene adds a rule reload and fresh SDK registration lookup,
      * not another installation or Program load when the actual tuple matches.
      * State isolation and reuse validity
@@ -1730,7 +1730,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * package-reference inventories. Direct rule calls cannot certify this
      * configuration/compiler/parser connection. Shared execution
      * (contracts/e2e.md#shared-execution): Its caller owns one initial CLI
-     * check and one actual SDK-selected native protocol session for twelve
+     * check and one actual SDK-selected native protocol session for thirteen
      * scenes; this scene adds a rule reload and fresh SDK registration lookup,
      * not another installation or Program load when the actual tuple matches.
      * State isolation and reuse validity
@@ -1880,7 +1880,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * branch. Direct rule calls cannot certify this
      * configuration/compiler/parser connection. Shared execution
      * (contracts/e2e.md#shared-execution): Its caller owns one initial CLI
-     * check and one actual SDK-selected native protocol session for twelve
+     * check and one actual SDK-selected native protocol session for thirteen
      * scenes; this scene adds a rule reload and fresh SDK registration lookup,
      * not another installation or Program load when the actual tuple matches.
      * State isolation and reuse validity
@@ -1997,6 +1997,177 @@ export const consumerCases: readonly IConsumerCase[] = [
           result,
           "evidence/singular",
           "No finding may come from a declaration file.",
+        ),
+      );
+    },
+  },
+  {
+    /**
+     * Verifies heading-form annotations through the installed host.
+     *
+     * Native units read heading sections in-process. This scene proves the same
+     * grammar and the Markdown ownership survive the installed consumer's
+     * configuration transport and resident native session.
+     *
+     * 1. The applyCoupons function cites the coupon-stacking requirement with a
+     *    JSDoc heading section and reviews it with a heading-form review
+     *    carrying the current fingerprint under requireReview. The requirement
+     *    holds a visible H3 annotation and an HTML-comment heading, which an
+     *    h2/h3 selector would owe if either became a unit.
+     * 2. The guide's Checkout H2 answers a principles checklist from an
+     *    HTML-comment heading section and excludes the other item with a
+     *    visible nested section.
+     * 3. Its verify callback checks Status 0 and no missing or unreviewed finding.
+     *
+     * Behavioral verification (contracts/testing.md#behavioral-verification):
+     * applyCoupons and the Checkout H2 answer every obligation through heading
+     * sections only. Its verify callback checks Status 0 and the absence of
+     * Missing acknowledgement and Unreviewed findings. Independent expectations
+     * (contracts/testing.md#independent-expectations): The heading grammar, the
+     * ownership of nested and commented annotation headings and the literal
+     * review fingerprint of the unchanged requirement determine this verdict;
+     * no observed output supplies an expected value. Distinguishing cases
+     * (contracts/testing.md#distinguishing-cases): Heading-annotations-reported
+     * supplies the malformed and unsupported counterparts; native units own
+     * every boundary and spelling. Execution ownership
+     * (contracts/testing.md#execution-ownership):
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * scene and invokes its callback through ConsumerBatch.verify; this table
+     * item is not independently selectable. Necessary boundary
+     * (contracts/e2e.md#necessary-boundary): Heading sections must survive the
+     * installed lint configuration, the compiled evidence contributor and the
+     * native response transport. Direct rule calls cannot certify that
+     * connection. Shared execution (contracts/e2e.md#shared-execution): The
+     * scene joins the default compiler family and its existing captured
+     * contributor producer, adding a graph reload, not another installation.
+     * State isolation and reuse validity
+     * (contracts/e2e.md#state-isolation-and-reuse-validity): Its scene root and
+     * one active original graph keep its documents and fingerprint apart from
+     * neighboring scenes. Preserved coverage
+     * (contracts/e2e.md#preserved-coverage): New coverage; no earlier assertion
+     * moves into this scene.
+     */
+    entry: "evidence heading-form annotations satisfy installed obligations",
+    props: {
+      nativeProducer: "snapshot",
+      name: "heading-annotations",
+      include: ["src"],
+      lintConfig: EvidenceConsumerCorpus.read(
+        "evidence/heading-annotations/configuration",
+      )["lint.config.ts"]!,
+      files: EvidenceConsumerCorpus.read(
+        "evidence/heading-annotations/project",
+      ),
+    },
+    verify(result, check): void {
+      check(() =>
+        assertStatus(
+          result,
+          0,
+          "Heading-form citations, reviews and exclusions must discharge every obligation through the installed host.",
+        ),
+      );
+      check(() =>
+        assertExcludes(
+          result,
+          "Missing acknowledgement",
+          "An annotation heading must never become an owed unit.",
+        ),
+      );
+      check(() =>
+        assertExcludes(
+          result,
+          "Unreviewed @evidence",
+          "The heading-form review must pair with the heading-form citation.",
+        ),
+      );
+    },
+  },
+  {
+    /**
+     * Verifies heading-form failures through the installed host.
+     *
+     * A malformed heading section and a tag-shaped heading that carries nothing
+     * must reach the installed consumer's output with the native diagnostics,
+     * rather than vanish as rendered text.
+     *
+     * 1. The charge function opens a JSDoc heading section with no target, so its
+     *    prose cannot become one.
+     * 2. The notes' Billing H2 holds a visible section explained only by a fenced
+     *    example, and its Archive H2 holds a tagged H5.
+     * 3. Its verify callback checks failure, two malformed declarations, the
+     *    unreadable H5 and both claims' missing acknowledgement.
+     *
+     * Behavioral verification (contracts/testing.md#behavioral-verification):
+     * Both claims write their only answers as invalid heading forms. Its verify
+     * callback checks Failure, exactly two Malformed @evidence declarations,
+     * the heading-specific unreadable report and exactly two missing
+     * acknowledgements of docs/rules.md#rule. Independent expectations
+     * (contracts/testing.md#independent-expectations): A target must be on the
+     * heading, an example supplies no reason, and only H2-H4 headings of the
+     * document carry annotations; the literal counts follow from the authored
+     * fixture. Distinguishing cases
+     * (contracts/testing.md#distinguishing-cases): Heading-annotations supplies
+     * the satisfied counterpart. Execution ownership
+     * (contracts/testing.md#execution-ownership):
+     * case_evidence_file_rules_share_one_consumer_check selects this E2E scene
+     * and invokes its callback through ConsumerBatch.verify; this table item is
+     * not independently selectable. Necessary boundary
+     * (contracts/e2e.md#necessary-boundary): Heading-form diagnostics must
+     * survive native graph evaluation and compiler diagnostic transport. Direct
+     * rule calls cannot certify that connection. Shared execution
+     * (contracts/e2e.md#shared-execution): Its caller owns one initial CLI
+     * check and one actual SDK-selected native protocol session for thirteen
+     * scenes; this scene adds a rule reload, not another installation or
+     * Program load when the actual tuple matches. State isolation and reuse
+     * validity (contracts/e2e.md#state-isolation-and-reuse-validity): Disjoint
+     * scene roots and one active original graph separate its documents.
+     * Preserved coverage (contracts/e2e.md#preserved-coverage): New coverage;
+     * no earlier assertion moves into this scene.
+     */
+    entry: "evidence reports heading-form failures through the installed host",
+    props: {
+      nativeProducer: "snapshot",
+      name: "heading-annotations-reported",
+      include: ["src"],
+      lintConfig: EvidenceConsumerCorpus.read(
+        "evidence/heading-annotations-reported/configuration",
+      )["lint.config.ts"]!,
+      files: EvidenceConsumerCorpus.read(
+        "evidence/heading-annotations-reported/project",
+      ),
+    },
+    verify(result, check): void {
+      check(() =>
+        assertFailure(
+          result,
+          "Invalid heading-form annotations must fail the installed check.",
+        ),
+      );
+      check(() =>
+        assert.equal(
+          (result.output.match(/Malformed @evidence declaration at /gu) ?? [])
+            .length,
+          2,
+          "A targetless JSDoc heading and an example-only Markdown section must each be malformed.",
+        ),
+      );
+      check(() =>
+        assertIncludes(
+          result,
+          "heading of the document itself, and this heading is neither",
+          "A tagged H5 heading must be reported as unreadable.",
+        ),
+      );
+      check(() =>
+        assert.equal(
+          (
+            result.output.match(
+              /Missing acknowledgement for 'docs\/rules\.md#rule'/gu,
+            ) ?? []
+          ).length,
+          2,
+          "Neither invalid heading form may discharge its claim's obligation.",
         ),
       );
     },
