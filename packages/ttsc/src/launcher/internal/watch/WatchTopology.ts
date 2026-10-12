@@ -132,6 +132,13 @@ export class WatchTopology {
   private outputFiles = new Map<string, string>();
   private outputs = new Map<string, string>();
   private projectInputFingerprints = new Map<string, string>();
+
+  /**
+   * The metadata and physical owner each matched project-input file had when
+   * its fingerprint was taken, by match key; a named notification re-reads only
+   * the files whose metadata moved (samchon/ttsc#1748).
+   */
+  private projectInputFileSnapshots = new Map<string, CompilerFileSnapshot>();
   private projectInputMatches = new Map<string, string>();
   private projectInputs: ITtscProjectInputSnapshot = {
     files: [],
@@ -337,7 +344,7 @@ export class WatchTopology {
     changed: readonly string[],
   ): boolean {
     const matches = this.collectProjectInputMatches();
-    const fingerprints = fingerprintProjectInputMatches(
+    const { fingerprints, snapshots } = fingerprintProjectInputMatches(
       matches,
       this.readDirectory,
     );
@@ -376,6 +383,7 @@ export class WatchTopology {
     // instead of disappearing behind the warm compiler-membership handoff.
     this.projectInputMatches = matches;
     this.projectInputFingerprints = fingerprints;
+    this.projectInputFileSnapshots = snapshots;
     return reload;
   }
 
@@ -483,10 +491,12 @@ export class WatchTopology {
       { ...(inputs.declared ?? inputs), root: inputs.root },
     ]);
     this.projectInputMatches = this.collectProjectInputMatches();
-    this.projectInputFingerprints = fingerprintProjectInputMatches(
+    const baseline = fingerprintProjectInputMatches(
       this.projectInputMatches,
       this.readDirectory,
     );
+    this.projectInputFingerprints = baseline.fingerprints;
+    this.projectInputFileSnapshots = baseline.snapshots;
     this.syncProjectInputWatchers();
   }
 
@@ -1478,13 +1488,30 @@ export class WatchTopology {
       }
       const next = this.collectProjectInputMatches();
       const membershipChanged = WatchPaths.mapsEqual(previous, next) === false;
-      const nextFingerprints =
+      // A named notification reads the named path's bytes and any file whose
+      // metadata or owner moved; one that names nothing reads every file
+      // (samchon/ttsc#1748).
+      const scanned =
         changed === undefined ||
         membershipChanged ||
         directlyMatched ||
         topologyMatched
-          ? fingerprintProjectInputMatches(next, this.readDirectory)
-          : this.projectInputFingerprints;
+          ? fingerprintProjectInputMatches(
+              next,
+              this.readDirectory,
+              changed === undefined
+                ? undefined
+                : {
+                    fingerprints: this.projectInputFingerprints,
+                    named: identities.resolve(changed).key,
+                    snapshots: this.projectInputFileSnapshots,
+                  },
+            )
+          : {
+              fingerprints: this.projectInputFingerprints,
+              snapshots: this.projectInputFileSnapshots,
+            };
+      const nextFingerprints = scanned.fingerprints;
       const contentChanged =
         WatchPaths.mapsEqual(
           this.projectInputFingerprints,
@@ -1528,6 +1555,7 @@ export class WatchTopology {
       });
       this.projectInputMatches = next;
       this.projectInputFingerprints = nextFingerprints;
+      this.projectInputFileSnapshots = scanned.snapshots;
       this.syncProjectInputWatchers(skipUnobservedProjectInputWatchRoots);
       // A JSON/TS/JS project-input member can simultaneously enter or leave
       // the compiler Program. Reconcile the compiler watch snapshot before
@@ -2837,20 +2865,54 @@ function projectInputCompilerMembershipProjectChanges(
   return [...changes.values()].sort();
 }
 
+/**
+ * Fingerprint every matched project input: a directory by its entries, a file
+ * by its bytes.
+ *
+ * Without `previous`, every file is read. With it, a file keeps its previous
+ * digest while its metadata and physical owner hold, unless it is the `named`
+ * path, whose bytes are always read: a notification that names a file is the
+ * one whose same-size rewrite within a timestamp tick metadata cannot show.
+ */
 function fingerprintProjectInputMatches(
   matches: ReadonlyMap<string, string>,
   readDirectory: typeof fs.readdirSync,
-): Map<string, string> {
+  previous?: {
+    fingerprints: ReadonlyMap<string, string>;
+    named: string;
+    snapshots: ReadonlyMap<string, CompilerFileSnapshot>;
+  },
+): {
+  fingerprints: Map<string, string>;
+  snapshots: Map<string, CompilerFileSnapshot>;
+} {
   const fingerprints = new Map<string, string>();
+  const snapshots = new Map<string, CompilerFileSnapshot>();
   for (const [key, location] of matches) {
-    fingerprints.set(
-      key,
-      WatchPaths.isDirectory(location)
-        ? fingerprintProjectInputDirectory(location, readDirectory)
-        : fingerprintProjectInputFile(location),
-    );
+    if (WatchPaths.isDirectory(location)) {
+      fingerprints.set(
+        key,
+        fingerprintProjectInputDirectory(location, readDirectory),
+      );
+      continue;
+    }
+    const metadata = compilerFileSnapshot(location, "");
+    const before = previous?.snapshots.get(key);
+    const kept = previous?.fingerprints.get(key);
+    const fingerprint =
+      previous !== undefined &&
+      key !== previous.named &&
+      before !== undefined &&
+      kept !== undefined &&
+      metadata.content !== "" &&
+      before.content === metadata.content &&
+      before.owner === metadata.owner
+        ? kept
+        : fingerprintProjectInputFile(location);
+    fingerprints.set(key, fingerprint);
+    snapshots.set(key, { ...metadata, fingerprint });
   }
-  return fingerprints;
+  return { fingerprints, snapshots };
 }
 
 function fingerprintProjectInputFile(location: string): string {
