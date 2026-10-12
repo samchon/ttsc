@@ -50,6 +50,15 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  */
 export interface TtscProjectRecord {
   /**
+   * The paths the generation's plugins reported as dependencies outside the
+   * project walk (`TtscCachedProjectTransform.externalDependencyInputs`),
+   * absent when there were none. A later process witnesses them before its
+   * first compile, which otherwise learns them only from its own envelope and
+   * compiles again (samchon/ttsc#1743). They only say what to read.
+   */
+  dependencies?: readonly string[];
+
+  /**
    * Evidenced delivery inputs, keyed by absolute path, with the state the
    * generation recorded for them. An input whose generation recorded no state,
    * a failed compile's recovery input among them, carries the state the adapter

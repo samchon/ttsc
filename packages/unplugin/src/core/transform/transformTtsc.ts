@@ -33,6 +33,7 @@ import type { TtscTransformHooks } from "./watch/TtscTransformHooks";
 import type { TtscWatchSelection } from "./watch/TtscWatchSelection";
 import { notifyRejectedGenerationInputs } from "./watch/notifyRejectedGenerationInputs";
 import { prepareProjectRecordDirectories } from "./watch/prepareProjectRecordDirectories";
+import { recordedDependencyWitnesses } from "./watch/recordedDependencyWitnesses";
 
 /**
  * Apply the ttsc plugin transform to a single source file.
@@ -282,10 +283,13 @@ export async function transformTtsc(
           cache === undefined
             ? undefined
             : TRANSFORM_CACHE_CASE_POLICIES.get(cache)?.get(key),
+        // A cache without a list of its own takes the names the project's
+        // record carries from an earlier process (samchon/ttsc#1743).
         witnessedDependencies:
           cache === undefined
             ? undefined
-            : TRANSFORM_CACHE_DEPENDENCY_WITNESSES.get(cache)?.get(key),
+            : (TRANSFORM_CACHE_DEPENDENCY_WITNESSES.get(cache)?.get(key) ??
+              recordedDependencyWitnesses(hooks?.project, tsconfig)),
       });
       cache?.set(key, transformed);
     }
