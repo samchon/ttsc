@@ -1,6 +1,6 @@
 # AGENTS.md
 
-`ttsc` is a TypeScript compiler wrapper and toolchain on unmodified TypeScript-Go: the `ttsc`, `ttsx`, and `ttscserver` CLIs, their runtime, plugin, and LSP hosts, and the Go-source plugin protocol.
+`ttsc` is a general-purpose TypeScript compiler wrapper and toolchain on unmodified TypeScript-Go: the `ttsc`, `ttsx`, and `ttscserver` CLIs, their runtime, plugin, and LSP hosts, and the Go-source plugin protocol. typia and nestia are compatibility fixtures, not the product definition.
 
 ## Attitude
 
@@ -25,7 +25,6 @@ Stop only when nothing can move without the user, a protected target blocks you,
 
 Read a skill when its trigger applies, and the documentation skill before changing this file or any skill.
 
-- [project](.agents/skills/project/SKILL.md): package ownership, and the rules for changing `@ttsc/graph` and `@ttsc/evidence`. Read when a task crosses packages or touches either package's semantics.
 - [contracts](.agents/skills/contracts/SKILL.md): the `@evidence` checklists every maintained declaration and test answers. Read when writing or reviewing maintained source or tests.
 - [development](.agents/skills/development/SKILL.md): repair, tests, validation, and CI. Read before changing code, tests, fixtures, or workflows.
 - [typescript-go-sync](.agents/skills/typescript-go-sync/SKILL.md): the `packages/ttsc/shim` bridge. Read before touching the shim or bumping typescript-go.

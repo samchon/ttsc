@@ -14,6 +14,8 @@ Before editing, group every known symptom by cause, then trace each cause, and y
 - Plugin descriptors are JS and transform logic is Go; JS transform functions are not public contract.
 - First-party plugin options live in a `*.config.*` file found by an upward walk from the entry. Shipped packages accept only `configFile` beyond host entry keys.
 - In `packages/ttsc/src`, a file exports one symbol named after it, right after the imports; helpers of one concern become one namespace.
+- `@ttsc/graph`'s MCP instruction keeps its first 512 characters saying what the tool is, when to use it, and why its facts hold. Measure any change to its logic, instruction, or schema through the benchmark skill.
+- `@ttsc/evidence` semantics live in the website's Evidence guides and its invariants in the tests of `packages/evidence/native`; change both together. Never make a graph pass by excluding, retargeting, or deleting an author's citation, and never add a rule that judges whether a reason is sincere.
 - Update the matching guide under `website/src/content/docs/` in the same change.
 - Tests, fixtures, CI, wiring, dependencies, and generated baselines are specification. Change them only on request or for a product reason, and say so.
 
