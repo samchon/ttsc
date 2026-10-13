@@ -10,7 +10,7 @@ Each `packages/ttsc/shim/<name>` is a Go module re-exporting typescript-go's `in
 ## Adding An API
 
 1. Find the symbol under `$(go env GOMODCACHE)/github.com/microsoft/typescript-go@<version>/internal/<pkg>/`.
-2. If the generator derives it, run `go run '-modfile=tools/gen_shims/go.mod' ./tools/gen_shims/main.go` in `packages/ttsc`; generated `shim.go` files are never edited. Otherwise add it to a file marked `// gen_shims:hand-maintained`, or to the directory's `extra-shim.json`, using a bodiless `//go:linkname` declaration with `import _ "unsafe"` for an unexported symbol.
+2. If the generator derives it, run `go run '-modfile=tools/gen_shims/go.mod' ./tools/gen_shims/main.go` in `packages/ttsc`; generated `shim.go` files are never edited. Otherwise list it in the directory's `extra-shim.json`, or write it in a file marked `// gen_shims:hand-maintained`, where an unexported symbol takes a bodiless `//go:linkname` declaration with `import _ "unsafe"`.
 
 ## Bumping typescript-go
 
@@ -20,7 +20,7 @@ Each `packages/ttsc/shim/<name>` is a Go module re-exporting typescript-go's `in
 
 ## Audit
 
-CI runs `pnpm --filter ttsc shim:audit`. Accept a new gap into `tools/shim_audit/baseline.json` with `-write-baseline` only on purpose, and give every `producer_exemptions` entry a rationale. The audit proves only that code compiles, so add a runtime probe in `packages/lint/test/shim/` for each new graph-walk operation.
+CI runs `pnpm --filter ttsc shim:audit`. Accept a new gap into `tools/shim_audit/baseline.json` with `-write-baseline` only on purpose, and give every `producer_exemptions` entry a rationale. The audit proves only that code compiles, so add a runtime probe in `packages/lint/linthost/` that walks a Checker loaded through `loadProgram` for each new graph-walk operation.
 
 ## Consumer Validation
 

@@ -24,8 +24,8 @@ Before editing, group every known symptom by cause, then trace each cause, and y
 | Kind | Location |
 | --- | --- |
 | Go | Beside its Go package, one `Test*` per file. Never under `tests/`. |
-| TypeScript unit | `tests/test-*/src/features/test_<name>.ts` exporting `test_<name>`, calling the source directly. |
-| E2E | One experiment per package in `tests/test-e2e/src/features/test_e2e_<package>.ts`, with static inputs in `tests/test-e2e/fixtures/<package>/<scenario>/`. |
+| TypeScript unit | A `test_<name>.ts` under `tests/test-*/src/features/` exporting `test_<name>`, calling the source directly. |
+| E2E | A `tests/test-e2e/src/features/test_e2e_*.ts` entry running scenarios from `<package>/scenes/case_*.ts`, with static inputs under `tests/test-e2e/fixtures/<package>/`. |
 
 - Observe through the product's seams or its own output; never replace `fs` functions or `process.env` in a test.
 - Open each case with a `Verifies` headline, a short reason, and two to four numbered steps. Reuse `tests/utils` and the suite's own `internal/`, never another suite's.
