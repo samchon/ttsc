@@ -153,7 +153,11 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * named.
  *
  * Existing replacement loads also publish structural source/module interests
- * before metadata and their known external roots before admission.
+ * before metadata and their known external roots before admission. Their first
+ * asynchronous publication stays pending while the caller verifies that later
+ * publications and load completion remain blocked; the cold epoch must also
+ * leave its native artifact population absent until registration finishes. The
+ * same three loads retain their real Go builds and final source assertions.
  * Mixed-package transform/check failures and an actual missing selected Go tool
  * must retain those repair interests without reaching a native build. Their
  * setup/removal errors remain separate, and uncertain source restoration denies
@@ -1688,21 +1692,61 @@ async function runResidentLoaderPool(): Promise<void> {
           fs.writeFileSync(replacementManifest, manifest(target));
           let reported: readonly string[] | undefined;
           const publications: string[][] = [];
-          const loaded = loadProjectPlugins({
+          const registration = Promise.withResolvers<void>();
+          const publicationCache = path.join(
+            workspace.root,
+            ".cache/replacement-population/ttsc",
+          );
+          const loading = loadProjectPlugins.async({
             binary: TestProject.TSGO_BINARY,
             cwd: workspace.root,
             tsconfig: configPath,
-            cacheDir: path.join(
-              workspace.root,
-              ".cache/replacement-population/ttsc",
-            ),
+            cacheDir: publicationCache,
             env: withSharedDefaultObjects(descriptorEnv),
             entries: [publicNativeProbe],
             onWatchInputs: (inputs) => {
               reported = inputs;
               publications.push([...inputs]);
+              return publications.length === 1
+                ? registration.promise
+                : undefined;
             },
           });
+          let loadCompleted = false;
+          void loading.then(
+            () => {
+              loadCompleted = true;
+            },
+            () => {
+              loadCompleted = true;
+            },
+          );
+          let loaded: Awaited<typeof loading>;
+          try {
+            if (publications.length === 0) await loading;
+            assert.equal(
+              publications.length,
+              1,
+              "the first structural baseline must block later source publications",
+            );
+            await Promise.resolve();
+            assert.equal(
+              loadCompleted,
+              false,
+              "a pending watch baseline must block plugin loading",
+            );
+            if (spelling === "absolute")
+              assert.equal(
+                fs.existsSync(path.join(publicationCache, "plugins")),
+                false,
+                "the cold source build must not publish native artifacts before registration completes",
+              );
+            registration.resolve();
+            loaded = await loading;
+          } finally {
+            registration.resolve();
+            await loading.catch(() => {});
+          }
           assert.deepEqual(
             publications[0],
             [

@@ -117,7 +117,7 @@ Both reaches cover the CommonJS `require` graph and the ESM graph through `modul
 
 `require.resolve()` must use the registered hooks. Runtime initialization rejects a resolver that bypasses them; it does not replace Node's private CommonJS resolver to compensate.
 
-The runtime does not add TypeScript handlers to `require.extensions`. A tool that treats that registry as proof that a TypeScript loader is installed needs a compatible loader integration of its own. Preloading `ttsc/register` alone does not satisfy registry checks made by tools such as `rechoir`.
+The runtime advertises `.ts`, `.tsx`, and `.cts` in the process-wide `require.extensions` registry so tools such as `tsconfig-paths` can discover TypeScript targets and `rechoir` can accept typed configs before loading them. Missing entries use Node's own `.js` handler, existing handlers stay intact, and compilation remains in `module.registerHooks`. CommonJS modules share that live registry, so later registrations remain visible across modules.
 
 These hooks are runtime-only and never weaken the compile gate: the up-front tsgo build still deep-checks the whole program, imported workspace neighbours included, so a type error in a dependency's source fails the run before anything executes. A missing module still throws `ERR_MODULE_NOT_FOUND`, or `MODULE_NOT_FOUND` with its require stack on the CommonJS graph.
 

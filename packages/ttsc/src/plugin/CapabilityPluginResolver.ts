@@ -8,6 +8,7 @@ import { Worker } from "node:worker_threads";
 import { E2ETrace } from "../internal/E2ETrace";
 import { OwnedNativeProcess } from "../internal/OwnedNativeProcess";
 import { serializeCompilerError } from "../internal/serializeCompilerError";
+import { workerModuleUrl } from "../internal/workerModuleUrl";
 import type { ITtscCapabilityPlugin } from "./ITtscCapabilityPlugin";
 import { receiveCapabilityFailure } from "./internal/receiveCapabilityFailure";
 
@@ -22,7 +23,7 @@ import { receiveCapabilityFailure } from "./internal/receiveCapabilityFailure";
  * @evidence contracts/common.md#clear-and-simple-design This owner controls admission, worker RPC, opaque proof handles and shutdown; the worker owns synchronous discovery and the native owner controls process trees.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No consumer inventory replaces resolver authority and no warmup, altered timeout or uncontained fallback hides a cold producer.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains proof lifetime, cancellation cleanup and the independent native process owner.
- * @evidence contracts/portability.md#os-neutral-implementation The compiled worker uses the SDK's CommonJS file layout, cloned environments and platform helper resolution rather than consumer-specific paths.
+ * @evidence contracts/portability.md#os-neutral-implementation The worker requires the SDK's CommonJS source or emitted entry through a supported module URL while Node retains inherited execution options and preload hooks; cloned environments and platform helper resolution remain native inputs.
  * @evidence contracts/performance.md#efficient-algorithms One worker serves serialized requests and retains original proof closures; command output serialization scales with returned bytes and request admission grows with submitted demand.
  * @evidence contracts/performance.md#reuse-equivalent-work Worker reuse retains validated SDK caches but every resolve and currentness request still calls its original authority; proof handles never transfer freshness between generations.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Explicit release drops proof handles. Close aborts admitted work, joins command supervisors and waits for worker exit; private command exchange storage is removed after its request settles.
@@ -426,7 +427,13 @@ export class CapabilityPluginResolver {
   /** Keep idle worker failures observed and prevent reuse of a retired thread. */
   private createWorker(): Worker {
     const worker = new Worker(
-      path.join(__dirname, "internal", "capabilityPluginWorker.js"),
+      workerModuleUrl(
+        path.join(
+          __dirname,
+          "internal",
+          `capabilityPluginWorker${path.extname(__filename)}`,
+        ),
+      ),
     );
     const retire = () => {
       if (this.worker === worker) this.worker = undefined;

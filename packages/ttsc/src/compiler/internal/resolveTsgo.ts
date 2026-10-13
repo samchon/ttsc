@@ -41,6 +41,13 @@ export function resolveTsgo(
 
     /** Directory from which to discover `typescript`. */
     cwd?: string;
+
+    /**
+     * Complete environment for executable selection; omission reads the current
+     * process environment. Public compiler owners merge caller overrides before
+     * invoking this resolver, retaining their original overlay for channel
+     * ownership.
+     */
     env?: NodeJS.ProcessEnv;
 
     /**

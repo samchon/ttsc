@@ -74,12 +74,12 @@ export function serializeOptions(
  * behaviour for a project that called `withTtsc(config)` with no explicit
  * options.
  *
- * All common compiler options, including the output-addressing `projectRoot`,
- * survive this transport without interpreting their paths in the config host. A
+ * Common compiler options, including `precompile` entries and `projectRoot`,
+ * survive transport without interpreting their paths in the config host. A
  * present `plugins` property is forwarded even when its value is `false`;
- * omission leaves plugin selection to the project. The `include` and `exclude`
- * arrays retain only string entries, while invalid array values become empty
- * filters. Only a non-empty string is accepted as the private run identity.
+ * omission leaves plugin selection to the project. The include/exclude filters
+ * and precompile entry list retain only strings; invalid arrays become empty
+ * lists. Only a non-empty string is accepted as the private run identity.
  *
  * @evidence contracts/common.md#principled-implementation
  *   JSON.parse reads the adapter-owned environment channel. The parser accepts
@@ -104,8 +104,8 @@ export function serializeOptions(
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Returns a fresh object and keeps no state or handle.
  *
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   One JSON.parse and a filter over the short include and exclude arrays.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Parsing visits the payload bytes and filtering visits the include, exclude and precompile arrays once. Returned arrays retain only their string entries, with storage proportional to the accepted entries and their text.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   The transformer calls it once per worker and memoises the result in options().
@@ -118,6 +118,10 @@ export function resolveOptionsFromEnv(): ResolvedTtscMetroOptions {
   const parsed = parse(raw);
   return {
     ttsc: {
+      precompile:
+        parsed.precompile === undefined
+          ? undefined
+          : toStringArray(parsed.precompile),
       project: parsed.project,
       projectRoot: parsed.projectRoot,
       compilerOptions: parsed.compilerOptions,

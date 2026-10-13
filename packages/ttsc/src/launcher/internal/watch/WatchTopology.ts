@@ -7,6 +7,7 @@ import { CompilerProjectSelection } from "../../../compiler/internal/project/Com
 import { readJsoncFile } from "../../../compiler/internal/project/readJsoncFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { normalizeCompilerEnumValue } from "../../../flags/normalizeCompilerEnumValue";
 import { readCompilerOptionValues } from "../../../flags/readCompilerOptionValues";
@@ -214,6 +215,39 @@ export class WatchTopology {
    */
   public refresh(notify: boolean): void {
     this.refreshCompilerInputs(notify, false);
+  }
+
+  /**
+   * Wait until delivered notifications and registration reconciliation finish.
+   *
+   * A completed build does not imply a quiet topology: its final refresh can
+   * queue another decision and another build (#1756). Yield through the check
+   * phase before inspecting every scheduled owner so a decision queued by
+   * another decision remains part of this barrier. Later filesystem changes
+   * belong to a later barrier; this does not freeze the filesystem.
+   *
+   * @evidence contracts/common.md#principled-implementation A check-phase observation follows delivered events, and every notification, recovery and registration queue must be empty before completion.
+   * @evidence contracts/common.md#clear-and-simple-design The topology owns the barrier because it alone owns all five scheduled queues.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Queue state establishes completion without a quiet-time estimate or an invented filesystem snapshot.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes delivered work from later mutations and explains the post-build queued-decision race.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation The barrier observes owned JavaScript queues without a separate native operation.
+   * @evidence contracts/performance.md#efficient-algorithms Each check turn inspects five flags and two map sizes; notification processing retains its owning traversal and native-operation costs.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call observes current work rather than reusing an earlier completion.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources One immediate callback and promise remain live per waiting call; continuous new work can prevent completion and no deadline is imposed.
+   */
+  public async whenIdle(): Promise<void> {
+    do {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    } while (
+      !this.closed &&
+      (this.notificationsScheduled ||
+        this.pluginNotificationsScheduled ||
+        this.compilerPostRegistrationReconciliationScheduled ||
+        this.projectInputRecoveryScheduled ||
+        this.projectInputPostRegistrationReconciliationScheduled ||
+        this.pendingNotifications.size !== 0 ||
+        this.pendingPluginNotifications.size !== 0)
+    );
   }
 
   /**
@@ -2203,10 +2237,11 @@ function listCompilerInputs(
   project: ITtscParsedProjectConfig,
   options: WatchTopologyOptions,
 ): string[] {
+  const env = SidecarEnvironment.merge(process.env, options.env);
   const tsgo = resolveTsgo({
     binary: options.binary,
     cwd: project.root,
-    env: options.env,
+    env,
   });
   const result = spawnNative(
     tsgo.binary,
@@ -2221,7 +2256,7 @@ function listCompilerInputs(
     ],
     {
       cwd: options.compilerArgsCwd ?? project.root,
-      env: { ...process.env, ...options.env },
+      env,
       encoding: "utf8",
     },
   );

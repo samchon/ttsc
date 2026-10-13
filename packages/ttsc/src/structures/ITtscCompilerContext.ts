@@ -29,8 +29,7 @@ export interface ITtscCompilerContext {
    * The working directory for this compiler instance.
    *
    * Used to discover `tsconfig.json`, resolve relative `tsconfig` paths,
-   * resolve project source files, resolve plugin packages, and resolve relative
-   * cache paths.
+   * resolve project source files, and resolve relative cache paths.
    *
    * An omitted value uses `process.cwd()` when the operation resolves its
    * context; construction does not capture that default.
@@ -49,19 +48,20 @@ export interface ITtscCompilerContext {
   tsconfig?: string;
 
   /**
-   * Project root override for generated config wrappers.
+   * Source root used for source membership, native plugin cwd and cache paths.
    *
-   * Most callers should leave this unset so the project root is the directory
-   * containing {@link ITtscCompilerContext.tsconfig}. Embedders that synthesize
-   * a temporary config extending a real project config can set this to keep
-   * plugin resolution, cache paths, and native plugin `--cwd` anchored to the
-   * real project.
+   * Omission uses the resolved config directory. Set a common ancestor when the
+   * config includes sibling packages; relative paths resolve from cwd. Returned
+   * relative Go-source paths and descriptor process cwd also use this root.
+   * Plugin package resolution and factory contexts keep the selected config
+   * directory independently. Generated config wrappers supply the real consumer
+   * directory through pluginConfigDir and may retain a wider source root here.
    */
   projectRoot?: string;
 
   /**
-   * Directory that anchors plugin config-file discovery and relative
-   * `configFile` resolution.
+   * Consumer directory for plugin packages, factory contexts, plugin
+   * config-file discovery and relative `configFile` resolution.
    *
    * Leave this unset so plugins anchor at the directory of the resolved
    * {@link ITtscCompilerContext.tsconfig} as usual. Embedders that compile
@@ -89,8 +89,8 @@ export interface ITtscCompilerContext {
   binary?: string;
 
   /**
-   * Additional environment variables for child compiler and plugin-descriptor
-   * processes, and for the worker thread of
+   * Additional environment variables for executable selection, compiler and
+   * plugin-descriptor child processes, and for the worker thread of
    * {@link TtscCompiler.transformAsync}.
    *
    * The supplied overrides are copied at construction. Values are merged over

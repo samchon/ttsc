@@ -68,11 +68,13 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
     return compileProjectWithPlugins(options, cwd, project);
   }
   const tsconfig = project.path;
+  const env = inheritedSidecarEnv(options.env, options.binary);
   const binary = buildNativeCompiler({
     cacheBaseDir: project.root,
     cacheDir:
       options.cacheDir ??
       SidecarEnvironment.read(options.env, "TTSC_CACHE_DIR"),
+    env,
     packageRoot: packageRootDir(),
   });
   const res = spawnNative(
@@ -80,7 +82,7 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
     ["api-compile", "--cwd", project.root, "--tsconfig", tsconfig],
     {
       cwd: project.root,
-      env: inheritedSidecarEnv(options.env, options.binary),
+      env,
     },
   );
   if (res.error) {
@@ -110,7 +112,11 @@ function hasConfiguredPlugins(
   options: ITtscCompilerContext,
   project: ITtscParsedProjectConfig,
 ): boolean {
-  return hasProjectPluginEntries(project, options.plugins);
+  return hasProjectPluginEntries(
+    project,
+    options.plugins,
+    options.pluginConfigDir,
+  );
 }
 
 /**

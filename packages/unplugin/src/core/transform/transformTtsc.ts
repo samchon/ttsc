@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import type { ResolvedTtscUnpluginOptions } from "../options/ResolvedTtscUnpluginOptions";
+import { TtscPrecompilation } from "./TtscPrecompilation";
 import type { TtscTransformResult } from "./TtscTransformResult";
 import { createAliasPaths } from "./alias/createAliasPaths";
 import { TERMINAL_TRANSFORM_GENERATIONS } from "./cache/TERMINAL_TRANSFORM_GENERATIONS";
@@ -93,13 +94,40 @@ import { recordedDependencyWitnesses } from "./watch/recordedDependencyWitnesses
  *   and native failures need not close every handle or remove every probe.
  * @evidence contracts/portability.md#os-neutral-implementation Native module paths and project coordinates use supported path/filesystem abstractions, while actual case policy and watcher capability come from generation proof rather than OS-name assumptions.
  */
-export async function transformTtsc(
+export function transformTtsc(
   id: string,
   source: string,
   options: ResolvedTtscUnpluginOptions,
   aliases?: unknown,
   cache?: TtscTransformCache,
   hooks?: TtscTransformHooks,
+): Promise<TtscTransformResult | undefined> {
+  return runTransformTtsc(id, source, options, aliases, cache, hooks, false);
+}
+
+/**
+ * Coordinate capture and actual delivery through the same project cache.
+ * Preparation stops before handoff: it cannot mark a module served, publish a
+ * host record, acknowledge volatility or emit module diagnostics. A prepared
+ * generation must still pass ordinary admission when the host requests it.
+ *
+ * @evidence contracts/common.md#principled-implementation Preparation and delivery use identical selection, keys, capture and input proofs; only actual delivery can execute host effects or consume first-delivery permission.
+ * @evidence contracts/common.md#clear-and-simple-design One internal mode shares the existing coordinator rather than creating a second compiler or proof pipeline for startup.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Preparation skips handoff, never postcompile proof. A superseded preparation stops instead of resurrecting a withdrawn cache generation.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies effects reserved for actual delivery and the admission required after preparation.
+ * @evidence contracts/portability.md#os-neutral-implementation The same native selection, path identity and cache-owned filesystem boundaries serve preparation and delivery; startup entries carry exact paths.
+ * @evidence contracts/performance.md#efficient-algorithms Project selection, option/key serialization, native capture and validation keep the existing coordinator's population costs. Startup schedules explicit entries concurrently and avoids output/map/registration work for them.
+ * @evidence contracts/performance.md#reuse-equivalent-work Preparation inserts the ordinary project Promise, so simultaneous real loads and several entries in one project share work only under existing generation proof.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The existing cache and capture owners retain generations, tasks and native resources. Superseded preparation returns without replacing the new owner; withdrawal still schedules disposal of its pending fulfilled result.
+ */
+async function runTransformTtsc(
+  id: string,
+  source: string,
+  options: ResolvedTtscUnpluginOptions,
+  aliases: unknown,
+  cache: TtscTransformCache | undefined,
+  hooks: TtscTransformHooks | undefined,
+  preparing: boolean,
 ): Promise<TtscTransformResult | undefined> {
   const filesystem = transformFilesystem(cache);
   const exact = hooks?.exactPath === true;
@@ -126,7 +154,10 @@ export async function transformTtsc(
   // Writing the delivered record must not create a new member of that proof.
   prepareProjectRecordDirectories(hooks?.project);
 
-  const selection = resolveProjectSelection(file, options.project, filesystem);
+  const selection =
+    hooks?.projectSelection === undefined
+      ? resolveProjectSelection(file, options.project, filesystem)
+      : { tsconfig: path.resolve(hooks.projectSelection), consulted: [] };
   const tsconfig = selection.tsconfig;
   const selectedProjectRoot = path.resolve(
     options.projectRoot ?? path.dirname(tsconfig),
@@ -143,6 +174,19 @@ export async function transformTtsc(
     tsconfig,
   };
   const aliasPaths = createAliasPaths(aliases);
+  if (!preparing && cache !== undefined) {
+    TtscPrecompilation.start(cache, options, aliasPaths, (entry, text) =>
+      runTransformTtsc(
+        entry,
+        text,
+        options,
+        aliases,
+        cache,
+        { ...hooks, exactPath: true, projectSelection: undefined },
+        true,
+      ),
+    );
+  }
   const key = createTransformCacheKey({
     aliasPaths,
     compilerOptions: options.compilerOptions,
@@ -169,7 +213,10 @@ export async function transformTtsc(
             undefined,
             terminal.validation.cached.projectRoot,
           );
-          if (cache?.get(key) !== transformed) continue;
+          if (cache?.get(key) !== transformed) {
+            if (preparing) return undefined;
+            continue;
+          }
         }
         // A terminal verdict is an answer about one observed environment, not an
         // invitation for every later module to repeat the whole compile.
@@ -180,7 +227,13 @@ export async function transformTtsc(
             filesystem,
           })
         ) {
-          notifyRejectedGenerationInputs(hooks, terminal, file, watchSelection);
+          if (!preparing)
+            notifyRejectedGenerationInputs(
+              hooks,
+              terminal,
+              file,
+              watchSelection,
+            );
           throw terminal;
         }
         evictGeneration(cache, key, transformed);
@@ -193,12 +246,13 @@ export async function transformTtsc(
     if (transformed !== undefined) {
       const cached = await awaitOrEvict(cache, key, transformed).catch(
         (rejection: unknown) => {
-          notifyRejectedGenerationInputs(
-            hooks,
-            rejection,
-            file,
-            watchSelection,
-          );
+          if (!preparing)
+            notifyRejectedGenerationInputs(
+              hooks,
+              rejection,
+              file,
+              watchSelection,
+            );
           throw rejection;
         },
       );
@@ -206,6 +260,7 @@ export async function transformTtsc(
       // While this caller awaited the old Promise, another caller may have
       // invalidated it and installed a newer authoritative generation.
       if (cache?.get(key) !== transformed) {
+        if (preparing) return undefined;
         continue;
       }
       // A generation captured while native notifications were trusted keeps
@@ -218,11 +273,15 @@ export async function transformTtsc(
       if (epoch === undefined) {
         await settleProjectMutationEvents(cached);
         if (cache?.get(key) !== transformed) {
+          if (preparing) return undefined;
           continue;
         }
       }
       await TtscGenerationProof.prepare(cached, file, epoch);
-      if (cache?.get(key) !== transformed) continue;
+      if (cache?.get(key) !== transformed) {
+        if (preparing) return undefined;
+        continue;
+      }
       // No await between this observation and synchronous admission.
       const proof = TtscGenerationProof.create(cached, file, epoch);
       const action = selectCachedGenerationAction({
@@ -234,11 +293,13 @@ export async function transformTtsc(
         generation: transformed,
         key,
         source,
+        reportDivergence: !preparing,
       });
       if (action === "retry") {
         continue;
       }
       if (action === "serve") {
+        if (preparing) return undefined;
         return deliverCachedTransform({
           cache,
           cached,
@@ -261,6 +322,7 @@ export async function transformTtsc(
         projectRoot: selectedProjectRoot,
         currentFile: file,
         currentSource: source,
+        reportDivergence: !preparing,
         // Stamp the pass this compile was started for, not the one it happens
         // to finish in: a boundary crossed mid-compile leaves the generation
         // belonging to the earlier pass, so the next pass re-proves it.
@@ -296,11 +358,18 @@ export async function transformTtsc(
     const generation = transformed;
     const cached = await awaitOrEvict(cache, key, generation).catch(
       (rejection: unknown) => {
-        notifyRejectedGenerationInputs(hooks, rejection, file, watchSelection);
+        if (!preparing)
+          notifyRejectedGenerationInputs(
+            hooks,
+            rejection,
+            file,
+            watchSelection,
+          );
         throw rejection;
       },
     );
     if (cache !== undefined && cache.get(key) !== generation) {
+      if (preparing) return undefined;
       continue;
     }
     if (cache !== undefined) {
@@ -320,6 +389,7 @@ export async function transformTtsc(
         policies.set(key, reported);
       }
     }
+    if (preparing) return undefined;
     return deliverCachedTransform({
       cache,
       cached,

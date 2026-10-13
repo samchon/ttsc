@@ -31,6 +31,16 @@ import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
  */
 export interface TtscTransformHooks {
   /**
+   * Native config already selected by the host for this delivered module.
+   *
+   * A host that freezes routing and its discovery inputs in one transaction
+   * supplies that config here and retains those inputs in its watch channel.
+   * Startup entries select their own projects from the user's
+   * `options.project`, independently of another module's discovered route.
+   */
+  projectSelection?: string;
+
+  /**
    * Invoked once per absolute watch-input path derived for the transformed file
    * `F`: the plugin-reported `dependencies[F]` list unioned with the host-owned
    * reference graph's contribution — the reachability closure of `graph.edges`

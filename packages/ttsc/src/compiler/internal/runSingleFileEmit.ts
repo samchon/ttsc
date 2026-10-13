@@ -4,10 +4,12 @@ import path from "node:path";
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { EmitOwnershipIndex } from "./EmitOwnershipIndex";
+import { WatchInputPublication } from "./build/WatchInputPublication";
 import { runBuild } from "./build/runBuild";
 import { CompilerProjectSelection } from "./project/CompilerProjectSelection";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { readEffectiveCompilerOptions } from "./readEffectiveCompilerOptions";
+import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 
 /**
  * Emit one source file by building its project into a temporary directory.
@@ -24,7 +26,8 @@ import { readEffectiveCompilerOptions } from "./readEffectiveCompilerOptions";
  * argument cwd with public output planning. Response freshness is checked
  * before native work and publication; these sequential checks do not pin bytes
  * atomically. Callers without that record retain explicit config/nearest-file
- * discovery.
+ * discovery. Watch-input handlers must complete synchronously; use
+ * {@link runSingleFileEmit.async} for promise-returning handlers.
  *
  * @returns The transformed JavaScript source text.
  * @throws When the build exits non-zero, proves no JavaScript for the requested
@@ -44,110 +47,165 @@ export function runSingleFileEmit(
   options: TtscSingleFileEmitOptions,
   selection?: ReturnType<typeof CompilerProjectSelection.read>,
 ): string {
-  const cwd = path.resolve(options.cwd ?? process.cwd());
-  const sourceFile = realpathIfExists(
-    path.isAbsolute(options.file)
-      ? options.file
-      : path.resolve(cwd, options.file),
-  );
-  const project =
-    selection?.project ??
-    readProjectConfig({
-      cwd,
-      file: options.file,
-      projectRoot: options.projectRoot,
-      tsconfig: options.tsconfig,
-    });
-  const tsconfig = project.path;
-  const compilerArgsCwd = selection?.compilerArgsCwd ?? project.root;
-  if (selection !== undefined)
-    CompilerProjectSelection.assertCurrent(selection);
-  // The root tsgo lays the outputs against: a `--rootDir` forwarded on the
-  // command line, which reaches it after the config; otherwise the declared
-  // one, which `readProjectConfig` already absolutized; otherwise the project's
-  // own directory, which `pinInferredRootDir` hands it below.
-  const effective = readEffectiveCompilerOptions(
-    project,
-    options.passthrough,
-    options.binary,
-    options.env,
-    compilerArgsCwd,
-  )?.("rootDir");
-  const rootDir =
-    typeof effective === "string"
-      ? path.resolve(compilerArgsCwd, effective)
-      : project.root;
-  if (selection !== undefined)
-    CompilerProjectSelection.assertCurrent(selection);
-  const outDir = createCanonicalTempDirectory("ttsc-single-file-");
-  let failed = false;
-  let failure: unknown;
-  try {
-    const result = runBuild({
-      ...options,
-      cwd,
-      compilerArgsCwd,
-      emit: true,
-      forceEmitProvenance: true,
-      isolateOutputsTo: outDir,
-      outDir,
-      // The private temp directory above is an `outDir` this lane injected, not
-      // one the project declared, and tsgo answers an inferred common source
-      // directory with TS5011 as soon as any `outDir` is in play. Pinning the
-      // root tsgo would infer keeps `ttsc <file.ts>` working on a project that
-      // declares no output at all, while the producing invocation reports its
-      // actual source/output ownership separately.
-      pinInferredRootDir: true,
-      resolvedProject: project,
-      tsconfig,
-    });
-    if (result.status !== 0) {
-      throw new Error(
-        "ttsc single-file emit exited " +
-          result.status +
-          "\n" +
-          (result.stderr || result.stdout),
-      );
-    }
-    const emitted = new EmitOwnershipIndex({
-      emitDir: outDir,
-      rootDir,
-      emittedSources: result.emittedSources,
-      emittedSourceProofFailures: result.emittedSourceProofFailures,
-      outputs: EmitOwnershipIndex.listOutputs(outDir),
-    }).find(sourceFile);
-    if (emitted === null) {
-      throw new Error(
-        `ttsc single-file emit: ${tsconfig} emitted no JavaScript owned by ${sourceFile}; check that the project includes the source and its options permit JavaScript emission`,
-      );
-    }
-    const transformed = fs.readFileSync(emitted, "utf8");
+  return WatchInputPublication.run(runSingleFileEmit.steps(options, selection));
+}
+
+/**
+ * Keep synchronous and awaited single-file emission on one temporary lifetime.
+ *
+ * @evidence contracts/common.md#principled-implementation Both entries consume the same producing build, provenance selection and temporary-output cleanup sequence.
+ * @evidence contracts/common.md#clear-and-simple-design The companion remains beside its synchronous owner without another output-selection implementation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Completion mode changes only watch publication waiting and never infers source ownership from filenames.
+ * @evidence contracts/common.md#meaningful-documentation Each entry identifies its completion mode and the shared temporary lifetime.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation The grouping has no independent native boundary beyond its emission sequence.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The grouping introduces no algorithm beyond the shared sequence and runner.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The grouping retains no output cache or in-flight emission.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Each sequence owns its temporary output and releases it through the existing finally block.
+ */
+export namespace runSingleFileEmit {
+  /**
+   * Await watch-input registration before emitting and selecting one source's
+   * JavaScript. Rejected publication follows the same temporary cleanup path.
+   *
+   * @evidence contracts/common.md#principled-implementation The asynchronous runner joins every nested build handoff before compilation and provenance selection proceed.
+   * @evidence contracts/common.md#clear-and-simple-design One runner delegates all emission and cleanup policy to the shared sequence.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A pending baseline cannot authorize a build, and rejection cannot bypass temporary-output cleanup.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states awaited registration, output selection and failure cleanup.
+   * @evidence contracts/portability.md#os-neutral-implementation The shared sequence preserves native path identity and argument cwd across suspension.
+   * @evidence contracts/performance.md#efficient-algorithms Each handoff is awaited once and the existing whole-project build and provenance lookup run once.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This invocation owns fresh compiler effects; higher-level owners decide reusable generations.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The sequence retains one accepted temporary output directory while publication settles and removes it through finally on success or failure.
+   */
+  export function async(
+    options: TtscSingleFileEmitOptions,
+    selection?: ReturnType<typeof CompilerProjectSelection.read>,
+  ): Promise<string> {
+    return WatchInputPublication.runAsync(steps(options, selection));
+  }
+
+  /**
+   * Emit through one selected project while suspending at watch handoffs.
+   * Internal completion runners must deliver rejection into this sequence so
+   * its finally block retains temporary-output cleanup ownership.
+   *
+   * @evidence contracts/common.md#principled-implementation The sequence yields the producing build's real publication boundaries before selecting output through reported source provenance.
+   * @evidence contracts/common.md#clear-and-simple-design One generator owns project/root selection, private build, output publication and cleanup for both completion modes.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Suspension retains source provenance and response freshness checks without reconstructing ownership after a failed build.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains generator consumption and rejection delivery; the primary entry documents source selection and cleanup failures.
+   * @evidence contracts/portability.md#os-neutral-implementation Existing native physical source/output paths, cwd bases and private directory handling remain unchanged.
+   * @evidence contracts/performance.md#efficient-algorithms One project selection and whole-project build serve one output lookup; suspension adds no extra source or output traversal.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The sequence owns one fresh emitting invocation rather than a generation-sharing cache.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The accepted private directory spans nested publication and build work and reaches the existing cleanup/aggregation finally on every completion path.
+   */
+  export function* steps(
+    options: TtscSingleFileEmitOptions,
+    selection?: ReturnType<typeof CompilerProjectSelection.read>,
+  ): WatchInputPublication.Sequence<string> {
+    const cwd = path.resolve(options.cwd ?? process.cwd());
+    const sourceFile = realpathIfExists(
+      path.isAbsolute(options.file)
+        ? options.file
+        : path.resolve(cwd, options.file),
+    );
+    const project =
+      selection?.project ??
+      readProjectConfig({
+        cwd,
+        file: options.file,
+        projectRoot: options.projectRoot,
+        tsconfig: options.tsconfig,
+      });
+    const tsconfig = project.path;
+    const compilerArgsCwd = selection?.compilerArgsCwd ?? project.root;
     if (selection !== undefined)
       CompilerProjectSelection.assertCurrent(selection);
-    if (options.out) {
-      const target = path.isAbsolute(options.out)
-        ? options.out
-        : path.resolve(cwd, options.out);
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      fs.writeFileSync(target, transformed, "utf8");
-    }
-    return transformed;
-  } catch (error) {
-    failed = true;
-    failure = error;
-    throw error;
-  } finally {
+    // The root tsgo lays the outputs against: a `--rootDir` forwarded on the
+    // command line, which reaches it after the config; otherwise the declared
+    // one, which `readProjectConfig` already absolutized; otherwise the project's
+    // own directory, which `pinInferredRootDir` hands it below.
+    const effective = readEffectiveCompilerOptions(
+      project,
+      options.passthrough,
+      options.binary,
+      SidecarEnvironment.merge(process.env, options.env),
+      compilerArgsCwd,
+    )?.("rootDir");
+    const rootDir =
+      typeof effective === "string"
+        ? path.resolve(compilerArgsCwd, effective)
+        : project.root;
+    if (selection !== undefined)
+      CompilerProjectSelection.assertCurrent(selection);
+    const outDir = createCanonicalTempDirectory("ttsc-single-file-");
+    let failed = false;
+    let failure: unknown;
     try {
-      fs.rmSync(outDir, { recursive: true, force: true });
-    } catch (cleanupError) {
-      if (failed) {
-        throw new AggregateError(
-          [failure, cleanupError],
-          "ttsc: single-file emission and temporary output cleanup failed",
-          { cause: failure },
+      const result = yield* runBuild.steps({
+        ...options,
+        cwd,
+        compilerArgsCwd,
+        emit: true,
+        forceEmitProvenance: true,
+        isolateOutputsTo: outDir,
+        outDir,
+        // The private temp directory above is an `outDir` this lane injected, not
+        // one the project declared, and tsgo answers an inferred common source
+        // directory with TS5011 as soon as any `outDir` is in play. Pinning the
+        // root tsgo would infer keeps `ttsc <file.ts>` working on a project that
+        // declares no output at all, while the producing invocation reports its
+        // actual source/output ownership separately.
+        pinInferredRootDir: true,
+        resolvedProject: project,
+        tsconfig,
+      });
+      if (result.status !== 0) {
+        throw new Error(
+          "ttsc single-file emit exited " +
+            result.status +
+            "\n" +
+            (result.stderr || result.stdout),
         );
       }
-      throw cleanupError;
+      const emitted = new EmitOwnershipIndex({
+        emitDir: outDir,
+        rootDir,
+        emittedSources: result.emittedSources,
+        emittedSourceProofFailures: result.emittedSourceProofFailures,
+        outputs: EmitOwnershipIndex.listOutputs(outDir),
+      }).find(sourceFile);
+      if (emitted === null) {
+        throw new Error(
+          `ttsc single-file emit: ${tsconfig} emitted no JavaScript owned by ${sourceFile}; check that the project includes the source and its options permit JavaScript emission`,
+        );
+      }
+      const transformed = fs.readFileSync(emitted, "utf8");
+      if (selection !== undefined)
+        CompilerProjectSelection.assertCurrent(selection);
+      if (options.out) {
+        const target = path.isAbsolute(options.out)
+          ? options.out
+          : path.resolve(cwd, options.out);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, transformed, "utf8");
+      }
+      return transformed;
+    } catch (error) {
+      failed = true;
+      failure = error;
+      throw error;
+    } finally {
+      try {
+        fs.rmSync(outDir, { recursive: true, force: true });
+      } catch (cleanupError) {
+        if (failed) {
+          throw new AggregateError(
+            [failure, cleanupError],
+            "ttsc: single-file emission and temporary output cleanup failed",
+            { cause: failure },
+          );
+        }
+        throw cleanupError;
+      }
     }
   }
 }

@@ -97,6 +97,9 @@ export async function transformProject(props: {
   /** Delivered module text compared against the compiler's disk observation. */
   currentSource: string;
 
+  /** False for preparation, whose source read is not a host module delivery. */
+  reportDivergence?: boolean;
+
   /**
    * Delivery pass this compile was started for; see
    * {@link TtscCachedProjectTransform.deliveryEpoch}.

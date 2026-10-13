@@ -43,6 +43,8 @@ export function selectCachedGenerationAction(props: {
   generation: Promise<TtscCachedProjectTransform>;
   key: string;
   source: string;
+  /** False only for speculative source reads before an actual module delivery. */
+  reportDivergence?: boolean;
   proof?: TtscGenerationProof.Transaction;
 }): "serve" | "retry" | "capture" {
   if (
@@ -57,6 +59,7 @@ export function selectCachedGenerationAction(props: {
       props.source,
       props.epoch,
       props.proof,
+      props.reportDivergence,
     )
   ) {
     return "serve";

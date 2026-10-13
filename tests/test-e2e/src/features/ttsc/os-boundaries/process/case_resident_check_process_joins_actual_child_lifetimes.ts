@@ -18,15 +18,16 @@ const { spawnSync } = E2eProcessTrace;
  * 1. End input for zero and nonzero children and distinguish strict shutdown.
  * 2. Reject forced termination of a child that ignores input EOF.
  * 3. Distinguish parent exit from inherited output pipe closure.
- * 4. Require bounded unread-input retirement and actual parent event-loop release
- *    while an external pipe holder survives naturally.
+ * 4. Block the parent after grace and join timers are armed, keep its callbacks
+ *    busy, and require bounded retirement and release while a pipe holder
+ *    lives.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual ResidentCheckProcess sends EOF and joins real child processes; literal success, exit-two, forced and unjoined assertions distinguish its retirement outcomes. A separate process importing that same selected owner must exit after unknown joining fails while the external pipe holder remains alive and later exits naturally.
+ * @evidence contracts/testing.md#behavioral-verification The actual ResidentCheckProcess sends EOF and joins real child processes; literal success, exit-two, forced and unjoined assertions distinguish its retirement outcomes. A separate process importing that selected owner exits after unknown joining fails while its external pipe holder survives naturally. Actual owner-thread startup exit and exception must leave repeated close and wait rejected without a child-close receipt.
  * @evidence contracts/testing.md#independent-expectations Authored children use Node exit statuses and inherited OS pipes, not check results; a living pipe owner cannot establish completed close merely because its parent exited.
- * @evidence contracts/testing.md#distinguishing-cases Zero EOF succeeds, exit two permits known-failure joining but rejects strict close, ignored EOF forces rejection, and short versus long inherited pipe holds distinguish actual join from its deadline. An unread child receives one legitimate changed-list request larger than pipe capacity: pending rejection, forced-close failure and actual PID absence are all required. A real synchronous three-second child blocks the owning event loop after EOF starts; its graceful child must still join, unlike the ignored-EOF child. A separate owner process must exit before the five-second external descendant does, while repeated close and wait remain failures.
+ * @evidence contracts/testing.md#distinguishing-cases Zero EOF succeeds, exit two permits known-failure joining but rejects strict close, ignored EOF forces rejection, and short versus long inherited pipe holds distinguish actual join from its deadline. Unread input exceeds pipe capacity and requires pending rejection, forced-close failure and actual PID absence. Three-second parent blocks cover the original same-stack ordering and later grace, forced-join and inherited-pipe phases; EOF markers and actual parent absence establish those phases independently. A busy setImmediate chain must not postpone ignored-EOF retirement indefinitely. The separate owner process exits before its five-second external descendant while repeated close and wait remain failures. Worker startup exit and exception contrast with the terminal receipts required by successful joins.
  * @evidence contracts/testing.md#execution-ownership The existing installation caller supplies the candidate SDK constructor/module URL; direct invocation without options imports maintained source and is not installed certification. Ordinary generic feature discovery does not repeat this case_ entry. Historical target matrix size is not actual executed coverage.
  * @evidence contracts/e2e.md#necessary-boundary Actual child exit, EOF and inherited stdout closure cannot be established by a simulated event emitter or direct state assertions.
- * @evidence contracts/e2e.md#shared-execution Seven direct roles plus two pipe holders, one blocker, one observer process and its child/pipe holder imply thirteen nominal starts, not eight measured processes. Shared authored scripts do not merge the selected resident and Graph owners. Existing installation supplies constructor/module URL; actual trace completeness and costs remain unmeasured, and children never emulate compiler replies.
+ * @evidence contracts/e2e.md#shared-execution Eleven direct child roles, four pipe holders, four blockers, one observer process and its child/pipe holder, plus two owner-failure observers imply twenty-four nominal process starts plus one worker thread per selected resident client. The selected installation supplies constructor/module URL; scripts are shared without merging independent lifetime transitions or emulating compiler replies. Trace completeness and costs remain unmeasured.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct markers identify children. Fixture preparation and disposal errors join the failure aggregate; known-failure wait outcomes are not strict-close success. Only observed ESRCH for every recorded PID permits confined root deletion; unknown absence leaves inputs. Numeric PID files are not incarnation certificates, so reuse is an acknowledged cleanup limitation.
  * @evidence contracts/e2e.md#preserved-coverage This adds OS closure distinctions without replacing actual Go EOF, launcher IPC, diagnostic status or active watch shutdown assertions.
  */
@@ -90,6 +91,10 @@ export const case_resident_check_process_joins_actual_child_lifetimes =
         ["pipe-short", "pipe", 1_300],
         ["pipe-long", "pipe", 5_000],
         ["blocked-event-loop", "eof", 0],
+        ["armed-grace-block", "delayed-eof", 0],
+        ["armed-join-block", "forced-pipe", 1_500],
+        ["armed-pipe-block", "pipe", 1_300],
+        ["active-parent-loop", "ignore", 0],
         ["unread-input", "unread", 0],
       ] as const) {
         try {
@@ -115,7 +120,7 @@ export const case_resident_check_process_joins_actual_child_lifetimes =
           const pid = Number(fs.readFileSync(ready, "utf8"));
           assert.ok(Number.isSafeInteger(pid) && pid > 0);
           pids.add(pid);
-          if (kind === "pipe") {
+          if (kind === "pipe" || kind === "forced-pipe") {
             await wait(() => completeIdentity(childPid));
             const descendant = Number(fs.readFileSync(childPid, "utf8"));
             assert.ok(Number.isSafeInteger(descendant) && descendant > 0);
@@ -129,6 +134,67 @@ export const case_resident_check_process_joins_actual_child_lifetimes =
           if (name === "zero") {
             await owner.close();
             await owner.close();
+          } else if (name.startsWith("armed-")) {
+            const closing = owner.close();
+            void closing.catch(() => {});
+            await wait(() => fs.existsSync(ended));
+            if (name === "armed-grace-block") assert.equal(alive(pid), true);
+            if (name === "armed-join-block") {
+              // The forced parent has exited, so its join timer is armed while
+              // the descendant still holds the output pipe for 1.5 seconds.
+              await wait(() => !alive(pid));
+              assert.equal(
+                alive(Number(fs.readFileSync(childPid, "utf8"))),
+                true,
+              );
+            }
+            await new Promise<void>((resolve, reject) =>
+              setImmediate(() => {
+                try {
+                  const blocked = spawnSync(process.execPath, [
+                    path.join(root, "blocker.cjs"),
+                  ]);
+                  assert.equal(blocked.error, undefined);
+                  assert.equal(blocked.signal, null);
+                  assert.equal(blocked.status, 0);
+                  resolve();
+                } catch (error) {
+                  reject(error);
+                }
+              }),
+            );
+            if (name === "armed-join-block")
+              await assert.rejects(closing, /required forced termination/);
+            else await closing;
+            await owner.waitForExit();
+          } else if (name === "active-parent-loop") {
+            const closing = owner.close();
+            let pumping = true;
+            const pump = (): void => {
+              if (pumping) setImmediate(pump);
+            };
+            pump();
+            let deadline: NodeJS.Timeout | undefined;
+            try {
+              await Promise.race([
+                assert.rejects(closing, /required forced termination/),
+                new Promise<never>((_, reject) => {
+                  deadline = setTimeout(
+                    () =>
+                      reject(
+                        new Error(
+                          "active parent callbacks must not prevent forced retirement",
+                        ),
+                      ),
+                    4_000,
+                  );
+                }),
+              ]);
+              await owner.waitForExit();
+            } finally {
+              pumping = false;
+              clearTimeout(deadline);
+            }
           } else if (name === "blocked-event-loop") {
             const closing = owner.close();
             const blocked = spawnSync(process.execPath, [
@@ -269,6 +335,44 @@ export const case_resident_check_process_joins_actual_child_lifetimes =
             cause: error,
           }),
         );
+      }
+      for (const mode of ["exit", "error"] as const) {
+        try {
+          const observer = spawnSync(
+            process.execPath,
+            [
+              "--import",
+              pathToFileURL(
+                path.join(
+                  import.meta.dirname,
+                  "../../../../../../../config/register-unit-loader.mjs",
+                ),
+              ).href,
+              "--require",
+              path.join(root, "owner-failure-preload.cjs"),
+              path.join(root, "owner-failure.cjs"),
+              moduleURL,
+              mode,
+            ],
+            { encoding: "utf8", timeout: 8_000 },
+          );
+          assert.equal(observer.error, undefined);
+          assert.equal(observer.signal, null);
+          assert.equal(
+            observer.status,
+            0,
+            `${observer.stdout}\n${observer.stderr}`,
+          );
+          assert.match(
+            observer.stdout,
+            new RegExp(`unknown owner ${mode} remains failed`),
+          );
+          console.log(`resident OS lifetime owner-${mode}: PASS`);
+        } catch (error) {
+          failures.push(
+            new Error(`resident OS lifetime owner-${mode}`, { cause: error }),
+          );
+        }
       }
     } catch (error) {
       failures.push(error);

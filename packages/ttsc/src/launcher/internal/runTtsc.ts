@@ -35,8 +35,9 @@ import { resolveCacheDir } from "./resolveCacheDir";
 import { resolveSingleFileOutput } from "./resolveSingleFileOutput";
 import { resolveRuntimeCleanTargets } from "./runtime/resolveRuntimeCleanTargets";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
+import { AsyncWatchTopology } from "./watch/AsyncWatchTopology";
 import { type WatchInputChange } from "./watch/WatchInputChange";
-import { WatchTopology } from "./watch/WatchTopology";
+import { WatchSettlement } from "./watch/WatchSettlement";
 
 /**
  * CLI entry point for `ttsc`. Dispatches argv to the appropriate lane (build,
@@ -582,12 +583,26 @@ function printCacheHelp(): void {
  * full request retains cache, reporting and watch callbacks. Only the private
  * helper writes the selected public file. Success presentation follows that
  * completed copy and describes public emission, without private products or a
- * fabricated transform-site count. Watch supplies quiet true itself.
+ * fabricated transform-site count. Watch supplies quiet true itself. The async
+ * watch executor awaits input publication before building; ordinary CLI calls
+ * keep their synchronous return contract and share output planning.
  */
 function runSingleFile(
   options: ReturnType<typeof parseTtscBuildArgs> &
     Pick<TtscSingleFileEmitOptions, "onProjectInputs" | "onWatchInputs">,
-): number {
+): number;
+function runSingleFile(
+  options: ReturnType<typeof parseTtscBuildArgs> &
+    Pick<TtscSingleFileEmitOptions, "onProjectInputs" | "onWatchInputs">,
+  execute: typeof runSingleFileEmit.async,
+): Promise<number>;
+function runSingleFile(
+  options: ReturnType<typeof parseTtscBuildArgs> &
+    Pick<TtscSingleFileEmitOptions, "onProjectInputs" | "onWatchInputs">,
+  execute:
+    | typeof runSingleFileEmit
+    | typeof runSingleFileEmit.async = runSingleFileEmit,
+): number | Promise<number> {
   if (options.files.length !== 1) {
     throw new Error(
       "ttsc: single-file mode currently accepts exactly one input file",
@@ -610,20 +625,25 @@ function runSingleFile(
         project,
       )
     : undefined;
-  runSingleFileEmit({ ...options, cwd, file, out }, selection);
-  if (options.quiet === false) {
-    process.stdout.write(
-      `// ttsc: tsconfig=${project.path} cwd=${cwd} emit=${emit}\n`,
-    );
-    if (out !== undefined) {
-      process.stdout.write(`// ttsc: emitted=1 files\n`);
-      process.stdout.write(`  + ${relativeToCwd(cwd, out) || out}\n`);
+  const result = execute({ ...options, cwd, file, out }, selection);
+  const report = (): number => {
+    if (options.quiet === false) {
+      process.stdout.write(
+        `// ttsc: tsconfig=${project.path} cwd=${cwd} emit=${emit}\n`,
+      );
+      if (out !== undefined) {
+        process.stdout.write(`// ttsc: emitted=1 files\n`);
+        process.stdout.write(`  + ${relativeToCwd(cwd, out) || out}\n`);
+      }
     }
-  }
-  if (out !== undefined) {
-    process.stdout.write(`${relativeToCwd(cwd, out) || path.basename(out)}\n`);
-  }
-  return 0;
+    if (out !== undefined) {
+      process.stdout.write(
+        `${relativeToCwd(cwd, out) || path.basename(out)}\n`,
+      );
+    }
+    return 0;
+  };
+  return typeof result === "string" ? report() : result.then(report);
 }
 
 function runWatch(
@@ -631,7 +651,7 @@ function runWatch(
   checkOnly: boolean,
 ): number {
   const cwd = path.resolve(options.cwd ?? process.cwd());
-  let topology: WatchTopology | undefined;
+  let topology: AsyncWatchTopology | undefined;
   const invocation = {
     ...(checkOnly ? { ...options, emit: false } : options),
     cwd,
@@ -639,10 +659,10 @@ function runWatch(
       inputs: readonly string[],
       identities?: PluginContentIdentities.Store,
     ) => {
-      topology?.setExtraInputs(inputs, identities);
+      return topology?.setExtraInputs(inputs, identities);
     },
     onProjectInputs: (inputs: ITtscProjectInputSnapshot) => {
-      topology?.setProjectInputs(inputs);
+      return topology?.setProjectInputs(inputs);
     },
     quiet: true,
   };
@@ -653,6 +673,8 @@ function runWatch(
   let closing: Promise<void> | undefined;
   let rerun = false;
   let timer: NodeJS.Timeout | null = null;
+  const settlement = new WatchSettlement();
+  let completedBuilds = 0;
   const resident =
     invocation.files.length === 0 ? new ResidentCheckWatchSession() : undefined;
   const pendingChanges = new PendingResidentCheckWatchChanges();
@@ -664,6 +686,7 @@ function runWatch(
   const runOnce = async () => {
     if (closed) return;
     running = true;
+    settlement.changed();
     const change = pendingChanges.take();
     if (process.env.TTSC_WATCH_DEBUG_INPUTS)
       debugWatchInputs(`cycle ${JSON.stringify(change)}`);
@@ -682,14 +705,14 @@ function runWatch(
       // rebuild reports a clear failure and the watcher keeps running instead
       // of crashing the process with an uncaught exception.
       const status = await (invocation.files.length !== 0
-        ? Promise.resolve(runSingleFile(invocation))
+        ? runSingleFile(invocation, runSingleFileEmit.async)
         : (async () => {
             const buildOptions = checkOnly
               ? { ...invocation, emit: false }
               : invocation;
             const result =
               resident === undefined
-                ? runBuild(buildOptions)
+                ? await runBuild.async(buildOptions)
                 : await resident.run(buildOptions, change);
             // Watch output is one ordered stream. The diagnostics a build
             // produced and the "[ttsc] watch build …" marker that concludes
@@ -710,6 +733,7 @@ function runWatch(
       process.stdout.write(
         `[ttsc] ${status === 0 ? "watch build complete" : "watch build failed"}\n`,
       );
+      ++completedBuilds;
     } catch (error) {
       if (closed) return;
       // Same ordered-stream rule as the build path: the failure text goes on
@@ -719,30 +743,33 @@ function runWatch(
       lastStatus = lastStatus === 0 ? 2 : lastStatus;
       completedBuild = true;
       process.stdout.write(`[ttsc] watch build failed\n`);
+      ++completedBuilds;
     } finally {
-      running = false;
       if (completed && !closed) {
         try {
           // A filesystem event can arrive after the build reports completion
-          // but before this synchronous cleanup reaches its re-resolution.
+          // but before post-build reconciliation reaches its re-resolution.
           // Notify for a membership change here as well, otherwise that new
           // input is silently absorbed into the watch set without a rebuild.
-          topology?.refresh(true);
+          await topology?.refresh(true);
         } catch (error) {
           process.stderr.write(
             `[ttsc] watch error on ${watchMessagePath(cwd, root)}: ${formatError(error)}\n`,
           );
         }
       }
+      running = false;
     }
     if (rerun) {
       rerun = false;
       trigger();
     }
+    settlement.changed();
   };
   const trigger = (change?: WatchInputChange, reload = false) => {
     if (closed) return;
     pendingChanges.push(change, reload);
+    settlement.changed();
     if (running) {
       rerun = true;
       return;
@@ -758,33 +785,30 @@ function runWatch(
       activeSelected: active !== undefined,
     });
     closed = true;
+    settlement.changed();
     if (timer) clearTimeout(timer);
     timer = null;
     process.off("SIGINT", onInterrupt);
     process.off("SIGTERM", onTerminate);
     process.off("message", onMessage);
     process.off("disconnect", onDisconnect);
-    let topologyError: unknown;
-    try {
-      topology?.close();
-    } catch (error) {
-      topologyError = error;
-    }
+    const topologyClosing = topology?.close() ?? Promise.resolve();
     const residentClosing = resident?.close() ?? Promise.resolve();
     const activeClosing = active ?? Promise.resolve();
-    closing = Promise.allSettled([residentClosing, activeClosing]).then(
-      (results) => {
-        const errors = results.flatMap((result) =>
-          result.status === "rejected" ? [result.reason] : [],
+    closing = Promise.allSettled([
+      topologyClosing,
+      residentClosing,
+      activeClosing,
+    ]).then((results) => {
+      const errors = results.flatMap((result) =>
+        result.status === "rejected" ? [result.reason] : [],
+      );
+      if (errors.length !== 0)
+        throw new AggregateError(
+          errors,
+          `ttsc: watch shutdown failed: ${errors.map(formatError).join("; ")}`,
         );
-        if (topologyError !== undefined) errors.push(topologyError);
-        if (errors.length !== 0)
-          throw new AggregateError(
-            errors,
-            `ttsc: watch shutdown failed: ${errors.map(formatError).join("; ")}`,
-          );
-      },
-    );
+    });
     if (process.env.TTSC_E2E_TRACE) {
       // Observe the original promises without substituting their settlements.
       void residentClosing.then(
@@ -893,9 +917,48 @@ function runWatch(
       const id = message.id;
       E2ETrace.watchShutdown("ipc-stop-received", { stopId: id });
       void finish(id);
+    } else if (
+      typeof message === "object" &&
+      message !== null &&
+      "type" in message &&
+      message.type === "ttsc.watch.settle" &&
+      "id" in message &&
+      typeof message.id === "string" &&
+      message.id.length !== 0
+    ) {
+      const id = message.id;
+      // Build markers retain their exact text and one marker per cycle. IPC
+      // travels on another pipe, so its receipt carries the completed count:
+      // a caller must drain those stdout markers before using the boundary.
+      void settlement
+        .wait(
+          async () => {
+            await topology?.whenIdle();
+            if (closed) throw new Error("ttsc: watch closed before settling");
+            return !running && !rerun && timer === null;
+          },
+          async () => {
+            if (process.connected && process.send !== undefined)
+              await new Promise<void>((resolve, reject) => {
+                process.send!(
+                  { type: "ttsc.watch.settled", id, builds: completedBuilds },
+                  (error: Error | null) =>
+                    error === null ? resolve() : reject(error),
+                );
+              });
+          },
+        )
+        .catch((error: unknown) => {
+          if (!closed) {
+            process.stderr.write(`${formatError(error)}\n`);
+            lastStatus = lastStatus === 0 ? 2 : lastStatus;
+            void finish();
+          }
+        });
     }
   };
   const startRun = () => {
+    timer = null;
     active = runOnce();
     void active.catch((error: unknown) => {
       process.stderr.write(`${formatError(error)}\n`);
@@ -904,7 +967,13 @@ function runWatch(
     });
   };
 
-  topology = new WatchTopology(invocation, {
+  topology = new AsyncWatchTopology(invocation, {
+    onFailure: (error) => {
+      if (closed) return;
+      lastStatus = lastStatus === 0 ? 2 : lastStatus;
+      process.stderr.write(`${formatError(error)}\n`);
+      void finish();
+    },
     onError: (location, error) => {
       process.stderr.write(
         `[ttsc] watch error on ${watchMessagePath(cwd, location)}: ${formatError(error)}\n`,
@@ -934,16 +1003,25 @@ function runWatch(
     },
     onTopologyChange: () => trigger(undefined, true),
   });
+  const start = async (): Promise<void> => {
+    await topology!.refresh(false);
+    if (closed) return;
+    process.stdout.write(`[ttsc] watching ${watchMessagePath(cwd, root)}\n`);
+    startRun();
+  };
   try {
-    topology.refresh(false);
     process.on("SIGINT", onInterrupt);
     process.on("SIGTERM", onTerminate);
     if (process.connected) {
       process.on("message", onMessage);
       process.on("disconnect", onDisconnect);
     }
-    process.stdout.write(`[ttsc] watching ${watchMessagePath(cwd, root)}\n`);
-    startRun();
+    void start().catch((error: unknown) => {
+      if (closed) return;
+      lastStatus = lastStatus === 0 ? 2 : lastStatus;
+      process.stderr.write(`${formatError(error)}\n`);
+      void finish();
+    });
   } catch (error) {
     // Refresh may fail after acquiring only part of the watch set. Release that
     // partial ownership as well as setup's signal listeners before returning.

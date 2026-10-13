@@ -4,6 +4,7 @@ import path from "node:path";
 import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
+import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
@@ -186,6 +187,7 @@ export function buildSingleRootProject(props: {
       project,
       options.passthrough,
       options.binary,
+      SidecarEnvironment.merge(process.env, options.env),
     );
     const result = runBuild({
       binary: options.binary,

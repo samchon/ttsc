@@ -3,6 +3,7 @@ import path from "node:path";
 import { SHARE_ENV, Worker } from "node:worker_threads";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
+import { workerModuleUrl } from "../../../internal/workerModuleUrl";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "./PluginContentIdentities";
 import { pluginBuildEnvironment } from "./pluginBuildEnvironment";
@@ -24,7 +25,7 @@ import { pluginBuildEnvironment } from "./pluginBuildEnvironment";
  * @evidence contracts/common.md#clear-and-simple-design One owner shares observation records across synchronous reads, cache-only proof and asynchronous preparation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cold preparation performs the same actual native Go/toolchain reading off-thread; failed or stale observations are never replaced by producer-expected state.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes preparation, publication and cache-only authority; members document their separate execution responsibilities.
- * @evidence contracts/portability.md#os-neutral-implementation Complete environment snapshots use the shared native-name merger; metadata witnesses preserve actual native filesystem and link identity.
+ * @evidence contracts/portability.md#os-neutral-implementation Complete environment snapshots use the shared native-name merger; metadata witnesses preserve actual native filesystem and link identity. A supported module URL requires the CommonJS source or emitted worker entry while Node retains inherited execution options and preload hooks.
  * @evidenceExclude contracts/performance.md#efficient-algorithms Individual members own variable indexing, witness validation and native preparation.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The members specify the invalidation and sharing boundaries.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Readings replace existing keys but retain historical directory/environment keys without eviction. One idle worker and its retirement listeners remain process-owned/unreferenced; active work is ref'ed and per-request listeners are removed at settlement. Distinct requests can queue without a population bound/timeout; a stalled request can delay successors. Failed-worker termination is initiated without joining its promise, and this owner does not mutate the shared environment.
@@ -293,7 +294,12 @@ export namespace PluginBuildEnvironmentReadings {
   function acquireWorker(): Worker {
     if (worker !== undefined) return worker;
     const created = new Worker(
-      path.join(__dirname, "pluginBuildEnvironmentWorker.js"),
+      workerModuleUrl(
+        path.join(
+          __dirname,
+          `pluginBuildEnvironmentWorker${path.extname(__filename)}`,
+        ),
+      ),
       { env: SHARE_ENV },
     );
     worker = created;

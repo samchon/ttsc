@@ -1,7 +1,9 @@
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
-import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOptions";
-import type { TtscPluginSourceInputsHandler } from "../../../structures/internal/TtscSingleFileEmitOptions";
+import type {
+  TtscPluginSourceInputsHandler,
+  TtscProjectInputsHandler,
+} from "../../../structures/internal/TtscSingleFileEmitOptions";
 
 /**
  * Options of one {@link runBuild} call: the public build options plus the knobs
@@ -119,7 +121,8 @@ export type RunBuildOptions = TtscBuildOptions & {
   /**
    * Receives selected native-plugin source roots after the project resolves.
    * The watch launcher uses these roots to invalidate a sidecar when its Go
-   * implementation changes between rebuilds.
+   * implementation changes between rebuilds. Asynchronous entries await a
+   * returned promise; synchronous entries require a synchronous handler.
    */
   onWatchInputs?: TtscPluginSourceInputsHandler;
 
@@ -127,9 +130,10 @@ export type RunBuildOptions = TtscBuildOptions & {
    * Receives the reconciled project-rule filesystem dependency snapshot. Called
    * when this internal callback is supplied, normally by watch launchers;
    * ordinary calls without the callback do not probe the optional sidecar
-   * command.
+   * command. Asynchronous entries await a returned promise before compilation;
+   * synchronous entries require a synchronous handler.
    */
-  onProjectInputs?: (inputs: ITtscProjectInputSnapshot) => void;
+  onProjectInputs?: TtscProjectInputsHandler;
 
   /**
    * Request an external source map in an emitting direct tsgo lane even when

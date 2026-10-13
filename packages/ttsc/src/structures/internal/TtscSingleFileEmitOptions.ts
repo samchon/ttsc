@@ -42,10 +42,14 @@ export interface TtscSingleFileEmitOptions extends TtscCommonOptions {
  * this notification is not the complete compiler or project-rule input graph.
  * The reporting load also hands over its record store, if it opened one, so the
  * owner proves each root's state from the plugin cache's records instead of
- * reading the sources the load is about to prove (#1728).
+ * reading the sources the load is about to prove (#1728). Asynchronous build
+ * entries await a returned promise before reading or building those sources;
+ * synchronous entries require a synchronous handler. Separate function
+ * alternatives preserve TypeScript's void-handler assignability, including
+ * ignored non-promise return values.
  *
- * @evidence contracts/common.md#principled-implementation Readonly roots describe the actual native-plugin sources whose later edits need observation.
- * @evidence contracts/common.md#clear-and-simple-design A void notification leaves watcher construction and lifetime with the invocation owner.
+ * @evidence contracts/common.md#principled-implementation Readonly roots describe the actual native-plugin sources whose later edits need observation; separate void and Promise function alternatives preserve existing ignored-return callback assignability while exposing asynchronous completion.
+ * @evidence contracts/common.md#clear-and-simple-design The handoff leaves watcher construction and lifetime with the invocation owner, while its completion determines when the producer may continue.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The supported callback neither replaces foreign watchers nor fabricates fixture-specific roots.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the source population and owner before acknowledgment tags.
  * @evidence contracts/portability.md#os-neutral-implementation Native source paths pass through without separator rewriting, alias collapse or an encoded OS-specific watcher.
@@ -53,16 +57,23 @@ export interface TtscSingleFileEmitOptions extends TtscCommonOptions {
  * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
-export type TtscPluginSourceInputsHandler = (
-  inputs: readonly string[],
-  identities?: PluginContentIdentities.Store,
-) => void;
+export type TtscPluginSourceInputsHandler =
+  | ((
+      inputs: readonly string[],
+      identities?: PluginContentIdentities.Store,
+    ) => void)
+  | ((
+      inputs: readonly string[],
+      identities?: PluginContentIdentities.Store,
+    ) => Promise<void>);
 
 /**
  * Receive the discovered project-rule filesystem topology for the watch owner.
+ * Asynchronous build entries await a returned promise before compilation;
+ * synchronous entries require a synchronous handler.
  *
  * @evidence contracts/common.md#principled-implementation The snapshot retains exact, glob and reload dependencies rather than reducing them to plugin-source roots.
- * @evidence contracts/common.md#clear-and-simple-design A separate void notification transfers topology without assigning watcher lifetime to the emit options.
+ * @evidence contracts/common.md#clear-and-simple-design A separate completion-bearing notification transfers topology without assigning watcher lifetime to the emit options.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A discovered rule snapshot crosses a supported boundary without replacing watcher internals or inventing passing inputs.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies the project-rule payload and watch owner before the separated tags.
  * @evidence contracts/portability.md#os-neutral-implementation The snapshot retains native paths, explicit glob grammar and declared versus physical identities without blanket case folding.
@@ -70,6 +81,6 @@ export type TtscPluginSourceInputsHandler = (
  * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
-export type TtscProjectInputsHandler = (
-  inputs: ITtscProjectInputSnapshot,
-) => void;
+export type TtscProjectInputsHandler =
+  | ((inputs: ITtscProjectInputSnapshot) => void)
+  | ((inputs: ITtscProjectInputSnapshot) => Promise<void>);

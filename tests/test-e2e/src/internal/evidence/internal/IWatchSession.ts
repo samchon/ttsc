@@ -23,6 +23,21 @@ export interface IWatchSession {
   readonly nextBuild: (timeout?: number) => Promise<IRunResult>;
 
   /**
+   * Waits for decided, queued and running work to finish, then consumes any
+   * remaining builds through the launcher's acknowledged completion count. An
+   * idle watcher returns an empty array without an elapsed quiet window.
+   * `onBuild` observes each trailing build as it arrives and may reject the
+   * wait.
+   */
+  readonly settle: (
+    timeout?: number,
+    onBuild?: (build: IRunResult) => void,
+  ) => Promise<readonly IRunResult[]>;
+
+  /** Observes the next unconsumed build start without consuming its result. */
+  readonly nextBuildStarted: (timeout?: number) => Promise<void>;
+
+  /**
    * Requires that no rebuild starts within the window, and returns what was
    * printed during it.
    *

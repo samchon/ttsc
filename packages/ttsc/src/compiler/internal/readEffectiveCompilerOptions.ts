@@ -84,7 +84,7 @@ export function readEffectiveCompilerOptions(
     } catch {
       return null;
     }
-    const tsgo = resolveTsgo({ cwd: project.root, binary });
+    const tsgo = resolveTsgo({ cwd: project.root, binary, env });
     const result = spawnNative(
       tsgo.binary,
       ["-p", project.path, ...passthrough, "-p", project.path, "--showConfig"],

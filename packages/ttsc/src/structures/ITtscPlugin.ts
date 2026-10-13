@@ -87,11 +87,13 @@ export interface ITtscPlugin {
    * linked into the selected native host and must register through
    * `driver.RegisterPlugin`.
    *
-   * Relative paths are resolved from the consumer project root. Package
-   * descriptors published in npm packages should normally return absolute paths
-   * based on their own descriptor directory. Derive them from a factory's
-   * `context.dirname` (the load-mode-independent replacement for `__dirname`,
-   * which is undefined when ttsc loads the descriptor through ttsx or as ESM).
+   * Relative paths are resolved from the compiler's source root, including an
+   * explicit projectRoot override. This can differ from the factory's consumer
+   * directory for plugin package resolution. Package descriptors published in
+   * npm packages should normally return absolute paths based on their own
+   * descriptor directory. Derive them from a factory's `context.dirname` (the
+   * load-mode-independent replacement for `__dirname`, which is undefined when
+   * ttsc loads the descriptor through ttsx or as ESM).
    *
    * Common layouts:
    *

@@ -15,13 +15,13 @@ import { CommonJsRuntimeSource } from "../../../../packages/ttsc/src/launcher/in
  *
  * 1. Evaluate strict, sloppy, escaped-directive, hashbang and hoisted-binding
  *    bodies.
- * 2. Compare local registry/cache behavior with the unchanged original require.
+ * 2. Compare shared registry/cache identity with the unchanged original require.
  * 3. Decode a shifted compiler map and verify its original source coordinates.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls CommonJsRuntimeSource.prepare and executes adapted bodies, verifying strictness, user bindings, owned require metadata and decoded source-map positions.
  * @evidence contracts/testing.md#independent-expectations Literal strict/sloppy return values and SourceMap original coordinates establish expected behavior; the unchanged native require extension table is snapshotted before adaptation.
  * @evidence contracts/testing.md#distinguishing-cases A custom directive before and after "use strict", an escaped `use\x20strict` (not a directive, so sloppy), a hashbang before a strict body, a hashbang-only file, four hashbang line terminators (CR, CRLF, U+2028, U+2029), a top-level return, a hoisted `function require`, a parameter named `require`, and map entries at the first column, the adjacent column and the next line distinguish semantic preservation from a bootstrap that changes strictness, line layout or a user's own binding.
- * @evidence contracts/testing.md#execution-ownership Executes authored source adaptation, Node VM and source-map decoding in one unit process without native compilation; only the owned require table is exposed and the native extension snapshot must remain unchanged.
+ * @evidence contracts/testing.md#execution-ownership Executes authored source adaptation, Node VM and source-map decoding in one unit process without native compilation; the adapted function shares Node's registry and its contents must remain unchanged.
  */
 export function test_commonjs_runtime_source_preserves_bindings_and_locations(): void {
   const native = createRequire(import.meta.url);
@@ -102,7 +102,7 @@ export function test_commonjs_runtime_source_preserves_bindings_and_locations():
   );
   assert.deepEqual(
     evaluate(
-      'module.exports=[require.extensions[".ts"]===require.extensions[".js"],require.cache===require("node:module").createRequire(__filename).cache,require.resolve("node:fs")];',
+      'module.exports=[require.extensions===require("node:module").createRequire(__filename).extensions,require.cache===require("node:module").createRequire(__filename).cache,require.resolve("node:fs")];',
     ),
     [true, true, "node:fs"],
   );

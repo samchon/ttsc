@@ -29,7 +29,10 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Resolution owns no persistent map, descriptor or task and returns only the selected path spelling.
  */
 export function resolveBinary(
-  opts: { env?: NodeJS.ProcessEnv } = {},
+  opts: {
+    /** Complete selection environment; omission reads the current process. */
+    env?: NodeJS.ProcessEnv;
+  } = {},
 ): string | null {
   const env = opts.env ?? process.env;
   const explicit = SidecarEnvironment.read(env, "TTSC_BINARY");

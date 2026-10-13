@@ -72,6 +72,7 @@ module.exports = withTtsc(getDefaultConfig(__dirname), {
 ```
 
 - `project`: the `tsconfig.json` the transformer should read, resolved from `process.cwd()`.
+- `precompile`: source entry paths whose projects start compiling together on the worker's first transform. Paths resolve from `process.cwd()` and retain the user's project-selection options; a project discovered for another delivered module does not reroute them. See [Unplugin options](/docs/setup/unplugin#options) for startup effects and failure delivery.
 - `compilerOptions`: a temporary overlay layered on the selected project config.
 - `plugins`: an explicit plugin list override, or `false` to disable project plugins.
 - `upstreamTransformer`: an explicit module path for the Babel transformer to delegate to, when neither the config's own transformer nor auto-detection is what you want.

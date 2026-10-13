@@ -127,6 +127,9 @@ export async function captureTransformGeneration(props: {
   /** Host-delivered text compared with the compiler's on-disk source baseline. */
   currentSource: string;
 
+  /** False for preparation, whose source read is not a host module delivery. */
+  reportDivergence?: boolean;
+
   /** Optional delivery epoch to which this captured observation belongs. */
   deliveryEpoch?: number;
 
@@ -638,7 +641,7 @@ export async function captureTransformGeneration(props: {
     // this generation. A delivered text that differs, because a plugin ordered
     // before ttsc rewrote the module or the file changed after the host read
     // it, must not replace them: every sibling delivery compares the disk and
-    // would recompile the project (samchon/ttsc#1394). It is reported once
+    // would recompile the project (samchon/ttsc#1394). An actual delivery is reported once
     // instead, and the file's own compile is served.
     const currentFileKey = toProjectKey(
       projectRoot,
@@ -691,7 +694,14 @@ export async function captureTransformGeneration(props: {
       props.currentFile,
       diskHash ?? deliveredHash,
     );
-    if (diskHash !== undefined && diskHash !== deliveredHash) {
+    // Preparation reads native source only to seed the ordinary capture. A
+    // later edit is handled by generation proof, not a warning about a host
+    // rewrite: no host delivered that speculative module (#1764).
+    if (
+      props.reportDivergence !== false &&
+      diskHash !== undefined &&
+      diskHash !== deliveredHash
+    ) {
       reportDivergentDelivery(cached, props.currentFile);
     }
     // An adopted compile was certified by its publisher, and is matched below

@@ -109,7 +109,10 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
 } {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const loaded = loadProjectPlugins({
-    binary: resolveBinary(options) ?? "",
+    binary:
+      resolveBinary({
+        env: SidecarEnvironment.merge(process.env, options.env),
+      }) ?? "",
     cacheDir:
       options.cacheDir ??
       SidecarEnvironment.read(options.env, "TTSC_CACHE_DIR"),
@@ -188,11 +191,13 @@ function transformProjectWithNativeHost(
     baseline?.hostInputs ?? [],
     projectHostInputs,
   );
+  const env = inheritedSidecarEnv(options.env);
   const binary = buildNativeCompiler({
     cacheBaseDir: project.root,
     cacheDir:
       options.cacheDir ??
       SidecarEnvironment.read(options.env, "TTSC_CACHE_DIR"),
+    env,
     packageRoot: packageRootDir(),
   });
   const res = spawnNative(
@@ -200,7 +205,7 @@ function transformProjectWithNativeHost(
     ["api-transform", "--cwd", project.root, "--tsconfig", project.path],
     {
       cwd: project.root,
-      env: inheritedSidecarEnv(options.env),
+      env,
     },
   );
   if (res.error) {
@@ -295,7 +300,11 @@ function transformProjectWithPlugins(
   const tsgoBinary =
     loaded.nativePlugins.length === 0
       ? ""
-      : resolveTsgo({ ...options, cwd: project.root }).binary;
+      : resolveTsgo({
+          ...options,
+          cwd: project.root,
+          env: SidecarEnvironment.merge(process.env, options.env),
+        }).binary;
   const checked = runNativeChecks(
     options,
     project,

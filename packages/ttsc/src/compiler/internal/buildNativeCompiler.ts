@@ -33,12 +33,16 @@ export function buildNativeCompiler(options: {
   /** Optional explicit cache directory, interpreted by the artifact builder. */
   cacheDir?: string;
 
+  /** Complete environment used to select and key the native host build. */
+  env?: NodeJS.ProcessEnv;
+
   /** Installed ttsc package containing cmd/ttsc and its module metadata. */
   packageRoot: string;
 }): string {
   return buildSourcePlugin({
     baseDir: options.cacheBaseDir,
     cacheDir: options.cacheDir,
+    env: options.env,
     label: "compiler host",
     overlayDirs: [],
     pluginName: "ttsc",

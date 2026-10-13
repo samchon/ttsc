@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { readJsonFile } from "../../../compiler/internal/project/readJsonFile";
 import { isRelativePluginSpecifier } from "./isRelativePluginSpecifier";
 import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
+import { pluginResolutionFailure } from "./pluginResolutionFailure";
 
 /**
  * How ttsc finds a plugin package and reads its manifest.
@@ -277,7 +278,7 @@ export namespace PluginPackageResolution {
   }
 
   /**
-   * Resolve a plugin specifier from the project root, using realpath when
+   * Resolve a plugin specifier from its consumer directory, using realpath when
    * available and retaining selected native spelling on canonicalization
    * failure.
    *
@@ -290,7 +291,7 @@ export namespace PluginPackageResolution {
    * @evidence contracts/common.md#principled-implementation Native absolute/relative inputs use their explicit base; bare packages opt into ttsc target semantics only when a matching branch exists, otherwise createRequire anchors Node resolution at the consuming project's package.json. This authority remains explicit when the caller was itself imported as CommonJS through an ESM loader.
    * @evidence contracts/common.md#clear-and-simple-design One dispatcher keeps plugin-only conditions local and returns best-effort canonical selection to descriptor loading; unsuccessful realpath is not physical-identity proof.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Dedicated condition selection is a declared package extension, not process-wide patching; opted-in invalid targets fail without falling back to unrelated runtime exports.
-   * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains path versus package behavior and condition scope; helper comments explain error/null semantics and target constraints, with separated prose under the documentation skill.
+   * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains path versus package behavior and condition scope; package failures retain their cause and code while naming the requested plugin and consumer directory, including runtimes whose resolver message is empty.
    * @evidence contracts/portability.md#os-neutral-implementation Native path classification/resolution and best-effort realpath preserve caller bases. Package target URL resolution uses a native pathToFileURL anchor and fileURLToPath decoding before native containment/file checks; URL/export grammar is not interpreted as literal native percent spelling.
    * @evidence contracts/performance.md#efficient-algorithms Path cases still perform native normalization/realpath; package cases include manifest discovery/read/parse and Node queries. Export selection classifies keys, compares patterns and may recursively substitute/inspect target nodes before short-circuit target resolution. Key/target/path/manifest bytes and native operations contribute cost; no target depth or size ceiling is supplied here.
    *
@@ -313,14 +314,18 @@ export namespace PluginPackageResolution {
     // loading the transform would have to build the runtime the transform
     // emits). Such a package opts in with a `ttsc` export condition that points
     // at a runtime-free descriptor; honour it here, scoped to plugin resolution.
-    const conditioned = resolvePluginExportCondition(specifier, projectRoot);
-    if (conditioned !== null) {
-      return conditioned;
+    try {
+      const conditioned = resolvePluginExportCondition(specifier, projectRoot);
+      if (conditioned !== null) {
+        return conditioned;
+      }
+      const projectRequire = createRequire(
+        path.join(projectRoot, "package.json"),
+      );
+      return resolveRealPath(projectRequire.resolve(specifier));
+    } catch (error) {
+      throw pluginResolutionFailure(specifier, projectRoot, error);
     }
-    const projectRequire = createRequire(
-      path.join(projectRoot, "package.json"),
-    );
-    return resolveRealPath(projectRequire.resolve(specifier));
   }
 
   /**

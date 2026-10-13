@@ -20,14 +20,18 @@ if (adapter === "graph") {
     else process.stdin.on("end", () => process.exit(mode === "nonzero" ? 2 : 0));
   }
 } else if (adapter === "resident") {
-  if (mode === "pipe") {
+  if (mode === "pipe" || mode === "forced-pipe") {
     spawn(process.execPath, [path.join(__dirname, "pipe-holder.cjs"), "resident", childPid, ended, hold], {
       stdio: ["ignore", 1, 2], windowsHide: true, detached: true,
     });
   }
   if (mode !== "unread") process.stdin.resume();
-  if (mode === "ignore" || mode === "unread") setInterval(() => {}, 1000);
-  else process.stdin.on("end", () => {
+  if (mode === "ignore" || mode === "unread" || mode === "forced-pipe") setInterval(() => {}, 1000);
+  if (mode === "delayed-eof" || mode === "forced-pipe") process.stdin.on("end", () => {
+    fs.writeFileSync(ended, "EOF");
+    if (mode === "delayed-eof") setTimeout(() => process.exit(0), 200);
+  });
+  else if (mode !== "ignore" && mode !== "unread") process.stdin.on("end", () => {
     if (mode === "pipe") fs.writeFileSync(ended, "EOF");
     process.exit(mode === "pipe" ? 0 : Number(hold));
   });

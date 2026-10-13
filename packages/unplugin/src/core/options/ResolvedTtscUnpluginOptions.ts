@@ -37,6 +37,9 @@ import type { TtscUnpluginCompilerOptionsJson } from "./TtscUnpluginCompilerOpti
  *   retained state at runtime.
  */
 export interface ResolvedTtscUnpluginOptions {
+  /** Explicit source entries prepared concurrently before their first import. */
+  precompile?: readonly string[];
+
   /** Compiler-options overlay applied on top of the discovered tsconfig. */
   compilerOptions: TtscUnpluginCompilerOptionsJson;
 

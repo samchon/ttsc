@@ -11,6 +11,8 @@ import { ProjectPluginEntries } from "./ProjectPluginEntries";
  * omitted entries can therefore read manifests and resolve native packages.
  *
  * @param entries - Explicit entries; `false` always returns `false`.
+ * @param pluginConfigDir - Original consumer directory for generated configs;
+ *   omitted entries otherwise discover from the selected config directory.
  * @evidence contracts/common.md#principled-implementation Explicit false disables all plugin discovery; otherwise the shared entry resolver's enabled-not-false predicate checks the same population the loader would consider.
  * @evidence contracts/common.md#clear-and-simple-design The presence query delegates config/package selection to its owner instead of reproducing descriptor evaluation or build logic.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Enabled selection follows declared configuration, without assuming a known package marker or fabricating absence after a resolver error.
@@ -23,11 +25,14 @@ import { ProjectPluginEntries } from "./ProjectPluginEntries";
 export function hasProjectPluginEntries(
   project: ITtscParsedProjectConfig,
   entries?: readonly ITtscProjectPluginConfig[] | false,
+  pluginConfigDir?: string,
 ): boolean {
   if (entries === false) {
     return false;
   }
-  return ProjectPluginEntries.resolvePluginEntries(project, entries).some(
-    (entry) => entry.config.enabled !== false,
-  );
+  return ProjectPluginEntries.resolvePluginEntries(
+    project,
+    entries,
+    pluginConfigDir,
+  ).some((entry) => entry.config.enabled !== false);
 }

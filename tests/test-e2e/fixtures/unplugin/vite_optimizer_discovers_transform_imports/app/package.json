@@ -1,0 +1,6 @@
+{
+  "name": "optimizer-app",
+  "private": true,
+  "type": "module",
+  "dependencies": { "linked-pkg": "0.0.0" }
+}

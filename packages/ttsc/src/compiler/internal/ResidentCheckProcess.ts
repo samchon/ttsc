@@ -1,162 +1,133 @@
-import { type ChildProcess, spawn } from "node:child_process";
-import { type Interface, createInterface } from "node:readline";
+import path from "node:path";
+import { Worker } from "node:worker_threads";
 
-import { E2ETrace } from "../../internal/E2ETrace";
+import { workerModuleUrl } from "../../internal/workerModuleUrl";
 import type { ResidentCheckProcessOptions } from "./ResidentCheckProcessOptions";
+import type { ResidentCheckProcessProtocol } from "./ResidentCheckProcessProtocol";
 import type { ResidentCheckRequest } from "./ResidentCheckRequest";
 import type { ResidentCheckResult } from "./ResidentCheckResult";
 
 /**
- * FIFO JSON-line client for a check-stage `check-serve` sidecar.
+ * FIFO check client whose worker owns the child and its complete pipe lifetime.
  *
- * A watch session serializes cycles, but the client still queues replies so a
- * caller cannot accidentally pair a late response with the next request. Any
- * framing failure retires the process; the launcher can fall back to an
- * ordinary one-shot command after joining the original child. An unjoined child
- * cannot authorize that replacement.
+ * Watch topology can block the launcher's loop after shutdown timers start.
+ * Keeping spawn, EOF, signals, output draining and close on one independent
+ * loop prevents that work from spending a live child's shutdown grace or
+ * overtaking its pending close. An exit code alone never proves pipe closure: a
+ * living descendant can retain inherited stdout or stderr (#1758).
  *
- * The caller owns disposal. Requests have no deadline, and outstanding request
- * count and reply-line size are not capped; a slow live check remains pending.
- * Retirement ends stdin and waits for actual close. A one-second grace period
- * starts after stdin finishes, followed by forced termination and a one-second
- * join deadline. Pending stdin writes have a one-second flush deadline once the
- * retiring call stack yields. An unjoined deadline releases this client's
- * pipes, request listeners, timers and event-loop process reference while
- * keeping joining failed; the client object still holds its ChildProcess. It
- * neither kills unrelated descendants nor certifies their termination. A forced
- * or unjoined process is not a graceful shutdown. These delays are event-loop
- * timer policies, not hard elapsed-time bounds; synchronous blocking or
- * callback starvation can postpone their delivery.
+ * The caller owns disposal. Retirement uses the host's one-second input flush,
+ * EOF grace and forced-join policies. Only its actual-close receipt authorizes
+ * replacement; worker failure leaves joining unknown and rejected. Strict close
+ * additionally requires a graceful zero exit. Neither worker nor client claims
+ * termination of unrelated descendants. Abrupt process exit can still interrupt
+ * cleanup.
  *
- * @evidence contracts/common.md#principled-implementation One positional reply consumes one queued cycle; invalid framing or shape retires the stream so a delayed reply cannot answer a different cycle.
- * @evidence contracts/common.md#clear-and-simple-design One client owns its child, line reader, FIFO and failure state; private parsing and settlement keep transport policy separate from the watch coordinator's fallback.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Protocol validation uses the declared reply fields, and transport failure is rejection rather than a fabricated successful check or a consumer-specific recovery.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain FIFO ownership, retirement, caller disposal and the absence of request bounds, following the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Node spawns the supplied native executable with an argv array and pipe streams, without shell quoting; cwd and environment retain caller-provided native semantics.
- * @evidence contracts/performance.md#efficient-algorithms A head cursor consumes replies with amortized constant queue work and failure drains outstanding requests once. Encoding/decoding visit data and text bytes; caller-defined serialization can add arbitrary work. Stderr decoding and concatenation scan the new chunk plus retained tail before truncation. Native spawn, check execution and shutdown completion remain delegated and event-loop scheduled.
- * @evidence contracts/performance.md#reuse-equivalent-work One startup-selected child is shared across FIFO cycles, but its native session can update or reconstruct Program generations. Changed/external paths travel with each request and the watch owner replaces the process on configuration/plugin identity changes; the client does not reuse a response or certify every custom host's internal Program cache.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Each settled slot releases its request; retirement clears the queue and drains replies until actual close or the failed join deadline. That deadline releases owned transport handles and callbacks without claiming the physical child or unrelated descendants joined; live request count and line bytes have no fixed cap.
+ * One worker serves one child across requests. Messages copy serialized request
+ * and reply bytes; pending request count and reply size have no fixed cap.
+ * Retirement rejects pending callers immediately and joins its worker after the
+ * terminal receipt. The client retains the Worker object.
+ *
+ * @evidence contracts/common.md#principled-implementation The independent loop owns every observation needed for retirement, and only its actual child-close receipt permits replacement, keeping parent event-loop blocking outside shutdown timing.
+ * @evidence contracts/common.md#clear-and-simple-design The client owns caller serialization and settlement; its worker owns the native transport and shutdown state machine.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No elapsed parent deadline, worker exit, signal attempt or exit code fabricates a joined child; unknown worker failure rejects joining.
+ * @evidence contracts/common.md#meaningful-documentation Native prose documents the blocking hazard, inherited-pipe authority, disposal, failure effects and unbounded request population.
+ * @evidence contracts/portability.md#os-neutral-implementation Node loads a sibling worker using the current source or emitted extension and inherited loader arguments; the host uses native executable argv and pipes without shell commands.
+ * @evidence contracts/performance.md#efficient-algorithms Serialization and structured cloning visit message bytes; a request-id map gives constant-time settlement without scanning earlier requests. Worker startup and one thread per active child are additional costs; no speedup is claimed.
+ * @evidence contracts/performance.md#reuse-equivalent-work One worker and child serve the startup-selected check process across FIFO requests; each request remains effectful and receives its own result.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The client owns one worker and one resolver pair per pending request. Results or retirement remove resolvers; joining waits for the terminal receipt and worker exit. Unexpected worker failure rejects callers and joining and removes worker liveness. Request count and bytes are uncapped, and the client object retains its Worker reference.
  */
 export class ResidentCheckProcess {
-  private readonly child: ChildProcess;
-  private readonly pending: (PendingRequest | undefined)[] = [];
-  private pendingHead = 0;
-  private readonly reader: Interface;
+  private readonly worker: Worker;
+  private readonly pending = new Map<
+    number,
+    {
+      resolve(result: ResidentCheckResult): void;
+      reject(error: Error): void;
+    }
+  >();
+  private ordinal = 0;
   private failure: Error | undefined;
-  private stderr = "";
+  private closeError: Error | undefined;
+  private joinError: Error | undefined;
+  private terminal = false;
   private readonly exited: Promise<void>;
-  private closing = false;
-  private didClose = false;
-  private forced = false;
-  private flushDeadline: NodeJS.Timeout | undefined;
-  private terminationTimer: NodeJS.Timeout | undefined;
-  private terminationDeadline: NodeJS.Timeout | undefined;
-  private releaseTransport: (() => void) | undefined;
+  private resolveExit!: () => void;
+  private rejectExit!: (error: Error) => void;
 
   public constructor(options: ResidentCheckProcessOptions) {
-    const nativeArgs = [...options.args];
-    const trace = E2ETrace.begin(
-      options.binary,
-      nativeArgs,
-      options,
-      "resident-check",
-    );
-    this.child = spawn(options.binary, nativeArgs, {
-      cwd: options.cwd,
-      env: options.env,
-      windowsHide: true,
-    });
-    E2ETrace.asynchronous(trace, this.child);
-    let onChildClose: (() => void) | undefined;
     this.exited = new Promise<void>((resolve, reject) => {
-      onChildClose = () => {
-        this.didClose = true;
-        clearTimeout(this.flushDeadline);
-        clearTimeout(this.terminationTimer);
-        clearTimeout(this.terminationDeadline);
-        this.releaseTransport = undefined;
-        this.reader?.close();
-        resolve();
-      };
-      this.child.once("close", onChildClose);
+      this.resolveExit = resolve;
       this.rejectExit = reject;
     });
-    // Legacy dispose initiates retirement without returning a promise. Keep its
-    // rejected join observable to awaiters without an unhandled rejection.
     void this.exited.catch(() => {});
-    const stdin = this.child.stdin;
-    const stdout = this.child.stdout;
-    if (stdin === null || stdout === null) {
-      this.child.kill();
-      throw new Error("ttsc: resident check host has no stdio pipes");
-    }
-    this.reader = createInterface({ input: stdout });
-    const onLine = (line: string) => this.onLine(line);
-    const onReaderClose = () => {
-      if (this.failure === undefined) this.fail(this.exitError());
-    };
-    const onStderr = (chunk: Buffer | string) => {
-      const text = typeof chunk === "string" ? chunk : chunk.toString("utf8");
-      this.stderr = (this.stderr + text).slice(-STDERR_TAIL_LIMIT);
-    };
-    const onError = (error: Error) => this.fail(error);
-    this.reader.on("line", onLine);
-    this.reader.on("close", onReaderClose);
-    this.child.stderr?.on("data", onStderr);
-    this.child.on("error", onError);
-    stdin.on("error", onError);
-    stdout.on("error", onError);
-    this.child.stderr?.on("error", ResidentCheckProcess.ignoreTransportError);
-    this.releaseTransport = () => {
-      clearTimeout(this.flushDeadline);
-      clearTimeout(this.terminationTimer);
-      clearTimeout(this.terminationDeadline);
-      this.reader.off("line", onLine);
-      this.reader.off("close", onReaderClose);
-      this.reader.close();
-      if (onChildClose !== undefined) this.child.off("close", onChildClose);
-      this.child.off("error", onError);
-      this.child.on("error", ResidentCheckProcess.ignoreTransportError);
-      this.child.stderr?.off("data", onStderr);
-      for (const stream of [stdin, stdout, this.child.stderr]) {
-        stream?.off("error", onError);
-        stream?.off("error", ResidentCheckProcess.ignoreTransportError);
-        stream?.on("error", ResidentCheckProcess.ignoreTransportError);
-        stream?.destroy();
+    this.worker = new Worker(
+      workerModuleUrl(
+        path.join(
+          __dirname,
+          `ResidentCheckProcessHost${path.extname(__filename)}`,
+        ),
+      ),
+      {
+        workerData: {
+          ...options,
+          args: [...options.args],
+          env: { ...options.env },
+        },
+      },
+    );
+    this.worker.on("message", (reply: ResidentCheckProcessProtocol.Reply) => {
+      if (this.terminal) return;
+      if (reply.kind === "terminal") {
+        this.terminal = true;
+        this.joinError = reply.joinError;
+        this.closeError = reply.closeError;
+        this.fail(
+          reply.joinError ??
+            reply.closeError ??
+            new Error("ttsc: resident check host exited"),
+        );
+      } else {
+        const pending = this.pending.get(reply.id);
+        if (pending === undefined) return;
+        this.pending.delete(reply.id);
+        if (reply.kind === "result") pending.resolve(reply.result);
+        else {
+          pending.reject(reply.error);
+          this.fail(reply.error);
+        }
       }
-      this.child.unref();
-    };
+    });
+    this.worker.on("error", (error) => this.workerFailed(asError(error)));
+    this.worker.once("exit", (code) => {
+      if (!this.terminal)
+        this.workerFailed(
+          new Error(
+            `ttsc: resident check process owner exited before child retirement (code ${code})`,
+          ),
+        );
+      else if (this.joinError === undefined) this.resolveExit();
+      else this.rejectExit(this.joinError);
+    });
   }
 
   /**
-   * Send one watch cycle and wait for its reply.
+   * Serialize one cycle before admission and pair its reply with this caller.
+   * Serialization failure rejects only this call when its thrown value can be
+   * normalized to an Error; normalization itself can throw synchronously.
+   * A retired transport rejects all admitted calls and every later request.
    *
-   * Replies are paired with requests in FIFO order. A request made after the
-   * process failed, or whose line cannot be written, rejects with the failure
-   * that retired the process, so the caller can fall back to a one-shot check
-   * for that cycle.
-   *
-   * Serialization precedes enqueueing and normally rejects only this call;
-   * exceptional thrown-value conversion can itself fail during normalization. A
-   * closed input retires the host and rejects its other pending calls.
-   *
-   * @evidence contracts/common.md#principled-implementation Serialization precedes enqueueing, and each successfully enqueued call keeps its own FIFO slot until a validated reply or shared retirement settles it.
-   * @evidence contracts/common.md#clear-and-simple-design Pre-write validation remains local; write failures use the same settlement and retirement operations as pipe and protocol failure.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed serialization cannot consume a reply slot, and a closed pipe is not treated as a healthy host with one exceptional caller.
-   * @evidence contracts/common.md#meaningful-documentation Separate paragraphs document reply ordering, rejection scope and closed-input effects, applying the documentation skill.
-   * @evidence contracts/portability.md#os-neutral-implementation JSON lines pass native change paths as data over Node's stdin stream, without constructing a shell command or converting native separators.
-   * @evidence contracts/performance.md#efficient-algorithms Encoding visits supplied properties and output bytes, with caller-defined conversion not bounded by final JSON size; enqueueing and settlement have amortized constant queue work plus reply parsing. Native check work is delegated rather than bounded by transport cost.
-   * @evidence contracts/performance.md#reuse-equivalent-work Each cycle is sent to the existing fixed-configuration Program owner; changes are effectful transitions and are not coalesced merely because request values match.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The client retains one resolver pair per outstanding call until reply or retirement; serialization allocates one request line, and live requests wait without an implicit timeout or population limit.
+   * @evidence contracts/common.md#principled-implementation Serialization precedes worker admission; identifiers pair results with their admitted callers while the host preserves FIFO check execution.
+   * @evidence contracts/common.md#clear-and-simple-design Caller serialization stays in the client, and the host alone validates native replies and retires a failed transport.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed conversion adds no request slot; worker failure rejects rather than fabricating a check result.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes serialization rejection and synchronous normalization failure from terminal transport failure.
+   * @evidence contracts/portability.md#os-neutral-implementation Native input paths remain JSON data across the message and pipe boundaries without shell interpolation.
+   * @evidence contracts/performance.md#efficient-algorithms JSON conversion and message copying visit input bytes, caller-defined conversion can add arbitrary work, and map admission and settlement use constant-time key operations.
+   * @evidence contracts/performance.md#reuse-equivalent-work Each effectful cycle owns a request and reply even when its payload matches an earlier cycle.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Each admitted call retains resolver callbacks until its result or shared retirement; request population and serialized bytes have no fixed cap.
    */
   public request(payload: ResidentCheckRequest): Promise<ResidentCheckResult> {
     if (this.failure !== undefined) return Promise.reject(this.failure);
-    const stdin = this.child.stdin;
-    if (stdin === null || stdin.destroyed) {
-      const error = new Error("ttsc: resident check host stdin is closed");
-      this.fail(error);
-      return Promise.reject(error);
-    }
     let line: string;
     try {
       line = `${JSON.stringify(payload)}\n`;
@@ -164,280 +135,94 @@ export class ResidentCheckProcess {
       return Promise.reject(asError(error));
     }
     return new Promise<ResidentCheckResult>((resolve, reject) => {
-      const pending: PendingRequest = { reject, resolve, settled: false };
-      this.pending.push(pending);
+      const id = ++this.ordinal;
+      this.pending.set(id, { resolve, reject });
       try {
-        stdin.write(line, (error) => {
-          if (error === null || error === undefined || pending.settled) return;
-          this.settle(pending, error);
-          this.fail(error);
-        });
+        this.worker.postMessage({
+          kind: "request",
+          id,
+          line,
+        } satisfies ResidentCheckProcessProtocol.Command);
       } catch (error) {
-        const reason = asError(error);
-        this.settle(pending, reason);
-        this.fail(reason);
+        this.workerFailed(asError(error));
       }
     });
   }
 
   /**
-   * Retire the sidecar: reject pending requests and close its request stream.
-   * Idempotent; a process that already failed is left as is.
+   * Retire once and reject pending callers without waiting for native close.
    *
-   * @evidence contracts/common.md#principled-implementation Setting failure before rejecting the detached FIFO makes disposal terminal; subsequent replies and requests cannot revive the child.
-   * @evidence contracts/common.md#clear-and-simple-design Disposal enters the same retirement path as transport failure instead of maintaining a second cleanup sequence.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Cleanup ends the actual owned streams and attempts child termination; it does not disguise a pending request as a successful result.
-   * @evidence contracts/common.md#meaningful-documentation The native comment states terminal rejection and repeated-call behavior, following the documentation skill's ownership guidance.
-   * @evidence contracts/portability.md#os-neutral-implementation Owned stream EOF and forced signaling use Node's supported APIs without shell or POSIX process-tree commands.
-   * @evidence contracts/performance.md#efficient-algorithms Retirement visits each outstanding request once and releases the queue in linear time rather than repeatedly shifting all remaining entries.
-   *
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Disposal ends the owner and produces no computation that another request may reuse.
-   *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Disposal clears pending callbacks and requests stdin EOF while preserving output until actual close or a failed join timer. Failed join destroys/unrefs owned transport and removes request listeners without proving child/descendant termination; timer delivery depends on the event loop, and the client object can still retain its ChildProcess.
+   * @evidence contracts/common.md#principled-implementation Terminal caller failure is set before rejection, and one retire command delegates EOF and joining to the owner.
+   * @evidence contracts/common.md#clear-and-simple-design Disposal initiates the host's existing retirement state machine rather than maintaining parent-side timers.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Repeated disposal cannot revive a request or authorize replacement before actual joining.
+   * @evidence contracts/common.md#meaningful-documentation Native prose identifies immediate rejection and asynchronous native retirement.
+   * @evidence contracts/portability.md#os-neutral-implementation A Node message delegates native EOF and signaling without platform-specific PID commands.
+   * @evidence contracts/performance.md#efficient-algorithms Rejection visits the outstanding request map once and posts one constant-size retirement command.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Disposal invalidates an owner without creating a reusable computation.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Pending callbacks are released immediately; the referenced worker keeps cleanup alive until its terminal receipt and exit, and unknown ownership remains failure.
    */
   public dispose(): void {
+    if (this.failure !== undefined) return;
     this.fail(new Error("ttsc: resident check host disposed"));
+    try {
+      this.worker.postMessage({
+        kind: "retire",
+      } satisfies ResidentCheckProcessProtocol.Command);
+    } catch (error) {
+      this.workerFailed(asError(error));
+    }
   }
 
   /**
-   * End the request stream and await the owned child's actual close event. A
-   * forced, signalled or nonzero exit rejects; repeated calls share
-   * retirement.
+   * Await actual child close and the owner thread, requiring graceful zero
+   * exit. Repeated calls share retirement but retain strict shutdown failure.
    *
-   * @evidence contracts/common.md#principled-implementation EOF is sent on the owned input and success requires the child's actual close with status zero, never merely a successful kill request.
-   * @evidence contracts/common.md#clear-and-simple-design Retirement and join are shared with dispose; this awaitable boundary adds exit validation for callers that must release process ownership.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Forced and unknown termination remain failures rather than fabricated graceful completion.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states the child-close authority, success condition and repeated-call behavior.
-   * @evidence contracts/portability.md#os-neutral-implementation Native stdin EOF and child close events work through Node's process API; forced signalling is a failure rather than a portable graceful-stop assumption.
-   * @evidence contracts/performance.md#efficient-algorithms Closing performs one retirement traversal and constant-time exit validation; no polling population grows over the lifetime.
-   * @evidence contracts/performance.md#reuse-equivalent-work Repeated closes reuse the single actual-exit promise but never reuse an earlier process's exit as proof for another child.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Actual close clears termination timers. A failed event-loop-scheduled join deadline destroys/unrefs transport and removes request listeners while retaining terminal failure; unref releases event-loop liveness, not the client object's ChildProcess reference or proof of physical child/descendant termination.
+   * @evidence contracts/common.md#principled-implementation Success requires the host's actual-close receipt, strict status validation and owner-thread exit.
+   * @evidence contracts/common.md#clear-and-simple-design Strict shutdown adds status validation to the same joining promise used by recovery.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Neither worker disappearance nor requested forced termination substitutes for graceful child close.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states child and thread joining, strict zero exit and repeated failure behavior.
+   * @evidence contracts/portability.md#os-neutral-implementation Node worker messages carry the native host's observed close outcome without interpreting a PID or shell status.
+   * @evidence contracts/performance.md#efficient-algorithms Closing reuses retirement and performs constant-time outcome validation after its one pending-request traversal.
+   * @evidence contracts/performance.md#reuse-equivalent-work Repeated closes await this owner's single terminal promise while retaining strict status independently from recovery joining.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The host releases its pipes and timers on actual close or failed joining; the client awaits worker exit, releases pending callbacks, and preserves unknown ownership as rejection.
    */
   public async close(): Promise<void> {
     this.dispose();
     await this.exited;
-    if (this.forced)
-      throw new Error("ttsc: resident check host required forced termination");
-    if (this.child.exitCode !== 0 || this.child.signalCode !== null)
-      throw this.exitError();
+    if (this.closeError !== undefined) throw this.closeError;
   }
 
   /**
-   * Await actual retirement before a transport-failure fallback starts. A known
-   * failed child may be replaced; an unjoined child may not.
+   * Join a known failed child and its owner before replacement. Waiting alone
+   * starts no retirement deadline; unknown ownership rejects.
    *
-   * @evidence contracts/common.md#principled-implementation A replacement can start only after the original child's close event releases its native ownership.
-   * @evidence contracts/common.md#clear-and-simple-design The transport owner exposes joining separately from graceful status validation for the supported recovery policy.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts An elapsed deadline rejects instead of treating a still-live process as retired.
-   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes recovery's known failed exit from shutdown's graceful success requirement.
-   * @evidence contracts/portability.md#os-neutral-implementation The actual close event, rather than a signal result or native PID spelling, establishes retirement on each platform.
-   * @evidence contracts/performance.md#efficient-algorithms This accessor returns the existing promise without adding a child listener or polling filesystem/process state; subscriber work belongs to the caller.
-   * @evidence contracts/performance.md#reuse-equivalent-work Every waiter shares this child's terminal event; a replacement always owns a new promise.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Waiters share actual close or, after retirement begins, its event-loop-scheduled failed join deadline. Waiting alone starts no termination timer; a live unretired child can remain pending without a deadline, and an unjoined owner remains failure.
+   * @evidence contracts/common.md#principled-implementation A known failed child can be replaced only after its actual-close receipt and worker exit.
+   * @evidence contracts/common.md#clear-and-simple-design Recovery consumes joining separately from strict shutdown status.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown worker or pipe ownership remains rejection rather than successful retirement.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states replacement authority, passive waiting and unknown failure.
+   * @evidence contracts/portability.md#os-neutral-implementation The owner observes native close through Node APIs instead of treating signals or process IDs as portable joining proof.
+   * @evidence contracts/performance.md#efficient-algorithms The accessor returns an existing promise without timers, native probes or additional listeners.
+   * @evidence contracts/performance.md#reuse-equivalent-work All waiters share the same owner's terminal promise; replacement owns a new worker and promise.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Passive waiting can remain pending for a live unretired host; active retirement releases owned resources through its existing deadlines and terminal worker exit.
    */
   public waitForExit(): Promise<void> {
     return this.exited;
   }
 
-  private rejectExit: ((error: Error) => void) | undefined;
-
-  private onLine(line: string): void {
-    if (this.failure !== undefined || line.trim().length === 0) return;
-    const pending = this.pending[this.pendingHead];
-    if (pending === undefined) {
-      this.fail(
-        new Error("ttsc: resident check host sent an unsolicited reply"),
-      );
-      return;
-    }
-    const result = parseResidentCheckResult(line);
-    if (result === undefined) {
-      const error = new Error(
-        `ttsc: resident check host sent a malformed reply: ${echoLine(line)}`,
-      );
-      this.settle(pending, error);
-      this.fail(error);
-      return;
-    }
-    this.settle(pending, result);
-  }
-
-  private settle(
-    pending: PendingRequest,
-    result: Error | ResidentCheckResult,
-  ): void {
-    if (pending.settled) return;
-    pending.settled = true;
-    if (this.pending[this.pendingHead] === pending) {
-      this.pending[this.pendingHead++] = undefined;
-      if (this.pendingHead * 2 >= this.pending.length) {
-        this.pending.splice(0, this.pendingHead);
-        this.pendingHead = 0;
-      }
-    }
-    if (result instanceof Error) pending.reject(result);
-    else pending.resolve(result);
-  }
-
   private fail(error: Error): void {
-    if (this.failure !== undefined) return;
-    this.failure = error;
-    const pending = this.pending.splice(0);
-    this.pendingHead = 0;
-    for (const request of pending) {
-      if (request !== undefined) this.settle(request, error);
-    }
-    this.terminate();
+    this.failure ??= error;
+    for (const pending of this.pending.values()) pending.reject(this.failure);
+    this.pending.clear();
   }
 
-  private terminate(): void {
-    if (this.closing) return;
-    this.closing = true;
-    const stdin = this.child.stdin;
-    if (stdin !== null && !stdin.destroyed) {
-      try {
-        // EOF cannot reach the child until the owned writable pipe finishes.
-        // A blocked parent event loop must not spend the child's shutdown grace
-        // before that delivery can happen.
-        stdin.end(() => this.startTerminationGrace());
-        // Start delivery's own deadline after the caller gives Node control.
-        // This bounds an unread full pipe without charging synchronous caller
-        // work against either delivery or the child's later EOF grace.
-        queueMicrotask(() => {
-          if (this.didClose || this.terminationTimer !== undefined) return;
-          this.flushDeadline = setTimeout(
-            () => this.forceTerminationAndJoin(),
-            TERMINATION_GRACE_MS,
-          );
-        });
-        return;
-      } catch {
-        stdin.destroy();
-      }
-    }
-    this.startTerminationGrace();
+  private workerFailed(error: Error): void {
+    if (this.terminal) return;
+    this.terminal = true;
+    this.joinError = error;
+    this.fail(error);
+    this.rejectExit(error);
+    this.worker.unref();
   }
-
-  private startTerminationGrace(): void {
-    clearTimeout(this.flushDeadline);
-    // Keep output pipes readable until close: destroying them would discard the
-    // last reply and confuse a requested EOF with transport truncation.
-    if (
-      this.didClose ||
-      this.terminationTimer !== undefined ||
-      this.terminationDeadline !== undefined
-    )
-      return;
-    this.terminationTimer = setTimeout(
-      () => this.forceTerminationAndJoin(),
-      TERMINATION_GRACE_MS,
-    );
-  }
-
-  private forceTerminationAndJoin(): void {
-    if (this.didClose || this.terminationDeadline !== undefined) return;
-    if (this.child.exitCode === null && this.child.signalCode === null) {
-      this.forced = true;
-      try {
-        this.child.kill("SIGKILL");
-      } catch {
-        // The deadline still requires actual close, even if kill fails.
-      }
-    }
-    this.terminationDeadline = setTimeout(() => {
-      this.rejectExit?.(
-        new Error("ttsc: resident check host did not close after termination"),
-      );
-      // Reject first: destroying inherited pipes can cause Node's close event,
-      // but releasing our handles cannot prove a graceful physical join.
-      this.releaseTransport?.();
-      this.releaseTransport = undefined;
-    }, TERMINATION_GRACE_MS);
-  }
-
-  private static ignoreTransportError(): void {}
-
-  private exitError(): Error {
-    const detail = this.stderr.trim();
-    if (detail.length !== 0) return new Error(detail);
-    const signal =
-      this.child.signalCode === null ? "" : `, signal ${this.child.signalCode}`;
-    return new Error(
-      `ttsc: resident check host exited (code ${
-        this.child.exitCode ?? "null"
-      }${signal})`,
-    );
-  }
-}
-
-const STDERR_TAIL_LIMIT = 64 * 1024;
-
-const REPLY_ECHO_LIMIT = 200;
-
-const TERMINATION_GRACE_MS = 1_000;
-
-type PendingRequest = {
-  reject(reason: Error): void;
-  resolve(result: ResidentCheckResult): void;
-  settled: boolean;
-};
-function parseResidentCheckResult(
-  line: string,
-): ResidentCheckResult | undefined {
-  let value: unknown;
-  try {
-    value = JSON.parse(line);
-  } catch {
-    return undefined;
-  }
-  if (
-    !isRecord(value) ||
-    typeof value.status !== "number" ||
-    !Number.isInteger(value.status)
-  ) {
-    return undefined;
-  }
-  if (typeof value.stdout !== "string" || typeof value.stderr !== "string") {
-    return undefined;
-  }
-  const telemetry = value.telemetry;
-  if (
-    !isRecord(telemetry) ||
-    typeof telemetry.pid !== "number" ||
-    !Number.isSafeInteger(telemetry.pid) ||
-    typeof telemetry.programLoads !== "number" ||
-    !Number.isSafeInteger(telemetry.programLoads) ||
-    typeof telemetry.programUpdates !== "number" ||
-    !Number.isSafeInteger(telemetry.programUpdates) ||
-    typeof telemetry.reused !== "boolean"
-  ) {
-    return undefined;
-  }
-  return {
-    diagnostics: [],
-    status: value.status,
-    stderr: value.stderr,
-    stdout: value.stdout,
-    telemetry: {
-      pid: telemetry.pid,
-      programLoads: telemetry.programLoads,
-      programUpdates: telemetry.programUpdates,
-      reused: telemetry.reused,
-    },
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function echoLine(line: string): string {
-  const trimmed = line.trim();
-  return JSON.stringify(
-    trimmed.length <= REPLY_ECHO_LIMIT
-      ? trimmed
-      : `${trimmed.slice(0, REPLY_ECHO_LIMIT)}…`,
-  );
 }
 
 function asError(error: unknown): Error {

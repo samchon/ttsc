@@ -43,6 +43,7 @@ import type { RuntimeManifest } from "./RuntimeManifest";
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
 import { RuntimeModuleFormat } from "./RuntimeModuleFormat";
 import { RuntimeProjectOwnership } from "./RuntimeProjectOwnership";
+import { advertiseTypeScriptExtensions } from "./advertiseTypeScriptExtensions";
 import { checkNodeRuntimeSupport } from "./checkNodeRuntimeSupport";
 import { commonJsExportNames } from "./commonJsExportNames";
 import { commonJsImportFacade } from "./commonJsImportFacade";
@@ -94,8 +95,10 @@ import { selectRuntimePluginPolicy } from "./selectRuntimePluginPolicy";
  * reach the API lacks on some releases is `require.resolve`, which is probed
  * before installation. Served CommonJS bodies receive an owned require function
  * whose resolve member applies the same source policy on those releases. Its
- * copied extension registry advertises the supported source extensions; foreign
- * resolver methods and global extension registries are never replaced.
+ * shared extension registry preserves live registrations. Installation also
+ * advertises missing CommonJS source extensions in the process registry because
+ * ecosystem tools inspect it before resolution; existing handlers remain intact
+ * and foreign resolver methods are never replaced.
  *
  * Direct descriptor evaluation records user preloads after hook installation.
  * Only the generated CommonJS output sibling takes Node's native resolve/load
@@ -104,7 +107,7 @@ import { selectRuntimePluginPolicy } from "./selectRuntimePluginPolicy";
  *
  * @evidence contracts/common.md#principled-implementation Resolution preserves successful Node decisions, rescues source spellings only after documented resolution fails, and serves only outputs whose ownership index names the exact source. CommonJS facades delegate native evaluation and project detected own named exports under the selected namespace capability; an owned module-local require supplies source resolution when native require.resolve bypasses public hooks.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous hook owner coordinates source selection, emission ownership and descriptor observation; the entry, owning-project and orphan lanes remain explicit because they have distinct compilation premises. Private helpers carry those policies without a second foreign-resolver layer.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Public registerHooks handles resolution and loading; installation mutates neither Module._resolveFilename nor require.extensions. Source-extension recovery implements emitted-to-source spelling under the runtime contract, and module-local require adaptation addresses the probed public-hook difference without replacing Node methods.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Public registerHooks handles resolution and loading; installation adds missing public extension entries with Node's own JavaScript handler while preserving every existing handler and resolver method. Source-extension recovery implements emitted-to-source spelling under the runtime contract, and module-local require adaptation addresses the probed public-hook difference without replacing Node methods.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe the three serving lanes, compile gates, source identity, capability-based local adaptation and extension-registry ownership; helper comments state ownership and failure effects with descriptive prose separated from tags.
  * @evidence contracts/portability.md#os-neutral-implementation Node URL conversion, native filesystem paths and physical resolution preserve OS spelling boundaries. Actual public-hook probes select runtime capabilities, native emit uses executable arguments without shell interpolation, and unresolved filesystem observation refuses reusable descriptor proof.
  * @evidence contracts/performance.md#efficient-algorithms Source ownership indexes replace repeated whole-emit scans with indexed source/native-identity queries. Export discovery processes source/emit bytes, reexport edges, native resolution and Set/name unions under traversal-local seen sets; separate roots can repeat traversal. Config-chain validation reads discovered inputs. Compiler identity brackets and streams executable bytes on valid lookups, refusing failed observations. Native build/name-scan/orphan paths add compilation, path/metadata/IO cost; recursive graphs remain subject to stack limits.
@@ -134,6 +137,7 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
     process.setSourceMapsEnabled(true);
   }
   registerHooks({ load, resolve });
+  advertiseTypeScriptExtensions(require.extensions);
   PluginDescriptorInputObservation.begin(true);
   installed = true;
 }

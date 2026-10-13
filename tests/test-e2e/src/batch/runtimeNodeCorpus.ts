@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
  *
  * @evidence contracts/testing.md#behavioral-verification The runtime payload records actual ESM named linking, CommonJS require, a mutual CommonJS cycle, dynamic CJS-to-TSX resolution, extensionless imports, URL suffixes and inert scanner text; the owner compares every named result and reported module failure. Three deliberately absent bare, extensionless and concrete-extension requests must return native ERR_MODULE_NOT_FOUND and identify their requested input.
  * @evidence contracts/testing.md#independent-expectations Literal foo/bar/renamed/leaf, combined AB, RESCUED, side-effect/directory markers, query/hash and untouched source-text strings originate in authored modules rather than runtime resolver output.
- * @evidence contracts/testing.md#distinguishing-cases Named and require consumers preserve real star values while seven type/inert names remain absent; mutual cycles and dynamic TSX fallback are separate real graph edges; query/hash and six scanner fields distinguish rewritten module specifiers from unchanged non-import text. A real JS/TS twin keeps JS precedence while a TS-only twin resolves to physical y.ts; actual require metadata and supported resolver/handler identity are observed inside real CJS modules.
+ * @evidence contracts/testing.md#distinguishing-cases Named and require consumers preserve real star values while seven type/inert names remain absent; mutual cycles and dynamic TSX fallback are separate real graph edges; query/hash and six scanner fields distinguish rewritten module specifiers from unchanged non-import text. A real JS/TS twin keeps JS precedence while a TS-only twin resolves to physical y.ts; actual require metadata, process-wide extension enumeration before alias-target loading and supported resolver/handler identity are observed inside real CJS modules.
  * @evidence contracts/testing.md#execution-ownership This non-discoverable assertion helper is called by the single shared Runtime E2E entry. Its fixture function observes modules inside that same host and starts no hidden child or additional program.
  * @evidence contracts/e2e.md#necessary-boundary Native module linking consumes actual emitted CommonJS and ESM nodes through the installed runtime hooks; portable export-name or argv functions cannot certify those links.
  * @evidence contracts/e2e.md#shared-execution All named observations, including the actual native require object, extension detection and supported hook selection, borrow one immutable NodeNext/ESNext program and one runtime payload without additional preparation, compilation, launcher or worker lifetimes.
@@ -98,6 +98,8 @@ export function assertRuntimeNodeCorpus(actual: unknown): void {
         loneResolved: true,
         nodeHandler: true,
         precedence: "from-js",
+        globalHandler: true,
+        alias: "typed-config",
       }),
   );
   check(

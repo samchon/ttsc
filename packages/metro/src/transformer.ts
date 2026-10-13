@@ -231,17 +231,17 @@ export async function transform(params: {
     // discovery inside the transform after a config candidate changes would
     // attach one project's recorder evidence to another project's compiler
     // output.
-    const transformOptions = {
-      ...unpluginOptions,
-      project: project.tsconfig,
-    };
     const result = await transformTtsc(
       filename,
       params.src,
-      transformOptions,
+      unpluginOptions,
       undefined,
       cache,
       {
+        // This route belongs to the current module's discovery transaction.
+        // Keeping it out of user options lets explicit precompile entries
+        // discover their own projects instead of all compiling this one.
+        projectSelection: project.tsconfig,
         // Metro offers no per-file dependency registration, so the derived
         // watch inputs (plugin-reported dependencies unioned with the
         // reference graph's reach, globals, and configs) feed the snapshot

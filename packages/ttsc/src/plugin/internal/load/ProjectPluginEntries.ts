@@ -9,12 +9,10 @@ import { isRelativePluginSpecifier } from "./isRelativePluginSpecifier";
  * The plugin entries a project declares, from its `tsconfig.json` and from the
  * `ttsc` block of its direct dependencies' manifests.
  *
- * Every entry carries the directory its specifier resolves from. A bare package
- * specifier resolves from the project root, never from the base config an
- * `extends` chain declared it in. A configured relative entry uses its known
- * declaring directory, falling back to project root; an automatic relative
- * marker uses its package directory. Explicit invocation lists use project root
- * for every entry, rather than recovering declaration provenance.
+ * Every entry carries the directory its specifier resolves from. Bare packages
+ * and explicit invocation lists use pluginConfigDir when supplied, otherwise
+ * the selected config directory. Configured relative entries retain their
+ * declaring directory; automatic relative markers use their package directory.
  *
  * @evidence contracts/common.md#principled-implementation Explicit entries replace discovery; otherwise inherited relative transforms retain their declaring base while bare packages resolve from the consumer, followed by distinct direct-dependency markers.
  * @evidence contracts/common.md#clear-and-simple-design Entry extraction owns ordering/provenance and delegates physical package resolution; descriptor execution/building remain outside discovery.
@@ -27,6 +25,32 @@ import { isRelativePluginSpecifier } from "./isRelativePluginSpecifier";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Discovery collections and returned entries are call-owned; no retained resource or cross-call population is acquired.
  */
 export namespace ProjectPluginEntries {
+  /**
+   * Select the consumer directory for plugin packages and factory contexts.
+   *
+   * Generated configs supply their original directory through pluginConfigDir.
+   * The compiler's source root can include sibling packages and does not choose
+   * the consumer's dependencies.
+   *
+   * @evidence contracts/common.md#principled-implementation The selected config owns the consumer dependency lookup; an explicit pluginConfigDir restores that authority for generated wrappers independently of the compiler source root.
+   * @evidence contracts/common.md#clear-and-simple-design One path selection is shared by entry discovery, presence, host-input observation and factory contexts.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Caller-declared wrapper provenance and the selected config determine the directory without package names or fixture paths.
+   * @evidence contracts/common.md#meaningful-documentation The comment explains the consumer anchor and why sibling-source roots cannot replace it.
+   * @evidence contracts/portability.md#os-neutral-implementation Native dirname and resolve preserve config path identity and resolve explicit relative origins from the recorded invocation cwd.
+   * @evidence contracts/performance.md#efficient-algorithms Selection performs native path operations proportional to path text without filesystem traversal.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This path selection owns no reusable observation or cross-call cache.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It returns a string and acquires no resource or retained population.
+   */
+  export function resolvePluginBaseDir(
+    project: ITtscParsedProjectConfig,
+    pluginConfigDir?: string,
+  ): string {
+    return pluginConfigDir === undefined || pluginConfigDir === ""
+      ? path.dirname(project.path)
+      : path.resolve(project.identity.invocationCwd, pluginConfigDir);
+  }
+
   /**
    * One declared plugin and the directory its specifier resolves from.
    *
@@ -66,16 +90,18 @@ export namespace ProjectPluginEntries {
   export function resolvePluginEntries(
     project: ITtscParsedProjectConfig,
     entries?: readonly ITtscProjectPluginConfig[],
+    pluginConfigDir?: string,
   ): ProjectPluginEntry[] {
+    const consumerDir = resolvePluginBaseDir(project, pluginConfigDir);
     if (entries !== undefined) {
       return entries.map((config) => ({
-        baseDir: project.root,
+        baseDir: consumerDir,
         config,
       }));
     }
     const configured = project.compilerOptions.plugins.map((config, index) => {
-      // A bare/package plugin specifier (e.g. "typia/lib/transform") must resolve
-      // from the project's own node_modules, not from the tsconfig that declared
+      // A bare package specifier resolves from the consumer's dependencies,
+      // not from the tsconfig that declared
       // it: an `extends`ed base config (a shared `tests/config/tsconfig.json`)
       // declares the plugin, but the package is installed under the consuming
       // project. Only a relative specifier ("./plugin") is meaningful relative to
@@ -86,22 +112,21 @@ export namespace ProjectPluginEntries {
         isRelativePluginSpecifier(config.transform) &&
         declaringDir !== undefined
           ? declaringDir
-          : project.root;
+          : consumerDir;
       return { baseDir, config };
     });
     return [
       ...configured,
-      ...discoverPackagePluginEntries(project, configured),
+      ...discoverPackagePluginEntries(consumerDir, configured),
     ];
   }
 
   function discoverPackagePluginEntries(
-    project: ITtscParsedProjectConfig,
+    consumerDir: string,
     configured: readonly ProjectPluginEntry[],
   ): ProjectPluginEntry[] {
-    const projectPackageJson = PluginPackageResolution.findNearestPackageJson(
-      project.root,
-    );
+    const projectPackageJson =
+      PluginPackageResolution.findNearestPackageJson(consumerDir);
     if (projectPackageJson === undefined) {
       return [];
     }

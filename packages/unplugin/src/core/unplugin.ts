@@ -42,6 +42,7 @@ import type { TtscProjectRegistration } from "./transform/watch/TtscProjectRegis
 import { createViteBuildLifecycle } from "./vite/createViteBuildLifecycle";
 import { createViteServeInputWatch } from "./vite/createViteServeInputWatch";
 import { createViteServeWatchHooks } from "./vite/createViteServeWatchHooks";
+import { installViteDependencyScanPlugins } from "./vite/installViteDependencyScanPlugins";
 import { TTSC_SOURCE_MAP_STASH } from "./webpack/TTSC_SOURCE_MAP_STASH";
 import { registerTtscSourceMapLoader } from "./webpack/registerTtscSourceMapLoader";
 import { reportCompiledProjectRecords } from "./webpack/reportCompiledProjectRecords";
@@ -252,6 +253,37 @@ const unpluginFactory: UnpluginFactory<
         declareTtscTransformPolling(
           transformCache,
           hostDeclaresPolling(process.env, viteLifecycle.usePolling),
+        );
+        installViteDependencyScanPlugins(
+          config,
+          isTransformTarget,
+          (source, file) => {
+            const startedAt = viteLifecycle.watching
+              ? serveInputs.begin()
+              : undefined;
+            return transformTtsc(
+              file,
+              source,
+              options,
+              aliases,
+              transformCache,
+              {
+                exactPath: true,
+                watching: viteLifecycle.watching,
+                ...createViteServeWatchHooks(
+                  "serve",
+                  viteLifecycle.watching,
+                  serveInputs,
+                  file,
+                  startedAt,
+                ),
+              },
+            );
+          },
+          (this?.meta as { rolldownVersion?: string } | undefined)
+            ?.rolldownVersion === undefined
+            ? "esbuild"
+            : "rolldown",
         );
       },
       // Compiler dependencies belong to the filesystem watch graph. Vite's

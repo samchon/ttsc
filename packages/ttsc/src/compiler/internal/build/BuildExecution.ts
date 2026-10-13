@@ -39,6 +39,7 @@ import { PassthroughFlags } from "./PassthroughFlags";
 import { PluginFailureDiagnostics } from "./PluginFailureDiagnostics";
 import type { RunBuildOptions } from "./RunBuildOptions";
 import { TsgoArguments } from "./TsgoArguments";
+import { WatchInputPublication } from "./WatchInputPublication";
 import { appendBuildOutput } from "./appendBuildOutput";
 import { isAbsoluteLocalProjectInputPath } from "./isAbsoluteLocalProjectInputPath";
 import { mergeProjectInputSnapshots } from "./mergeProjectInputSnapshots";
@@ -260,6 +261,52 @@ export namespace BuildExecution {
     execution: ReturnType<typeof resolveExecutionContext>,
     setupStartedAt: bigint,
   ): { buildOptions: RunBuildOptions; result?: TtscBuildResult } {
+    return WatchInputPublication.run(
+      prepareBuildExecutionSteps(options, timing, execution, setupStartedAt),
+    );
+  }
+
+  /**
+   * Await project-input publication before handing a prepared build to its
+   * compiler or resident check owner. Publication rejection propagates.
+   *
+   * @evidence contracts/common.md#principled-implementation The asynchronous runner joins the same preparation sequence's project-input handoff before its result becomes available.
+   * @evidence contracts/common.md#clear-and-simple-design The companion changes completion mode while keeping diagnostic recovery, emit policy and discovery in one sequence.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts An unsettled or rejected publication cannot become successful preparation.
+   * @evidence contracts/common.md#meaningful-documentation Native prose identifies the publication barrier and propagated failure.
+   * @evidence contracts/portability.md#os-neutral-implementation Native discovery and selected paths remain with the shared preparation sequence.
+   * @evidence contracts/performance.md#efficient-algorithms One runner advances the preparation handoff once, retaining the shared discovery and diagnostic work costs.
+   * @evidence contracts/performance.md#reuse-equivalent-work The supplied resolved context remains authoritative throughout preparation and its awaited handoff.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The current preparation state survives only until the callback settles or fails; resident handles belong to the caller.
+   */
+  export function prepareBuildExecutionAsync(
+    ...args: Parameters<typeof prepareBuildExecution>
+  ): Promise<ReturnType<typeof prepareBuildExecution>> {
+    return WatchInputPublication.runAsync(prepareBuildExecutionSteps(...args));
+  }
+
+  /**
+   * Prepare one selected execution, yielding its discovered project topology
+   * before the caller may begin compilation.
+   *
+   * @evidence contracts/common.md#principled-implementation Setup failures retain their existing recovery policy; successful discovery suspends at the owning watch handoff before returning build options.
+   * @evidence contracts/common.md#clear-and-simple-design One preparation sequence serves synchronous, asynchronous and composed build entries.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The sequence publishes actual native discovery and preserves failure results instead of fabricating completed registration.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states selection ownership and the barrier before compilation.
+   * @evidence contracts/portability.md#os-neutral-implementation Project-input discovery delegates native processes and path reconciliation to their existing boundaries.
+   * @evidence contracts/performance.md#efficient-algorithms Preparation retains one timing update, option projection and optional native discovery; callback completion adds one suspension rather than repeated discovery.
+   * @evidence contracts/performance.md#reuse-equivalent-work The resolved context and setup result are passed to the next phase without another plugin load.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Build-local options and discovered snapshot remain live during publication; the sequence acquires no resident handle.
+   */
+  export function* prepareBuildExecutionSteps(
+    options: RunBuildOptions,
+    timing: BuildTiming.BuildTiming,
+    execution: ReturnType<typeof resolveExecutionContext>,
+    setupStartedAt: bigint,
+  ): WatchInputPublication.Sequence<{
+    buildOptions: RunBuildOptions;
+    result?: TtscBuildResult;
+  }> {
     if (
       execution.nativePlugins.length > 0 ||
       execution.pluginSetupFailure !== undefined
@@ -282,7 +329,9 @@ export namespace BuildExecution {
       };
     }
     if (options.onProjectInputs !== undefined) {
-      options.onProjectInputs(discoverNativeProjectInputs(options, execution));
+      yield options.onProjectInputs(
+        discoverNativeProjectInputs(options, execution),
+      );
     }
     return { buildOptions };
   }
@@ -506,7 +555,11 @@ export namespace BuildExecution {
       // beside the point for a flag whose meaning does not presuppose a project.
       // Forward it to tsgo from the invocation directory instead of failing.
     }
-    const tsgo = resolveTsgo({ ...options, cwd });
+    const tsgo = resolveTsgo({
+      ...options,
+      cwd,
+      env: compilerEnv(options.env),
+    });
     const res = spawnNative(tsgo.binary, [...(options.passthrough ?? [])], {
       cwd,
       env: compilerEnv(options.env),
@@ -1212,7 +1265,8 @@ export namespace BuildExecution {
    * Plugin admission, loading and watch-input callbacks inside the guarded
    * acquisition branch become setup-failure results on error. Initial project/
    * compiler resolution and final config-anchor resolution outside it may
-   * throw.
+   * throw. A synchronous call requires synchronous watch-input handlers; use
+   * resolveExecutionContextAsync when registration returns a promise.
    *
    * @evidence contracts/common.md#principled-implementation One selected project supplies root, config and compiler policy; explicit resolvedProject preserves prior selection, and the guarded plugin admission/loading/watch-input callback branch is converted to a setup failure.
    * @evidence contracts/common.md#clear-and-simple-design A single context carries compiler/project/plugin selection to all phases, with plugin acquisition isolated from project and executable resolution.
@@ -1232,12 +1286,63 @@ export namespace BuildExecution {
       tsconfig?: string;
     },
   ) {
+    return WatchInputPublication.run(resolveExecutionContextSteps(options));
+  }
+
+  /**
+   * Resolve the selected execution after its plugin watch owner completes every
+   * source-baseline handoff. Rejection keeps the setup-failure policy.
+   *
+   * @evidence contracts/common.md#principled-implementation Awaited stepping shares project/compiler selection and the guarded acquisition branch while retaining each pre-read publication barrier.
+   * @evidence contracts/common.md#clear-and-simple-design The companion delegates to the same resolution sequence as the synchronous entry.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Plugin or watch publication failure remains an explicit setup failure rather than successful empty selection.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes awaited source baselines and the existing returned setup-failure boundary.
+   * @evidence contracts/portability.md#os-neutral-implementation Selected native paths, compiler executable and effective environment retain the resolution sequence's platform boundaries.
+   * @evidence contracts/performance.md#efficient-algorithms Each publication is advanced once without repeating project resolution, plugin selection or source builds.
+   * @evidence contracts/performance.md#reuse-equivalent-work One returned selected context serves all following phases; loader records retain their own validity conditions.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The current selection and loader generation remain retained until a handoff settles; resident children remain separately owned.
+   */
+  export function resolveExecutionContextAsync(
+    options: Parameters<typeof resolveExecutionContext>[0],
+  ): Promise<ReturnType<typeof resolveExecutionContext>> {
+    return WatchInputPublication.runAsync(
+      resolveExecutionContextSteps(options),
+    );
+  }
+
+  /**
+   * Select one execution and suspend its plugin producer at watch handoffs. The
+   * no-plugin path also publishes its empty selection before returning.
+   *
+   * @evidence contracts/common.md#principled-implementation The existing guarded acquisition sequence yields the loader's pre-read barriers and converts thrown handoff failures into the same setup-failure result as loading errors.
+   * @evidence contracts/common.md#clear-and-simple-design Selection and final context assembly remain in one sequence for both completion modes.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Empty plugin selection is published explicitly; rejected acquisition never becomes successful empty admission.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states suspension and empty-selection behavior; the synchronous entry documents context and error ownership.
+   * @evidence contracts/portability.md#os-neutral-implementation Native resolution, effective environment identity and config-anchor selection use their existing owners without changing path spellings.
+   * @evidence contracts/performance.md#efficient-algorithms Initial project/compiler selection precedes optional plugin loading once; suspension does not add another discovery or source scan.
+   * @evidence contracts/performance.md#reuse-equivalent-work The resolved project, opened record store and acquired plugin list stay in the same invocation across publication.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Selection metadata is build-owned and loader caches keep their existing ownership; a suspended handoff retains only the current acquisition generation here.
+   */
+  export function* resolveExecutionContextSteps(
+    options: TtscCommonOptions & {
+      emit?: boolean;
+      onWatchInputs?: TtscPluginSourceInputsHandler;
+      resolvedProject?: ITtscParsedProjectConfig;
+      tsconfig?: string;
+    },
+  ) {
     const cwd = path.resolve(options.cwd ?? process.cwd());
     const compilerSelection = CompilerProjectSelection.read(options);
     const project = compilerSelection.project;
     const tsconfig = project.path;
     const projectRoot = project.root;
-    const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
+    const tsgo = resolveTsgo({
+      ...options,
+      cwd: projectRoot,
+      // Public options carry overrides; resolver env is a complete snapshot.
+      // Keep the original overrides for per-invocation channel ownership.
+      env: compilerEnv(options.env),
+    });
     let pluginSetupFailure: TtscBuildResult | undefined;
     let nativePlugins: ITtscLoadedNativePlugin[] = [];
     // Opened only for an invocation that loads plugins, so a project without
@@ -1247,7 +1352,11 @@ export namespace BuildExecution {
     try {
       if (
         compilerSelection.inspectionError === undefined &&
-        hasProjectPluginEntries(project, options.plugins)
+        hasProjectPluginEntries(
+          project,
+          options.plugins,
+          options.pluginConfigDir,
+        )
       ) {
         const cacheDir =
           options.cacheDir ??
@@ -1258,8 +1367,8 @@ export namespace BuildExecution {
           cacheDir,
           env,
         });
-        nativePlugins = loadProjectPlugins({
-          binary: resolveBinary(options) ?? "",
+        nativePlugins = (yield* loadProjectPlugins.steps({
+          binary: resolveBinary({ env }) ?? "",
           cacheDir,
           cwd,
           entries: options.plugins,
@@ -1269,9 +1378,9 @@ export namespace BuildExecution {
           pluginConfigDir: options.pluginConfigDir,
           projectRoot,
           tsconfig,
-        }).nativePlugins;
+        })).nativePlugins;
       } else {
-        options.onWatchInputs?.([]);
+        yield options.onWatchInputs?.([]);
       }
     } catch (error) {
       pluginSetupFailure = {

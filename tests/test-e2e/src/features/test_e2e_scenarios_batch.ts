@@ -67,6 +67,7 @@ import { test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies } from "
 import { test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp } from "./ttsc/project/test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp";
 import { test_resolution_recorder_observes_require_resolve_through_the_supported_hooks } from "./ttsc/project/test_resolution_recorder_observes_require_resolve_through_the_supported_hooks";
 import { test_spawn_sync_resilient_broker_preserves_process_contract } from "./ttsc/project/test_spawn_sync_resilient_broker_preserves_process_contract";
+import { case_watch_topology_worker_owns_responsive_ordered_lifetimes } from "./ttsc/scenes/case_watch_topology_worker_owns_responsive_ordered_lifetimes";
 import { test_ttscserver_exits_on_exit_while_stdin_stays_open } from "./ttsc/ttscserver/test_ttscserver_exits_on_exit_while_stdin_stays_open";
 import { test_ttscserver_exits_on_stdin_close } from "./ttsc/ttscserver/test_ttscserver_exits_on_stdin_close";
 import { test_ttscserver_initializes_and_shuts_down } from "./ttsc/ttscserver/test_ttscserver_initializes_and_shuts_down";
@@ -205,6 +206,8 @@ import { test_transformttsc_unnotified_utility_config_link_retarget_invalidates_
 import { test_transformttsc_uses_filesystem_path_identity } from "./unplugin/native-plugins/transform/test_transformttsc_uses_filesystem_path_identity";
 import { test_transformttsc_utility_config_proof_refuses_a_nearer_candidate_that_came_and_went } from "./unplugin/native-plugins/transform/test_transformttsc_utility_config_proof_refuses_a_nearer_candidate_that_came_and_went";
 import { test_ttsc_undeclared_run_scrubs_inherited_plugin_config_dir } from "./unplugin/native-plugins/transform/test_ttsc_undeclared_run_scrubs_inherited_plugin_config_dir";
+import { case_explicit_precompilation_overlaps_project_gates } from "./unplugin/scenes/case_explicit_precompilation_overlaps_project_gates";
+import { case_unproven_plugin_source_is_rejected_after_native_preparation } from "./unplugin/scenes/case_unproven_plugin_source_is_rejected_after_native_preparation";
 import { test_transform_session_store_outlives_its_process } from "./unplugin/transform/test_transform_session_store_outlives_its_process";
 
 /**
@@ -287,6 +290,18 @@ export async function test_e2e_scenarios_batch(): Promise<void> {
 
 /** The scenarios this batch owns, by exported name. */
 const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
+  [
+    "case_watch_topology_worker_owns_responsive_ordered_lifetimes",
+    case_watch_topology_worker_owns_responsive_ordered_lifetimes,
+  ],
+  [
+    "case_explicit_precompilation_overlaps_project_gates",
+    case_explicit_precompilation_overlaps_project_gates,
+  ],
+  [
+    "case_unproven_plugin_source_is_rejected_after_native_preparation",
+    case_unproven_plugin_source_is_rejected_after_native_preparation,
+  ],
   ["test_e2e_compiler_stub", test_e2e_compiler_stub],
   ["test_e2e_evidence", test_e2e_evidence],
   ["test_e2e_installation", test_e2e_installation],

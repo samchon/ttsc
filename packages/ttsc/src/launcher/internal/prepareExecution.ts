@@ -324,6 +324,7 @@ function createProjectContext(
     project,
     options.passthrough,
     options.binary,
+    env,
   );
   const privateEmitRootDir = resolveRuntimeSourceRoot(
     project,
@@ -440,6 +441,7 @@ function discoverOwningProject(
   });
   const owning = resolveOwningProjectConfig({
     binary: options.binary,
+    env: SidecarEnvironment.merge(process.env, options.env),
     file,
     tsconfig: nearest.path,
   });

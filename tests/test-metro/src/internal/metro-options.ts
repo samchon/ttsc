@@ -36,6 +36,7 @@ async function withEnv(
  */
 export async function assertOptionsRoundTripThroughEnv(): Promise<void> {
   const source = {
+    precompile: ["src/main.ts", "../shared/src/index.ts"],
     project: "tsconfig.json",
     projectRoot: "../compiler-output-root",
     compilerOptions: { strict: true },
@@ -47,6 +48,7 @@ export async function assertOptionsRoundTripThroughEnv(): Promise<void> {
   const mod = options;
   await withEnv(mod.serializeOptions(source), async (m) => {
     const resolved = m.resolveOptionsFromEnv();
+    assert.deepEqual(resolved.ttsc.precompile, source.precompile);
     assert.equal(resolved.ttsc.project, source.project);
     assert.equal(resolved.ttsc.projectRoot, source.projectRoot);
     assert.deepEqual(resolved.ttsc.compilerOptions, source.compilerOptions);
@@ -142,15 +144,20 @@ export async function assertEmptyStringEnvFallsBackToDefaults(): Promise<void> {
  */
 export async function assertInvalidIncludeExcludeCoerced(): Promise<void> {
   const raw = JSON.stringify({
+    precompile: ["src/a.ts", null, 7, "../shared/b.ts"],
     include: ["a", 1, "b", null],
     exclude: "everything",
     plugins: false,
   });
   await withEnv(raw, async (mod) => {
     const resolved = mod.resolveOptionsFromEnv();
+    assert.deepEqual(resolved.ttsc.precompile, ["src/a.ts", "../shared/b.ts"]);
     assert.deepEqual(resolved.include, ["a", "b"]);
     assert.deepEqual(resolved.exclude, []);
     assert.equal(resolved.ttsc.plugins, false);
+  });
+  await withEnv(JSON.stringify({ precompile: "src/a.ts" }), async (mod) => {
+    assert.deepEqual(mod.resolveOptionsFromEnv().ttsc.precompile, []);
   });
 }
 

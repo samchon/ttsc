@@ -1,3 +1,4 @@
+import { TtscPrecompilation } from "../TtscPrecompilation";
 import type { TtscTransformCache } from "./TtscTransformCache";
 import { disposeCachedTransform } from "./disposeCachedTransform";
 
@@ -35,6 +36,7 @@ export function withdrawTtscTransformGenerations(
   cache: TtscTransformCache,
 ): void {
   const generations = [...cache.values()];
+  TtscPrecompilation.clear(cache);
   cache.clear();
   for (const generation of generations) {
     void generation.then(disposeCachedTransform, () => undefined);

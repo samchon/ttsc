@@ -24,10 +24,11 @@ import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOpti
 export function getCompilerVersionText(
   options: TtscCommonOptions = {},
 ): string {
-  const tsgo = resolveTsgo(options);
+  const env = SidecarEnvironment.merge(process.env, options.env);
+  const tsgo = resolveTsgo({ ...options, env });
   const res = spawnNative(tsgo.binary, ["--version"], {
     cwd: options.cwd,
-    env: SidecarEnvironment.merge(process.env, options.env),
+    env,
   });
   if (res.error || res.status !== 0) {
     throw new Error(

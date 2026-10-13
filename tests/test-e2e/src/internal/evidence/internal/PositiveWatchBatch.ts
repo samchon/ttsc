@@ -33,7 +33,7 @@ import { positiveWatchCases } from "./positiveWatchCases";
  * @evidence contracts/common.md#clear-and-simple-design One owner prepares the consumer/library, exposes guarded writes/removal with recorded bytes or absence and settled-cycle operations, forwards each actual build transcript with its phase, collects assertion failures and independently requests watcher closure and fixture cleanup before throwing.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No result, PID, count, cache proof, source identity or watcher is replaced. The canonical live producer is selected from startup to preserve the original cold exception without package-junction changes; real library deletion occurs only after verified detachment.
  * @evidence contracts/common.md#meaningful-documentation Explains first-claim identity, same-directory cold oracle, bounded settle/reset behavior, config-driven Program reloads and final irreversible private loader revocation.
- * @evidence contracts/performance.md#efficient-algorithms Activation visits the previous and next finite authored file maps once, mutation resets read only tracked changed paths, and settling examines at most eight real cycles per request. Empty owned directories remain until final cleanup rather than recursively scanning each transition.
+ * @evidence contracts/performance.md#efficient-algorithms Activation visits the previous and next finite authored file maps once and mutation resets read only tracked changed paths. Settling consumes actual cycles while awaiting idle and rejects a batch exceeding eight cycles. Empty owned directories remain until final cleanup rather than recursively scanning each transition.
  * @evidence contracts/performance.md#reuse-equivalent-work Watch consumers share one canonical producer, workspace and watcher lifetime. Missing Swagger is preserved at actual startup; empty Markdown and later source/config/include populations activate at genuine phase boundaries and may reload Programs. The three Alpha cases retain one phase Program, one necessary fresh cold Program remains, and one private parser-library copy serves both last-phase cache controls with independent original source filters.
  * @evidence contracts/performance.md#bound-retention-and-release-resources One workspace, private library and native watcher remain until all phases finish. Watch closure and strict project cleanup are independently attempted; unknown descendant closure retains inputs and blocks writes, while failures aggregate. Normal Node closure alone is not independent native-descendant join proof. Session transcript retention belongs to startWatch; logging forwards each actual consumed cycle once.
  * @evidence contracts/portability.md#os-neutral-implementation Native path APIs construct exact owned roots, existing helpers own junction detachment and Node process execution, and source/protocol literals remain platform-neutral. Physical ancestor targets stay outside compiler project membership.
@@ -83,6 +83,7 @@ export namespace PositiveWatchBatch {
           library,
       );
       let observation = authored[0].props.name + " initial baseline";
+      let observedCycles = 0;
       const quiet = async (milliseconds: number): Promise<IRunResult> => {
         const actual = await session.expectNoBuild(milliseconds);
         console.log(
@@ -101,11 +102,12 @@ export namespace PositiveWatchBatch {
         marker?: string,
         first = false,
       ): Promise<IRunResult> => {
-        let last: IRunResult | undefined;
-        for (let cycle = 0; cycle < 8; cycle++) {
-          last = await session.nextBuild(
-            first && cycle === 0 ? FIRST_BUILD_TIMEOUT : undefined,
-          );
+        const firstBuild = await session.nextBuild(
+          first ? FIRST_BUILD_TIMEOUT : undefined,
+        );
+        observedCycles = 0;
+        const observe = (actual: IRunResult): void => {
+          const cycle = observedCycles++;
           console.log(
             "Positive watch actual observation " +
               JSON.stringify({
@@ -113,29 +115,23 @@ export namespace PositiveWatchBatch {
                 cycle,
                 requestedStatus: status,
                 marker,
-                actualStatus: last.status,
+                actualStatus: actual.status,
               }),
           );
-          process.stdout.write(last.output);
-          try {
-            await quiet(300);
-            return last;
-          } catch (error) {
-            if (
-              !(error instanceof Error) ||
-              !error.message.startsWith("Expected no rebuild within")
-            )
-              throw error;
-          }
-        }
-        throw new Error(
-          "Watch did not settle to the requested actual cycle: " +
-            status +
-            " " +
-            marker +
-            "\n" +
-            last?.output,
-        );
+          process.stdout.write(actual.output);
+          if (observedCycles > 8)
+            throw new Error(
+              "Watch did not settle to the requested actual cycle: " +
+                status +
+                " " +
+                marker +
+                "\n" +
+                actual.output,
+            );
+        };
+        observe(firstBuild);
+        const trailing = await session.settle(undefined, observe);
+        return trailing.at(-1) ?? firstBuild;
       };
       const baseline = await next(
         authored[0].initialStatus ?? 0,
@@ -175,14 +171,35 @@ export namespace PositiveWatchBatch {
           let phaseBaseline = baseline;
           if (phase !== authored[0]) {
             observation = phase.props.name + " activation baseline";
+            const started =
+              phase.props.name === "positive-alpha"
+                ? session.nextBuildStarted()
+                : undefined;
             activate(owned, previous, phase.props);
             previous = phase.props;
+            if (started !== undefined) {
+              await started;
+              // Force a second config decision after the first reload starts.
+              // The settled baseline must belong to its final resident host.
+              fs.appendFileSync(
+                path.join(localRoot, "tsconfig.json"),
+                "\n",
+                "utf8",
+              );
+            }
             phaseBaseline = await next(
               phase.initialStatus ?? 0,
               undefined,
               phase.initialStatus === 2 ||
                 phase.props.name === "positive-alpha",
             );
+            if (started !== undefined)
+              check(() =>
+                assert.ok(
+                  observedCycles >= 2,
+                  "A config write after reload starts must finish its own reload before the phase baseline.",
+                ),
+              );
           }
           for (const external of Object.keys(
             phase.props.workspaceFiles ?? {},

@@ -42,7 +42,7 @@ import { matchesRecordedInput } from "./matchesRecordedInput";
  * @evidence contracts/common.md#meaningful-documentation Native prose explains failed admission and successful generation attachment; inline comments justify readable-state, blocker and tree distinctions.
  * @evidence contracts/portability.md#os-neutral-implementation The generation's filesystem view qualifies metadata and exact native absence. Grouped candidates retain original spelling because directory case policy alone does not define Unicode or short-name equivalence; their joined path follows that view's platform dialect. Physical targets and aliases remain distinct from content identity, and native plugin environment authority is not established by arbitrary filesystem injection.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The generation retains manifest entries, lexical coverage, raw missing candidates and tree environments proportional to admitted inputs and their path/state text, without a total byte cap or native handle here. Failed attempt records are call-local and diagnostic witness counts are bounded by their owner; replacing or releasing the generation ends manifest ownership.
- * @evidence contracts/performance.md#efficient-algorithms Input selection materializes the union of producer lists/proof keys and scans U universal inputs and T plugin source trees. Comparisons include content bytes, physical identity/ancestor/case queries, paired metadata and exact candidate stat; source proof includes tree population/bytes and environment validation. These delegated costs and temporary input/manifest populations are not constant-time map insertion work.
+ * @evidence contracts/performance.md#efficient-algorithms Input selection materializes the union of producer lists/proof keys and scans U universal inputs and T plugin source trees. Async-owned environments share one synchronous batch, qualifying common SDK paths once across plugin directories. Comparisons include content bytes, physical identity/ancestor/case queries, paired metadata and exact candidate stat; source proof includes tree population/bytes and environment validation. These delegated costs and temporary input/manifest populations are not constant-time map insertion work.
  * @evidence contracts/performance.md#reuse-equivalent-work This shared generation manifest records exactly qualified lexical spellings, separable signatures and tree environments for later validators; changed proof requires new admission.
  */
 export function captureUniversalHostInputValidation(
@@ -295,13 +295,21 @@ export function captureUniversalHostInputValidation(
   // A plugin binary keyed on a source other than the disk's now, whether it
   // was built here or adopted from another worker, is output for a state
   // already gone (samchon/ttsc#1487).
-  for (const [directory, digest] of selectPluginSourceInputs(cached.result)) {
+  const sources = selectPluginSourceInputs(cached.result);
+  const prepared = usesPreparedPluginBuildEnvironments(cached.result);
+  // Plugin directories commonly share the thousands-file Go SDK. Qualify it
+  // once for this synchronous proof, not once per directory (#1764). The map
+  // must stay inside this call: an await or later delivery needs fresh native
+  // authority, even when source watchers heard no change (#1712, #1516).
+  const environments = prepared
+    ? PluginBuildEnvironmentReadings.cachedAll(sources.keys())
+    : undefined;
+  for (const [directory, digest] of sources) {
     // The environment is recorded as read before the proof, so it is never a
     // reading the proof did not see; one that moved meanwhile only makes the
     // next delivery prove the tree again.
-    const prepared = usesPreparedPluginBuildEnvironments(cached.result);
     const environment = prepared
-      ? PluginBuildEnvironmentReadings.cached(directory)
+      ? environments!.get(directory)
       : processPluginBuildEnvironment(directory, false, cached.projectRoot);
     if (
       environment === undefined ||

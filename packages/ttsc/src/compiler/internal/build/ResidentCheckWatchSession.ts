@@ -70,7 +70,9 @@ export class ResidentCheckWatchSession {
    * and plugins and starts resident check processes for compatible entries.
    * Later cycles reuse them and forward `change` as an incremental request. A
    * resident process that fails is retired and its entry falls back to the
-   * one-shot check for that cycle.
+   * one-shot check for that cycle. Plugin and project watch handoffs complete
+   * before checks begin; reused topology is republished through the same
+   * completion boundary.
    *
    * @evidence contracts/common.md#principled-implementation Compatible no-emit check-only selection uses the same diagnostic/failure policy as one-shot execution; reload, missing binaries and changed normalized dependency topology cold-resolve the next execution.
    * @evidence contracts/common.md#clear-and-simple-design The cycle separates setup/reuse, topology refresh, ordered checks and final diagnostics/timing, delegating each phase to its owning shared operation.
@@ -103,14 +105,16 @@ export class ResidentCheckWatchSession {
     let buildOptions: RunBuildOptions;
     if (execution === undefined) {
       const setupStartedAt = process.hrtime.bigint();
-      execution = BuildExecution.resolveExecutionContext(options);
+      execution = await BuildExecution.resolveExecutionContextAsync(options);
+      this.assertOpen(generation);
       const discoveryOptions = this.captureProjectInputs(options);
-      const prepared = BuildExecution.prepareBuildExecution(
+      const prepared = await BuildExecution.prepareBuildExecutionAsync(
         discoveryOptions,
         timing,
         execution,
         setupStartedAt,
       );
+      this.assertOpen(generation);
       buildOptions = prepared.buildOptions;
       if (prepared.result !== undefined) {
         await this.resetForRun("preparation-result");
@@ -145,12 +149,16 @@ export class ResidentCheckWatchSession {
         touchPluginCacheEntryInUse(plugin.binary);
       buildOptions = BuildExecution.applyProjectNoEmit(options, execution);
     }
-    if (
-      reusedExecution &&
-      this.refreshProjectInputTopology(options, execution)
-    ) {
-      await this.resetForRun("project-input-topology");
-      return this.run(options);
+    if (reusedExecution) {
+      const topologyChanged = await this.refreshProjectInputTopology(
+        options,
+        execution,
+      );
+      this.assertOpen(generation);
+      if (topologyChanged) {
+        await this.resetForRun("project-input-topology");
+        return this.run(options);
+      }
     }
 
     const checked = await this.runCheckPlugins(
@@ -294,15 +302,29 @@ export class ResidentCheckWatchSession {
     return joined;
   }
 
-  /** Capture discoveries only when the caller actually subscribes to them. */
+  /**
+   * Retain discovered project topology after its watch owner confirms the
+   * publication; rejected registration leaves the previous snapshot intact.
+   *
+   * @evidence contracts/common.md#principled-implementation The forwarding handler awaits the caller's completion before updating the session's retained topology.
+   * @evidence contracts/common.md#clear-and-simple-design One wrapper joins watch registration and snapshot capture at their existing discovery boundary.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A rejected or unfinished publication cannot become the session's accepted topology baseline.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states commit-after-publication and failed-registration behavior.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation The wrapper forwards an already-discovered snapshot without native operations.
+   * @evidence contracts/performance.md#efficient-algorithms One shallow options copy and one awaited callback replace no discovery or path traversal.
+   * @evidence contracts/performance.md#reuse-equivalent-work The accepted snapshot serves later topology comparison only after its watch owner completes registration.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The wrapper closes over the session and caller for its build; one accepted snapshot replaces the prior session-owned population.
+   */
   private captureProjectInputs(options: RunBuildOptions): RunBuildOptions {
     const onProjectInputs = options.onProjectInputs;
     if (onProjectInputs === undefined) return options;
+    const generation = this.generation;
     return {
       ...options,
-      onProjectInputs: (snapshot) => {
+      onProjectInputs: async (snapshot) => {
+        await onProjectInputs(snapshot);
+        this.assertOpen(generation);
         this.projectInputs = snapshot;
-        onProjectInputs(snapshot);
       },
     };
   }
@@ -310,19 +332,32 @@ export class ResidentCheckWatchSession {
   /**
    * Refresh normalized Program topology while always publishing declared alias
    * updates to the watcher, even when physical dependency identity is
-   * unchanged.
+   * unchanged. Await registration before checks reuse the selected execution.
+   *
+   * @evidence contracts/common.md#principled-implementation Fresh discovery compares physical dependency topology while every declared-alias publication is awaited before accepting the next snapshot.
+   * @evidence contracts/common.md#clear-and-simple-design One operation owns discovery, comparison and watch-owner handoff for warm cycles.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts An unchanged physical population cannot bypass registration, and rejection cannot restamp the retained snapshot.
+   * @evidence contracts/common.md#meaningful-documentation Native prose separates physical topology comparison, declared-alias refresh and completion before checks.
+   * @evidence contracts/portability.md#os-neutral-implementation Native discovery and path normalization remain with BuildExecution; comparison retains the snapshot's declared and physical representations.
+   * @evidence contracts/performance.md#efficient-algorithms One native discovery and linear snapshot comparison precede one callback; unchanged topology avoids resetting resident execution.
+   * @evidence contracts/performance.md#reuse-equivalent-work A completed publication permits existing execution reuse only when normalized dependency topology remains equal.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The previous and freshly discovered snapshots coexist during handoff; success replaces the one retained population and failure preserves the previous one.
    */
-  private refreshProjectInputTopology(
+  private async refreshProjectInputTopology(
     options: RunBuildOptions,
     execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
-  ): boolean {
+  ): Promise<boolean> {
     if (options.onProjectInputs === undefined) return false;
+    const generation = this.generation;
     const next = BuildExecution.discoverNativeProjectInputs(options, execution);
     const changed =
       this.projectInputs !== undefined &&
       !projectInputSnapshotsEqual(this.projectInputs, next);
+    // Replaying an unchanged population still crosses the worker's publication
+    // barrier. Starting checks first would accept edits before registration.
+    await options.onProjectInputs(next);
+    this.assertOpen(generation);
     this.projectInputs = next;
-    options.onProjectInputs(next);
     return changed;
   }
 

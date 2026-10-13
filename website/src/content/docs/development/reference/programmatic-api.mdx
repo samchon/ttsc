@@ -210,14 +210,16 @@ The service is resident within one process. It does not share a host across sepa
 | --- | --- |
 | `cwd` | Working directory. Defaults to `process.cwd()`. |
 | `tsconfig` | Path to a project config file. Relative paths resolve against `cwd`. Omit to auto-discover the nearest tsconfig. |
-| `projectRoot` | Override the project root used for plugin resolution and cache anchoring. Most callers leave this unset. |
-| `pluginConfigDir` | Directory that anchors plugin config-file discovery and relative `configFile` resolution. Omit to use the resolved tsconfig's directory. Relative paths resolve against `cwd`. |
+| `projectRoot` | Source root for source membership, descriptor and native plugin process cwd, cache anchoring and returned relative Go sources. Omit to use the resolved config directory; a common ancestor admits sibling workspace sources. Relative paths resolve against `cwd`. |
+| `pluginConfigDir` | Consumer directory for plugin package resolution, factory contexts, plugin config-file discovery and relative `configFile` resolution. Omit to use the selected tsconfig's directory independently of `projectRoot`. Generated wrappers supply the original consumer directory. Relative paths resolve against `cwd`. |
 | `binary` | Pin a specific TypeScript-Go binary. For test rigs and embedded toolchains; normal callers omit it. |
-| `env` | Extra environment variables merged over `process.env` for child compiler processes. |
+| `env` | Environment overrides for executable selection, source builds and child processes. |
 | `cacheDir` | Root for compiled ttsc artifacts. Relative paths resolve against `cwd`. Defaults to `TTSC_CACHE_DIR`, else the workspace-local `node_modules/.cache/ttsc`. |
 | `plugins` | `undefined` = read project plugins. `false` = ignore project plugins for this instance. Array = explicit entries. |
 
-Environment overrides are copied at construction and merged over the invocation's current environment for preparation, compilation, transformation and cleanup. On Windows, names are case-insensitive, so a constructor `ttsc_cache_dir` overrides inherited `TTSC_CACHE_DIR`; within one supplied environment object, the lexicographically first spelling wins. On POSIX, differently cased names remain distinct.
+Construction copies `env` overrides; each operation merges them over its current `process.env`. The resulting environment governs executable selection, compiler option and project-reference inspection, Go source builds for plugins and the native compiler host, child processes, and cleanup. An unrelated override preserves inherited `TTSC_TSGO_BINARY` and `TTSC_BINARY`. The explicit `binary` option takes precedence over `TTSC_TSGO_BINARY`.
+
+On Windows, environment names are case-insensitive, so a constructor `ttsc_cache_dir` overrides inherited `TTSC_CACHE_DIR`; within one supplied environment object, the lexicographically first spelling wins. On POSIX, differently cased names remain distinct.
 
 An own `undefined` entry overrides the inherited entry, after which selectors apply their normal fallback. Empty cache selectors also use their normal fallback. An explicit `cacheDir` takes precedence over environment cache selectors. Cleanup protects the selected caller `GOCACHE`, including when it overlaps an explicit whole-cache target.
 

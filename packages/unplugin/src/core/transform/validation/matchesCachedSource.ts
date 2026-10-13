@@ -37,7 +37,9 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  * rejects this generation for the delivery; its caller chooses replacement or
  * capture. Delivered text that differs while the disk still holds the bytes the
  * generation compiled is not one: it is reported and served, since the compile
- * read the disk (samchon/ttsc#1394).
+ * read the disk (samchon/ttsc#1394). Preparation performs the same comparison
+ * without reporting a host rewrite, because its native source read is not a
+ * delivered module.
  *
  * Its place in the adapter's invalidation model, and the units beside it, are
  * mapped in the maintainer page
@@ -73,6 +75,11 @@ export function matchesCachedSource(
   /** Current host pass, or undefined for persistent input validation. */
   epoch: number | undefined,
   proof?: TtscGenerationProof.Transaction,
+  /**
+   * Preparation compares the same native bytes without reporting a host
+   * rewrite.
+   */
+  reportDivergence = true,
 ): boolean {
   if (!nativeInputPredicatesHold(cached, proof)) return false;
   const pass = TtscGenerationProof.sharesPass(cached, file, epoch);
@@ -133,7 +140,7 @@ export function matchesCachedSource(
     ) {
       return false;
     }
-    reportDivergentDelivery(cached, file);
+    if (reportDivergence) reportDivergentDelivery(cached, file);
   }
   if (pass) return true;
   if (epoch !== undefined && cached.projectSnapshotComplete === true) {

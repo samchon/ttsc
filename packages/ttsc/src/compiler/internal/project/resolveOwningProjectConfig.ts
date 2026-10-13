@@ -52,6 +52,8 @@ import { selectReferencedProject } from "./selectReferencedProject";
  * @param props.tsconfig - The config project discovery found for the file.
  * @param props.file - The file whose project is asked for.
  * @param props.binary - An explicit TypeScript-Go binary, when one was given.
+ * @param props.env - Complete environment shared by compiler selection and
+ *   root-file expansion; omission inherits the current process environment.
  * @param props.onConfig - Called with every config this reads, so a caller that
  *   fingerprints its inputs can record them.
  * @evidence contracts/common.md#principled-implementation Successful compiler showConfig supplies root membership observations, best-effort filesystem identity compares aliases, and visited identity keys terminate repeated graph states while declaration-order DFS selects the first observed containing project. Failed observations preserve the discovered fallback without certifying membership.
@@ -76,13 +78,17 @@ export function resolveOwningProjectConfig(props: {
    */
   binary?: string;
 
+  /** Complete environment for compiler selection and root-file expansion. */
+  env?: NodeJS.ProcessEnv;
+
   /** Observe each directly read config, including ones with no reference edges. */
   onConfig?: (config: string) => void;
 
   /**
    * Expanded root files kept across lookups, by config path, for a caller whose
-   * selected builds already hold for the same lifetime: ttsx builds each owning
-   * project once per process (samchon/ttsc#1747).
+   * selected builds and compiler environment already hold for the same
+   * lifetime: ttsx builds each owning project once per process
+   * (samchon/ttsc#1747).
    */
   expansions?: Map<string, { files: readonly string[]; takenAt: number }>;
 }): string {
@@ -128,7 +134,7 @@ export function resolveOwningProjectConfig(props: {
 
   /** Expand `config` now, and keep the expansion when the caller asked to. */
   function expand(config: string): RootFiles {
-    const roots = rootFiles(config, props.binary);
+    const roots = rootFiles(config, props.binary, props.env);
     props.expansions?.set(config, roots);
     return roots;
   }
@@ -214,14 +220,19 @@ interface RootFiles {
  * include approximation or permanent failed answer substitutes for compiler
  * behavior.
  */
-function rootFiles(config: string, binary: string | undefined): RootFiles {
+function rootFiles(
+  config: string,
+  binary: string | undefined,
+  env: NodeJS.ProcessEnv | undefined,
+): RootFiles {
   const takenAt = Date.now();
   let files: string[] = [];
   try {
     const directory = path.dirname(config);
-    const tsgo = resolveTsgo({ binary, cwd: directory });
+    const tsgo = resolveTsgo({ binary, cwd: directory, env });
     const result = spawnNative(tsgo.binary, ["-p", config, "--showConfig"], {
       cwd: directory,
+      env,
       encoding: "utf8",
     });
     if (result.status === 0) {

@@ -3,16 +3,12 @@ import type { TtscUnpluginOptions } from "@ttsc/unplugin/api";
 /**
  * Options accepted by {@link withTtsc} and the Metro transformer.
  *
- * The `project` / `compilerOptions` / `plugins` fields are inherited from
- * `@ttsc/unplugin` so the Metro adapter speaks the exact same configuration
- * language as every other bundler integration. The remaining fields are
- * Metro-specific.
+ * The `precompile` / `project` / `compilerOptions` / `plugins` fields are
+ * inherited from `@ttsc/unplugin` so the Metro adapter speaks the exact same
+ * configuration language as every other bundler integration. The remaining
+ * fields are Metro-specific.
  *
- * Every field is JSON-serialisable on purpose: `withTtsc` runs in the Metro
- * **config** process, but the transformer runs in Metro's **worker** processes,
- * so the resolved options have to survive a JSON / env round-trip to reach them
- * (see {@link serializeOptions}). That is why `include`/`exclude` are plain
- * substring patterns rather than `RegExp`.
+ * Callers must supply JSON-compatible values: `withTtsc` runs in the Metro config process and the transformer receives serialized options in worker processes through {@link serializeOptions}. Include/exclude patterns are plain strings for that transport.
  *
  * @evidence contracts/common.md#principled-implementation
  *   This interface extends the documented Unplugin option contract rather than
@@ -110,7 +106,7 @@ export interface TtscMetroOptions extends TtscUnpluginOptions {
  *   Carries project and upstream paths as strings; every path is resolved by the code that consumes it.
  */
 export interface ResolvedTtscMetroOptions {
-  /** Options forwarded verbatim to the `@ttsc/unplugin` transform core. */
+  /** Compiler options with precompile entries normalized to a string array. */
   ttsc: TtscUnpluginOptions;
 
   /** Explicit upstream transformer module path, or `undefined` to auto-detect. */

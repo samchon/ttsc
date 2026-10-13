@@ -3,11 +3,14 @@ import path from "node:path";
 
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import { PluginPackageResolution } from "./PluginPackageResolution";
+import { ProjectPluginEntries } from "./ProjectPluginEntries";
 import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
 
 /**
  * Return config ancestry and package-discovery manifest inputs, including
  * missing nearer candidates that could redirect the selected package later.
+ * Discovery uses the selected config directory or explicit pluginConfigDir,
+ * matching the entry resolver independently of the compiler's source root.
  *
  * @evidence contracts/common.md#principled-implementation Config ancestry, lexical selection and missing config candidates influence selection; automatic discovery additionally observes nearest manifest and dependency search candidates through the selecting root. The project reader separately states whether these config observations are complete.
  * @evidence contracts/common.md#clear-and-simple-design The collector obtains package resolution from its owner and assembles universal loader inputs, leaving source Program dependencies to the native reference graph.
@@ -22,6 +25,7 @@ import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
 export function collectProjectHostInputs(
   project: ITtscParsedProjectConfig,
   includePluginDiscovery: boolean = true,
+  pluginConfigDir?: string,
 ): string[] {
   const inputs = new Set<string>(
     [...project.configPaths, ...(project.configInputs ?? [])].map((file) =>
@@ -30,7 +34,9 @@ export function collectProjectHostInputs(
   );
   if (!includePluginDiscovery) return [...inputs].sort();
   const manifestCandidates =
-    PluginPackageResolution.collectNearestPackageJsonCandidates(project.root);
+    PluginPackageResolution.collectNearestPackageJsonCandidates(
+      ProjectPluginEntries.resolvePluginBaseDir(project, pluginConfigDir),
+    );
   for (const candidate of manifestCandidates) inputs.add(candidate);
   const manifest = manifestCandidates.find(
     PluginPackageResolution.existingFile,

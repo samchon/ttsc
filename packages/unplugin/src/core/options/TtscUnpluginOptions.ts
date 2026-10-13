@@ -6,7 +6,7 @@ import type { TtscUnpluginCompilerOptionsJson } from "./TtscUnpluginCompilerOpti
  * Options accepted by the `@ttsc/unplugin` bundler adapter.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Optional project selection, a JSON compiler overlay and the distinct
+ *   Explicit startup entries, optional project selection, a JSON compiler overlay and the distinct
  *   undefined/false/array plugin states express the supported caller choices.
  * @evidence contracts/common.md#clear-and-simple-design
  *   Config selection and common source root stay separate from compiler settings and
@@ -18,7 +18,7 @@ import type { TtscUnpluginCompilerOptionsJson } from "./TtscUnpluginCompilerOpti
  *   Member JSDoc explains relative-path resolution and override precedence.
  *   Separate member paragraphs and spacing follow the documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation
- *   Project and projectRoot carry native paths: relative spelling is
+ *   Precompile entries, project and projectRoot carry native paths: relative spelling is
  *   resolved against process.cwd at delivery. An omitted project requests
  *   discovery; an omitted root uses the config directory. Compiler settings retain their compiler-owned path semantics;
  *   this type imposes no separator or filesystem case policy.
@@ -33,6 +33,17 @@ import type { TtscUnpluginCompilerOptionsJson } from "./TtscUnpluginCompilerOpti
  *   state at runtime.
  */
 export interface TtscUnpluginOptions {
+  /**
+   * Source entries whose projects start compiling together on the first load.
+   *
+   * Paths resolve from `process.cwd()` and use the same project selection,
+   * compiler options and plugins as delivered modules. Each project retains its
+   * normal input proofs. Listing an entry opts its project into compilation
+   * even if the host never imports it. Omission keeps compilation
+   * demand-driven.
+   */
+  precompile?: readonly string[];
+
   /**
    * Project config used by the bundler adapter.
    *

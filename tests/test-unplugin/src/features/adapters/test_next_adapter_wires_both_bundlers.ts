@@ -19,13 +19,13 @@ import { loadersOf } from "../internal/adapter-next/loadersOf";
  * webpack plugin presence; actual webpack option delivery belongs to the host
  * experiment.
  *
- * 1. Wrap an empty config with a `project` option.
+ * 1. Wrap an empty config with project and explicit precompile options.
  * 2. Assert every automatic Turbopack glob routes through the ttsc loader with
  *    those exact options.
  * 3. Assert the webpack hook still injects one plugin.
  *
  * @evidence contracts/testing.md#behavioral-verification
- *   Calls authored next with a project option, asserting each automatic source glob uses the ttsc loader with unchanged options and the webpack hook injects exactly one plugin.
+ *   Calls authored next with project and precompile options, asserting each automatic source glob uses the ttsc loader with unchanged options and the webpack hook injects exactly one plugin.
  * @evidence contracts/testing.md#independent-expectations
  *   Literal ts, tsx, mts and cts rules and the caller's project path establish Turbopack expectations independently. The webpack count checks additive registration; it cannot distinguish incorrect webpack option forwarding without executing that plugin's host hook.
  * @evidence contracts/testing.md#distinguishing-cases
@@ -35,7 +35,10 @@ import { loadersOf } from "../internal/adapter-next/loadersOf";
  */
 export async function test_next_adapter_wires_both_bundlers(): Promise<void> {
   const next = await loadNext();
-  const options = { project: "tsconfig.build.json" };
+  const options = {
+    project: "tsconfig.build.json",
+    precompile: ["src/main.ts", "../shared/src/index.ts"],
+  };
   const config = next({}, options);
 
   const rules = config.turbopack?.rules ?? {};

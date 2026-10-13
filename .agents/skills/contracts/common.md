@@ -18,8 +18,8 @@ State how the organization exposes that responsibility and why any non-obvious l
 
 Do not:
 
-- special-case consumers, fixtures, expected answers, or measurements;
-- replace foreign methods, globals, or internals;
+- hardcode or otherwise special-case consumers, fixtures, expected answers, or measurements;
+- monkey-patch or otherwise replace foreign methods, globals, or internals;
 - add production behavior only to pass a test;
 - keep a disproven assumption under wrappers, retries, or exceptions.
 

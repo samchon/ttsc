@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+import { WatchSettleReceipt } from "../../../../../utils/src/WatchSettleReceipt";
 import { EvidenceProcessOwnership } from "../../../../../utils/src/evidence/EvidenceProcessOwnership";
 import type { IRunResult } from "../../../../../utils/src/evidence/IRunResult";
 import { pluginCacheDirectory } from "../../../../../utils/src/evidence/pluginCacheDirectory";
@@ -43,6 +44,11 @@ const REBUILD_TIMEOUT: number = 120_000;
  * properties, and a rebuild that discards the Program satisfies every freshness
  * case in this suite while being the regression that makes watch mode useless.
  *
+ * Settling asks the launcher to finish its decided, queued and running work.
+ * Its nonce-bound IPC reply carries the cumulative build count because IPC can
+ * arrive before stdout; every acknowledged marker is consumed before return.
+ * Finite quiet windows retain their separate negative-observation meaning.
+ *
  * Shutdown uses the launcher's inherited IPC channel. A nonce-bound stopped
  * response confirms its owning native sessions and active cycle were joined;
  * cleanup additionally requires actual launcher/stdio closure and agreement
@@ -52,8 +58,8 @@ const REBUILD_TIMEOUT: number = 120_000;
  * process state, CPU ticks, children and descriptors sampled at the request and
  * at the deadline, with the output no build consumed.
  *
- * @evidence contracts/common.md#principled-implementation Build terminators advance one transcript cursor; startup/exit failures reject observations. Shutdown requires the owning launcher's nonce-bound joined response, its last completed 0/2 marker and matching actual close status. Signal, forced, missing-response or mismatched closure permanently retains fixture inputs; Node exit alone supplies no descendant authority.
- * @evidence contracts/common.md#clear-and-simple-design One owner exposes cycle, quiet-window and shutdown operations; notification bookkeeping is local and shutdown has one memoized operation.
+ * @evidence contracts/common.md#principled-implementation Build terminators advance one transcript cursor; startup/exit failures reject observations. Idle receipts bind a nonce to the cumulative completed count, and every acknowledged stdout marker is consumed despite independent pipe arrival. Shutdown requires the owning launcher's nonce-bound joined response, its last completed 0/2 marker and matching actual close status. Signal, forced, missing-response or mismatched closure permanently retains fixture inputs; Node exit alone supplies no descendant authority.
+ * @evidence contracts/common.md#clear-and-simple-design One owner exposes cycle, idle-boundary, finite quiet-window and shutdown operations; notification bookkeeping is local and shutdown has one memoized operation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Real Node launcher/native watcher execution is preserved without foreign method replacement, fabricated cycle success or termination retries that hide a live child.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains output preservation, watch-input diagnostics, resident telemetry and why shutdown needs both the owning joined response and real launcher closure; no-completed-build responses are outside these callers' lifecycle; the unstopped-launcher report states what is sampled and that it is Linux-only.
  * @evidence contracts/portability.md#os-neutral-implementation Node spawns an executable plus argv without a shell; its real IPC channel requests graceful owning cleanup on Windows and POSIX rather than assuming signal delivery executes a JavaScript handler. Forced signals and actual close events still expose failure; fixture paths are native paths and protocol markers remain text.
@@ -96,6 +102,7 @@ export const startWatch = (
 
   let text: string = "";
   let cursor: number = 0;
+  let consumedBuilds = 0;
   let exited: boolean = false;
   let closed: boolean = false;
   let startupError: Error | undefined;
@@ -178,6 +185,7 @@ export const startWatch = (
       match[1] === "failed" ? 2 : 0,
     );
     cursor = end;
+    ++consumedBuilds;
     return result;
   };
 
@@ -220,6 +228,80 @@ export const startWatch = (
   return {
     nextBuild: (timeout: number = REBUILD_TIMEOUT): Promise<IRunResult> =>
       until(findBuild, timeout, "Expected the watcher to finish a rebuild"),
+    nextBuildStarted: async (
+      timeout: number = REBUILD_TIMEOUT,
+    ): Promise<void> => {
+      const from = cursor;
+      await until(
+        () =>
+          text.slice(from).includes("[ttsc] rebuilding at ") ? true : null,
+        timeout,
+        "Expected the watcher to start a rebuild",
+      );
+    },
+    settle: async (
+      timeout: number = REBUILD_TIMEOUT,
+      onBuild?: (build: IRunResult) => void,
+    ): Promise<readonly IRunResult[]> => {
+      const receipt = new WatchSettleReceipt();
+      let failure: Error | undefined;
+      const onMessage = (value: unknown): void => {
+        try {
+          if (!receipt.accept(value)) return;
+        } catch (error) {
+          failure = error instanceof Error ? error : new Error(String(error));
+        }
+        notify();
+      };
+      const request = (): void => {
+        if (!child.connected)
+          throw new Error("The watcher has no settle channel.");
+        child.send(receipt.request(consumedBuilds), (error) => {
+          if (error) {
+            failure = error;
+            notify();
+          }
+        });
+      };
+      child.on("message", onMessage);
+      try {
+        request();
+        const trailing: IRunResult[] = [];
+        let idle = false;
+        while (!idle) {
+          const before = consumedBuilds;
+          // Preserve the existing per-build allowance. Only an actual completed
+          // cycle starts another allowance; IPC traffic and polling do not.
+          idle = await until(
+            () => {
+              if (failure !== undefined) throw failure;
+              const state = receipt.observe({
+                next: findBuild,
+                consume: (build) => {
+                  trailing.push(build);
+                  onBuild?.(build);
+                },
+                consumed: () => consumedBuilds,
+                started: () =>
+                  text.slice(cursor).includes("[ttsc] rebuilding at "),
+              });
+              // Stdout can also overtake an older IPC receipt. A newer completed
+              // cycle requires its own idle boundary, rather than an older count.
+              if (state === "renew") request();
+              if (state === "idle") return true;
+              return consumedBuilds > before ? false : null;
+            },
+            timeout,
+            "Expected the watcher to acknowledge idle work",
+          );
+        }
+        // The IPC receipt can overtake stdout. Consume every acknowledged
+        // marker before the next mutation, preserving markers and statuses.
+        return trailing;
+      } finally {
+        child.removeListener("message", onMessage);
+      }
+    },
     expectNoBuild: async (milliseconds: number): Promise<IRunResult> => {
       EvidenceProcessOwnership.assertAvailable(directory);
       const from: number = cursor;

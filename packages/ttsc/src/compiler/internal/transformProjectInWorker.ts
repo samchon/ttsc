@@ -3,6 +3,7 @@ import path from "node:path";
 import { Worker } from "node:worker_threads";
 
 import { CompilerContextSnapshot } from "../../internal/CompilerContextSnapshot";
+import { workerModuleUrl } from "../../internal/workerModuleUrl";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { TransformProjectWorkerReply } from "./TransformProjectWorkerReply";
 import type { TransformProjectWorkerRequest } from "./TransformProjectWorkerRequest";
@@ -50,7 +51,7 @@ import type { transformProjectInMemory } from "./transformProjectInMemory";
  * @evidence contracts/common.md#clear-and-simple-design The public operation owns checkout, exclusive event listeners and return to the idle pool; two private helpers isolate idle-worker retirement from active request settlement.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Blocking work runs in a supported worker boundary rather than rewriting the caller's environment around synchronous work; failures preserve real exceptions and do not substitute measured or expected results.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why all transform phases move off-thread, environment isolation, warm reuse and retained-population limits following the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Worker entry is a native path and the environment snapshot uses native name identity; Windows worker copies are case-sensitive, so canonical merging prevents aliases from defeating caller overrides inside the worker.
+ * @evidence contracts/portability.md#os-neutral-implementation A supported module URL requires the native CommonJS source or emitted worker entry while Node retains inherited execution options and preload hooks. The environment snapshot uses native name identity; Windows worker copies are case-sensitive, so canonical merging prevents aliases from defeating caller overrides inside the worker.
  * @evidence contracts/performance.md#efficient-algorithms Pool checkout removes one entry and listeners; environment merge and plugin JSON serialization visit caller data before structured cloning, whose cost includes context, serialized payload and environment bytes. Caller JSON conversion can add arbitrary work. Idle-worker retirement searches/compacts at most the pool budget; worker startup and native transform costs remain delegated, and output cloning is transport work rather than a second transform.
  * @evidence contracts/performance.md#reuse-equivalent-work An exclusively checked-out warm worker reuses the loader's input-validated caches; each request adopts its complete current environment and still executes the transform, so thread reuse is not an unsupported response cache.
  * @evidence contracts/performance.md#bound-retention-and-release-resources At most the module-initialization CPU budget remains in the idle pool with event-loop references removed. Excess/failed workers receive unawaited termination requests; retiring native threads are not covered by the reusable-entry count. Terminal settlement removes active listeners, while pooled module caches retain their owning data policy. Active requests and live transforms have no concurrency cap or implicit deadline.
@@ -65,7 +66,14 @@ export function transformProjectInWorker(
   };
   const worker =
     takeIdleWorker() ??
-    new Worker(path.join(__dirname, "transformProjectWorker.js"));
+    new Worker(
+      workerModuleUrl(
+        path.join(
+          __dirname,
+          `transformProjectWorker${path.extname(__filename)}`,
+        ),
+      ),
+    );
   worker.ref();
   return new Promise((resolve, reject) => {
     let settled = false;

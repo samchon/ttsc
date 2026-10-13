@@ -19,6 +19,7 @@ import type {
 } from "../batch/viteBuildCorpus";
 import { viteServeCorpus } from "../batch/viteServeCorpus";
 import { test_vite_compiler_watch_tracks_subscription_and_alias_boundaries } from "./unplugin/native-plugins/adapters/test_vite_compiler_watch_tracks_subscription_and_alias_boundaries";
+import { case_vite_optimizer_discovers_transform_imports } from "./unplugin/scenes/case_vite_optimizer_discovers_transform_imports";
 import { test_watch_broker_hears_what_follows_ready } from "./unplugin/transform/test_watch_broker_hears_what_follows_ready";
 
 /**
@@ -112,6 +113,12 @@ export async function test_e2e_vite_batch(): Promise<void> {
   } catch (error) {
     combinedFailures.push(error);
   }
+  for (const host of ["vite", "vite8"] as const)
+    try {
+      await case_vite_optimizer_discovers_transform_imports(undefined, host);
+    } catch (error) {
+      combinedFailures.push(error);
+    }
   if (combinedFailures.length === 1) throw combinedFailures[0];
   if (combinedFailures.length > 1)
     throw new AggregateError(

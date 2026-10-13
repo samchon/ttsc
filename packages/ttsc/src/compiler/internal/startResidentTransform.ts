@@ -62,7 +62,10 @@ export function startResidentTransform(
     tsconfig: context.tsconfig,
   });
   const loaded = loadProjectPlugins({
-    binary: resolveBinary(context) ?? "",
+    binary:
+      resolveBinary({
+        env: SidecarEnvironment.merge(process.env, context.env),
+      }) ?? "",
     cacheDir:
       context.cacheDir ??
       SidecarEnvironment.read(context.env, "TTSC_CACHE_DIR"),
@@ -85,7 +88,11 @@ export function startResidentTransform(
   assertSharedHostCompatibility(transformers, "source-to-source");
 
   const host = selectSharedHostPlugin(transformers);
-  const tsgoBinary = resolveTsgo({ ...context, cwd: project.root }).binary;
+  const tsgoBinary = resolveTsgo({
+    ...context,
+    cwd: project.root,
+    env: SidecarEnvironment.merge(process.env, context.env),
+  }).binary;
   const resident = new ResidentTransformProcess({
     args: [
       "serve",

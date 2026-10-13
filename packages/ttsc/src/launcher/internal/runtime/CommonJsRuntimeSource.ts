@@ -71,16 +71,20 @@ export namespace CommonJsRuntimeSource {
   }
 
   /**
-   * Construct an owned require with local TypeScript extension advertisements.
+   * Construct an owned require sharing the original live extension registry.
    *
-   * @evidence contracts/common.md#principled-implementation createRequire loads through Node's shared CommonJS cache; copied public properties preserve cache/main access, while a copied registry advertises the already-supported source extensions without changing their actual loader.
+   * Node's loader and every native require share this registration object.
+   * Copying it hides later registrations, replacements and deletions from one
+   * side; source-extension advertisement belongs to runtime installation.
+   *
+   * @evidence contracts/common.md#principled-implementation createRequire loads through Node's shared CommonJS cache; copied public properties preserve cache/main access, and the original registry reference preserves the public extension-registration contract across later edits. Missing original metadata falls back to the native registry.
    * @evidence contracts/common.md#clear-and-simple-design The callable and resolve member share one filename anchor; source recovery remains in the configured policy.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Extension entries belong to this new function, not Module._extensions or a foreign require; no private loader slot is assigned.
-   * @evidence contracts/common.md#meaningful-documentation Native prose identifies ownership and distinguishes advertisements from actual loading.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Construction assigns only the owned function's properties, adds no extension capability and replaces no foreign handler or private loader slot. Runtime installation separately advertises its supported CommonJS source extensions.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains why live registry identity is required and assigns advertisement to the installation owner.
    * @evidence contracts/portability.md#os-neutral-implementation The public createRequire API takes the native filename; no OS-name or path-string case heuristic is introduced.
-   * @evidence contracts/performance.md#efficient-algorithms Construction copies public require properties and E extension entries, including their property observations, and creates a native filename-anchored require. Calls delegate native resolution, module evaluation/cache work or the configured resolver; their cost is not bounded by construction or extension count.
+   * @evidence contracts/performance.md#efficient-algorithms Construction copies P public require properties and creates a native filename-anchored require without traversing or allocating another extension registry. Calls delegate native resolution, module evaluation/cache work or the configured resolver; their cost is not bounded by property count.
    * @evidence contracts/performance.md#reuse-equivalent-work Callable loading delegates to Node's CommonJS cache; the configured resolve policy remains a distinct per-call operation, not a cached result of constructing the function.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The evaluated module owns the returned function, captured filename/native require and copied extension registry. Captured cache/main references share Node or original-require state rather than copying all cached modules; the factory adds no historical module collection or native handle.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The evaluated module owns the returned function and captured filename/native require. Cache, main and extension-registry references share Node or original-require state; the factory adds no registry copy, historical module collection or native handle.
    */
   export function create(
     original: NodeJS.Require,
@@ -107,9 +111,7 @@ export namespace CommonJsRuntimeSource {
       )) as NodeJS.RequireResolve;
     owned.resolve.paths = native.resolve.paths;
     owned.cache = original.cache ?? native.cache;
-    owned.extensions = { ...(original.extensions ?? native.extensions) };
-    for (const extension of [".ts", ".tsx", ".cts", ".mts"])
-      owned.extensions[extension] = owned.extensions[".js"]!;
+    owned.extensions = original.extensions ?? native.extensions;
     return owned;
   }
 

@@ -110,7 +110,7 @@ export class TtscCompiler {
     const execution = this.resolveProjectExecution();
     const context = this.compilerContext();
     const loaded = loadProjectPlugins({
-      binary: resolveBinary(context) ?? "",
+      binary: resolveBinary({ env: this.resolveEffectiveEnv() }) ?? "",
       cacheDir: this.resolvePluginCacheDir(),
       cwd: execution.cwd,
       entries: context.plugins,

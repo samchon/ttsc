@@ -76,8 +76,8 @@ export interface ITtscPluginFactoryContext<T = ITtscProjectPluginConfig> {
   plugin: T;
 
   /**
-   * Caller-declared anchor for plugin config-file discovery and relative
-   * `configFile` resolution.
+   * Caller-declared consumer directory for plugin package discovery, factory
+   * contexts and relative `configFile` resolution.
    *
    * Absent for ordinary invocations, where a factory anchors config discovery
    * at the {@link ITtscPluginFactoryContext.tsconfig} directory. Present when
@@ -91,13 +91,14 @@ export interface ITtscPluginFactoryContext<T = ITtscProjectPluginConfig> {
   pluginConfigDir?: string;
 
   /**
-   * Project root used as the native plugin working directory and package
-   * discovery base.
+   * Consumer directory used for plugin package discovery.
    *
-   * By default this is the directory containing the resolved tsconfig/jsconfig.
-   * Callers may override it when a wrapper config lives outside the project.
-   * Relative `source` paths returned by a plugin descriptor resolve from this
-   * directory.
+   * This is pluginConfigDir when supplied, otherwise the directory containing
+   * the resolved tsconfig/jsconfig. A compiler projectRoot override can widen
+   * source membership without changing this package-resolution anchor.
+   * Descriptor process cwd, native plugin cwd and returned relative source
+   * paths retain the compiler's source root; return absolute source paths when
+   * those directories differ.
    */
   projectRoot: string;
 
