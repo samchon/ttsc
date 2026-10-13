@@ -11,7 +11,6 @@ Each `packages/ttsc/shim/<name>` is a Go module re-exporting typescript-go's `in
 
 1. Find the symbol under `$(go env GOMODCACHE)/github.com/microsoft/typescript-go@<version>/internal/<pkg>/`.
 2. If the generator derives it, run `go run '-modfile=tools/gen_shims/go.mod' ./tools/gen_shims/main.go` in `packages/ttsc`; generated `shim.go` files are never edited. Otherwise add it to a file marked `// gen_shims:hand-maintained`, or to the directory's `extra-shim.json`, using a bodiless `//go:linkname` declaration with `import _ "unsafe"` for an unexported symbol.
-3. Build the shim and `packages/ttsc`.
 
 ## Bumping typescript-go
 

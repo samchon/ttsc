@@ -27,8 +27,6 @@ Before editing, group every known symptom by cause, then trace each cause, and y
 | TypeScript unit | `tests/test-*/src/features/test_<name>.ts` exporting `test_<name>`, calling the source directly. |
 | E2E | One experiment per package in `tests/test-e2e/src/features/test_e2e_<package>.ts`, with static inputs in `tests/test-e2e/fixtures/<package>/<scenario>/`. |
 
-- A unit needs no installed consumer, native build, or real host; anything that needs one is E2E. Keep E2E to the connection units cannot reach, and share one preparation among cases with equivalent inputs.
-- Delete assertions about repository shape, such as export lists, versions, or file and workflow contents, instead of moving them.
 - Observe through the product's seams or its own output; never replace `fs` functions or `process.env` in a test.
 - Open each case with a `Verifies` headline, a short reason, and two to four numbered steps. Reuse `tests/utils` and the suite's own `internal/`, never another suite's.
 

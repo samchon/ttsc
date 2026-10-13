@@ -8,7 +8,6 @@ description: Runs ttsc's Overall Self-Review of a complete change, which any unq
 ## Review Law
 
 - Read the whole declared surface in the current checkout, without splitting it by file, package, or concern, and follow it into consumers, tests, generated output, CI, and platforms.
-- Reproduce a finding before accepting it.
 - Collect a round's findings, fix them together, then run a fresh complete round. Stop only after a complete round finds nothing.
 - For maintained code, check that each acknowledgment is true of its declaration under [contracts](../contracts/SKILL.md). A passing test or renamed wrapper does not prove a cause was fixed.
 
