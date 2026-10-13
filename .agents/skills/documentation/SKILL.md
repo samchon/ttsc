@@ -12,7 +12,7 @@ Good writing is the same for every reader: deliver the core point concisely and 
 - Write only what the reader needs and would not otherwise know. Cut padding, repetition, preamble, filler, and closing summaries; completeness means covering what the reader needs, never longer phrasing.
 - One point, one sentence, one place. Give the reason when it is not obvious.
 - Say what to do rather than what to avoid; when a prohibition is needed, name the concrete pattern.
-- Plain English with one term per concept, and no emphasis capitals, em-dashes, emoji in prose, promotional adjectives, stock AI phrasing, hedging, dates, or history.
+- Plain English with one term per concept, and no emphasis capitals, em-dashes, emoji in prose, promotional adjectives, stock AI phrasing, or hedging.
 
 ## Paragraphs And Lists
 
@@ -24,7 +24,7 @@ Use a list for parallel items, for steps whose order changes the result, and for
 
 `AGENTS.md`, `CLAUDE.md`, and skills are read by an agent running Claude Opus 5.5. Follow Anthropic's [Prompting Claude Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5), the [Prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices) it defers to, and the [Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices), never guidance written for an earlier model.
 
-- Claude already knows general engineering, so keep only facts the code does not show, rules the user set, and mistakes an agent made.
+- What an agent would not otherwise know is facts the code does not show, rules the user set, and mistakes an agent made; Claude already knows general engineering. Leave dates and history to git.
 - Never ask for reasoning in the output; effort, not the prompt, sets how much the model thinks.
 - Give exact commands only where one sequence is safe, and one default instead of a menu.
 - Give a long task its completion condition, and name the early stops to avoid and the stops that are wanted.
@@ -38,4 +38,4 @@ These are read by a person using or extending ttsc.
 
 - A README is for the package's user: what it is, when to use it, installation, the smallest working setup, and a link to its guide. Leave internals, protocols, and edge cases to the guide.
 - A guide under `website/src/content/docs/` serves one reader (consumer, package user, bundler user, runtime user, plugin author, or maintainer) and one task, with the options, examples, and troubleshooting that task needs. Package folders hold package use, `development/` holds plugin authoring, and top-level pages hold cross-cutting tasks. Update the folder's `_meta.ts` when adding, renaming, or moving a guide.
-- Take every code example from code that runs, and update the guide in the same change as the behavior it describes.
+- Take every code example from code that runs.

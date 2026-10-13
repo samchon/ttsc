@@ -5,11 +5,14 @@
 ## Attitude
 
 - Do the literal request. Widen or reinterpret it only when the user hands that over, and do not edit code the change does not need.
-- The user's instruction outranks a skill. Reply in the user's language.
+- The user's instruction outranks a skill. When the user asks a question, answer it directly before continuing any work.
+- Reply in the user's language. Write code, comments, commits, issues, and pull requests in English.
 - Treat a reported defect or review claim as a hypothesis until code, tests, and history confirm it.
 - Fix the cause and every case it produces. No shortcut, workaround, or special case, however hard the real fix.
 - Let a test run, CI run, or review round finish, then fix all of its findings together by cause. Fixing the first failure and rerunning is the pattern to avoid.
 - Decide ambiguous details yourself and say what you chose; ask only when readings lead to materially different work.
+- Do the work yourself; use subagents only when the user asks for them.
+- Delete every scratch file you create once it has served.
 - Never alter TypeScript-Go itself, whether source, binary, cache, or a patched vendor. Use only APIs of an unmodified upstream version, and record a needed upstream fix with its owner instead of emulating it.
 
 ## Finishing Work
@@ -22,7 +25,7 @@ Stop only when nothing can move without the user, a protected target blocks you,
 
 Read a skill when its trigger applies, and the documentation skill before changing this file or any skill.
 
-- [project](.agents/skills/project/SKILL.md): package ownership and the product, graph, and evidence contracts. Read when a task crosses packages or touches `packages/graph` or `@ttsc/evidence` semantics.
+- [project](.agents/skills/project/SKILL.md): package ownership, and the rules for changing `@ttsc/graph` and `@ttsc/evidence`. Read when a task crosses packages or touches either package's semantics.
 - [contracts](.agents/skills/contracts/SKILL.md): the `@evidence` checklists every maintained declaration and test answers. Read when writing or reviewing maintained source or tests.
 - [development](.agents/skills/development/SKILL.md): repair, tests, validation, and CI. Read before changing code, tests, fixtures, or workflows.
 - [typescript-go-sync](.agents/skills/typescript-go-sync/SKILL.md): the `packages/ttsc/shim` bridge. Read before touching the shim or bumping typescript-go.

@@ -5,7 +5,7 @@ description: Runs ttsc's issue campaign, repeating full discovery rounds until o
 
 # Issue Campaign
 
-A cycle audits the target branch until a discovery round finds nothing new, then lands every accepted issue in one pull request whose merge starts the next cycle. Stay within the phases the user authorized; an audit-only request publishes and pushes nothing. One agent runs the campaign.
+A cycle audits the target branch until a discovery round finds nothing new, then lands every accepted issue in one pull request whose merge starts the next cycle. Stay within the phases the user authorized; an audit-only request publishes and pushes nothing. Discover and fix only within the campaign's named topic, and say so at once if the work must reach beyond it.
 
 ## Discovery
 

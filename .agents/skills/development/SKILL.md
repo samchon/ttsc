@@ -27,11 +27,12 @@ Before editing, group every known symptom by cause, then trace each cause, and y
 
 - A unit needs no installed consumer, native build, or real host; anything that needs one is E2E. Keep E2E to the connection units cannot reach, and share one preparation among cases with equivalent inputs.
 - Delete assertions about repository shape, such as export lists, versions, or file and workflow contents, instead of moving them.
+- Observe through the product's seams or its own output; never replace `fs` functions or `process.env` in a test.
 - Open each case with a `Verifies` headline, a short reason, and two to four numbered steps. Reuse `tests/utils` and the suite's own `internal/`, never another suite's.
 
 ## Validation And CI
 
-- Before finishing, prove the change with the narrowest test that fails without it, and broaden only when shared behavior or packaging changed.
+- Before finishing, prove the change with the narrowest test that fails without it. Run the affected tests locally, then let CI run the full suites; never block a push on a full local run or install a toolchain for one.
 - `pnpm test` skips the units when Go fails, so run `pnpm test:units` as well. `pnpm test:e2e` needs `pnpm build` first.
 - Workflows call root commands. Keep test selection there, keep every failing verdict when continuing past a failure, and never meet the ten-minute job target by dropping cases or splitting jobs.
 - Run `pnpm format` once, at a pull request's final preparation for merge; fix any later defect without rerunning it.

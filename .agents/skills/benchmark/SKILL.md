@@ -8,7 +8,7 @@ description: Runs, supervises, changes, and publishes ttsc's performance, graph,
 | Work | Read |
 | --- | --- |
 | Performance harness and its fixture branches | [performance.md](performance.md) |
-| Graph harness, prompts, comparators, and traces | [graph.md](graph.md) |
+| Graph harness, prompts, comparators, traces, and measuring a graph change | [graph.md](graph.md) |
 | Evidence campaign: launch, supervision, dashboard | [evidence/campaign.md](evidence/campaign.md) |
 | Evidence: whether a cell's edit is allowed, and warning a cell | [evidence/integrity.md](evidence/integrity.md) |
 | Evidence: a Plain cell's Review boundary | [evidence/review.md](evidence/review.md) |

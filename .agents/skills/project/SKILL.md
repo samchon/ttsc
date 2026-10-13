@@ -1,6 +1,6 @@
 ---
 name: project
-description: Maps which ttsc package owns a behavior, with the product, @ttsc/graph, and @ttsc/evidence contracts. Use when a task crosses packages, and before changing packages/graph, graph benchmark prompts, or @ttsc/evidence rule semantics, tags, configuration, or diagnostics.
+description: Maps which ttsc package owns a behavior, with the rules for changing @ttsc/graph and @ttsc/evidence. Use when a task crosses packages or needs the owner of a behavior, and before changing packages/graph or @ttsc/evidence semantics.
 ---
 
 # Project
@@ -19,4 +19,7 @@ ttsc is general-purpose; typia and nestia are compatibility fixtures, not the pr
 | `tests/` | Unit suites, the single `tests/test-e2e`, shared `tests/utils`, and workspace plugin fixtures that `pnpm build` builds. |
 | `benchmarks/*`, `website` | One package per benchmark; the docs site for https://ttsc.dev. |
 
-Before changing `packages/graph`, its MCP instruction or schema, or graph benchmark prompts, read [graph.md](graph.md). Before changing `@ttsc/evidence` semantics, read [evidence.md](evidence.md).
+## Graph And Evidence
+
+- `@ttsc/graph`: [its README](../../../packages/graph/README.md) explains the design. Keep the MCP instruction's first 512 characters saying what the tool is, when to use it, and why its facts hold, and measure every graph change through the benchmark skill.
+- `@ttsc/evidence`: the [Evidence Tags](../../../website/src/content/docs/evidence/tags.mdx) and [Configuration](../../../website/src/content/docs/evidence/claims.mdx) guides own its semantics, and the behavior-named tests in `packages/evidence/native` fix its invariants; a semantic change updates both. Never make a graph pass by excluding, retargeting, or deleting an author's citation, and never add a rule that judges whether a reason is sincere.

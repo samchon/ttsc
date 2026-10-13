@@ -1,6 +1,6 @@
 # Operator Boundary
 
-What you, the operator, may change. A cell's limits are in [integrity.md](integrity.md).
+What you, the operator, may and may not change. A cell's limits are in [integrity.md](integrity.md).
 
 Never change, whatever you find:
 

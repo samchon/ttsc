@@ -1,6 +1,6 @@
 # Recovery
 
-Diagnose before acting, and preserve every run. Warn and resume when possible, derive only for an instruction defect after `backend-start`, and restart only when recovery is impossible.
+Diagnose before acting, and preserve every run. Warn and resume when possible, derive a run from the `backend-start` checkpoint only for an instruction defect after it, and restart only when recovery is impossible. [benchmarks/evidence/README.md](../../../../benchmarks/evidence/README.md) gives the resume and derive commands.
 
 | Observed | Do |
 | --- | --- |
@@ -15,27 +15,8 @@ Diagnose before acting, and preserve every run. Warn and resume when possible, d
 | Repository defect | Fix it where [boundary.md](boundary.md) allows. |
 | Anything else | Note it in the pull request and change nothing. |
 
-## Diagnose
-
 - Find the failing instruction, process result, and session in `state.json`, `events.jsonl`, and the stage logs. `state.json` is the runner's last write, not current truth; trust log growth first.
-- Copy `state.json` aside before resuming, since a resume overwrites it, and read the launcher's output after resuming, where a refused launch is reported.
-
-## Resume
-
-```bash
-pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> <model> <effort> <run-id>
-```
-
-Use the cell's own model and effort. The runner refuses a changed identity; a runner fix needs a clean commit descending from the cell's `benchmarkRevision`. `checkpointed` runs cannot resume. If a resume fails, diagnose that failure and recover from the last checkpoint.
-
-## Derive
-
-For an instruction defect after `backend-start`, keep the source run and derive a new one from its checkpoint; never edit the checkpoint, and report inherited and new measurements together:
-
-```bash
-pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> <model> <effort> --from-backend-start <source-run-id>
-```
-
-## Cancel
-
-Stop the watchers, then every benchmark and native process, and confirm none remains. Keep every run directory and report each cell as incomplete.
+- Copy `state.json` aside before resuming, since a resume overwrites it, and read the launcher's output afterwards, where a refused launch is reported.
+- Resume with the cell's own model and effort. A runner fix needs a clean commit descending from the cell's `benchmarkRevision`. If a resume fails, diagnose that failure and recover from the last checkpoint.
+- Never edit a checkpoint or its source run, and report a derived run's inherited and new measurements together.
+- To cancel, stop the watchers, then every benchmark and native process, and confirm none remains. Keep every run directory and report each cell as incomplete.
