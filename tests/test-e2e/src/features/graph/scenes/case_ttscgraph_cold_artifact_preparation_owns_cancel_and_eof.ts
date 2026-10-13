@@ -6,6 +6,7 @@ import path from "node:path";
 
 import { ColdGraphActorLifecycle } from "../../../../../utils/src/ColdGraphActorLifecycle";
 import { preserveColdRowDiagnostics } from "../../../../../utils/src/preserveColdRowDiagnostics";
+import { WindowsColdFileIo } from "../../../../../utils/src/WindowsColdFileIo";
 import { BatchWorkspace } from "../../../batch/BatchWorkspace";
 import {
   ColdArtifactObservation,
@@ -23,6 +24,9 @@ import {
  * The ordinary graph batch owns successful cold publication, warm reuse and
  * document freshness. These two additional lifetimes must start without a
  * published source profile; both retain the batch's real publisher and SDK.
+ * Optional Windows CI recording adds two bounded native observation sessions
+ * around the public cancellation row. A recorder failure is retained while the
+ * original assertions continue; its raw events confer no input-release right.
  *
  * 1. Observe an actual cold Go build, require tools/list while it runs, then EOF.
  * 2. Abort another actual cold public session, observe its original producer
@@ -417,11 +421,39 @@ export async function observeColdPublicSessionCancellation(
   let observerJoined = false;
   let releaseConfirmed = true;
   let retiredWork: string[] | undefined;
+  let fileIo: WindowsColdFileIo.Owner | undefined;
+  let fileIoStopped = false;
+  const stopFileIo = async (): Promise<void> => {
+    if (fileIoStopped || fileIo === undefined) return;
+    fileIoStopped = true;
+    try { await fileIo.stop(); } catch (error) { failures.push(error); }
+  };
   try {
     await observed.ready();
     await progress.wait("ready");
+    try {
+      const recording = await WindowsColdFileIo.open({
+        enabled: process.platform === "win32" && process.env.TTSC_E2E_GRAPH_FILEIO === "1",
+        traceRoot: row.diagnosticRoot ?? "",
+        runnerTemp: process.env.RUNNER_TEMP ?? "",
+        fixture: path.resolve(import.meta.dirname, "../../../../fixtures/graph/windows-fileio-observer.ps1"),
+      });
+      fileIo = recording.owner;
+      // JavaScript may reject with undefined. Presence, rather than payload
+      // truthiness, preserves that refusal in the original verdict ledger.
+      if ("failure" in recording) failures.push(recording.failure);
+    } catch (error) { failures.push(error); }
+    // Optional diagnostics must not skip the original operation after a start
+    // refusal. No source command can begin before this explicit IPC admission.
     await ColdGraphActorLifecycle.send(child, "start");
     const first = await observed.build(row.trace, row.cache, row.goTmp);
+    try {
+      fileIo?.bind({
+        token: first.guards[0]!.record.taskToken,
+        scratch: first.scratch,
+        processes: [first.process, first.targetOwner, first.owner].map(({ pid, identity }) => ({ pid, identity })),
+      });
+    } catch (error) { failures.push(error); }
     releaseConfirmed = false;
     await ColdGraphActorLifecycle.send(child, "abort");
     await observed.absent(first);
@@ -442,6 +474,9 @@ export async function observeColdPublicSessionCancellation(
     // New preparation runs behind the canceled refresh in the public queue.
     // Native absence alone does not acknowledge the old SDK input lease.
     await observed.retired(first);
+    // Native absence alone does not end the original SDK resource scope. This
+    // serial recovery fence does, and bounds the recorder before warm work.
+    await stopFileIo();
     releaseConfirmed = true;
     await progress.wait("cancelled");
     await progress.wait("recovered");
@@ -499,6 +534,7 @@ export async function observeColdPublicSessionCancellation(
     } finally {
       observerJoined = observed.isJoined;
     }
+    await stopFileIo();
     if (retiredWork !== undefined) {
       try {
         assert.deepEqual(

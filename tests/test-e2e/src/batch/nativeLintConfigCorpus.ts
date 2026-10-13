@@ -1,6 +1,7 @@
 import { TestLint, TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 import { TtscCompiler } from "../../../../packages/ttsc/lib/index.js";
@@ -589,6 +590,12 @@ export function nativeLintConfigCorpus(
         path.join(root, "lint.config.json"),
       );
     }
+    // Select the installed descriptor explicitly so the external config keeps
+    // its own lint discovery, including cwd fallback and wrapper precedence.
+    // pluginConfigDir would replace that discovery origin as well.
+    const lintDescriptor = createRequire(path.join(root, "package.json")).resolve(
+      "@ttsc/lint",
+    );
     for (const mode of ["fallback", "selected"])
       capture("external wrapper " + mode, () => {
         const wrapper = path.join(workspace.lintWrapperRoot, mode);
@@ -600,6 +607,7 @@ export function nativeLintConfigCorpus(
         const compiler = new TtscCompiler({
           cwd: root,
           projectRoot: root,
+          plugins: [{ transform: lintDescriptor }],
           tsconfig: path.join(wrapper, "tsconfig.json"),
           cacheDir: workspace.cache,
           env: {

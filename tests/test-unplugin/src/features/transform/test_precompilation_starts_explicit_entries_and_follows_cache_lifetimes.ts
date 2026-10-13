@@ -27,10 +27,12 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#behavioral-verification Calls the real precompilation scheduler with its supported capture callback and native files. Captures record entry before an unresolved gate and settlement after it; assertions require both selected sources to enter first, exact source text, no excluded entries and new batches at actual context/reset boundaries.
  * @evidence contracts/testing.md#independent-expectations Authored paths and source strings determine eligibility and content. An independently controlled unresolved promise establishes overlap without timing thresholds; expected batch counts follow public scheduling and cache lifecycle boundaries rather than compiler output.
  * @evidence contracts/testing.md#distinguishing-cases Covers empty/absent/disabled selection, duplicate dot-segment and relative paths, declarations, JavaScript, node_modules, virtual IDs, missing files, failing captures, cwd/option/alias/epoch changes and reset. Identical relative options in two actual working directories must capture each directory's own bytes; same-cwd requests share and returning to an earlier cwd starts a fresh current batch. Native compilation proof, same-project Promise sharing and real adapter assembly belong to the precompilation E2E scenario.
- * @evidence contracts/testing.md#execution-ownership This discoverable direct-source unit exercises scheduling with an author-owned callback, creates no compiler/plugin artifact or product host, and restores the native working directory and removes its private files in finally. The scheduler owns rejection consumption; the test releases and joins every gated capture.
+ * @evidence contracts/testing.md#execution-ownership This discoverable direct-source unit exercises scheduling with an author-owned callback, creates no compiler/plugin artifact or product host, and restores the native working directory and removes its private files in finally. The existing physicalPath helper anchors the fixture to the filesystem spelling process.cwd reports after chdir, including native temporary-directory aliases. The scheduler owns rejection consumption; the test releases and joins every gated capture.
  */
 export async function test_precompilation_starts_explicit_entries_and_follows_cache_lifetimes(): Promise<void> {
-  const root = TestProject.tmpdir("ttsc-precompile-scheduling-");
+  const root = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-precompile-scheduling-"),
+  );
   const first = path.join(root, "first.ts");
   const second = path.join(root, "second.ts");
   fs.writeFileSync(first, "export const first = 1;\r\n");

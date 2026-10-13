@@ -53,28 +53,19 @@ export function runSingleFileEmit(
 /**
  * Keep synchronous and awaited single-file emission on one temporary lifetime.
  *
- * @evidence contracts/common.md#principled-implementation Both entries consume the same producing build, provenance selection and temporary-output cleanup sequence.
- * @evidence contracts/common.md#clear-and-simple-design The companion remains beside its synchronous owner without another output-selection implementation.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Completion mode changes only watch publication waiting and never infers source ownership from filenames.
- * @evidence contracts/common.md#meaningful-documentation Each entry identifies its completion mode and the shared temporary lifetime.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation The grouping has no independent native boundary beyond its emission sequence.
- * @evidenceExclude contracts/performance.md#efficient-algorithms The grouping introduces no algorithm beyond the shared sequence and runner.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The grouping retains no output cache or in-flight emission.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Each sequence owns its temporary output and releases it through the existing finally block.
+ * @evidence contracts/common.md#principled-implementation Both entries share project/root selection, producing build, response freshness, provenance lookup and temporary-output cleanup; awaited completion joins every nested publication before compilation and output selection.
+ * @evidence contracts/common.md#clear-and-simple-design One generator owns project emission, optional public output and cleanup for both completion modes; the companion adds a runner without another output-selection implementation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Pending registration cannot authorize a build, and rejected publication reaches the same temporary cleanup path. Completion mode preserves response checks and provenance instead of reconstructing source ownership from filenames.
+ * @evidence contracts/common.md#meaningful-documentation Each entry states completion mode and the shared temporary lifetime; sequence prose requires rejection delivery into its finally path, while the primary entry documents output selection and cleanup failures.
+ * @evidence contracts/portability.md#os-neutral-implementation The shared sequence retains existing native source/output identity, cwd bases and private-directory handling across suspension without another native boundary.
+ * @evidence contracts/performance.md#efficient-algorithms One project selection and full-project build serve one provenance lookup; each handoff is awaited once with no additional source or output traversal.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each sequence owns fresh compiler effects rather than an output cache or shared generation; higher-level owners decide equivalent build reuse.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One accepted private output directory spans nested handoff and build work, and the existing finally path removes it on success or failure and preserves cleanup error aggregation.
  */
 export namespace runSingleFileEmit {
   /**
    * Await watch-input registration before emitting and selecting one source's
    * JavaScript. Rejected publication follows the same temporary cleanup path.
-   *
-   * @evidence contracts/common.md#principled-implementation The asynchronous runner joins every nested build handoff before compilation and provenance selection proceed.
-   * @evidence contracts/common.md#clear-and-simple-design One runner delegates all emission and cleanup policy to the shared sequence.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts A pending baseline cannot authorize a build, and rejection cannot bypass temporary-output cleanup.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states awaited registration, output selection and failure cleanup.
-   * @evidence contracts/portability.md#os-neutral-implementation The shared sequence preserves native path identity and argument cwd across suspension.
-   * @evidence contracts/performance.md#efficient-algorithms Each handoff is awaited once and the existing whole-project build and provenance lookup run once.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This invocation owns fresh compiler effects; higher-level owners decide reusable generations.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The sequence retains one accepted temporary output directory while publication settles and removes it through finally on success or failure.
    */
   export function async(
     options: TtscSingleFileEmitOptions,
@@ -87,15 +78,6 @@ export namespace runSingleFileEmit {
    * Emit through one selected project while suspending at watch handoffs.
    * Internal completion runners must deliver rejection into this sequence so
    * its finally block retains temporary-output cleanup ownership.
-   *
-   * @evidence contracts/common.md#principled-implementation The sequence yields the producing build's real publication boundaries before selecting output through reported source provenance.
-   * @evidence contracts/common.md#clear-and-simple-design One generator owns project/root selection, private build, output publication and cleanup for both completion modes.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Suspension retains source provenance and response freshness checks without reconstructing ownership after a failed build.
-   * @evidence contracts/common.md#meaningful-documentation Native prose explains generator consumption and rejection delivery; the primary entry documents source selection and cleanup failures.
-   * @evidence contracts/portability.md#os-neutral-implementation Existing native physical source/output paths, cwd bases and private directory handling remain unchanged.
-   * @evidence contracts/performance.md#efficient-algorithms One project selection and whole-project build serve one output lookup; suspension adds no extra source or output traversal.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The sequence owns one fresh emitting invocation rather than a generation-sharing cache.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The accepted private directory spans nested publication and build work and reaches the existing cleanup/aggregation finally on every completion path.
    */
   export function* steps(
     options: TtscSingleFileEmitOptions,

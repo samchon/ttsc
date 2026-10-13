@@ -1569,6 +1569,7 @@ async function runResidentLoaderPool(): Promise<void> {
             binary: TestProject.TSGO_BINARY,
             cwd: path.join(workspace.root, "descriptors"),
             projectRoot: "..",
+            pluginConfigDir: "..",
             tsconfig: "../isolated-config/tsconfig.json",
             cacheDir: ownedCache,
             env: withSharedDefaultObjects(baselineBuildEnv),
@@ -1577,7 +1578,7 @@ async function runResidentLoaderPool(): Promise<void> {
           assert.equal(
             prepared.length,
             1,
-            "explicit project root supplies package discovery across an unrelated config package scope",
+            "explicit consumer origin supplies package discovery across an unrelated config package scope",
           );
           assert.equal(fs.existsSync(prepared[0]!), true);
           assert.equal(

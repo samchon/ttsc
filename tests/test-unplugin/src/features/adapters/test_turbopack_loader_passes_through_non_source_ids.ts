@@ -44,7 +44,7 @@ import { runTurbopackLoader } from "../internal/adapter-turbopack/runTurbopackLo
  *   extension-only or virtual-guard omissions. The companion declaration unit
  *   owns declaration/vendor exclusions; packed hosts own accepted transforms.
  *   Binding rows contrast captured methods with live rule options, explicit
- *   plugins false with omission, absent channels and exact callback errors.
+ *   plugins false with omission, explicit startup entry forwarding, absent channels and exact callback errors.
  * @evidence contracts/testing.md#execution-ownership
  *   test_turbopack_loader_passes_through_non_source_ids calls runTurbopackLoader for four JavaScript extensions and one NUL ID, owning each exact passthrough result and extension failure label; no native transform producer runs.
  */
@@ -83,6 +83,7 @@ export async function test_turbopack_loader_passes_through_non_source_ids(): Pro
   const diagnostic = new Error("authored loader diagnostic");
   const callbackFailure = new Error("authored context callback failure");
   let options: TtscTurbopackLoaderOptions = {
+    precompile: ["src/main.ts", "../shared/src/index.ts"],
     project: "./configured-tsconfig.json",
     projectRoot: "../workspace",
     plugins: false,
@@ -159,6 +160,7 @@ export async function test_turbopack_loader_passes_through_non_source_ids(): Pro
     "the entire current rule options object is returned",
   );
   assert.deepEqual(resolveOptions(bindings.readOptions()), {
+    precompile: ["src/main.ts", "../shared/src/index.ts"],
     project: "./configured-tsconfig.json",
     projectRoot: "../workspace",
     plugins: false,

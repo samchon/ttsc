@@ -10,6 +10,7 @@
     "test:go": "node config/test-go.mjs",
     "test:units": "pnpm --filter \"./tests/*\" --filter \"!@ttsc/test-e2e\" -r --no-bail --workspace-concurrency=1 start",
     "test:e2e": "pnpm --filter @ttsc/test-e2e start",
+    "test:e2e:stop-diagnostics": "node --import ./config/register-typescript-loader.mjs config/stop-e2e-diagnostics.mjs",
     "format": "pnpm run gen:flags --skip-website && prettier --write --no-error-on-unmatched-pattern \"**/*.ts\" \"**/*.md\" \"**/*.mdx\" \"!website/**\" && pnpm run format:go",
     "format:go": "bash ./.vscode/format-go.sh",
     "gen:flags": "node --experimental-strip-types --import ./config/register-typescript-loader.mjs packages/ttsc/scripts/gen-flags.mts",

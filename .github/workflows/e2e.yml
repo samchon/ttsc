@@ -107,6 +107,13 @@ jobs:
       - run: pnpm test:e2e
         env:
           TTSC_E2E_TRACE: ${{ steps.e2e-trace.outputs.root }}
+          TTSC_E2E_GRAPH_FILEIO: ${{ runner.os == 'Windows' && '1' || '' }}
+      - name: Stop owned Windows diagnostic sessions
+        if: ${{ always() && runner.os == 'Windows' && steps.e2e-trace.outcome == 'success' }}
+        run: pnpm test:e2e:stop-diagnostics
+        env:
+          TTSC_E2E_TRACE: ${{ steps.e2e-trace.outputs.root }}
+          TTSC_E2E_GRAPH_FILEIO: '1'
       - name: Preserve E2E diagnostic observations
         if: ${{ always() && steps.e2e-trace.outcome == 'success' }}
         uses: actions/upload-artifact@v7

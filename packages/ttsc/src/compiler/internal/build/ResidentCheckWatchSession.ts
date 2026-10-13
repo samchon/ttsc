@@ -34,14 +34,14 @@ import { takeResidentCheckEntryRequest } from "./takeResidentCheckEntryRequest";
  * `TTSC_WATCH_DEBUG_INPUTS` reports why selection is reset and the active
  * sidecar count being retired, and distinguishes a failed resident transport.
  *
- * @evidence contracts/common.md#principled-implementation Stable invocation selection and serialized cycles let compatible analysis-only checks retain their Program; explicit reload and observed input-topology changes reset selection before another cycle.
- * @evidence contracts/common.md#clear-and-simple-design The session owns selected execution, dependency snapshot, process identities and per-entry delivery buffers while shared BuildExecution owns one-shot phase and failure policy.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Capability-aware residency has an actual transport-failure one-shot path, not a successful-result substitution; configuration positions remain distinct even when processes share a key.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs state supported lanes, reset causes and the caller's serialization/stable-invocation premise; run and dispose document lifecycle effects.
- * @evidence contracts/portability.md#os-neutral-implementation Native filesystem checks and cache touch helpers use selected binary paths; child creation delegates native executable/argv/environment handling to ResidentCheckProcess and BuildExecution.
- * @evidence contracts/performance.md#efficient-algorithms Per-cycle command planning, key serialization and buffer unions process configured checks and pending path text; sorting/comparison bytes, native cache observations, subscribed input discovery and delegated checks add work. Snapshot comparison visits normalized strings and accumulated output can repeatedly copy earlier phase text.
- * @evidence contracts/performance.md#reuse-equivalent-work Process keys include binary/name/argv/compiler payload, while stable invocation context and reload guard the remaining startup inputs; current input snapshots and change requests determine warm Program updates.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Reset clears active maps, execution and snapshots while retiring children and join promises remain separately retained. Unknown joins remain retained rejection and prevent replacement; delegated termination is not descendant settlement. Stable options bound active process keys by configured checks, but pending unique paths and repeated disposal promise chains have no independent historical ceiling.
+ * @evidence contracts/common.md#principled-implementation Stable invocation selection and serialized cycles let compatible analysis-only checks retain their Program; explicit reload and observed input-topology changes reset selection before another cycle. Initial capture and warm refresh await the watch owner's publication before retaining topology; warm refresh compares physical dependency identity while publishing every declared-alias update.
+ * @evidence contracts/common.md#clear-and-simple-design The session owns selected execution, dependency snapshot, process identities and per-entry delivery buffers while shared BuildExecution owns one-shot phase and failure policy. Initial capture wraps the existing discovery callback, and warm refresh joins discovery, comparison and watch registration without another topology owner.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Capability-aware residency retains the actual transport-failure one-shot path and distinct configured check positions. Pending or rejected registration cannot restamp topology, and unchanged physical dependencies cannot bypass declared-alias publication.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs state supported lanes, reset causes and the caller's serialization/stable-invocation premise; private capture and refresh prose distinguish committed topology, physical comparison and declared-alias publication, while run and dispose document lifecycle effects.
+ * @evidence contracts/portability.md#os-neutral-implementation Native filesystem checks, cache touch helpers and child creation retain selected binary paths and delegated executable/argv/environment handling. BuildExecution owns native discovery and path normalization; initial capture forwards its snapshot without native operations and warm comparison preserves physical and declared representations.
+ * @evidence contracts/performance.md#efficient-algorithms Per-cycle command planning, key serialization and buffer unions process configured checks and pending path text; sorting/comparison bytes, native cache observations, subscribed input discovery and delegated checks add work. Initial capture adds one shallow options copy and one awaited callback; warm refresh adds one native discovery, linear normalized comparison and callback, avoiding reset when topology is unchanged. Accumulated output can repeatedly copy earlier phase text.
+ * @evidence contracts/performance.md#reuse-equivalent-work Process keys include binary/name/argv/compiler payload, while stable invocation context and reload guard the remaining startup inputs. Accepted snapshots serve warm topology comparison only after watch registration completes; execution reuse also requires equal physical dependency topology.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Initial capture closes over the session and caller for its build; warm handoff retains the previous and next snapshots until successful registration replaces the accepted population, while rejection preserves it. Reset clears active maps, execution and snapshots while retiring children and join promises remain separately retained. Unknown joins retain rejection and prevent replacement; delegated termination is not descendant settlement. Stable options bound active process keys by configured checks, but pending unique paths and repeated disposal chains have no independent historical ceiling.
  */
 export class ResidentCheckWatchSession {
   private execution:
@@ -305,15 +305,6 @@ export class ResidentCheckWatchSession {
   /**
    * Retain discovered project topology after its watch owner confirms the
    * publication; rejected registration leaves the previous snapshot intact.
-   *
-   * @evidence contracts/common.md#principled-implementation The forwarding handler awaits the caller's completion before updating the session's retained topology.
-   * @evidence contracts/common.md#clear-and-simple-design One wrapper joins watch registration and snapshot capture at their existing discovery boundary.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts A rejected or unfinished publication cannot become the session's accepted topology baseline.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states commit-after-publication and failed-registration behavior.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation The wrapper forwards an already-discovered snapshot without native operations.
-   * @evidence contracts/performance.md#efficient-algorithms One shallow options copy and one awaited callback replace no discovery or path traversal.
-   * @evidence contracts/performance.md#reuse-equivalent-work The accepted snapshot serves later topology comparison only after its watch owner completes registration.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The wrapper closes over the session and caller for its build; one accepted snapshot replaces the prior session-owned population.
    */
   private captureProjectInputs(options: RunBuildOptions): RunBuildOptions {
     const onProjectInputs = options.onProjectInputs;
@@ -333,15 +324,6 @@ export class ResidentCheckWatchSession {
    * Refresh normalized Program topology while always publishing declared alias
    * updates to the watcher, even when physical dependency identity is
    * unchanged. Await registration before checks reuse the selected execution.
-   *
-   * @evidence contracts/common.md#principled-implementation Fresh discovery compares physical dependency topology while every declared-alias publication is awaited before accepting the next snapshot.
-   * @evidence contracts/common.md#clear-and-simple-design One operation owns discovery, comparison and watch-owner handoff for warm cycles.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts An unchanged physical population cannot bypass registration, and rejection cannot restamp the retained snapshot.
-   * @evidence contracts/common.md#meaningful-documentation Native prose separates physical topology comparison, declared-alias refresh and completion before checks.
-   * @evidence contracts/portability.md#os-neutral-implementation Native discovery and path normalization remain with BuildExecution; comparison retains the snapshot's declared and physical representations.
-   * @evidence contracts/performance.md#efficient-algorithms One native discovery and linear snapshot comparison precede one callback; unchanged topology avoids resetting resident execution.
-   * @evidence contracts/performance.md#reuse-equivalent-work A completed publication permits existing execution reuse only when normalized dependency topology remains equal.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The previous and freshly discovered snapshots coexist during handoff; success replaces the one retained population and failure preserves the previous one.
    */
   private async refreshProjectInputTopology(
     options: RunBuildOptions,

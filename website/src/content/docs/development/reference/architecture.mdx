@@ -137,6 +137,12 @@ Published consumer installs should land on step 2. Steps 3–5 exist for develop
 
 ## Debugging Build Failures
 
+In maintained lifecycle investigations, `TTSC_E2E_TRACE` also preserves source-cleanup failures with their original task, admitted guard paths and native command receipt in the worker's failure description. Root and failed-path metadata are read after the refusal, so they describe a later observation; Windows sharing modes and handle ownership require independent native evidence. These diagnostics grant no permission to reclaim retained inputs.
+
+Windows E2E CI enables `TTSC_E2E_GRAPH_FILEIO=1` around the existing cold public cancellation case. Two native ETW sessions use the runner's current account and retain at most 60 MiB of file events and 4 MiB of process events in private runner temporary storage. The recorder starts before the original task and stops at its SDK resource-retirement fence or, on failure, after the original close attempt. Only events connected to that task's scratch and their observed native process/thread generations are published; Node's logical worker thread ID does not identify an OS thread. Unmeasured loss, circular overwrite and missing or ambiguous generations remain unknown. The workflow also stops exact manifested sessions after test interruption, publishes incomplete recording metadata and removes private raw files only after recorder closure is confirmed; retained product inputs stay with their original owner.
+
+The diagnostic fixture persists each original `StartTraceW` ID and GUID before enabling its provider. Its native property buffer reserves session-name storage before UTF-16 file-name storage, as required by `EVENT_TRACE_PROPERTIES`. `EnableTraceEx2` uses its asynchronous timeout of zero so diagnostics do not wait indefinitely for callbacks; a successful request does not certify callback completion, trace readiness or loss-free observation. `ControlTraceW` queries that original ID and compares the API's exact output filename, ID and GUID before stopping the same ID; CLI text and recycled names supply no authority. Missing, interrupted or mismatched admission receipts remain unknown. Microsoft defines the ID as valid until the session stops, without documenting a retained kernel reference, numeric reuse prevention or an atomic GUID compare-and-stop guarantee.
+
 If `go build` fails, `ttsc` prints the Go stderr:
 
 ```text

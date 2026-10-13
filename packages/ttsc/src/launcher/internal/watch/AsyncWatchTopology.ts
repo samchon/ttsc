@@ -22,14 +22,14 @@ import type { WatchTopologyWorkerProtocol } from "./WatchTopologyWorkerProtocol"
  * and completion replies share one FIFO channel, so whenIdle completes after
  * the notifications its barrier observed have reached the launcher (#1756).
  *
- * @evidence contracts/common.md#principled-implementation A dedicated supported worker executes the unchanged topology algorithm; correlated replies settle actual operations and one FIFO channel orders callbacks before their operation's completion.
- * @evidence contracts/common.md#clear-and-simple-design The facade owns transport and worker lifetime, while the synchronous core keeps filesystem policy and watcher ownership together.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Existing native case observations, compiler membership and content proofs remain authoritative; no synchronous barrier or metadata shortcut replaces them.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains off-thread cost, baseline-before-build ordering, message ordering and lifetime failures; public methods state completion and shutdown contracts.
- * @evidence contracts/portability.md#os-neutral-implementation Native joins locate the packaged worker, structured cloning preserves maps and bigint device references, and SidecarEnvironment merges native environment names before worker startup.
- * @evidence contracts/performance.md#efficient-algorithms One thread serves the topology lifetime; each operation clones its selected options or publication bytes and adds one pending-map entry, while the core retains its original filesystem/process costs.
- * @evidence contracts/performance.md#reuse-equivalent-work One worker retains the core's current registrations, listing premises and baseline state across requests; request completion is never treated as a reusable result for another filesystem generation.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The facade owns one referenced worker and an uncapped map of in-flight requests. Replies prune entries; worker failure rejects all entries. Close joins worker exit after native subscription close, and failed close terminates and joins the thread while retaining the error. Requests have no implicit deadline.
+ * @evidence contracts/common.md#principled-implementation A dedicated supported worker executes the unchanged topology algorithm on selected cloneable data while callbacks remain caller-owned; worker events and correlated replies settle actual operations, and one FIFO channel orders callbacks before completion.
+ * @evidence contracts/common.md#clear-and-simple-design The facade separates option capture, reply dispatch and worker lifetime; the synchronous core retains filesystem policy and watcher ownership.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Existing native case observations, compiler membership and content proofs remain authoritative. The explicit worker factory supplies transport without replacing globals, and the default starts the actual packaged CommonJS entry without a synchronous barrier or metadata shortcut.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains off-thread cost, baseline-before-build ordering, FIFO replies and lifetime failures; constructor prose identifies data capture, callback ownership and the optional factory.
+ * @evidence contracts/portability.md#os-neutral-implementation Native joins locate the packaged CommonJS entry, and the supported module bootstrap loads it through createRequire while retaining Node-owned inherited execution options and loader hooks. Structured cloning preserves maps and bigint device references; SidecarEnvironment merges native environment names before startup.
+ * @evidence contracts/performance.md#efficient-algorithms One thread serves the topology lifetime. Construction copies fixed option references before cloning, with costs for option/environment bytes and module initialization; each operation clones its publication bytes and adds one pending entry while the core retains native costs.
+ * @evidence contracts/performance.md#reuse-equivalent-work Construction starts a fresh worker lifetime; that worker retains current registrations, listing premises and baselines across requests, but completion grants no reuse for another filesystem generation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One referenced worker, listeners, exit promise and uncapped pending map belong to the facade; creation failure precedes ownership transfer. Replies prune entries and failure rejects all entries. Close joins worker exit after native subscription close; failed close terminates and joins the thread while retaining error. Requests have no implicit deadline.
  */
 export class AsyncWatchTopology {
   private readonly worker: Worker;
@@ -47,15 +47,6 @@ export class AsyncWatchTopology {
   /**
    * Capture data options and start the worker; callbacks remain caller-owned.
    * The optional factory observes worker transport without replacing globals.
-   *
-   * @evidence contracts/common.md#principled-implementation Only selected cloneable data enters one worker; callback functions stay on this thread and worker events own actual completion.
-   * @evidence contracts/common.md#clear-and-simple-design Construction separates option capture, reply dispatch and terminal worker ownership.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit worker factory supplies owned transport without changing globals; the native default requires the real CommonJS packaged entry.
-   * @evidence contracts/common.md#meaningful-documentation Prose identifies captured options, callback ownership and the factory's purpose.
-   * @evidence contracts/portability.md#os-neutral-implementation The supported module bootstrap uses createRequire with the native CommonJS entry path; inherited execution options and loader hooks remain Node-owned, and native environment names merge before launch.
-   * @evidence contracts/performance.md#efficient-algorithms Selection copies fixed option references before workerData cloning; startup and clone costs include option/environment bytes and worker module initialization.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction starts a new topology lifetime without borrowing another worker's state.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources One referenced worker, its listeners and an exit promise belong to this facade until close or terminal failure; creation failure propagates before ownership transfers.
    */
   public constructor(
     options: WatchTopologyWorkerProtocol.Options,

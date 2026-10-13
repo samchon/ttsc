@@ -208,28 +208,19 @@ export function loadProjectPlugins(options: {
 /**
  * Keep synchronous loading and awaited watch handoffs on one load sequence.
  *
- * @evidence contracts/common.md#principled-implementation Both completion modes advance the same ordered acquisition, publication and build operations.
- * @evidence contracts/common.md#clear-and-simple-design The namespace adds an awaited entry and exposes its producer sequence for shared build orchestration without duplicating load policy.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Completion mode changes only publication waiting and never substitutes plugin admission or native build behavior.
- * @evidence contracts/common.md#meaningful-documentation The entries distinguish synchronous completion, awaited publication and internal sequence ownership.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation The grouping has no independent filesystem or process boundary; the load sequence owns those operations.
- * @evidenceExclude contracts/performance.md#efficient-algorithms The grouping introduces no processing strategy beyond the selected load sequence and runner.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The grouping retains no completed or in-flight load.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The grouping acquires no resource; each load sequence owns its generation.
+ * @evidence contracts/common.md#principled-implementation Both completion modes advance one ordered discovery, admission, publication and build sequence. Awaited stepping preserves baseline-before-read handoffs before package selection and source builds, including empty selection and conservative repair roots.
+ * @evidence contracts/common.md#clear-and-simple-design The namespace adds an awaited runner beside synchronous loading and exposes one generator to build orchestration; existing helpers retain discovery, validation and compilation responsibilities.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Publication suspension retains failed-build interests and source proof rather than rebuilding a baseline after compilation. Pending publication cannot establish observation; rejection enters the real load failure path without replacing admission or native builds.
+ * @evidence contracts/common.md#meaningful-documentation Entry prose distinguishes completion modes, baseline-before-read ordering and internal sequence completion/rejection duties; the primary loader documents input and result provenance.
+ * @evidence contracts/portability.md#os-neutral-implementation The shared sequence retains existing native resolution, paths, environment and argument-array handling; the namespace adds no independent boundary.
+ * @evidence contracts/performance.md#efficient-algorithms Discovery, source hashing, Go metadata, validation and builds retain their original input costs; each publication adds one suspension without repeating those phases.
+ * @evidence contracts/performance.md#reuse-equivalent-work Validated descriptor/source records and load-local digest/reader sharing remain available across suspension; the completion wrapper retains no reusable load or in-flight cache.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One load generation stays live while its current handoff settles; evaluator cleanup and returned-generation ownership remain with the sequence, and handler rejection enters generator cleanup.
  */
 export namespace loadProjectPlugins {
   /**
    * Load plugins after each watch owner confirms its reported input baseline. A
    * rejected handoff fails loading before the next source read or build.
-   *
-   * @evidence contracts/common.md#principled-implementation Awaited generator stepping preserves every producer-before-read handoff, including empty selection and conservative repair roots.
-   * @evidence contracts/common.md#clear-and-simple-design One runner consumes the same steps as the synchronous entry rather than maintaining another loader.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Handoff rejection returns to the load's real exception path and cannot be treated as completed observation.
-   * @evidence contracts/common.md#meaningful-documentation Native prose identifies awaited baseline completion and failure ordering.
-   * @evidence contracts/portability.md#os-neutral-implementation Native resolution, paths and processes remain delegated to the shared load sequence.
-   * @evidence contracts/performance.md#efficient-algorithms The runner advances each publication once; discovery, validation and builds retain the shared loader's input costs.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The wrapper stores no reusable result; the shared loader owns valid descriptor/source reuse.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources One sequence remains retained while its current publication settles; load cleanup and returned-generation ownership remain with that sequence.
    */
   export function async(
     options: Parameters<typeof loadProjectPlugins>[0],
@@ -241,15 +232,6 @@ export namespace loadProjectPlugins {
    * Produce one load, suspending at each watch-input handoff before continuing.
    * Internal build orchestration consumes the whole sequence with its chosen
    * completion runner; it must deliver rejection back into the sequence.
-   *
-   * @evidence contracts/common.md#principled-implementation The original ordered loader pauses before package selection and source builds so an asynchronous watch owner retains the same baseline-before-read invariant.
-   * @evidence contracts/common.md#clear-and-simple-design One generator owns discovery, admission and compilation for both completion modes; existing helpers retain their original responsibilities.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Publication suspension preserves conservative failed-build interests and actual source proof rather than reconstructing a baseline after compilation.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states sequence consumption, completion and rejection ownership; the load entry documents inputs and result provenance.
-   * @evidence contracts/portability.md#os-neutral-implementation Existing native path, environment and argument-array boundaries remain shared across both runners.
-   * @evidence contracts/performance.md#efficient-algorithms The sequence keeps existing discovery, source hashing, Go metadata and build costs; each watch publication adds one suspension without repeating those phases.
-   * @evidence contracts/performance.md#reuse-equivalent-work Existing load-local digest/reader sharing and validated persistent descriptor/source records remain intact across suspension.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The sequence retains its current load generation while a handoff is pending; evaluator cleanup finishes inside its existing boundaries and handler rejection reaches generator cleanup.
    */
   export function* steps(
     options: Parameters<typeof loadProjectPlugins>[0],

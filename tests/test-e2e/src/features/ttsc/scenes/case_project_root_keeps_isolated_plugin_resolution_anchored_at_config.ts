@@ -1,6 +1,7 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { TtscCompiler } from "ttsc";
 
@@ -17,13 +18,13 @@ import { TtscCompiler } from "ttsc";
  * 3. Preserve the default root and explicit disable controls, then reject a
  *    missing entry with its resolution context.
  *
- * @evidence contracts/testing.md#behavioral-verification Real public TtscCompiler transforms two authored source files through an isolated package descriptor and the existing source-pipeline Go plugin. Exact transformed literals and retained neighbors distinguish successful plugin execution from unchanged source; disabled selections retain the original marker, while missing entries and unavailable compiler overrides must produce attributed exceptions. Sparse runtime overrides inherit the actual compiler, explicit undefined removes it, and an explicit binary wins over a conflicting environment value.
- * @evidence contracts/testing.md#independent-expectations The config includes the backend and sibling explicitly, native root coordinates define their literal output keys, and the existing fixture's documented uppercase prefix operation defines CONFIG:PLUGIN:done. An authored neighbor must remain unchanged. The descriptor independently resolves its own manifest from context.projectRoot and compares its owner with context.dirname; no loader helper derives an expectation.
- * @evidence contracts/testing.md#distinguishing-cases Covers omitted discovery, configured bare, explicit bare, explicit absolute, a returned relative source, a relative helper runtime at the source root, omitted source root, false and empty plugin overrides, a disabled descriptor and a missing bare package. Compiler selection distinguishes inherited, undefined, missing and explicit-binary inputs plus native Windows aliases or independent POSIX spellings. Isolated node_modules exists only under the config directory; explicit common-root successes require both backend and sibling outputs. Source units own inheritance, wrapper pluginConfigDir and discovery-input invalidation.
- * @evidence contracts/testing.md#execution-ownership The Runtime batch invokes this named scene with its prepared native source and cache. The public compiler uses actual descriptor isolation and native compiler execution; this is not a portable decision unit.
+ * @evidence contracts/testing.md#behavioral-verification Real public TtscCompiler transforms two authored source files through an isolated package descriptor and the existing source-pipeline Go plugin. Exact transformed literals and retained neighbors distinguish successful plugin execution from unchanged source; disabled selections retain the original marker, while missing entries and unavailable compiler overrides must produce attributed exceptions. Sparse runtime overrides inherit the actual compiler. One real consumer rejects an inherited missing compiler with an empty overlay, then explicit undefined removes that channel and permits the authored installed compiler fallback; an explicit binary wins over a conflicting environment value.
+ * @evidence contracts/testing.md#independent-expectations The config includes the backend and sibling explicitly, native root coordinates define their literal output keys, and the existing fixture's documented uppercase prefix operation defines CONFIG:PLUGIN:done. An authored neighbor must remain unchanged. The descriptor independently resolves its own manifest from context.projectRoot and compares its owner with context.dirname. A package link to the already prepared native TypeScript dependency makes fallback available, while the independently absent compiler path must reject until an own undefined removes it; no loader helper derives an expectation.
+ * @evidence contracts/testing.md#distinguishing-cases Covers omitted discovery, configured bare, explicit bare, explicit absolute, a returned relative source, a relative helper runtime at the source root, omitted source root, false and empty plugin overrides, a disabled descriptor and a missing bare package. Compiler selection distinguishes inherited, undefined, missing and explicit-binary inputs plus native Windows aliases or independent POSIX spellings. The isolated descriptor package is installed only under the config directory; explicit common-root successes require both backend and sibling outputs. Source units own inheritance, wrapper pluginConfigDir and discovery-input invalidation.
+ * @evidence contracts/testing.md#execution-ownership The Runtime batch invokes this named scene with its prepared native source and cache. The public compiler uses actual descriptor isolation and native compiler execution; one static Node consumer receives the invalid inherited compiler through its initial environment and exercises empty versus undefined overlays. This is not a portable decision unit.
  * @evidence contracts/e2e.md#necessary-boundary Entry discovery, descriptor createRequire self-resolution, native plugin admission and source-coordinate publication must connect through the public compiler; direct resolver assertions cannot prove a plugin actually transforms the sibling program.
- * @evidence contracts/e2e.md#shared-execution All rows share one private consumer, immutable source pair, descriptor and runtime batch native source/cache. Changed plugin-selection inputs justify separate compiler calls; no package installation or independent Go source producer is added. The default-root control changes the native source coordinate intentionally.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The private consumer owns its manifests, config, descriptor and run log; each synchronous compiler call settles before the next input change. Shared production caches validate their own source and context inputs. The scene removes its private root in finally and does not clear or mutate the borrowed native source/cache.
+ * @evidence contracts/e2e.md#shared-execution All rows share one private consumer, immutable source pair, descriptor and runtime batch native source/cache. Changed plugin-selection inputs justify separate compiler calls; no package installation or independent Go source producer is added. The undefined contrast adds one Node actor and a rejected compiler selection without another native Program; its fallback success replaces the original undefined row's native call. A link reuses the prepared TypeScript dependency. The default-root control changes the native source coordinate intentionally.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The private consumer owns its manifests, config, descriptor, package link and run log; each synchronous compiler call settles before the next input change. The Node actor receives an isolated initial environment without mutating the parent's environment, and its actual unsignalled exit precedes fixture removal. Shared production caches validate their own source and context inputs. The scene removes its private root in finally and does not clear or mutate the borrowed native source/cache.
  * @evidence contracts/e2e.md#preserved-coverage Adds isolated config-versus-source-root coverage without moving or deleting existing compiler, wrapper, runtime or Metro cases; independent rows retain all collected failures.
  */
 export function case_project_root_keeps_isolated_plugin_resolution_anchored_at_config(inputs: {
@@ -68,6 +69,16 @@ export function case_project_root_keeps_isolated_plugin_resolution_anchored_at_c
       path.join(root, "package.json"),
       JSON.stringify({ private: true }),
     );
+    fs.mkdirSync(path.join(root, "node_modules"));
+    fs.symlinkSync(
+      path.dirname(TestProject.REQUIRE_FROM_TEST.resolve("typescript/package.json")),
+      path.join(root, "node_modules/typescript"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    fs.copyFileSync(
+      path.join(fixtures, "environment.cjs"),
+      path.join(root, "environment.cjs"),
+    );
     fs.writeFileSync(
       path.join(backend, "package.json"),
       JSON.stringify({
@@ -105,6 +116,7 @@ export function case_project_root_keeps_isolated_plugin_resolution_anchored_at_c
       binary?: string;
       errorPattern?: RegExp;
       errorContains?: string;
+      deletedInheritedCompiler?: boolean;
     }[] = [
       { name: "automatic discovery" },
       { name: "configured bare entry", configured: [plugin] },
@@ -125,8 +137,7 @@ export function case_project_root_keeps_isolated_plugin_resolution_anchored_at_c
       {
         name: "undefined compiler override removes inherited selection",
         plugins: [plugin],
-        env: { TTSC_TSGO_BINARY: undefined },
-        errorPattern: /ttsc: typescript is required\./,
+        deletedInheritedCompiler: true,
       },
       {
         name: "missing compiler override is refused",
@@ -184,7 +195,7 @@ export function case_project_root_keeps_isolated_plugin_resolution_anchored_at_c
             include: ["src/**/*.ts", "../../packages/shared/src/**/*.ts"],
           }),
         );
-        const result = new TtscCompiler({
+        const context = {
           cwd: backend,
           tsconfig,
           cacheDir: inputs.cacheDir,
@@ -194,7 +205,36 @@ export function case_project_root_keeps_isolated_plugin_resolution_anchored_at_c
           ...(scenario.plugins === undefined
             ? {}
             : { plugins: scenario.plugins }),
-        }).transform();
+        };
+        let result: ReturnType<TtscCompiler["transform"]>;
+        if (scenario.deletedInheritedCompiler) {
+          // Ancestor installations can legitimately satisfy package fallback.
+          // A bad inherited override makes removal observable independently of
+          // that ancestry, while the owned package link supplies native fallback.
+          const actor = TestProject.spawn(
+            process.execPath,
+            [path.join(root, "environment.cjs")],
+            {
+              cwd: root,
+              env: {
+                TTSC_TSGO_BINARY: missingCompiler,
+                TTSC_ENV_PACKAGE_ENTRY: createRequire(import.meta.url).resolve("ttsc"),
+                TTSC_ENV_COMPILER_CONTEXT: JSON.stringify(context),
+              },
+            },
+          );
+          assert.equal(actor.error, undefined, actor.stderr);
+          assert.equal(actor.signal, null, actor.stderr);
+          assert.equal(actor.status, 0, actor.stderr || actor.stdout);
+          const envelope = JSON.parse(actor.stdout.trim());
+          assert.equal(envelope.inherited.type, "exception");
+          assert.match(
+            envelope.inherited.error.message,
+            /ttsc: explicit tsgo binary must be an existing absolute path:/,
+          );
+          assert.ok(envelope.inherited.error.message.includes(missingCompiler));
+          result = envelope.cleared as ReturnType<TtscCompiler["transform"]>;
+        } else result = new TtscCompiler(context).transform();
         if (scenario.missing || scenario.errorPattern !== undefined) {
           assert.equal(result.type, "exception", JSON.stringify(result));
           if (result.type !== "exception") continue;

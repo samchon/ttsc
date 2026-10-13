@@ -5,14 +5,14 @@
  * handlers. Watch callers use the asynchronous runner so a worker establishes
  * its baseline before the producer reads or builds the reported inputs.
  *
- * @evidence contracts/common.md#principled-implementation Generator suspension preserves the producer's ordered publication checkpoints; rejected handoffs are thrown back into the suspended producer so its failure policy and finally blocks still run.
- * @evidence contracts/common.md#clear-and-simple-design Two runners share the same producer sequence while making synchronous completion and awaited completion explicit.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts A synchronous entry rejects an asynchronous handler instead of reporting completion before its baseline exists; neither runner changes watcher or filesystem internals.
- * @evidence contracts/common.md#meaningful-documentation Native prose identifies the ordering invariant and synchronous callback restriction; each runner documents failure delivery.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Publication stepping has no filesystem, path identity or native process boundary.
- * @evidence contracts/performance.md#efficient-algorithms Each runner advances each yielded handoff once with constant runner state; callback work and retained producer state remain costs of their owners.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each publication carries the current producer's effects and is never memoized or shared away.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The runner retains one suspended sequence until completion or failure; rejected handoffs enter its own cleanup path. Handler duration and retained producer bytes have no independent bound here.
+ * @evidence contracts/common.md#principled-implementation Generator suspension preserves ordered publication checkpoints; rejected handoffs return to the producer's failure policy and finally blocks. The synchronous guard recognizes callable then members across realms and observes an already-started promise's rejection before refusing asynchronous completion.
+ * @evidence contracts/common.md#clear-and-simple-design Two runners share one producer sequence; the synchronous guard owns promise recognition and refusal, and its caller delivers that failure to the producer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A synchronous entry refuses asynchronous work instead of reporting completion or blocking; neither runner changes watcher or filesystem internals.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies publication ordering, synchronous restrictions, cross-realm recognition and already-started handler ownership; each runner documents failure delivery.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Promise recognition and publication stepping introduce no native filesystem, path identity or process boundary.
+ * @evidence contracts/performance.md#efficient-algorithms Each runner advances each handoff once with constant state; the synchronous guard adds one then-member observation and one rejection observer. Callback work and retained producer state remain owner costs.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Publication and completion validation belong to each current producer handoff and are never memoized or shared away.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One suspended sequence remains until completion or failure, and rejected handoffs enter its cleanup path. The rejection observer lasts until the already-started handler settles; the synchronous runner cannot join or cancel it. Handler duration and retained producer bytes have no independent bound.
  */
 export namespace WatchInputPublication {
   /**
@@ -88,15 +88,6 @@ export namespace WatchInputPublication {
   /**
    * Refuse cross-realm promises and thenables through the producer's failure
    * path, observing rejection from a handler that has already started.
-   *
-   * @evidence contracts/common.md#principled-implementation A callable then member identifies asynchronous completion without an instanceof realm assumption; observation prevents an already-started rejected promise from becoming unhandled.
-   * @evidence contracts/common.md#clear-and-simple-design The synchronous completion guard owns promise detection and refusal while its caller delivers that refusal to the producer.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Asynchronous work is explicitly refused rather than falsely reported complete or synchronously blocked.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states cross-realm recognition, failure delivery and started-handler ownership.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation Promise recognition has no native filesystem or process boundary.
-   * @evidence contracts/performance.md#efficient-algorithms One then-member observation and one rejection observer use constant guard state; handler work remains caller-owned.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Completion validation belongs to each yielded handoff and is not cached.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The rejection observer lasts until the already-started handler settles; the synchronous operation cannot join or cancel that handler and states no duration bound.
    */
   function assertSynchronous(value: unknown): void {
     if (

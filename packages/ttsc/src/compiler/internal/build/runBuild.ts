@@ -31,28 +31,19 @@ export function runBuild(options: RunBuildOptions = {}): TtscBuildResult {
 /**
  * Share one build sequence between synchronous APIs and awaited watch cycles.
  *
- * @evidence contracts/common.md#principled-implementation Completion modes use the same terminal selection, context acquisition, preparation and compile sequence.
- * @evidence contracts/common.md#clear-and-simple-design The namespace keeps the companion beside its synchronous entry and exposes the sequence to single-file orchestration.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Awaiting changes only publication completion and preserves compiler/plugin selection and failure results.
- * @evidence contracts/common.md#meaningful-documentation The entries state the publication barrier and internal sequence consumption contract.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation The grouping introduces no native boundary beyond the selected build operations.
- * @evidenceExclude contracts/performance.md#efficient-algorithms The grouping chooses no algorithm beyond its build sequence and completion runner.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The grouping retains no build cache or in-flight operation.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Each invocation owns its sequence and selected build resources.
+ * @evidence contracts/common.md#principled-implementation Both completion modes use the same timed terminal selection, context acquisition, preparation and compile sequence. The asynchronous runner joins every plugin and project publication before native compilation; composing callers must deliver callback rejection into that sequence.
+ * @evidence contracts/common.md#clear-and-simple-design The namespace keeps awaited completion beside its synchronous entry and exposes one timing and phase sequence to single-file orchestration; BuildExecution retains build policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Awaiting changes only publication completion, preserves compiler/plugin selection and project-free terminal behavior, and sends publication failure through existing setup and cleanup rather than bypassing a pending baseline.
+ * @evidence contracts/common.md#meaningful-documentation Entry prose states the publication barrier, order before compilation and internal callers' obligation to complete the sequence and deliver rejection.
+ * @evidence contracts/portability.md#os-neutral-implementation BuildExecution retains native cwd, path identity and argument-array ownership across suspension; the namespace adds no independent native boundary.
+ * @evidence contracts/performance.md#efficient-algorithms Each selected terminal, context, discovery, preparation and compile phase runs once; each publication adds one await and constant sequence state.
+ * @evidence contracts/performance.md#reuse-equivalent-work One resolved execution context serves preparation and compilation without reloading plugins; the namespace retains no completed build or in-flight cache.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The invocation owns its sequence, ledger, context and current handoff while callbacks settle. Selected results transfer to the caller, delegated resource ownership and cleanup stay unchanged, and no resident history is retained.
  */
 export namespace runBuild {
   /**
    * Run a build after each watch-input handler's returned promise settles.
    * Compilation starts only after both plugin and project baselines complete.
-   *
-   * @evidence contracts/common.md#principled-implementation The asynchronous runner joins every handoff in the shared build sequence before native compilation proceeds.
-   * @evidence contracts/common.md#clear-and-simple-design The companion delegates all build policy to the same sequence as the synchronous entry.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts A pending publication cannot be reported as completed registration or bypassed by a fallback build.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states awaited handler completion and ordering before compilation.
-   * @evidence contracts/portability.md#os-neutral-implementation BuildExecution retains native cwd, path and argument-array ownership across suspension.
-   * @evidence contracts/performance.md#efficient-algorithms The runner adds one await per handoff while the existing context, discovery and build phases run once.
-   * @evidence contracts/performance.md#reuse-equivalent-work One resolved execution context serves preparation and compilation without a second plugin load.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources One invocation sequence remains live during callback completion; its selected results transfer to the caller and no resident history is retained here.
    */
   export function async(
     options: RunBuildOptions = {},
@@ -64,15 +55,6 @@ export namespace runBuild {
    * Produce one timed build, yielding watch handoffs before native work.
    * Composing owners must complete the sequence and deliver callback rejection
    * back into it so the existing setup and cleanup policies apply.
-   *
-   * @evidence contracts/common.md#principled-implementation Shared context and preparation sequences suspend at actual producer boundaries before the existing compile dispatcher runs.
-   * @evidence contracts/common.md#clear-and-simple-design One sequence owns timing and phase order for synchronous, asynchronous and single-file calls.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Project-free terminal requests preserve their direct path and publication failures retain their existing failure handling.
-   * @evidence contracts/common.md#meaningful-documentation Native prose documents sequence completion, rejection delivery and ordered native work.
-   * @evidence contracts/portability.md#os-neutral-implementation All native execution and identity decisions remain in the existing BuildExecution operations.
-   * @evidence contracts/performance.md#efficient-algorithms Each selected setup, discovery and compile phase runs once; yielded handoffs require constant additional sequence state.
-   * @evidence contracts/performance.md#reuse-equivalent-work The selected context is reused through preparation and compilation within the invocation.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The ledger, context and current handoff live only for this build; delegated resource and output ownership remain unchanged.
    */
   export function* steps(
     options: RunBuildOptions,

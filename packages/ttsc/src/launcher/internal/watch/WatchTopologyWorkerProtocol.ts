@@ -33,27 +33,18 @@ export namespace WatchTopologyWorkerProtocol {
   /**
    * Callback implementations remain on the launcher thread.
    *
-   * @evidence contracts/common.md#principled-implementation Core callbacks retain their original meanings; terminal thread failure adds a separate owner notification rather than claiming recoverable watch error semantics.
-   * @evidence contracts/common.md#clear-and-simple-design One structural intersection separates operation events from lifecycle failure.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Callbacks report actual observations or terminal loss rather than expected outcomes.
-   * @evidence contracts/common.md#meaningful-documentation Prose identifies callback location and the terminal member's ownership.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation These signatures open no native boundary.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms The type chooses no algorithm.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Callback declarations grant no event reuse.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Implementations own callback retention and cleanup.
+   * @evidence contracts/common.md#principled-implementation Core callbacks retain their meanings; actual worker error or unexpected exit invokes separate terminal notification because authority was lost, requiring the launcher to retire its session.
+   * @evidence contracts/common.md#clear-and-simple-design One structural intersection adds a dedicated terminal callback beside recoverable subscription events.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Callbacks report actual observations and authority loss without continuing to claim coverage after thread death.
+   * @evidence contracts/common.md#meaningful-documentation Prose identifies launcher-thread callbacks and the receiving owner's required retirement after terminal loss.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation These signatures perform no native operation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms Callback signatures choose no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Callback declarations grant no event reuse; terminal failure belongs to one lifecycle.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Signatures acquire no resources; callback implementations own session retention and cleanup.
    */
   export type Callbacks = ConstructorParameters<typeof WatchTopology>[1] & {
     /**
      * Terminal thread loss requires the launcher to retire its watch session.
-     *
-     * @evidence contracts/common.md#principled-implementation Actual worker error or unexpected exit requires lifecycle retirement because notification authority was lost.
-     * @evidence contracts/common.md#clear-and-simple-design One dedicated callback distinguishes terminal loss from recoverable subscription errors.
-     * @evidence contracts/common.md#prohibited-implementation-shortcuts The callback does not continue claiming coverage after thread death.
-     * @evidence contracts/common.md#meaningful-documentation Prose states the receiving owner's required retirement.
-     * @evidenceExclude contracts/portability.md#os-neutral-implementation This signature performs no native operation.
-     * @evidenceExclude contracts/performance.md#efficient-algorithms The signature specifies no algorithm.
-     * @evidenceExclude contracts/performance.md#reuse-equivalent-work The failure is one lifecycle event rather than a reusable result.
-     * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource; its implementation owns session cleanup.
      */
     onFailure(error: unknown): void;
   };

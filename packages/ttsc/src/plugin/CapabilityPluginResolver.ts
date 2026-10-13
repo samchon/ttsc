@@ -289,6 +289,7 @@ export class CapabilityPluginResolver {
             }
             let retirement: "joined" | "not-started" | "unknown" =
               "not-started";
+            let nativeObservation: Readonly<Record<string, string | number | boolean | null | undefined>> | undefined;
             const operation = OwnedNativeProcess.run(
               reply.command,
               reply.args,
@@ -296,6 +297,7 @@ export class CapabilityPluginResolver {
               nativeController.signal,
               (state, _reason, observation) => {
                 retirement = state;
+                if (process.env.TTSC_E2E_TRACE) nativeObservation = observation;
                 if (state === "unknown") this.closed = true;
                 if (process.env.TTSC_E2E_TRACE) {
                   // The worker's existing command-relay-queued event binds
@@ -312,6 +314,7 @@ export class CapabilityPluginResolver {
               (result) =>
                 writeCommandReply(reply, {
                   retirement,
+                  ...(nativeObservation === undefined ? {} : { nativeObservation }),
                   result: {
                     ...result,
                     ...(result.error === undefined
@@ -328,6 +331,7 @@ export class CapabilityPluginResolver {
                 // caller's arbitrary reason stays on its original main thread.
                 writeCommandReply(reply, {
                   retirement,
+                  ...(nativeObservation === undefined ? {} : { nativeObservation }),
                   thrown: serializeCompilerError(
                     cancelled
                       ? Object.assign(new Error("ttsc: operation cancelled"), {
