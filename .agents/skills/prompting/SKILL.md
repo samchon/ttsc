@@ -5,26 +5,15 @@ description: Writes and trims ttsc's prompts for agents, namely AGENTS.md, CLAUD
 
 # Prompting
 
-A prompt follows the [documentation skill](../documentation/SKILL.md)'s Writing and Paragraphs And Lists rules. This skill adds what an agent reader running Claude Opus 5.5 needs.
+A prompt follows the [documentation skill](../documentation/SKILL.md)'s Writing and Paragraphs And Lists rules. Before editing one, fetch and read [Prompting Claude Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5) in full rather than relying on memory, because it changes with each model. Where it disagrees with the user's rules in this repository, the user's rules win.
 
-## Before Editing
-
-Fetch and read [Prompting Claude Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5) in full rather than relying on memory, because it changes with each model. Where it disagrees with the user's rules in this repository, the user's rules win.
-
-## Content
-
-- Write only facts the code does not show, rules the user set, and mistakes an agent made; Claude already knows general engineering. Leave dates and history to git.
-- Give the reason behind a rule when it is not obvious, so the agent can generalize from it.
-- Do not tell the agent how much to think, since effort sets that, and never ask for its reasoning in the output.
-- Match detail to fragility: exact commands where only one sequence is safe, goals and constraints where judgment works, and one default instead of a menu.
-- Give a long task its completion condition and a task list to keep, name the early stops to avoid and the stops that are wanted, and keep a confirmation before risky or irreversible actions.
-- For loosely specified work, name the sources to read before acting, including ones the request does not mention.
+Write only facts the code does not show, rules the user set, and mistakes an agent made, and leave dates and history to git.
 
 ## Layout
 
 - `AGENTS.md` holds what every session needs, under 200 lines, and lists every skill, because Claude Code finds skills only there. `CLAUDE.md` is `@AGENTS.md`.
 - A skill is `.agents/skills/<name>/SKILL.md` with `name` equal to the directory and a third-person `description` saying what it does and when to use it.
-- `SKILL.md` is the overview. Move a branch that only some tasks need into a sibling file linked directly from it, add a table of contents to a file over 100 lines, give a job with its own trigger its own skill, and never nest skills.
+- `SKILL.md` is the overview. Move a branch that only some tasks need into a sibling file linked directly from it, give a job with its own trigger its own skill, and never nest skills.
 
 ## Verification
 
