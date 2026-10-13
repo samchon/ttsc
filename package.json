@@ -4,7 +4,7 @@
   "version": "0.32.0",
   "description": "Standalone TypeScript-Go compiler, runtime, plugin host, and LSP host workspace.",
   "scripts": {
-    "build": "pnpm --filter \"./packages/*\" --filter lint-contributor-demo -r --workspace-concurrency=1 build",
+    "build": "node config/build.mjs",
     "evidence": "pnpm --filter \"./packages/*\" --filter \"./tests/*\" -r --no-bail --workspace-concurrency=1 run evidence",
     "test": "pnpm run test:go && pnpm run test:units",
     "test:go": "node config/test-go.mjs",

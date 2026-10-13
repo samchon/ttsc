@@ -59,7 +59,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - uses: oven-sh/setup-bun@v2
       - run: npm install --global yarn
-      - run: pnpm run build
+      - run: pnpm run build --host-graph
         id: build
       - name: Save Built Go Modules and Objects
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.go-objects.outputs.cache-primary-key != '' && steps.go-objects.outputs.cache-hit != 'true' }}
