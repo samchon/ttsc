@@ -9,9 +9,15 @@ A prompt follows the [documentation skill](../documentation/SKILL.md)'s Writing 
 
 Write only facts the code does not show, rules the user set, and mistakes an agent made, and leave dates and history to git.
 
+## Skills And Contracts
+
+A skill gives a job's goal, order, and boundaries, and points to the checklists it relies on without restating their items.
+
+An agent does not reliably follow long, detailed, or conditional prose, so a rule that every declaration must meet belongs in a [contracts](../contracts/SKILL.md) checklist as an H2 question. Evidence makes each selected declaration answer it, and [review](../review/SKILL.md) checks that the answer is true and complete.
+
 ## Layout
 
-- `AGENTS.md` holds what every session needs, under 200 lines, and lists every skill, because Claude Code finds skills only there. `CLAUDE.md` is `@AGENTS.md`.
+- [`AGENTS.md`](../../../AGENTS.md) holds what every session needs, under 200 lines, and lists every skill, because Claude Code finds skills only there. [`CLAUDE.md`](../../../CLAUDE.md) is `@AGENTS.md`.
 - A skill is `.agents/skills/<name>/SKILL.md` with `name` equal to the directory and a third-person `description` saying what it does and when to use it.
 - `SKILL.md` is the overview. Move a branch that only some tasks need into a sibling file linked directly from it, give a job with its own trigger its own skill, and never nest skills.
 

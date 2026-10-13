@@ -9,7 +9,7 @@ description: Runs ttsc's Overall Self-Review of a complete change, which any unq
 
 - Read the whole declared surface in the current checkout, without splitting it by file, package, or concern, and follow it into consumers, tests, generated output, CI, and platforms.
 - Collect a round's findings, fix them together, then run a fresh complete round. Stop only after a complete round finds nothing.
-- For maintained code, check that each acknowledgment is true of its declaration under [contracts](../contracts/SKILL.md). A passing test or renamed wrapper does not prove a cause was fixed.
+- For maintained code, check that each acknowledgment is true and complete for its declaration under [contracts](../contracts/SKILL.md). A passing test or renamed wrapper does not prove a cause was fixed.
 
 ## Overall Self-Review
 
@@ -17,4 +17,4 @@ The review law over the whole change: the base-to-head diff and any uncommitted 
 
 ## Individual Self-Review
 
-In an issue campaign, the review of one pushed commit's diff. It never replaces Overall Self-Review.
+In an [issue campaign](../issue-campaign/SKILL.md), the review of one pushed commit's diff. It never replaces Overall Self-Review.

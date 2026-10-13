@@ -1,11 +1,11 @@
 ---
 name: documentation
-description: Owns ttsc's writing rules and writes its READMEs and website guides. Use before writing or changing a README or anything under website/src/content, and with prompting before changing AGENTS.md or a skill.
+description: Owns ttsc's writing rules and writes its READMEs, website guides, and doc comments. Use before writing or changing a README, anything under website/src/content, or a doc comment, and with prompting before changing AGENTS.md or a skill.
 ---
 
 # Documentation
 
-Good writing is the same for every reader: deliver the core point concisely and clearly. Only the reader, and so what the reader needs, differs by document; agent prompts add the rules in the prompting skill.
+Good writing is the same for every reader: deliver the core point concisely and clearly. Only the reader, and so what the reader needs, differs by document; agent prompts add the rules in the [prompting skill](../prompting/SKILL.md).
 
 ## Writing
 
@@ -27,3 +27,7 @@ These are read by a person using or extending ttsc.
 - A README is for the package's user: what it is, when to use it, installation, the smallest working setup, and a link to its guide. Leave internals, protocols, and edge cases to the guide.
 - A guide under `website/src/content/docs/` serves one reader (consumer, package user, bundler user, runtime user, plugin author, or maintainer) and one task, with the options, examples, and troubleshooting that task needs. Package folders hold package use, `development/` holds plugin authoring, and top-level pages hold cross-cutting tasks. Update the folder's `_meta.ts` when adding, renaming, or moving a guide.
 - Take every code example from code that runs.
+
+## Doc Comments
+
+JSDoc and Go doc comments follow the Writing and Paragraphs And Lists rules above. What a public declaration's comment must say is the contracts [Meaningful documentation](../contracts/common.md#meaningful-documentation) chapter.

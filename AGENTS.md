@@ -37,7 +37,7 @@ Read the skill whose trigger applies.
 - [development](.agents/skills/development/SKILL.md): changing code, tests, fixtures, or workflows.
 - [typescript-go-sync](.agents/skills/typescript-go-sync/SKILL.md): touching `packages/ttsc/shim` or bumping typescript-go.
 - [prompting](.agents/skills/prompting/SKILL.md): changing `AGENTS.md`, `CLAUDE.md`, or a skill.
-- [documentation](.agents/skills/documentation/SKILL.md): writing any document.
+- [documentation](.agents/skills/documentation/SKILL.md): writing any document or doc comment.
 - [review](.agents/skills/review/SKILL.md): any review or self-review.
 - [issue-campaign](.agents/skills/issue-campaign/SKILL.md): a broad audit or repeated issue-to-pull-request work.
 - [pull-request](.agents/skills/pull-request/SKILL.md): only when asked to push, open, update, or merge, or under a delivery mandate.
