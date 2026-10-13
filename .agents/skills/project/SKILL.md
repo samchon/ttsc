@@ -1,53 +1,22 @@
 ---
 name: project
-description: Maps ttsc's product boundaries and package ownership, and holds the @ttsc/graph contract and the @ttsc/evidence implementation invariants. Use when a task crosses package boundaries or needs the package that owns a behavior, and before changing packages/graph, graph benchmark prompts, or @ttsc/evidence rule semantics, tag grammar, configuration surface, or diagnostics.
+description: Maps which ttsc package owns a behavior, with the product, @ttsc/graph, and @ttsc/evidence contracts. Use when a task crosses packages, and before changing packages/graph, graph benchmark prompts, or @ttsc/evidence rule semantics, tags, configuration, or diagnostics.
 ---
 
-# Project Outline
+# Project
 
-## Product Contract
+ttsc is general-purpose; typia and nestia are compatibility fixtures, not the product definition. `ttsx` type-checks before running, and `ttsc/register` checks each TypeScript module it loads. `ttscserver` proxies `tsc --lsp --stdio` so plugin diagnostics, code actions, and commands share one stream. A `package main` plugin builds as a sidecar; other plugin packages link into a native host. ttsc builds plugins on demand and caches the binary.
 
-Apply [AGENTS.md's compiler boundary](../../../AGENTS.md#attitude) to compiler and toolchain changes.
+| Path | Owns, and what its README does not say |
+| --- | --- |
+| `packages/ttsc` | Launcher, API, and Go host. `driver.PluginSource` is the embedder seam, `NativePluginSource` adapts `capabilities.lsp` sidecars, `internal/lspserver` is the proxy behind `ttscserver`. |
+| `packages/{banner,paths,strip}` | Transform plugins, each with logic in its own `driver/` linked into a generic host. |
+| `packages/lint` | `@ttsc/lint`; LSP verbs live in `linthost/lsp.go`. |
+| `packages/evidence` | `@ttsc/evidence`, a lint contributor. Its Go source sits in `native/` without a `go.mod` because ttsc rejects one inside a contributor directory. |
+| `packages/graph`, `packages/graph-*` | `@ttsc/graph` and its per-platform `ttscgraph` binaries, resolved from its own installation. |
+| `packages/ttsc-*` | Per-platform `ttsc` helper, `ttscserver`, and Go SDK, built by `packages/ttsc/build/platform-package.cjs`. |
+| `packages/{wasm,playground,factory,unplugin,metro,vscode}` | Browser host, playground shell, AST factory (only `tests/test-factory` uses it), bundler adapters, VS Code extension. |
+| `tests/` | Unit suites, the single `tests/test-e2e`, shared `tests/utils`, and workspace plugin fixtures that `pnpm build` builds. |
+| `benchmarks/*`, `website` | One package per benchmark; the docs site for https://ttsc.dev. |
 
-- The contract is general-purpose. Downstream projects such as `typia` and `nestia` are compatibility fixtures, not the product definition.
-- `ttsc` builds, checks, watches, and transforms source on top of `typescript`, the native TypeScript-Go compiler. `ttsx` runs a TypeScript entrypoint after a real type-check, and a JavaScript entrypoint under the `ttsc/register` runtime, which checks each TypeScript module the program loads through the same pipeline before running it.
-- `ttscserver` wraps `tsc --lsp --stdio` and proxies JSON-RPC, so plugin diagnostics, code actions, and `workspace/executeCommand` handlers reach the editor through one stream.
-- Plugins are Go source packages that share TypeScript-Go's AST and Checker. An executable `package main` source builds as a sidecar, and a non-`main` transform package links into a native host. `ttsc` builds plugin source on demand and caches the binary.
-
-## Layout
-
-Each package's README describes what it does and how to use it. This table records which path owns a behavior, plus the facts a change needs that the README does not state.
-
-| Path | Owns | Beyond its README |
-| --- | --- | --- |
-| `packages/ttsc` | The JS launcher and API plus the Go host (`cmd/*`, `driver`, `internal`, `utility`, `shim/`) | `driver.PluginSource` is the seam embedders implement, `NativePluginSource` adapts `capabilities.lsp` sidecars, and `internal/lspserver` is the byte-level LSP proxy `ttscserver` uses. The shim follows the typescript-go-sync skill. |
-| `packages/{banner,paths,strip}` | Utility transform plugins | Each package's logic lives in its own `driver/` and links into a generic native host. |
-| `packages/lint` | `@ttsc/lint` and its native engine | LSP verbs live in `linthost/lsp.go`, which `ttscserver` and `packages/vscode` call through the language client. |
-| `packages/evidence` | `@ttsc/evidence`, a lint contributor | It ships Go source under `native/` instead of a module, because ttsc copies a contributor's source directory into `@ttsc/lint`'s Go module and rejects a `go.mod` inside it; the `go.mod` one level up exists for local tooling. Its implementation invariants are [evidence/SKILL.md](evidence/SKILL.md). |
-| `packages/graph` | `@ttsc/graph`, the MCP server | Its contract is [graph.md](graph.md). |
-| `packages/wasm` | `@ttsc/wasm`, the in-browser host |  |
-| `packages/playground` | `@ttsc/playground`, the playground shell | `website/` and `typia/website/` consume it. |
-| `packages/factory` | `@ttsc/factory`, the AST factory and printer | No other package depends on it; only `tests/test-factory` imports it. |
-| `packages/unplugin` | Bundler adapters |  |
-| `packages/metro` | The Metro adapter built on `@ttsc/unplugin` |  |
-| `packages/vscode` | The VS Code extension | It wires `vscode-languageclient` to `ttscserver`, bridges the built-in lint and format commands, and executes other plugin command ids with editor-applied `WorkspaceEdit`s. |
-| `packages/ttsc-*` | Per-platform packages for `ttsc` | The `ttsc` helper, `ttscserver` and the bundled Go SDK. `packages/ttsc/build/platform-package.cjs` builds them and the graph packages below. |
-| `packages/graph-*` | Per-platform packages for `@ttsc/graph` | Only the `ttscgraph` producer, built from `packages/ttsc/cmd/ttscgraph`; `@ttsc/graph` lists them as exact-version optional dependencies and resolves the binary from its own installation. |
-| `tests/test-*` | TypeScript unit suites and the single `tests/test-e2e` boundary module | Placement and experiment construction follow [development testing](../development/testing.md). |
-| `tests/utils` | Shared test helpers (`@ttsc/testing`) |  |
-| `tests/<plugin-name>` | Workspace packages a fixture must `require.resolve` from its `node_modules`, such as `tests/lint-contributor-demo` | `pnpm run build` builds them before tests run. |
-| `benchmarks/*` | One private package per benchmark, each with its own README | Operated through the benchmark skill. |
-| `website` | The Nextra docs site under `src/content/docs/**/*.mdx`, shipped to https://ttsc.dev | The canonical home for guides. |
-| `config`, `scripts` | Shared tsconfig and workspace scripts |  |
-
-## Graph MCP
-
-The `@ttsc/graph` contract is [graph.md](graph.md). Read it before changing `packages/graph`, its MCP instruction or schema, graph benchmark prompts, or the graph benchmark website.
-
-## Evidence Graph
-
-The `@ttsc/evidence` implementation invariants are [evidence/SKILL.md](evidence/SKILL.md). Read them before changing rule semantics, the tag grammar, the configuration surface, or a diagnostic message.
-
-## Engineering Acknowledgments
-
-The [contracts skill](../contracts/SKILL.md) owns common and scoped acknowledgment questions. Read it alongside these product contracts and package documentation; it does not replace their semantics or duplicate package ownership.
+Before changing `packages/graph`, its MCP instruction or schema, or graph benchmark prompts, read [graph.md](graph.md). Before changing `@ttsc/evidence` semantics, read [evidence.md](evidence.md).

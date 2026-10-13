@@ -1,64 +1,26 @@
 ---
 name: benchmark
-description: Runs, supervises, and publishes ttsc's three benchmarks under benchmarks/, namely the performance and graph harnesses (measurement integrity, fixture branches, temporary assets, result reporting) and the evidence benchmark campaign (launch, supervision, recovery, reporting). Use before running, supervising, changing, or publishing any benchmark or editing its fixtures; graph product changes use the project skill.
+description: Runs, supervises, changes, and publishes ttsc's performance, graph, and evidence benchmarks under benchmarks/. Use before running, changing, or publishing any benchmark or its fixtures.
 ---
 
 # Benchmark
 
-This skill owns the two harnesses this repository wrote for itself, one package each under `benchmarks/`. Read the matching procedure in full before acting:
+| Work | Read |
+| --- | --- |
+| Performance harness and its fixture branches | [performance.md](performance.md) |
+| Graph harness, prompts, comparators, and traces | [graph.md](graph.md) |
+| Evidence campaign: launch, supervision, dashboard | [evidence/campaign.md](evidence/campaign.md) |
+| Evidence: whether a cell's edit is allowed, and warning a cell | [evidence/integrity.md](evidence/integrity.md) |
+| Evidence: a Plain cell's Review boundary | [evidence/review.md](evidence/review.md) |
+| Evidence: fixing a repository defect mid-campaign | [evidence/boundary.md](evidence/boundary.md) |
+| Evidence: a stopped, hung, or failed cell, or cancellation | [evidence/recovery.md](evidence/recovery.md) |
+| Evidence: publishing results and closing the cohort | [evidence/aggregate.md](evidence/aggregate.md) |
 
-- [performance.md](performance.md): `ttsc + @ttsc/lint + ttsc format` versus `tsc + eslint + prettier`, including fixture branches and dashboard publication.
-- [graph.md](graph.md): `@ttsc/graph` against an empty-MCP baseline and graph-MCP comparators, including AI-agent runs, trace audits, and graph fixtures.
+The rules below cover the performance and graph harnesses; the evidence benchmark has its own documents.
 
-Read both only when changing shared fixture infrastructure or a surface that affects both systems.
-
-`benchmarks/evidence` is a third package with a separate measurement contract: it runs one coding engine against itself rather than ttsc against a competitor. Its procedures are maintained here from `samchon/lint-plugin-evidence`; the [instruction layout](../documentation/skills.md#skill-file-format) owns their provenance and host paths. Nothing below applies to it. Read [evidence/SKILL.md](evidence/SKILL.md) for its operation.
-
-## Measurement Integrity
-
-- Apply the [common engineering contracts](../contracts/common.md) to the measured product and these maintained harnesses. Measure the real product; do not restrict an agent or change supported behavior to improve a measurement.
-- Give every comparator the setup its own documentation prescribes. Measuring a deliberately underconfigured competitor invalidates the comparison.
-- Preserve the workload defined by the selected procedure. A faster result obtained by compiling, linting, formatting, indexing, or reading less input is not an optimization.
-- Treat a surprising result as evidence that the change is not yet understood. Inspect the raw report or trace before accepting, explaining away, or patching around it.
-
-## TypeScript Source Contract
-
-Keep every CLI entrypoint under the harness package's own `src/executable`; those files export nothing. An executable is a bootstrap, not an implementation: it only imports one owning `TtscBenchmark*` class or namespace and calls its `main()` entrypoint. Keep it within 12 physical lines. Move parsing, orchestration, validation, and helpers into equal-named reusable modules.
-
-Outside that directory, each reusable module exposes exactly one `TtscBenchmark*` or `ITtscBenchmark*` symbol and its case-sensitive filename equals that symbol name. A data contract may merge one `ITtscBenchmark*` interface with its equal-named companion namespace.
-
-Executable surfaces are classes or namespaces. Never add a standalone exported function, constant, enum, or type alias. Put related functions, constants, guards, and subordinate types inside the owning `TtscBenchmark*` namespace; put companion types and guards for a data contract inside its `ITtscBenchmark*` namespace.
-
-Apply the [meaningful documentation](../contracts/common.md#meaningful-documentation) principle to every exported symbol, exported namespace member, public member of an exported class, and field in an exported data contract.
-
-For these harnesses, also state each exported symbol, exported namespace member, and public class member's benchmark role and nonobvious invariant. Data fields state their units, optional-state semantics, and default where applicable.
-
-These details let a reader interpret a measurement and distinguish an absent observation from a measured zero.
-
-Before committing benchmark source, run the strict type check that each harness README names.
-
-## Benchmark Improvement Campaigns
-
-When benchmark evidence leads to multiple published issues and the user authorizes repeated issue-to-pull-request implementation, use the issue-campaign skill with this skill. This skill owns workload integrity, measurement, fixture handling, and result publication. The issue-campaign skill owns issue publication, implementation topology, claim stability, CI, review, cleanup, and renewed discovery.
-
-## Temporary Asset Cleanup
-
-Each benchmark run must own an exact temporary root. A run uses the current checkout and existing fixture checkouts; do not create a clone or worktree. Place run-only indexes, Go build caches, and Go temporary directories below the exact root. For Go commands, set `GOCACHE` and `GOTMPDIR` to run-specific directories rather than the user's shared Go cache or system temp directory.
-
-After a run, retry, aborted attempt, or completed benchmark-driven campaign, preserve the report and any user-authorized fixture change, then remove the run's exact temporary root. First confirm no process still uses it, then verify the directory is absent. Never recursively clean shared `GOCACHE`, `GOMODCACHE`, `GOPATH`, or a broad temp directory. A `--keep-...` option or another explicit user retention request is the only exception; record the retained path and reason.
-
-## Fixture Changes
-
-Benchmark setup resets existing local fixture checkouts to their upstream branch tips. Edit the fixture repository itself, not a new clone under a benchmark work directory.
-
-Finish every fixture change before pushing it:
-
-1. Run that branch's own build, format, and lint commands until green.
-2. Confirm the branch contains no tarball path, vendored ttsc build, stale `dist/`, or other generated benchmark input.
-3. Commit and push the fixture branch. A half-finished upstream tip contaminates every later setup.
-
-Fixture READMEs and prose follow the [documentation skill](../documentation/SKILL.md).
-
-## Report Results
-
-Both harness READMEs define the sticky pull-request comment that carries result tables. Post or update it only when the user has authorized pull-request updates under the pull-request skill; otherwise keep the table in the final report and mark the comment as pending.
+- Measure the real product on the full workload, with every comparator set up as its own documentation prescribes. Never restrict an agent or skip input to improve a number.
+- Inspect the raw report or trace behind any surprising result before accepting or explaining it.
+- A CLI entry in `src/executable` only imports one `TtscBenchmark*` owner and calls `main()`, within 12 lines. Every other module exports one `TtscBenchmark*` class or namespace, or one `ITtscBenchmark*` interface with its companion namespace, from a file of that name, and never a standalone function, constant, enum, or type alias. Document each member's role and each field's unit and default. Run the README's strict type check before committing.
+- Give each run its own temporary root, including `GOCACHE` and `GOTMPDIR`, and delete it afterwards unless `--keep-...` or the user says otherwise. Never clean a shared Go cache or temp directory.
+- Edit fixtures in their own repositories, and push a fixture branch only when its build, format, and lint pass and it holds no generated benchmark input.
+- Update the sticky result comment only with pull-request authority; otherwise put the table in the report.
