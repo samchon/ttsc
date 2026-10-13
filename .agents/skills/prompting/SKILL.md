@@ -5,17 +5,11 @@ description: Writes and trims ttsc's prompts for agents, namely AGENTS.md, CLAUD
 
 # Prompting
 
-A prompt follows the documentation skill's Writing and Paragraphs And Lists rules. This skill adds what an agent reader running Claude Opus 5.5 needs.
+A prompt follows the [documentation skill](../documentation/SKILL.md)'s Writing and Paragraphs And Lists rules. This skill adds what an agent reader running Claude Opus 5.5 needs.
 
 ## Before Editing
 
-Fetch and read these pages in full rather than relying on memory, because they change with each model:
-
-- [Prompting Claude Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5)
-- [Prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices), the general techniques it defers to
-- [Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
-
-Apply what they say for Opus 5.5 and all current models, and drop guidance written for an earlier model.
+Fetch and read [Prompting Claude Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5) in full rather than relying on memory, because it changes with each model. Where it disagrees with the user's rules in this repository, the user's rules win.
 
 ## Content
 
