@@ -44,6 +44,9 @@ export namespace SourceBuildCacheLayout {
   /** Directory name of ttsc's own Go object cache inside the cache root. */
   export const GO_BUILD_CACHE_DIRNAME = "go-build";
 
+  /** Directory of publisher package bodies and local Go cache writes. */
+  export const PACKAGE_ARTIFACTS_DIRNAME = "package-artifacts";
+
   /** File inside a plugin cache entry recording when it was last used. */
   export const CACHE_LAST_USED_FILE = ".last-used";
 

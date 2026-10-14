@@ -2,16 +2,16 @@
 package packageartifacts
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
-	"net"
-	"net/url"
-	"strings"
+  "bytes"
+  "crypto/sha256"
+  "encoding/hex"
+  "encoding/json"
+  "errors"
+  "fmt"
+  "io"
+  "net"
+  "net/url"
+  "strings"
 )
 
 const MaxManifestBytes = 16 << 20
@@ -33,13 +33,13 @@ const MaxPackDecodedBytes = 4 << 30
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The value owns no retained computation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The value owns no external resource.
 type Manifest struct {
-	Schema       int      `json:"schema"`
-	Release      string   `json:"release"`
-	SourceCommit string   `json:"sourceCommit"`
-	Tuple        Tuple    `json:"tuple"`
-	GraphSHA256  string   `json:"graphSHA256"`
-	Packs        []Pack   `json:"packs"`
-	Actions      []Action `json:"actions"`
+  Schema       int      `json:"schema"`
+  Release      string   `json:"release"`
+  SourceCommit string   `json:"sourceCommit"`
+  Tuple        Tuple    `json:"tuple"`
+  GraphSHA256  string   `json:"graphSHA256"`
+  Packs        []Pack   `json:"packs"`
+  Actions      []Action `json:"actions"`
 }
 
 // Tuple selects candidate packs, while Go validates actual package actions.
@@ -55,16 +55,16 @@ type Manifest struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The type retains no result across requests.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The type owns no handle or task.
 type Tuple struct {
-	GoVersion     string            `json:"goVersion"`
-	GoToolSHA256  string            `json:"goToolSHA256"`
-	GOOS          string            `json:"goos"`
-	GOARCH        string            `json:"goarch"`
-	Architecture  map[string]string `json:"architecture"`
-	CGOEnabled    string            `json:"cgoEnabled"`
-	GoExperiment  string            `json:"goExperiment"`
-	BuildFlags    []string          `json:"buildFlags"`
-	BuildTags     []string          `json:"buildTags"`
-	ToolIDsSHA256 string            `json:"toolIDsSHA256"`
+  GoVersion     string            `json:"goVersion"`
+  GoToolSHA256  string            `json:"goToolSHA256"`
+  GOOS          string            `json:"goos"`
+  GOARCH        string            `json:"goarch"`
+  Architecture  map[string]string `json:"architecture"`
+  CGOEnabled    string            `json:"cgoEnabled"`
+  GoExperiment  string            `json:"goExperiment"`
+  BuildFlags    []string          `json:"buildFlags"`
+  BuildTags     []string          `json:"buildTags"`
+  ToolIDsSHA256 string            `json:"toolIDsSHA256"`
 }
 
 // Pack describes one immutable compressed transport object and its decoded limit.
@@ -79,12 +79,12 @@ type Tuple struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The record retains no cross-request computation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The record owns no downloaded bytes or handle.
 type Pack struct {
-	Name         string `json:"name"`
-	URL          string `json:"url"`
-	SHA256       string `json:"sha256"`
-	Length       int64  `json:"length"`
-	DecodedBytes int64  `json:"decodedBytes"`
-	FileCount    int    `json:"fileCount"`
+  Name         string `json:"name"`
+  URL          string `json:"url"`
+  SHA256       string `json:"sha256"`
+  Length       int64  `json:"length"`
+  DecodedBytes int64  `json:"decodedBytes"`
+  FileCount    int    `json:"fileCount"`
 }
 
 // Action associates a complete Go cache key with the exact body Go produced.
@@ -100,19 +100,19 @@ type Pack struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The record retains no computation across calls.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The record owns no body or handle.
 type Action struct {
-	ActionID          string   `json:"actionID"`
-	OutputID          string   `json:"outputID"`
-	BodySHA256        string   `json:"bodySHA256"`
-	BodyLength        int64    `json:"bodyLength"`
-	Pack              string   `json:"pack"`
-	Kind              string   `json:"kind"`
-	PackagePath       string   `json:"packagePath"`
-	ModulePath        string   `json:"modulePath"`
-	ModuleVersion     string   `json:"moduleVersion"`
-	ModuleRole        string   `json:"moduleRole"`
-	SelectedSourceSHA string   `json:"selectedSourceSHA256"`
-	CommandSHA256     string   `json:"commandSHA256"`
-	DirectInputs      []string `json:"directInputs"`
+  ActionID          string   `json:"actionID"`
+  OutputID          string   `json:"outputID"`
+  BodySHA256        string   `json:"bodySHA256"`
+  BodyLength        int64    `json:"bodyLength"`
+  Pack              string   `json:"pack"`
+  Kind              string   `json:"kind"`
+  PackagePath       string   `json:"packagePath"`
+  ModulePath        string   `json:"modulePath"`
+  ModuleVersion     string   `json:"moduleVersion"`
+  ModuleRole        string   `json:"moduleRole"`
+  SelectedSourceSHA string   `json:"selectedSourceSHA256"`
+  CommandSHA256     string   `json:"commandSHA256"`
+  DirectInputs      []string `json:"directInputs"`
 }
 
 // ParseTrustedManifest checks the raw release-pinned digest before decoding any mapping.
@@ -128,161 +128,161 @@ type Action struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Release bytes are checked for each call; this function retains no result or in-flight work.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only bounded call-local bytes and maps are retained; the caller owns raw input and returned manifest lifetime.
 func ParseTrustedManifest(raw []byte, expectedSHA256 string) (Manifest, error) {
-	var manifest Manifest
-	if len(raw) == 0 || len(raw) > MaxManifestBytes {
-		return manifest, fmt.Errorf("artifact manifest length %d is outside (0,%d]", len(raw), MaxManifestBytes)
-	}
-	if !validSHA256(expectedSHA256) {
-		return manifest, errors.New("artifact manifest has no valid trusted digest")
-	}
-	digest := sha256.Sum256(raw)
-	if hex.EncodeToString(digest[:]) != expectedSHA256 {
-		return manifest, errors.New("artifact manifest differs from trusted release digest")
-	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&manifest); err != nil {
-		return Manifest{}, fmt.Errorf("decode artifact manifest: %w", err)
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); err != io.EOF {
-		return Manifest{}, errors.New("artifact manifest contains trailing data")
-	}
-	if err := manifest.validate(); err != nil {
-		return Manifest{}, err
-	}
-	return manifest, nil
+  var manifest Manifest
+  if len(raw) == 0 || len(raw) > MaxManifestBytes {
+    return manifest, fmt.Errorf("artifact manifest length %d is outside (0,%d]", len(raw), MaxManifestBytes)
+  }
+  if !validSHA256(expectedSHA256) {
+    return manifest, errors.New("artifact manifest has no valid trusted digest")
+  }
+  digest := sha256.Sum256(raw)
+  if hex.EncodeToString(digest[:]) != expectedSHA256 {
+    return manifest, errors.New("artifact manifest differs from trusted release digest")
+  }
+  decoder := json.NewDecoder(bytes.NewReader(raw))
+  decoder.DisallowUnknownFields()
+  if err := decoder.Decode(&manifest); err != nil {
+    return Manifest{}, fmt.Errorf("decode artifact manifest: %w", err)
+  }
+  var trailing any
+  if err := decoder.Decode(&trailing); err != io.EOF {
+    return Manifest{}, errors.New("artifact manifest contains trailing data")
+  }
+  if err := manifest.validate(); err != nil {
+    return Manifest{}, err
+  }
+  return manifest, nil
 }
 
 func (manifest Manifest) validate() error {
-	if manifest.Schema != 1 {
-		return fmt.Errorf("unsupported artifact manifest schema %d", manifest.Schema)
-	}
-	if manifest.Release == "" || !validCommit(manifest.SourceCommit) || !validSHA256(manifest.GraphSHA256) {
-		return errors.New("artifact manifest has incomplete release provenance")
-	}
-	tuple := manifest.Tuple
-	if tuple.GoVersion == "" || tuple.GOOS == "" || tuple.GOARCH == "" || tuple.CGOEnabled != "0" || !validSHA256(tuple.GoToolSHA256) || !validSHA256(tuple.ToolIDsSHA256) || len(tuple.BuildFlags) == 0 {
-		return errors.New("artifact manifest has an unsupported or incomplete Go tuple")
-	}
-	if len(manifest.Packs) == 0 || len(manifest.Packs) > 64 || len(manifest.Actions) == 0 || len(manifest.Actions) > 100000 {
-		return errors.New("artifact manifest exceeds pack or action count policy")
-	}
-	packs := make(map[string]Pack, len(manifest.Packs))
-	for _, pack := range manifest.Packs {
-		if !validName(pack.Name) || !validPackURL(pack.URL) || !validSHA256(pack.SHA256) || pack.Length <= 0 || pack.Length > MaxPackBytes || pack.DecodedBytes < 0 || pack.DecodedBytes > MaxPackDecodedBytes || pack.FileCount <= 0 {
-			return fmt.Errorf("invalid artifact pack %q", pack.Name)
-		}
-		if _, exists := packs[pack.Name]; exists {
-			return fmt.Errorf("duplicate artifact pack %q", pack.Name)
-		}
-		packs[pack.Name] = pack
-	}
-	actions := make(map[string]Action, len(manifest.Actions))
-	outputs := make(map[string]int64, len(manifest.Actions))
-	outputPacks := make(map[string]string, len(manifest.Actions))
-	packOutputs := make(map[string]map[string]int64, len(manifest.Packs))
-	for _, action := range manifest.Actions {
-		if !validSHA256(action.ActionID) || !validSHA256(action.OutputID) || action.BodySHA256 != action.OutputID || action.BodyLength < 0 {
-			return fmt.Errorf("invalid full action/output identity %q", action.ActionID)
-		}
-		if action.BodyLength == 0 && action.OutputID != emptyBodySHA256 {
-			return fmt.Errorf("invalid empty body identity for action %s", action.ActionID)
-		}
-		if action.Kind != "archive" && action.Kind != "opaque" {
-			return fmt.Errorf("unsupported cache body kind %q", action.Kind)
-		}
-		if action.Kind == "archive" && (action.PackagePath == "" || action.ModuleRole == "" || !validSHA256(action.SelectedSourceSHA) || !validSHA256(action.CommandSHA256)) {
-			return fmt.Errorf("incomplete package evidence for action %s", action.ActionID)
-		}
-		if _, exists := packs[action.Pack]; !exists {
-			return fmt.Errorf("action %s names unknown pack %q", action.ActionID, action.Pack)
-		}
-		if previous, exists := actions[action.ActionID]; exists {
-			if previous.OutputID != action.OutputID || previous.BodyLength != action.BodyLength {
-				return fmt.Errorf("conflicting publisher mapping for action %s", action.ActionID)
-			}
-			return fmt.Errorf("duplicate publisher action %s", action.ActionID)
-		}
-		if length, exists := outputs[action.OutputID]; exists && length != action.BodyLength {
-			return fmt.Errorf("conflicting body length for output %s", action.OutputID)
-		}
-		if owner, exists := outputPacks[action.OutputID]; exists && owner != action.Pack {
-			return fmt.Errorf("output %s is duplicated across packs", action.OutputID)
-		}
-		for _, input := range action.DirectInputs {
-			if !validSHA256(input) {
-				return fmt.Errorf("action %s has a malformed direct input", action.ActionID)
-			}
-		}
-		actions[action.ActionID] = action
-		outputs[action.OutputID] = action.BodyLength
-		outputPacks[action.OutputID] = action.Pack
-		if packOutputs[action.Pack] == nil {
-			packOutputs[action.Pack] = make(map[string]int64)
-		}
-		packOutputs[action.Pack][action.OutputID] = action.BodyLength
-	}
-	for _, pack := range manifest.Packs {
-		var total int64
-		for _, length := range packOutputs[pack.Name] {
-			if length > pack.DecodedBytes-total {
-				return fmt.Errorf("pack %q exceeds its decoded byte count", pack.Name)
-			}
-			total += length
-		}
-		if len(packOutputs[pack.Name]) != pack.FileCount || total != pack.DecodedBytes {
-			return fmt.Errorf("pack %q has inconsistent decoded counts", pack.Name)
-		}
-	}
-	return nil
+  if manifest.Schema != 1 {
+    return fmt.Errorf("unsupported artifact manifest schema %d", manifest.Schema)
+  }
+  if manifest.Release == "" || !validCommit(manifest.SourceCommit) || !validSHA256(manifest.GraphSHA256) {
+    return errors.New("artifact manifest has incomplete release provenance")
+  }
+  tuple := manifest.Tuple
+  if tuple.GoVersion == "" || tuple.GOOS == "" || tuple.GOARCH == "" || tuple.CGOEnabled != "0" || !validSHA256(tuple.GoToolSHA256) || !validSHA256(tuple.ToolIDsSHA256) || len(tuple.BuildFlags) == 0 {
+    return errors.New("artifact manifest has an unsupported or incomplete Go tuple")
+  }
+  if len(manifest.Packs) == 0 || len(manifest.Packs) > 64 || len(manifest.Actions) == 0 || len(manifest.Actions) > 100000 {
+    return errors.New("artifact manifest exceeds pack or action count policy")
+  }
+  packs := make(map[string]Pack, len(manifest.Packs))
+  for _, pack := range manifest.Packs {
+    if !validName(pack.Name) || !validPackURL(pack.URL) || !validSHA256(pack.SHA256) || pack.Length <= 0 || pack.Length > MaxPackBytes || pack.DecodedBytes < 0 || pack.DecodedBytes > MaxPackDecodedBytes || pack.FileCount <= 0 {
+      return fmt.Errorf("invalid artifact pack %q", pack.Name)
+    }
+    if _, exists := packs[pack.Name]; exists {
+      return fmt.Errorf("duplicate artifact pack %q", pack.Name)
+    }
+    packs[pack.Name] = pack
+  }
+  actions := make(map[string]Action, len(manifest.Actions))
+  outputs := make(map[string]int64, len(manifest.Actions))
+  outputPacks := make(map[string]string, len(manifest.Actions))
+  packOutputs := make(map[string]map[string]int64, len(manifest.Packs))
+  for _, action := range manifest.Actions {
+    if !validSHA256(action.ActionID) || !validSHA256(action.OutputID) || action.BodySHA256 != action.OutputID || action.BodyLength < 0 {
+      return fmt.Errorf("invalid full action/output identity %q", action.ActionID)
+    }
+    if action.BodyLength == 0 && action.OutputID != emptyBodySHA256 {
+      return fmt.Errorf("invalid empty body identity for action %s", action.ActionID)
+    }
+    if action.Kind != "archive" && action.Kind != "opaque" {
+      return fmt.Errorf("unsupported cache body kind %q", action.Kind)
+    }
+    if action.Kind == "archive" && (action.PackagePath == "" || action.ModuleRole == "" || !validSHA256(action.SelectedSourceSHA) || !validSHA256(action.CommandSHA256)) {
+      return fmt.Errorf("incomplete package evidence for action %s", action.ActionID)
+    }
+    if _, exists := packs[action.Pack]; !exists {
+      return fmt.Errorf("action %s names unknown pack %q", action.ActionID, action.Pack)
+    }
+    if previous, exists := actions[action.ActionID]; exists {
+      if previous.OutputID != action.OutputID || previous.BodyLength != action.BodyLength {
+        return fmt.Errorf("conflicting publisher mapping for action %s", action.ActionID)
+      }
+      return fmt.Errorf("duplicate publisher action %s", action.ActionID)
+    }
+    if length, exists := outputs[action.OutputID]; exists && length != action.BodyLength {
+      return fmt.Errorf("conflicting body length for output %s", action.OutputID)
+    }
+    if owner, exists := outputPacks[action.OutputID]; exists && owner != action.Pack {
+      return fmt.Errorf("output %s is duplicated across packs", action.OutputID)
+    }
+    for _, input := range action.DirectInputs {
+      if !validSHA256(input) {
+        return fmt.Errorf("action %s has a malformed direct input", action.ActionID)
+      }
+    }
+    actions[action.ActionID] = action
+    outputs[action.OutputID] = action.BodyLength
+    outputPacks[action.OutputID] = action.Pack
+    if packOutputs[action.Pack] == nil {
+      packOutputs[action.Pack] = make(map[string]int64)
+    }
+    packOutputs[action.Pack][action.OutputID] = action.BodyLength
+  }
+  for _, pack := range manifest.Packs {
+    var total int64
+    for _, length := range packOutputs[pack.Name] {
+      if length > pack.DecodedBytes-total {
+        return fmt.Errorf("pack %q exceeds its decoded byte count", pack.Name)
+      }
+      total += length
+    }
+    if len(packOutputs[pack.Name]) != pack.FileCount || total != pack.DecodedBytes {
+      return fmt.Errorf("pack %q has inconsistent decoded counts", pack.Name)
+    }
+  }
+  return nil
 }
 
 const emptyBodySHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 func validSHA256(value string) bool {
-	if len(value) != 64 {
-		return false
-	}
-	for _, char := range value {
-		if !strings.ContainsRune("0123456789abcdef", char) {
-			return false
-		}
-	}
-	return true
+  if len(value) != 64 {
+    return false
+  }
+  for _, char := range value {
+    if !strings.ContainsRune("0123456789abcdef", char) {
+      return false
+    }
+  }
+  return true
 }
 
 func validCommit(value string) bool {
-	if len(value) != 40 && len(value) != 64 {
-		return false
-	}
-	for _, char := range value {
-		if !strings.ContainsRune("0123456789abcdef", char) {
-			return false
-		}
-	}
-	return true
+  if len(value) != 40 && len(value) != 64 {
+    return false
+  }
+  for _, char := range value {
+    if !strings.ContainsRune("0123456789abcdef", char) {
+      return false
+    }
+  }
+  return true
 }
 
 func validName(value string) bool {
-	if value == "" || len(value) > 80 {
-		return false
-	}
-	for _, char := range value {
-		if !strings.ContainsRune("abcdefghijklmnopqrstuvwxyz0123456789-", char) {
-			return false
-		}
-	}
-	return true
+  if value == "" || len(value) > 80 {
+    return false
+  }
+  for _, char := range value {
+    if !strings.ContainsRune("abcdefghijklmnopqrstuvwxyz0123456789-", char) {
+      return false
+    }
+  }
+  return true
 }
 
 func validPackURL(value string) bool {
-	parsed, err := url.Parse(value)
-	if err != nil || parsed.User != nil || parsed.Host == "" || parsed.Fragment != "" {
-		return false
-	}
-	if parsed.Scheme == "https" {
-		return true
-	}
-	return parsed.Scheme == "http" && net.ParseIP(parsed.Hostname()) != nil && net.ParseIP(parsed.Hostname()).IsLoopback()
+  parsed, err := url.Parse(value)
+  if err != nil || parsed.User != nil || parsed.Host == "" || parsed.Fragment != "" {
+    return false
+  }
+  if parsed.Scheme == "https" {
+    return true
+  }
+  return parsed.Scheme == "http" && net.ParseIP(parsed.Hostname()) != nil && net.ParseIP(parsed.Hostname()).IsLoopback()
 }

@@ -94,8 +94,10 @@ function resolveSourceBuildCacheRoot(
  * Walks up from `projectRoot` and returns, in order of preference: the NEAREST
  * ancestor that is a workspace root (holds `pnpm-workspace.yaml`, or a
  * `package.json` with a `workspaces` field); else the nearest ancestor that
- * contains an installation; else the outermost ttsc-only cache owner at or
- * below the nearest ordinary package manifest, or `projectRoot` itself.
+ * contains an installation within the package boundary; else the outermost
+ * ttsc-only cache owner at or below the nearest ordinary package manifest, or
+ * `projectRoot` itself. An unrelated ancestor's installation without its own
+ * package manifest cannot take ownership after a package boundary is crossed.
  *
  * A nonempty, unmarked ttsc-only `.cache/ttsc` payload is fallback cache
  * evidence rather than an installation. Empty or marked ttsc roots remain
@@ -116,13 +118,18 @@ function resolveWorkspaceRoot(projectRoot: string): string {
     if (isWorkspaceRootDir(dir)) {
       return dir;
     }
+    const packageHere = hasPackageManifest(dir);
     const nodeModules = classifyNodeModulesBoundary(dir);
-    if (nearestNodeModulesOwner === null && nodeModules === "installation") {
+    if (
+      nearestNodeModulesOwner === null &&
+      nodeModules === "installation" &&
+      (!packageBoundarySeen || packageHere)
+    ) {
       nearestNodeModulesOwner = dir;
     } else if (nodeModules === "ttsc-cache" && !packageBoundarySeen) {
       outermostTtscCacheOwner = dir;
     }
-    packageBoundarySeen ||= hasPackageManifest(dir);
+    packageBoundarySeen ||= packageHere;
     const parent = path.dirname(dir);
     if (parent === dir) {
       break;

@@ -55,6 +55,7 @@ export function resolveCleanTargets(
   if (isTtscOwnedRoot) {
     targets.push(
       path.join(paths.root, SourceBuildCacheLayout.GO_BUILD_CACHE_DIRNAME),
+      path.join(paths.root, SourceBuildCacheLayout.PACKAGE_ARTIFACTS_DIRNAME),
     );
   }
   // An explicit TTSC_GO_CACHE_DIR is a ttsc-dedicated external cache; a

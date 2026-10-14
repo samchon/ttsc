@@ -21,6 +21,7 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 import { PluginContentIdentities } from "./PluginContentIdentities";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
+import { SourcePackageArtifacts } from "./SourcePackageArtifacts";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
@@ -31,6 +32,7 @@ import { ensureExecutableGoToolchain } from "./ensureExecutableGoToolchain";
 import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
 import { pluginSourceDigest } from "./pluginSourceDigest";
 import { pruneGoBuildCacheRoot } from "./pruneGoBuildCacheRoot";
+import { prunePackageArtifactRoot } from "./prunePackageArtifactRoot";
 import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
 import { reclaimPluginBuildLock } from "./reclaimPluginBuildLock";
 import { releasePluginBuildLock } from "./releasePluginBuildLock";
@@ -383,6 +385,11 @@ function buildSourcePluginAttempt(
         pluginName: opts.pluginName,
         quiet,
         source,
+        artifactRoot: path.join(
+          paths.root,
+          SourceBuildCacheLayout.PACKAGE_ARTIFACTS_DIRNAME,
+        ),
+        ttscVersion: opts.ttscVersion,
       });
     },
   );
@@ -447,6 +454,7 @@ const CONTRIB_DIRNAME = "contrib";
 
 /** Run the actual `go build` and publish the binary; assumes the lock is held. */
 function compileSourcePlugin(opts: {
+  artifactRoot: string;
   binaryPath: string;
   cacheDir: string;
   contributors: readonly ITtscBuildContributor[];
@@ -476,6 +484,7 @@ function compileSourcePlugin(opts: {
   pluginName: string;
   quiet: boolean;
   source: string;
+  ttscVersion: string;
 }): string {
   OwnedSynchronousProcess.checkpoint();
   if (!opts.quiet) {
@@ -574,6 +583,8 @@ function compileSourcePlugin(opts: {
     const scratchBinaryName =
       process.platform === "win32" ? ".ttsc-plugin.exe" : ".ttsc-plugin";
     let attemptedGoBuildCacheRoot: string | undefined;
+    let publisherRecording: ReturnType<typeof SourcePackageArtifacts.record> =
+      null;
     try {
       withGoBuildCacheLease(
         opts.goBuildCacheRoot,
@@ -616,16 +627,57 @@ function compileSourcePlugin(opts: {
               );
             });
           }
-          runGoBuild(
-            scratchDir,
-            opts.entry,
-            scratchBinaryName,
-            opts.pluginName,
-            opts.goBinary,
-            goBuildCacheRoot,
-            opts.env,
-            opts.normalizeGoToolPermissions,
-          );
+          const recording = SourcePackageArtifacts.record({
+            cwd: scratchDir,
+            entry: opts.entry,
+            env: GoSourceInputs.goBuildEnv(
+              opts.goBinary,
+              goBuildCacheRoot,
+              opts.env,
+            ),
+            goBinary: opts.goBinary,
+            key: opts.key,
+            pluginName: opts.pluginName,
+            ttscVersion: opts.ttscVersion,
+          });
+          publisherRecording = recording;
+          const artifacts =
+            recording === null
+              ? SourcePackageArtifacts.prepare({
+                  artifactRoot: opts.artifactRoot,
+                  cwd: scratchDir,
+                  entry: opts.entry,
+                  env: GoSourceInputs.goBuildEnv(
+                    opts.goBinary,
+                    goBuildCacheRoot,
+                    opts.env,
+                  ),
+                  goBinary: opts.goBinary,
+                  pluginName: opts.pluginName,
+                  quiet: opts.quiet,
+                  ttscVersion: opts.ttscVersion,
+                })
+              : null;
+          try {
+            runGoBuild(
+              scratchDir,
+              opts.entry,
+              scratchBinaryName,
+              opts.pluginName,
+              opts.goBinary,
+              goBuildCacheRoot,
+              recording?.env ?? artifacts!.env,
+              opts.normalizeGoToolPermissions,
+              recording?.actionGraph,
+            );
+          } finally {
+            if (artifacts !== null)
+              SourcePackageArtifacts.reportUsage(
+                artifacts,
+                opts.pluginName,
+                opts.quiet,
+              );
+          }
           OwnedSynchronousProcess.checkpoint();
           if (process.env.TTSC_E2E_TRACE) {
             E2ETrace.capabilityResolution(
@@ -655,6 +707,7 @@ function compileSourcePlugin(opts: {
         // grow the cache unchecked behind a fresh daily marker. Cancellation
         // still releases the lease and scratch, but admits no new maintenance.
         pruneGoBuildCacheRoot(attemptedGoBuildCacheRoot, { force: true });
+        prunePackageArtifactRoot(attemptedGoBuildCacheRoot, opts.artifactRoot);
       }
     }
     // The toolchain was read for the key before the lock wait and the build,
@@ -685,6 +738,8 @@ function compileSourcePlugin(opts: {
       );
       throw pluginBuildEnvironmentChanged(opts.pluginName);
     }
+    if (publisherRecording !== null)
+      SourcePackageArtifacts.seal(publisherRecording);
     const builtBinary = path.join(scratchDir, scratchBinaryName);
     OwnedSynchronousProcess.checkpoint();
     publishBuiltBinary(builtBinary, opts.binaryPath);
@@ -1194,12 +1249,20 @@ function runGoBuild(
   goBuildCacheRoot: string,
   env: NodeJS.ProcessEnv,
   normalizeGoToolPermissions: boolean,
+  actionGraph?: string,
 ): void {
   OwnedSynchronousProcess.checkpoint();
   ensureExecutableGoToolchain(goBinary, normalizeGoToolPermissions);
   const result = spawnGoTool(
     goBinary,
-    ["build", ...GoSourceInputs.BUILD_FLAGS, "-o", binaryName, entry],
+    [
+      "build",
+      ...GoSourceInputs.BUILD_FLAGS,
+      ...(actionGraph ? [`-debug-actiongraph=${actionGraph}`] : []),
+      "-o",
+      binaryName,
+      entry,
+    ],
     {
       cwd,
       encoding: "utf8",

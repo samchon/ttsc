@@ -128,6 +128,8 @@ Use `ttsc clean` to remove idle caches; binaries rebuild on next use. If an owne
 
 Every CI job and every container build starts from a clean filesystem, so a source plugin recompiles on each one unless the cache is carried across. [Build cache](/docs/ttsc/cache) covers that: what invalidates the cache, why a CI key has to separate architectures and not only operating systems, the `npm ci` ordering trap that silently disables the cache, and worked GitHub Actions and Docker recipes.
 
+An experimental publisher package cache can provide exact Go package actions during a cold source-plugin build. It is opt-in and requires a trusted artifact manifest; [Build cache → Publisher package artifacts](/docs/ttsc/cache#publisher-package-artifacts) lists the controls, supported tuple, fallback and cleanup behavior.
+
 ## See also
 
 - [TTSC · Build cache](/docs/ttsc/cache): persisting the plugin binary across CI jobs and container builds.

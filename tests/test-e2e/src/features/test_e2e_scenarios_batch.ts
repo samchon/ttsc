@@ -57,6 +57,9 @@ import { test_buildsourceplugin_reclaims_dead_legacy_plugin_lock } from "./ttsc/
 import { test_buildsourceplugin_waiter_recovers_when_holder_fails_and_releases } from "./ttsc/native-plugins/source-plugin/test_buildsourceplugin_waiter_recovers_when_holder_fails_and_releases";
 import { test_buildsourceplugin_waiter_reuses_binary_published_during_release } from "./ttsc/native-plugins/source-plugin/test_buildsourceplugin_waiter_reuses_binary_published_during_release";
 import { test_gobuildcache_prunes_lru_objects_outside_active_build_leases } from "./ttsc/native-plugins/source-plugin/test_gobuildcache_prunes_lru_objects_outside_active_build_leases";
+import { test_package_artifact_gc_preserves_active_native_builds } from "./ttsc/native-plugins/source-plugin/test_package_artifact_gc_preserves_active_native_builds";
+import { test_source_package_artifact_publisher_seals_real_builder_actions } from "./ttsc/native-plugins/source-plugin/test_source_package_artifact_publisher_seals_real_builder_actions";
+import { test_source_package_artifacts_selects_only_matching_admitted_packs } from "./ttsc/native-plugins/source-plugin/test_source_package_artifacts_selects_only_matching_admitted_packs";
 import { test_ttsc_reclaims_dead_legacy_source_plugin_lock_e2e } from "./ttsc/native-plugins/source-plugin/test_ttsc_reclaims_dead_legacy_source_plugin_lock_e2e";
 import { test_ttsc_utility_plugins_paths_side_loads_into_driver_host } from "./ttsc/native-plugins/utility-host/test_ttsc_utility_plugins_paths_side_loads_into_driver_host";
 import { test_ttsc_lint_config_evaluator_keeps_bootstrap_out_of_the_parent_descriptor_channel } from "./ttsc/native-plugins/utility/test_ttsc_lint_config_evaluator_keeps_bootstrap_out_of_the_parent_descriptor_channel";
@@ -508,6 +511,18 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
   [
     "test_gobuildcache_prunes_lru_objects_outside_active_build_leases",
     test_gobuildcache_prunes_lru_objects_outside_active_build_leases,
+  ],
+  [
+    "test_package_artifact_gc_preserves_active_native_builds",
+    test_package_artifact_gc_preserves_active_native_builds,
+  ],
+  [
+    "test_source_package_artifacts_selects_only_matching_admitted_packs",
+    test_source_package_artifacts_selects_only_matching_admitted_packs,
+  ],
+  [
+    "test_source_package_artifact_publisher_seals_real_builder_actions",
+    test_source_package_artifact_publisher_seals_real_builder_actions,
   ],
   [
     "test_ttsc_reclaims_dead_legacy_source_plugin_lock_e2e",

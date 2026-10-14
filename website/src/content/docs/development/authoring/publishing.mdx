@@ -86,6 +86,8 @@ npm pack --dry-run
 
 The tarball contains Go source, not a prebuilt plugin binary. `ttsc` builds that source on the consumer machine: executable `package main` sources become sidecars, while linked non-`main` transform packages are compiled into the selected native host.
 
+The optional [publisher package cache](/docs/ttsc/cache#publisher-package-artifacts) does not change your tarball or plugin API. Go reuses a published package body only when its full build action matches the consumer's selected source, module role, dependencies, flags and toolchain. An edited or unpublished helper compiles locally, and the final native executable still links on the consumer machine.
+
 ## Dependencies
 
 Published plugin packages carry their JS descriptor and Go source, while the consumer project supplies `ttsc` and the active `typescript` runtime.

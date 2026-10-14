@@ -23,6 +23,7 @@ import { formatGoWorkPath } from "../../../../../../packages/ttsc/lib/plugin/int
 import { inspectPluginBuildLock } from "../../../../../../packages/ttsc/lib/plugin/internal/source/inspectPluginBuildLock.js";
 import { pruneCacheFileRoot } from "../../../../../../packages/ttsc/lib/plugin/internal/source/pruneCacheFileRoot.js";
 import { pruneGoBuildCacheRoot } from "../../../../../../packages/ttsc/lib/plugin/internal/source/pruneGoBuildCacheRoot.js";
+import { prunePackageArtifactRoot } from "../../../../../../packages/ttsc/lib/plugin/internal/source/prunePackageArtifactRoot.js";
 import { prunePluginCacheRoot } from "../../../../../../packages/ttsc/lib/plugin/internal/source/prunePluginCacheRoot.js";
 import { reclaimPluginBuildLock } from "../../../../../../packages/ttsc/lib/plugin/internal/source/reclaimPluginBuildLock.js";
 import { recordCacheFileUse } from "../../../../../../packages/ttsc/lib/plugin/internal/source/recordCacheFileUse.js";
@@ -458,6 +459,7 @@ export {
   pruneCacheFileRoot,
   prunePluginCacheRoot,
   pruneGoBuildCacheRoot,
+  prunePackageArtifactRoot,
   reclaimPluginBuildLock,
   recordCacheFileUse,
   releasePluginBuildLock,

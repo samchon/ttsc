@@ -28,6 +28,7 @@
     "executableFiles": [
       "./bin/ttsc",
       "./bin/ttscserver",
+      "./bin/ttsc-cache",
       "./bin/go/bin/go",
       "./bin/go/bin/gofmt",
       "./bin/go/pkg/tool/linux_amd64/asm",

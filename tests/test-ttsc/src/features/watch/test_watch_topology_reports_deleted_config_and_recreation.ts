@@ -87,8 +87,8 @@ export const test_watch_topology_reports_deleted_config_and_recreation =
       fs.writeFileSync(replacement, configText, "utf8");
       await settle();
       const beforeReplacement = configChangeCount(changes);
-      const previousOwner = fs.statSync(config);
-      const replacementOwner = fs.statSync(replacement);
+      const previousOwner = fs.statSync(config, { bigint: true });
+      const replacementOwner = fs.statSync(replacement, { bigint: true });
       assert.notEqual(
         `${replacementOwner.dev}:${replacementOwner.ino}`,
         `${previousOwner.dev}:${previousOwner.ino}`,
