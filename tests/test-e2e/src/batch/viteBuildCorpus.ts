@@ -186,9 +186,12 @@ export async function viteBuildCorpus(
     currentBuild = { epoch: mutationEpoch, done, finish, fail };
     pendingBuilds.add(done);
   };
+  // This materialized graph can still link cold Go contributors in prepare().
+  // Share the parent's cold-link cap across publications and original close;
+  // watch events and completed epochs cannot restart it or prove readiness.
   const lifetime = new TestLifetime({
     name: "retained Vite record publication",
-    timeoutMs: 120_000,
+    timeoutMs: 900_000,
     deadline: request.deadline,
   });
   activeLifetime = lifetime;

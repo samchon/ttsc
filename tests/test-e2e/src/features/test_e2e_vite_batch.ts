@@ -150,10 +150,11 @@ async function runViteBuildActor(
   workspace: BatchWorkspace.Workspace,
   phase: (name: string, data?: Record<string, unknown>) => void,
 ): Promise<void> {
-  // This prepared-case failure budget amends #1700's ownerless positive waits.
-  // Its expiry cancels the original native actor; only that owner's actual
-  // retirement receipt, never elapsed time, permits existing restoration.
-  const deadlineOwner = new TestLifetime({ name: "shared Vite actor", timeoutMs: 120_000 });
+  // Materialized fixtures do not make this actor a warm rebuild: it still
+  // owns cold TtscCompiler.prepare(), every publication and original close.
+  // Apply the existing cold-link budget once; the child shares this fixed cap.
+  // Only the original native retirement receipt authorizes restoration.
+  const deadlineOwner = new TestLifetime({ name: "shared Vite actor", timeoutMs: 900_000 });
   const failureLedger = new TestFailureLedger();
   const originalPhase = phase;
   phase = (name, data) => { deadlineOwner.checkpoint(name); originalPhase(name, data); };
