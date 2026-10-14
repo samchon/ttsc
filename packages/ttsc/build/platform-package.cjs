@@ -1,7 +1,8 @@
 // Builds one native platform package for its target.
 //
-// `@ttsc/{os}-{arch}` carries the ttsc helper, the ttscserver LSP proxy and the
-// bundled Go compiler that source plugins build with. `@ttsc/graph-{os}-{arch}`
+// `@ttsc/{os}-{arch}` carries the ttsc helper, the ttscserver LSP proxy, the
+// local Go cache helper and the bundled Go compiler that source plugins build
+// with. `@ttsc/graph-{os}-{arch}`
 // carries only the ttscgraph producer that `@ttsc/graph` spawns, so a project
 // without the graph downloads none of it. Both build from packages/ttsc with
 // the same flags and the same version stamp.
@@ -25,6 +26,7 @@ const commands = graph
   : [
       ["ttsc", "./cmd/platform"],
       ["ttscserver", "./cmd/ttscserver"],
+      ["ttsc-cache", "./cmd/ttsc-cache"],
     ];
 
 const goos = npmOs === "win32" ? "windows" : npmOs;
