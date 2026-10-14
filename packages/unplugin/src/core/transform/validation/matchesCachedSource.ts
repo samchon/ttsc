@@ -20,26 +20,7 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  * Validate a cached project transform against the current on-disk project
  * state.
  *
- * A module with a recorded source compares its delivered text with the
- * generation snapshot. An unrelated module outside an unchanged program needs
- * no source comparison. A cache with a delivery epoch can use that comparison
- * alone for a stable generation's first delivery of each module in the current
- * pass, once the pass's own first delivery has proven the whole generation
- * still matches the filesystem. Incomplete generations cannot claim complete
- * proof. A coherent local success admitted only because its observer was
- * unavailable may share first deliveries in its exact nonwatching pass through
- * TtscGenerationProof; it cannot cross passes or earn persistent authority.
- * Later graph-bearing requests validate the file's derived input set and
- * project membership. A failed result is a diagnostic of the whole loaded
- * program, so its repair cannot be proved by one delivered output's dependency
- * closure. Failed and graph-free envelopes conservatively validate the complete
- * project and out-of-walk snapshots, reusing qualified signatures. A mismatch
- * rejects this generation for the delivery; its caller chooses replacement or
- * capture. Delivered text that differs while the disk still holds the bytes the
- * generation compiled is not one: it is reported and served, since the compile
- * read the disk (samchon/ttsc#1394). Preparation performs the same comparison
- * without reporting a host rewrite, because its native source read is not a
- * delivered module.
+ * A module with a recorded source compares its delivered text with the generation snapshot. An unrelated module outside an unchanged program needs no source comparison. A cache with a delivery epoch can use that comparison alone for a stable generation's first delivery of each module in the current pass, once the pass's own first delivery has proven the whole generation still matches the filesystem. Incomplete generations cannot claim complete proof. A coherent local success admitted only because its observer was unavailable may share first deliveries in its exact nonwatching pass through TtscGenerationProof; it cannot cross passes or earn persistent authority. Later graph-bearing requests validate the file's derived input set and project membership. A failed result is a diagnostic of the whole loaded program, so its repair cannot be proved by one delivered output's dependency closure. Failed and graph-free envelopes conservatively validate the complete project and out-of-walk snapshots, reusing qualified signatures. A mismatch rejects this generation for the delivery; its caller chooses replacement or capture. Delivered text that differs while the disk still holds the bytes the generation compiled is not one: it is reported and served, since the compile read the disk (samchon/ttsc#1394). Preparation performs the same comparison without reporting a host rewrite, because its native source read is not a delivered module.
  *
  * Its place in the adapter's invalidation model, and the units beside it, are
  * mapped in the maintainer page
@@ -76,8 +57,7 @@ export function matchesCachedSource(
   epoch: number | undefined,
   proof?: TtscGenerationProof.Transaction,
   /**
-   * Preparation compares the same native bytes without reporting a host
-   * rewrite.
+   * Preparation compares the same native bytes without reporting a host rewrite.
    */
   reportDivergence = true,
 ): boolean {

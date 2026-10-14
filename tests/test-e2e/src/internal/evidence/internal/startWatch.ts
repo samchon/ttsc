@@ -44,10 +44,7 @@ const REBUILD_TIMEOUT: number = 120_000;
  * properties, and a rebuild that discards the Program satisfies every freshness
  * case in this suite while being the regression that makes watch mode useless.
  *
- * Settling asks the launcher to finish its decided, queued and running work.
- * Its nonce-bound IPC reply carries the cumulative build count because IPC can
- * arrive before stdout; every acknowledged marker is consumed before return.
- * Finite quiet windows retain their separate negative-observation meaning.
+ * Settling asks the launcher to finish its decided, queued and running work. Its nonce-bound IPC reply carries the cumulative build count because IPC can arrive before stdout; every acknowledged marker is consumed before return. Finite quiet windows retain their separate negative-observation meaning.
  *
  * Shutdown uses the launcher's inherited IPC channel. A nonce-bound stopped
  * response confirms its owning native sessions and active cycle were joined;

@@ -9,10 +9,7 @@ import { isRelativePluginSpecifier } from "./isRelativePluginSpecifier";
  * The plugin entries a project declares, from its `tsconfig.json` and from the
  * `ttsc` block of its direct dependencies' manifests.
  *
- * Every entry carries the directory its specifier resolves from. Bare packages
- * and explicit invocation lists use pluginConfigDir when supplied, otherwise
- * the selected config directory. Configured relative entries retain their
- * declaring directory; automatic relative markers use their package directory.
+ * Every entry carries the directory its specifier resolves from. Bare packages and explicit invocation lists use pluginConfigDir when supplied, otherwise the selected config directory. Configured relative entries retain their declaring directory; automatic relative markers use their package directory.
  *
  * @evidence contracts/common.md#principled-implementation Explicit entries replace discovery; otherwise inherited relative transforms retain their declaring base while bare packages resolve from the consumer, followed by distinct direct-dependency markers.
  * @evidence contracts/common.md#clear-and-simple-design Entry extraction owns ordering/provenance and delegates physical package resolution; descriptor execution/building remain outside discovery.
@@ -28,9 +25,7 @@ export namespace ProjectPluginEntries {
   /**
    * Select the consumer directory for plugin packages and factory contexts.
    *
-   * Generated configs supply their original directory through pluginConfigDir.
-   * The compiler's source root can include sibling packages and does not choose
-   * the consumer's dependencies.
+   * Generated configs supply their original directory through pluginConfigDir. The compiler's source root can include sibling packages and does not choose the consumer's dependencies.
    *
    * @evidence contracts/common.md#principled-implementation The selected config owns the consumer dependency lookup; an explicit pluginConfigDir restores that authority for generated wrappers independently of the compiler source root.
    * @evidence contracts/common.md#clear-and-simple-design One path selection is shared by entry discovery, presence, host-input observation and factory contexts.

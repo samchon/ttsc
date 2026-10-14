@@ -7,9 +7,7 @@ import type { WatchTopologyWorkerProtocol } from "./WatchTopologyWorkerProtocol"
 /**
  * Serve ordered topology operations until close joins all outstanding answers.
  *
- * Mutation runs synchronously when its message arrives. An idle barrier yields
- * so a later close can stop continuous native events; closing then waits for
- * those earlier barriers to answer before closing the callback channel.
+ * Mutation runs synchronously when its message arrives. An idle barrier yields so a later close can stop continuous native events; closing then waits for those earlier barriers to answer before closing the callback channel.
  *
  * @evidence contracts/common.md#principled-implementation FIFO messages invoke actual core operations in order, while close releases subscriptions before outstanding idle barriers finish and the reply port retires.
  * @evidence contracts/common.md#clear-and-simple-design One dispatcher owns operation correlation and answer lifetime; core callbacks and filesystem decisions remain separate.

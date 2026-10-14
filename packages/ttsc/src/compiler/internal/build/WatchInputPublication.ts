@@ -1,9 +1,7 @@
 /**
  * Complete each watch-input handoff before resuming its producer.
  *
- * Synchronous compiler APIs retain their return types and require synchronous
- * handlers. Watch callers use the asynchronous runner so a worker establishes
- * its baseline before the producer reads or builds the reported inputs.
+ * Synchronous compiler APIs retain their return types and require synchronous handlers. Watch callers use the asynchronous runner so a worker establishes its baseline before the producer reads or builds the reported inputs.
  *
  * @evidence contracts/common.md#principled-implementation Generator suspension preserves ordered publication checkpoints; rejected handoffs return to the producer's failure policy and finally blocks. The synchronous guard recognizes callable then members across realms and observes an already-started promise's rejection before refusing asynchronous completion.
  * @evidence contracts/common.md#clear-and-simple-design Two runners share one producer sequence; the synchronous guard owns promise recognition and refusal, and its caller delivers that failure to the producer.
@@ -30,8 +28,7 @@ export namespace WatchInputPublication {
   export type Sequence<Result> = Generator<void | Promise<void>, Result, void>;
 
   /**
-   * Finish a synchronous producer, refusing a handler that returns a promise.
-   * The refusal enters the producer's ordinary exception and cleanup path.
+   * Finish a synchronous producer, refusing a handler that returns a promise. The refusal enters the producer's ordinary exception and cleanup path.
    *
    * @evidence contracts/common.md#principled-implementation Each yielded completion is checked before advancing; asynchronous completion becomes an exception delivered into the producer.
    * @evidence contracts/common.md#clear-and-simple-design The runner owns synchronous completion while the sequence owns operation policy and cleanup.
@@ -57,8 +54,7 @@ export namespace WatchInputPublication {
   }
 
   /**
-   * Join every handoff before continuing, delivering rejection to the producer
-   * rather than bypassing its error handling or temporary-resource cleanup.
+   * Join every handoff before continuing, delivering rejection to the producer rather than bypassing its error handling or temporary-resource cleanup.
    *
    * @evidence contracts/common.md#principled-implementation Await settles each yielded handoff and throws rejection back into the same suspended generator before advancing.
    * @evidence contracts/common.md#clear-and-simple-design The runner owns asynchronous completion while producer policy remains inside the shared sequence.
@@ -86,8 +82,7 @@ export namespace WatchInputPublication {
   }
 
   /**
-   * Refuse cross-realm promises and thenables through the producer's failure
-   * path, observing rejection from a handler that has already started.
+   * Refuse cross-realm promises and thenables through the producer's failure path, observing rejection from a handler that has already started.
    */
   function assertSynchronous(value: unknown): void {
     if (

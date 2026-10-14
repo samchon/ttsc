@@ -1,18 +1,9 @@
 import path from "node:path";
 
 /**
- * Load an owned CommonJS worker through a module URL while retaining Node's
- * inherited execution options and preload hooks.
+ * Load an owned CommonJS worker through a module URL while retaining Node's inherited execution options and preload hooks.
  *
- * A parent launched with --input-type interprets stdin or evaluated source.
- * With a preload, module resolution rejects that inherited option at a file
- * worker entry before the worker can start. A supported data URL supplies
- * module source that requires the real entry. Setting execArgv instead would
- * replace Node's inherited-option handling and can reject otherwise valid
- * process options such as --max-old-space-size. createRequire preserves the
- * entry's CommonJS resolution, including literal POSIX backslashes that file
- * URL imports reject as encoded separators. The worker entry must use the
- * package's CommonJS source or emitted format.
+ * A parent launched with --input-type interprets stdin or evaluated source. With a preload, module resolution rejects that inherited option at a file worker entry before the worker can start. A supported data URL supplies module source that requires the real entry. Setting execArgv instead would replace Node's inherited-option handling and can reject otherwise valid process options such as --max-old-space-size. createRequire preserves the entry's CommonJS resolution, including literal POSIX backslashes that file URL imports reject as encoded separators. The worker entry must use the package's CommonJS source or emitted format.
  *
  * @param filename Native entry path, resolved from cwd when relative.
  * @returns A data URL accepted by the Worker constructor; it owns no thread.

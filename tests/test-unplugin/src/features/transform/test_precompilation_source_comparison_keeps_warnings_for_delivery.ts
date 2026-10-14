@@ -6,13 +6,9 @@ import { selectCachedGenerationAction } from "../../../../../packages/unplugin/s
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
 
 /**
- * Verifies preparation compares source state without consuming the warning
- * reserved for a divergent module actually delivered by the host.
+ * Verifies preparation compares source state without consuming the warning reserved for a divergent module actually delivered by the host.
  *
- * A speculative read can race an edit before its project is compiled. Host
- * rewrite warnings belong to actual delivered modules; preparation must
- * preserve the same source-validation decision while leaving those warnings
- * untouched.
+ * A speculative read can race an edit before its project is compiled. Host rewrite warnings belong to actual delivered modules; preparation must preserve the same source-validation decision while leaving those warnings untouched.
  *
  * 1. Compare divergent text against an unchanged native compiled baseline in
  *    preparation mode, requiring serving permission without a warning mark.

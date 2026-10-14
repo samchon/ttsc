@@ -119,19 +119,12 @@ export type RunBuildOptions = TtscBuildOptions & {
   privateEmitRootDir?: string;
 
   /**
-   * Receives selected native-plugin source roots after the project resolves.
-   * The watch launcher uses these roots to invalidate a sidecar when its Go
-   * implementation changes between rebuilds. Asynchronous entries await a
-   * returned promise; synchronous entries require a synchronous handler.
+   * Receives selected native-plugin source roots after the project resolves. The watch launcher uses these roots to invalidate a sidecar when its Go implementation changes between rebuilds. Asynchronous entries await a returned promise; synchronous entries require a synchronous handler.
    */
   onWatchInputs?: TtscPluginSourceInputsHandler;
 
   /**
-   * Receives the reconciled project-rule filesystem dependency snapshot. Called
-   * when this internal callback is supplied, normally by watch launchers;
-   * ordinary calls without the callback do not probe the optional sidecar
-   * command. Asynchronous entries await a returned promise before compilation;
-   * synchronous entries require a synchronous handler.
+   * Receives the reconciled project-rule filesystem dependency snapshot. Called when this internal callback is supplied, normally by watch launchers; ordinary calls without the callback do not probe the optional sidecar command. Asynchronous entries await a returned promise before compilation; synchronous entries require a synchronous handler.
    */
   onProjectInputs?: TtscProjectInputsHandler;
 

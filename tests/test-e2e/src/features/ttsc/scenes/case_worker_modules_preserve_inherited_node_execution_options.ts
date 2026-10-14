@@ -7,9 +7,7 @@ import { pathToFileURL } from "node:url";
 /**
  * Verifies public asynchronous transforms preserve inherited Node options.
  *
- * With a preload, stdin-only input type reaches a file worker's initial module
- * resolution and rejects before its API request. Worker bootstrap must retain
- * both preload hooks and Node's handling of otherwise unsupported execArgv.
+ * With a preload, stdin-only input type reaches a file worker's initial module resolution and rejects before its API request. Worker bootstrap must retain both preload hooks and Node's handling of otherwise unsupported execArgv.
  *
  * 1. Reuse the runtime batch's compiler cache for one private minimal project.
  * 2. Evaluate one real consumer with input type, preload, heap and title options.

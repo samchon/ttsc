@@ -1,12 +1,7 @@
 /**
  * Publish the CommonJS source extensions served by the installed runtime hooks.
  *
- * Tools such as tsconfig-paths enumerate the process registry before asking
- * Node to resolve a file, and rechoir checks it before loading a typed config.
- * A module-local copy cannot satisfy those checks. Add only missing entries
- * using Node's JavaScript handler; registerHooks still owns source compilation
- * and existing loader handlers keep their identity. Node probes these entries
- * after its existing extensions, preserving JavaScript precedence.
+ * Tools such as tsconfig-paths enumerate the process registry before asking Node to resolve a file, and rechoir checks it before loading a typed config. A module-local copy cannot satisfy those checks. Add only missing entries using Node's JavaScript handler; registerHooks still owns source compilation and existing loader handlers keep their identity. Node probes these entries after its existing extensions, preserving JavaScript precedence.
  *
  * @evidence contracts/common.md#principled-implementation The public require.extensions registry advertises supported CommonJS source loading to consumers that inspect extensions before resolution; absent entries delegate to Node's existing JavaScript handler, which consumes the source supplied by registerHooks.
  * @evidence contracts/common.md#clear-and-simple-design One installation operation publishes loader capability without adding a second compilation or resolution path.

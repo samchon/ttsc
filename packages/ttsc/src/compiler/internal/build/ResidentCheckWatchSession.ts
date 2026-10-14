@@ -66,13 +66,7 @@ export class ResidentCheckWatchSession {
    * Options identifying the invocation and startup environment must remain
    * stable until reload; callers must not run overlapping cycles.
    *
-   * The first cycle, and any cycle after `change.reload`, resolves the project
-   * and plugins and starts resident check processes for compatible entries.
-   * Later cycles reuse them and forward `change` as an incremental request. A
-   * resident process that fails is retired and its entry falls back to the
-   * one-shot check for that cycle. Plugin and project watch handoffs complete
-   * before checks begin; reused topology is republished through the same
-   * completion boundary.
+   * The first cycle, and any cycle after `change.reload`, resolves the project and plugins and starts resident check processes for compatible entries. Later cycles reuse them and forward `change` as an incremental request. A resident process that fails is retired and its entry falls back to the one-shot check for that cycle. Plugin and project watch handoffs complete before checks begin; reused topology is republished through the same completion boundary.
    *
    * @evidence contracts/common.md#principled-implementation Compatible no-emit check-only selection uses the same diagnostic/failure policy as one-shot execution; reload, missing binaries and changed normalized dependency topology cold-resolve the next execution.
    * @evidence contracts/common.md#clear-and-simple-design The cycle separates setup/reuse, topology refresh, ordered checks and final diagnostics/timing, delegating each phase to its owning shared operation.
@@ -303,8 +297,7 @@ export class ResidentCheckWatchSession {
   }
 
   /**
-   * Retain discovered project topology after its watch owner confirms the
-   * publication; rejected registration leaves the previous snapshot intact.
+   * Retain discovered project topology after its watch owner confirms the publication; rejected registration leaves the previous snapshot intact.
    */
   private captureProjectInputs(options: RunBuildOptions): RunBuildOptions {
     const onProjectInputs = options.onProjectInputs;
@@ -321,9 +314,7 @@ export class ResidentCheckWatchSession {
   }
 
   /**
-   * Refresh normalized Program topology while always publishing declared alias
-   * updates to the watcher, even when physical dependency identity is
-   * unchanged. Await registration before checks reuse the selected execution.
+   * Refresh normalized Program topology while always publishing declared alias updates to the watcher, even when physical dependency identity is unchanged. Await registration before checks reuse the selected execution.
    */
   private async refreshProjectInputTopology(
     options: RunBuildOptions,

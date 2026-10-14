@@ -1,8 +1,5 @@
 /**
- * Select passive Windows filesystem evidence for one original cold-build task.
- * Provider metadata is validated by the recorder before these normalized rows
- * arrive. Pointer addresses and numeric process IDs are reused, so missing
- * starts, ambiguous reuse and unobserved completion remain unknown.
+ * Select passive Windows filesystem evidence for one original cold-build task. Provider metadata is validated by the recorder before these normalized rows arrive. Pointer addresses and numeric process IDs are reused, so missing starts, ambiguous reuse and unobserved completion remain unknown.
  *
  * @evidence contracts/common.md#principled-implementation Original task paths and qualified process births select evidence; chronological Create and OperationEnd rows qualify pointer lifetimes without treating missing Close as a live handle.
  * @evidence contracts/common.md#clear-and-simple-design One selector separates task path admission, pointer correlation and issuer generation attribution from native recorder lifecycle.
@@ -81,13 +78,7 @@ export namespace WindowsFileIoEvidence {
   /**
    * Select task operations and explicitly connected issuer-generation evidence.
    *
-   * Names admit a FileObject lifetime; subsequent operations and their IRPs
-   * belong only to that lifetime until a later Create reuses the address.
-   * OperationEnd follows the exact preceding IRP, while missing or reused IRPs
-   * remain unknown. Successful Close completion is observed data, never an
-   * assertion that other handles or readers are absent.
-   * Equal boundary timestamps and clock reversal leave attribution unqualified;
-   * chronological delivery cannot break ties between events from separate CPUs.
+   * Names admit a FileObject lifetime; subsequent operations and their IRPs belong only to that lifetime until a later Create reuses the address. OperationEnd follows the exact preceding IRP, while missing or reused IRPs remain unknown. Successful Close completion is observed data, never an assertion that other handles or readers are absent. Equal boundary timestamps and clock reversal leave attribution unqualified; chronological delivery cannot break ties between events from separate CPUs.
    *
    * @evidence contracts/common.md#principled-implementation Actual named provider fields and device mappings admit task paths. Non-null unsigned 64-bit pointers retain exact hexadecimal identity, unsigned 32-bit statuses preserve raw radix and validated UTC fractions retain nanosecond comparison precision. Strict process/thread intervals qualify issuer births independently of header PIDs; tied boundaries, pointer reuse, malformed time and reversed delivery produce unknown rows instead of ordering guesses.
    * @evidence contracts/common.md#clear-and-simple-design One event fold owns FileObject/IRP lifetime maps and process/thread intervals; output contains task rows, their connected owner evidence and completeness limits.

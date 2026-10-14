@@ -9,11 +9,9 @@ import { AsyncWatchTopology } from "../../../../../../packages/ttsc/lib/launcher
 import type { WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 
 /**
- * Verifies packaged watch topology owns responsive and ordered worker
- * lifetimes.
+ * Verifies packaged watch topology owns responsive and ordered worker lifetimes.
  *
- * Direct core calls cannot prove thread separation, cloned publications,
- * callback/reply ordering or actual worker-loss settlement.
+ * Direct core calls cannot prove thread separation, cloned publications, callback/reply ordering or actual worker-loss settlement.
  *
  * 1. Reuse one packaged topology worker for plugin/project publications, changed
  *    and unchanged events, blocked operations and recoverable failures.

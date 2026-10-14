@@ -74,12 +74,7 @@ export function serializeOptions(
  * behaviour for a project that called `withTtsc(config)` with no explicit
  * options.
  *
- * Common compiler options, including `precompile` entries and `projectRoot`,
- * survive transport without interpreting their paths in the config host. A
- * present `plugins` property is forwarded even when its value is `false`;
- * omission leaves plugin selection to the project. The include/exclude filters
- * and precompile entry list retain only strings; invalid arrays become empty
- * lists. Only a non-empty string is accepted as the private run identity.
+ * Common compiler options, including `precompile` entries and `projectRoot`, survive transport without interpreting their paths in the config host. A present `plugins` property is forwarded even when its value is `false`; omission leaves plugin selection to the project. The include/exclude filters and precompile entry list retain only strings; invalid arrays become empty lists. Only a non-empty string is accepted as the private run identity.
  *
  * @evidence contracts/common.md#principled-implementation
  *   JSON.parse reads the adapter-owned environment channel. The parser accepts

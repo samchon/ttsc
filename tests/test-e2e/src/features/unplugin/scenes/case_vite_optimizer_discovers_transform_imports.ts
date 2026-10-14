@@ -13,11 +13,7 @@ import { observeReloadEvents } from "../../../internal/unplugin/internal/adapter
 /**
  * Verifies a cold Vite optimizer finds plugin imports before serving source.
  *
- * A source-preamble contributor adds dependencies absent from authored imports.
- * The linked package can resolve its dependency only from its own node_modules,
- * and a transform-added local helper has another dependency. Vite's original
- * scanner must still expand globs, inject JSX imports and accept default
- * exports.
+ * A source-preamble contributor adds dependencies absent from authored imports. The linked package can resolve its dependency only from its own node_modules, and a transform-added local helper has another dependency. Vite's original scanner must still expand globs, inject JSX imports and accept default exports.
  *
  * 1. Start one server with cold dependency storage and automatic discovery.
  * 2. Require plugin, linked, glob, JSX and explicitly included dependencies in the

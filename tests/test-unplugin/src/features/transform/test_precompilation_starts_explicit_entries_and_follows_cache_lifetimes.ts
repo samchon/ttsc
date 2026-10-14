@@ -10,12 +10,9 @@ import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/co
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies explicit entries start together and startup ownership follows the
- * host cache.
+ * Verifies explicit entries start together and startup ownership follows the host cache.
  *
- * A host may discover workspace imports sequentially. The scheduler must enter
- * every selected capture before any pending capture completes, retain native
- * entry text and preserve source eligibility.
+ * A host may discover workspace imports sequentially. The scheduler must enter every selected capture before any pending capture completes, retain native entry text and preserve source eligibility.
  *
  * 1. Write native source entries and start captures held behind one gate.
  * 2. Require parallel entry, lexical deduplication and unchanged source text.

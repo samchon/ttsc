@@ -14,9 +14,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
 /**
  * Verifies plugin consumers stay anchored at their selected config directory.
  *
- * A common source root owns sibling source membership, while the selected
- * package owns dependencies. Generated wrappers declare that consumer through
- * pluginConfigDir; inherited relative entries retain their declaring config.
+ * A common source root owns sibling source membership, while the selected package owns dependencies. Generated wrappers declare that consumer through pluginConfigDir; inherited relative entries retain their declaring config.
  *
  * 1. Resolve discovered, configured and explicit entries below a wider root.
  * 2. Preserve inherited relative bases, explicit origins and native link paths.

@@ -4,12 +4,9 @@ import { createRequire } from "node:module";
 import { advertiseTypeScriptExtensions } from "../../../../packages/ttsc/src/launcher/internal/runtime/advertiseTypeScriptExtensions";
 
 /**
- * Verifies source-extension advertisement preserves native and foreign
- * handlers.
+ * Verifies source-extension advertisement preserves native and foreign handlers.
  *
- * Consumers inspect extension keys before resolution, while the installed
- * public hooks supply the compiled source. The registry needs capability
- * entries without a replacement loader or reordered native extensions.
+ * Consumers inspect extension keys before resolution, while the installed public hooks supply the compiled source. The registry needs capability entries without a replacement loader or reordered native extensions.
  *
  * 1. Advertise into an owned copy of Node's native registry.
  * 2. Compare handler identities, key order and a repeated advertisement.

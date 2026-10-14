@@ -13,13 +13,9 @@ import type { TtscTransformCache } from "../../../../../../packages/unplugin/src
 import { waitFor } from "../../../../../utils/src/internal/waitFor";
 
 /**
- * Verifies explicit project preparation overlaps native compiles without
- * delivery effects.
+ * Verifies explicit project preparation overlaps native compiles without delivery effects.
  *
- * A host discovers imports serially, but selected projects can prepare
- * together. Preparation must leave first-delivery authority and host
- * registration for the actual load, and teardown must not let a pending
- * preparation restore the cache.
+ * A host discovers imports serially, but selected projects can prepare together. Preparation must leave first-delivery authority and host registration for the actual load, and teardown must not let a pending preparation restore the cache.
  *
  * 1. Hold two native compiles and observe both barriers before releasing either.
  * 2. Deliver one project, then distinguish the other's preparation from its first

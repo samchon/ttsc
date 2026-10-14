@@ -10,17 +10,9 @@ import type { WatchTopologyWorkerProtocol } from "./WatchTopologyWorkerProtocol"
 /**
  * Keep one watch topology and its native subscriptions on a worker thread.
  *
- * Case-policy probes, content digests and compiler listings must retain their
- * actual observations. Replacing them with path-only case caches or size/mtime
- * digests can miss directory replacements and source edits. They instead run
- * off the launcher's loop so their cost cannot delay resident-host retirement
- * or queued build decisions (#1758). This moves the cost; it does not remove
- * it. Options and publications are cloned, while callbacks stay on the caller.
+ * Case-policy probes, content digests and compiler listings must retain their actual observations. Replacing them with path-only case caches or size/mtime digests can miss directory replacements and source edits. They instead run off the launcher's loop so their cost cannot delay resident-host retirement or queued build decisions (#1758). This moves the cost; it does not remove it. Options and publications are cloned, while callbacks stay on the caller.
  *
- * Await a publication before the build reads its inputs. Moving that baseline
- * past the build could absorb an intervening edit (#1728). Callback messages
- * and completion replies share one FIFO channel, so whenIdle completes after
- * the notifications its barrier observed have reached the launcher (#1756).
+ * Await a publication before the build reads its inputs. Moving that baseline past the build could absorb an intervening edit (#1728). Callback messages and completion replies share one FIFO channel, so whenIdle completes after the notifications its barrier observed have reached the launcher (#1756).
  *
  * @evidence contracts/common.md#principled-implementation A dedicated supported worker executes the unchanged topology algorithm on selected cloneable data while callbacks remain caller-owned; worker events and correlated replies settle actual operations, and one FIFO channel orders callbacks before completion.
  * @evidence contracts/common.md#clear-and-simple-design The facade separates option capture, reply dispatch and worker lifetime; the synchronous core retains filesystem policy and watcher ownership.
@@ -45,8 +37,7 @@ export class AsyncWatchTopology {
   private closing: Promise<void> | undefined;
 
   /**
-   * Capture data options and start the worker; callbacks remain caller-owned.
-   * The optional factory observes worker transport without replacing globals.
+   * Capture data options and start the worker; callbacks remain caller-owned. The optional factory observes worker transport without replacing globals.
    */
   public constructor(
     options: WatchTopologyWorkerProtocol.Options,
@@ -208,8 +199,7 @@ export class AsyncWatchTopology {
   }
 
   /**
-   * Close subscriptions and join the thread. Repeated calls share retirement;
-   * close or worker failures remain rejection even after thread termination.
+   * Close subscriptions and join the thread. Repeated calls share retirement; close or worker failures remain rejection even after thread termination.
    *
    * @evidence contracts/common.md#principled-implementation Successful close follows core subscription release, outstanding barrier answers and actual worker exit; failed close terminates and joins the thread while preserving rejection.
    * @evidence contracts/common.md#clear-and-simple-design One retained promise owns idempotent shutdown and finishClose owns its two retirement paths.

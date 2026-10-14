@@ -8,9 +8,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
 /**
  * Verifies worker module URLs retain native CommonJS entry resolution.
  *
- * Native filenames can contain characters with URL and JavaScript meanings.
- * Module loading must preserve those names, relative dependencies and
- * failures.
+ * Native filenames can contain characters with URL and JavaScript meanings. Module loading must preserve those names, relative dependencies and failures.
  *
  * 1. Load successful CommonJS entries through their worker module URLs.
  * 2. Reach relative dependencies below paths containing reserved characters.

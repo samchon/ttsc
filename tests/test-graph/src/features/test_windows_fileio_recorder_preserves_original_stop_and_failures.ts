@@ -8,8 +8,7 @@ import { TestProject } from "../../../utils/src/TestProject";
 /**
  * Verifies optional recorder state owns startup, joined stop and failure output.
  *
- * Diagnostic refusal cannot skip the original test or fabricate joined native
- * recording; repeated stop must retain one original retirement result.
+ * Diagnostic refusal cannot skip the original test or fabricate joined native recording; repeated stop must retain one original retirement result.
  *
  * 1. Disable recording and assert no owned runner executes; start one enabled
  *    owner through an explicit runner and bind its independently authored task.

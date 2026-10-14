@@ -7,8 +7,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
 /**
  * Verifies empty plugin selection retains its publication completion boundary.
  *
- * Disabling plugins still replaces a watch owner's previous source population,
- * so loading must await that replacement and preserve rejection behavior.
+ * Disabling plugins still replaces a watch owner's previous source population, so loading must await that replacement and preserve rejection behavior.
  *
  * 1. Pause actual plugin loading with an explicitly empty selected population.
  * 2. Assert loading remains pending until publication finishes and inspect it.

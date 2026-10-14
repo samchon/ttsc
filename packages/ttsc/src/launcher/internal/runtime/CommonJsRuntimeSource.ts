@@ -73,9 +73,7 @@ export namespace CommonJsRuntimeSource {
   /**
    * Construct an owned require sharing the original live extension registry.
    *
-   * Node's loader and every native require share this registration object.
-   * Copying it hides later registrations, replacements and deletions from one
-   * side; source-extension advertisement belongs to runtime installation.
+   * Node's loader and every native require share this registration object. Copying it hides later registrations, replacements and deletions from one side; source-extension advertisement belongs to runtime installation.
    *
    * @evidence contracts/common.md#principled-implementation createRequire loads through Node's shared CommonJS cache; copied public properties preserve cache/main access, and the original registry reference preserves the public extension-registration contract across later edits. Missing original metadata falls back to the native registry.
    * @evidence contracts/common.md#clear-and-simple-design The callable and resolve member share one filename anchor; source recovery remains in the configured policy.

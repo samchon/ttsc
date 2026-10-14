@@ -86,19 +86,7 @@ import { selectRuntimePluginPolicy } from "./selectRuntimePluginPolicy";
  * that is what lets a CommonJS `require("./x")` chain reach them and what makes
  * `require.resolve(..., { paths })` inside `runBuild`'s plugin loader behave.
  *
- * Both graphs go through `registerHooks`, the supported customization API. A
- * CommonJS module an ESM `import` reaches may need an ESM facade that loads it
- * through the CommonJS loader (`commonJsImportFacade`): handed to the ESM
- * loader with source, the module's own `require()` bypasses the hooks on some
- * releases, so a nested `require("./x.js")` backed only by `x.ts` failed there.
- * Capability and entry predicates also admit direct CommonJS source lanes. One
- * reach the API lacks on some releases is `require.resolve`, which is probed
- * before installation. Served CommonJS bodies receive an owned require function
- * whose resolve member applies the same source policy on those releases. Its
- * shared extension registry preserves live registrations. Installation also
- * advertises missing CommonJS source extensions in the process registry because
- * ecosystem tools inspect it before resolution; existing handlers remain intact
- * and foreign resolver methods are never replaced.
+ * Both graphs go through `registerHooks`, the supported customization API. A CommonJS module an ESM `import` reaches may need an ESM facade that loads it through the CommonJS loader (`commonJsImportFacade`): handed to the ESM loader with source, the module's own `require()` bypasses the hooks on some releases, so a nested `require("./x.js")` backed only by `x.ts` failed there. Capability and entry predicates also admit direct CommonJS source lanes. One reach the API lacks on some releases is `require.resolve`, which is probed before installation. Served CommonJS bodies receive an owned require function whose resolve member applies the same source policy on those releases. Its shared extension registry preserves live registrations. Installation also advertises missing CommonJS source extensions in the process registry because ecosystem tools inspect it before resolution; existing handlers remain intact and foreign resolver methods are never replaced.
  *
  * Direct descriptor evaluation records user preloads after hook installation.
  * Only the generated CommonJS output sibling takes Node's native resolve/load

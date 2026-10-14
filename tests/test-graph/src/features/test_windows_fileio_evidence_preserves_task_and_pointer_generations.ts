@@ -5,8 +5,7 @@ import { WindowsFileIoEvidence } from "../../../utils/src/WindowsFileIoEvidence"
 /**
  * Verifies task evidence keeps pointer, issuer and process generations separate.
  *
- * Numeric pointer rounding, PID reuse or a missing Close can otherwise create
- * an ownership claim that the actual event sequence never established.
+ * Numeric pointer rounding, PID reuse or a missing Close can otherwise create an ownership claim that the actual event sequence never established.
  *
  * 1. Select an original mapped scratch Create, sharing flags, delete request
  *    and failing completion under independently authored process/thread births.

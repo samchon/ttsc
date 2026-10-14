@@ -1,7 +1,5 @@
 /**
- * Exercise the packaged topology and dispatcher through real worker transport.
- * Supplied compiler/case operations isolate that transport from native hosts;
- * the control port delivers recorded filesystem notifications.
+ * Exercise the packaged topology and dispatcher through real worker transport. Supplied compiler/case operations isolate that transport from native hosts; the control port delivers recorded filesystem notifications.
  */
 import fs from "node:fs";
 import path from "node:path";

@@ -16,20 +16,7 @@ import type { ResidentCheckResult } from "./ResidentCheckResult";
  * ordinary one-shot command after joining the original child. An unjoined child
  * cannot authorize that replacement.
  *
- * The caller owns disposal. Requests have no deadline, and outstanding request
- * count and reply-line size are not capped; a slow live check remains pending.
- * This loop owns the child independently of launcher callbacks. Retirement
- * stops JSON-line assembly, drains raw output, and waits for actual close. A
- * one-second grace period starts after stdin finishes, followed by forced
- * termination and a one-second join deadline. Pending stdin writes have a
- * one-second flush deadline once the retiring call stack yields. An unjoined
- * deadline releases this client's pipes, request listeners, timers and
- * event-loop process reference while keeping joining failed; the client object
- * still holds its ChildProcess. It neither kills unrelated descendants nor
- * certifies their termination. A forced or unjoined process is not a graceful
- * shutdown. These delays are event-loop timer policies, not hard elapsed-time
- * bounds; synchronous blocking or callback starvation can postpone their
- * delivery.
+ * The caller owns disposal. Requests have no deadline, and outstanding request count and reply-line size are not capped; a slow live check remains pending. This loop owns the child independently of launcher callbacks. Retirement stops JSON-line assembly, drains raw output, and waits for actual close. A one-second grace period starts after stdin finishes, followed by forced termination and a one-second join deadline. Pending stdin writes have a one-second flush deadline once the retiring call stack yields. An unjoined deadline releases this client's pipes, request listeners, timers and event-loop process reference while keeping joining failed; the client object still holds its ChildProcess. It neither kills unrelated descendants nor certifies their termination. A forced or unjoined process is not a graceful shutdown. These delays are event-loop timer policies, not hard elapsed-time bounds; synchronous blocking or callback starvation can postpone their delivery.
  *
  * @evidence contracts/common.md#principled-implementation One positional reply consumes one queued cycle; invalid framing or shape retires the stream so a delayed reply cannot answer a different cycle.
  * @evidence contracts/common.md#clear-and-simple-design One client owns its child, line reader, FIFO and failure state; private parsing and settlement keep transport policy separate from the watch coordinator's fallback.
@@ -142,8 +129,7 @@ export class ResidentCheckProcessHost {
    * that retired the process, so the caller can fall back to a one-shot check
    * for that cycle.
    *
-   * The client serializes before crossing the worker boundary. A closed input
-   * retires the host and rejects its other pending calls.
+   * The client serializes before crossing the worker boundary. A closed input retires the host and rejects its other pending calls.
    *
    * @evidence contracts/common.md#principled-implementation The caller supplies one serialized line, and each successfully enqueued call keeps its own FIFO slot until a validated reply or shared retirement settles it.
    * @evidence contracts/common.md#clear-and-simple-design Pre-write validation remains local; write failures use the same settlement and retirement operations as pipe and protocol failure.

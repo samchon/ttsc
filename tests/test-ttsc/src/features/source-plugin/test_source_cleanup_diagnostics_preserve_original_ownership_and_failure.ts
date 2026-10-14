@@ -13,8 +13,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
 /**
  * Verifies passive cleanup diagnostics retain original ownership and failures.
  *
- * A partial cold-session report must retain the original native receipt and
- * filesystem refusal without treating a later observation as cleanup proof.
+ * A partial cold-session report must retain the original native receipt and filesystem refusal without treating a later observation as cleanup proof.
  *
  * 1. Decode an authored native receipt and bind it to an actual admitted scope,
  *    then refuse cleanup and inspect the correlated passive observation.

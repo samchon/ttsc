@@ -1,9 +1,7 @@
 /**
  * Attribute a package-resolution failure to its plugin and consumer directory.
  *
- * Runtime resolvers can throw objects with an empty message. The request and
- * directory remain actionable independently of that message; the original cause
- * and any string error code remain available to callers.
+ * Runtime resolvers can throw objects with an empty message. The request and directory remain actionable independently of that message; the original cause and any string error code remain available to callers.
  *
  * @evidence contracts/common.md#principled-implementation Resolution supplies the actual specifier and consumer directory, so diagnostic context survives an empty runtime message without inferring a cause or changing resolver policy.
  * @evidence contracts/common.md#clear-and-simple-design One error boundary enriches diagnostics while preserving the original cause and a string code.

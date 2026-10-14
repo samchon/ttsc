@@ -278,9 +278,7 @@ export namespace PluginPackageResolution {
   }
 
   /**
-   * Resolve a plugin specifier from its consumer directory, using realpath when
-   * available and retaining selected native spelling on canonicalization
-   * failure.
+   * Resolve a plugin specifier from its consumer directory, using realpath when available and retaining selected native spelling on canonicalization failure.
    *
    * Absolute and relative specifiers are paths. A package specifier honors the
    * package's `ttsc` export condition first, so a package whose main entry is a

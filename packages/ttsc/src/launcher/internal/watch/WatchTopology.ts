@@ -220,11 +220,7 @@ export class WatchTopology {
   /**
    * Wait until delivered notifications and registration reconciliation finish.
    *
-   * A completed build does not imply a quiet topology: its final refresh can
-   * queue another decision and another build (#1756). Yield through the check
-   * phase before inspecting every scheduled owner so a decision queued by
-   * another decision remains part of this barrier. Later filesystem changes
-   * belong to a later barrier; this does not freeze the filesystem.
+   * A completed build does not imply a quiet topology: its final refresh can queue another decision and another build (#1756). Yield through the check phase before inspecting every scheduled owner so a decision queued by another decision remains part of this barrier. Later filesystem changes belong to a later barrier; this does not freeze the filesystem.
    *
    * @evidence contracts/common.md#principled-implementation A check-phase observation follows delivered events, and every notification, recovery and registration queue must be empty before completion.
    * @evidence contracts/common.md#clear-and-simple-design The topology owns the barrier because it alone owns all five scheduled queues.

@@ -7,8 +7,7 @@ import { CommonJsRuntimeSource } from "../../../../packages/ttsc/src/launcher/in
 /**
  * Verifies owned requires share the caller's live extension registry.
  *
- * Native requires share one registry so later registrations affect every
- * consumer. A snapshot can preserve initial handlers while hiding later edits.
+ * Native requires share one registry so later registrations affect every consumer. A snapshot can preserve initial handlers while hiding later edits.
  *
  * 1. Construct two owned requires over registries with present or absent source handlers.
  * 2. Verify construction shares identity without changing registry contents.

@@ -13,8 +13,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
 /**
  * Verifies the idle barrier includes decisions queued by an earlier decision.
  *
- * One event can expose another input change while the first batch is reporting;
- * waiting only for that batch would acknowledge unfinished topology work.
+ * One event can expose another input change while the first batch is reporting; waiting only for that batch would acknowledge unfinished topology work.
  *
  * 1. Publish two compiler inputs with recorded subscriptions and a supplied
  *    compiler-input reader, then finish initial registration reconciliation.

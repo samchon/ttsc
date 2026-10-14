@@ -149,8 +149,7 @@ export class TestLifetime {
   }
 
   /**
-   * Observe an original promise, rejecting observation when this lifetime fails.
-   * The caller still owns and joins that promise and its native work; cancelling this observation does not settle the operation.
+   * Observe an original promise, rejecting observation when this lifetime fails. The caller still owns and joins that promise and its native work; cancelling this observation does not settle the operation.
    *
    * @evidence contracts/common.md#principled-implementation Original fulfillment/rejection and the owning signal independently settle observation once; actual operation settlement remains unchanged and late rejection stays observed.
    * @evidence contracts/common.md#clear-and-simple-design One observation adapter pairs the existing promise with this controller without taking over its producer.
@@ -180,8 +179,7 @@ export class TestLifetime {
   }
 
   /**
-   * Clear this timer after the caller's original operation and cleanup finish.
-   * Returns every original expiry, clock and disposal fault for the caller's error ledger. It does not throw over a body failure; repeated calls return the same completed ledger, and assertActive retains its failed verdict.
+   * Clear this timer after the caller's original operation and cleanup finish. Returns every original expiry, clock and disposal fault for the caller's error ledger. It does not throw over a body failure; repeated calls return the same completed ledger, and assertActive retains its failed verdict.
    *
    * @evidence contracts/common.md#principled-implementation The final clock check preserves overdue completion or its original refusal, while an independent finally attempts every registered disposer. Ordered reasons preserve prior expiry and independent cleanup failures; disposal cannot manufacture caller joins.
    * @evidence contracts/common.md#clear-and-simple-design Terminal state and one cached readonly failure snapshot make repeated finish idempotent; refused capabilities remain separately retained.

@@ -8,9 +8,7 @@ import { TtscCompiler } from "ttsc";
 /**
  * Verifies a common source root preserves package-local plugin resolution.
  *
- * An isolated monorepo installs its descriptor only beside the selected config.
- * The descriptor resolves its own package through the factory context, so an
- * absolute entry cannot hide a wrong context after entry resolution succeeds.
+ * An isolated monorepo installs its descriptor only beside the selected config. The descriptor resolves its own package through the factory context, so an absolute entry cannot hide a wrong context after entry resolution succeeds.
  *
  * 1. Borrow the runtime batch's native source and content-addressed cache.
  * 2. Transform backend and sibling sources through discovery, bare and absolute

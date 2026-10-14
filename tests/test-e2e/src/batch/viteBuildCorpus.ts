@@ -57,12 +57,7 @@ export interface ViteBuildRequest {
  * Verifies one retained Vite build across primary, fallback and restored
  * records.
  *
- * Public close may precede a queued build. The original actor keeps shared
- * inputs borrowed through its real termination; the parent owns restoration.
- * Opt-in phases distinguish completed mutations, selected publications and
- * host invalidations; an END event or a quiet watcher proves no readiness.
- * A shared failure deadline rejects stalled publication observation. Original
- * joins and native retirement still govern host work and borrowed inputs.
+ * Public close may precede a queued build. The original actor keeps shared inputs borrowed through its real termination; the parent owns restoration. Opt-in phases distinguish completed mutations, selected publications and host invalidations; an END event or a quiet watcher proves no readiness. A shared failure deadline rejects stalled publication observation. Original joins and native retirement still govern host work and borrowed inputs.
  *
  * 1. Build the complete prepared graph once and inspect its values and map.
  * 2. Mutate declaration inputs through fallback and restored primary epochs.

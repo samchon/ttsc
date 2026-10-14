@@ -7,10 +7,7 @@ import { StringDecoder } from "node:string_decoder";
 import { WindowsFileIoEvidence } from "./WindowsFileIoEvidence";
 
 /**
- * Own optional task-scoped Windows ETW diagnostics around the cold Graph case.
- * Raw machine events stay in private runner temporary storage; only the
- * original task's filtered evidence and explicit diagnostic failures are
- * published. Recorder failures never replace or skip the original scenario.
+ * Own optional task-scoped Windows ETW diagnostics around the cold Graph case. Raw machine events stay in private runner temporary storage; only the original task's filtered evidence and explicit diagnostic failures are published. Recorder failures never replace or skip the original scenario.
  *
  * @evidence contracts/common.md#principled-implementation Unique manifests precede recorder admission and correlate two bounded sessions with original task coordinates; native stop acknowledgment precedes decoding and raw-storage reclamation.
  * @evidence contracts/common.md#clear-and-simple-design One test-only owner coordinates the static native fixture and portable event selector; product sessions and source-input release remain with their original owners.
@@ -50,9 +47,7 @@ export namespace WindowsColdFileIo {
     bind(task: Pick<WindowsFileIoEvidence.Task, "token" | "scratch" | "processes">): void;
 
     /**
-     * Stop only the original sessions, filter evidence and release private raw
-     * storage after publishing its loss or failure manifest. Repeated calls
-     * share the same result, including diagnostic refusal.
+     * Stop only the original sessions, filter evidence and release private raw storage after publishing its loss or failure manifest. Repeated calls share the same result, including diagnostic refusal.
      *
      * @evidence contracts/common.md#principled-implementation Actual fixture stop acknowledgment precedes decoding; errors remain diagnostic failures and unknown recording never authorizes product cleanup.
      * @evidence contracts/common.md#clear-and-simple-design One retained promise owns shutdown, filtering and final metadata publication.
@@ -69,12 +64,7 @@ export namespace WindowsColdFileIo {
   /**
    * Start an explicitly admitted recorder before the original task starts.
    *
-   * Two single-provider sessions retain at most 60 MiB file and 4 MiB process
-   * raw trace data. Circular overwrite and unmeasured loss remain unknown.
-   * The supplied runner is an owned test seam; the default starts the static
-   * native fixture under the runner's existing account without a shell.
-   * The returned failure property's presence marks refusal, including a
-   * JavaScript rejection whose reason is undefined.
+   * Two single-provider sessions retain at most 60 MiB file and 4 MiB process raw trace data. Circular overwrite and unmeasured loss remain unknown. The supplied runner is an owned test seam; the default starts the static native fixture under the runner's existing account without a shell. The returned failure property's presence marks refusal, including a JavaScript rejection whose reason is undefined.
    *
    * @evidence contracts/common.md#principled-implementation An exclusive immutable admission plan precedes native work; complete append-only state records cannot replace it. Actual named schemas and Process-before-File admission qualify observation. Native Int64 event IDs are checked against the documented 16-bit domain and normalized to Int32 task keys; malformed identifiers and mismatched task names remain refusals. Original start refusal and secondary publication errors remain separate original objects, while the returned owner retains shutdown capability.
    * @evidence contracts/common.md#clear-and-simple-design One owner retains startup outcome, original task and idempotent stop; native recorder details stay in the fixture and pointer semantics stay in the selector.
@@ -182,8 +172,7 @@ export namespace WindowsColdFileIo {
   }
 
   /**
-   * Stop exact manifested sessions after interrupted test ownership, publish
-   * incomplete recording metadata and release only joined private raw storage.
+   * Stop exact manifested sessions after interrupted test ownership, publish incomplete recording metadata and release only joined private raw storage.
    *
    * @evidence contracts/common.md#principled-implementation Immutable exclusively created plans select exact session names and runner-temporary paths. Complete state records may carry original native acknowledgments; interrupted records provide no proof. Actual sibling stop or never-attempted admission receipts qualify closure before raw reclamation.
    * @evidence contracts/common.md#clear-and-simple-design One workflow fallback visits original unreleased manifests and invokes their owned stop operation.

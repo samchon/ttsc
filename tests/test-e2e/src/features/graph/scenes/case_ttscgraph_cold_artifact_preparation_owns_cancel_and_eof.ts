@@ -21,12 +21,7 @@ import {
 /**
  * Connect actual cold publisher preparation to transport EOF and caller abort.
  *
- * The ordinary graph batch owns successful cold publication, warm reuse and
- * document freshness. These two additional lifetimes must start without a
- * published source profile; both retain the batch's real publisher and SDK.
- * Optional Windows CI recording adds two bounded native observation sessions
- * around the public cancellation row. A recorder failure is retained while the
- * original assertions continue; its raw events confer no input-release right.
+ * The ordinary graph batch owns successful cold publication, warm reuse and document freshness. These two additional lifetimes must start without a published source profile; both retain the batch's real publisher and SDK. Optional Windows CI recording adds two bounded native observation sessions around the public cancellation row. A recorder failure is retained while the original assertions continue; its raw events confer no input-release right.
  *
  * 1. Observe an actual cold Go build, require tools/list while it runs, then EOF.
  * 2. Abort another actual cold public session, observe its original producer

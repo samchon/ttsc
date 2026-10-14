@@ -79,9 +79,7 @@ export namespace SourceNativeRetirement {
   }
 
   /**
-   * Allocate an empty task capability without acquiring a filesystem guard.
-   * The optional observer receives passive cleanup-failure data; its absence
-   * avoids diagnostic receipt retention and additional filesystem reads.
+   * Allocate an empty task capability without acquiring a filesystem guard. The optional observer receives passive cleanup-failure data; its absence avoids diagnostic receipt retention and additional filesystem reads.
    *
    * @evidence contracts/common.md#principled-implementation A nonempty task token distinguishes the original admission owner and starts with no native commands.
    * @evidence contracts/common.md#clear-and-simple-design Two maps and one FIFO separate registration, boundary state and deferred cleanup; an optional passive sink receives failure observations without controlling release.
@@ -307,17 +305,7 @@ export namespace SourceNativeRetirement {
   }
 
   /**
-   * Accept the original boundary owner's classified outcome. A certified
-   * terminal outcome is immutable, so a surrounding catch cannot turn a joined
-   * command back into unknown. Unknown remains protected if diagnostic writes
-   * fail; the pre-admission pending guard already protects its inputs.
-   * The optional native observation is passive data from the command owner,
-   * retained only for a task's enabled cleanup-failure sink.
-   * Candidate close/removal failures retain their original errors and reach the
-   * owned task even when later resolver code catches the thrown outcome.
-   * Successful removal relinquishes that pathname immediately; only failed
-   * removals retain retry authority, and all roots are attempted before
-   * failure.
+   * Accept the original boundary owner's classified outcome. A certified terminal outcome is immutable, so a surrounding catch cannot turn a joined command back into unknown. Unknown remains protected if diagnostic writes fail; the pre-admission pending guard already protects its inputs. The optional native observation is passive data from the command owner, retained only for a task's enabled cleanup-failure sink. Candidate close/removal failures retain their original errors and reach the owned task even when later resolver code catches the thrown outcome. Successful removal relinquishes that pathname immediately; only failed removals retain retry authority, and all roots are attempted before failure.
    *
    * @evidence contracts/common.md#principled-implementation Only the original boundary accepts a classified result; safe certificates cannot become unknown through a surrounding catch.
    * @evidence contracts/common.md#clear-and-simple-design The state transition and exact guard-file list centralize completion and unknown publication.
@@ -456,14 +444,7 @@ export namespace SourceNativeRetirement {
    * after successful cleanup or deferred recovery. Ordinary unscoped callers
    * perform cleanup without observing or inventing a registration.
    *
-   * Enabled private tracing observes the original callback's execution, not its
-   * deferral. Scalar own error properties are read without invoking getters;
-   * reflection or sink failures leave the original outcome intact. Synchronous
-   * trace writes can change scheduling and prove only that run.
-   * An optional task sink receives the original boundary and receipt metadata
-   * plus read-only root/syscall-path observations after cleanup refuses. These
-   * observations do not identify Windows handle ownership or grant release;
-   * sink and metadata failures leave the original cleanup error unchanged.
+   * Enabled private tracing observes the original callback's execution, not its deferral. Scalar own error properties are read without invoking getters; reflection or sink failures leave the original outcome intact. Synchronous trace writes can change scheduling and prove only that run. An optional task sink receives the original boundary and receipt metadata plus read-only root/syscall-path observations after cleanup refuses. These observations do not identify Windows handle ownership or grant release; sink and metadata failures leave the original cleanup error unchanged.
    *
    * @evidence contracts/common.md#principled-implementation Physical identity and the exact resource object are captured before destruction; only successful cleanup removes that identical registration, while failure and replacement retain ownership. After actual refusal, the original scope and command observations remain separate from later non-atomic lstat/realpath data or their syscall failures; seven own scalar error descriptors avoid getter evaluation and mark reflection refusal.
    * @evidence contracts/common.md#clear-and-simple-design One operation combines destructive cleanup with registration release through the existing release/recover protocol. Private helpers separately capture scope data, project scalar error descriptors and observe each path, keeping the passive sink outside cleanup policy.
@@ -1177,10 +1158,7 @@ let current: SourceNativeRetirement.Scope | undefined;
 /**
  * Capture passive failure evidence without changing the original refusal.
  *
- * The original worker scope supplies native receipts and resource identities;
- * filesystem metadata is a later observation, not a handle-owner or retirement
- * certificate. Read only the root, failed syscall path and their parents.
- * Windows sharing flags and open handles require independent native evidence.
+ * The original worker scope supplies native receipts and resource identities; filesystem metadata is a later observation, not a handle-owner or retirement certificate. Read only the root, failed syscall path and their parents. Windows sharing flags and open handles require independent native evidence.
  *
  */
 function observeCleanupFailure(

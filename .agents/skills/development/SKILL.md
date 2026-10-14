@@ -7,9 +7,11 @@ description: Repairs, implements, tests, and validates ttsc source, tests, fixtu
 
 ## Repair
 
-Before changing an existing implementation, establish why it exists from its contracts, callers, tests, and git history, and identify the invariants the change must preserve. Record any non-obvious constraint behind the fix in a nearby code comment so a later edit preserves it.
+Fix the cause while preserving surrounding contracts.
 
-Before editing, group every known symptom by cause, then trace each cause, and your change, through callers and consumers, error and recovery paths, caches and generated output, Windows and POSIX, and anything observing a new file, write, or timing, such as directory walks, watchers, cache keys, and timestamps. Cover each resulting case with a test, fix the owner, and delete the compensations the fix makes unnecessary.
+1. Read the implementation, contracts, callers and tests to understand its rationale and invariants; group known symptoms by cause before editing.
+2. Identify regressions from the proposed change across affected consumers, failure and recovery, cached or generated state, platforms, and observations of file or timing changes.
+3. Fix the cause at its owner, remove obsolete compensations and test corrected and unchanged behavior; explain non-obvious constraints in nearby comments.
 
 ## Contracts
 

@@ -28,8 +28,7 @@ export interface ITtscCompilerContext {
   /**
    * The working directory for this compiler instance.
    *
-   * Used to discover `tsconfig.json`, resolve relative `tsconfig` paths,
-   * resolve project source files, and resolve relative cache paths.
+   * Used to discover `tsconfig.json`, resolve relative `tsconfig` paths, resolve project source files, and resolve relative cache paths.
    *
    * An omitted value uses `process.cwd()` when the operation resolves its
    * context; construction does not capture that default.
@@ -50,18 +49,12 @@ export interface ITtscCompilerContext {
   /**
    * Source root used for source membership, native plugin cwd and cache paths.
    *
-   * Omission uses the resolved config directory. Set a common ancestor when the
-   * config includes sibling packages; relative paths resolve from cwd. Returned
-   * relative Go-source paths and descriptor process cwd also use this root.
-   * Plugin package resolution and factory contexts keep the selected config
-   * directory independently. Generated config wrappers supply the real consumer
-   * directory through pluginConfigDir and may retain a wider source root here.
+   * Omission uses the resolved config directory. Set a common ancestor when the config includes sibling packages; relative paths resolve from cwd. Returned relative Go-source paths and descriptor process cwd also use this root. Plugin package resolution and factory contexts keep the selected config directory independently. Generated config wrappers supply the real consumer directory through pluginConfigDir and may retain a wider source root here.
    */
   projectRoot?: string;
 
   /**
-   * Consumer directory for plugin packages, factory contexts, plugin
-   * config-file discovery and relative `configFile` resolution.
+   * Consumer directory for plugin packages, factory contexts, plugin config-file discovery and relative `configFile` resolution.
    *
    * Leave this unset so plugins anchor at the directory of the resolved
    * {@link ITtscCompilerContext.tsconfig} as usual. Embedders that compile
@@ -89,9 +82,7 @@ export interface ITtscCompilerContext {
   binary?: string;
 
   /**
-   * Additional environment variables for executable selection, compiler and
-   * plugin-descriptor child processes, and for the worker thread of
-   * {@link TtscCompiler.transformAsync}.
+   * Additional environment variables for executable selection, compiler and plugin-descriptor child processes, and for the worker thread of {@link TtscCompiler.transformAsync}.
    *
    * The supplied overrides are copied at construction. Values are merged over
    * the invocation's current `process.env` before ttsc starts TypeScript-Go,

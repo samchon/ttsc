@@ -8,15 +8,9 @@ import { transformFilesystem } from "./cache/transformFilesystem";
 import { pluginsAreDisabled } from "./utils/pluginsAreDisabled";
 
 /**
- * Schedule explicitly selected source entries before the host reaches their
- * imports. Compilation and proof stay with the ordinary transform core.
+ * Schedule explicitly selected source entries before the host reaches their imports. Compilation and proof stay with the ordinary transform core.
  *
- * A host often discovers its next workspace project only after the preceding
- * project's transform finishes (#1764). Starting known entries together avoids
- * that dependency on host traversal order. Walking unrelated projects would
- * execute plugins the user never selected, so this owner uses only the supplied
- * entries. Preparation leaves module delivery and host registration to the
- * actual request.
+ * A host often discovers its next workspace project only after the preceding project's transform finishes (#1764). Starting known entries together avoids that dependency on host traversal order. Walking unrelated projects would execute plugins the user never selected, so this owner uses only the supplied entries. Preparation leaves module delivery and host registration to the actual request.
  *
  * @evidence contracts/common.md#principled-implementation Explicit entries authorize scheduling; the supplied core capture retains project selection, configuration identity and all generation proofs. The context contains the current working directory, options, aliases and delivery epoch, not new cache authority.
  * @evidence contracts/common.md#clear-and-simple-design One scheduler owns per-cache startup deduplication and reset; the transform core owns compiled generations and their disposal.
@@ -31,9 +25,7 @@ export namespace TtscPrecompilation {
   const contexts = new WeakMap<TtscTransformCache, string>();
 
   /**
-   * Start every eligible explicit entry without waiting for its siblings.
-   * Failed speculative preparation is reported when its module is requested, so
-   * an unrelated delivered project's load can proceed.
+   * Start every eligible explicit entry without waiting for its siblings. Failed speculative preparation is reported when its module is requested, so an unrelated delivered project's load can proceed.
    *
    * @evidence contracts/common.md#principled-implementation The context is installed before captures start, so recursive and concurrent deliveries cannot restart the same batch; only supported source entries reach normal core capture.
    * @evidence contracts/common.md#clear-and-simple-design One synchronous loop separates startup ownership from asynchronous capture settlement.
