@@ -2,126 +2,78 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
-import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
-import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { waitFor } from "../../../../../utils/src/internal/waitFor";
+import { TestLifetime } from "../../../../../utils/src/TestLifetime";
+import { TestFailureLedger } from "../../../../../utils/src/TestFailureLedger";
+import { OwnedE2eEntry } from "../../../batch/OwnedE2eEntry";
 
 /**
- * Verifies a failed topology refresh still schedules the resident config lane.
+ * Verifies config recovery completes under its original native owner.
  *
- * 1. Delete the active config and observe a config change despite parse failure.
- * 2. Recreate and atomically replace it, preserving the same watch session.
- * 3. Prove an ordinary write remains observable after the replacement.
+ * A callback that never arrives must fail this prepared test rather than keep the batch waiting. The original scene retains its deletion, recreation, atomic replacement and ordinary-write assertions; only a real native retirement receipt permits fixture reclamation.
  *
- * @evidence contracts/testing.md#behavioral-verification This case drives the real WatchTopology: a failed topology refresh still schedules the resident config lane. 1. Delete the active config and observe a config change despite parse failure. 2. Recreate and atomically replace it, preserving the same watch session. 3. Prove an ordinary write remains observable after the replacement.
- * @evidence contracts/testing.md#independent-expectations Authored tsconfig options, source imports and declared input paths establish which files are compiler inputs, products or reload dependencies. Literal event-kind/path assertions and quiet negative twins enforce those independently specified roles rather than snapshotting topology output.
- * @evidence contracts/testing.md#distinguishing-cases 1. Delete the active config and observe a config change despite parse failure. 2. Recreate and atomically replace it, preserving the same watch session. 3. Prove an ordinary write remains observable after the replacement.
- * @evidence contracts/testing.md#execution-ownership This named src/features/watch entry refreshes the real tsgo compiler population and drives native filesystem subscriptions through WatchTopology; the source units own direct event planning and injected watcher decisions.
- * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
- * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject roots separate mutable config, source, output and declared-input state. Each topology owns its subscriptions and existing finally paths close them. Event counters reset only between asserted transitions; actual cold registration and config recovery remain unprimed.
- * @evidence contracts/e2e.md#preserved-coverage 1. Delete the active config and observe a config change despite parse failure. 2. Recreate and atomically replace it, preserving the same watch session. 3. Prove an ordinary write remains observable after the replacement. Every original assertion and authored layout remains in this named entry. Actual callback errors and the containing native owner bound positive observation; finite quiet windows, capability guards, inputs and expected events remain intact.
+ * 1. Lend one private root to the original config-recovery scene.
+ * 2. Await that scene and its original native boundary under an explicit failure budget.
+ * 3. Preserve failure and reclaim only after joined or never-admitted retirement.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The static actor invokes the original scene's actual WatchTopology and compiler observations; the parent requires ordinary status zero and native joined retirement. Budget expiry remains a failed verdict even when original native cancellation joins.
+ * @evidence contracts/testing.md#independent-expectations The original config bytes and callback-count assertions define recovery independently of timing. Native retirement classification governs release; the explicit 120-second budget is failure policy, never a correctness or readiness oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Retains deletion with parse failure, recreation, atomic replacement and ordinary edit. Missing callbacks or stalled startup/cleanup are failed observations; unknown native retirement retains the same input root. Existing lifetime units and native carrier controls own expiry, pre-abort, cancellation and ordinary-exit mechanics.
+ * @evidence contracts/testing.md#execution-ownership The scenarios batch retains this named entry, which runs one static Node actor through the existing built native helper. The child owns the unchanged real topology sequence; portable deadline policy remains in test-graph units.
+ * @evidence contracts/e2e.md#necessary-boundary Actual compiler membership and native subscriptions must deliver the original config callbacks, while independent native containment supervises synchronous startup and cleanup that a same-thread timer cannot interrupt.
+ * @evidence contracts/e2e.md#shared-execution One new Node actor and one existing native helper contain the original scene, without an installation, Go producer or duplicated compiler population. The incomplete CI trace recorded four successful inner compiler listings, without a scene-completion receipt; callback scheduling still determines actual listing count.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity An exclusive parent root scopes the child's TEMP/TMP/TMPDIR through its initial environment. Its original native receipt and captured root identity precede reclamation; unknown retirement or replacement retains the exact allocation. The same parent deadline caps the child's budget and ends only after native joining and parent cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage The scene retains every original input, mutation order, positive assertion and 250-ms quiet observation. Its exported scene is invoked by the static actor without duplicating it in the batch; termination or elapsed time cannot pass the assertions.
  */
-export const test_watch_topology_reports_deleted_config_and_recreation =
-  async (): Promise<void> => {
-    const root = TestProject.tmpdir("ttsc-watch-config-recovery-");
-    const source = path.join(root, "src", "main.ts");
-    const config = path.join(root, "tsconfig.json");
-    fs.mkdirSync(path.dirname(source), { recursive: true });
-    fs.writeFileSync(source, "export const value = 1;\n", "utf8");
-    const configText = JSON.stringify({ files: ["src/main.ts"] });
-    fs.writeFileSync(config, configText, "utf8");
-
-    const changes: WatchInputChange[] = [];
-    let topologyFailure: Error | undefined;
-    let allowMissingConfig = false;
-    const owner = {
-      check: () => {
-        if (topologyFailure) throw topologyFailure;
-      },
-    };
-    const errors: unknown[] = [];
-    const topology = new WatchTopology(
-      {
-        cwd: root,
-        files: [],
-        projectRoot: root,
-        tsconfig: config,
-      },
-      {
-        onError: (location, error) => {
-          errors.push(error);
-          if (
-            !allowMissingConfig ||
-            !(error instanceof Error) ||
-            !error.message.includes("tsconfig.json")
-          )
-            topologyFailure ??= new Error(`watch error on ${location}`, {
-              cause: error,
-            });
-        },
-        onInputChange: (change) => changes.push(change),
-        onTopologyChange: () => undefined,
-      },
-    );
-    try {
-      topology.refresh(false);
-      allowMissingConfig = true;
-      fs.rmSync(config);
-      await waitFor(
-        () => changes.some((change) => change.kind === "config"),
-        "config deletion",
-        owner,
-      );
-      owner.check();
-      assert.ok(errors.length > 0, "the failed refresh must remain observable");
-
-      const deletionCount = changes.filter(
-        (change) => change.kind === "config",
-      ).length;
-      fs.writeFileSync(config, configText, "utf8");
-      allowMissingConfig = false;
-      await waitFor(
-        () =>
-          changes.filter((change) => change.kind === "config").length >
-          deletionCount,
-        "config recreation",
-        owner,
-      );
-      owner.check();
-      await settle();
-
-      const replacement = path.join(root, "tsconfig.next.json");
-      fs.writeFileSync(replacement, configText, "utf8");
-      await settle();
-      const beforeReplacement = configChangeCount(changes);
-      fs.renameSync(replacement, config);
-      await waitFor(
-        () => configChangeCount(changes) > beforeReplacement,
-        "atomic config replacement",
-        owner,
-      );
-      owner.check();
-      await settle();
-
-      const beforeOrdinaryWrite = configChangeCount(changes);
-      fs.appendFileSync(config, "\n", "utf8");
-      await waitFor(
-        () => configChangeCount(changes) > beforeOrdinaryWrite,
-        "post-replacement config edit",
-        owner,
-      );
-      owner.check();
-    } finally {
-      topology.close();
+export async function test_watch_topology_reports_deleted_config_and_recreation(): Promise<void> {
+  const owner = new TestLifetime({ name: "contained config-recovery", timeoutMs: 120_000 });
+  let root: string | undefined;
+  let identity: { dev: bigint; ino: bigint; realpath: string } | undefined;
+  let retirement: "joined" | "not-started" | "unknown" = "not-started";
+  let observed = false;
+  const failures = new TestFailureLedger();
+  try {
+    owner.checkpoint("fixture startup");
+    root = TestProject.tmpdir("ttsc-config-recovery-owner-");
+    const stat = fs.lstatSync(root, { bigint: true });
+    identity = { dev: stat.dev, ino: stat.ino, realpath: fs.realpathSync.native(root) };
+    owner.assertActive();
+    owner.checkpoint("original config-recovery actor and native join");
+    retirement = "unknown";
+    const result = await OwnedE2eEntry.run({
+      entry: path.join(TestProject.WORKSPACE_ROOT, "tests/test-e2e/fixtures/ttsc/watch-config-recovery/actor.mjs"),
+      args: [pathToFileURL(path.resolve(import.meta.dirname, "../scenes/case_watch_topology_reports_deleted_config_and_recreation.ts")).href, String(owner.deadline)],
+      env: { ...process.env, TEMP: root, TMP: root, TMPDIR: root },
+      signal: owner.signal,
+      observeRetirement: (state) => { observed = true; retirement = state; },
+    });
+    assert.equal(result.error, undefined);
+    assert.equal(result.signal, null);
+    assert.equal(result.status, 0, "original config-recovery scene must finish its assertions");
+    assert.equal(retirement, "joined", "original native owner must certify retirement");
+  } catch (error) {
+    // The native API's pre-admission abort preserves the exact reason and calls
+    // no retirement observer. Every other unobserved lifetime stays unknown.
+    if (!observed && owner.signal.aborted && error === owner.signal.reason) retirement = "not-started";
+    failures.add(error);
+  } finally {
+    owner.checkpoint("original fixture release");
+    if (root !== undefined) {
+      try {
+        if (retirement === "unknown") TestProject.retainTemporaryDirectory(root, "config-recovery native retirement is unknown");
+        else {
+          const current = fs.lstatSync(root, { bigint: true });
+          assert.deepEqual({ dev: current.dev, ino: current.ino, realpath: fs.realpathSync.native(root) }, identity, "original config-recovery root identity must survive until release");
+          fs.rmSync(root, { recursive: true });
+        }
+      } catch (error) {
+        failures.add(error);
+        try { TestProject.retainTemporaryDirectory(root, "config-recovery fixture reclamation failed"); }
+        catch (retention) { failures.add(retention); }
+      }
     }
-  };
-
-function configChangeCount(changes: readonly WatchInputChange[]): number {
-  return changes.filter((change) => change.kind === "config").length;
-}
-
-function settle(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 250));
+    for (const failure of owner.finish()) failures.add(failure);
+  }
+  failures.throwIfFailed("config-recovery execution, native retirement and fixture release failed");
 }

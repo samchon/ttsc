@@ -25,6 +25,7 @@ Each checklist H2 is a question that every selected declaration answers in its d
 ## Selection
 
 - From a package, `pnpm exec evidence list` and `pnpm exec evidence inspect '<target>'` show what a selector reaches.
+- For a declaration the adapter cannot address, keep its native doc comment and place its checklist answers and tags on the nearest supported owner shown by `list` and `inspect`.
 - `Claims: 3/4 active` means a selector matched nothing, without a diagnostic, and `Coverage` counts checklist sections, not declarations.
 - A Go package of unexported declarations, such as `packages/evidence/native`, selects no production host, so [review](../review/SKILL.md) covers it. A `declare module "@ttsc/lint"` augmentation reports `typescript-ambient-module` until the adapter resolves it.
 - Exclude only generated, copied, or dependency material with verified provenance, and omit a pure re-export barrel whose targets span disjoint claims.

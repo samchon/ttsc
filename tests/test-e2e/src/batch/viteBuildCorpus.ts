@@ -12,6 +12,7 @@ import { fallbackToolDirectory } from "../../../../packages/unplugin/lib/core/br
 import { hostToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.mjs";
 import { projectRecordFile } from "../../../../packages/unplugin/lib/core/bridge/projectRecordFile.mjs";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
+import { TestLifetime } from "../../../utils/src/TestLifetime";
 import { waitFor } from "../../../utils/src/internal/waitFor";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
@@ -47,6 +48,9 @@ export interface ViteBuildRequest {
 
   /** Exclusive ignored operational receipt, read only after original join. */
   journal: string;
+
+  /** Parent-owned absolute failure deadline; child admission cannot extend it. */
+  deadline?: number;
 }
 
 /**
@@ -55,6 +59,10 @@ export interface ViteBuildRequest {
  *
  * Public close may precede a queued build. The original actor keeps shared
  * inputs borrowed through its real termination; the parent owns restoration.
+ * Opt-in phases distinguish completed mutations, selected publications and
+ * host invalidations; an END event or a quiet watcher proves no readiness.
+ * A shared failure deadline rejects stalled publication observation. Original
+ * joins and native retirement still govern host work and borrowed inputs.
  *
  * 1. Build the complete prepared graph once and inspect its values and map.
  * 2. Mutate declaration inputs through fallback and restored primary epochs.
@@ -63,7 +71,7 @@ export interface ViteBuildRequest {
  * @evidence contracts/testing.md#behavioral-verification The same actual Vite graph supplies all 661 UTF-16 values, literal contract/JSON neighbors, map coordinates, native option paths and primary/fallback/restored publication assertions.
  * @evidence contracts/testing.md#independent-expectations Authored values and source coordinates remain independent of output; explicit alias grammar fixes native targets. Mutation epochs require actual publication after the corresponding authored change.
  * @evidence contracts/testing.md#distinguishing-cases Initial primary delivery, blocked primary with fallback, and restored primary are distinct states of one host. Public buildEnd errors remain collected even after watcher.close removes event listeners.
- * @evidence contracts/testing.md#execution-ownership One dedicated original Node actor calls the existing preparation once and build once with watch enabled. beforeExit collects queued work without forcing exit; actual native retirement is required separately by its parent.
+ * @evidence contracts/testing.md#execution-ownership One dedicated original Node actor calls the existing preparation once and build once with watch enabled. Opt-in phases observe existing writes, publication selection and public invalidation callbacks without adding a host or native invocation. A parent-shared deadline fails stalled observation without completing original promises. beforeExit collects queued work without forcing exit; actual native retirement is required separately by its parent.
  * @evidence contracts/e2e.md#necessary-boundary Actual Vite/Rollup load the emitted adapter and native source delivery; direct callback units cannot establish this graph or public queued-work behavior.
  * @evidence contracts/e2e.md#shared-execution The parent lends the existing prepared workspace and one retained graph serves every value and record transition. No installation, per-case producer or duplicate shared preparation is introduced.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The actor records exclusive primary-file/blocker identities and never restores shared bytes. Known output/watch closes and errors are collected; natural actor termination plus the parent's native join, not close return or an idle interval, authorizes restoration.
@@ -73,6 +81,7 @@ export async function viteBuildCorpus(
   request: ViteBuildRequest,
 ): Promise<void> {
   const workspace = request.workspace;
+  let activeLifetime: TestLifetime | undefined;
   const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
     begin(): string | undefined;
     record(
@@ -82,11 +91,13 @@ export async function viteBuildCorpus(
     ): void;
   };
   const invocation = trace.begin();
-  const phase = (phase: string, data: Record<string, unknown> = {}): void =>
+  const phase = (phase: string, data: Record<string, unknown> = {}): void => {
+    activeLifetime?.checkpoint(phase);
     trace.record("vite-lifecycle", invocation, {
       pid: process.pid,
       data: { phase, ...data },
     });
+  };
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   const pathsReceiptOffset = BatchWorkspace.readPathsReceipts(workspace).length;
   process.env.TTSC_CACHE_DIR = workspace.cache;
@@ -110,10 +121,17 @@ export async function viteBuildCorpus(
   const heldPrimary = `${primary}.vite-held`;
   assert.equal(fs.existsSync(heldPrimary), false);
   const transition: ViteRecordTransition = {};
-  const checkpoint = (): void =>
-    fs.writeFileSync(request.journal, JSON.stringify(transition));
-  checkpoint();
   let mutationEpoch = 0;
+  const checkpoint = (): void => {
+    fs.writeFileSync(request.journal, JSON.stringify(transition));
+    phase("record-checkpoint-completed", {
+      epoch: mutationEpoch,
+      primaryIdentityRecorded: transition.primary !== undefined,
+      blockerIdentityRecorded: transition.blocker !== undefined,
+      primaryRestored: transition.restored === true,
+    });
+  };
+  checkpoint();
   const generations: {
     epoch: number;
     completed: Promise<void>;
@@ -168,8 +186,16 @@ export async function viteBuildCorpus(
     currentBuild = { epoch: mutationEpoch, done, finish, fail };
     pendingBuilds.add(done);
   };
+  const lifetime = new TestLifetime({
+    name: "retained Vite record publication",
+    timeoutMs: 120_000,
+    deadline: request.deadline,
+  });
+  activeLifetime = lifetime;
   try {
+    lifetime.assertActive();
     const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
+    lifetime.assertActive();
     const plugins: ITtscProjectPluginConfig[] = JSON.parse(
       fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8"),
     ).compilerOptions.plugins.map((entry: ITtscProjectPluginConfig) =>
@@ -206,6 +232,7 @@ export async function viteBuildCorpus(
       elapsedMs: performance.now() - preparationStarted,
       binaries: preparedBinaries,
     });
+    lifetime.assertActive();
     phase("build-started");
     const result = await build({
       root: workspace.root,
@@ -234,6 +261,13 @@ export async function viteBuildCorpus(
               error: error === undefined ? undefined : String(error),
             });
           },
+          watchChange(id, change) {
+            phase("rollup-watch-change", {
+              epoch: mutationEpoch,
+              file: id,
+              event: change.event,
+            });
+          },
           generateBundle(_options, bundle) {
             phase("rollup-output-generated");
             generated = {
@@ -247,7 +281,16 @@ export async function viteBuildCorpus(
         minify: false,
         write: false,
         sourcemap: true,
-        watch: {},
+        watch: {
+          // This callback observes a requested invalidation, not native
+          // readiness or a promise that the next publication will arrive.
+          onInvalidate(id) {
+            phase("rollup-watch-invalidated", {
+              epoch: mutationEpoch,
+              file: id,
+            });
+          },
+        },
         rollupOptions: {
           input: path.join(workspace.root, "src/bundle.ts"),
           output: { format: "iife", name: "SharedBoundary" },
@@ -339,6 +382,12 @@ export async function viteBuildCorpus(
       expectedRecord: string,
       epoch: number,
     ) => {
+      phase("record-publication-wait-started", {
+        epoch,
+        offset,
+        expectedRecord,
+        generations: generations.length,
+      });
       let selected: (typeof generations)[number] | undefined;
       await waitFor(
         () => {
@@ -355,13 +404,20 @@ export async function viteBuildCorpus(
                 JSON.stringify(candidate.watchFiles),
             );
             selected = candidate;
+            phase("record-publication-selected", {
+              epoch,
+              selectedEpoch: candidate.epoch,
+              expectedRecord,
+            });
             return true;
           }
           return false;
         },
         "retained Vite record publication",
         {
+          signal: lifetime.signal,
           check: () => {
+            lifetime.assertActive();
             if (failures.length !== 0)
               throw new AggregateError(
                 [...failures],
@@ -376,7 +432,15 @@ export async function viteBuildCorpus(
         },
       );
       assert.ok(selected);
-      await selected.completed;
+      // Failure stops this observation; only the original END settles the
+      // admitted build, which the unchanged cleanup joins independently.
+      await lifetime.wait(selected.completed);
+      lifetime.assertActive();
+      phase("record-publication-completed", {
+        epoch,
+        selectedEpoch: selected.epoch,
+        expectedRecord,
+      });
       if (failures.length !== 0)
         throw new AggregateError(
           [...failures],
@@ -484,6 +548,10 @@ export async function viteBuildCorpus(
       ),
       "the actual written record must name the native declaration input",
     );
+    phase("generation-assertions-completed", {
+      epoch: mutationEpoch,
+      record: primary,
+    });
     const blockedOffset = generations.length;
     mutationEpoch += 1;
     const primaryStat = fs.lstatSync(primary);
@@ -508,10 +576,18 @@ export async function viteBuildCorpus(
     };
     checkpoint();
     fs.appendFileSync(declaration, "\n// shared record fallback generation\n");
+    phase("input-append-completed", {
+      epoch: mutationEpoch,
+      file: declaration,
+    });
     fs.appendFileSync(
       entry,
       "\n// same host requests the changed declaration generation\n",
     );
+    phase("input-append-completed", {
+      epoch: mutationEpoch,
+      file: entry,
+    });
     const blocked = await nextGeneration(
       blockedOffset,
       fallback,
@@ -541,6 +617,10 @@ export async function viteBuildCorpus(
       BatchWorkspace.readBundle(blockedChunk.code),
       workspace.expected,
     );
+    phase("generation-assertions-completed", {
+      epoch: mutationEpoch,
+      record: fallback,
+    });
     mutationEpoch += 1;
     fs.rmdirSync(primary);
     fs.renameSync(heldPrimary, primary);
@@ -551,6 +631,10 @@ export async function viteBuildCorpus(
       sibling,
       "\n// sibling delivery acknowledges restored primary publication\n",
     );
+    phase("input-append-completed", {
+      epoch: mutationEpoch,
+      file: sibling,
+    });
     const restored = await nextGeneration(
       restoredOffset,
       primary,
@@ -569,6 +653,10 @@ export async function viteBuildCorpus(
       BatchWorkspace.readBundle(restoredChunk.code),
       workspace.expected,
     );
+    phase("generation-assertions-completed", {
+      epoch: mutationEpoch,
+      record: primary,
+    });
     phase("captures-join-started", { captures: captures.size });
     await Promise.all(captures);
     phase("captures-join-returned");
@@ -631,7 +719,27 @@ export async function viteBuildCorpus(
   }
   // Observe the empty boundary only after the close operation. Queued public
   // buildEnd callbacks can still contribute genuine failures before this point.
-  await once(process, "beforeExit");
+  try {
+    try {
+      await lifetime.wait(once(process, "beforeExit"));
+    } catch (error) {
+      const sharedReference =
+        (typeof error === "object" && error !== null) ||
+        typeof error === "function";
+      if (!sharedReference || !failures.some((prior) => Object.is(prior, error)))
+        failures.push(error);
+    }
+  } finally {
+    // Finish can add independent clock or disposal faults. Merge them before
+    // the verdict, without replacing body errors or losing primitive causes.
+    for (const error of lifetime.finish()) {
+      const sharedReference =
+        (typeof error === "object" && error !== null) ||
+        typeof error === "function";
+      if (!sharedReference || !failures.some((prior) => Object.is(prior, error)))
+        failures.push(error);
+    }
+  }
   if (failures.length !== 0)
     throw new AggregateError(
       failures,
