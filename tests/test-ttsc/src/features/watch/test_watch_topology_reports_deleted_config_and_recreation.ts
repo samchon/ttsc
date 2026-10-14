@@ -197,7 +197,7 @@ async function verifyReplacementAttention(
     assert.equal(configChangeCount(changes), 2, `${delivery}: the ordinary edit must remain observable`);
     assert.deepEqual(watchers.filter((watcher) => watcher.active && watcher.location === config), replacementFileWatchers, `${delivery}: an ordinary edit must retain its existing per-file owner`);
     assert.ok(changes.every((change) => change.kind === "config" && change.path === config));
-    assert.deepEqual(errors, []);
+    assert.equal(errors.length, 0);
     if (delivery === "old-name" || delivery === "old-name-change") {
       fs.writeFileSync(replacement, '{"files":');
       const validOwner = fs.statSync(config, { bigint: true });
@@ -234,7 +234,7 @@ async function verifyReplacementAttention(
       assert.deepEqual(watchers.filter((watcher) => watcher.active && watcher.location === config), malformedFileWatchers);
       for (const failure of [new Error("compiler-input listing refused"), undefined]) {
         compilerFailure = { error: failure };
-        const previousErrors = errors.length;
+        const previousErrors: number = errors.length;
         deliver();
         await topology.whenIdle();
         assert.equal(errors.length, previousErrors + 1, `${delivery}: a compiler-reader refusal must remain observable`);
