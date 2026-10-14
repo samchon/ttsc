@@ -107,6 +107,15 @@ func TestStockGoCacheClient(t *testing.T) {
     if err := os.MkdirAll(moduleCache, 0700); err != nil {
       t.Fatal(err)
     }
+    t.Cleanup(func() {
+      clean := exec.Command("go", "clean", "-modcache")
+      clean.Env = append(os.Environ(),
+        "GOMODCACHE="+moduleCache, "GOCACHEPROG=", "GOFLAGS=", "GOTOOLCHAIN=local", "GOWORK=off",
+      )
+      if output, err := clean.CombinedOutput(); err != nil {
+        t.Errorf("cleaning %s private module cache: %v\n%s", name, err, output)
+      }
+    })
     archive := filepath.Join(directory, "result.a")
     build := exec.Command("go", "build", "-mod=mod", "-trimpath", "-x", "-o", archive, ".")
     build.Dir = directory

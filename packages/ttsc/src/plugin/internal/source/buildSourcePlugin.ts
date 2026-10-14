@@ -752,7 +752,14 @@ function compileSourcePlugin(opts: {
     SourceNativeRetirement.releaseResource(
       scratchDir,
       () => {
-        fs.rmSync(scratchDir, { recursive: true, force: true });
+        // Retry transient Windows removal refusals only after native closure
+        // has authorized this resource callback.
+        fs.rmSync(scratchDir, {
+          recursive: true,
+          force: true,
+          maxRetries: 10,
+          retryDelay: 100,
+        });
         SourceNativeRetirement.forget(opts.cacheDir);
       },
       taskFailure,
