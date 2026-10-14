@@ -1,7 +1,10 @@
 /**
  * Own an explicit test failure deadline without granting native retirement.
  *
- * A caller-selected failure budget rejects observation and must reach the containing native owner's cancellation signal (#1700). The caller still awaits its original operation and native retirement receipt; elapsed time establishes no readiness, result correctness or cleanup authority.
+ * A caller-selected failure budget rejects observation and must reach the
+ * containing native owner's cancellation signal (#1700). The caller still
+ * awaits its original operation and native retirement receipt; elapsed time
+ * establishes no readiness, result correctness or cleanup authority.
  *
  * @evidence contracts/common.md#principled-implementation A caller-selected millisecond budget and an optional earlier parent deadline govern one AbortController. Expiry, clock, acquisition and disposal refusals retain their original reasons; independent primitive occurrences remain separate. Clock failure cannot skip registered disposal, and callers still await original native receipts before releasing inputs.
  * @evidence contracts/common.md#clear-and-simple-design One owner retains the deadline, signal, latest phase and ordered resource/failure ledgers; portable observation is separate from the caller's native containment and joins.
@@ -16,7 +19,10 @@ export class TestLifetime {
   /** Failure deadline in UTC epoch milliseconds, capped by the parent lifetime. */
   public readonly deadline: number;
 
-  /** Cancellation of observation; it supplies no original-operation join receipt. */
+  /**
+   * Cancellation of observation; it supplies no original-operation join
+   * receipt.
+   */
   public readonly signal: AbortSignal;
 
   private readonly controller = new AbortController();
@@ -33,9 +39,17 @@ export class TestLifetime {
   /**
    * Start one explicit observation budget before the caller admits its work.
    *
-   * timeoutMs is an integer from 1 through Node's maximum timer delay. The parent's optional UTC epoch-millisecond deadline can shorten this lifetime, and an already expired deadline refuses immediately. The clock is read before scheduling; its original failure precedes resource acquisition.
+   * TimeoutMs is an integer from 1 through Node's maximum timer delay. The
+   * parent's optional UTC epoch-millisecond deadline can shorten this lifetime,
+   * and an already expired deadline refuses immediately. The clock is read
+   * before scheduling; its original failure precedes resource acquisition.
    *
-   * A scheduler registers each acquired disposal capability through own before further fallible setup. A scheduler refusal attempts every registered disposer and preserves acquisition, clock and disposal errors. Failed attempts remain unknown: a thrown acquisition aggregate transfers their original capabilities in its cause. The default registers its timer before unref, so a setup refusal cannot orphan that timer.
+   * A scheduler registers each acquired disposal capability through own before
+   * further fallible setup. A scheduler refusal attempts every registered
+   * disposer and preserves acquisition, clock and disposal errors. Failed
+   * attempts remain unknown: a thrown acquisition aggregate transfers their
+   * original capabilities in its cause. The default registers its timer before
+   * unref, so a setup refusal cannot orphan that timer.
    */
   public constructor(options: {
     /** Name used to attribute this test's failure. */
@@ -47,42 +61,84 @@ export class TestLifetime {
     /** Earlier parent deadline in safe integer UTC epoch milliseconds. */
     deadline?: number;
 
-    /** Owned clock returning safe integer milliseconds; its failures remain failures. */
+    /**
+     * Owned clock returning safe integer milliseconds; its failures remain
+     * failures.
+     */
     now?: () => number;
 
-    /** Synchronously register acquired capabilities before fallible setup; every registered disposer is attempted once. */
-    schedule?: (expire: () => void, delayMs: number, own: (dispose: () => void) => void) => void;
+    /**
+     * Synchronously register acquired capabilities before fallible setup; every
+     * registered disposer is attempted once.
+     */
+    schedule?: (
+      expire: () => void,
+      delayMs: number,
+      own: (dispose: () => void) => void,
+    ) => void;
   }) {
-    if (!Number.isSafeInteger(options.timeoutMs) || options.timeoutMs <= 0 || options.timeoutMs > 2_147_483_647)
-      throw new RangeError("Test lifetime budget must fit Node's positive timer range");
+    if (
+      !Number.isSafeInteger(options.timeoutMs) ||
+      options.timeoutMs <= 0 ||
+      options.timeoutMs > 2_147_483_647
+    )
+      throw new RangeError(
+        "Test lifetime budget must fit Node's positive timer range",
+      );
     this.now = options.now ?? Date.now;
     const now = this.readClock();
-    if (options.deadline !== undefined && !Number.isSafeInteger(options.deadline))
-      throw new RangeError("Test lifetime parent deadline must be integer milliseconds");
-    this.deadline = Math.min(now + options.timeoutMs, options.deadline ?? Infinity);
-    if (!Number.isSafeInteger(this.deadline)) throw new RangeError("Test lifetime deadline exceeds integer millisecond precision");
+    if (
+      options.deadline !== undefined &&
+      !Number.isSafeInteger(options.deadline)
+    )
+      throw new RangeError(
+        "Test lifetime parent deadline must be integer milliseconds",
+      );
+    this.deadline = Math.min(
+      now + options.timeoutMs,
+      options.deadline ?? Infinity,
+    );
+    if (!Number.isSafeInteger(this.deadline))
+      throw new RangeError(
+        "Test lifetime deadline exceeds integer millisecond precision",
+      );
     this.signal = this.controller.signal;
-    const name = options.name, timeoutMs = options.timeoutMs;
-    const expire = this.expire = (): void => {
+    const name = options.name,
+      timeoutMs = options.timeoutMs;
+    const expire = (this.expire = (): void => {
       if (this.finished || this.signal.aborted) return;
-      this.fail(new Error(`${name} exceeded its explicit ${timeoutMs} ms failure budget during ${this.phase}`));
-    };
+      this.fail(
+        new Error(
+          `${name} exceeded its explicit ${timeoutMs} ms failure budget during ${this.phase}`,
+        ),
+      );
+    });
     const remaining = this.deadline - now;
     if (remaining <= 0) expire();
     else {
       try {
-        (options.schedule ?? ((callback, delay, own) => {
-          const timer = setTimeout(callback, delay);
-          own(() => clearTimeout(timer));
-          timer.unref();
-        }))(expire, remaining, (dispose) => this.disposers.push(dispose));
+        (
+          options.schedule ??
+          ((callback, delay, own) => {
+            const timer = setTimeout(callback, delay);
+            own(() => clearTimeout(timer));
+            timer.unref();
+          })
+        )(expire, remaining, (dispose) => this.disposers.push(dispose));
       } catch (error) {
         this.fail(error);
         this.finish();
         if (this.failedDisposers.length !== 0)
-          throw new AggregateError([...this.failures], "Test lifetime acquisition failed and resource release remains unknown", {
-            cause: { disposal: "unknown", retainedDisposers: [...this.failedDisposers] },
-          });
+          throw new AggregateError(
+            [...this.failures],
+            "Test lifetime acquisition failed and resource release remains unknown",
+            {
+              cause: {
+                disposal: "unknown",
+                retainedDisposers: [...this.failedDisposers],
+              },
+            },
+          );
         throw this.failure();
       }
     }
@@ -91,7 +147,10 @@ export class TestLifetime {
   /** A clock refusal cannot become a missing or unqualified expiry comparison. */
   private readClock(): number {
     const value = this.now();
-    if (!Number.isSafeInteger(value)) throw new RangeError("Test lifetime clock must return integer milliseconds");
+    if (!Number.isSafeInteger(value))
+      throw new RangeError(
+        "Test lifetime clock must return integer milliseconds",
+      );
     return value;
   }
 
@@ -99,18 +158,35 @@ export class TestLifetime {
   private fail(error: unknown): void {
     // Re-reporting the same object can repeat one refusal. Equal primitives
     // from independent clock, acquisition or disposal calls are distinct faults.
-    const reference = error !== null && (typeof error === "object" || typeof error === "function");
+    const reference =
+      error !== null &&
+      (typeof error === "object" || typeof error === "function");
     if (!reference || !this.failures.some((prior) => Object.is(prior, error))) {
       this.failures.push(error);
       this.verdict = undefined;
     }
     if (!this.signal.aborted)
-      this.controller.abort(error === undefined ? new AggregateError([error], "Test lifetime refused with undefined") : error);
+      this.controller.abort(
+        error === undefined
+          ? new AggregateError([error], "Test lifetime refused with undefined")
+          : error,
+      );
   }
 
-  /** Multiple original faults remain separate aggregate members with stable identity. */
+  /**
+   * Multiple original faults remain separate aggregate members with stable
+   * identity.
+   */
   private failure(): unknown {
-    this.verdict ??= { error: this.failures.length === 1 ? this.failures[0] : new AggregateError([...this.failures], "Test lifetime observation and resource release failed") };
+    this.verdict ??= {
+      error:
+        this.failures.length === 1
+          ? this.failures[0]
+          : new AggregateError(
+              [...this.failures],
+              "Test lifetime observation and resource release failed",
+            ),
+    };
     return this.verdict.error;
   }
 
@@ -126,7 +202,9 @@ export class TestLifetime {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Mutable progress is not reused as an answer.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Only the latest caller-owned string remains with this lifetime.
    */
-  public checkpoint(phase: string): void { this.phase = phase; }
+  public checkpoint(phase: string): void {
+    this.phase = phase;
+  }
 
   /**
    * Report original lifetime failures at a test's assertion boundary.
@@ -142,14 +220,19 @@ export class TestLifetime {
    */
   public assertActive(): void {
     if (!this.finished && !this.signal.aborted) {
-      try { if (this.readClock() >= this.deadline) this.expire(); }
-      catch (error) { this.fail(error); }
+      try {
+        if (this.readClock() >= this.deadline) this.expire();
+      } catch (error) {
+        this.fail(error);
+      }
     }
     if (this.failures.length !== 0) throw this.failure();
   }
 
   /**
-   * Observe an original promise, rejecting observation when this lifetime fails. The caller still owns and joins that promise and its native work; cancelling this observation does not settle the operation.
+   * Observe an original promise, rejecting observation when this lifetime
+   * fails. The caller still owns and joins that promise and its native work;
+   * cancelling this observation does not settle the operation.
    *
    * @evidence contracts/common.md#principled-implementation Original fulfillment/rejection and the owning signal independently settle observation once; actual operation settlement remains unchanged and late rejection stays observed.
    * @evidence contracts/common.md#clear-and-simple-design One observation adapter pairs the existing promise with this controller without taking over its producer.
@@ -172,14 +255,23 @@ export class TestLifetime {
       };
       const aborted = (): void => settle(true, this.signal.reason);
       this.signal.addEventListener("abort", aborted, { once: true });
-      original.then((value) => settle(false, value), (error) => settle(true, error));
-      try { this.assertActive(); }
-      catch (error) { settle(true, error); }
+      original.then(
+        (value) => settle(false, value),
+        (error) => settle(true, error),
+      );
+      try {
+        this.assertActive();
+      } catch (error) {
+        settle(true, error);
+      }
     });
   }
 
   /**
-   * Clear this timer after the caller's original operation and cleanup finish. Returns every original expiry, clock and disposal fault for the caller's error ledger. It does not throw over a body failure; repeated calls return the same completed ledger, and assertActive retains its failed verdict.
+   * Clear this timer after the caller's original operation and cleanup finish.
+   * Returns every original expiry, clock and disposal fault for the caller's
+   * error ledger. It does not throw over a body failure; repeated calls return
+   * the same completed ledger, and assertActive retains its failed verdict.
    *
    * @evidence contracts/common.md#principled-implementation The final clock check preserves overdue completion or its original refusal, while an independent finally attempts every registered disposer. Ordered reasons preserve prior expiry and independent cleanup failures; disposal cannot manufacture caller joins.
    * @evidence contracts/common.md#clear-and-simple-design Terminal state and one cached readonly failure snapshot make repeated finish idempotent; refused capabilities remain separately retained.
@@ -193,15 +285,22 @@ export class TestLifetime {
   public finish(): readonly unknown[] {
     if (this.finishResult !== undefined) return this.finishResult;
     try {
-      try { if (this.readClock() >= this.deadline) this.expire(); }
-      catch (error) { this.fail(error); }
+      try {
+        if (this.readClock() >= this.deadline) this.expire();
+      } catch (error) {
+        this.fail(error);
+      }
     } finally {
       this.finished = true;
       // Clock refusal cannot bypass original disposal. Remove each capability
       // from pending work before its attempt; a refusal stays retained below.
       for (const dispose of this.disposers.splice(0)) {
-        try { dispose(); }
-        catch (error) { this.failedDisposers.push(dispose); this.fail(error); }
+        try {
+          dispose();
+        } catch (error) {
+          this.failedDisposers.push(dispose);
+          this.fail(error);
+        }
       }
       this.finishResult = Object.freeze([...this.failures]);
     }

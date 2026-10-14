@@ -9,7 +9,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
 /**
  * Verifies plugin resolution failures retain actionable request context.
  *
- * Runtime errors can expose an empty message or a non-Error object. Plugin and consumer attribution must remain available without guessing the failure.
+ * Runtime errors can expose an empty message or a non-Error object. Plugin and
+ * consumer attribution must remain available without guessing the failure.
  *
  * 1. Resolve a missing plugin from a private consumer directory.
  * 2. Require the request, directory, native error code and cause to survive.

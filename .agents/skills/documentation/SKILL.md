@@ -1,11 +1,11 @@
 ---
 name: documentation
-description: Owns ttsc's writing rules and writes its READMEs, website guides, and doc comments. Use before writing or changing a README, anything under website/src/content, or a doc comment, and with prompting before changing AGENTS.md or a skill.
+description: Owns ttsc's writing rules and writes its READMEs, website guides, and doc comments. Use before writing or changing a README, anything under website/src/content, or a doc comment.
 ---
 
 # Documentation
 
-Good writing is the same for every reader: deliver the core point concisely and clearly. Only the reader, and so what the reader needs, differs by document; agent prompts add the rules in the [prompting skill](../prompting/SKILL.md).
+Good writing is the same for every reader: deliver the core point concisely and clearly. Only the reader, and so what the reader needs, differs by document.
 
 ## Writing
 

@@ -1,7 +1,9 @@
 /**
  * Preserve observation and cleanup failures without replacing their reasons.
  *
- * Primitive values cannot identify a repeated report: two thrown undefined values are two failures. Only another report of the same object or function reference is deduplicated. Collection never certifies native retirement.
+ * Primitive values cannot identify a repeated report: two thrown undefined
+ * values are two failures. Only another report of the same object or function
+ * reference is deduplicated. Collection never certifies native retirement.
  *
  * @evidence contracts/common.md#principled-implementation Construction creates fresh caller-owned array and reference membership state. Ordered reasons preserve thrown values, including undefined; a WeakSet deduplicates only reference-identifiable reports, while primitive occurrences remain distinct.
  * @evidence contracts/common.md#clear-and-simple-design One ledger collects original reasons, runs owned cleanup and reports a single original or ordered aggregate. Construction adds no phase, scheduling or cleanup policy.
@@ -16,9 +18,7 @@ export class TestFailureLedger {
   private readonly failures: unknown[] = [];
   private readonly references = new WeakSet<object>();
 
-  /**
-   * Start an empty collection without acquiring an operation or resource.
-   */
+  /** Start an empty collection without acquiring an operation or resource. */
   public constructor() {}
 
   /**
@@ -67,9 +67,15 @@ export class TestFailureLedger {
   }
 
   /**
-   * Await one body and every independent final cleanup before reporting failure.
+   * Await one body and every independent final cleanup before reporting
+   * failure.
    *
-   * The cleanup list is captured before the body starts. Body and cleanup refusals enter this ledger in execution order alongside earlier scenario failures. Each cleanup is awaited before the next starts, and a refused cleanup cannot skip its siblings. Callers supply the real close or removal operations and retain responsibility for native joining; running this sequence grants no retirement authority.
+   * The cleanup list is captured before the body starts. Body and cleanup
+   * refusals enter this ledger in execution order alongside earlier scenario
+   * failures. Each cleanup is awaited before the next starts, and a refused
+   * cleanup cannot skip its siblings. Callers supply the real close or removal
+   * operations and retain responsibility for native joining; running this
+   * sequence grants no retirement authority.
    *
    * @evidence contracts/common.md#principled-implementation One awaited body and ordered awaited cleanup callbacks preserve synchronous throws, promise rejections and their original values through the existing ledger. The final verdict includes earlier entries and uses the same empty, single-original and ordered-aggregate semantics.
    * @evidence contracts/common.md#clear-and-simple-design The existing error owner also owns the body-to-cleanup handoff, so callers cannot accidentally let a finally throw bypass accumulated failures.

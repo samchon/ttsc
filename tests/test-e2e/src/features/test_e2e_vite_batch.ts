@@ -10,8 +10,8 @@ import { fallbackToolDirectory } from "../../../../packages/unplugin/lib/core/br
 import { hostToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.mjs";
 import { projectRecordFile } from "../../../../packages/unplugin/lib/core/bridge/projectRecordFile.mjs";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
-import { TestLifetime } from "../../../utils/src/TestLifetime";
 import { TestFailureLedger } from "../../../utils/src/TestFailureLedger";
+import { TestLifetime } from "../../../utils/src/TestLifetime";
 import { createViteBuildControl } from "../../../utils/src/unplugin/createViteBuildControl";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { OwnedE2eEntry } from "../batch/OwnedE2eEntry";
@@ -154,10 +154,16 @@ async function runViteBuildActor(
   // owns cold TtscCompiler.prepare(), every publication and original close.
   // Apply the existing cold-link budget once; the child shares this fixed cap.
   // Only the original native retirement receipt authorizes restoration.
-  const deadlineOwner = new TestLifetime({ name: "shared Vite actor", timeoutMs: 900_000 });
+  const deadlineOwner = new TestLifetime({
+    name: "shared Vite actor",
+    timeoutMs: 900_000,
+  });
   const failureLedger = new TestFailureLedger();
   const originalPhase = phase;
-  phase = (name, data) => { deadlineOwner.checkpoint(name); originalPhase(name, data); };
+  phase = (name, data) => {
+    deadlineOwner.checkpoint(name);
+    originalPhase(name, data);
+  };
   try {
     const rootStat = fs.lstatSync(workspace.root);
     const rootIdentity = {
@@ -250,13 +256,18 @@ async function runViteBuildActor(
         status: result.status,
         signal: result.signal,
       });
-      if (Object.prototype.hasOwnProperty.call(result, "error")) failureLedger.add(result.error);
+      if (Object.prototype.hasOwnProperty.call(result, "error"))
+        failureLedger.add(result.error);
       if (fs.existsSync(resultFile)) {
         const report = JSON.parse(fs.readFileSync(resultFile, "utf8"));
         if (report.ok !== true)
-          failureLedger.add(new Error("shared Vite actor failed", { cause: report }));
+          failureLedger.add(
+            new Error("shared Vite actor failed", { cause: report }),
+          );
       } else
-        failureLedger.add(new Error("shared Vite actor supplied no final result"));
+        failureLedger.add(
+          new Error("shared Vite actor supplied no final result"),
+        );
       if (result.status !== 0 || result.signal !== null)
         failureLedger.add(
           new Error("shared Vite actor terminated without success", {
@@ -368,7 +379,11 @@ async function runViteBuildActor(
                 const stat = fs.lstatSync(original.file);
                 assert.equal(stat.isFile() && !stat.isSymbolicLink(), true);
                 assert.deepEqual(
-                  { dev: stat.dev, ino: stat.ino, birthtimeMs: stat.birthtimeMs },
+                  {
+                    dev: stat.dev,
+                    ino: stat.ino,
+                    birthtimeMs: stat.birthtimeMs,
+                  },
                   {
                     dev: original.dev,
                     ino: original.ino,
@@ -442,5 +457,7 @@ async function runViteBuildActor(
     // or refused before this timer capability is released.
     for (const failure of deadlineOwner.finish()) failureLedger.add(failure);
   }
-  failureLedger.throwIfFailed("shared Vite execution, original retirement, restoration and control release");
+  failureLedger.throwIfFailed(
+    "shared Vite execution, original retirement, restoration and control release",
+  );
 }

@@ -267,7 +267,8 @@ export namespace BuildExecution {
   }
 
   /**
-   * Await project-input publication before handing a prepared build to its compiler or resident check owner. Publication rejection propagates.
+   * Await project-input publication before handing a prepared build to its
+   * compiler or resident check owner. Publication rejection propagates.
    *
    * @evidence contracts/common.md#principled-implementation The asynchronous runner joins the same preparation sequence's project-input handoff before its result becomes available.
    * @evidence contracts/common.md#clear-and-simple-design The companion changes completion mode while keeping diagnostic recovery, emit policy and discovery in one sequence.
@@ -285,7 +286,8 @@ export namespace BuildExecution {
   }
 
   /**
-   * Prepare one selected execution, yielding its discovered project topology before the caller may begin compilation.
+   * Prepare one selected execution, yielding its discovered project topology
+   * before the caller may begin compilation.
    *
    * @evidence contracts/common.md#principled-implementation Setup failures retain their existing recovery policy; successful discovery suspends at the owning watch handoff before returning build options.
    * @evidence contracts/common.md#clear-and-simple-design One preparation sequence serves synchronous, asynchronous and composed build entries.
@@ -1259,7 +1261,12 @@ export namespace BuildExecution {
    * root, tsgo binary location, and the loaded native plugin list. Centralised
    * here so every code path in `runBuild` shares the same resolution logic.
    *
-   * A supplied resolvedProject preserves the caller's lexical project identity. Plugin admission, loading and watch-input callbacks inside the guarded acquisition branch become setup-failure results on error. Initial project/ compiler resolution and final config-anchor resolution outside it may throw. A synchronous call requires synchronous watch-input handlers; use resolveExecutionContextAsync when registration returns a promise.
+   * A supplied resolvedProject preserves the caller's lexical project identity.
+   * Plugin admission, loading and watch-input callbacks inside the guarded
+   * acquisition branch become setup-failure results on error. Initial project/
+   * compiler resolution and final config-anchor resolution outside it may
+   * throw. A synchronous call requires synchronous watch-input handlers; use
+   * resolveExecutionContextAsync when registration returns a promise.
    *
    * @evidence contracts/common.md#principled-implementation One selected project supplies root, config and compiler policy; explicit resolvedProject preserves prior selection, and the guarded plugin admission/loading/watch-input callback branch is converted to a setup failure.
    * @evidence contracts/common.md#clear-and-simple-design A single context carries compiler/project/plugin selection to all phases, with plugin acquisition isolated from project and executable resolution.
@@ -1283,7 +1290,8 @@ export namespace BuildExecution {
   }
 
   /**
-   * Resolve the selected execution after its plugin watch owner completes every source-baseline handoff. Rejection keeps the setup-failure policy.
+   * Resolve the selected execution after its plugin watch owner completes every
+   * source-baseline handoff. Rejection keeps the setup-failure policy.
    *
    * @evidence contracts/common.md#principled-implementation Awaited stepping shares project/compiler selection and the guarded acquisition branch while retaining each pre-read publication barrier.
    * @evidence contracts/common.md#clear-and-simple-design The companion delegates to the same resolution sequence as the synchronous entry.
@@ -1303,7 +1311,8 @@ export namespace BuildExecution {
   }
 
   /**
-   * Select one execution and suspend its plugin producer at watch handoffs. The no-plugin path also publishes its empty selection before returning.
+   * Select one execution and suspend its plugin producer at watch handoffs. The
+   * no-plugin path also publishes its empty selection before returning.
    *
    * @evidence contracts/common.md#principled-implementation The existing guarded acquisition sequence yields the loader's pre-read barriers and converts thrown handoff failures into the same setup-failure result as loading errors.
    * @evidence contracts/common.md#clear-and-simple-design Selection and final context assembly remain in one sequence for both completion modes.

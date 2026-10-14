@@ -37,7 +37,16 @@ export interface TtscSingleFileEmitOptions extends TtscCommonOptions {
 /**
  * Receive selected plugin build-source roots for the invocation's watch owner.
  *
- * Executable modules, linked source roots, contributors and external local module replacements can be reported. ttsc's own package sources are omitted; this notification is not the complete compiler or project-rule input graph. The reporting load also hands over its record store, if it opened one, so the owner proves each root's state from the plugin cache's records instead of reading the sources the load is about to prove (#1728). Asynchronous build entries await a returned promise before reading or building those sources; synchronous entries require a synchronous handler. Separate function alternatives preserve TypeScript's void-handler assignability, including ignored non-promise return values.
+ * Executable modules, linked source roots, contributors and external local
+ * module replacements can be reported. ttsc's own package sources are omitted;
+ * this notification is not the complete compiler or project-rule input graph.
+ * The reporting load also hands over its record store, if it opened one, so the
+ * owner proves each root's state from the plugin cache's records instead of
+ * reading the sources the load is about to prove (#1728). Asynchronous build
+ * entries await a returned promise before reading or building those sources;
+ * synchronous entries require a synchronous handler. Separate function
+ * alternatives preserve TypeScript's void-handler assignability, including
+ * ignored non-promise return values.
  *
  * @evidence contracts/common.md#principled-implementation Readonly roots describe the actual native-plugin sources whose later edits need observation; separate void and Promise function alternatives preserve existing ignored-return callback assignability while exposing asynchronous completion.
  * @evidence contracts/common.md#clear-and-simple-design The handoff leaves watcher construction and lifetime with the invocation owner, while its completion determines when the producer may continue.
@@ -59,7 +68,9 @@ export type TtscPluginSourceInputsHandler =
     ) => Promise<void>);
 
 /**
- * Receive the discovered project-rule filesystem topology for the watch owner. Asynchronous build entries await a returned promise before compilation; synchronous entries require a synchronous handler.
+ * Receive the discovered project-rule filesystem topology for the watch owner.
+ * Asynchronous build entries await a returned promise before compilation;
+ * synchronous entries require a synchronous handler.
  *
  * @evidence contracts/common.md#principled-implementation The snapshot retains exact, glob and reload dependencies rather than reducing them to plugin-source roots.
  * @evidence contracts/common.md#clear-and-simple-design A separate completion-bearing notification transfers topology without assigning watcher lifetime to the emit options.

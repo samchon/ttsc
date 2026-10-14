@@ -5,9 +5,11 @@ import { isTransformTarget } from "../../../../packages/unplugin/src/core/isTran
 import { installViteDependencyScanPlugins } from "../../../../packages/unplugin/src/core/vite/installViteDependencyScanPlugins";
 
 /**
- * Verifies optimizer registration preserves host options and transforms only source modules owned by ttsc.
+ * Verifies optimizer registration preserves host options and transforms only
+ * source modules owned by ttsc.
  *
- * The scanner has its own plugin population; registering there must preserve user hooks and environment settings without enabling disabled discovery.
+ * The scanner has its own plugin population; registering there must preserve
+ * user hooks and environment settings without enabling disabled discovery.
  *
  * 1. Install into shared and independent Rolldown environment settings, invoke
  *    their registered transforms and verify existing hooks remain callable.

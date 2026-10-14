@@ -16,7 +16,16 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * The persistent answers of isolated CommonJS descriptor evaluations, each
  * recorded with the state it was computed from.
  *
- * Isolated evaluation loads the descriptor graph in a fresh runtime module cache. Its recorded module/candidate content and physical paths, plus the descriptor's own external-read declarations, supply persistence premises; their presence is not detection of every omitted read or side effect. An answer is kept under everything else the evaluation was given: the descriptor, its factory context, the working directory, the effective environment, the runtimes that ran it, and this ttsc build. A hit requires matching current stored content/realpath projections; these sequential observations are not an atomic filesystem snapshot and do not distinguish every cause of an unavailable null value.
+ * Isolated evaluation loads the descriptor graph in a fresh runtime module
+ * cache. Its recorded module/candidate content and physical paths, plus the
+ * descriptor's own external-read declarations, supply persistence premises;
+ * their presence is not detection of every omitted read or side effect. An
+ * answer is kept under everything else the evaluation was given: the
+ * descriptor, its factory context, the working directory, the effective
+ * environment, the runtimes that ran it, and this ttsc build. A hit requires
+ * matching current stored content/realpath projections; these sequential
+ * observations are not an atomic filesystem snapshot and do not distinguish
+ * every cause of an unavailable null value.
  *
  * The files a descriptor reads outside its module graph are its own to declare
  * (`hostInputHashes`), so only the answer of a descriptor supplying that
@@ -86,7 +95,6 @@ export namespace PluginDescriptorEvaluationCache {
    * @param props.additionalRuntime Selected Node executable exposed to the
    *   descriptor and used by ttsx/config loaders, when distinct from runtime.
    * @param props.version This ttsc build's version.
-   *
    * @evidence contracts/common.md#principled-implementation Canonical identity includes factory context, normalized evaluator working directory, sorted effective environment and fresh content/lexical/physical proof of both actual runtime authorities; unobserved startup preloads and unreadable runtimes cannot select a reusable entry.
    * @evidence contracts/common.md#clear-and-simple-design The locator delegates cache-root policy and runtime observation, then constructs only the descriptor entry identity.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unidentifiable runtime/storage returns null for uncached evaluation rather than weakening the key or selecting a fixture-specific runtime.

@@ -7,7 +7,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
 /**
  * Verifies a retired watch cycle cannot resume from an unfinished publication.
  *
- * A publication can settle after the watch owner closes or disposes its cycle; completing that handoff must not authorize a check in the retired generation.
+ * A publication can settle after the watch owner closes or disposes its cycle;
+ * completing that handoff must not authorize a check in the retired
+ * generation.
  *
  * 1. Pause plugin-free resident preparation at its project-input handoff.
  * 2. Close or dispose the session before completing the publication.

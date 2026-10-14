@@ -9,7 +9,11 @@ import { WatchInputPublication } from "./WatchInputPublication";
  * decide how to surface diagnostics. Non-zero process exit is returned as a
  * result; configuration resolution and process-launch failures may throw.
  *
- * Project-free terminal flags bypass project/plugin setup when applicable. Required emit provenance preserves compiler selection and exposes unknown ownership when the selected producer cannot establish the requested relation. Watch-input handlers must complete synchronously; use {@link runBuild.async} when a handler returns a promise.
+ * Project-free terminal flags bypass project/plugin setup when applicable.
+ * Required emit provenance preserves compiler selection and exposes unknown
+ * ownership when the selected producer cannot establish the requested relation.
+ * Watch-input handlers must complete synchronously; use {@link runBuild.async}
+ * when a handler returns a promise.
  *
  * @evidence contracts/common.md#principled-implementation Shared preparation selects project and plugins before execution, while project-free terminal requests take their supported direct compiler path; timing is appended after the resulting build phase.
  * @evidence contracts/common.md#clear-and-simple-design The public synchronous entry owns timing and delegates setup/execution to BuildExecution, keeping the same build policy available to watch sessions.
@@ -38,7 +42,8 @@ export function runBuild(options: RunBuildOptions = {}): TtscBuildResult {
  */
 export namespace runBuild {
   /**
-   * Run a build after each watch-input handler's returned promise settles. Compilation starts only after both plugin and project baselines complete.
+   * Run a build after each watch-input handler's returned promise settles.
+   * Compilation starts only after both plugin and project baselines complete.
    */
   export function async(
     options: RunBuildOptions = {},
@@ -47,7 +52,9 @@ export namespace runBuild {
   }
 
   /**
-   * Produce one timed build, yielding watch handoffs before native work. Composing owners must complete the sequence and deliver callback rejection back into it so the existing setup and cleanup policies apply.
+   * Produce one timed build, yielding watch handoffs before native work.
+   * Composing owners must complete the sequence and deliver callback rejection
+   * back into it so the existing setup and cleanup policies apply.
    */
   export function* steps(
     options: RunBuildOptions,

@@ -4,17 +4,21 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { TestLifetime } from "../../../../../utils/src/TestLifetime";
 import { TestFailureLedger } from "../../../../../utils/src/TestFailureLedger";
+import { TestLifetime } from "../../../../../utils/src/TestLifetime";
 import { OwnedE2eEntry } from "../../../batch/OwnedE2eEntry";
 
 /**
  * Verifies config recovery completes under its original native owner.
  *
- * A callback that never arrives must fail this prepared test rather than keep the batch waiting. The original scene retains its deletion, recreation, atomic replacement and ordinary-write assertions; only a real native retirement receipt permits fixture reclamation.
+ * A callback that never arrives must fail this prepared test rather than keep
+ * the batch waiting. The original scene retains its deletion, recreation,
+ * atomic replacement and ordinary-write assertions; only a real native
+ * retirement receipt permits fixture reclamation.
  *
  * 1. Lend one private root to the original config-recovery scene.
- * 2. Await that scene and its original native boundary under an explicit failure budget.
+ * 2. Await that scene and its original native boundary under an explicit failure
+ *    budget.
  * 3. Preserve failure and reclaim only after joined or never-admitted retirement.
  *
  * @evidence contracts/testing.md#behavioral-verification The static actor invokes the original scene's actual WatchTopology and compiler observations; the parent requires ordinary status zero and native joined retirement. Budget expiry remains a failed verdict even when original native cancellation joins.
@@ -27,7 +31,10 @@ import { OwnedE2eEntry } from "../../../batch/OwnedE2eEntry";
  * @evidence contracts/e2e.md#preserved-coverage The scene retains every original input, mutation order, positive assertion and 250-ms quiet observation. Its exported scene is invoked by the static actor without duplicating it in the batch; termination or elapsed time cannot pass the assertions.
  */
 export async function test_watch_topology_reports_deleted_config_and_recreation(): Promise<void> {
-  const owner = new TestLifetime({ name: "contained config-recovery", timeoutMs: 120_000 });
+  const owner = new TestLifetime({
+    name: "contained config-recovery",
+    timeoutMs: 120_000,
+  });
   let root: string | undefined;
   let identity: { dev: bigint; ino: bigint; realpath: string } | undefined;
   let retirement: "joined" | "not-started" | "unknown" = "not-started";
@@ -37,43 +44,90 @@ export async function test_watch_topology_reports_deleted_config_and_recreation(
     owner.checkpoint("fixture startup");
     root = TestProject.tmpdir("ttsc-config-recovery-owner-");
     const stat = fs.lstatSync(root, { bigint: true });
-    identity = { dev: stat.dev, ino: stat.ino, realpath: fs.realpathSync.native(root) };
+    identity = {
+      dev: stat.dev,
+      ino: stat.ino,
+      realpath: fs.realpathSync.native(root),
+    };
     owner.assertActive();
     owner.checkpoint("original config-recovery actor and native join");
     retirement = "unknown";
     const result = await OwnedE2eEntry.run({
-      entry: path.join(TestProject.WORKSPACE_ROOT, "tests/test-e2e/fixtures/ttsc/watch-config-recovery/actor.mjs"),
-      args: [pathToFileURL(path.resolve(import.meta.dirname, "../scenes/case_watch_topology_reports_deleted_config_and_recreation.ts")).href, String(owner.deadline)],
+      entry: path.join(
+        TestProject.WORKSPACE_ROOT,
+        "tests/test-e2e/fixtures/ttsc/watch-config-recovery/actor.mjs",
+      ),
+      args: [
+        pathToFileURL(
+          path.resolve(
+            import.meta.dirname,
+            "../scenes/case_watch_topology_reports_deleted_config_and_recreation.ts",
+          ),
+        ).href,
+        String(owner.deadline),
+      ],
       env: { ...process.env, TEMP: root, TMP: root, TMPDIR: root },
       signal: owner.signal,
-      observeRetirement: (state) => { observed = true; retirement = state; },
+      observeRetirement: (state) => {
+        observed = true;
+        retirement = state;
+      },
     });
     assert.equal(result.error, undefined);
     assert.equal(result.signal, null);
-    assert.equal(result.status, 0, "original config-recovery scene must finish its assertions");
-    assert.equal(retirement, "joined", "original native owner must certify retirement");
+    assert.equal(
+      result.status,
+      0,
+      "original config-recovery scene must finish its assertions",
+    );
+    assert.equal(
+      retirement,
+      "joined",
+      "original native owner must certify retirement",
+    );
   } catch (error) {
     // The native API's pre-admission abort preserves the exact reason and calls
     // no retirement observer. Every other unobserved lifetime stays unknown.
-    if (!observed && owner.signal.aborted && error === owner.signal.reason) retirement = "not-started";
+    if (!observed && owner.signal.aborted && error === owner.signal.reason)
+      retirement = "not-started";
     failures.add(error);
   } finally {
     owner.checkpoint("original fixture release");
     if (root !== undefined) {
       try {
-        if (retirement === "unknown") TestProject.retainTemporaryDirectory(root, "config-recovery native retirement is unknown");
+        if (retirement === "unknown")
+          TestProject.retainTemporaryDirectory(
+            root,
+            "config-recovery native retirement is unknown",
+          );
         else {
           const current = fs.lstatSync(root, { bigint: true });
-          assert.deepEqual({ dev: current.dev, ino: current.ino, realpath: fs.realpathSync.native(root) }, identity, "original config-recovery root identity must survive until release");
+          assert.deepEqual(
+            {
+              dev: current.dev,
+              ino: current.ino,
+              realpath: fs.realpathSync.native(root),
+            },
+            identity,
+            "original config-recovery root identity must survive until release",
+          );
           fs.rmSync(root, { recursive: true });
         }
       } catch (error) {
         failures.add(error);
-        try { TestProject.retainTemporaryDirectory(root, "config-recovery fixture reclamation failed"); }
-        catch (retention) { failures.add(retention); }
+        try {
+          TestProject.retainTemporaryDirectory(
+            root,
+            "config-recovery fixture reclamation failed",
+          );
+        } catch (retention) {
+          failures.add(retention);
+        }
       }
     }
     for (const failure of owner.finish()) failures.add(failure);
   }
-  failures.throwIfFailed("config-recovery execution, native retirement and fixture release failed");
+  failures.throwIfFailed(
+    "config-recovery execution, native retirement and fixture release failed",
+  );
 }

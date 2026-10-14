@@ -85,7 +85,8 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * declaration. Sequential content, metadata and physical-path observations are
  * not an atomic snapshot or detection of every omitted read.
  *
- * Synchronous callers require synchronous watch-input handlers; use {@link loadProjectPlugins.async} to await a worker's baseline publication.
+ * Synchronous callers require synchronous watch-input handlers; use
+ * {@link loadProjectPlugins.async} to await a worker's baseline publication.
  *
  * @param options.binary - Absolute path to the ttsc native helper binary.
  * @param options.cacheDir - Override the plugin binary cache directory.
@@ -218,7 +219,8 @@ export function loadProjectPlugins(options: {
  */
 export namespace loadProjectPlugins {
   /**
-   * Load plugins after each watch owner confirms its reported input baseline. A rejected handoff fails loading before the next source read or build.
+   * Load plugins after each watch owner confirms its reported input baseline. A
+   * rejected handoff fails loading before the next source read or build.
    */
   export function async(
     options: Parameters<typeof loadProjectPlugins>[0],
@@ -227,7 +229,9 @@ export namespace loadProjectPlugins {
   }
 
   /**
-   * Produce one load, suspending at each watch-input handoff before continuing. Internal build orchestration consumes the whole sequence with its chosen completion runner; it must deliver rejection back into the sequence.
+   * Produce one load, suspending at each watch-input handoff before continuing.
+   * Internal build orchestration consumes the whole sequence with its chosen
+   * completion runner; it must deliver rejection back into the sequence.
    */
   export function* steps(
     options: Parameters<typeof loadProjectPlugins>[0],

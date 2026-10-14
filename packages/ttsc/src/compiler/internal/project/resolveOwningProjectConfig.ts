@@ -85,7 +85,10 @@ export function resolveOwningProjectConfig(props: {
   onConfig?: (config: string) => void;
 
   /**
-   * Expanded root files kept across lookups, by config path, for a caller whose selected builds and compiler environment already hold for the same lifetime: ttsx builds each owning project once per process (samchon/ttsc#1747).
+   * Expanded root files kept across lookups, by config path, for a caller whose
+   * selected builds and compiler environment already hold for the same
+   * lifetime: ttsx builds each owning project once per process
+   * (samchon/ttsc#1747).
    */
   expansions?: Map<string, { files: readonly string[]; takenAt: number }>;
 }): string {

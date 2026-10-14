@@ -5,14 +5,6 @@ description: Repairs, implements, tests, and validates ttsc source, tests, fixtu
 
 # Development
 
-## Repair
-
-Fix the cause while preserving surrounding contracts.
-
-1. Read the implementation, contracts, callers and tests to understand its rationale and invariants; group known symptoms by cause before editing.
-2. Identify regressions from the proposed change across affected consumers, failure and recovery, cached or generated state, platforms, and observations of file or timing changes.
-3. Fix the cause at its owner, remove obsolete compensations and test corrected and unchanged behavior; explain non-obvious constraints in nearby comments.
-
 ## Contracts
 
 Every maintained declaration answers, in its doc comment, the [contracts](../contracts/SKILL.md) checklists its package selects:
@@ -30,20 +22,8 @@ Every maintained declaration answers, in its doc comment, the [contracts](../con
 - Update the matching guide under `website/src/content/docs/` in the same change.
 - Tests, fixtures, CI, wiring, dependencies, and generated baselines are specification. Change them only on request or for a product reason, and say so.
 
-## Tests
+## Task Guides
 
-| Kind | Location |
-| --- | --- |
-| Go | Beside its Go package, one `Test*` per file. Never under `tests/`. |
-| TypeScript unit | A `test_<name>.ts` under `tests/test-*/src/features/` exporting `test_<name>`, calling the source directly. |
-| E2E | A `tests/test-e2e/src/features/test_e2e_*.ts` entry running scenarios from `<package>/scenes/case_*.ts`, with static inputs under `tests/test-e2e/fixtures/<package>/`. |
-
-- Observe through the product's seams or its own output; never replace `fs` functions or `process.env` in a test.
-- Open each case with a `Verifies` headline, a short reason, and two to four numbered steps. Reuse `tests/utils` and the suite's own `internal/`, never another suite's.
-
-## Validation And CI
-
-- Before finishing, prove the change with the narrowest test that fails without it. Run the affected tests locally, then let CI run the full suites; never block a push on a full local run or install a toolchain for one.
-- `pnpm test` skips the units when Go fails, so run `pnpm test:units` as well. `pnpm test:e2e` needs `pnpm build` first.
-- Workflows call root commands. Keep test selection there, keep every failing verdict when continuing past a failure, and never meet the ten-minute job target by dropping cases or splitting jobs.
-- Run `pnpm format` once, at a [pull request](../pull-request/SKILL.md)'s final preparation for merge; fix any later defect without rerunning it.
+- Read [Repair](repair.md) when changing existing behavior.
+- Read [Testing](testing.md) when adding or changing tests.
+- Read [Validation](validation.md) before running checks or preparing a change for CI.

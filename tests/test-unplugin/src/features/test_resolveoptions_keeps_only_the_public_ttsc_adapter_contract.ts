@@ -9,10 +9,12 @@ import { resolveOptions } from "../../../../packages/unplugin/src/core/options/r
  * transform. Adding or dropping a key would widen or narrow that contract
  * without anyone noticing.
  *
- * 1. Resolve options carrying startup entries, compiler, plugin, config and source-root choices.
+ * 1. Resolve options carrying startup entries, compiler, plugin, config and
+ *    source-root choices.
  * 2. Assert each supported choice survives normalization.
  * 3. Assert each value is preserved verbatim.
- * 4. Assert omission, explicit disable, and array/overlay copying retain their meaning.
+ * 4. Assert omission, explicit disable, and array/overlay copying retain their
+ *    meaning.
  *
  * @evidence contracts/testing.md#behavioral-verification resolveOptions preserves precompile/compilerOptions/plugins/project/projectRoot, retains omission versus false, and detaches the startup entry array and compiler option overlay from their caller.
  * @evidence contracts/testing.md#independent-expectations Literal five-key and option objects independently specify the public result; mutating the resolved strict flag must leave the authored overlay unchanged, and mutating the caller's entry array must leave the resolved startup list unchanged.
@@ -47,7 +49,10 @@ export async function test_resolveoptions_keeps_only_the_public_ttsc_adapter_con
   ]);
   assert.equal(options.project, "tsconfig.build.json");
   assert.equal(options.projectRoot, "../workspace");
-  assert.deepEqual(options.precompile, ["src/main.ts", "../shared/src/index.ts"]);
+  assert.deepEqual(options.precompile, [
+    "src/main.ts",
+    "../shared/src/index.ts",
+  ]);
 
   assert.deepEqual(resolveOptions(), {
     compilerOptions: {},

@@ -39,217 +39,237 @@ const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A private TestProject root separates mutable config and source bytes. Subscription closure and lifetime disposal are independently attempted before the scene reports its ordered original failures, and the parent native owner adjudicates retirement before releasing actor inputs. One shared absolute deadline rejects incomplete observation; it does not certify joined cleanup, and unknown retirement retains owned storage.
  * @evidence contracts/e2e.md#preserved-coverage Every original mutation, config callback assertion and deletion error check remains here, including identical recreation/replacement bytes and three unchanged 250ms settling windows. Original error classification stays intact; explicit lifetime failure bounds waits while phase observations distinguish actual entries and returns.
  */
-export const case_watch_topology_reports_deleted_config_and_recreation =
-  async (deadline?: number): Promise<void> => {
-    // Polling has no implicit deadline: a missing callback otherwise prevents
-    // finally from running. Share the parent's failure deadline without treating
-    // cancellation as proof that a synchronous refresh or its native child joined.
-    const lifetime = new TestLifetime({
-      name: "config-recovery",
-      timeoutMs: 120_000,
-      deadline,
-    });
-    // A cleanup exception must preserve an earlier observation failure, including
-    // a thrown undefined. Record each original reason before attempting the next
-    // cleanup, then report distinct reasons in that same order.
-    const failures = new TestFailureLedger();
-    try {
-      const root = TestProject.tmpdir("ttsc-watch-config-recovery-");
-      const source = path.join(root, "src", "main.ts");
-      const config = path.join(root, "tsconfig.json");
-      fs.mkdirSync(path.dirname(source), { recursive: true });
-      fs.writeFileSync(source, "export const value = 1;\n", "utf8");
-      const configText = JSON.stringify({ files: ["src/main.ts"] });
-      fs.writeFileSync(config, configText, "utf8");
+export const case_watch_topology_reports_deleted_config_and_recreation = async (
+  deadline?: number,
+): Promise<void> => {
+  // Polling has no implicit deadline: a missing callback otherwise prevents
+  // finally from running. Share the parent's failure deadline without treating
+  // cancellation as proof that a synchronous refresh or its native child joined.
+  const lifetime = new TestLifetime({
+    name: "config-recovery",
+    timeoutMs: 120_000,
+    deadline,
+  });
+  // A cleanup exception must preserve an earlier observation failure, including
+  // a thrown undefined. Record each original reason before attempting the next
+  // cleanup, then report distinct reasons in that same order.
+  const failures = new TestFailureLedger();
+  try {
+    const root = TestProject.tmpdir("ttsc-watch-config-recovery-");
+    const source = path.join(root, "src", "main.ts");
+    const config = path.join(root, "tsconfig.json");
+    fs.mkdirSync(path.dirname(source), { recursive: true });
+    fs.writeFileSync(source, "export const value = 1;\n", "utf8");
+    const configText = JSON.stringify({ files: ["src/main.ts"] });
+    fs.writeFileSync(config, configText, "utf8");
 
-      const changes: WatchInputChange[] = [];
-      const invocation = trace.begin();
-      let phase = "initial-refresh";
-      const observe = (event: string, detail: Record<string, unknown> = {}): void => {
-        lifetime.checkpoint(phase);
-        trace.record("watch-topology-observation", invocation, {
-          pid: process.pid,
-          data: {
-            name: "config-recovery",
-            root,
-            phase,
-            event,
-            changes: changes.length,
-            configChanges: configChangeCount(changes),
-            ...detail,
-          },
-        });
-      };
-      const observeIdentity = (label: string, location: string): void => {
-        if (invocation === undefined) return;
-        try {
-          const precise = fs.statSync(location, { bigint: true });
-          const ordinary = fs.statSync(location);
-          observe("file-identity", {
-            label,
-            path: location,
-            bigintOwner: `${precise.dev}:${precise.ino}`,
-            numberOwner: `${ordinary.dev}:${ordinary.ino}`,
-            safeNumberOwner: Number.isSafeInteger(ordinary.dev) && Number.isSafeInteger(ordinary.ino),
-            numberAgreesWithBigint: ordinary.dev === Number(precise.dev) && ordinary.ino === Number(precise.ino),
-          });
-        } catch (error) {
-          observe("file-identity-failed", { label, path: location, message: String(error) });
-        }
-      };
-      let registration = 0;
-      const openDirectoryWatch: typeof watchDirectory = (location, recursive, listener) => {
-        const id = ++registration;
-        observe("directory-registration", { registration: id, registrationPath: location, recursive });
-        return watchDirectory(location, recursive, (event, filename, gap) => {
-          observe("directory-notification", {
-            registration: id,
-            registrationPath: location,
-            recursive,
-            eventType: event,
-            filename,
-            gap,
-          });
-          listener(event, filename, gap);
-        });
-      };
-      let topologyFailure: Error | undefined;
-      let allowMissingConfig = false;
-      const owner = {
-        signal: lifetime.signal,
-        check: () => {
-          if (topologyFailure) throw topologyFailure;
-          lifetime.assertActive();
+    const changes: WatchInputChange[] = [];
+    const invocation = trace.begin();
+    let phase = "initial-refresh";
+    const observe = (
+      event: string,
+      detail: Record<string, unknown> = {},
+    ): void => {
+      lifetime.checkpoint(phase);
+      trace.record("watch-topology-observation", invocation, {
+        pid: process.pid,
+        data: {
+          name: "config-recovery",
+          root,
+          phase,
+          event,
+          changes: changes.length,
+          configChanges: configChangeCount(changes),
+          ...detail,
         },
-      };
-      const errors: unknown[] = [];
-      const topology = new WatchTopology(
-        {
-          cwd: root,
-          files: [],
-          projectRoot: root,
-          tsconfig: config,
-        },
-        {
-          onError: (location, error) => {
-            errors.push(error);
-            observe("error", {
-              location,
-              message:
-                error instanceof Error
-                  ? error.message
-                  : "Non-Error topology failure",
-            });
-            if (
-              !allowMissingConfig ||
-              !(error instanceof Error) ||
-              !error.message.includes("tsconfig.json")
-            )
-              topologyFailure ??= new Error(`watch error on ${location}`, {
-                cause: error,
-              });
-          },
-          onInputChange: (change) => {
-            changes.push(change);
-            observe("input-change", { kind: change.kind, path: change.path });
-          },
-          onTopologyChange: () => undefined,
-        },
-        openDirectoryWatch,
-      );
+      });
+    };
+    const observeIdentity = (label: string, location: string): void => {
+      if (invocation === undefined) return;
       try {
-        observe("refresh-entered");
-        topology.refresh(false);
-        observe("refresh-returned");
-        phase = "config-deletion";
-        lifetime.checkpoint(phase);
-        allowMissingConfig = true;
-        fs.rmSync(config);
-        observe("mutation-done");
-        observe("await-entered");
-        await waitFor(
-          () => changes.some((change) => change.kind === "config"),
-          "config deletion",
-          owner,
-        );
-        observe("await-fulfilled");
-        owner.check();
-        assert.ok(errors.length > 0, "the failed refresh must remain observable");
-
-        const deletionCount = changes.filter(
-          (change) => change.kind === "config",
-        ).length;
-        phase = "config-recreation";
-        lifetime.checkpoint(phase);
-        fs.writeFileSync(config, configText, "utf8");
-        allowMissingConfig = false;
-        observe("mutation-done");
-        observe("await-entered");
-        await waitFor(
-          () =>
-            changes.filter((change) => change.kind === "config").length >
-            deletionCount,
-          "config recreation",
-          owner,
-        );
-        observe("await-fulfilled");
-        owner.check();
-        await settle();
-
-        const replacement = path.join(root, "tsconfig.next.json");
-        phase = "replacement-preparation";
-        lifetime.checkpoint(phase);
-        fs.writeFileSync(replacement, configText, "utf8");
-        observe("mutation-done");
-        await settle();
-        const beforeReplacement = configChangeCount(changes);
-        phase = "atomic-config-replacement";
-        lifetime.checkpoint(phase);
-        observeIdentity("config-before-replacement", config);
-        observeIdentity("replacement-before-rename", replacement);
-        fs.renameSync(replacement, config);
-        observe("mutation-done");
-        observeIdentity("config-after-replacement", config);
-        observe("await-entered");
-        await waitFor(
-          () => configChangeCount(changes) > beforeReplacement,
-          "atomic config replacement",
-          owner,
-        );
-        observe("await-fulfilled");
-        owner.check();
-        await settle();
-
-        const beforeOrdinaryWrite = configChangeCount(changes);
-        phase = "post-replacement-config-edit";
-        lifetime.checkpoint(phase);
-        fs.appendFileSync(config, "\n", "utf8");
-        observe("mutation-done");
-        observe("await-entered");
-        await waitFor(
-          () => configChangeCount(changes) > beforeOrdinaryWrite,
-          "post-replacement config edit",
-          owner,
-        );
-        observe("await-fulfilled");
-        owner.check();
+        const precise = fs.statSync(location, { bigint: true });
+        const ordinary = fs.statSync(location);
+        observe("file-identity", {
+          label,
+          path: location,
+          bigintOwner: `${precise.dev}:${precise.ino}`,
+          numberOwner: `${ordinary.dev}:${ordinary.ino}`,
+          safeNumberOwner:
+            Number.isSafeInteger(ordinary.dev) &&
+            Number.isSafeInteger(ordinary.ino),
+          numberAgreesWithBigint:
+            ordinary.dev === Number(precise.dev) &&
+            ordinary.ino === Number(precise.ino),
+        });
       } catch (error) {
-        failures.add(error);
-      } finally {
-        failures.capture(() => {
-          phase = "topology-close";
-          observe("close-entered");
-          topology.close();
-          observe("close-returned");
+        observe("file-identity-failed", {
+          label,
+          path: location,
+          message: String(error),
         });
       }
+    };
+    let registration = 0;
+    const openDirectoryWatch: typeof watchDirectory = (
+      location,
+      recursive,
+      listener,
+    ) => {
+      const id = ++registration;
+      observe("directory-registration", {
+        registration: id,
+        registrationPath: location,
+        recursive,
+      });
+      return watchDirectory(location, recursive, (event, filename, gap) => {
+        observe("directory-notification", {
+          registration: id,
+          registrationPath: location,
+          recursive,
+          eventType: event,
+          filename,
+          gap,
+        });
+        listener(event, filename, gap);
+      });
+    };
+    let topologyFailure: Error | undefined;
+    let allowMissingConfig = false;
+    const owner = {
+      signal: lifetime.signal,
+      check: () => {
+        if (topologyFailure) throw topologyFailure;
+        lifetime.assertActive();
+      },
+    };
+    const errors: unknown[] = [];
+    const topology = new WatchTopology(
+      {
+        cwd: root,
+        files: [],
+        projectRoot: root,
+        tsconfig: config,
+      },
+      {
+        onError: (location, error) => {
+          errors.push(error);
+          observe("error", {
+            location,
+            message:
+              error instanceof Error
+                ? error.message
+                : "Non-Error topology failure",
+          });
+          if (
+            !allowMissingConfig ||
+            !(error instanceof Error) ||
+            !error.message.includes("tsconfig.json")
+          )
+            topologyFailure ??= new Error(`watch error on ${location}`, {
+              cause: error,
+            });
+        },
+        onInputChange: (change) => {
+          changes.push(change);
+          observe("input-change", { kind: change.kind, path: change.path });
+        },
+        onTopologyChange: () => undefined,
+      },
+      openDirectoryWatch,
+    );
+    try {
+      observe("refresh-entered");
+      topology.refresh(false);
+      observe("refresh-returned");
+      phase = "config-deletion";
+      lifetime.checkpoint(phase);
+      allowMissingConfig = true;
+      fs.rmSync(config);
+      observe("mutation-done");
+      observe("await-entered");
+      await waitFor(
+        () => changes.some((change) => change.kind === "config"),
+        "config deletion",
+        owner,
+      );
+      observe("await-fulfilled");
+      owner.check();
+      assert.ok(errors.length > 0, "the failed refresh must remain observable");
+
+      const deletionCount = changes.filter(
+        (change) => change.kind === "config",
+      ).length;
+      phase = "config-recreation";
+      lifetime.checkpoint(phase);
+      fs.writeFileSync(config, configText, "utf8");
+      allowMissingConfig = false;
+      observe("mutation-done");
+      observe("await-entered");
+      await waitFor(
+        () =>
+          changes.filter((change) => change.kind === "config").length >
+          deletionCount,
+        "config recreation",
+        owner,
+      );
+      observe("await-fulfilled");
+      owner.check();
+      await settle();
+
+      const replacement = path.join(root, "tsconfig.next.json");
+      phase = "replacement-preparation";
+      lifetime.checkpoint(phase);
+      fs.writeFileSync(replacement, configText, "utf8");
+      observe("mutation-done");
+      await settle();
+      const beforeReplacement = configChangeCount(changes);
+      phase = "atomic-config-replacement";
+      lifetime.checkpoint(phase);
+      observeIdentity("config-before-replacement", config);
+      observeIdentity("replacement-before-rename", replacement);
+      fs.renameSync(replacement, config);
+      observe("mutation-done");
+      observeIdentity("config-after-replacement", config);
+      observe("await-entered");
+      await waitFor(
+        () => configChangeCount(changes) > beforeReplacement,
+        "atomic config replacement",
+        owner,
+      );
+      observe("await-fulfilled");
+      owner.check();
+      await settle();
+
+      const beforeOrdinaryWrite = configChangeCount(changes);
+      phase = "post-replacement-config-edit";
+      lifetime.checkpoint(phase);
+      fs.appendFileSync(config, "\n", "utf8");
+      observe("mutation-done");
+      observe("await-entered");
+      await waitFor(
+        () => configChangeCount(changes) > beforeOrdinaryWrite,
+        "post-replacement config edit",
+        owner,
+      );
+      observe("await-fulfilled");
+      owner.check();
     } catch (error) {
       failures.add(error);
     } finally {
-      for (const failure of lifetime.finish()) failures.add(failure);
+      failures.capture(() => {
+        phase = "topology-close";
+        observe("close-entered");
+        topology.close();
+        observe("close-returned");
+      });
     }
-    failures.throwIfFailed("Config recovery observation and cleanup failed");
-  };
+  } catch (error) {
+    failures.add(error);
+  } finally {
+    for (const failure of lifetime.finish()) failures.add(failure);
+  }
+  failures.throwIfFailed("Config recovery observation and cleanup failed");
+};
 
 function configChangeCount(changes: readonly WatchInputChange[]): number {
   return changes.filter((change) => change.kind === "config").length;

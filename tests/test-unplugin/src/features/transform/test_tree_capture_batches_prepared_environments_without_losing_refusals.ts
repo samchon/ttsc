@@ -14,9 +14,11 @@ import { captureUniversalHostInputValidation } from "../../../../../packages/unp
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies prepared plugin trees retain their individual authority while sharing current environment observations during synchronous capture.
+ * Verifies prepared plugin trees retain their individual authority while
+ * sharing current environment observations during synchronous capture.
  *
- * Several plugin directories commonly use one SDK. Sharing native queries must still refuse a changed or missing source.
+ * Several plugin directories commonly use one SDK. Sharing native queries must
+ * still refuse a changed or missing source.
  *
  * 1. Copy two native plugin inputs and prepare their actual source/environment
  *    states without building a plugin or starting a compiler.
@@ -100,7 +102,6 @@ export async function test_tree_capture_batches_prepared_environments_without_lo
       capture().validation,
       "actual restoration must recover authority",
     );
-
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

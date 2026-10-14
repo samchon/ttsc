@@ -5,7 +5,8 @@ import { WatchInputPublication } from "../../../../../packages/ttsc/src/compiler
 /**
  * Verifies publication failure reaches suspended producer cleanup.
  *
- * The completion runner must preserve generator exception and finally behavior rather than abandon a producer when a handler rejects or returns a promise.
+ * The completion runner must preserve generator exception and finally behavior
+ * rather than abandon a producer when a handler rejects or returns a promise.
  *
  * 1. Suspend an authored producer at two independently controlled handoffs.
  * 2. Reject the second handoff and assert its catch and finally both execute.

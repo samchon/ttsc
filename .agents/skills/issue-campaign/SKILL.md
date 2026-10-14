@@ -24,7 +24,8 @@ With publication authority, write each accepted issue so a fresh agent can start
 3. End each resolving commit with `Close #n: <title>` per issue. A revert must drop that line, and a squash still carries the reverted commit's line.
 4. After each pushed commit, run [Individual Self-Review](../review/SKILL.md#individual-self-review) and record it as a `COMMENT` review.
 5. On the integrated head, run [Overall Self-Review](../review/SKILL.md#overall-self-review) while CI runs. Fix every failed check, pre-existing ones included, and repeat on the new head.
-6. [Format](../development/SKILL.md#validation-and-ci), then [merge](../pull-request/SKILL.md) with authority once one head is green and review-clean. First read `git log origin/master..HEAD` to confirm each closed issue keeps its fix, and reopen any that does not.
-7. After merge, `git pull --ff-only` on `master`, delete the topic branch, remove only the temporary paths the campaign created, and start the next cycle.
+6. Read the [development validation guide](../development/validation.md) and format, then [merge](../pull-request/SKILL.md) with authority once one head is green and review-clean. First read `git log origin/master..HEAD` to confirm each closed issue keeps its fix, and reopen any that does not.
+7. After merge and any release authorized for the delivery, comment on each resolved issue with a brief description of its fix and, when applicable, the released version.
+8. Then `git pull --ff-only` on `master`, delete the topic branch, remove only the temporary paths the campaign created, and start the next cycle.
 
 The campaign is complete when a round on the latest baseline finds nothing, no accepted issue is open, and no campaign branch, pull request, or temporary asset remains.

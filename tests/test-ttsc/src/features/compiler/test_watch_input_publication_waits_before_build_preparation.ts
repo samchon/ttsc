@@ -9,7 +9,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
 /**
  * Verifies build preparation waits for both watch publication checkpoints.
  *
- * A worker must establish its baseline before the producer continues, while existing synchronous callers must retain synchronous results and failures.
+ * A worker must establish its baseline before the producer continues, while
+ * existing synchronous callers must retain synchronous results and failures.
  *
  * 1. Pause a plugin-free build at its source and project-input publications.
  * 2. Assert each checkpoint blocks the next phase and reject before compilation.

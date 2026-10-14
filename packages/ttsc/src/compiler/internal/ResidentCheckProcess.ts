@@ -10,11 +10,23 @@ import type { ResidentCheckResult } from "./ResidentCheckResult";
 /**
  * FIFO check client whose worker owns the child and its complete pipe lifetime.
  *
- * Watch topology can block the launcher's loop after shutdown timers start. Keeping spawn, EOF, signals, output draining and close on one independent loop prevents that work from spending a live child's shutdown grace or overtaking its pending close. An exit code alone never proves pipe closure: a living descendant can retain inherited stdout or stderr (#1758).
+ * Watch topology can block the launcher's loop after shutdown timers start.
+ * Keeping spawn, EOF, signals, output draining and close on one independent
+ * loop prevents that work from spending a live child's shutdown grace or
+ * overtaking its pending close. An exit code alone never proves pipe closure: a
+ * living descendant can retain inherited stdout or stderr (#1758).
  *
- * The caller owns disposal. Retirement uses the host's one-second input flush, EOF grace and forced-join policies. Only its actual-close receipt authorizes replacement; worker failure leaves joining unknown and rejected. Strict close additionally requires a graceful zero exit. Neither worker nor client claims termination of unrelated descendants. Abrupt process exit can still interrupt cleanup.
+ * The caller owns disposal. Retirement uses the host's one-second input flush,
+ * EOF grace and forced-join policies. Only its actual-close receipt authorizes
+ * replacement; worker failure leaves joining unknown and rejected. Strict close
+ * additionally requires a graceful zero exit. Neither worker nor client claims
+ * termination of unrelated descendants. Abrupt process exit can still interrupt
+ * cleanup.
  *
- * One worker serves one child across requests. Messages copy serialized request and reply bytes; pending request count and reply size have no fixed cap. Retirement rejects pending callers immediately and joins its worker after the terminal receipt. The client retains the Worker object.
+ * One worker serves one child across requests. Messages copy serialized request
+ * and reply bytes; pending request count and reply size have no fixed cap.
+ * Retirement rejects pending callers immediately and joins its worker after the
+ * terminal receipt. The client retains the Worker object.
  *
  * @evidence contracts/common.md#principled-implementation The independent loop owns every observation needed for retirement, and only its actual child-close receipt permits replacement, keeping parent event-loop blocking outside shutdown timing.
  * @evidence contracts/common.md#clear-and-simple-design The client owns caller serialization and settlement; its worker owns the native transport and shutdown state machine.
@@ -100,7 +112,10 @@ export class ResidentCheckProcess {
   }
 
   /**
-   * Serialize one cycle before admission and pair its reply with this caller. Serialization failure rejects only this call when its thrown value can be normalized to an Error; normalization itself can throw synchronously. A retired transport rejects all admitted calls and every later request.
+   * Serialize one cycle before admission and pair its reply with this caller.
+   * Serialization failure rejects only this call when its thrown value can be
+   * normalized to an Error; normalization itself can throw synchronously. A
+   * retired transport rejects all admitted calls and every later request.
    *
    * @evidence contracts/common.md#principled-implementation Serialization precedes worker admission; identifiers pair results with their admitted callers while the host preserves FIFO check execution.
    * @evidence contracts/common.md#clear-and-simple-design Caller serialization stays in the client, and the host alone validates native replies and retires a failed transport.
@@ -159,7 +174,8 @@ export class ResidentCheckProcess {
   }
 
   /**
-   * Await actual child close and the owner thread, requiring graceful zero exit. Repeated calls share retirement but retain strict shutdown failure.
+   * Await actual child close and the owner thread, requiring graceful zero
+   * exit. Repeated calls share retirement but retain strict shutdown failure.
    *
    * @evidence contracts/common.md#principled-implementation Success requires the host's actual-close receipt, strict status validation and owner-thread exit.
    * @evidence contracts/common.md#clear-and-simple-design Strict shutdown adds status validation to the same joining promise used by recovery.
@@ -177,7 +193,8 @@ export class ResidentCheckProcess {
   }
 
   /**
-   * Join a known failed child and its owner before replacement. Waiting alone starts no retirement deadline; unknown ownership rejects.
+   * Join a known failed child and its owner before replacement. Waiting alone
+   * starts no retirement deadline; unknown ownership rejects.
    *
    * @evidence contracts/common.md#principled-implementation A known failed child can be replaced only after its actual-close receipt and worker exit.
    * @evidence contracts/common.md#clear-and-simple-design Recovery consumes joining separately from strict shutdown status.

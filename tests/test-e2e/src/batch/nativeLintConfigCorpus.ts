@@ -593,9 +593,9 @@ export function nativeLintConfigCorpus(
     // Select the installed descriptor explicitly so the external config keeps
     // its own lint discovery, including cwd fallback and wrapper precedence.
     // pluginConfigDir would replace that discovery origin as well.
-    const lintDescriptor = createRequire(path.join(root, "package.json")).resolve(
-      "@ttsc/lint",
-    );
+    const lintDescriptor = createRequire(
+      path.join(root, "package.json"),
+    ).resolve("@ttsc/lint");
     for (const mode of ["fallback", "selected"])
       capture("external wrapper " + mode, () => {
         const wrapper = path.join(workspace.lintWrapperRoot, mode);

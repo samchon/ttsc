@@ -36,7 +36,11 @@ export interface TtscUnpluginOptions {
   /**
    * Source entries whose projects start compiling together on the first load.
    *
-   * Paths resolve from `process.cwd()` and use the same project selection, compiler options and plugins as delivered modules. Each project retains its normal input proofs. Listing an entry opts its project into compilation even if the host never imports it. Omission keeps compilation demand-driven.
+   * Paths resolve from `process.cwd()` and use the same project selection,
+   * compiler options and plugins as delivered modules. Each project retains its
+   * normal input proofs. Listing an entry opts its project into compilation
+   * even if the host never imports it. Omission keeps compilation
+   * demand-driven.
    */
   precompile?: readonly string[];
 

@@ -15,11 +15,23 @@ import { stripQuery } from "../transform/utils/stripQuery";
 /**
  * Exposes imports introduced by ttsc plugins to Vite's dependency scanner.
  *
- * Vite scans files without its normal transform hooks. Its optimizer plugins are the supported connection: Rolldown transforms the scanner's loaded text, while esbuild scans transformed modules in a separate namespace and also imports each original through Vite's loader. That original graph preserves glob, JSX and user loaders; the transformed graph adds complete relative import chains without a second parser or artificial exports.
+ * Vite scans files without its normal transform hooks. Its optimizer plugins
+ * are the supported connection: Rolldown transforms the scanner's loaded text,
+ * while esbuild scans transformed modules in a separate namespace and also
+ * imports each original through Vite's loader. That original graph preserves
+ * glob, JSX and user loaders; the transformed graph adds complete relative
+ * import chains without a second parser or artificial exports.
  *
- * Vite's esbuild scanner supplies stdin; dependency bundling supplies entry points. Only the scanner gets the extra original graph, because publishing that graph would execute untransformed code alongside transformed code. Bundling applies ordinary transforms after user loaders instead. Supplying both stdin and entryPoints is not a supported Vite optimizer configuration.
+ * Vite's esbuild scanner supplies stdin; dependency bundling supplies entry
+ * points. Only the scanner gets the extra original graph, because publishing
+ * that graph would execute untransformed code alongside transformed code.
+ * Bundling applies ordinary transforms after user loaders instead. Supplying
+ * both stdin and entryPoints is not a supported Vite optimizer configuration.
  *
- * The caller owns compilation, aliases, validation and cache lifetime. Each environment keeps its own optimizer settings and existing plugins. Disabled discovery is left alone, and repeated installation on one settings object within this call is suppressed.
+ * The caller owns compilation, aliases, validation and cache lifetime. Each
+ * environment keeps its own optimizer settings and existing plugins. Disabled
+ * discovery is left alone, and repeated installation on one settings object
+ * within this call is suppressed.
  *
  * @evidence contracts/common.md#principled-implementation Official optimizer hooks and the host's Rolldown capability select the real backend. Esbuild's stdin scan parses transformed namespaces plus actual-loader originals, while entry-point dependency bundles receive ordinary transforms without duplicate runtime source.
  * @evidence contracts/common.md#clear-and-simple-design One installer selects the host's resolved optimizer backend and delegates compilation to the adapter's existing transform owner.

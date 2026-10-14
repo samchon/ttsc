@@ -220,7 +220,11 @@ export class WatchTopology {
   /**
    * Wait until delivered notifications and registration reconciliation finish.
    *
-   * A completed build does not imply a quiet topology: its final refresh can queue another decision and another build (#1756). Yield through the check phase before inspecting every scheduled owner so a decision queued by another decision remains part of this barrier. Later filesystem changes belong to a later barrier; this does not freeze the filesystem.
+   * A completed build does not imply a quiet topology: its final refresh can
+   * queue another decision and another build (#1756). Yield through the check
+   * phase before inspecting every scheduled owner so a decision queued by
+   * another decision remains part of this barrier. Later filesystem changes
+   * belong to a later barrier; this does not freeze the filesystem.
    *
    * @evidence contracts/common.md#principled-implementation A check-phase observation follows delivered events, and every notification, recovery and registration queue must be empty before completion.
    * @evidence contracts/common.md#clear-and-simple-design The topology owns the barrier because it alone owns all five scheduled queues.
@@ -1742,7 +1746,14 @@ export class WatchTopology {
    * about. A failed refresh still reports, once each, the reload inputs every
    * requested change names.
    *
-   * A replacement can be delivered under only its vanished temporary name, including when its malformed bytes prevent refresh. Reconcile active reload-file snapshots on either outcome, deduplicate failed-refresh recovery against actual reported movement, and preserve the original refresh error after recovery. Batch moved owners through the existing rearm operation before notifying, because a POSIX per-file handle still owns the old inode. Unchanged snapshots stay quiet unless the existing failed-refresh selector explicitly names or cannot find the reload input.
+   * A replacement can be delivered under only its vanished temporary name,
+   * including when its malformed bytes prevent refresh. Reconcile active
+   * reload-file snapshots on either outcome, deduplicate failed-refresh
+   * recovery against actual reported movement, and preserve the original
+   * refresh error after recovery. Batch moved owners through the existing rearm
+   * operation before notifying, because a POSIX per-file handle still owns the
+   * old inode. Unchanged snapshots stay quiet unless the existing
+   * failed-refresh selector explicitly names or cannot find the reload input.
    */
   private refreshFromDirectories(refreshes: readonly DirectoryRefresh[]): void {
     for (const { changed } of refreshes) {

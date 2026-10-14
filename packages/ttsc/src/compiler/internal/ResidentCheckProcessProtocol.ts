@@ -1,7 +1,9 @@
 import type { ResidentCheckResult } from "./ResidentCheckResult";
 
 /**
- * Messages between one resident client and its isolated process owner. Request identifiers pair concurrent callers; only the owner's terminal receipt establishes child-close authority. Errors use structured cloning.
+ * Messages between one resident client and its isolated process owner. Request
+ * identifiers pair concurrent callers; only the owner's terminal receipt
+ * establishes child-close authority. Errors use structured cloning.
  *
  * @evidence contracts/common.md#principled-implementation Discriminated messages separate request results from the actual-close verdict and strict shutdown status.
  * @evidence contracts/common.md#clear-and-simple-design One private protocol connects the client and its one process owner without exposing worker transport to consumers.
@@ -14,7 +16,8 @@ import type { ResidentCheckResult } from "./ResidentCheckResult";
  */
 export namespace ResidentCheckProcessProtocol {
   /**
-   * Parent commands preserve request order before the terminal retire command. Request lines were serialized by the caller before admission.
+   * Parent commands preserve request order before the terminal retire command.
+   * Request lines were serialized by the caller before admission.
    *
    * @evidence contracts/common.md#principled-implementation A discriminant separates serialized request admission from terminal retirement; numeric identifiers correlate independent callers.
    * @evidence contracts/common.md#clear-and-simple-design Two command variants express the only supported parent operations without duplicating native shutdown state.
@@ -30,7 +33,9 @@ export namespace ResidentCheckProcessProtocol {
     | { kind: "retire" };
 
   /**
-   * Owner replies separate request outcomes from native lifetime authority. Absent joinError certifies actual child close; closeError independently preserves strict shutdown failure for a joined child.
+   * Owner replies separate request outcomes from native lifetime authority.
+   * Absent joinError certifies actual child close; closeError independently
+   * preserves strict shutdown failure for a joined child.
    *
    * @evidence contracts/common.md#principled-implementation Terminal joining and strict status are independent outcomes, allowing replacement of a joined failed host while refusing unknown ownership.
    * @evidence contracts/common.md#clear-and-simple-design Request results use the request identifier, and one terminal receipt carries the host's two lifetime outcomes.

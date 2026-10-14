@@ -13,14 +13,19 @@ import type { TtscTransformCache } from "../../../../../../packages/unplugin/src
 import { waitFor } from "../../../../../utils/src/internal/waitFor";
 
 /**
- * Verifies explicit project preparation overlaps native compiles without delivery effects.
+ * Verifies explicit project preparation overlaps native compiles without
+ * delivery effects.
  *
- * A host discovers imports serially, but selected projects can prepare together. Preparation must leave first-delivery authority and host registration for the actual load, and teardown must not let a pending preparation restore the cache.
+ * A host discovers imports serially, but selected projects can prepare
+ * together. Preparation must leave first-delivery authority and host
+ * registration for the actual load, and teardown must not let a pending
+ * preparation restore the cache.
  *
  * 1. Hold two native compiles and observe both barriers before releasing either.
  * 2. Deliver one project, then distinguish the other's preparation from its first
  *    load.
- * 3. Keep one native release input malformed through preparation and actual load, then repair it.
+ * 3. Keep one native release input malformed through preparation and actual load,
+ *    then repair it.
  * 4. Reset with preparation pending, release it, and verify detached ownership.
  *
  * @evidence contracts/testing.md#behavioral-verification The built transform API starts two actual native gates before either is released, shares a duplicate selected entry, and retains no preparation-only watch, project, volatility, served-file or diagnostic handoff. A failed speculative project cannot fail the other load; its actual request fails and changed source recovers. Reset during held preparation leaves the cache empty after settlement and detaches native tracker owners.

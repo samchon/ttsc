@@ -9,7 +9,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
 /**
  * Verifies failed single-file publication releases its actual private output.
  *
- * The output directory spans the awaited handoff, so failure must reenter the emitting producer's finally block before the invocation finishes.
+ * The output directory spans the awaited handoff, so failure must reenter the
+ * emitting producer's finally block before the invocation finishes.
  *
  * 1. Pause actual single-file preparation before its native compilation phase.
  * 2. Observe its new private allocation and reject the project publication.

@@ -43,9 +43,7 @@ export namespace WatchTopologyWorkerProtocol {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Signatures acquire no resources; callback implementations own session retention and cleanup.
    */
   export type Callbacks = ConstructorParameters<typeof WatchTopology>[1] & {
-    /**
-     * Terminal thread loss requires the launcher to retire its watch session.
-     */
+    /** Terminal thread loss requires the launcher to retire its watch session. */
     onFailure(error: unknown): void;
   };
 

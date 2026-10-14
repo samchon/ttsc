@@ -12,9 +12,12 @@ import { PluginDescriptorEvaluationCache } from "../../../../../packages/ttsc/sr
 /**
  * Verifies descriptor reuse distinguishes the evaluator's working directory.
  *
- * A factory may derive its source from process.cwd() while declaring no external file reads. Its consumer context and absolute cache root can stay identical when the source root changes.
+ * A factory may derive its source from process.cwd() while declaring no
+ * external file reads. Its consumer context and absolute cache root can stay
+ * identical when the source root changes.
  *
- * 1. Load and evaluate an owned CommonJS factory in Node children with explicit cwd.
+ * 1. Load and evaluate an owned CommonJS factory in Node children with explicit
+ *    cwd.
  * 2. Feed the shared recorder's real observations through the source cache API.
  * 3. Distinguish root changes from warm reuse by source results and factory calls.
  *
@@ -211,7 +214,9 @@ export function test_descriptor_evaluation_cache_distinguishes_evaluator_cwd(): 
       }
     } else
       failures.push(
-        new Error(`Unconfirmed factory actor settlement; retained scratch ${root}`),
+        new Error(
+          `Unconfirmed factory actor settlement; retained scratch ${root}`,
+        ),
       );
   }
   if (failures.length !== 0)

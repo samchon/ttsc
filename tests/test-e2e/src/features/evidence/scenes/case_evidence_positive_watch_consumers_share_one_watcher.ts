@@ -3,7 +3,13 @@ import { PositiveWatchBatch } from "../../../internal/evidence/internal/Positive
 /**
  * Verifies positive Evidence watch transitions and phase-local host telemetry.
  *
- * Independently named mutation phases preserve their actual cycles and diagnostics. Configuration changes may reconstruct Programs. Markdown-only changes retain the phase PID and successful cold/full-load counter; these observations do not certify Program-object identity or total constructors. One same-directory cold check supplies a separate comparison. A config write after an activation reload starts forces a queued reload; its final completion count establishes the baseline before later mutations.
+ * Independently named mutation phases preserve their actual cycles and
+ * diagnostics. Configuration changes may reconstruct Programs. Markdown-only
+ * changes retain the phase PID and successful cold/full-load counter; these
+ * observations do not certify Program-object identity or total constructors.
+ * One same-directory cold check supplies a separate comparison. A config write
+ * after an activation reload starts forces a queued reload; its final
+ * completion count establishes the baseline before later mutations.
  *
  * 1. Start with missing Swagger, then activate empty Markdown and covered inputs.
  * 2. Drive documented/review recovery, Markdown, Swagger, ancestor, code-link and

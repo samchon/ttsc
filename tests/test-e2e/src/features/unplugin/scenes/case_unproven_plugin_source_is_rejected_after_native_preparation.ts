@@ -14,13 +14,19 @@ import {
 import { captureUniversalHostInputValidation } from "../../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
 
 /**
- * Verifies an unproven plugin source remains rejected after native environment preparation.
+ * Verifies an unproven plugin source remains rejected after native environment
+ * preparation.
  *
- * A new source-directory key has no cached environment reading, so preparation crosses the real worker boundary. That reading can describe native failure inputs for a nonexistent directory; it does not certify the producer's unproven source-state label.
+ * A new source-directory key has no cached environment reading, so preparation
+ * crosses the real worker boundary. That reading can describe native failure
+ * inputs for a nonexistent directory; it does not certify the producer's
+ * unproven source-state label.
  *
  * 1. Select a private nonexistent plugin directory with no cached reading.
- * 2. Prepare through the built native-environment worker and retain asynchronous execution ownership.
- * 3. Capture its authored source-state label and require refusal without an admitted manifest.
+ * 2. Prepare through the built native-environment worker and retain asynchronous
+ *    execution ownership.
+ * 3. Capture its authored source-state label and require refusal without an
+ *    admitted manifest.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual preparePluginBuildEnvironments attempts a new native environment reading and records async ownership. Capture then refuses the source-directory input and admits no manifest; the initial cache-only query proves this request starts without a prepared reading.
  * @evidence contracts/testing.md#independent-expectations The authored source-state label has no producer proof and its private directory does not exist. The required no-manifest verdict follows that missing source authority, independently of whether the environment reader returns a digest for native failure inputs.
@@ -56,7 +62,8 @@ export async function case_unproven_plugin_source_is_rejected_after_native_prepa
     assert.equal(refused.validation, undefined);
     assert.ok(
       refused.failures.entries.some(
-        (failure) => failure.path === missing && failure.kind === "content-changed",
+        (failure) =>
+          failure.path === missing && failure.kind === "content-changed",
       ),
     );
   } finally {

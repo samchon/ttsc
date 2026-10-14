@@ -10,9 +10,12 @@ import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/co
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies explicit entries start together and startup ownership follows the host cache.
+ * Verifies explicit entries start together and startup ownership follows the
+ * host cache.
  *
- * A host may discover workspace imports sequentially. The scheduler must enter every selected capture before any pending capture completes, retain native entry text and preserve source eligibility.
+ * A host may discover workspace imports sequentially. The scheduler must enter
+ * every selected capture before any pending capture completes, retain native
+ * entry text and preserve source eligibility.
  *
  * 1. Write native source entries and start captures held behind one gate.
  * 2. Require parallel entry, lexical deduplication and unchanged source text.
@@ -131,39 +134,60 @@ export async function test_precompilation_starts_explicit_entries_and_follows_ca
     const directories = ["a", "b"].map((name) => path.join(root, name));
     for (const directory of directories) {
       fs.mkdirSync(directory);
-      fs.writeFileSync(path.join(directory, "entry.ts"), path.basename(directory));
+      fs.writeFileSync(
+        path.join(directory, "entry.ts"),
+        path.basename(directory),
+      );
     }
     const relativeOptions = resolveOptions({
       precompile: ["entry.ts", "./entry.ts"],
     });
     const coordinates: { file: string; source: string }[] = [];
-    const startRelative = () => TtscPrecompilation.start(
-      cwdCache, relativeOptions, undefined, async (file, source) => {
-        coordinates.push({ file, source });
-      },
-    );
+    const startRelative = () =>
+      TtscPrecompilation.start(
+        cwdCache,
+        relativeOptions,
+        undefined,
+        async (file, source) => {
+          coordinates.push({ file, source });
+        },
+      );
     process.chdir(directories[0]!);
-    startRelative();
-    startRelative();
-    assert.deepEqual(coordinates, [{ file: path.join(directories[0]!, "entry.ts"), source: "a" }]);
-    process.chdir(directories[1]!);
     startRelative();
     startRelative();
     assert.deepEqual(coordinates, [
       { file: path.join(directories[0]!, "entry.ts"), source: "a" },
-      { file: path.join(directories[1]!, "entry.ts"), source: "b" },
-    ], "relative entries must select the current cwd even when cache and options match");
+    ]);
+    process.chdir(directories[1]!);
+    startRelative();
+    startRelative();
+    assert.deepEqual(
+      coordinates,
+      [
+        { file: path.join(directories[0]!, "entry.ts"), source: "a" },
+        { file: path.join(directories[1]!, "entry.ts"), source: "b" },
+      ],
+      "relative entries must select the current cwd even when cache and options match",
+    );
     process.chdir(directories[0]!);
     startRelative();
     assert.equal(coordinates.length, 3);
     beginTtscTransformBuild(cwdCache);
     startRelative();
     startRelative();
-    assert.equal(coordinates.length, 4, "a new epoch reopens the current cwd's batch");
+    assert.equal(
+      coordinates.length,
+      4,
+      "a new epoch reopens the current cwd's batch",
+    );
     resetTtscTransformCache(cwdCache);
     startRelative();
     startRelative();
-    assert.equal(coordinates.length, 5, "reset releases the current cwd's batch");
+    assert.equal(
+      coordinates.length,
+      5,
+      "reset releases the current cwd's batch",
+    );
   } finally {
     process.chdir(originalCwd);
     release();

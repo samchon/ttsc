@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 
 /**
- * Correlates a watch idle receipt with the stdout builds its caller consumed. IPC can precede those markers or follow markers from a newer cycle.
+ * Correlates a watch idle receipt with the stdout builds its caller consumed.
+ * IPC can precede those markers or follow markers from a newer cycle.
  *
  * @evidence contracts/common.md#principled-implementation A fresh nonce identifies each requested boundary, and a nonnegative safe cumulative count cannot precede the builds consumed when that request began.
  * @evidence contracts/common.md#clear-and-simple-design One owner validates receipt identity and compares counts; stream parsing, sending and process lifetime stay with the harness.
@@ -18,7 +19,8 @@ export class WatchSettleReceipt {
   private builds: number | undefined;
 
   /**
-   * Begins a boundary after `consumed` completed builds and supersedes old replies.
+   * Begins a boundary after `consumed` completed builds and supersedes old
+   * replies.
    *
    * @evidence contracts/common.md#principled-implementation A fresh random nonce and captured consumed count distinguish this boundary from earlier replies.
    * @evidence contracts/common.md#clear-and-simple-design Request construction and reset of its receipt state occur together.
@@ -37,7 +39,9 @@ export class WatchSettleReceipt {
   }
 
   /**
-   * Accepts only this request's idle reply; malformed matching counts throw. Returns false for unrelated messages without changing the current boundary.
+   * Accepts only this request's idle reply; malformed matching counts throw.
+   * Returns false for unrelated messages without changing the current
+   * boundary.
    *
    * @evidence contracts/common.md#principled-implementation Type and nonce select the owning reply before a safe cumulative count is checked against the request's already consumed population.
    * @evidence contracts/common.md#clear-and-simple-design Identity filtering and payload admission have one owner and leave transport errors to the harness.
@@ -64,7 +68,8 @@ export class WatchSettleReceipt {
   }
 
   /**
-   * Requires missing stdout builds, accepts an exact idle count, or renews a boundary overtaken by newer completed or already started work.
+   * Requires missing stdout builds, accepts an exact idle count, or renews a
+   * boundary overtaken by newer completed or already started work.
    *
    * @evidence contracts/common.md#principled-implementation Counts below the receipt require more output; equality without an observed outstanding start proves all acknowledged markers were consumed, while newer completed or started work needs a new idle request.
    * @evidence contracts/common.md#clear-and-simple-design One comparison expresses the harness's pending, complete and superseded decisions.
@@ -84,7 +89,10 @@ export class WatchSettleReceipt {
   }
 
   /**
-   * Consumes every available completion before evaluating the idle boundary. A receipt can precede a chunk containing both its last marker and newer work, so reaching its count inside the chunk cannot end this drain. Callback errors propagate so the harness can reject excessive rebuilds.
+   * Consumes every available completion before evaluating the idle boundary. A
+   * receipt can precede a chunk containing both its last marker and newer work,
+   * so reaching its count inside the chunk cannot end this drain. Callback
+   * errors propagate so the harness can reject excessive rebuilds.
    *
    * @evidence contracts/common.md#principled-implementation Available completion consumption runs to exhaustion before cumulative-count and outstanding-start evaluation, preventing an earlier IPC receipt from hiding later work already present in stdout.
    * @evidence contracts/common.md#clear-and-simple-design One orchestration method joins receipt validation to the harness's actual marker cursor and observation callback without taking over stream or process ownership.

@@ -1,5 +1,7 @@
 /**
- * Run the synchronous topology on its owned thread. Keeping native probes, listings and digests together preserves transaction and baseline semantics while the launcher's resident process timers remain free to run (#1758).
+ * Run the synchronous topology on its owned thread. Keeping native probes,
+ * listings and digests together preserves transaction and baseline semantics
+ * while the launcher's resident process timers remain free to run (#1758).
  */
 import { parentPort, workerData } from "node:worker_threads";
 

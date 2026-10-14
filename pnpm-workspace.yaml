@@ -30,7 +30,7 @@ catalogs:
     "@rollup/plugin-node-resolve": ^16.0.3
     rollup: ^4.56.0
   samchon:
-    "@wrtnlabs/evidence": ^0.5.0
+    "@wrtnlabs/evidence": ^0.5.1
     nestia: &nestia ^14.0.0
     "@nestia/core": *nestia
     "@nestia/fetcher": *nestia

@@ -33,7 +33,10 @@ export interface TtscTransformHooks {
   /**
    * Native config already selected by the host for this delivered module.
    *
-   * A host that freezes routing and its discovery inputs in one transaction supplies that config here and retains those inputs in its watch channel. Startup entries select their own projects from the user's `options.project`, independently of another module's discovered route.
+   * A host that freezes routing and its discovery inputs in one transaction
+   * supplies that config here and retains those inputs in its watch channel.
+   * Startup entries select their own projects from the user's
+   * `options.project`, independently of another module's discovered route.
    */
   projectSelection?: string;
 

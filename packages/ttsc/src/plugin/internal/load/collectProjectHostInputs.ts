@@ -7,7 +7,10 @@ import { ProjectPluginEntries } from "./ProjectPluginEntries";
 import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
 
 /**
- * Return config ancestry and package-discovery manifest inputs, including missing nearer candidates that could redirect the selected package later. Discovery uses the selected config directory or explicit pluginConfigDir, matching the entry resolver independently of the compiler's source root.
+ * Return config ancestry and package-discovery manifest inputs, including
+ * missing nearer candidates that could redirect the selected package later.
+ * Discovery uses the selected config directory or explicit pluginConfigDir,
+ * matching the entry resolver independently of the compiler's source root.
  *
  * @evidence contracts/common.md#principled-implementation Config ancestry, lexical selection and missing config candidates influence selection; automatic discovery additionally observes nearest manifest and dependency search candidates through the selecting root. The project reader separately states whether these config observations are complete.
  * @evidence contracts/common.md#clear-and-simple-design The collector obtains package resolution from its owner and assembles universal loader inputs, leaving source Program dependencies to the native reference graph.

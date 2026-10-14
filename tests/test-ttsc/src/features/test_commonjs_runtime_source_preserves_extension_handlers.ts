@@ -7,9 +7,11 @@ import { CommonJsRuntimeSource } from "../../../../packages/ttsc/src/launcher/in
 /**
  * Verifies owned requires share the caller's live extension registry.
  *
- * Native requires share one registry so later registrations affect every consumer. A snapshot can preserve initial handlers while hiding later edits.
+ * Native requires share one registry so later registrations affect every
+ * consumer. A snapshot can preserve initial handlers while hiding later edits.
  *
- * 1. Construct two owned requires over registries with present or absent source handlers.
+ * 1. Construct two owned requires over registries with present or absent source
+ *    handlers.
  * 2. Verify construction shares identity without changing registry contents.
  * 3. Register, replace and delete entries from both sides and compare the views.
  * 4. Verify missing original metadata falls back to Node's native registry.
@@ -49,11 +51,7 @@ export function test_commonjs_runtime_source_preserves_extension_handlers(): voi
     assert.equal(peer.extensions, extensions);
     assert.deepEqual({ ...owned.extensions }, before);
     for (const extension of [".ts", ".tsx", ".cts", ".mts"])
-      assert.equal(
-        owned.extensions[extension],
-        before[extension],
-        extension,
-      );
+      assert.equal(owned.extensions[extension], before[extension], extension);
     assert.equal(owned.extensions[".custom"], unrelated);
     assert.deepEqual(extensions, before);
     extensions[".external"] = typescript;

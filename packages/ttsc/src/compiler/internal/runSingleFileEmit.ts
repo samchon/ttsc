@@ -22,7 +22,12 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * failure propagates on success and is aggregated with an earlier operation
  * failure rather than replacing it.
  *
- * A launcher-supplied selection shares its project and original compiler argument cwd with public output planning. Response freshness is checked before native work and publication; these sequential checks do not pin bytes atomically. Callers without that record retain explicit config/nearest-file discovery. Watch-input handlers must complete synchronously; use {@link runSingleFileEmit.async} for promise-returning handlers.
+ * A launcher-supplied selection shares its project and original compiler
+ * argument cwd with public output planning. Response freshness is checked
+ * before native work and publication; these sequential checks do not pin bytes
+ * atomically. Callers without that record retain explicit config/nearest-file
+ * discovery. Watch-input handlers must complete synchronously; use
+ * {@link runSingleFileEmit.async} for promise-returning handlers.
  *
  * @returns The transformed JavaScript source text.
  * @throws When the build exits non-zero, proves no JavaScript for the requested
@@ -59,7 +64,8 @@ export function runSingleFileEmit(
  */
 export namespace runSingleFileEmit {
   /**
-   * Await watch-input registration before emitting and selecting one source's JavaScript. Rejected publication follows the same temporary cleanup path.
+   * Await watch-input registration before emitting and selecting one source's
+   * JavaScript. Rejected publication follows the same temporary cleanup path.
    */
   export function async(
     options: TtscSingleFileEmitOptions,
@@ -69,7 +75,9 @@ export namespace runSingleFileEmit {
   }
 
   /**
-   * Emit through one selected project while suspending at watch handoffs. Internal completion runners must deliver rejection into this sequence so its finally block retains temporary-output cleanup ownership.
+   * Emit through one selected project while suspending at watch handoffs.
+   * Internal completion runners must deliver rejection into this sequence so
+   * its finally block retains temporary-output cleanup ownership.
    */
   export function* steps(
     options: TtscSingleFileEmitOptions,

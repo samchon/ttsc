@@ -90,7 +90,10 @@ export function transformTtsc(
 }
 
 /**
- * Coordinate capture and actual delivery through the same project cache. Preparation stops before handoff: it cannot mark a module served, publish a host record, acknowledge volatility or emit module diagnostics. A prepared generation must still pass ordinary admission when the host requests it.
+ * Coordinate capture and actual delivery through the same project cache.
+ * Preparation stops before handoff: it cannot mark a module served, publish a
+ * host record, acknowledge volatility or emit module diagnostics. A prepared
+ * generation must still pass ordinary admission when the host requests it.
  */
 async function runTransformTtsc(
   id: string,

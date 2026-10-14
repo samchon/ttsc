@@ -14,7 +14,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
 /**
  * Verifies config deletion, recreation and replacement in one source session.
  *
- * Directory attention must reconcile a replaced config even when it names only the vanished temporary entry.
+ * Directory attention must reconcile a replaced config even when it names only
+ * the vanished temporary entry.
  *
  * 1. Remove the actual config and retain its failed refresh and config report.
  * 2. Recreate and atomically replace it through the same recorded subscriptions.
@@ -117,21 +118,30 @@ export const test_watch_topology_reports_deleted_config_and_recreation =
       topology.close();
       assert.ok(watchers.every((watcher) => watcher.active === false));
     }
-    for (const delivery of ["target", "unnamed", "old-name", "old-name-change"] as const)
+    for (const delivery of [
+      "target",
+      "unnamed",
+      "old-name",
+      "old-name-change",
+    ] as const)
       await verifyReplacementAttention(delivery);
   };
 
 async function verifyReplacementAttention(
   delivery: "target" | "unnamed" | "old-name" | "old-name-change",
 ): Promise<void> {
-  const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-config-attention-"));
+  const root = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-config-attention-"),
+  );
   const config = path.join(root, "tsconfig.json");
   const replacement = path.join(root, "tsconfig.next.json");
   const source = path.join(root, "main.ts");
   const configText = JSON.stringify({ files: ["main.ts"] });
   fs.writeFileSync(source, "export const value = 1;\n");
   fs.writeFileSync(config, configText);
-  const { openDirectoryWatch, openFileWatch, watchers } = recordWatchers(watchDirectoryThroughFsWatch);
+  const { openDirectoryWatch, openFileWatch, watchers } = recordWatchers(
+    watchDirectoryThroughFsWatch,
+  );
   const changes: WatchInputChange[] = [];
   const errors: unknown[] = [];
   let compilerFailure: { error: unknown } | undefined;
@@ -152,10 +162,19 @@ async function verifyReplacementAttention(
   );
   const deliver = (): void => {
     if (delivery !== "unnamed")
-      deliverWatchEvent(watchers, delivery === "target" ? config : replacement, delivery === "old-name-change" ? "change" : "rename");
+      deliverWatchEvent(
+        watchers,
+        delivery === "target" ? config : replacement,
+        delivery === "old-name-change" ? "change" : "rename",
+      );
     else {
-      const directories = watchers.filter((watcher) => watcher.active && watcher.location === root);
-      assert.ok(directories.length !== 0, "the config directory must have a recorded owner");
+      const directories = watchers.filter(
+        (watcher) => watcher.active && watcher.location === root,
+      );
+      assert.ok(
+        directories.length !== 0,
+        "the config directory must have a recorded owner",
+      );
       for (const watcher of directories) watcher.listener("rename", null);
     }
   };
@@ -164,13 +183,22 @@ async function verifyReplacementAttention(
     await topology.whenIdle();
     deliver();
     await topology.whenIdle();
-    assert.equal(changes.length, 0, `${delivery}: unchanged attention must not invent a config change`);
+    assert.equal(
+      changes.length,
+      0,
+      `${delivery}: unchanged attention must not invent a config change`,
+    );
 
     fs.writeFileSync(replacement, configText);
     const previousOwner = fs.statSync(config, { bigint: true });
     const replacementOwner = fs.statSync(replacement, { bigint: true });
-    const previousFileWatchers = watchers.filter((watcher) => watcher.active && watcher.location === config);
-    assert.equal(previousFileWatchers.length, process.platform === "win32" ? 0 : 1);
+    const previousFileWatchers = watchers.filter(
+      (watcher) => watcher.active && watcher.location === config,
+    );
+    assert.equal(
+      previousFileWatchers.length,
+      process.platform === "win32" ? 0 : 1,
+    );
     assert.notEqual(
       `${previousOwner.dev}:${previousOwner.ino}`,
       `${replacementOwner.dev}:${replacementOwner.ino}`,
@@ -179,68 +207,185 @@ async function verifyReplacementAttention(
     fs.renameSync(replacement, config);
     deliver();
     await topology.whenIdle();
-    assert.equal(configChangeCount(changes), 1, `${delivery}: same-byte config replacement must report its owner change`);
-    assert.ok(previousFileWatchers.every((watcher) => !watcher.active), `${delivery}: a replaced config must retire its previous per-file owner`);
-    assert.equal(watchers.filter((watcher) => watcher.active && watcher.location === config).length, process.platform === "win32" ? 0 : 1);
+    assert.equal(
+      configChangeCount(changes),
+      1,
+      `${delivery}: same-byte config replacement must report its owner change`,
+    );
+    assert.ok(
+      previousFileWatchers.every((watcher) => !watcher.active),
+      `${delivery}: a replaced config must retire its previous per-file owner`,
+    );
+    assert.equal(
+      watchers.filter(
+        (watcher) => watcher.active && watcher.location === config,
+      ).length,
+      process.platform === "win32" ? 0 : 1,
+    );
 
     deliver();
     await topology.whenIdle();
-    assert.equal(configChangeCount(changes), 1, `${delivery}: repeated attention must not repeat the replacement`);
-    const replacementFileWatchers = watchers.filter((watcher) => watcher.active && watcher.location === config);
+    assert.equal(
+      configChangeCount(changes),
+      1,
+      `${delivery}: repeated attention must not repeat the replacement`,
+    );
+    const replacementFileWatchers = watchers.filter(
+      (watcher) => watcher.active && watcher.location === config,
+    );
     deliverWatchEvent(watchers, config, "change");
     await topology.whenIdle();
-    assert.equal(configChangeCount(changes), 1, `${delivery}: unchanged change attention must remain quiet`);
-    assert.deepEqual(watchers.filter((watcher) => watcher.active && watcher.location === config), replacementFileWatchers, `${delivery}: unchanged change attention must retain its existing per-file owner`);
+    assert.equal(
+      configChangeCount(changes),
+      1,
+      `${delivery}: unchanged change attention must remain quiet`,
+    );
+    assert.deepEqual(
+      watchers.filter(
+        (watcher) => watcher.active && watcher.location === config,
+      ),
+      replacementFileWatchers,
+      `${delivery}: unchanged change attention must retain its existing per-file owner`,
+    );
     fs.appendFileSync(config, "\n");
     deliverWatchEvent(watchers, config, "change");
     await topology.whenIdle();
-    assert.equal(configChangeCount(changes), 2, `${delivery}: the ordinary edit must remain observable`);
-    assert.deepEqual(watchers.filter((watcher) => watcher.active && watcher.location === config), replacementFileWatchers, `${delivery}: an ordinary edit must retain its existing per-file owner`);
-    assert.ok(changes.every((change) => change.kind === "config" && change.path === config));
+    assert.equal(
+      configChangeCount(changes),
+      2,
+      `${delivery}: the ordinary edit must remain observable`,
+    );
+    assert.deepEqual(
+      watchers.filter(
+        (watcher) => watcher.active && watcher.location === config,
+      ),
+      replacementFileWatchers,
+      `${delivery}: an ordinary edit must retain its existing per-file owner`,
+    );
+    assert.ok(
+      changes.every(
+        (change) => change.kind === "config" && change.path === config,
+      ),
+    );
     assert.equal(errors.length, 0);
     if (delivery === "old-name" || delivery === "old-name-change") {
       fs.writeFileSync(replacement, '{"files":');
       const validOwner = fs.statSync(config, { bigint: true });
       const malformedOwner = fs.statSync(replacement, { bigint: true });
-      assert.notEqual(`${validOwner.dev}:${validOwner.ino}`, `${malformedOwner.dev}:${malformedOwner.ino}`);
-      const validFileWatchers = watchers.filter((watcher) => watcher.active && watcher.location === config);
+      assert.notEqual(
+        `${validOwner.dev}:${validOwner.ino}`,
+        `${malformedOwner.dev}:${malformedOwner.ino}`,
+      );
+      const validFileWatchers = watchers.filter(
+        (watcher) => watcher.active && watcher.location === config,
+      );
       fs.renameSync(replacement, config);
       deliver();
       await topology.whenIdle();
-      assert.equal(errors.length, 1, `${delivery}: malformed replacement must retain its original parse error`);
-      assert.ok(errors[0] instanceof Error && errors[0].message.includes(config), "the error must identify the actual malformed config");
-      assert.equal(configChangeCount(changes), 3, `${delivery}: failed refresh must report the replaced config`);
-      assert.ok(validFileWatchers.every((watcher) => !watcher.active), `${delivery}: failed refresh must retire the replaced per-file owner`);
-      const malformedFileWatchers = watchers.filter((watcher) => watcher.active && watcher.location === config);
-      assert.equal(malformedFileWatchers.length, process.platform === "win32" ? 0 : 1);
+      assert.equal(
+        errors.length,
+        1,
+        `${delivery}: malformed replacement must retain its original parse error`,
+      );
+      assert.ok(
+        errors[0] instanceof Error && errors[0].message.includes(config),
+        "the error must identify the actual malformed config",
+      );
+      assert.equal(
+        configChangeCount(changes),
+        3,
+        `${delivery}: failed refresh must report the replaced config`,
+      );
+      assert.ok(
+        validFileWatchers.every((watcher) => !watcher.active),
+        `${delivery}: failed refresh must retire the replaced per-file owner`,
+      );
+      const malformedFileWatchers = watchers.filter(
+        (watcher) => watcher.active && watcher.location === config,
+      );
+      assert.equal(
+        malformedFileWatchers.length,
+        process.platform === "win32" ? 0 : 1,
+      );
 
       deliver();
       await topology.whenIdle();
-      assert.equal(errors.length, 2, `${delivery}: a repeated failed refresh must retain its actual parse error`);
-      assert.equal(configChangeCount(changes), 3, `${delivery}: unchanged failed attention must not repeat config change`);
-      assert.deepEqual(watchers.filter((watcher) => watcher.active && watcher.location === config), malformedFileWatchers);
+      assert.equal(
+        errors.length,
+        2,
+        `${delivery}: a repeated failed refresh must retain its actual parse error`,
+      );
+      assert.equal(
+        configChangeCount(changes),
+        3,
+        `${delivery}: unchanged failed attention must not repeat config change`,
+      );
+      assert.deepEqual(
+        watchers.filter(
+          (watcher) => watcher.active && watcher.location === config,
+        ),
+        malformedFileWatchers,
+      );
 
       fs.writeFileSync(config, configText);
       deliver();
       await topology.whenIdle();
-      assert.equal(configChangeCount(changes), 4, `${delivery}: valid recovery must report changed config bytes`);
+      assert.equal(
+        configChangeCount(changes),
+        4,
+        `${delivery}: valid recovery must report changed config bytes`,
+      );
       assert.equal(errors.length, 2);
-      assert.deepEqual(watchers.filter((watcher) => watcher.active && watcher.location === config), malformedFileWatchers);
+      assert.deepEqual(
+        watchers.filter(
+          (watcher) => watcher.active && watcher.location === config,
+        ),
+        malformedFileWatchers,
+      );
       fs.appendFileSync(config, "\n");
       deliverWatchEvent(watchers, config, "change");
       await topology.whenIdle();
-      assert.equal(configChangeCount(changes), 5, `${delivery}: the recovered config must retain ordinary editing`);
+      assert.equal(
+        configChangeCount(changes),
+        5,
+        `${delivery}: the recovered config must retain ordinary editing`,
+      );
       assert.equal(errors.length, 2);
-      assert.deepEqual(watchers.filter((watcher) => watcher.active && watcher.location === config), malformedFileWatchers);
-      for (const failure of [new Error("compiler-input listing refused"), undefined]) {
+      assert.deepEqual(
+        watchers.filter(
+          (watcher) => watcher.active && watcher.location === config,
+        ),
+        malformedFileWatchers,
+      );
+      for (const failure of [
+        new Error("compiler-input listing refused"),
+        undefined,
+      ]) {
         compilerFailure = { error: failure };
         const previousErrors: number = errors.length;
         deliver();
         await topology.whenIdle();
-        assert.equal(errors.length, previousErrors + 1, `${delivery}: a compiler-reader refusal must remain observable`);
-        assert.strictEqual(errors.at(-1), failure, `${delivery}: the compiler-reader refusal must preserve its original identity or undefined value`);
-        assert.equal(configChangeCount(changes), 5, `${delivery}: failure alone must not invent unchanged config attention`);
-        assert.deepEqual(watchers.filter((watcher) => watcher.active && watcher.location === config), malformedFileWatchers);
+        assert.equal(
+          errors.length,
+          previousErrors + 1,
+          `${delivery}: a compiler-reader refusal must remain observable`,
+        );
+        assert.strictEqual(
+          errors.at(-1),
+          failure,
+          `${delivery}: the compiler-reader refusal must preserve its original identity or undefined value`,
+        );
+        assert.equal(
+          configChangeCount(changes),
+          5,
+          `${delivery}: failure alone must not invent unchanged config attention`,
+        );
+        assert.deepEqual(
+          watchers.filter(
+            (watcher) => watcher.active && watcher.location === config,
+          ),
+          malformedFileWatchers,
+        );
       }
       compilerFailure = undefined;
       const previousErrors = errors.length;
