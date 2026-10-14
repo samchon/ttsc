@@ -22,8 +22,8 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Covers a complete CGO=0 tuple, an effective flag override and CGO=1; release manifest authentication is covered by the parser test.
 // @evidence contracts/testing.md#execution-ownership Runs bounded local Go identity probes without building source modules, downloading packages or writing repository files.
 func TestReadGoTuple(t *testing.T) {
-  if runtime.Version() != "go1.26.0" {
-    t.Skip("the artifact tuple is pinned to Go 1.26.0")
+  if !supportedGoVersion.MatchString(runtime.Version()) {
+    t.Skip("the artifact tuple requires a stock Go 1.26 patch release")
   }
   goBinary, err := exec.LookPath("go")
   if err != nil {

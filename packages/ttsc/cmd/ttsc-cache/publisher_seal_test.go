@@ -27,8 +27,8 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Distinct source, overlay, base and GOCACHE roots distinguish publisher reuse from an ordinary warm build; direct helper tests own malformed transport and protocol cases.
 // @evidence contracts/testing.md#execution-ownership This discoverable Go integration test builds a local helper and two private modules, serves one loopback pack, and removes all files through t.TempDir; no consumer install or external network is involved.
 func TestPublisherSeal(t *testing.T) {
-  if runtime.Version() != "go1.26.0" {
-    t.Skip("publisher protocol is pinned to Go 1.26.0")
+  if !supportedGoVersion.MatchString(runtime.Version()) {
+    t.Skip("publisher protocol requires a stock Go 1.26 patch release")
   }
   goBinary, err := exec.LookPath("go")
   if err != nil {

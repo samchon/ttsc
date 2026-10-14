@@ -24,8 +24,8 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Exercises actual Go 1.26 protocol startup, put/get, path quoting, source relocation and independent local Go caches; malformed framing is covered by the direct protocol owner test.
 // @evidence contracts/testing.md#execution-ownership The test runs three local Go commands in temporary directories and never contacts a module proxy or publishes a release artifact.
 func TestStockGoCacheClient(t *testing.T) {
-  if runtime.Version() != "go1.26.0" {
-    t.Skip("the helper protocol is pinned to Go 1.26.0")
+  if !supportedGoVersion.MatchString(runtime.Version()) {
+    t.Skip("the helper protocol requires a stock Go 1.26 patch release")
   }
   root := filepath.Join(t.TempDir(), "native artifact path with spaces")
   if err := os.MkdirAll(root, 0700); err != nil {

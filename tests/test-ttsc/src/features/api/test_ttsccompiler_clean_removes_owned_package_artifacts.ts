@@ -29,6 +29,12 @@ export function test_ttsccompiler_clean_removes_owned_package_artifacts(): void 
   const source = path.join(project, "main.ts");
   fs.writeFileSync(source, "export const value = 42;\n");
   const defaultRoot = path.join(project, "node_modules", ".cache", "ttsc");
+  const reportedDefaultRoot = path.join(
+    fs.realpathSync.native(project),
+    "node_modules",
+    ".cache",
+    "ttsc",
+  );
   const defaultArtifact = path.join(defaultRoot, "package-artifacts");
   const defaultBody = path.join(defaultArtifact, "base", "packs", "body");
   const defaultPlugin = path.join(defaultRoot, "plugins");
@@ -45,14 +51,23 @@ export function test_ttsccompiler_clean_removes_owned_package_artifacts(): void 
   }
   const clean = (env: NodeJS.ProcessEnv): string[] =>
     new TtscCompiler({ cwd: project, env }).clean();
+  const canonicalReported = (target: string): string =>
+    path.join(
+      fs.realpathSync.native(path.dirname(target)),
+      path.basename(target),
+    );
   const removed = clean({
     TTSC_CACHE_DIR: undefined,
     TTSC_GO_CACHE_DIR: undefined,
     GOCACHE: userGo,
   });
   assert.deepEqual(
-    new Set(removed),
-    new Set([defaultPlugin, defaultGo, defaultArtifact]),
+    new Set(removed.map(canonicalReported)),
+    new Set([
+      path.join(reportedDefaultRoot, "plugins"),
+      path.join(reportedDefaultRoot, "go-build"),
+      path.join(reportedDefaultRoot, "package-artifacts"),
+    ]),
   );
   assert.equal(fs.existsSync(defaultBody), false);
   assert.equal(fs.existsSync(userGo), true);
@@ -70,9 +85,12 @@ export function test_ttsccompiler_clean_removes_owned_package_artifacts(): void 
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, "shared\n");
   }
-  assert.deepEqual(clean({ TTSC_CACHE_DIR: sharedRoot, GOCACHE: userGo }), [
-    path.dirname(sharedPlugin),
-  ]);
+  assert.deepEqual(
+    clean({ TTSC_CACHE_DIR: sharedRoot, GOCACHE: userGo }).map(
+      canonicalReported,
+    ),
+    [path.join(fs.realpathSync.native(sharedRoot), "plugins")],
+  );
   assert.equal(fs.readFileSync(sharedBody, "utf8"), "shared\n");
   assert.equal(fs.existsSync(sharedPlugin), false);
   assert.equal(fs.readFileSync(source, "utf8"), "export const value = 42;\n");

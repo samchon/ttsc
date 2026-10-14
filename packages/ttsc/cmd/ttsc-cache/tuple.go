@@ -12,6 +12,7 @@ import (
   "os"
   "os/exec"
   "path/filepath"
+  "regexp"
   "strings"
   "time"
 
@@ -48,8 +49,8 @@ func readGoTuple(goBinary string) (packageartifacts.Tuple, error) {
   if values["CGO_ENABLED"] != "0" || values["GOFLAGS"] != "" {
     return tuple, errors.New("publisher artifacts require effective CGO_ENABLED=0 and no GOFLAGS")
   }
-  if values["GOVERSION"] != "go1.26.0" {
-    return tuple, errors.New("publisher cache protocol is validated only for stock Go 1.26.0")
+  if !supportedGoVersion.MatchString(values["GOVERSION"]) {
+    return tuple, errors.New("publisher cache protocol requires a stock Go 1.26 patch release")
   }
   if values["GOVERSION"] == "" || values["GOOS"] == "" || values["GOARCH"] == "" {
     return tuple, errors.New("Go did not report a complete artifact tuple")
@@ -76,6 +77,8 @@ func readGoTuple(goBinary string) (packageartifacts.Tuple, error) {
     ToolIDsSHA256: hex.EncodeToString(toolHash.Sum(nil)),
   }, nil
 }
+
+var supportedGoVersion = regexp.MustCompile(`^go1\.26\.(0|[1-9][0-9]*)$`)
 
 func runGoProbe(goBinary string, arguments ...string) ([]byte, error) {
   ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
