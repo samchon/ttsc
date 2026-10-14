@@ -6,6 +6,7 @@ import path from "node:path";
 
 import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
+import { watchDirectory } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/watchDirectory.js";
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { TestFailureLedger } from "../../../../../utils/src/TestFailureLedger";
 import { TestLifetime } from "../../../../../utils/src/TestLifetime";
@@ -29,12 +30,12 @@ const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
  * 2. Recreate and atomically replace it, preserving the same watch session.
  * 3. Prove an ordinary write remains observable after the replacement.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual WatchTopology config callbacks and parse errors verify deletion, recreation, atomic replacement and later content edits. Opt-in observations record the actual initial refresh return, each mutation and wait boundary, callback counts and finally close calls; they do not certify an unobserved native release or replace an assertion.
- * @evidence contracts/testing.md#independent-expectations The authored active tsconfig must report deletion, recreation, atomic replacement and a later content edit as config attention. Counters recorded before each mutation require a new callback; the deletion must also expose its parse error. Observations cannot identify an unrecorded synchronous boundary.
+ * @evidence contracts/testing.md#behavioral-verification Actual WatchTopology config callbacks and parse errors verify deletion, recreation, atomic replacement and later content edits. Opt-in observations record initial refresh, mutation and wait boundaries, callback counts, directory backend registration and delivered callback arguments, and close calls. Separate bigint and number stat observations before and after replacement expose identity precision without changing assertions or certifying native release.
+ * @evidence contracts/testing.md#independent-expectations The authored active tsconfig must report deletion, recreation, atomic replacement and a later content edit as config attention. Counters recorded before each mutation require a new callback; the deletion must also expose its parse error. Backend arguments are recorded before unchanged forwarding; separate native stat calls are observations rather than an atomic filesystem snapshot or an identity oracle for the topology's earlier baseline.
  * @evidence contracts/testing.md#distinguishing-cases 1. Delete the active config and observe a config change despite parse failure. 2. Recreate and atomically replace it, preserving the same watch session. 3. Prove an ordinary write remains observable after the replacement.
  * @evidence contracts/testing.md#execution-ownership The scenarios batch's original named wrapper owns this scene through its static contained actor, which refreshes actual tsgo inputs and drives native subscriptions through the built synchronous WatchTopology. Portable event-planning decisions remain in source units.
  * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
- * @evidence contracts/e2e.md#shared-execution One topology session serves the original mutation sequence with the prepared compiler. One contained Node actor lets its parent enforce failure even during synchronous refresh; the existing native carrier joins that actor and descendants without a new compiler build or per-mutation host.
+ * @evidence contracts/e2e.md#shared-execution One topology session serves the original mutation sequence with the prepared compiler. One contained Node actor lets its parent enforce failure even during synchronous refresh; the existing native carrier joins that actor and descendants without a new compiler build or per-mutation host. The supplied directory operation delegates every registration to the original built backend and returns its unchanged handle; diagnostics add no subscription or producer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A private TestProject root separates mutable config and source bytes. Subscription closure and lifetime disposal are independently attempted before the scene reports its ordered original failures, and the parent native owner adjudicates retirement before releasing actor inputs. One shared absolute deadline rejects incomplete observation; it does not certify joined cleanup, and unknown retirement retains owned storage.
  * @evidence contracts/e2e.md#preserved-coverage Every original mutation, config callback assertion and deletion error check remains here, including identical recreation/replacement bytes and three unchanged 250ms settling windows. Original error classification stays intact; explicit lifetime failure bounds waits while phase observations distinguish actual entries and returns.
  */
@@ -79,6 +80,39 @@ export const case_watch_topology_reports_deleted_config_and_recreation =
           },
         });
       };
+      const observeIdentity = (label: string, location: string): void => {
+        if (invocation === undefined) return;
+        try {
+          const precise = fs.statSync(location, { bigint: true });
+          const ordinary = fs.statSync(location);
+          observe("file-identity", {
+            label,
+            path: location,
+            bigintOwner: `${precise.dev}:${precise.ino}`,
+            numberOwner: `${ordinary.dev}:${ordinary.ino}`,
+            safeNumberOwner: Number.isSafeInteger(ordinary.dev) && Number.isSafeInteger(ordinary.ino),
+            numberAgreesWithBigint: ordinary.dev === Number(precise.dev) && ordinary.ino === Number(precise.ino),
+          });
+        } catch (error) {
+          observe("file-identity-failed", { label, path: location, message: String(error) });
+        }
+      };
+      let registration = 0;
+      const openDirectoryWatch: typeof watchDirectory = (location, recursive, listener) => {
+        const id = ++registration;
+        observe("directory-registration", { registration: id, registrationPath: location, recursive });
+        return watchDirectory(location, recursive, (event, filename, gap) => {
+          observe("directory-notification", {
+            registration: id,
+            registrationPath: location,
+            recursive,
+            eventType: event,
+            filename,
+            gap,
+          });
+          listener(event, filename, gap);
+        });
+      };
       let topologyFailure: Error | undefined;
       let allowMissingConfig = false;
       const owner = {
@@ -121,6 +155,7 @@ export const case_watch_topology_reports_deleted_config_and_recreation =
           },
           onTopologyChange: () => undefined,
         },
+        openDirectoryWatch,
       );
       try {
         observe("refresh-entered");
@@ -170,8 +205,11 @@ export const case_watch_topology_reports_deleted_config_and_recreation =
         const beforeReplacement = configChangeCount(changes);
         phase = "atomic-config-replacement";
         lifetime.checkpoint(phase);
+        observeIdentity("config-before-replacement", config);
+        observeIdentity("replacement-before-rename", replacement);
         fs.renameSync(replacement, config);
         observe("mutation-done");
+        observeIdentity("config-after-replacement", config);
         observe("await-entered");
         await waitFor(
           () => configChangeCount(changes) > beforeReplacement,

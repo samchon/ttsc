@@ -2107,7 +2107,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   if (!workspace.installationOnly) {
     try {
       await BatchWorkspace.open();
-      case_project_root_keeps_isolated_plugin_resolution_anchored_at_config({
+      await case_project_root_keeps_isolated_plugin_resolution_anchored_at_config({
         source: path.join(workspace.root, "native-source/compile-probe"),
         cacheDir: workspace.cache,
       });

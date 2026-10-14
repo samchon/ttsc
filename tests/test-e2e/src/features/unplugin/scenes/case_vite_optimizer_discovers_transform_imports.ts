@@ -1,4 +1,5 @@
 import {
+  TestFailureLedger,
   TestProject,
   TestUnpluginProject,
   TestUnpluginRuntime,
@@ -28,7 +29,7 @@ import { observeReloadEvents } from "../../../internal/unplugin/internal/adapter
  * @evidence contracts/testing.md#execution-ownership The Vite batch entry calls this scene. Real Vite, esbuild or Rolldown and the linked Go contributor own scanning and transformation; direct scanner units own option-shape branches and failure forwarding.
  * @evidence contracts/e2e.md#necessary-boundary Actual scanner registration, importer-relative package resolution, native source injection, dependency publication and served module analysis must agree; captured hook calls cannot establish that connection.
  * @evidence contracts/e2e.md#shared-execution One fixture and immutable native contributor serve both optimizer modes. Automatic mode owns one initial scan and one HTTP lifetime; noDiscovery requires its own mode and cold dependency directory but reuses native artifacts.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both servers use separate empty cache directories, and the first closes before the second starts. HMR client closure precedes server closure; both failures are retained. The caller's tracked root owns fixture release, while this scene removes its allocated child only after every server and client has closed; failed closure retains that child for diagnosis.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both servers use separate empty cache directories, and the first closes before the second starts. HMR client closure precedes server closure; both failures are retained. The caller's tracked root owns fixture release, while this scene removes its allocated child only after every server and client has closed; failed closure retains that child for diagnosis. One shared failure owner preserves setup, scenario, client/server closure and final removal or retention refusals in order; a final cleanup refusal cannot replace an earlier cause.
  * @evidence contracts/e2e.md#preserved-coverage This new scene adds cold optimizer and unchanged-publication checks without replacing existing Vite watcher, alias, compiler-input or source-map histories.
  */
 export async function case_vite_optimizer_discovers_transform_imports(
@@ -37,82 +38,84 @@ export async function case_vite_optimizer_discovers_transform_imports(
 ): Promise<void> {
   TestUnpluginProject.ensureSharedCacheDir();
   const allocation = TestProject.tmpdir("ttsc-vite-optimizer-", parent);
-  const root = fs.realpathSync.native(allocation);
-  const fixture = path.join(
-    TestProject.WORKSPACE_ROOT,
-    "tests/test-e2e/fixtures/unplugin/vite_optimizer_discovers_transform_imports",
-  );
-  for (const directory of ["app", "linked"])
-    TestProject.copyDirectory(
-      path.join(fixture, directory),
-      path.join(root, directory),
-    );
-  const app = path.join(root, "app");
-  const linked = path.join(root, "linked");
-  TestProject.copyDirectory(
-    path.join(fixture, "dependency"),
-    path.join(root, "node_modules/root-hidden"),
-  );
-  for (const [owner, dependencies] of [
-    [
-      app,
-      [
-        "relative-hidden",
-        "manual-dep",
-        "excluded-dep",
-        "glob-dep",
-        "jsx-helper",
-      ],
-    ],
-    [linked, ["nested-hidden"]],
-  ] as const) {
-    fs.mkdirSync(path.join(owner, "node_modules"), { recursive: true });
-    for (const dependency of dependencies)
-      TestProject.copyDirectory(
-        path.join(
-          fixture,
-          dependency === "excluded-dep" ? "excluded" : "dependency",
-        ),
-        path.join(owner, "node_modules", dependency),
-      );
-    TestProject.writeFiles(owner, {
-      "plugin.cjs": [
-        "module.exports = context => ({",
-        "  name: context.plugin.name,",
-        `  source: ${JSON.stringify(path.join(fixture, "native/optimizer-probe"))},`,
-        "});",
-      ].join("\n"),
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: {
-          target: "ES2022",
-          module: "ESNext",
-          moduleResolution: "bundler",
-          jsx: "preserve",
-          strict: true,
-          skipLibCheck: true,
-          rootDir: owner === app ? ".." : "src",
-          outDir: "dist",
-          plugins: [
-            {
-              name: "optimizer-imports",
-              transform: "./plugin.cjs",
-              imports: [owner === app ? "root-hidden" : "nested-hidden"],
-              ...(owner === app
-                ? { sourceImports: { "src/main.ts": "./helper.ts" } }
-                : {}),
-            },
-          ],
-        },
-        include: ["src"],
-      }),
-    });
-  }
-  fs.symlinkSync(linked, path.join(app, "node_modules/linked-pkg"), "junction");
-  const { createServer } = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN(host);
-  const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
-  const failures: unknown[] = [];
+  const failures = new TestFailureLedger();
   let allClosed = true;
-  try {
+  let releaseRoot: (() => void) | undefined;
+  await failures.run(async () => {
+    const root = fs.realpathSync.native(allocation);
+    releaseRoot = () => fs.rmSync(root, { recursive: true });
+    const fixture = path.join(
+      TestProject.WORKSPACE_ROOT,
+      "tests/test-e2e/fixtures/unplugin/vite_optimizer_discovers_transform_imports",
+    );
+    for (const directory of ["app", "linked"])
+      TestProject.copyDirectory(
+        path.join(fixture, directory),
+        path.join(root, directory),
+      );
+    const app = path.join(root, "app");
+    const linked = path.join(root, "linked");
+    TestProject.copyDirectory(
+      path.join(fixture, "dependency"),
+      path.join(root, "node_modules/root-hidden"),
+    );
+    for (const [owner, dependencies] of [
+      [
+        app,
+        [
+          "relative-hidden",
+          "manual-dep",
+          "excluded-dep",
+          "glob-dep",
+          "jsx-helper",
+        ],
+      ],
+      [linked, ["nested-hidden"]],
+    ] as const) {
+      fs.mkdirSync(path.join(owner, "node_modules"), { recursive: true });
+      for (const dependency of dependencies)
+        TestProject.copyDirectory(
+          path.join(
+            fixture,
+            dependency === "excluded-dep" ? "excluded" : "dependency",
+          ),
+          path.join(owner, "node_modules", dependency),
+        );
+      TestProject.writeFiles(owner, {
+        "plugin.cjs": [
+          "module.exports = context => ({",
+          "  name: context.plugin.name,",
+          `  source: ${JSON.stringify(path.join(fixture, "native/optimizer-probe"))},`,
+          "});",
+        ].join("\n"),
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: {
+            target: "ES2022",
+            module: "ESNext",
+            moduleResolution: "bundler",
+            jsx: "preserve",
+            strict: true,
+            skipLibCheck: true,
+            rootDir: owner === app ? ".." : "src",
+            outDir: "dist",
+            plugins: [
+              {
+                name: "optimizer-imports",
+                transform: "./plugin.cjs",
+                imports: [owner === app ? "root-hidden" : "nested-hidden"],
+                ...(owner === app
+                  ? { sourceImports: { "src/main.ts": "./helper.ts" } }
+                  : {}),
+              },
+            ],
+          },
+          include: ["src"],
+        }),
+      });
+    }
+    fs.symlinkSync(linked, path.join(app, "node_modules/linked-pkg"), "junction");
+    const { createServer } = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN(host);
+    const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
     for (const noDiscovery of [false, true]) {
       const errors: string[] = [];
       let existingPluginLoads = 0;
@@ -263,7 +266,7 @@ export async function case_vite_optimizer_discovers_transform_imports(
           "serving transform-added imports must not reload the page",
         );
       } catch (error) {
-        failures.push(
+        failures.add(
           new Error(
             `${host} ${noDiscovery ? "explicit-only" : "automatic"} optimizer`,
             { cause: error },
@@ -278,7 +281,7 @@ export async function case_vite_optimizer_discovers_transform_imports(
             await close();
           } catch (error) {
             allClosed = false;
-            failures.push(
+            failures.add(
               new Error(`${host} ${owner} closure`, { cause: error }),
             );
           }
@@ -286,14 +289,15 @@ export async function case_vite_optimizer_discovers_transform_imports(
       }
       if (!allClosed) break;
     }
-  } finally {
-    if (allClosed) fs.rmSync(root, { recursive: true });
-    else
-      TestProject.retainTemporaryDirectory(
-        allocation,
-        "Vite optimizer ownership did not close",
-      );
-  }
-  if (failures.length)
-    throw new AggregateError(failures, "Vite optimizer integration failures");
+  }, [
+    () => {
+      // Final retention or removal refusal joins the verdict with the body and original client/server close errors.
+      if (allClosed) releaseRoot?.();
+      else
+        TestProject.retainTemporaryDirectory(
+          allocation,
+          "Vite optimizer ownership did not close",
+        );
+    },
+  ], "Vite optimizer integration failures");
 }

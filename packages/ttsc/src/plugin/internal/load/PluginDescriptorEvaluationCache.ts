@@ -16,16 +16,7 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * The persistent answers of isolated CommonJS descriptor evaluations, each
  * recorded with the state it was computed from.
  *
- * Isolated evaluation loads the descriptor graph in a fresh runtime module
- * cache. Its recorded module/candidate content and physical paths, plus the
- * descriptor's own external-read declarations, supply persistence premises;
- * their presence is not detection of every omitted read or side effect. An
- * answer is kept under everything else the evaluation was given: the
- * descriptor, its factory context, the effective environment it ran under, the
- * runtimes that ran it, and this ttsc build. A hit requires matching current
- * stored content/realpath projections; these sequential observations are not an
- * atomic filesystem snapshot and do not distinguish every cause of an
- * unavailable null value.
+ * Isolated evaluation loads the descriptor graph in a fresh runtime module cache. Its recorded module/candidate content and physical paths, plus the descriptor's own external-read declarations, supply persistence premises; their presence is not detection of every omitted read or side effect. An answer is kept under everything else the evaluation was given: the descriptor, its factory context, the working directory, the effective environment, the runtimes that ran it, and this ttsc build. A hit requires matching current stored content/realpath projections; these sequential observations are not an atomic filesystem snapshot and do not distinguish every cause of an unavailable null value.
  *
  * The files a descriptor reads outside its module graph are its own to declare
  * (`hostInputHashes`), so only the answer of a descriptor supplying that
@@ -37,12 +28,12 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * Startup preloads run before these observations and cannot authorize
  * persistence merely through a stable NODE_OPTIONS string.
  *
- * @evidence contracts/common.md#principled-implementation Persistent evaluation identity includes evaluator format, descriptor/context, effective environment, actual primary/secondary executable content identities and ttsc version. Acceptance checks recorded input observations and producer-declared external content, not every possible read; unobserved startup preload authority refuses persistence.
+ * @evidence contracts/common.md#principled-implementation Persistent evaluation identity includes evaluator format, descriptor/context, working directory, effective environment, actual primary/secondary executable content identities and ttsc version. Acceptance checks recorded input observations and producer-declared external content, not every possible read; unobserved startup preload authority refuses persistence.
  * @evidence contracts/common.md#clear-and-simple-design Locate/read/write separate key construction, proof validation and publication while the loader owns evaluation and its diagnostics.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A descriptor without its explicit external-read declaration is not persisted, and the caller excludes nonempty captured diagnostics because a cache hit cannot replay them.
- * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains isolation cost, input-proof responsibility, environment identity and write refusal in distinct paragraphs; exported operation comments and tag spacing follow the documentation skill.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains isolation cost, input-proof responsibility, working-directory/environment identity and write refusal in distinct paragraphs; exported operation comments and tag spacing follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native executable identity and same-directory publication handle OS-neutral paths; sorted environment data and actual content/lexical/physical observations detect replacement without OS-name guesses.
- * @evidence contracts/performance.md#efficient-algorithms Key construction includes environment/name sorting, context serialization, executable hashing and delegated cache-root lookup. Reads validate full JSON/maps and observe content/realpaths; writes normalize proof keys and serialize complete entries. Native path/query work and environment/context/record/file bytes contribute cost; a valid hit avoids evaluation without establishing an unmeasured launch-time ranking.
+ * @evidence contracts/performance.md#efficient-algorithms Key construction includes working-directory normalization, environment/name sorting, context serialization, executable hashing and delegated cache-root lookup. Reads validate full JSON/maps and observe content/realpaths; writes normalize proof keys and serialize complete entries. Native path/query work and environment/context/record/file bytes contribute cost; a valid hit avoids evaluation without establishing an unmeasured launch-time ranking.
  * @evidence contracts/performance.md#reuse-equivalent-work Entries share only fully keyed evaluations whose declared inputs still match; incomplete or contradictory fingerprints refuse persistence rather than reviving an unproved answer.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Default JSON entries and staging leftovers are eligible for single-file pruning subject to its interval/protection/error policy; explicit roots remain caller-owned. Hits attempt usage refresh, and writes attempt staging removal in finally. Cleanup or later pruning can fail; no unconditional deletion, entry-count or byte ceiling is supplied here.
  */
@@ -89,18 +80,20 @@ export namespace PluginDescriptorEvaluationCache {
    * @param props.cacheDir The plugin cache directory the caller selected.
    * @param props.request The resolved descriptor module.
    * @param props.context The factory context the descriptor is invoked with.
+   * @param props.cwd The working directory passed to the actual evaluator.
    * @param props.env The complete environment the evaluation runs under.
    * @param props.runtime The runtime executable that evaluates it.
    * @param props.additionalRuntime Selected Node executable exposed to the
    *   descriptor and used by ttsx/config loaders, when distinct from runtime.
    * @param props.version This ttsc build's version.
-   * @evidence contracts/common.md#principled-implementation Canonical identity includes factory context, sorted effective environment and fresh content/lexical/physical proof of both actual runtime authorities; unobserved startup preloads and unreadable runtimes cannot select a reusable entry.
+   *
+   * @evidence contracts/common.md#principled-implementation Canonical identity includes factory context, normalized evaluator working directory, sorted effective environment and fresh content/lexical/physical proof of both actual runtime authorities; unobserved startup preloads and unreadable runtimes cannot select a reusable entry.
    * @evidence contracts/common.md#clear-and-simple-design The locator delegates cache-root policy and runtime observation, then constructs only the descriptor entry identity.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unidentifiable runtime/storage returns null for uncached evaluation rather than weakening the key or selecting a fixture-specific runtime.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc identifies every key premise and null result; parameter entries and separate tags follow the documentation skill.
-   * @evidence contracts/portability.md#os-neutral-implementation Native realpath/stat and path.resolve/join preserve executable and cache paths; environment ordering is lexical map data, not shell syntax.
+   * @evidence contracts/portability.md#os-neutral-implementation Native realpath/stat and path.resolve/join preserve executable, working-directory and cache paths; environment ordering is lexical map data, not shell syntax.
    * @evidence contracts/performance.md#efficient-algorithms Environment entries are merged/filtered/sorted by name bytes; context and key fields are serialized and hashed. Primary/secondary executable observation uses bounded read buffers but native metadata/path and escaping identity text also cost work; identical supplied spellings share one proof. Delegated root selection can walk ancestors/read manifests and inspect cache layout, so environment/runtime bytes are not the complete cost dimensions.
-   * @evidence contracts/performance.md#reuse-equivalent-work The key shares only evaluations with identical descriptor/context/environment/runtime/version authorities; observed source state is separately checked by read.
+   * @evidence contracts/performance.md#reuse-equivalent-work The key shares only evaluations with identical descriptor/context/working-directory/environment/runtime/version authorities; observed source state is separately checked by read.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The locator stores no handle or historical entry population; executable observation owns its transient descriptor/close attempt and returns an unproved result on failure. Serialized key/context and returned path transfer without freezing mutable caller authority; persistence/pruning own stored entry lifetime.
    */
@@ -114,10 +107,13 @@ export namespace PluginDescriptorEvaluationCache {
     /** Complete JSON-serializable factory context passed to evaluation. */
     context: unknown;
 
+    /** Actual evaluator working directory, independent of its factory context. */
+    cwd: string;
+
     /** Complete child environment, with undefined values omitted from identity. */
     env: NodeJS.ProcessEnv;
 
-    /** Consumer project anchoring cache-root selection. */
+    /** Project anchoring cache-root selection. */
     projectRoot: string;
 
     /** Resolved descriptor entry module whose evaluation is cached. */
@@ -167,6 +163,7 @@ export namespace PluginDescriptorEvaluationCache {
           props.version,
           path.resolve(props.request),
           props.context,
+          path.resolve(props.cwd),
           Object.entries(environment)
             .filter(
               (entry): entry is [string, string] => entry[1] !== undefined,

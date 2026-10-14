@@ -7,6 +7,7 @@ import path from "node:path";
 import { ColdGraphActorLifecycle } from "../../../../../utils/src/ColdGraphActorLifecycle";
 import { preserveColdRowDiagnostics } from "../../../../../utils/src/preserveColdRowDiagnostics";
 import { WindowsColdFileIo } from "../../../../../utils/src/WindowsColdFileIo";
+import { WindowsFileIoEvidence } from "../../../../../utils/src/WindowsFileIoEvidence";
 import { BatchWorkspace } from "../../../batch/BatchWorkspace";
 import {
   ColdArtifactObservation,
@@ -19,22 +20,24 @@ import {
 } from "../../../internal/graph/internal/ttsgraph";
 
 /**
- * Connect actual cold publisher preparation to transport EOF and caller abort.
+ * Verifies cold publisher EOF, caller abort and Windows recording control.
  *
- * The ordinary graph batch owns successful cold publication, warm reuse and document freshness. These two additional lifetimes must start without a published source profile; both retain the batch's real publisher and SDK. Optional Windows CI recording adds two bounded native observation sessions around the public cancellation row. A recorder failure is retained while the original assertions continue; its raw events confer no input-release right.
+ * The ordinary graph batch owns successful cold publication, warm reuse and document freshness. These two additional lifetimes must start without a published source profile; both retain the batch's real publisher and SDK. Optional Windows CI recording adds two bounded native observation sessions around the public cancellation row. A separately owned file control checks a known path/issuer/completed-request connection while leaving censored history undecided. A recorder failure is retained while the original assertions continue; its raw events confer no input-release right.
  *
  * 1. Observe an actual cold Go build, require tools/list while it runs, then EOF.
  * 2. Abort another actual cold public session, observe its original producer
  *    retire, then require queued recovery, unchanged reuse and terminal close.
  * 3. Join owners and independently observe original process generations gone;
  *    canceled preparation must publish no exchange or native graph late start.
+ * 4. When Windows recording is admitted, create, open, hold, close and unlink
+ *    a separate control file, distinguishing connected proof from censored rows.
  *
  * @evidence contracts/testing.md#behavioral-verification Real built MCP and public Session actors discover the configured lint/Evidence publisher from the shared graph root. Cold readiness combines actual live Go process identity with matching source-key/scratch/argv trace and nonempty Go-generated compiler work. EOF, explicit signal cancellation, subsequent recovery and terminal admission are checked through public owners.
- * @evidence contracts/testing.md#independent-expectations The authored Markdown address defines the recovered artifact; literal AbortError and original reason text define caller cancellation. MCP permits a rejected transport request or a fulfilled isError tool result after EOF, but never a successful result or a request settled before EOF. Native OS process generations, Go-owned work files and exact producer spawn/close receipts independently distinguish execution and retirement. A nonce sampled before an OS query requires an active-Go scan started after the transport response. A begin trace or guard alone cannot establish execution.
+ * @evidence contracts/testing.md#independent-expectations The authored Markdown address defines the recovered artifact; literal AbortError and original reason text define caller cancellation. MCP permits a rejected transport request or a fulfilled isError tool result after EOF, but never a successful result or a request settled before EOF. Native OS process generations, Go-owned work files and exact producer spawn/close receipts independently distinguish execution and retirement. The control's exclusive pathname, acknowledged filesystem operations and live CIM birth require an independently selected Create and matching successful IRP completion under that original actor; enumeration totals alone cannot pass. A nonce sampled before an OS query requires an active-Go scan started after the transport response. A begin trace or guard alone cannot establish execution.
  * @evidence contracts/testing.md#distinguishing-cases MCP EOF during active cold preparation differs from public caller abort followed by queued recovery and terminal close. Empty unique plugin caches retain cold source-profile misses while the ordinary shared Go object cache remains unchanged. Warm/freshness and unavailable/absent-publisher semantics remain with the graph batch and source units.
  * @evidence contracts/testing.md#execution-ownership The existing graph batch invokes this scene with its shared workspace. Two actual built product lifetimes use the same configured publisher, SDK and native platform; an isolated Node actor supplies only public AbortSignal control. OS observation actors produce no compiler or graph answers.
  * @evidence contracts/e2e.md#necessary-boundary Event-loop responsiveness, stdin EOF, SDK worker/native process containment and source preparation cannot be certified by the portable injected discovery unit or command-only RPC test.
- * @evidence contracts/e2e.md#shared-execution The batch's actual graphRoot and immutable lint/Evidence dependency population serve both rows without another installation or source fixture copy. Conflicting cold caches and terminal lifetimes require two actors; Go objects are shared normally. Recovery reuses the canceled actor's original cache, source selection and public session.
+ * @evidence contracts/e2e.md#shared-execution The batch's actual graphRoot and immutable lint/Evidence dependency population serve both rows without another installation or source fixture copy. Conflicting cold caches and terminal lifetimes require two actors; Go objects are shared normally. Recovery reuses the canceled actor's original cache, source selection and public session. The Windows-only control borrows the existing two recorders, starts one small Node actor after admission and builds no native artifact.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each tracked row allocation starts with empty plugin cache, trace and Go work directories. Configured fixture sources remain unchanged; row reclamation requires qualified original product close, original actor and OS observer closure plus independent process-generation absence. Windows input observations follow the original outer Job owner as well as its inner target waiter and Go process. Exact admitted guards and task scratch must retire after qualified SDK settlement; queued recovery establishes that fence after caller abort. Cancellation must publish no binary. Existing interrupted Go work differs from new or modified work after closure. Unconfirmed closure, partial admission or failed original-resource release retains the row and batch. Closed-row raw diagnostics go to a unique runner-owned trace directory; unknown readers retain original inputs and export only explicit partial metadata. Diagnostic failures join the original failures.
  * @evidence contracts/e2e.md#preserved-coverage Adds configured-publisher cold EOF and public cold cancellation/recovery that command-only native/RPC tests do not cover. Existing graph first publication, artifact content refresh and graph-free escape remain in the enclosing batch. MCP cancellation notifications are not asserted to bind an AbortSignal.
  */
@@ -317,19 +320,22 @@ export async function observeColdMcpEof(
 }
 
 /**
- * Exercise public cancellation and recovery on prepared publisher inputs.
+ * Verifies public cancellation and recovery on prepared publisher inputs.
  *
- * Callers own the immutable graphRoot and its preparation proof. The ordinary
- * batch keeps its acquisition fence; this shared body owns original actors,
- * guarded cold preparation, queued recovery and terminal session closure.
+ * Callers own the immutable graphRoot and its preparation proof. The ordinary batch keeps its acquisition fence; this shared body owns original actors, guarded cold preparation, queued recovery and terminal session closure. An admitted Windows recorder also observes a separate real file control without modifying the compiler's leased scratch.
  *
- * @evidence contracts/testing.md#behavioral-verification The built public Session actor aborts an independently admitted cold producer, recovers through its real queue, reuses the resulting graph and refuses admission after terminal close. Parent progress and original close settle from actual messages/errors/completion rather than elapsed test deadlines. Passive operation/close failure messages are preserved from IPC before resource waits or close acknowledgment, without reading unjoined inputs.
- * @evidence contracts/testing.md#independent-expectations Authored AbortError/reason and Markdown node address define cancellation and recovery; source/process identities, guard release and native spawn/close receipts independently establish lifetime outcomes.
- * @evidence contracts/testing.md#distinguishing-cases Abort differs from EOF; queued recovery must start a new preparation while preserving no late artifacts from the old one, unchanged warm identity and closed-session rejection.
+ * 1. Admit recording when Windows CI enables it.
+ * 2. Observe an actual cold producer, abort it, then recover through the queue.
+ * 3. Observe the recorder's tail file control, then require warm graph identity,
+ *    terminal close and original resource release.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The built public Session actor aborts an independently admitted cold producer, recovers through its real queue, reuses the resulting graph and refuses admission after terminal close. The Windows control is observed only when its actual Create connects to the same IRP's successful completion under the live-observed actor birth; missing evidence fails only under qualified loss-free/nonwrapping/completed history, otherwise it remains censored or unavailable. Parent progress and original close settle from actual messages/errors/completion rather than elapsed test deadlines. Passive operation/close failure messages are preserved from IPC before resource waits or close acknowledgment, without reading unjoined inputs.
+ * @evidence contracts/testing.md#independent-expectations Authored AbortError/reason and Markdown node address define cancellation and recovery; source/process identities, guard release and native spawn/close receipts independently establish lifetime outcomes. Exclusive control path, actual create/open/hold/close/unlink acknowledgments and independently sampled CIM birth define the required file connection, not event enumeration counts.
+ * @evidence contracts/testing.md#distinguishing-cases Abort differs from EOF; queued recovery must start a new preparation while preserving no late artifacts from the old one, unchanged warm identity and closed-session rejection. Disabled/refused recording differs from admitted recording; unavailable selection differs from completed empty control evidence, and loss/wrap uncertainty never establishes reader absence.
  * @evidence contracts/testing.md#execution-ownership Ordinary and narrow callers share this exact public actor/OS observation/assertion body; no caller replaces the product resolver or native worker. The actor's explicit authored-TypeScript loader imports the shared test-only lifecycle helper before using its built public Session; the native observation preload remains enabled.
- * @evidence contracts/e2e.md#necessary-boundary Public AbortSignal propagation, actual producer containment, queued recovery and guarded source lifetime require real SDK/native execution.
- * @evidence contracts/e2e.md#shared-execution Reuses supplied publisher sources/dependencies and ordinary Go object storage; only the conflicting cold profile and public actor are isolated, with recovery sharing that actor's cache.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Empty unique source cache and old-work exclusion distinguish first cancellation from recovery. Original session/observer joins, input release and stable post-close work are required; unproved rows remain retained.
+ * @evidence contracts/e2e.md#necessary-boundary Public AbortSignal propagation, actual producer containment, queued recovery and guarded source lifetime require real SDK/native execution. The real Windows provider, decoder, device mappings and selector must observe a known actor's file request; authored portable rows cannot establish that native connection.
+ * @evidence contracts/e2e.md#shared-execution Reuses supplied publisher sources/dependencies and ordinary Go object storage; only the conflicting cold profile and public actor are isolated, with recovery sharing that actor's cache. One small control actor borrows the existing recorders and installs or builds nothing.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Empty unique source cache and old-work exclusion distinguish first cancellation from recovery. Original session/observer joins, input release and stable post-close work are required; unproved rows remain retained. The control exclusively owns a separate physical directory and fd, joins its actor before recorder stop and retains the row after unproved closure; its selected population cannot expand source-task paths.
  * @evidence contracts/e2e.md#preserved-coverage Public cancellation, actual source retirement, recovery artifact, warm identity, native admission and successful original close remain required. The shared helper's portable ordering/error matrix is owned by the direct graph unit; the unsupported elapsed progress/close oracle is removed. Ordinary batch acquisition and narrow input binding retain their owners.
  */
 export async function observeColdPublicSessionCancellation(
@@ -417,11 +423,24 @@ export async function observeColdPublicSessionCancellation(
   let releaseConfirmed = true;
   let retiredWork: string[] | undefined;
   let fileIo: WindowsColdFileIo.Owner | undefined;
+  let fileIoAdmitted = false;
+  let fileIoControl: Awaited<ReturnType<typeof observeWindowsFileIoControl>> | undefined;
   let fileIoStopped = false;
   const stopFileIo = async (): Promise<void> => {
     if (fileIoStopped || fileIo === undefined) return;
     fileIoStopped = true;
-    try { await fileIo.stop(); } catch (error) { failures.push(error); }
+    let returned = false;
+    try {
+      const selectedControl = await fileIo.stop();
+      returned = true;
+      if (fileIoControl !== undefined) assertWindowsFileIoControl(selectedControl, fileIoControl, row.root);
+    } catch (error) {
+      failures.push(error);
+      if (!returned && fileIoControl !== undefined) {
+        try { recordOutcome(row.root, { event: "windows-fileio-control-selection", available: false, reason: "Recorder stop or decoding refused before returning control evidence" }); }
+        catch (publication) { failures.push(publication); }
+      }
+    }
   };
   try {
     await observed.ready();
@@ -437,6 +456,7 @@ export async function observeColdPublicSessionCancellation(
       // JavaScript may reject with undefined. Presence, rather than payload
       // truthiness, preserves that refusal in the original verdict ledger.
       if ("failure" in recording) failures.push(recording.failure);
+      else fileIoAdmitted = fileIo !== undefined;
     } catch (error) { failures.push(error); }
     // Optional diagnostics must not skip the original operation after a start
     // refusal. No source command can begin before this explicit IPC admission.
@@ -469,6 +489,14 @@ export async function observeColdPublicSessionCancellation(
     // New preparation runs behind the canceled refresh in the public queue.
     // Native absence alone does not acknowledge the old SDK input lease.
     await observed.retired(first);
+    // Machine-wide circular recording can overwrite an early control during
+    // cold work. Run this separate owner at the tail without rebinding source.
+    if (fileIoAdmitted && fileIo !== undefined) {
+      try {
+        fileIoControl = await observeWindowsFileIoControl(row);
+        fileIo.bindControl(fileIoControl.task);
+      } catch (error) { failures.push(error); }
+    }
     // Native absence alone does not end the original SDK resource scope. This
     // serial recovery fence does, and bounds the recorder before warm work.
     await stopFileIo();
@@ -569,6 +597,79 @@ export async function observeColdPublicSessionCancellation(
       failures,
       "Cold public session assertions and cleanup failed",
     );
+}
+
+/**
+ * Exercise one independent file handle at the existing recording's tail, after cold source retirement. The control never writes into the compiler's leased scratch; its actor records actual operations and a live CIM birth, then joins before recorder stop. Failed closure retains the row rather than granting cleanup from an IPC marker.
+ */
+async function observeWindowsFileIoControl(row: ReturnType<typeof allocation>) {
+  const scratch = path.join(row.root, "fileio-control");
+  fs.mkdirSync(scratch);
+  const physical = fs.realpathSync.native(scratch);
+  const file = path.join(physical, "owned-control.txt");
+  const report = path.join(row.root, "fileio-control.jsonl");
+  fs.writeFileSync(report, "", { flag: "wx" });
+  const actor = spawn(process.execPath, [
+    "--import", new URL("../../../../../../config/register-typescript-loader.mjs", import.meta.url).href,
+    path.resolve(import.meta.dirname, "../../../../fixtures/graph/windows-fileio-control.cjs"), file, report,
+  ], { env: row.env, stdio: ["ignore", "pipe", "pipe", "ipc"], windowsHide: true });
+  const completion = closeReceipt(actor);
+  const progress = ColdGraphActorLifecycle.observe(actor);
+  const failures: unknown[] = [];
+  let birth: string | undefined;
+  let joined = false;
+  actor.on("message", (message: { event?: string; pid?: number; birth?: string }) => {
+    if (message.event === "ready" && message.pid === actor.pid) birth = message.birth;
+  });
+  actor.stdout!.on("data", (chunk) => {
+    try { fs.appendFileSync(path.join(row.root, "fileio-control-stdout.log"), chunk); }
+    catch (error) { failures.push(error); }
+  });
+  actor.stderr!.on("data", (chunk) => {
+    try { fs.appendFileSync(path.join(row.root, "fileio-control-stderr.log"), chunk); }
+    catch (error) { failures.push(error); }
+  });
+  try {
+    await progress.wait("ready");
+    assert.equal(typeof birth, "string", "Control actor has no observed original CIM birth");
+    assert.ok(Number.isFinite(Date.parse(birth!)), "Control actor birth is not a native UTC instant");
+    for (const [command, acknowledgment] of [["create", "created"], ["open", "opened"], ["hold", "held"], ["close", "closed"], ["unlink", "unlinked"]] as const) {
+      await ColdGraphActorLifecycle.send(actor, command);
+      await progress.wait(acknowledgment);
+    }
+    assert.equal(fs.existsSync(file), false, "Control unlink acknowledgment left the original file present");
+  } catch (error) { failures.push(error); }
+  finally {
+    try { if (actor.connected) await ColdGraphActorLifecycle.send(actor, "finish"); }
+    catch (error) { failures.push(error); }
+    try { assert.deepEqual(await completion, { code: 0, signal: null }); joined = true; }
+    catch (error) { failures.push(error); }
+    finally { progress.dispose(); }
+    if (!joined) {
+      try { retain(row.root, "Windows file control actor closure was not confirmed"); }
+      catch (error) { failures.push(error); }
+    }
+  }
+  if (failures.length) throw new AggregateError(failures, "Windows file control operations or original join failed");
+  return { file, task: { token: `file-control-${path.basename(row.root)}`, scratch: physical, processes: [{ pid: actor.pid!, identity: birth! }] } };
+}
+
+/**
+ * Report a control-path Create and its successful IRP completion under the independently observed actor birth. Missing observations fail only when recorded completeness permits an absence judgment; loss, wrap or incomplete history leaves the control censored. No result establishes reader absence or a historical EPERM explanation.
+ */
+function assertWindowsFileIoControl(
+  selected: ReturnType<typeof WindowsFileIoEvidence.select> | undefined,
+  control: Awaited<ReturnType<typeof observeWindowsFileIoControl>>,
+  root: string,
+): void {
+  const observation = WindowsFileIoEvidence.control(selected, { ...control.task, fileName: path.basename(control.file) });
+  recordOutcome(root, {
+    event: "windows-fileio-control-selection", available: observation.status === "observed" || observation.status === "missing",
+    selectionAvailable: selected !== undefined, task: control.task, ...observation, counts: selected?.counts ?? null,
+    loss: selected?.loss ?? null, completeness: selected?.completeness ?? "unknown", readerAbsence: selected?.readerAbsence ?? "not-established", uncertainty: selected?.uncertainty ?? null,
+  });
+  assert.notEqual(observation.status, "missing", "Complete Windows recording lacks the known control path's original-issuer Create/OperationEnd pair");
+  if (selected !== undefined) assert.equal(selected.readerAbsence, "not-established");
 }
 
 function nativeReceipts(file: string): { event: string; id: number }[] {

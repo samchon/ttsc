@@ -1539,6 +1539,8 @@ function loadCommonJsDescriptor(
     cacheDir: descriptorCache.cacheDir,
     identities: descriptorCache.identities,
     context,
+    // Factory context anchors the consumer; the evaluator runs at the source root.
+    cwd: descriptorCache.projectRoot,
     // Everything the child receives besides the per-evaluation output paths.
     env: {
       ...effectiveEnv,

@@ -4,7 +4,7 @@
  * Primitive values cannot identify a repeated report: two thrown undefined values are two failures. Only another report of the same object or function reference is deduplicated. Collection never certifies native retirement.
  *
  * @evidence contracts/common.md#principled-implementation Construction creates fresh caller-owned array and reference membership state. Ordered reasons preserve thrown values, including undefined; a WeakSet deduplicates only reference-identifiable reports, while primitive occurrences remain distinct.
- * @evidence contracts/common.md#clear-and-simple-design One ledger collects original reasons, runs owned synchronous cleanup and reports a single original or ordered aggregate. Construction adds no phase, scheduling or cleanup policy.
+ * @evidence contracts/common.md#clear-and-simple-design One ledger collects original reasons, runs owned cleanup and reports a single original or ordered aggregate. Construction adds no phase, scheduling or cleanup policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Construction reads no foreign state or elapsed-time verdict. Original callbacks and reasons remain intact; no product, global or filesystem method is replaced and no collected failure grants cleanup authority.
  * @evidence contracts/common.md#meaningful-documentation Constructor prose states empty admission and absence of resource acquisition; class prose explains primitive occurrence identity, repeated reference reports and the separate native-retirement responsibility.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Construction and collection use JavaScript containers and values; callers own every native operation and retirement receipt.
@@ -64,6 +64,41 @@ export class TestFailureLedger {
     } catch (reason) {
       this.add(reason);
     }
+  }
+
+  /**
+   * Await one body and every independent final cleanup before reporting failure.
+   *
+   * The cleanup list is captured before the body starts. Body and cleanup refusals enter this ledger in execution order alongside earlier scenario failures. Each cleanup is awaited before the next starts, and a refused cleanup cannot skip its siblings. Callers supply the real close or removal operations and retain responsibility for native joining; running this sequence grants no retirement authority.
+   *
+   * @evidence contracts/common.md#principled-implementation One awaited body and ordered awaited cleanup callbacks preserve synchronous throws, promise rejections and their original values through the existing ledger. The final verdict includes earlier entries and uses the same empty, single-original and ordered-aggregate semantics.
+   * @evidence contracts/common.md#clear-and-simple-design The existing error owner also owns the body-to-cleanup handoff, so callers cannot accidentally let a finally throw bypass accumulated failures.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit caller-owned operations replace no global or foreign method; no timeout, retry or substitute success is introduced, and every requested cleanup executes after body settlement.
+   * @evidence contracts/common.md#meaningful-documentation Prose identifies actual awaited completion, independent cleanup continuation, prior-error preservation and the caller's separate native-join responsibility.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This sequence invokes caller-owned capabilities; their owners retain filesystem, process and platform policy.
+   * @evidence contracts/performance.md#efficient-algorithms Capturing C callback references takes O(C) time and space; one body and those cleanup callbacks execute once in order. Existing reason admission is constant structural work per fault, and the final aggregate copies F retained reasons; callback work and duration remain caller-owned.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Every invocation performs its supplied operations rather than sharing effectful body or cleanup results.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The caller's body and cleanup capabilities remain referenced until the sequence settles, without a callback-count or duration cap. A pending operation prevents later cleanup and the verdict; settled failures remain in the caller-owned ledger. Completion certifies no native release beyond the supplied operations' contracts.
+   */
+  public async run(
+    body: () => void | PromiseLike<void>,
+    cleanups: readonly (() => void | PromiseLike<void>)[],
+    message: string,
+  ): Promise<void> {
+    const finalCleanups = [...cleanups];
+    try {
+      await body();
+    } catch (reason) {
+      this.add(reason);
+    }
+    for (const cleanup of finalCleanups) {
+      try {
+        await cleanup();
+      } catch (reason) {
+        this.add(reason);
+      }
+    }
+    this.throwIfFailed(message);
   }
 
   /**

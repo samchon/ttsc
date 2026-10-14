@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestFailureLedger, TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -22,13 +22,13 @@ import { TtscCompiler } from "ttsc";
  * @evidence contracts/testing.md#execution-ownership The Runtime batch invokes this named scene with its prepared native source and cache. The public compiler uses actual descriptor isolation and native compiler execution; one static Node consumer receives the invalid inherited compiler through its initial environment and exercises empty versus undefined overlays. This is not a portable decision unit.
  * @evidence contracts/e2e.md#necessary-boundary Entry discovery, descriptor createRequire self-resolution, native plugin admission and source-coordinate publication must connect through the public compiler; direct resolver assertions cannot prove a plugin actually transforms the sibling program.
  * @evidence contracts/e2e.md#shared-execution All rows share one private consumer, immutable source pair, descriptor and runtime batch native source/cache. Changed plugin-selection inputs justify separate compiler calls; no package installation or independent Go source producer is added. The undefined contrast adds one Node actor and a rejected compiler selection without another native Program; its fallback success replaces the original undefined row's native call. A link reuses the prepared TypeScript dependency. The default-root control changes the native source coordinate intentionally.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The private consumer owns its manifests, config, descriptor, package link and run log; each synchronous compiler call settles before the next input change. The Node actor receives an isolated initial environment without mutating the parent's environment, and its actual unsignalled exit precedes fixture removal. Shared production caches validate their own source and context inputs. The scene removes its private root in finally and does not clear or mutate the borrowed native source/cache.
- * @evidence contracts/e2e.md#preserved-coverage Adds isolated config-versus-source-root coverage without moving or deleting existing compiler, wrapper, runtime or Metro cases; independent rows retain all collected failures.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The private consumer owns its manifests, config, descriptor, package link and run log; each synchronous compiler call settles before the next input change. The Node actor receives an isolated initial environment without mutating the parent's environment, and its actual unsignalled exit precedes fixture removal. Shared production caches validate their own source and context inputs. The shared failure owner attempts private-root removal after the body settles and retains removal failure beside original setup/scenario causes. It does not clear or mutate the borrowed native source/cache.
+ * @evidence contracts/e2e.md#preserved-coverage Adds isolated config-versus-source-root coverage without moving or deleting existing compiler, wrapper, runtime or Metro cases; independent rows retain all collected failures and final removal cannot replace their original causes.
  */
-export function case_project_root_keeps_isolated_plugin_resolution_anchored_at_config(inputs: {
+export async function case_project_root_keeps_isolated_plugin_resolution_anchored_at_config(inputs: {
   source: string;
   cacheDir: string;
-}): void {
+}): Promise<void> {
   const root = TestProject.physicalPath(
     TestProject.tmpdir("ttsc-isolated-plugin-root-"),
   );
@@ -52,8 +52,8 @@ export function case_project_root_keeps_isolated_plugin_resolution_anchored_at_c
     suffix: ":done",
     runLog: path.join(root, "program-runs.bin"),
   };
-  const failures: unknown[] = [];
-  try {
+  const failures = new TestFailureLedger();
+  await failures.run(() => {
     fs.mkdirSync(packageRoot, { recursive: true });
     for (const file of [
       "apps/backend/src/main.ts",
@@ -280,16 +280,11 @@ export function case_project_root_keeps_isolated_plugin_resolution_anchored_at_c
           );
         }
       } catch (cause) {
-        failures.push(new Error(scenario.name, { cause }));
+        failures.add(new Error(scenario.name, { cause }));
       }
     }
-  } finally {
-    fs.rmSync(root, { recursive: true, force: true });
-  }
-  if (failures.length !== 0) {
-    throw new AggregateError(
-      failures,
-      "isolated plugin-root compiler cases failed",
-    );
-  }
+  }, [
+    // Final removal must join the verdict rather than replace scenario causes.
+    () => fs.rmSync(root, { recursive: true, force: true }),
+  ], "isolated plugin-root compiler cases failed");
 }

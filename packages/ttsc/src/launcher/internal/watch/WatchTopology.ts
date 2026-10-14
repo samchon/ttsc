@@ -65,7 +65,7 @@ import { watchDirectory } from "./watchDirectory";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain membership authority, plugin fingerprinting, publication races, physical registration and public lifecycle operations following the documentation skill. Parameters identify each supplied operation and native default beside the constructor. Project-input attribution: Native paragraphs explain stale attention, directory causality, accompanying resolution digests and unselected immediate entries.
  * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node APIs and registration uses realpath; compiler/plugin maps preserve lexical aliases and fold only measured insensitive ASCII components. Project inputs use physical identities, while unknown/native Unicode relations remain conservative event candidates rather than identity proof. Registration paths and read options are passed unchanged; compiler-input readers supply absolute membership paths without replacing the topology's native identity policy. Project-input attribution: The supplied filesystem identity transaction establishes selected names and ancestry without an OS-wide case assumption or lexical alias guess.
  *
- * @evidence contracts/performance.md#efficient-algorithms Identity-keyed maps separate membership, baselines and handle registries; reconciliation delegates project/config discovery, native compiler listing, filesystem traversal/hashing and backend callbacks, with costs described by its members. Construction retains operation references and empty indexes without a filesystem observation or build. Attribution indexed visits additionally pay path/key text, ancestor and native identity work; shared ancestor keys avoid repeating the same walk within a transaction.
+ * @evidence contracts/performance.md#efficient-algorithms Identity-keyed maps separate membership, baselines and handle registries; reconciliation delegates project/config discovery, native compiler listing, filesystem traversal/hashing and backend callbacks, with costs described by its members. A directory-triggered refresh additionally visits R active reload files even on failure and compares their metadata/owner snapshots, reading bytes only when those snapshots changed. Changed-owner and notification arrays and a reported-key set require O(R) references; moved owners share one existing watcher synchronization and post-registration reconciliation, whose selected-file traversal remains part of the operation. No additional compiler listing is requested. Construction retains operation references and empty indexes without a filesystem observation or build. Attribution indexed visits additionally pay path/key text, ancestor and native identity work; shared ancestor keys avoid repeating the same walk within a transaction.
  * @evidence contracts/performance.md#reuse-equivalent-work Current membership, content baselines and live registrations belong to one topology; reconciliation owners decide their reuse against fresh premises. Supplied operation identities are retained without assuming changed inputs remain equivalent. Each project's last compiler listing is kept with its arguments and answers only a plugin-input change, which cannot move Program membership; every other refresh lists again. Notifications delivered in one poll iteration are decided together in the check phase, so one change lists and rescans once. Project-input attribution: This classifier borrows one scan's deltas and identity transaction without retaining cross-event answers.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Current and pending maps and live subscriptions remain topology-owned without a population cap; compiler listings are replaced by each resolution and hold only its projects; reconciliation attempts obsolete handle retirement. Constructor acquires no handle; directory arrays and attribution deltas are call-local. close invokes supplied close methods but does not await backend closure, and a thrown close can interrupt later map cleanup; retained snapshots remain until the facade is released.
  */
@@ -1741,6 +1741,8 @@ export class WatchTopology {
    * Refresh compiler membership once for every directory a decision asked
    * about. A failed refresh still reports, once each, the reload inputs every
    * requested change names.
+   *
+   * A replacement can be delivered under only its vanished temporary name, including when its malformed bytes prevent refresh. Reconcile active reload-file snapshots on either outcome, deduplicate failed-refresh recovery against actual reported movement, and preserve the original refresh error after recovery. Batch moved owners through the existing rearm operation before notifying, because a POSIX per-file handle still owns the old inode. Unchanged snapshots stay quiet unless the existing failed-refresh selector explicitly names or cannot find the reload input.
    */
   private refreshFromDirectories(refreshes: readonly DirectoryRefresh[]): void {
     for (const { changed } of refreshes) {
@@ -1753,23 +1755,50 @@ export class WatchTopology {
         this.observedDirectories.set(this.pathKey(changed), changed);
       }
     }
+    let refreshFailure: { error: unknown } | undefined;
     try {
       this.refresh(true);
     } catch (error) {
+      refreshFailure = { error };
+    }
+    try {
+      if (this.closed) return;
+      const changed: string[] = [];
+      const rearm: string[] = [];
       const reported = new Set<string>();
-      for (const { changed } of refreshes) {
-        for (const reload of reloadInputsForFailedTopologyRefresh(
-          this.reloadFiles.values(),
-          changed,
-          this.lexicalIdentities,
-        )) {
-          const key = this.pathKey(reload);
-          if (reported.has(key)) continue;
-          reported.add(key);
-          this.callbacks.onInputChange({ kind: "config", path: reload });
+      for (const reload of this.reloadFiles.values()) {
+        if (this.closed) return;
+        const movement = this.compilerFileMovement(reload);
+        if (movement.owner) rearm.push(reload);
+        if (this.compilerMovementReports(reload, movement))
+          changed.push(reload);
+      }
+      if (rearm.length !== 0) this.rearmFileWatchers(rearm, true);
+      for (const reload of changed) {
+        if (this.closed) return;
+        reported.add(this.pathKey(reload));
+        this.reportCompilerFileChange(reload);
+      }
+      if (refreshFailure !== undefined) {
+        for (const { changed } of refreshes) {
+          for (const reload of reloadInputsForFailedTopologyRefresh(
+            this.reloadFiles.values(),
+            changed,
+            this.lexicalIdentities,
+          )) {
+            if (this.closed) return;
+            const key = this.pathKey(reload);
+            if (reported.has(key)) continue;
+            reported.add(key);
+            this.callbacks.onInputChange({ kind: "config", path: reload });
+          }
         }
       }
+    } catch (error) {
       this.callbacks.onError(refreshes[0]!.location, error);
+    } finally {
+      if (refreshFailure !== undefined)
+        this.callbacks.onError(refreshes[0]!.location, refreshFailure.error);
     }
   }
 

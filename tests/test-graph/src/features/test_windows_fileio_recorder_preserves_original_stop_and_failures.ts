@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { WindowsColdFileIo } from "../../../utils/src/WindowsColdFileIo";
+import { WindowsFileIoEvidence } from "../../../utils/src/WindowsFileIoEvidence";
 import { TestProject } from "../../../utils/src/TestProject";
 
 /**
@@ -12,16 +13,16 @@ import { TestProject } from "../../../utils/src/TestProject";
  *
  * 1. Disable recording and assert no owned runner executes; start one enabled
  *    owner through an explicit runner and bind its independently authored task.
- * 2. Stop concurrently and assert one stop/decode sequence and selected evidence,
- *    with unknown loss retained and no unrelated raw process/file rows exported.
+ * 2. Stop concurrently and assert one stop/decode sequence and separately selected
+ *    task/control evidence, with unknown loss and unrelated paths omitted.
  * 3. Refuse startup and then native stop in separate owners, preserving their
  *    original error objects and explicit unconfirmed recording metadata.
  * 4. Retain raw storage under unconfirmed stop, then run owned workflow cleanup
  *    and require joined reclamation while the original source stays untouched.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual recorder state and selector execute through an owned runner. Decoder-stage prefixes survive refusal, legacy/malformed metadata is not measured zero, and original decode/parse failures remain separate. Interrupted state prefixes preserve the immutable plan, no-attempt admissions differ from partial stop acknowledgment, and real output-path collisions retain original refusal plus publication errors and the shutdown capability.
+ * @evidence contracts/testing.md#behavioral-verification Actual recorder state and selector execute through an owned runner. Separate source/control scopes admit their own exact paths from one decoded population; supplied device mapping, independent birth and IRP completion connect the authored control without expanding source selection. Decoder-stage prefixes survive refusal, legacy/malformed metadata is not measured zero, and original decode/parse failures remain separate. Interrupted state prefixes preserve the immutable plan, no-attempt admissions differ from partial stop acknowledgment, and real output-path collisions retain original refusal plus publication errors and the shutdown capability.
  * @evidence contracts/testing.md#independent-expectations Authored native-operation receipts and refusal objects define joined and failed recorder states. The contract requires one stop, no decoding before joined stop, and no original product-input deletion; literal mode order and returned failure identity pin these independently.
- * @evidence contracts/testing.md#distinguishing-cases Completed empty decoding, legacy missing counts, a refused partial prefix and malformed metadata differ. Disabled admission, successful concurrent stop, immutable binding/plan, interrupted journal prefix, unprintable refusal, dual startup/publication failure, no native attempt, partial sibling acknowledgment, unknown stop and joined reclamation differ. Actual default-account schema/recorder transport belongs to the cold Graph E2E case.
+ * @evidence contracts/testing.md#distinguishing-cases A connected control is observed despite unknown loss/wrap; missing control evidence is decisive only with measured zero loss and explicit false wrap/decoder flags plus qualified selector history. Null/missing flags, positive loss and incomplete selector history remain censored; absent selection remains unavailable. Completed empty decoding, legacy missing counts, a refused partial prefix and malformed metadata differ. Disabled admission, successful concurrent stop, immutable binding/plan, interrupted journal prefix, unprintable refusal, dual startup/publication failure, no native attempt, partial sibling acknowledgment, unknown stop and joined reclamation differ. Actual default-account schema/recorder transport belongs to the cold Graph E2E case.
  * @evidence contracts/testing.md#execution-ownership This source unit supplies its own operation runner and filesystem metadata receipts to the shared state owner, with no native ETW session, child process, compiler or installed consumer; it changes no global method or environment.
  */
 export async function test_windows_fileio_recorder_preserves_original_stop_and_failures(): Promise<void> {
@@ -34,20 +35,27 @@ export async function test_windows_fileio_recorder_preserves_original_stop_and_f
   const input = path.join(root, "original-source.txt");
   fs.writeFileSync(input, "retained original source");
   const scratch = "Q:\\original\\scratch";
+  const controlScratch = "Q:\\control\\scratch";
+  const controlBirth = "2026-10-14T00:00:00.01Z";
+  const control = { token: "independent-control", scratch: controlScratch, processes: [{ pid: 107, identity: controlBirth }] };
   const run = async (mode: "start" | "stop" | "decode", manifest: string) => {
     calls.push(mode);
     const owner = JSON.parse(fs.readFileSync(manifest, "utf8")) as { private: string };
     const write = (name: string, value: unknown) => fs.writeFileSync(path.join(owner.private, name), JSON.stringify(value));
     if (mode === "start") {
-      write("started.json", { devices: [] });
+      write("started.json", { devices: [{ dos: "Q:", native: "\\Device\\ObservedControlVolume" }] });
       write("before.json", { at: "2026-10-14T00:00:00Z", processes: [] });
       write("capability.json", { administrator: true });
     } else if (mode === "stop") write("stopped.json", { sessions: [{ state: "stopped", code: 0 }, { state: "stopped", code: 0 }] });
     else {
-      write("decoded.json", { eventsLost: null, possibleWrap: true, decodingFailed: false, failures: [], stages: [{ provider: "file", enumerated: 3, matchingProvider: 2, acceptedRevision: 2, projected: 2, completed: true, failure: null }] });
+      write("decoded.json", { eventsLost: null, possibleWrap: true, decodingFailed: false, failures: [], stages: [{ provider: "file", enumerated: 5, matchingProvider: 4, acceptedRevision: 4, projected: 4, completed: true, failure: null }] });
       fs.writeFileSync(path.join(owner.private, "events.jsonl"), [
+        { provider: "process", id: 1, version: 1, at: "2026-10-14T00:00:00.1Z", headerPid: 4, fields: { ProcessID: "107", CreateTime: controlBirth } },
+        { provider: "process", id: 3, version: 1, at: "2026-10-14T00:00:00.2Z", headerPid: 4, fields: { ProcessID: "107", ThreadID: "900" } },
         { provider: "file", id: 12, version: 1, at: "2026-10-14T00:00:01Z", headerPid: 4, fields: { FileObject: "0x1", Irp: "0x2", FileName: scratch + "\\source.go" } },
         { provider: "file", id: 12, version: 1, at: "2026-10-14T00:00:02Z", headerPid: 4, fields: { FileObject: "0x3", Irp: "0x4", FileName: "Q:\\unrelated\\private.txt" } },
+        { provider: "file", id: 12, version: 1, at: "2026-10-14T00:00:03Z", headerPid: 4, fields: { FileObject: "0x5", Irp: "0x6", IssuingThreadId: "900", FileName: "\\Device\\ObservedControlVolume\\control\\scratch\\owned-control.txt" } },
+        { provider: "file", id: 24, version: 1, at: "2026-10-14T00:00:03.1Z", headerPid: 4, fields: { Irp: "6", Status: "0x0" } },
       ].map((event) => JSON.stringify(event)).join("\n") + "\n");
     }
   };
@@ -57,21 +65,75 @@ export async function test_windows_fileio_recorder_preserves_original_stop_and_f
     const opened = await WindowsColdFileIo.open({ enabled: true, traceRoot, runnerTemp, fixture: "unused", run });
     assert.equal(opened.failure, undefined);
     opened.owner!.bind({ token: "original-task", scratch, processes: [] });
+    opened.owner!.bindControl(control);
+    assert.throws(() => opened.owner!.bindControl({ ...control, token: "replacement-control" }), /immutable/);
     assert.throws(() => opened.owner!.bind({ token: "different-task", scratch, processes: [] }), /immutable/);
     const stopping = opened.owner!.stop();
     assert.equal(opened.owner!.stop(), stopping);
-    await stopping;
+    const selectedControl = await stopping;
     assert.deepEqual(calls, ["start", "stop", "decode"]);
     const evidenceFile = fs.readdirSync(traceRoot).find((name) => name.startsWith("graph-fileio-evidence-"))!;
     const evidence = JSON.parse(fs.readFileSync(path.join(traceRoot, evidenceFile), "utf8"));
     assert.equal(evidence.joinedRecorder, true);
     assert.equal(evidence.evidence.taskToken, "original-task");
     assert.equal(evidence.evidence.selected.length, 1);
-    assert.deepEqual(evidence.decodeStages, [{ provider: "file", enumerated: 3, matchingProvider: 2, acceptedRevision: 2, projected: 2, completed: true, failure: null }]);
-    assert.deepEqual(evidence.evidence.counts, { processRows: 0, fileRows: 2, selectedRequests: 1, selectedOperationEnds: 0, unconnectedRequests: 1, orphanOperationEnds: 0 });
+    assert.deepEqual(evidence.decodeStages, [{ provider: "file", enumerated: 5, matchingProvider: 4, acceptedRevision: 4, projected: 4, completed: true, failure: null }]);
+    assert.deepEqual(evidence.evidence.counts, { processRows: 2, fileRows: 4, selectedRequests: 1, selectedOperationEnds: 0, unconnectedRequests: 2, orphanOperationEnds: 1 });
+    assert.deepEqual(selectedControl, evidence.controlEvidence, "Stop must return this recording's separate selected control");
+    assert.deepEqual(evidence.controlTask, control);
+    assert.equal(selectedControl!.taskToken, control.token);
+    assert.deepEqual(selectedControl!.counts, { processRows: 2, fileRows: 4, selectedRequests: 1, selectedOperationEnds: 1, unconnectedRequests: 2, orphanOperationEnds: 0 });
+    assert.equal(selectedControl!.selected[0]!.objectGeneration, selectedControl!.selected[1]!.objectGeneration);
+    assert.equal((selectedControl!.selected[1]!.completionDecoded as { ntSuccess: boolean }).ntSuccess, true);
+    assert.equal((selectedControl!.selected[0]!.owner as { original: boolean }).original, true);
+    assert.equal(selectedControl!.readerAbsence, "not-established");
+    assert.equal(selectedControl!.completeness, "unknown");
+    const expectedControl = { ...control, fileName: "owned-control.txt" };
+    assert.equal(WindowsFileIoEvidence.control(selectedControl, expectedControl).status, "observed", "An exact positive pair survives unrelated loss/wrap uncertainty");
+    assert.throws(() => WindowsFileIoEvidence.control(selectedControl, { ...expectedControl, token: "different-control" }), /different task selection/);
+    const unavailableControl = WindowsFileIoEvidence.control(undefined, expectedControl);
+    assert.equal(unavailableControl.status, "unavailable");
+    assert.equal(unavailableControl.knownCreateCount, null, "Unavailable selection is not an observed zero");
+    const completeLoss = { eventsLost: 0, possibleWrap: false, decodingFailed: false };
+    const emptyControl = WindowsFileIoEvidence.select([], { ...control, devices: [], loss: completeLoss });
+    assert.equal(WindowsFileIoEvidence.control(emptyControl, expectedControl).status, "missing", "A qualified empty population fails the known-file positive control");
+    for (const loss of [
+      { ...completeLoss, eventsLost: null },
+      { ...completeLoss, eventsLost: 1 },
+      { ...completeLoss, possibleWrap: true },
+      { ...completeLoss, decodingFailed: true },
+      { ...completeLoss, possibleWrap: null },
+      { ...completeLoss, possibleWrap: undefined },
+      { ...completeLoss, decodingFailed: null },
+      { ...completeLoss, decodingFailed: undefined },
+    ]) {
+      // Parsed native metadata can omit a field; unavailable is not false.
+      const parsedLoss = JSON.parse(JSON.stringify(loss));
+      const censoredControl = WindowsFileIoEvidence.select([], { ...control, devices: [], loss: parsedLoss });
+      assert.equal(WindowsFileIoEvidence.control(censoredControl, expectedControl).status, "censored");
+    }
+    const incompleteControl = WindowsFileIoEvidence.select([
+      { provider: "file", id: 26, version: 1, at: "2026-10-14T00:00:04Z", headerPid: 4, fields: { FilePath: controlScratch + "\\owned-control.txt" } },
+    ], { ...control, devices: [], loss: completeLoss });
+    assert.equal(incompleteControl.completeness, "unknown");
+    assert.equal(WindowsFileIoEvidence.control(incompleteControl, expectedControl).status, "censored", "Unqualified selector history cannot turn absent Creates into a failure");
+    assert.equal(JSON.stringify(evidence.evidence).includes("owned-control.txt"), false, "Control paths must not widen source-task evidence");
+    assert.equal(JSON.stringify(selectedControl).includes("source.go"), false, "Source paths must not widen control evidence");
     assert.equal(evidence.evidence.readerAbsence, "not-established");
     assert.equal(JSON.stringify(evidence).includes("private.txt"), false);
     assert.equal(fs.readFileSync(input, "utf8"), "retained original source");
+
+    let noControlManifest = "";
+    const noControl = await WindowsColdFileIo.open({ enabled: true, traceRoot, runnerTemp, fixture: "unused", run: async (mode, manifest) => {
+      noControlManifest = manifest;
+      await run(mode, manifest);
+    } });
+    noControl.owner!.bind({ token: "source-without-control", scratch, processes: [] });
+    assert.equal(await noControl.owner!.stop(), undefined, "An unbound control cannot become a measured empty selection");
+    assert.throws(() => noControl.owner!.bindControl(control), /immutable/, "A stopped population cannot admit a late control");
+    const noControlEvidence = JSON.parse(fs.readFileSync(noControlManifest.replace("graph-fileio-owner-", "graph-fileio-evidence-"), "utf8"));
+    assert.equal(noControlEvidence.controlTask, null);
+    assert.equal(noControlEvidence.controlEvidence, null);
 
     // The same owned runner supplies decoder outcomes without invoking ETW.
     // Missing or broken metadata must differ from an actually completed zero.
@@ -94,6 +156,7 @@ export async function test_windows_fileio_recorder_preserves_original_stop_and_f
         if (outcome === "partial") throw decodeRefusal;
       } });
       observation.owner!.bind({ token: `original-${outcome}`, scratch, processes: [] });
+      observation.owner!.bindControl(control);
       if (outcome === "partial" || outcome === "broken") {
         await assert.rejects(observation.owner!.stop(), (error: unknown) => error instanceof AggregateError && error.errors[0] === decodeRefusal && (outcome !== "broken" || error.errors[1] instanceof SyntaxError));
       } else await observation.owner!.stop();
@@ -105,12 +168,15 @@ export async function test_windows_fileio_recorder_preserves_original_stop_and_f
       }
       if (outcome === "partial" || outcome === "broken") {
         assert.equal(observed.evidence, null);
+        assert.equal(observed.controlEvidence, null, "Unavailable control decoding is not a completed zero selection");
         assert.equal(observed.loss.decodingFailed, true);
         assert.ok(observed.failures[0].includes(decodeRefusal.message));
       } else {
         assert.equal(observed.evidence.counts.fileRows, 0);
         assert.equal(observed.evidence.readerAbsence, "not-established");
         assert.equal(observed.evidence.completeness, "unknown");
+        assert.equal(observed.controlEvidence.counts.fileRows, 0);
+        assert.deepEqual(observed.controlEvidence.selected, [], "Completed empty control selection remains an observed empty population");
       }
     }
 
