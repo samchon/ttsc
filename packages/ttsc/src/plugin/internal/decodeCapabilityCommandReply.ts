@@ -22,8 +22,6 @@ export function decodeCapabilityCommandReply(bytes: Uint8Array): {
   retirement?: "joined" | "not-started" | "unknown";
   result?: ReturnType<typeof spawnSync>;
   thrown?: unknown;
-  /** Passive original native-owner receipt; it grants no retirement authority. */
-  nativeObservation?: Readonly<Record<string, string | number | boolean | null | undefined>>;
 } {
   return deserialize(bytes);
 }

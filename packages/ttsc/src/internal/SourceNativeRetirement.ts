@@ -1,7 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { threadId } from "node:worker_threads";
 
 import { E2ETrace } from "./E2ETrace";
 import { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
@@ -53,20 +52,6 @@ export namespace SourceNativeRetirement {
     deferred: Array<() => void>;
 
     /**
-     * Optional passive failure sink; its data grants no cleanup authority.
-     *
-     * @evidence contracts/common.md#principled-implementation The sink receives original task/receipt identity and later filesystem observations only after an actual cleanup refusal.
-     * @evidence contracts/common.md#clear-and-simple-design One optional task callback keeps observation lifetime with the resource owner.
-     * @evidence contracts/common.md#prohibited-implementation-shortcuts Diagnostic data cannot change canRelease or authorize deletion; sink failure preserves the original exception.
-     * @evidence contracts/common.md#meaningful-documentation Prose distinguishes passive data from authority and identifies optional absence.
-     * @evidenceExclude contracts/portability.md#os-neutral-implementation This signature performs no native operation; capture owns path observations.
-     * @evidenceExclude contracts/performance.md#efficient-algorithms The signature chooses no algorithm; its supplied sink owns processing cost.
-     * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each failure is an independent observation rather than a reusable result.
-     * @evidence contracts/performance.md#bound-retention-and-release-resources The original scope retains the callback for its lifetime; the sink owns captured data without a protocol-imposed byte cap.
-     */
-    observeCleanupFailure?: (observation: Readonly<Record<string, unknown>>) => void;
-
-    /**
      * Optional task-local publication primitives for an explicit filesystem
      * boundary oracle. Omitted tasks use Node's original synchronous APIs.
      * Implementations must preserve exclusive-open and real descriptor
@@ -79,21 +64,18 @@ export namespace SourceNativeRetirement {
   }
 
   /**
-   * Allocate an empty task capability without acquiring a filesystem guard. The optional observer receives passive cleanup-failure data; its absence avoids diagnostic receipt retention and additional filesystem reads.
+   * Allocate an empty task capability without acquiring a filesystem guard.
    *
    * @evidence contracts/common.md#principled-implementation A nonempty task token distinguishes the original admission owner and starts with no native commands.
-   * @evidence contracts/common.md#clear-and-simple-design Two maps and one FIFO separate registration, boundary state and deferred cleanup; an optional passive sink receives failure observations without controlling release.
+   * @evidence contracts/common.md#clear-and-simple-design Two maps and one FIFO separate registration, boundary state and deferred cleanup.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Allocation grants no native closure certificate from PID or elapsed time.
    * @evidence contracts/common.md#meaningful-documentation Native prose identifies allocation without filesystem acquisition.
    * @evidence contracts/portability.md#os-neutral-implementation Allocation handles opaque identity and collections without native operations.
-   * @evidence contracts/performance.md#efficient-algorithms One object, three empty collections and an optional observer reference take constant initial space.
+   * @evidence contracts/performance.md#efficient-algorithms One object and three empty collections take constant initial space.
    * @evidence contracts/performance.md#reuse-equivalent-work Each task receives distinct mutable ownership state rather than a shared result.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns the returned capability and observer reference; no filesystem or process handle is acquired. The sink owns any captured failure data.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns the returned capability; no filesystem or process handle is acquired.
    */
-  export function createScope(
-    taskToken: string,
-    observeCleanupFailure?: Scope["observeCleanupFailure"],
-  ): Scope {
+  export function createScope(taskToken: string): Scope {
     if (taskToken.length === 0)
       throw new Error("ttsc: empty native task identity");
     return {
@@ -101,7 +83,6 @@ export namespace SourceNativeRetirement {
       resources: new Map(),
       boundaries: new Map(),
       deferred: [],
-      observeCleanupFailure,
     };
   }
 
@@ -305,34 +286,34 @@ export namespace SourceNativeRetirement {
   }
 
   /**
-   * Accept the original boundary owner's classified outcome. A certified terminal outcome is immutable, so a surrounding catch cannot turn a joined command back into unknown. Unknown remains protected if diagnostic writes fail; the pre-admission pending guard already protects its inputs. The optional native observation is passive data from the command owner, retained only for a task's enabled cleanup-failure sink. Candidate close/removal failures retain their original errors and reach the owned task even when later resolver code catches the thrown outcome. Successful removal relinquishes that pathname immediately; only failed removals retain retry authority, and all roots are attempted before failure.
+   * Accept the original boundary owner's classified outcome. A certified
+   * terminal outcome is immutable, so a surrounding catch cannot turn a joined
+   * command back into unknown. Unknown remains protected if diagnostic writes
+   * fail; the pre-admission pending guard already protects its inputs.
+   * Candidate close/removal failures retain their original errors and reach the
+   * owned task even when later resolver code catches the thrown outcome.
+   * Successful removal relinquishes that pathname immediately; only failed
+   * removals retain retry authority, and all roots are attempted before
+   * failure.
    *
    * @evidence contracts/common.md#principled-implementation Only the original boundary accepts a classified result; safe certificates cannot become unknown through a surrounding catch.
    * @evidence contracts/common.md#clear-and-simple-design The state transition and exact guard-file list centralize completion and unknown publication.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts An unknown diagnostic write failure retains the pre-admission guard instead of inferring native closure.
    * @evidence contracts/common.md#meaningful-documentation Native prose states immutable safe outcomes and failure-safe unknown protection.
    * @evidence contracts/portability.md#os-neutral-implementation Node exclusive temporary writes and rename publish metadata; native I/O refusal is propagated.
-   * @evidence contracts/performance.md#efficient-algorithms Unknown publication visits registered guard files and serialized path bytes; certified cleanup scans each still-owned guard and failed candidate once before aggregating refusals. An enabled passive sink also retains one original guard-path snapshot and the optional fixed scalar native receipt per boundary.
+   * @evidence contracts/performance.md#efficient-algorithms Unknown publication visits registered guard files and serialized path bytes; certified cleanup scans each still-owned guard and failed candidate once before aggregating refusals.
    * @evidence contracts/performance.md#reuse-equivalent-work Repeated identical safe outcomes retry cleanup, while conflicting certificates are rejected.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Joined or never-started outcomes relinquish each successfully removed guard or candidate pathname and retain only failed removals for retry; original cleanup failures reach the owned task across legacy catches. Unknown retains guards and failed owned candidates until qualified recovery. An enabled observer retains diagnostic guard paths and native receipt fields until its scope is released; these copies cannot authorize recovery.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Joined or never-started outcomes relinquish each successfully removed guard or candidate pathname and retain only failed removals for retry; original cleanup failures reach the owned task across legacy catches. Unknown retains guards and failed owned candidates until qualified recovery.
    */
   export function settle(
     boundaryToken: string,
     retirement: "joined" | "not-started" | "unknown",
     reason?: string,
-    nativeObservation?: Readonly<Record<string, string | number | boolean | null | undefined>>,
   ): void {
     if (current === undefined) return;
     const boundary = current.boundaries.get(boundaryToken);
     if (boundary === undefined)
       throw new Error("ttsc: native outcome has no admitted boundary");
-    // This optional copy is diagnostic data from the original command owner.
-    // Neither it nor a later filesystem snapshot grants retirement authority.
-    if (current.observeCleanupFailure !== undefined) {
-      if (nativeObservation !== undefined)
-        boundary.nativeObservation = nativeObservation;
-      boundary.observedGuards ??= [...boundary.files, ...boundary.candidates];
-    }
     if (
       (boundary.state === "joined" || boundary.state === "not-started") &&
       retirement === "unknown"
@@ -444,16 +425,19 @@ export namespace SourceNativeRetirement {
    * after successful cleanup or deferred recovery. Ordinary unscoped callers
    * perform cleanup without observing or inventing a registration.
    *
-   * Enabled private tracing observes the original callback's execution, not its deferral. Scalar own error properties are read without invoking getters; reflection or sink failures leave the original outcome intact. Synchronous trace writes can change scheduling and prove only that run. An optional task sink receives the original boundary and receipt metadata plus read-only root/syscall-path observations after cleanup refuses. These observations do not identify Windows handle ownership or grant release; sink and metadata failures leave the original cleanup error unchanged.
+   * Enabled private tracing observes the original callback's execution, not its
+   * deferral. Scalar own error properties are read without invoking getters;
+   * reflection or sink failures leave the original outcome intact. Synchronous
+   * trace writes can change scheduling and prove only that run.
    *
-   * @evidence contracts/common.md#principled-implementation Physical identity and the exact resource object are captured before destruction; only successful cleanup removes that identical registration, while failure and replacement retain ownership. After actual refusal, the original scope and command observations remain separate from later non-atomic lstat/realpath data or their syscall failures; seven own scalar error descriptors avoid getter evaluation and mark reflection refusal.
-   * @evidence contracts/common.md#clear-and-simple-design One operation combines destructive cleanup with registration release through the existing release/recover protocol. Private helpers separately capture scope data, project scalar error descriptors and observe each path, keeping the passive sink outside cleanup policy.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing scoped root fails its real observation without guessing identity or weakening forget; ordinary unscoped calls acquire no protocol state. Original task/cleanup errors remain separate aggregate members. Diagnostic fields neither certify retirement nor retry deletion; missing metadata or reflection cannot become success, and sink failure preserves the original refusal.
-   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain capture timing, replacement, unknown deferral, thrown undefined, successful recovery and passive trace limits. Helper prose states original provenance, disabled accessor evaluation, bounded path selection and Windows handle-evidence limits without claiming atomic namespace or retained directory handles.
-   * @evidence contracts/portability.md#os-neutral-implementation Native realpath observes aliases before destruction and the captured key avoids resolving a removed path; later namespace replacement remains outside the ownership premise. Failure observations retain native lstat/realpath spelling and exact bigint metadata as decimal strings without assuming timestamp resolution, filesystem case, locks or Windows sharing modes; scalar projection itself performs no native operation.
-   * @evidence contracts/performance.md#efficient-algorithms Scoped capture performs one native lookup and map observation before the boundary safety scan; cleanup costs remain delegated. Existing tracing projects five error properties and visits B boundaries. A supplied failure sink visits resources, boundaries and retained path text, projects seven descriptors and probes at most four paths with one lstat/realpath pair each, without descendant enumeration or process launches. Proxy reflection can execute arbitrary work without a deadline; path, metadata, trace encoding/IO and sink costs remain uncapped.
-   * @evidence contracts/performance.md#reuse-equivalent-work The captured object proves only this release's original registration, never compiler-result equivalence; a reentrant replacement remains owned. Each failure receives fresh sequential path observations and its own scalar projection, which never becomes reusable filesystem or retirement proof.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Failed cleanup retains its registration; unknown boundaries retain the callback through FIFO recovery, whose failed callback stays queued. Immediate refusal follows release's reporting contract without automatic retry, and successful cleanup drops only its original entry. Temporary error/path records and synchronous reads retain no handles or global history; captured data transfers to the optional task sink without an internal byte cap. Scope and bounded trace storage grant no diagnostic-based release authority.
+   * @evidence contracts/common.md#principled-implementation Physical identity and the exact resource object are captured before destruction; only successful cleanup removes that identical registration from the original scope, while failure and replacement retain ownership.
+   * @evidence contracts/common.md#clear-and-simple-design One operation combines destructive cleanup with registration release, using the existing release/recover protocol instead of making each caller order physical lookup around removal.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing scoped root fails its real observation without guessing an identity or weakening forget; ordinary unscoped calls acquire no protocol state, and original task/cleanup errors remain separate aggregate members when both fail.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain capture timing, replacement and failure retention, unknown deferral, thrown undefined, successful recovery and passive trace limits; they do not claim an atomic namespace or retained directory handle.
+   * @evidence contracts/portability.md#os-neutral-implementation Native realpath observes aliases before destruction and the captured map key avoids resolving a removed path; later namespace replacement remains outside the caller's ownership premise.
+   * @evidence contracts/performance.md#efficient-algorithms Scoped capture performs one native physical lookup and map observation before the existing boundary safety scan; cleanup costs are delegated and the final identity comparison/map removal does not enumerate resources. Enabled tracing alone allocates an observer, projects five error properties and visits the scope's B boundaries, with synchronous encoding and IO proportional to their recorded text.
+   * @evidence contracts/performance.md#reuse-equivalent-work The captured object proves only this release's original registration, never reusable compiler results; a reentrant replacement is retained rather than treated as equivalent ownership.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Failed cleanup retains its registration; unknown boundaries retain the original callback through FIFO recovery, whose failed callback remains queued. Immediate cleanup failure follows release's reporting contract without creating a new automatic retry, and successful cleanup drops only its original entry. An enabled observer shares that callback's lifetime; bounded trace storage has no resource-release authority.
    */
   export function releaseResource(
     fenceRoot: string,
@@ -535,8 +519,6 @@ export namespace SourceNativeRetirement {
         cleanup();
       } catch (error) {
         observe?.("source-resource-cleanup-threw", error);
-        if (scope?.observeCleanupFailure !== undefined)
-          observeCleanupFailure(scope, root ?? fenceRoot, error);
         throw failure(error);
       }
       observe?.("source-resource-cleanup-returned");
@@ -842,12 +824,6 @@ interface Boundary {
 
   /** Exclusively created update candidates whose removal has not succeeded. */
   candidates: Set<string>;
-
-  /** Passive original command receipt copied only for an enabled failure sink. */
-  nativeObservation?: Readonly<Record<string, string | number | boolean | null | undefined>>;
-
-  /** Admitted guard paths before certified settlement removes them. */
-  observedGuards?: string[];
 }
 
 /**
@@ -1154,113 +1130,3 @@ function diagnostic(boundary: Boundary): string {
 
 const GUARD_DIRECTORY = ".ttsc-native-retirements";
 let current: SourceNativeRetirement.Scope | undefined;
-
-/**
- * Capture passive failure evidence without changing the original refusal.
- *
- * The original worker scope supplies native receipts and resource identities; filesystem metadata is a later observation, not a handle-owner or retirement certificate. Read only the root, failed syscall path and their parents. Windows sharing flags and open handles require independent native evidence.
- *
- */
-function observeCleanupFailure(
-  scope: SourceNativeRetirement.Scope,
-  root: string,
-  error: unknown,
-): void {
-  try {
-    const failure = cleanupErrorScalars(error);
-    const locations = new Set([root, path.dirname(root)]);
-    if (typeof failure.path === "string") {
-      locations.add(failure.path);
-      locations.add(path.dirname(failure.path));
-    }
-    const observedAt = new Date().toISOString();
-    scope.observeCleanupFailure!({
-      taskToken: scope.taskToken,
-      pid: process.pid,
-      threadId,
-      observedAt,
-      resourceRoot: root,
-      failure,
-      resources: [...scope.resources].map(([key, resource]) => ({
-        key,
-        fenceRoot: resource.fenceRoot,
-        retainedPaths: [...resource.retainedPaths],
-        generation: resource.generation ?? null,
-      })),
-      boundaries: [...scope.boundaries].map(([token, boundary]) => ({
-        token,
-        retirement: boundary.state,
-        reason: boundary.reason ?? null,
-        nativeObservation: boundary.nativeObservation ?? null,
-        admittedGuards: boundary.observedGuards ?? [],
-        retainedGuards: [...boundary.files, ...boundary.candidates],
-        resources: boundary.resources.map((resource) => ({
-          fenceRoot: resource.fenceRoot,
-          retainedPaths: [...resource.retainedPaths],
-          generation: resource.generation ?? null,
-        })),
-      })),
-      filesystem: [...locations].map(cleanupPathObservation),
-      completedAt: new Date().toISOString(),
-    });
-  } catch {
-    // A diagnostic sink or observation can fail without replacing cleanup.
-  }
-}
-
-/**
- * Read only owned scalar descriptors; accessors are never evaluated.
- *
- */
-function cleanupErrorScalars(error: unknown): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  if (error === null || (typeof error !== "object" && typeof error !== "function"))
-    return { valueType: typeof error };
-  try {
-    for (const field of ["name", "message", "code", "errno", "syscall", "path", "dest"]) {
-      const descriptor = Object.getOwnPropertyDescriptor(error, field);
-      if (descriptor === undefined) continue;
-      if (!("value" in descriptor)) {
-        result[field] = { unavailable: "accessor" };
-        continue;
-      }
-      const value: unknown = descriptor.value;
-      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value === null)
-        result[field] = value;
-    }
-  } catch {
-    result.inspectionFailed = true;
-  }
-  return result;
-}
-
-/**
- * Observe native metadata after refusal without opening a retained handle.
- *
- */
-function cleanupPathObservation(location: string): Record<string, unknown> {
-  const observation: Record<string, unknown> = { path: location };
-  try {
-    const stats = fs.lstatSync(location, { bigint: true });
-    observation.metadata = {
-      dev: String(stats.dev),
-      ino: String(stats.ino),
-      mode: String(stats.mode),
-      size: String(stats.size),
-      birthtimeNs: String(stats.birthtimeNs),
-      mtimeNs: String(stats.mtimeNs),
-      ctimeNs: String(stats.ctimeNs),
-      directory: stats.isDirectory(),
-      symbolicLink: stats.isSymbolicLink(),
-      file: stats.isFile(),
-    };
-  } catch (error) {
-    observation.metadataFailure = cleanupErrorScalars(error);
-  }
-  try {
-    observation.realpath = fs.realpathSync.native(location);
-  } catch (error) {
-    observation.realpathFailure = cleanupErrorScalars(error);
-  }
-  return observation;
-}

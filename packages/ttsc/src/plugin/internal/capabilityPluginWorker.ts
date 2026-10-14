@@ -48,14 +48,10 @@ async function handle(request: Request): Promise<void> {
   let value: unknown;
   let thrown: unknown;
   let createdHandle: number | undefined;
-  const cleanupObservations: Readonly<Record<string, unknown>>[] = [];
   try {
     adoptEnvironment(request.env);
     const scope = SourceNativeRetirement.createScope(
       `${request.directory}:${request.id}`,
-      process.env.TTSC_E2E_TRACE
-        ? (observation) => cleanupObservations.push(observation)
-        : undefined,
     );
     value = SourceNativeRetirement.run(scope, () =>
       OwnedSynchronousProcess.run(
@@ -94,10 +90,10 @@ async function handle(request: Request): Promise<void> {
     ),
   ];
   if (failures.length > 0)
-    thrown = Object.assign(new AggregateError(
+    thrown = new AggregateError(
       [...(thrown === undefined ? [] : [thrown]), ...failures],
       "ttsc: resolver background cleanup failed",
-    ), cleanupObservations.length === 0 ? {} : { sourceCleanupObservations: cleanupObservations });
+    );
   if (
     Atomics.load(new Int32Array(request.cancel), 0) !== 0 &&
     thrown === undefined
@@ -168,12 +164,7 @@ function commandRelay(
       throw new Error("ttsc: native relay did not certify retirement", {
         cause: response.thrown,
       });
-    SourceNativeRetirement.settle(
-      boundary,
-      response.retirement,
-      undefined,
-      response.nativeObservation,
-    );
+    SourceNativeRetirement.settle(boundary, response.retirement);
     certified = true;
     fs.rmSync(responseFile, { force: true });
     if (response.thrown !== undefined) {
