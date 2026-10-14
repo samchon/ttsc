@@ -20,6 +20,9 @@ import (
 // Verifies: two authenticated publisher catalogs with one common action yield
 // three packs and one common body, despite workspace-specific command hashes.
 // A conflicting OutputID for the same ActionID stops the union.
+// 1. Write two publisher manifests and packs with one shared action.
+// 2. Merge twice and check pack membership, action mapping and identical output.
+// 3. Change the shared action body and require the merge to reject the conflict.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls the production merger on separately serialized manifests and ZIPs, then parses the produced catalog with its reported digest.
 // @evidence contracts/testing.md#independent-expectations Literal body bytes define SHA-256 output identities independently of merge output; the expected three pack memberships follow from the input overlap.

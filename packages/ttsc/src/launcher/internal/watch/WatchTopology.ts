@@ -2740,17 +2740,18 @@ function projectInputDeclarationKey(
  *
  * Modification time and size avoid a read on an ordinary broad scan. A strong
  * event compares the fingerprint, so a timestamp collision cannot hide an edit
- * and a metadata-only notification does not create a build. Device and inode
- * answer whether a POSIX per-file watcher still owns the path.
+ * and a metadata-only notification does not create a build. Exact device and
+ * inode values detect replacement even when Windows file IDs exceed the safe
+ * integer range; they also identify a POSIX per-file watcher's owner.
  */
 function compilerFileSnapshot(
   location: string,
   fingerprint: string,
 ): CompilerFileSnapshot {
   try {
-    const stats = fs.statSync(location);
+    const stats = fs.statSync(location, { bigint: true });
     return {
-      content: `${stats.mtimeMs}:${stats.size}`,
+      content: `${stats.mtimeNs}:${stats.size}`,
       fingerprint,
       owner: `${stats.dev}:${stats.ino}`,
     };

@@ -359,6 +359,9 @@ func TestPreparePacks(t *testing.T) {
 //
 // Verifies: a successful pack remains readable after a later corrupt transfer,
 // offline endpoint, or disallowed redirect at the same artifact root.
+// 1. Admit one authenticated pack into a temporary artifact root.
+// 2. Attempt a newer generation through each failing endpoint.
+// 3. Reopen the original generation and compare its stored body after each failure.
 //
 // @evidence contracts/testing.md#behavioral-verification Reopens the same owned root with its earlier authenticated catalog after each failed real HTTP preparation and reads the original body.
 // @evidence contracts/testing.md#independent-expectations Literal body SHA-256 and ZIP bytes define the first generation; a distinct transport digest defines the rejected generation.
