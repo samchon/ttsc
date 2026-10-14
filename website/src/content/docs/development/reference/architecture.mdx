@@ -151,8 +151,6 @@ The diagnostic fixture persists each original `StartTraceW` ID and GUID before e
 
 Decoder completion and stage counts distinguish yielded records, provider/revision admission and task-path/IRP selection, with missing metadata left unknown; a measured zero does not establish native collection completeness or reader absence.
 
-Immediately before recorder stop, after cold source retirement, a separate Node control actor creates, opens, holds, closes and unlinks one file outside the compiler's leased scratch. Running at the recording's tail keeps lengthy cold work from overwriting an early positive control. An observed control connects its exclusive physical path and independently sampled CIM birth to a successful Create/OperationEnd pair from those same sessions, even if older events may have wrapped. Missing rows fail only when measured zero loss, explicit false wrap/decoder-failure flags and qualified selector history permit that judgment; otherwise the control remains censored, or unavailable when selection did not return. Control evidence has its own immutable binding and is selected separately from source-task evidence; raw event totals cannot establish the connection. Original operation acknowledgments, selected rows and native receipts remain recorded. A successful control identifies neither a historical source-cleanup cause nor the absence of other readers.
-
 If `go build` fails, `ttsc` prints the Go stderr:
 
 ```text

@@ -280,45 +280,6 @@ export namespace WindowsFileIoEvidence {
       readerAbsence: "not-established",
     };
   }
-
-  /**
-   * Classify a separately owned positive file control. An exact path/Create/IRP-success connection under its observed original issuer is positive evidence even if older events may have wrapped. Missing evidence is decisive only when loss, wrap, decoding and selector completeness all permit it; otherwise the control is censored, or unavailable when no selection returned.
-   *
-   * The supplied filename is the control's authored leaf name inside its exclusive physical scratch. A different returned task or scratch is an invalid selection, not missing telemetry. No verdict establishes reader absence or a historical cleanup cause.
-   *
-   * @evidence contracts/common.md#principled-implementation Validates exact task scope, then connects the authored leaf's qualified Create and same FileObject generation/IRP successful completion under an independently anchored issuer. Positive observed rows suffice without complete history; absence requires measured zero loss, no possible wrap, completed decoding and qualified selector history.
-   * @evidence contracts/common.md#clear-and-simple-design One portable classification owns the distinction shared by the actual Windows E2E assertion and source tests.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown loss or censored history cannot become a failed absence assertion; an observed pair cannot establish any other reader's absence or repair an old EPERM.
-   * @evidence contracts/common.md#meaningful-documentation Prose gives the scope and filename premises, positive proof, missing-versus-censored gate and excluded historical claims.
-   * @evidence contracts/portability.md#os-neutral-implementation The recorder already supplied native aliases; this function reads Windows provider path text without invoking native work or guessing case policy.
-   * @evidence contracts/performance.md#efficient-algorithms Filtering S rows and joining C Creates visits up to P expected issuer anchors per owner check, taking O(S*P+C*S*P) time and O(C) additional references. The current control owns two Creates and one issuer; the existing selector owns general event correlation.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each control belongs to its own observed session and actor generation.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The function opens no handle or retained task; its caller owns the original control and returned evidence.
-   */
-  export function control(evidence: ReturnType<typeof select> | undefined,
-    expected: Pick<Task, "token" | "scratch" | "processes"> & { fileName: string }) {
-    if (evidence === undefined) return { status: "unavailable" as const, knownCreateCount: null, connectedSuccessfulCreate: null, closeObserved: null, deleteObserved: null };
-    if (evidence.taskToken !== expected.token || evidence.scratch !== expected.scratch)
-      throw new Error("Windows file control received a different task selection");
-    const original = (row: (typeof evidence.selected)[number]) => {
-      const owner = row.owner as { certainty?: string; pid?: number; original?: boolean } | null;
-      return owner?.certainty === "observed" && owner.original === true && expected.processes.some((process) => process.pid === owner.pid);
-    };
-    const creates = evidence.selected.filter((row) => row.event.id === 12 && row.event.fields.FileName?.endsWith("\\" + expected.fileName) && row.objectGeneration !== null && original(row));
-    const connected = creates.some((request) => {
-      const irp = pointer(request.event.fields.Irp);
-      return irp !== undefined && evidence.selected.some((end) => end.event.id === 24 &&
-        end.objectGeneration === request.objectGeneration && pointer(end.event.fields.Irp) === irp && original(end) &&
-        (end.completionDecoded as { ntSuccess?: boolean } | undefined)?.ntSuccess === true);
-    });
-    const complete = evidence.loss.eventsLost === 0 && evidence.loss.possibleWrap === false && evidence.loss.decodingFailed === false && evidence.completeness === "observed-events-only";
-    return {
-      status: connected ? "observed" as const : complete ? "missing" as const : "censored" as const,
-      knownCreateCount: creates.length, connectedSuccessfulCreate: connected,
-      closeObserved: evidence.selected.some((row) => row.event.id === 14 && original(row)),
-      deleteObserved: evidence.selected.some((row) => (row.event.id === 18 || row.event.id === 26) && original(row)),
-    };
-  }
 }
 
 /** Compare event times only when their actual UTC values parse. */

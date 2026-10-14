@@ -36,7 +36,7 @@ export namespace WindowsColdFileIo {
      * Bind the first actual cold-build admission before cancellation.
      *
      * @evidence contracts/common.md#principled-implementation Inputs come from original pre-admission guards and independently observed process births.
-     * @evidence contracts/common.md#clear-and-simple-design One immutable binding retains the original source-task coordinates separately from the optional control.
+     * @evidence contracts/common.md#clear-and-simple-design One binding retains the exact task/scratch/process coordinates for later selection.
      * @evidence contracts/common.md#prohibited-implementation-shortcuts A bound token or PID does not certify resource release.
      * @evidence contracts/common.md#meaningful-documentation Prose states actual admission and cancellation ordering.
      * @evidenceExclude contracts/portability.md#os-neutral-implementation The signature carries data without invoking native work.
@@ -47,34 +47,18 @@ export namespace WindowsColdFileIo {
     bind(task: Pick<WindowsFileIoEvidence.Task, "token" | "scratch" | "processes">): void;
 
     /**
-     * Bind a separate file control immediately before recorder stop. Its immutable coordinates cannot replace the original source-task admission.
-     *
-     * @evidence contracts/common.md#principled-implementation A separately observed control path and live process birth select an independent event population from the same recording.
-     * @evidence contracts/common.md#clear-and-simple-design One separate immutable slot allows a tail control without rebinding the earlier source task.
-     * @evidence contracts/common.md#prohibited-implementation-shortcuts Control binding changes no source path, native session or resource-release authority.
-     * @evidence contracts/common.md#meaningful-documentation Prose gives the tail timing and independent immutable scope.
-     * @evidenceExclude contracts/portability.md#os-neutral-implementation This signature carries observations without opening a native resource.
-     * @evidenceExclude contracts/performance.md#efficient-algorithms The capability signature runs no algorithm.
-     * @evidenceExclude contracts/performance.md#reuse-equivalent-work A control selects one recording rather than a reusable result.
-     * @evidence contracts/performance.md#bound-retention-and-release-resources The owner retains at most one control until its original stop settles.
-     */
-    bindControl(control: Pick<WindowsFileIoEvidence.Task, "token" | "scratch" | "processes">): void;
-
-    /**
      * Stop only the original sessions, filter evidence and release private raw storage after publishing its loss or failure manifest. Repeated calls share the same result, including diagnostic refusal.
-     *
-     * Return the independently selected control when supplied and decoded; undefined means no control was admitted or its observations are unavailable, never a measured zero. Source-task evidence remains in the original manifest.
      *
      * @evidence contracts/common.md#principled-implementation Actual fixture stop acknowledgment precedes decoding; errors remain diagnostic failures and unknown recording never authorizes product cleanup.
      * @evidence contracts/common.md#clear-and-simple-design One retained promise owns shutdown, filtering and final metadata publication.
      * @evidence contracts/common.md#prohibited-implementation-shortcuts No broad logger shutdown, deleted product inputs or inferred reader absence is permitted.
-     * @evidence contracts/common.md#meaningful-documentation Prose states owned-session shutdown, raw-storage release, idempotent refusal and the returned control's unavailable-versus-empty distinction.
+     * @evidence contracts/common.md#meaningful-documentation Prose states owned-session shutdown, raw-storage release and idempotent refusal.
      * @evidence contracts/portability.md#os-neutral-implementation The fixture compares QUERY's actual output file, ID and GUID with the persisted original StartTraceW receipt, then stops that same supported ID without a name fallback. Invalidated or mismatched identities remain unknown; no undocumented ID-reuse guarantee is claimed.
      * @evidenceExclude contracts/performance.md#efficient-algorithms The signature runs no algorithm; its owner documents bounded trace and delegated filtering work.
      * @evidence contracts/performance.md#reuse-equivalent-work Repeated stop shares exactly this original retirement promise.
      * @evidence contracts/performance.md#bound-retention-and-release-resources Logger closure and published sanitized metadata precede private raw reclamation; failed native stop retains storage and manifests for the workflow's exact-session cleanup.
      */
-    stop(): Promise<ReturnType<typeof WindowsFileIoEvidence.select> | undefined>;
+    stop(): Promise<void>;
   }
 
   /**
@@ -85,11 +69,11 @@ export namespace WindowsColdFileIo {
    * Decoder stage counts retain each session's yielded, matching-provider, accepted-revision and successfully projected rows with completion and original refusal. Completed zero differs from an incomplete prefix; unavailable legacy or unreadable metadata stays null. The filtered manifest and shutdown journal preserve these counts before joined raw storage is removed.
    *
    * @evidence contracts/common.md#principled-implementation An exclusive immutable admission plan precedes native work; complete append-only state records cannot replace it. Actual named schemas and Process-before-File admission qualify observation. Native Int64 event IDs are checked against the documented 16-bit domain and normalized to Int32 task keys; malformed identifiers and mismatched task names remain refusals. The fixture's shared decoder gate counts each yielded record before provider/revision qualification and counts projected rows after private writes; completion and partial-prefix refusals remain separate from unknown native loss. Original start refusal and secondary publication errors remain separate original objects, while the returned owner retains shutdown capability.
-   * @evidence contracts/common.md#clear-and-simple-design One owner retains startup outcome, original task, optional independent control and idempotent stop; native recorder details stay in the fixture and pointer semantics stay in the selector.
+   * @evidence contracts/common.md#clear-and-simple-design One owner retains startup outcome, original task and idempotent stop; native recorder details stay in the fixture and pointer semantics stay in the selector.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit options and an owned runner replace no global process/environment method; logger failures never certify product shutdown or skip original assertions.
    * @evidence contracts/common.md#meaningful-documentation Native prose states start timing, raw budgets, unknown loss, decoder stage units/completion and unavailable metadata, plus default-account execution; the returned result separately carries owner and startup failure.
    * @evidence contracts/portability.md#os-neutral-implementation Native paths locate the fixture and private runner storage, and argv arrays invoke PowerShell directly. The fixture validates actual provider fields and native DOS-device mappings rather than inferring platform capabilities.
-   * @evidence contracts/performance.md#efficient-algorithms Startup delegates schema and process snapshot work. Shutdown streams decoded JSONL once per supplied task/control into the selector, whose selected output and process/thread histories determine retained memory; fixed stage counters add no traversal or per-event retention. Raw ETL budgets total 64 MiB, while decoded private text and selected evidence have no independent byte quota.
+   * @evidence contracts/performance.md#efficient-algorithms Startup delegates schema and process snapshot work. Shutdown streams decoded JSONL into the selector, whose selected output and process/thread histories determine retained memory; fixed stage counters add no traversal or per-event retention. Raw ETL budgets total 64 MiB, while decoded private text and selected evidence have no independent byte quota.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A unique recorder belongs to one original cold lifetime; no session or previous event population is reused.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The owner retains two named loggers, an immutable plan, append-only state and private storage until stop settles. Unconfirmed stop or failed evidence/state publication retains raw storage; native closure and completed loss/receipt publication precede raw deletion. Original errors survive later publication/removal failures. State history grows with lifecycle writes without a byte quota, and fixture children close before each operation returns.
    */
@@ -127,16 +111,11 @@ export namespace WindowsColdFileIo {
     catch (error) { startupFailures.push(error); record.startFailure = describe(error); }
     try { journal(manifest, record); } catch (error) { startupFailures.push(error); }
     let task: Pick<WindowsFileIoEvidence.Task, "token" | "scratch" | "processes"> | undefined;
-    let control: Pick<WindowsFileIoEvidence.Task, "token" | "scratch" | "processes"> | undefined;
-    let stopping: Promise<ReturnType<typeof WindowsFileIoEvidence.select> | undefined> | undefined;
+    let stopping: Promise<void> | undefined;
     const owner: Owner = {
       bind: (next) => {
         if (task !== undefined || stopping !== undefined) throw new Error("Original recorder task binding is immutable");
         task = { ...next, processes: next.processes.map((entry) => ({ ...entry })) };
-      },
-      bindControl: (next) => {
-        if (control !== undefined || stopping !== undefined) throw new Error("Original recorder control binding is immutable");
-        control = { ...next, processes: next.processes.map((entry) => ({ ...entry })) };
       },
       stop: () => stopping ??= (async () => {
         const failures: unknown[] = [];
@@ -148,7 +127,6 @@ export namespace WindowsColdFileIo {
           if (!joined) failures.push(new Error("Original recorder stop was not confirmed"));
         } catch (error) { failures.push(error); }
         let evidence: ReturnType<typeof WindowsFileIoEvidence.select> | undefined;
-        let controlEvidence: ReturnType<typeof WindowsFileIoEvidence.select> | undefined;
         let decodeStages: unknown = null;
         let loss: WindowsFileIoEvidence.Task["loss"] = { eventsLost: null, possibleWrap: true, decodingFailed: true };
         if (joined && startupFailures.length === 0) {
@@ -169,8 +147,6 @@ export namespace WindowsColdFileIo {
               const started = read(path.join(directory, "started.json")) as { devices: WindowsFileIoEvidence.Task["devices"] };
               const before = read(path.join(directory, "before.json")) as WindowsFileIoEvidence.Task["before"];
               evidence = WindowsFileIoEvidence.select(rows(path.join(directory, "events.jsonl")), { ...task, devices: started.devices, before, loss });
-              if (control !== undefined)
-                controlEvidence = WindowsFileIoEvidence.select(rows(path.join(directory, "events.jsonl")), { ...control, devices: started.devices, before, loss });
             }
           } catch (error) { loss.decodingFailed = true; failures.push(error); }
         }
@@ -183,8 +159,7 @@ export namespace WindowsColdFileIo {
         try { admission = read(path.join(directory, "admission.json")); } catch { /* Failed fixture admission can lack native admission metadata. */ }
         try {
           fs.writeFileSync(output, JSON.stringify({ at: new Date().toISOString(), nonce, joinedRecorder: joined, originalTask: task ?? null,
-            capability, schemas, admission, retirement: receipts ?? null, decodeStages, loss, evidence: evidence ?? null,
-            controlTask: control ?? null, controlEvidence: controlEvidence ?? null, failures: [...startupFailures, ...failures].map(describe),
+            capability, schemas, admission, retirement: receipts ?? null, decodeStages, loss, evidence: evidence ?? null, failures: [...startupFailures, ...failures].map(describe),
           }) + "\n", { flag: "wx" });
           record.filterEmitted = true;
         } catch (error) { failures.push(error); }
@@ -192,7 +167,6 @@ export namespace WindowsColdFileIo {
         record.loss = loss;
         record.decodeStages = decodeStages;
         record.selectionCounts = evidence?.counts ?? null;
-        record.controlSelectionCounts = controlEvidence?.counts ?? null;
         record.retirement = receipts ?? null;
         record.failures = [...startupFailures, ...failures].map(describe);
         let recorded = false;
@@ -206,7 +180,6 @@ export namespace WindowsColdFileIo {
           try { journal(manifest, record); } catch (error) { failures.push(error); }
         }
         if (failures.length) throw new AggregateError(failures, "Windows file diagnostics failed");
-        return controlEvidence;
       })(),
     };
     return { owner, ...(startupFailures.length === 0 ? {} : { failure: startupFailures.length === 1 ? startupFailures[0] : new AggregateError(startupFailures, "Windows recorder startup failed") }) };
