@@ -6,6 +6,7 @@ param(
   [Parameter(Mandatory=$true)][string]$Manifest
 )
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'windows-etw-schema.ps1')
 $owner = Get-Content -LiteralPath $Manifest -Raw | ConvertFrom-Json
 if ($owner.version -ne 1 -or $owner.nonce -notmatch '^[0-9a-f-]{36}$') { throw 'Invalid recorder ownership' }
 $private = [IO.Path]::GetFullPath($owner.private)
@@ -52,6 +53,7 @@ function Read-Schema {
     $ids = if ($session.provider -eq 'Microsoft-Windows-Kernel-Process') { @(1,2,3,4) } else { @(10,11,12,13,14,17,18,24,26) }
     $tasks = if ($session.provider -eq 'Microsoft-Windows-Kernel-Process') { @{1='ProcessStart';2='ProcessStop';3='ThreadStart';4='ThreadStop'} } else { @{10='NameCreate';11='NameDelete';12='Create';13='Cleanup';14='Close';17='SetInformation';18='SetDelete';24='OperationEnd';26='DeletePath'} }
     foreach ($id in @($provider.Events.Id | Select-Object -Unique)) {
+      $id = Get-CanonicalEtwEventId $id
       $templates = @($provider.Events | Where-Object { $_.Id -eq $id })
       if ($templates.Count -eq 0) { throw ('Installed provider lacks event ' + $id) }
       foreach ($event in $templates) {
@@ -69,7 +71,7 @@ function Read-Schema {
           if ($id -in @(12,13,14,17,18,26) -and -not ($names -contains 'ThreadId' -or $names -contains 'IssuingThreadId')) { throw 'Installed file event has no issuing thread field' }
         }
         if ($id -in $ids) {
-          if ($event.Task.Name -ne $tasks[$id]) { throw ('Installed task semantics differ for event ' + $id) }
+          [void](Get-QualifiedEtwEventId $event.Id $tasks $event.Task.Name)
           foreach ($name in $required) { if (-not ($names -contains $name)) { throw ('Unsupported named event field ' + $name) } }
         }
         $schemas += @{ provider=$session.provider; id=$id; version=[int]$event.Version; task=$event.Task.Name; fields=$names; selectedKeywords=$session.keywords; keywords=@($provider.Keywords | Where-Object { $_.Name -in $requiredKeywords } | ForEach-Object { @{ name=$_.Name; value=[string]$_.Value } }) }

@@ -2,6 +2,25 @@
 # connection remains owned by the optional cold Graph E2E observation.
 $ErrorActionPreference = 'Stop'
 if ($null -eq ('TtscEtwSession' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'windows-etw-session.cs') }
+. (Join-Path $PSScriptRoot 'windows-etw-schema.ps1')
+# Authored task metadata calls the same qualifier used by Read-Schema, with
+# both the API's Int64 IDs and PowerShell's literal Int32 IDs.
+$tasks = @{1='ProcessStart'; 65535='BoundaryTask'}
+foreach ($eventId in @([int32]1, [int64]1)) {
+  $qualified = Get-QualifiedEtwEventId $eventId $tasks 'ProcessStart'
+  if ($qualified -isnot [int32] -or $qualified -ne 1) { throw 'Equivalent API/literal event IDs did not qualify the original task' }
+}
+if ((Get-CanonicalEtwEventId ([int64]0)) -ne 0 -or (Get-QualifiedEtwEventId ([int64]65535) $tasks 'BoundaryTask') -ne 65535) { throw 'Documented event-ID domain boundaries were rejected' }
+foreach ($invalid in @($false, $null, '1', [double]1, [int64]-1, [int64]65536, [int64]::MaxValue)) {
+  $refused = $false
+  try { [void](Get-QualifiedEtwEventId $invalid $tasks 'ProcessStart') } catch { $refused = $true }
+  if (-not $refused) { throw 'Malformed or overflowing event ID was admitted' }
+}
+foreach ($negative in @(@{ id=[int64]2; task='ProcessStart' }, @{ id=[int64]1; task='ThreadStart' })) {
+  $refused = $false
+  try { [void](Get-QualifiedEtwEventId $negative.id $tasks $negative.task) } catch { $refused = $true }
+  if (-not $refused) { throw 'Unsupported or mismatched original event task was admitted' }
+}
 $original = [TtscEtwSession+Receipt]::new()
 $original.api = 'StartTraceW'; $original.code = 0
 $original.id = '9007199254740993'; $original.guid = '638156b3-af24-4c69-9831-a8d28779c388'
