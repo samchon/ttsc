@@ -80,12 +80,14 @@ export namespace WindowsFileIoEvidence {
    *
    * Names admit a FileObject lifetime; subsequent operations and their IRPs belong only to that lifetime until a later Create reuses the address. OperationEnd follows the exact preceding IRP, while missing or reused IRPs remain unknown. Successful Close completion is observed data, never an assertion that other handles or readers are absent. Equal boundary timestamps and clock reversal leave attribution unqualified; chronological delivery cannot break ties between events from separate CPUs.
    *
+   * Counts partition received rows into Process and File inputs; File rows partition into selected requests, selected OperationEnds, requests without a scratch path or observed FileObject lifetime, and orphan OperationEnds without a retained request. Selected rows can still have unknown issuer identity; these counts measure neither native writes nor reader absence.
+   *
    * @evidence contracts/common.md#principled-implementation Actual named provider fields and device mappings admit task paths. Non-null unsigned 64-bit pointers retain exact hexadecimal identity, unsigned 32-bit statuses preserve raw radix and validated UTC fractions retain nanosecond comparison precision. Strict process/thread intervals qualify issuer births independently of header PIDs; tied boundaries, pointer reuse, malformed time and reversed delivery produce unknown rows instead of ordering guesses.
    * @evidence contracts/common.md#clear-and-simple-design One event fold owns FileObject/IRP lifetime maps and process/thread intervals; output contains task rows, their connected owner evidence and completeness limits.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unrelated Creates invalidate reused addresses without exporting their paths. No absent event, decoded Close alone, PID, diagnostic receipt or pointer value certifies an active or absent reader.
-   * @evidence contracts/common.md#meaningful-documentation Prose explains Create admission, IRP correlation, missing/reused intervals and the limits of successful Close evidence.
+   * @evidence contracts/common.md#meaningful-documentation Prose explains Create admission, IRP correlation, missing/reused intervals, count partitions and the limits of selected rows and successful Close evidence.
    * @evidence contracts/portability.md#os-neutral-implementation Supplied native device mappings select equivalent event spellings; native path text is kept and case is never folded under an unmeasured policy. Named schema fields distinguish issuing threads from header PIDs.
-   * @evidence contracts/performance.md#efficient-algorithms One pass over E rows retains last lifecycle times for observed pointers/PIDs/TIDs, process/thread intervals and selected operations; path admission visits aliases and path text. Interval lookup visits a queried thread/process history. Transient maps can grow with E because unrelated pointer reuse must invalidate task attribution; returned rows contain selected events and their supporting owners.
+   * @evidence contracts/performance.md#efficient-algorithms One pass over E rows updates six fixed counters and retains last lifecycle times for observed pointers/PIDs/TIDs, process/thread intervals and selected operations; path admission visits aliases and path text. Interval lookup visits a queried thread/process history. Transient maps can grow with E because unrelated pointer reuse must invalidate task attribution; returned rows contain selected events and their supporting owners.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each event population is processed under its own task, device mapping and completeness premises.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Maps and selected rows belong to one call; returned evidence transfers to the caller. No native handle or global state is retained, and selected-event/history populations have no internal count cap.
    */
@@ -100,6 +102,9 @@ export namespace WindowsFileIoEvidence {
     const processes = new Map<number, { birth: string; started: string; ended?: string; rows: Event[] }[]>();
     const threads = new Map<number, { pid: number; birth?: string; started: string; ended?: string; rows: Event[] }[]>();
     const selected: { event: Event; objectGeneration: string | null; objectPointer?: string; issuingThread: number | null; issuingAt?: string; owner: unknown; completion?: string; completionDecoded?: unknown; uncertainty?: string }[] = [];
+    // File rows partition into selected requests, matched completions,
+    // unconnected requests and orphan completions; counts grant no authority.
+    const counts = { processRows: 0, fileRows: 0, selectedRequests: 0, selectedOperationEnds: 0, unconnectedRequests: 0, orphanOperationEnds: 0 };
     const uncertainties = new Set<string>();
     const lastTimes = new Map<Event["provider"], bigint>();
     const ambiguousObjects = new Set<string>(), ambiguousRequests = new Set<string>();
@@ -119,6 +124,7 @@ export namespace WindowsFileIoEvidence {
       }
       if (eventTime !== undefined) lastTimes.set(event.provider, eventTime);
       if (event.provider === "process") {
+        counts.processRows++;
         const pid = Number(fields.ProcessID);
         const id = event.id === 1 || event.id === 2 ? pid : Number(fields.ThreadID);
         const times = event.id === 1 || event.id === 2 ? processTimes : threadTimes;
@@ -157,6 +163,7 @@ export namespace WindowsFileIoEvidence {
         }
         continue;
       }
+      counts.fileRows++;
       const object = pointer(fields.FileObject);
       const irp = pointer(fields.Irp);
       if (eventTime !== undefined) {
@@ -182,7 +189,7 @@ export namespace WindowsFileIoEvidence {
       }
       if (event.id === 24) {
         const request = irp === undefined ? undefined : requests.get(irp);
-        if (request === undefined) continue;
+        if (request === undefined) { counts.orphanOperationEnds++; continue; }
         const requestTime = instant(request.event.at);
         if (eventTime !== undefined && request.object !== undefined && request.object !== object) {
           if (objectTimes.get(request.object) === eventTime) {
@@ -198,6 +205,7 @@ export namespace WindowsFileIoEvidence {
         requests.delete(irp!);
         const tid = Number(request.event.fields.IssuingThreadId ?? request.event.fields.ThreadId);
         selected.push({ event, objectGeneration: request.generation, objectPointer: request.object, issuingThread: Number.isSafeInteger(tid) ? tid : null, issuingAt: request.event.at, owner: null, completion: fields.Status ?? "unknown", completionDecoded: decodeStatus(fields.Status) });
+        counts.selectedOperationEnds++;
         if (request.close && fields.Status !== undefined && nativeSuccess(fields.Status)) {
           if (request.object && objects.get(request.object)?.generation === request.generation) objects.delete(request.object);
         }
@@ -206,6 +214,7 @@ export namespace WindowsFileIoEvidence {
       const lifetime = object === undefined ? undefined : objects.get(object);
       const named = paths(fields.FileName) || paths(fields.FilePath);
       if (lifetime === undefined && !named) {
+        counts.unconnectedRequests++;
         if (irp && requests.delete(irp)) { ambiguousRequests.add(irp); uncertainties.add("IRP reused outside the selected task before completion"); }
         continue;
       }
@@ -214,6 +223,7 @@ export namespace WindowsFileIoEvidence {
       selected.push({ event, objectGeneration: generation, objectPointer: object, issuingThread: Number.isSafeInteger(tid) ? tid : null, owner: null,
         ...(generation === null ? { uncertainty: "Create lifetime not observed" } : {}),
       });
+      counts.selectedRequests++;
       if (generation === null) uncertainties.add("Selected path has no observed Create lifetime");
       if (irp) {
         if (requests.has(irp)) { ambiguousRequests.add(irp); uncertainties.add("IRP reused before observed completion"); }
@@ -265,7 +275,7 @@ export namespace WindowsFileIoEvidence {
     else if (task.loss.eventsLost > 0) uncertainties.add("Trace reports lost events");
     if (task.loss.possibleWrap) uncertainties.add("Circular trace may have overwritten earlier events");
     if (task.loss.decodingFailed) uncertainties.add("Trace decoding was incomplete");
-    return { taskToken: task.token, scratch: task.scratch, originalProcesses: task.processes, selected, supportingProcessEvents: [...support],
+    return { taskToken: task.token, scratch: task.scratch, originalProcesses: task.processes, counts, selected, supportingProcessEvents: [...support],
       loss: task.loss, uncertainty: [...uncertainties], completeness: uncertainties.size ? "unknown" : "observed-events-only",
       readerAbsence: "not-established",
     };

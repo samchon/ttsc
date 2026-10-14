@@ -147,6 +147,8 @@ Windows E2E CI enables `TTSC_E2E_GRAPH_FILEIO=1` around the existing cold public
 
 The diagnostic fixture persists each original `StartTraceW` ID and GUID before enabling its provider. Its native property buffer reserves session-name storage before UTF-16 file-name storage, as required by `EVENT_TRACE_PROPERTIES`. `EnableTraceEx2` uses its asynchronous timeout of zero so diagnostics do not wait indefinitely for callbacks; a successful request does not certify callback completion, trace readiness or loss-free observation. `ControlTraceW` queries that original ID and compares the API's exact output filename, ID and GUID before stopping the same ID; CLI text and recycled names supply no authority. Missing, interrupted or mismatched admission receipts remain unknown. Microsoft defines the ID as valid until the session stops, without documenting a retained kernel reference, numeric reuse prevention or an atomic GUID compare-and-stop guarantee.
 
+Decoder completion and stage counts distinguish yielded records, provider/revision admission and task-path/IRP selection, with missing metadata left unknown; a measured zero does not establish native collection completeness or reader absence.
+
 If `go build` fails, `ttsc` prints the Go stderr:
 
 ```text

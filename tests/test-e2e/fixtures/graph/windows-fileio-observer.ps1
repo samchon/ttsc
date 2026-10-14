@@ -196,30 +196,34 @@ if ($Mode -eq 'start') {
   $schemas = Get-Content -LiteralPath (Join-Path $private 'schema.json') -Raw | ConvertFrom-Json
   $writer = [IO.StreamWriter]::new((Join-Path $private 'events.jsonl'), $false, [Text.UTF8Encoding]::new($false))
   $failures = @()
+  $stages = @()
   try {
     foreach ($session in $sessions) {
+      $counts = New-EtwDecodeCounts $session.provider
+      $stages += $counts
       try {
         Get-WinEvent -Path $session.file -Oldest | ForEach-Object {
           $event = $_
-          if ($event.ProviderName -ne $session.provider) { return }
-          $schema = @($schemas | Where-Object { $_.provider -eq $event.ProviderName -and $_.id -eq $event.Id -and $_.version -eq $event.Version })
-          if ($schema.Count -ne 1) { throw 'Decoded event revision has no validated template' }
+          $schema = Get-DecodedEtwSchema $event.ProviderName $event.Id $event.Version $session.provider $schemas $counts
+          if ($null -eq $schema) { return }
           $xml = [xml]$event.ToXml()
           $fields = @{}
           foreach ($data in $xml.Event.EventData.Data) {
             $name = [string]$data.Name
             if ($name -notin @('FileObject','FileKey','FileName','FilePath','Irp','ShareAccess','CreateOptions','CreateAttributes','InfoClass','ExtraInformation','Status','ThreadId','IssuingThreadId','ProcessID','CreateTime','ParentProcessID','ThreadID','ProcessSequenceNumber','ParentProcessSequenceNumber')) { continue }
-            if (-not ($schema[0].fields -contains $name)) { throw 'Named event data disagrees with its template' }
+            if (-not ($schema.fields -contains $name)) { throw 'Named event data disagrees with its template' }
             $value = [string]$data.'#text'
             if ($name -eq 'CreateTime') { $value = ([DateTime]$value).ToUniversalTime().ToString('o') }
             $fields[$name] = $value
           }
           $row = @{ provider=$(if ($event.ProviderName -eq 'Microsoft-Windows-Kernel-File') { 'file' } else { 'process' }); id=[int]$event.Id; version=[int]$event.Version; at=$event.TimeCreated.ToUniversalTime().ToString('o'); headerPid=[int]$event.ProcessId; fields=$fields }
           $writer.WriteLine((ConvertTo-Json -InputObject $row -Depth 6 -Compress))
+          $counts.projected++
         }
-      } catch { $failures += $_.Exception.Message }
+        $counts.completed = $true
+      } catch { $counts.failure = $_.Exception.Message; $failures += $_.Exception.Message }
     }
   } finally { $writer.Dispose() }
   # Get-WinEvent does not supply a qualified total lost-event count here.
-  Write-PrivateJson 'decoded.json' @{ at=[DateTime]::UtcNow.ToString('o'); eventsLost=$null; possibleWrap=$true; decodingFailed=($failures.Count -ne 0); failures=$failures }
+  Write-PrivateJson 'decoded.json' @{ at=[DateTime]::UtcNow.ToString('o'); eventsLost=$null; possibleWrap=$true; decodingFailed=($failures.Count -ne 0); failures=$failures; stages=$stages }
 }

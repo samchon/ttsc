@@ -14,9 +14,9 @@ import { WindowsFileIoEvidence } from "../../../utils/src/WindowsFileIoEvidence"
  * 3. Retain missing starts/completions, malformed status and loss/wrap as unknown;
  *    no row may establish reader absence from missing native events.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual portable selector connects named Create/DeletePath/OperationEnd rows, device mapping and process/thread intervals while omitting unrelated paths; assertions pin exact 64-bit pointer identity, original birth attribution and explicit unknown outcomes.
+ * @evidence contracts/testing.md#behavioral-verification The actual portable selector connects named Create/DeletePath/OperationEnd rows, device mapping and process/thread intervals while omitting unrelated paths; assertions pin exact 64-bit pointer identity, original birth attribution, input/selection/drop count partitions and explicit unknown outcomes.
  * @evidence contracts/testing.md#independent-expectations Authored provider rows, literal pointer values around 2^53, separate fractional UTC births and original scratch/drive mapping define the independent event relationships. No event supplies permission to infer missing-reader absence.
- * @evidence contracts/testing.md#distinguishing-cases Matching/unmatched births, exact pointers, null values, reused addresses/PIDs/TIDs, missing events and malformed/empty statuses differ. Both delivery orders of distinct issuers at Create/Cleanup/Close/SetDelete/Close-completion and old-IRP-end/new-request ties invalidate earlier rows too; regression remains unknown. Actual schema/recorder transport belongs to the cold Graph E2E scene.
+ * @evidence contracts/testing.md#distinguishing-cases Empty input differs from received-but-unconnected paths, relative enumeration names, orphan completions and selected rows with unknown issuers. Matching/unmatched births, exact pointers, null values, reused addresses/PIDs/TIDs, missing events and malformed/empty statuses differ. Both delivery orders of distinct issuers at Create/Cleanup/Close/SetDelete/Close-completion and old-IRP-end/new-request ties invalidate earlier rows too; regression remains unknown. Actual schema/recorder transport belongs to the cold Graph E2E scene.
  * @evidence contracts/testing.md#execution-ownership This source unit calls tests/utils portable correlation with authored data; it starts no native recorder, worker, compiler, process observer or installed consumer.
  */
 export function test_windows_fileio_evidence_preserves_task_and_pointer_generations(): void {
@@ -40,6 +40,7 @@ export function test_windows_fileio_evidence_preserves_task_and_pointer_generati
     event("file", 24, "02.1", { Irp: "8", Status: "0xc0000043" }),
   ];
   const selected = WindowsFileIoEvidence.select(rows, task);
+  assert.deepEqual(selected.counts, { processRows: 2, fileRows: 5, selectedRequests: 2, selectedOperationEnds: 2, unconnectedRequests: 1, orphanOperationEnds: 0 });
   assert.equal(selected.selected.length, 4);
   assert.equal(selected.selected[0]!.event.fields.ShareAccess, "0x3");
   assert.deepEqual(selected.selected[0]!.owner, { certainty: "observed", pid: 100, birth: originalBirth, nativeThreadId: 900, threadStarted: at("00.2"), original: true });
@@ -49,6 +50,24 @@ export function test_windows_fileio_evidence_preserves_task_and_pointer_generati
   assert.equal(selected.readerAbsence, "not-established");
   assert.equal(JSON.stringify(selected).includes("private.txt"), false);
   assert.equal(selected.supportingProcessEvents.length, 2);
+  const empty = WindowsFileIoEvidence.select([], task);
+  assert.deepEqual(empty.counts, { processRows: 0, fileRows: 0, selectedRequests: 0, selectedOperationEnds: 0, unconnectedRequests: 0, orphanOperationEnds: 0 });
+  const disconnected = WindowsFileIoEvidence.select([
+    ...process,
+    event("file", 12, "01", { FileObject: "0x1", Irp: "0x2", FileName: "Q:\\unrelated\\private.txt" }),
+    event("file", 24, "01.1", { Irp: "0x2", Status: "0xc0000022" }),
+    event("file", 20, "02", { FileObject: "0x3", Irp: "0x4", FileName: "*.go" }),
+  ], task);
+  assert.deepEqual(disconnected.counts, { processRows: 2, fileRows: 3, selectedRequests: 0, selectedOperationEnds: 0, unconnectedRequests: 2, orphanOperationEnds: 1 });
+  assert.deepEqual(disconnected.selected, [], "yielded file rows can all fail task-path or lifetime connection");
+  assert.equal(JSON.stringify(disconnected).includes("private.txt"), false);
+  const noIdentity = WindowsFileIoEvidence.select([
+    event("file", 26, "01", { Irp: "0x5", FilePath: task.scratch }),
+    event("file", 24, "01.1", { Irp: "0x5", Status: "0xc0000022" }),
+  ], task);
+  assert.deepEqual(noIdentity.counts, { processRows: 0, fileRows: 2, selectedRequests: 1, selectedOperationEnds: 1, unconnectedRequests: 0, orphanOperationEnds: 0 });
+  assert.ok(noIdentity.selected.every((row) => (row.owner as { certainty: string }).certainty === "unknown"), "selection counts do not qualify a missing issuer");
+  assert.equal(noIdentity.readerAbsence, "not-established");
   const completedAfterExit = WindowsFileIoEvidence.select([
     ...process, create,
     event("process", 4, "01.05", { ProcessID: "100", ThreadID: "900" }),

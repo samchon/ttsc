@@ -15,3 +15,21 @@ function Get-QualifiedEtwEventId([object]$Value, [Collections.IDictionary]$Tasks
   if (-not $Tasks.Contains($id) -or $TaskName -ne $Tasks[$id]) { throw ('Installed task semantics differ for event ' + $id) }
   return $id
 }
+
+# Counts describe yielded records, not events written by ETW or lost events.
+# One fixed record per admitted session survives an incomplete enumeration.
+function New-EtwDecodeCounts([string]$Provider) {
+  return @{ provider=$Provider; enumerated=[long]0; matchingProvider=[long]0; acceptedRevision=[long]0; projected=[long]0; completed=$false; failure=$null }
+}
+
+# This is the decoder's actual provider/revision gate. Later XML projection
+# increments projected only after its original private write succeeds.
+function Get-DecodedEtwSchema([string]$Provider, [object]$Id, [object]$Version, [string]$ExpectedProvider, [object[]]$Schemas, [hashtable]$Counts) {
+  $Counts.enumerated++
+  if ($Provider -ne $ExpectedProvider) { return $null }
+  $Counts.matchingProvider++
+  $schema = @($Schemas | Where-Object { $_.provider -eq $Provider -and $_.id -eq $Id -and $_.version -eq $Version })
+  if ($schema.Count -ne 1) { throw 'Decoded event revision has no validated template' }
+  $Counts.acceptedRevision++
+  return $schema[0]
+}

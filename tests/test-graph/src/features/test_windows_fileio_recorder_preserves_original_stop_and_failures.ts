@@ -19,9 +19,9 @@ import { TestProject } from "../../../utils/src/TestProject";
  * 4. Retain raw storage under unconfirmed stop, then run owned workflow cleanup
  *    and require joined reclamation while the original source stays untouched.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual recorder state and selector execute through an owned runner. Interrupted state prefixes preserve the immutable plan, no-attempt admissions differ from partial stop acknowledgment, and real output-path collisions retain original refusal plus publication errors and the shutdown capability.
+ * @evidence contracts/testing.md#behavioral-verification Actual recorder state and selector execute through an owned runner. Decoder-stage prefixes survive refusal, legacy/malformed metadata is not measured zero, and original decode/parse failures remain separate. Interrupted state prefixes preserve the immutable plan, no-attempt admissions differ from partial stop acknowledgment, and real output-path collisions retain original refusal plus publication errors and the shutdown capability.
  * @evidence contracts/testing.md#independent-expectations Authored native-operation receipts and refusal objects define joined and failed recorder states. The contract requires one stop, no decoding before joined stop, and no original product-input deletion; literal mode order and returned failure identity pin these independently.
- * @evidence contracts/testing.md#distinguishing-cases Disabled admission, successful concurrent stop, immutable binding/plan, interrupted journal prefix, unprintable refusal, dual startup/publication failure, no native attempt, partial sibling acknowledgment, unknown stop and joined reclamation differ. Actual default-account schema/recorder transport belongs to the cold Graph E2E case.
+ * @evidence contracts/testing.md#distinguishing-cases Completed empty decoding, legacy missing counts, a refused partial prefix and malformed metadata differ. Disabled admission, successful concurrent stop, immutable binding/plan, interrupted journal prefix, unprintable refusal, dual startup/publication failure, no native attempt, partial sibling acknowledgment, unknown stop and joined reclamation differ. Actual default-account schema/recorder transport belongs to the cold Graph E2E case.
  * @evidence contracts/testing.md#execution-ownership This source unit supplies its own operation runner and filesystem metadata receipts to the shared state owner, with no native ETW session, child process, compiler or installed consumer; it changes no global method or environment.
  */
 export async function test_windows_fileio_recorder_preserves_original_stop_and_failures(): Promise<void> {
@@ -44,7 +44,7 @@ export async function test_windows_fileio_recorder_preserves_original_stop_and_f
       write("capability.json", { administrator: true });
     } else if (mode === "stop") write("stopped.json", { sessions: [{ state: "stopped", code: 0 }, { state: "stopped", code: 0 }] });
     else {
-      write("decoded.json", { eventsLost: null, possibleWrap: true, decodingFailed: false, failures: [] });
+      write("decoded.json", { eventsLost: null, possibleWrap: true, decodingFailed: false, failures: [], stages: [{ provider: "file", enumerated: 3, matchingProvider: 2, acceptedRevision: 2, projected: 2, completed: true, failure: null }] });
       fs.writeFileSync(path.join(owner.private, "events.jsonl"), [
         { provider: "file", id: 12, version: 1, at: "2026-10-14T00:00:01Z", headerPid: 4, fields: { FileObject: "0x1", Irp: "0x2", FileName: scratch + "\\source.go" } },
         { provider: "file", id: 12, version: 1, at: "2026-10-14T00:00:02Z", headerPid: 4, fields: { FileObject: "0x3", Irp: "0x4", FileName: "Q:\\unrelated\\private.txt" } },
@@ -67,9 +67,52 @@ export async function test_windows_fileio_recorder_preserves_original_stop_and_f
     assert.equal(evidence.joinedRecorder, true);
     assert.equal(evidence.evidence.taskToken, "original-task");
     assert.equal(evidence.evidence.selected.length, 1);
+    assert.deepEqual(evidence.decodeStages, [{ provider: "file", enumerated: 3, matchingProvider: 2, acceptedRevision: 2, projected: 2, completed: true, failure: null }]);
+    assert.deepEqual(evidence.evidence.counts, { processRows: 0, fileRows: 2, selectedRequests: 1, selectedOperationEnds: 0, unconnectedRequests: 1, orphanOperationEnds: 0 });
     assert.equal(evidence.evidence.readerAbsence, "not-established");
     assert.equal(JSON.stringify(evidence).includes("private.txt"), false);
     assert.equal(fs.readFileSync(input, "utf8"), "retained original source");
+
+    // The same owned runner supplies decoder outcomes without invoking ETW.
+    // Missing or broken metadata must differ from an actually completed zero.
+    for (const outcome of ["empty", "legacy", "partial", "broken"] as const) {
+      let outcomeManifest = "";
+      const decodeRefusal = new Error(`authored ${outcome} decoder refusal`);
+      const observation = await WindowsColdFileIo.open({ enabled: true, traceRoot, runnerTemp, fixture: "unused", run: async (mode, manifest) => {
+        outcomeManifest = manifest;
+        if (mode !== "decode") return run(mode, manifest);
+        const plan = JSON.parse(fs.readFileSync(manifest, "utf8"));
+        const metadata = { eventsLost: null, possibleWrap: true, decodingFailed: false, failures: [] as string[] };
+        if (outcome === "broken") {
+          fs.writeFileSync(path.join(plan.private, "decoded.json"), '{"stages":[');
+          throw decodeRefusal;
+        }
+        fs.writeFileSync(path.join(plan.private, "events.jsonl"), "");
+        fs.writeFileSync(path.join(plan.private, "decoded.json"), JSON.stringify({ ...metadata,
+          ...(outcome === "legacy" ? {} : { stages: [{ provider: "file", enumerated: outcome === "partial" ? 2 : 0, matchingProvider: outcome === "partial" ? 1 : 0, acceptedRevision: 0, projected: 0, completed: outcome !== "partial", failure: outcome === "partial" ? decodeRefusal.message : null }] }),
+        }));
+        if (outcome === "partial") throw decodeRefusal;
+      } });
+      observation.owner!.bind({ token: `original-${outcome}`, scratch, processes: [] });
+      if (outcome === "partial" || outcome === "broken") {
+        await assert.rejects(observation.owner!.stop(), (error: unknown) => error instanceof AggregateError && error.errors[0] === decodeRefusal && (outcome !== "broken" || error.errors[1] instanceof SyntaxError));
+      } else await observation.owner!.stop();
+      const observed = JSON.parse(fs.readFileSync(outcomeManifest.replace("graph-fileio-owner-", "graph-fileio-evidence-"), "utf8"));
+      if (outcome === "legacy" || outcome === "broken") assert.equal(observed.decodeStages, null, "unavailable counters are unknown rather than measured zero");
+      else {
+        assert.equal(observed.decodeStages[0].completed, outcome === "empty");
+        assert.equal(observed.decodeStages[0].enumerated, outcome === "empty" ? 0 : 2);
+      }
+      if (outcome === "partial" || outcome === "broken") {
+        assert.equal(observed.evidence, null);
+        assert.equal(observed.loss.decodingFailed, true);
+        assert.ok(observed.failures[0].includes(decodeRefusal.message));
+      } else {
+        assert.equal(observed.evidence.counts.fileRows, 0);
+        assert.equal(observed.evidence.readerAbsence, "not-established");
+        assert.equal(observed.evidence.completeness, "unknown");
+      }
+    }
 
     const refusal = new Error("authored recorder start refusal");
     const failed = await WindowsColdFileIo.open({ enabled: true, traceRoot, runnerTemp, fixture: "unused", run: async (mode, manifest) => {

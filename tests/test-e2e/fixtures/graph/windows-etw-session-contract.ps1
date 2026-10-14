@@ -21,6 +21,18 @@ foreach ($negative in @(@{ id=[int64]2; task='ProcessStart' }, @{ id=[int64]1; t
   try { [void](Get-QualifiedEtwEventId $negative.id $tasks $negative.task) } catch { $refused = $true }
   if (-not $refused) { throw 'Unsupported or mismatched original event task was admitted' }
 }
+# The actual decoder gate distinguishes no yielded rows, another provider,
+# a recognized revision and a refused revision without claiming native loss.
+$schemas = @(@{ provider='ObservedProvider'; id=12; version=1; fields=@('Irp','FileName') })
+$decodeCounts = New-EtwDecodeCounts 'ObservedProvider'
+if ($decodeCounts.enumerated -ne 0 -or $decodeCounts.completed -ne $false) { throw 'A new enumeration did not retain its uncompleted empty prefix' }
+if ($null -ne (Get-DecodedEtwSchema 'AnotherProvider' ([long]12) ([byte]1) 'ObservedProvider' $schemas $decodeCounts)) { throw 'Another provider passed the decoder gate' }
+if ($decodeCounts.enumerated -ne 1 -or $decodeCounts.matchingProvider -ne 0 -or $decodeCounts.acceptedRevision -ne 0) { throw 'Provider exclusion was not counted at its actual stage' }
+$accepted = Get-DecodedEtwSchema 'ObservedProvider' ([long]12) ([byte]1) 'ObservedProvider' $schemas $decodeCounts
+if ($accepted.fields.Count -ne 2 -or $decodeCounts.enumerated -ne 2 -or $decodeCounts.matchingProvider -ne 1 -or $decodeCounts.acceptedRevision -ne 1 -or $decodeCounts.projected -ne 0) { throw 'Revision admission was confused with a completed projection' }
+$refused = $false
+try { [void](Get-DecodedEtwSchema 'ObservedProvider' ([long]12) ([byte]2) 'ObservedProvider' $schemas $decodeCounts) } catch { $refused = $true }
+if (-not $refused -or $decodeCounts.enumerated -ne 3 -or $decodeCounts.matchingProvider -ne 2 -or $decodeCounts.acceptedRevision -ne 1 -or $decodeCounts.completed -ne $false) { throw 'Revision refusal lost its incomplete enumeration prefix' }
 $original = [TtscEtwSession+Receipt]::new()
 $original.api = 'StartTraceW'; $original.code = 0
 $original.id = '9007199254740993'; $original.guid = '638156b3-af24-4c69-9831-a8d28779c388'

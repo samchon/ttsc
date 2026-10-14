@@ -66,12 +66,14 @@ export namespace WindowsColdFileIo {
    *
    * Two single-provider sessions retain at most 60 MiB file and 4 MiB process raw trace data. Circular overwrite and unmeasured loss remain unknown. The supplied runner is an owned test seam; the default starts the static native fixture under the runner's existing account without a shell. The returned failure property's presence marks refusal, including a JavaScript rejection whose reason is undefined.
    *
-   * @evidence contracts/common.md#principled-implementation An exclusive immutable admission plan precedes native work; complete append-only state records cannot replace it. Actual named schemas and Process-before-File admission qualify observation. Native Int64 event IDs are checked against the documented 16-bit domain and normalized to Int32 task keys; malformed identifiers and mismatched task names remain refusals. Original start refusal and secondary publication errors remain separate original objects, while the returned owner retains shutdown capability.
+   * Decoder stage counts retain each session's yielded, matching-provider, accepted-revision and successfully projected rows with completion and original refusal. Completed zero differs from an incomplete prefix; unavailable legacy or unreadable metadata stays null. The filtered manifest and shutdown journal preserve these counts before joined raw storage is removed.
+   *
+   * @evidence contracts/common.md#principled-implementation An exclusive immutable admission plan precedes native work; complete append-only state records cannot replace it. Actual named schemas and Process-before-File admission qualify observation. Native Int64 event IDs are checked against the documented 16-bit domain and normalized to Int32 task keys; malformed identifiers and mismatched task names remain refusals. The fixture's shared decoder gate counts each yielded record before provider/revision qualification and counts projected rows after private writes; completion and partial-prefix refusals remain separate from unknown native loss. Original start refusal and secondary publication errors remain separate original objects, while the returned owner retains shutdown capability.
    * @evidence contracts/common.md#clear-and-simple-design One owner retains startup outcome, original task and idempotent stop; native recorder details stay in the fixture and pointer semantics stay in the selector.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit options and an owned runner replace no global process/environment method; logger failures never certify product shutdown or skip original assertions.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states start timing, raw budgets, unknown loss and default-account execution; the returned result separately carries owner and startup failure.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states start timing, raw budgets, unknown loss, decoder stage units/completion and unavailable metadata, plus default-account execution; the returned result separately carries owner and startup failure.
    * @evidence contracts/portability.md#os-neutral-implementation Native paths locate the fixture and private runner storage, and argv arrays invoke PowerShell directly. The fixture validates actual provider fields and native DOS-device mappings rather than inferring platform capabilities.
-   * @evidence contracts/performance.md#efficient-algorithms Startup delegates schema and process snapshot work. Shutdown streams decoded JSONL into the selector, whose selected output and process/thread histories determine retained memory; raw ETL budgets total 64 MiB, while decoded private text and selected evidence have no independent byte quota.
+   * @evidence contracts/performance.md#efficient-algorithms Startup delegates schema and process snapshot work. Shutdown streams decoded JSONL into the selector, whose selected output and process/thread histories determine retained memory; fixed stage counters add no traversal or per-event retention. Raw ETL budgets total 64 MiB, while decoded private text and selected evidence have no independent byte quota.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A unique recorder belongs to one original cold lifetime; no session or previous event population is reused.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The owner retains two named loggers, an immutable plan, append-only state and private storage until stop settles. Unconfirmed stop or failed evidence/state publication retains raw storage; native closure and completed loss/receipt publication precede raw deletion. Original errors survive later publication/removal failures. State history grows with lifecycle writes without a byte quota, and fixture children close before each operation returns.
    */
@@ -124,18 +126,28 @@ export namespace WindowsColdFileIo {
           joined = retirement(receipts);
           if (!joined) failures.push(new Error("Original recorder stop was not confirmed"));
         } catch (error) { failures.push(error); }
-        let evidence: unknown;
+        let evidence: ReturnType<typeof WindowsFileIoEvidence.select> | undefined;
+        let decodeStages: unknown = null;
         let loss: WindowsFileIoEvidence.Task["loss"] = { eventsLost: null, possibleWrap: true, decodingFailed: true };
         if (joined && startupFailures.length === 0) {
           try {
-            await run("decode", manifest);
-            const decoded = read(path.join(directory, "decoded.json")) as typeof loss & { failures: string[] };
-            loss = decoded;
+            let decodeFailed = false;
+            try { await run("decode", manifest); }
+            catch (error) { decodeFailed = true; failures.push(error); }
+            const decoded = read(path.join(directory, "decoded.json")) as typeof loss & { failures: string[]; stages?: unknown };
+            const { stages, ...decodedLoss } = decoded;
+            // Old or unreadable metadata has no measured count. A decoder
+            // refusal can still leave a useful, explicitly partial prefix.
+            decodeStages = stages ?? null;
+            loss = decodedLoss;
+            if (decodeFailed) loss.decodingFailed = true;
             if (decoded.failures.length) failures.push(new Error(decoded.failures.join("\n")));
-            if (task === undefined) throw new Error("Original cold task admission was not observed");
-            const started = read(path.join(directory, "started.json")) as { devices: WindowsFileIoEvidence.Task["devices"] };
-            const before = read(path.join(directory, "before.json")) as WindowsFileIoEvidence.Task["before"];
-            evidence = WindowsFileIoEvidence.select(rows(path.join(directory, "events.jsonl")), { ...task, devices: started.devices, before, loss });
+            if (!decodeFailed) {
+              if (task === undefined) throw new Error("Original cold task admission was not observed");
+              const started = read(path.join(directory, "started.json")) as { devices: WindowsFileIoEvidence.Task["devices"] };
+              const before = read(path.join(directory, "before.json")) as WindowsFileIoEvidence.Task["before"];
+              evidence = WindowsFileIoEvidence.select(rows(path.join(directory, "events.jsonl")), { ...task, devices: started.devices, before, loss });
+            }
           } catch (error) { loss.decodingFailed = true; failures.push(error); }
         }
         const output = path.join(options.traceRoot, `graph-fileio-evidence-${nonce}.jsonl`);
@@ -147,12 +159,14 @@ export namespace WindowsColdFileIo {
         try { admission = read(path.join(directory, "admission.json")); } catch { /* Failed fixture admission can lack native admission metadata. */ }
         try {
           fs.writeFileSync(output, JSON.stringify({ at: new Date().toISOString(), nonce, joinedRecorder: joined, originalTask: task ?? null,
-            capability, schemas, admission, retirement: receipts ?? null, loss, evidence: evidence ?? null, failures: [...startupFailures, ...failures].map(describe),
+            capability, schemas, admission, retirement: receipts ?? null, decodeStages, loss, evidence: evidence ?? null, failures: [...startupFailures, ...failures].map(describe),
           }) + "\n", { flag: "wx" });
           record.filterEmitted = true;
         } catch (error) { failures.push(error); }
         record.stopJoined = joined;
         record.loss = loss;
+        record.decodeStages = decodeStages;
+        record.selectionCounts = evidence?.counts ?? null;
         record.retirement = receipts ?? null;
         record.failures = [...startupFailures, ...failures].map(describe);
         let recorded = false;
@@ -215,7 +229,7 @@ export namespace WindowsColdFileIo {
         try {
           publish(path.join(traceRoot, `graph-fileio-interrupted-${owner.nonce}.jsonl`), {
             at: new Date().toISOString(), nonce: owner.nonce, joinedRecorder: joined, interruptedState: state.interrupted,
-            retirement: receipts ?? null, loss: { eventsLost: null, possibleWrap: true, decodingFailed: true },
+            retirement: receipts ?? null, decodeStages: record.decodeStages ?? null, selectionCounts: record.selectionCounts ?? null, loss: { eventsLost: null, possibleWrap: true, decodingFailed: true },
             evidence: null, readerAbsence: "not-established",
             failures: originalFailures.length ? originalFailures.map(describe) : ["E2E recorder ownership interrupted before final reclamation"],
           });
