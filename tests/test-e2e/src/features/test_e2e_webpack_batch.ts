@@ -31,7 +31,7 @@ const webpack = createRequire(import.meta.url)(
  * @evidence contracts/testing.md#execution-ownership This selected function owns two actual host builds: webpack once and the Rspack helper once. Both settle while the webpack lease stays live; this is not one host execution.
  * @evidence contracts/e2e.md#necessary-boundary The actual webpack loader must consume native parsed source modules and publish authored-source maps through the actual loader through real bundle assembly; pure mapper units do not prove this route.
  * @evidence contracts/e2e.md#shared-execution Both host consumers share the existing cache keyed by identical options while the webpack owner remains live; the actual native ApplyProgram receipt must increase once. No source-case loop invokes a compiler or creates a fixture.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Outputs have a dedicated directory outside src and do not enter source discovery. Actual close is awaited in finally; failure keeps inputs under their shared owner and cache selection restores.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both output directories exist before either compiler captures the native root-directory predicate, so the builds do not change that shared input by creating a new root entry. They remain outside src and source discovery. Actual close is awaited in finally; failure keeps inputs under their shared owner and cache selection restores.
  * @evidence contracts/e2e.md#preserved-coverage Keeps the real webpack adapter, restored authored-source map and separate complete-banner assertion alongside the common value/utility assertions. It does not infer Rspack/Turbopack or historical rebuild/invalidation coverage from one webpack output.
  */
 export async function test_e2e_webpack_batch(): Promise<void> {
@@ -46,6 +46,11 @@ export async function test_e2e_webpack_batch(): Promise<void> {
     try {
       const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("webpack");
       const directory = path.join(workspace.root, "webpack-output");
+      // Native contributors observe the root directory's entry names. Create
+      // both output entries before the first compile so host publication cannot
+      // invalidate the other compiler's shared generation.
+      fs.mkdirSync(directory);
+      fs.mkdirSync(path.join(workspace.root, "rspack-output"));
       compiler = webpack({
         context: workspace.root,
         entry: {
