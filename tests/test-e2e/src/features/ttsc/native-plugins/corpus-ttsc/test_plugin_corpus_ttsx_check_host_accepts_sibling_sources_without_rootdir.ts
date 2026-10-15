@@ -6,9 +6,14 @@ import path from "node:path";
 import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 
 /**
- * A check plugin must use ttsx's private layout root for a noEmit project.
+ * Verifies a check plugin uses ttsx's private layout root for a noEmit project.
  * The imported source is outside the config directory, while a declared
  * restrictive root remains a genuine compiler error.
+ *
+ * 1. Create a noEmit project that imports a sibling TypeScript file through the
+ *    real lint check host.
+ * 2. Run ttsx without a declared root and require the sibling's value.
+ * 3. Declare a restrictive root and require TS6059 from the same host.
  *
  * @evidence contracts/testing.md#behavioral-verification Real ttsx and the workspace lint check host execute a sibling import under an implicit root, then report TS6059 for an explicit restrictive root.
  * @evidence contracts/testing.md#independent-expectations The authored sibling exports 17; the positive run must print 17, and the explicit root excludes the sibling by its authored path.
@@ -51,7 +56,10 @@ export function test_plugin_corpus_ttsx_check_host_accepts_sibling_sources_witho
         env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
       },
     );
-  fs.writeFileSync(tsconfig, JSON.stringify({ compilerOptions, include: ["src"] }));
+  fs.writeFileSync(
+    tsconfig,
+    JSON.stringify({ compilerOptions, include: ["src"] }),
+  );
   const implicit = run();
   assert.equal(implicit.status, 0, implicit.stderr);
   assert.equal(implicit.stdout.trim(), "17");
