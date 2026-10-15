@@ -24,7 +24,7 @@ import {
  *    process attempts.
  *
  * @evidence contracts/testing.md#behavioral-verification Runs the real ttsc CLI, stock Go source builder, recording helper and release sealer, then downloads the sealed pack into an independent consumer and observes exact JS, actual helper hit/miss counters, HTTP requests and warm-launch process attempts.
- * @evidence contracts/testing.md#independent-expectations The fixture's authored uppercase transform requires PLUGIN; the unchanged consumer must emit the producer's exact bytes, while editing its Go branch must yield [PLUGIN]. Go's recorded full action keys must be complete and include the fixture module.
+ * @evidence contracts/testing.md#independent-expectations The fixture's authored uppercase transform requires PLUGIN; the unchanged consumer must emit the producer's exact bytes, while editing its Go branch must yield [PLUGIN]. The workspace's declared ttsc package version supplies the expected release independently of the sealed pack. Go's recorded full action keys must be complete and include the fixture module.
  * @evidence contracts/testing.md#distinguishing-cases Cold publisher, independent downloaded consumer, warm exact executable with no helper or Go build startup, and changed Go plugin source distinguish package reuse from ordinary fallback or a stale binary.
  * @evidence contracts/testing.md#execution-ownership This discoverable E2E entry copies one maintained fixture, uses the prebuilt host-platform helper and SDK, and joins the CLI before the test harness reclaims its tracked root.
  * @evidence contracts/e2e.md#necessary-boundary Direct parser or helper tests cannot prove receipts came from ttsc's actual materialized source workspace before its cleanup.
@@ -131,7 +131,14 @@ export function test_source_package_artifact_publisher_seals_real_builder_action
       actions: { actionID: string; outputID: string; packagePath: string }[];
     };
     assert.equal(manifest.sourceCommit, sourceCommit);
-    assert.equal(manifest.release, "0.32.1");
+    const packageManifest = JSON.parse(
+      fs.readFileSync(
+        path.join(workspaceRoot, "packages", "ttsc", "package.json"),
+        "utf8",
+      ),
+    ) as { version?: unknown };
+    assert.equal(typeof packageManifest.version, "string");
+    assert.equal(manifest.release, packageManifest.version);
     assert.equal(manifest.packs.length, 1);
     assert.ok(manifest.actions.length > 0);
     assert.ok(
