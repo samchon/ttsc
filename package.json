@@ -17,7 +17,9 @@
     "experimental": "pnpm experimental:install && pnpm experimental:unplugin",
     "experimental:install": "pnpm --dir experimental/install start",
     "experimental:unplugin": "pnpm --dir experimental/test-unplugin start",
-    "package:next": "bash next.bash",
+    "package:next": "pnpm run release:next",
+    "release:next": "node config/release-next.mjs",
+    "package:next:publish": "pnpm --filter=./packages/* --filter=!ttsc --filter=!@ttsc/graph --filter=!@ttsc/unplugin --filter=!@ttsc/metro -r --workspace-concurrency=1 publish --tag next --access public --no-git-checks --provenance && pnpm --filter ttsc publish --tag next --access public --no-git-checks --provenance && pnpm --filter @ttsc/graph publish --tag next --access public --no-git-checks --provenance && pnpm --filter @ttsc/unplugin publish --tag next --access public --no-git-checks --provenance && pnpm --filter @ttsc/metro publish --tag next --access public --no-git-checks --provenance",
     "release": "bumpp -r",
     "package:latest": "pnpm build && pnpm run package:latest:publish",
     "package:latest:publish": "pnpm --filter=./packages/* --filter=!ttsc --filter=!@ttsc/graph -r publish --tag latest --access public --no-git-checks --provenance && pnpm --filter @ttsc/graph publish --tag latest --access public --no-git-checks --provenance && pnpm --filter ttsc publish --tag latest --access public --no-git-checks --provenance"

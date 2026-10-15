@@ -2,7 +2,7 @@ name: release
 
 on:
   push:
-    tags: ["*"]
+    tags: ["v*"]
 
 concurrency:
   group: release
@@ -25,6 +25,39 @@ jobs:
         with:
           node-version: 24.x
           registry-url: https://registry.npmjs.org/
+      - name: Validate release tag and workspace versions
+        id: channel
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+
+          const tag = process.env.GITHUB_REF_NAME;
+          const stable = /^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
+          const next = /^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-next\.(?:0|[1-9]\d*)$/;
+          const channel = stable.test(tag) ? "latest" : next.test(tag) ? "next" : null;
+          if (!channel || process.env.GITHUB_REF !== `refs/tags/${tag}`)
+            throw new Error(`Unsupported release tag: ${tag}`);
+
+          const version = tag.slice(1);
+          const manifests = ["package.json", "config/package.json", "website/package.json"];
+          for (const group of ["benchmarks", "packages", "tests"])
+            for (const directory of fs.readdirSync(group)) {
+              const file = path.join(group, directory, "package.json");
+              if (fs.existsSync(file)) manifests.push(file);
+            }
+          manifests.push("packages/lint/test/lint-contributor-demo/package.json");
+          for (const file of manifests) {
+            const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+            if (manifest.version !== version)
+              throw new Error(`${file}: expected ${version}, got ${manifest.version}`);
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `value=${channel}\n`);
+          console.log(`Publishing ${manifests.length} workspace versions as ${channel}: ${tag}`);
+          NODE
+      - name: Install npm trusted-publishing client
+        run: npm install --global npm@11.16.0
       - uses: actions/setup-go@v7
         id: go
         with:
@@ -54,13 +87,17 @@ jobs:
             ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
             setup-go-${{ runner.os }}-${{ steps.go-cache.outputs.node-arch }}-${{ runner.os == 'Linux' && format('{0}-', steps.go-cache.outputs.image) || '' }}go-${{ steps.go.outputs.go-version }}-
       - run: pnpm install --frozen-lockfile
-      - run: test "v$(node -p "require('./packages/ttsc/package.json').version")" = "$GITHUB_REF_NAME"
       - run: pnpm run build
       - run: pnpm --dir packages/vscode exec vsce publish --packagePath dist/ttsc-vscode-${GITHUB_REF_NAME#v}.vsix --no-dependencies --skip-duplicate
+        if: steps.channel.outputs.value == 'latest'
         continue-on-error: true
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
       - run: pnpm run package:latest:publish
+        if: steps.channel.outputs.value == 'latest'
+      - run: pnpm run package:next:publish
+        if: steps.channel.outputs.value == 'next'
       - run: pnpm dlx changelogithub
+        if: steps.channel.outputs.value == 'latest'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
