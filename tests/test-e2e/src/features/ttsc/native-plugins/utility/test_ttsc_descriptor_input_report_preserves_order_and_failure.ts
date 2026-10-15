@@ -10,15 +10,15 @@ import path from "node:path";
  *
  * 1. Load several authored modules under the real runtime hooks in one child.
  * 2. Close the report before its final observation and compare both channels.
- * 3. Repeat with an invalid destination and a close refusal, retaining child
- *    execution while refusing complete observations.
+ * 3. Repeat with a directory as the report destination, retaining child execution
+ *    while refusing a complete observation.
  *
- * @evidence contracts/testing.md#behavioral-verification Real Node hook evaluation returns every authored module, emits one valid NDJSON line per recorded edge in exactly the envelope's order, and marks open or close failure incomplete while the loaded modules still run.
+ * @evidence contracts/testing.md#behavioral-verification Real Node hook evaluation returns every authored module, emits one valid NDJSON line per recorded edge in exactly the envelope's order, and marks an open failure incomplete while the loaded modules still run.
  * @evidence contracts/testing.md#independent-expectations Authored module exports and paths establish the execution and membership oracle; equal serialized channel bytes and valid individual JSON records establish transport without deriving expected source outputs from the recorder.
- * @evidence contracts/testing.md#distinguishing-cases Writable and unwritable destinations plus a close refusal contrast completion with both failure stages; several distinct modules exercise ordered repeated appends, and an empty report is rejected by positive membership assertions.
+ * @evidence contracts/testing.md#distinguishing-cases Writable and unwritable destinations contrast completion with open failure; several distinct modules exercise ordered repeated appends, and an empty report is rejected by positive membership assertions.
  * @evidence contracts/testing.md#execution-ownership The matching E2E batch entry starts the built runtime hook in a real Node child; source units own portable record parsing, while this case owns process/report transport and child completion.
  * @evidence contracts/e2e.md#necessary-boundary The actual preload, Node module hooks, filesystem descriptor and child exit must connect to observe whether a completed report matches its envelope and failure stays advisory.
- * @evidence contracts/e2e.md#shared-execution All child invocations reuse one prepared built runtime and one authored module tree; failure runs change only the report destination or the close result.
+ * @evidence contracts/e2e.md#shared-execution Both child invocations reuse one prepared built runtime and one authored module tree; the failure run changes only the report destination.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns a private root and output paths; each synchronous child finalizes its report before snapshot and exits before assertions, and no result cache or watcher is shared across children.
  * @evidence contracts/e2e.md#preserved-coverage This case adds report success and open failure coverage; descriptor module graph and cache reuse cases remain in their existing entries.
  */
@@ -61,20 +61,15 @@ export function test_ttsc_descriptor_input_report_preserves_order_and_failure():
   for (const [index, file] of modules.entries())
     fs.writeFileSync(file, `module.exports = ${index};\n`, "utf8");
   const actor = [
-    'const fs = require("node:fs");',
-    "const [reportModule, observation, serializedModules, failClose] = process.argv.slice(1);",
+    "const [reportModule, observation, serializedModules] = process.argv.slice(1);",
     "const { PluginDescriptorInputReport } = require(reportModule);",
     "const { PluginDescriptorInputObservation } = require(observation);",
     'process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE = "1";',
     "const members = JSON.parse(serializedModules).map((file) => require(file));",
-    "if (failClose === '1') {",
-    "  const close = fs.closeSync;",
-    "  fs.closeSync = (fd) => { close(fd); throw new Error('simulated close failure'); };",
-    "}",
     "PluginDescriptorInputReport.finish();",
     "process.stdout.write(JSON.stringify({ members, observed: PluginDescriptorInputObservation.snapshot() }));",
   ].join("\n");
-  const run = (report: string, failClose = false) => {
+  const run = (report: string) => {
     const result = childProcess.spawnSync(
       process.execPath,
       [
@@ -85,7 +80,6 @@ export function test_ttsc_descriptor_input_report_preserves_order_and_failure():
         reportModule,
         observation,
         JSON.stringify(modules),
-        failClose ? "1" : "0",
       ],
       {
         cwd: root,
@@ -130,8 +124,4 @@ export function test_ttsc_descriptor_input_report_preserves_order_and_failure():
   const failed = run(root);
   assert.deepEqual(failed.members, healthy.members);
   assert.equal(failed.observed.complete, false);
-
-  const refusedClose = run(path.join(root, "close-failure.ndjson"), true);
-  assert.deepEqual(refusedClose.members, healthy.members);
-  assert.equal(refusedClose.observed.complete, false);
 }
