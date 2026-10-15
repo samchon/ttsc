@@ -221,6 +221,28 @@ export namespace TsgoArguments {
   }
 
   /**
+   * Give a check host the same private source layout as the emitting pass.
+   * Although the host checks without emitting, an injected output directory
+   * changes TypeScript-Go's inferred root during Program creation. Keep the
+   * diagnostic build-information destination separate from emitted state.
+   *
+   * @evidence contracts/common.md#principled-implementation Private runtime root policy is shared by check and emit hosts while a user's declared root retains precedence.
+   * @evidence contracts/common.md#clear-and-simple-design The existing root selector and native payload composer own the two independent decisions.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The shipped driver consumes ordinary compiler arguments; no host flag or compiler extension is introduced.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains why a no-emit host still needs the private layout root.
+   * @evidence contracts/portability.md#os-neutral-implementation The selected native root spelling crosses the JSON argument channel without shell interpolation.
+   * @evidence contracts/performance.md#efficient-algorithms A fixed root argument pair precedes existing argument filtering and serialization.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The payload belongs to one invocation and retains no result.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only a returned string transfers to the spawn owner.
+   */
+  export function createNativeCheckTsgoArgs(
+    execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
+    options: RunBuildOptions,
+  ): string | undefined {
+    return createNativeTsgoArgs(options, pinnedRootDirArgs(execution, options));
+  }
+
+  /**
    * Forward the tsgo flags ttsc did not recognize to a native sidecar as one
    * JSON-encoded payload. The sidecar replays them through tsgo's own option
    * parser onto `CompilerOptions`, so a flag like `ttsc --strict` reaches a

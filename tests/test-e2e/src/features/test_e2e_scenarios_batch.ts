@@ -46,6 +46,7 @@ import { test_plugin_corpus_ttsc_lint_failure_does_not_duplicate_typescript_diag
 import { test_plugin_corpus_ttsc_lint_fix_rewrites_source_before_final_check } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsc_lint_fix_rewrites_source_before_final_check";
 import { test_plugin_corpus_ttsc_lint_format_subcommand_rewrites_source } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsc_lint_format_subcommand_rewrites_source";
 import { test_plugin_corpus_ttsc_lint_no_emit_skips_redundant_tsgo_check } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsc_lint_no_emit_skips_redundant_tsgo_check";
+import { test_plugin_corpus_ttsx_check_host_accepts_sibling_sources_without_rootdir } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsx_check_host_accepts_sibling_sources_without_rootdir";
 import { test_plugin_corpus_ttsc_lint_option_changes_reuse_the_source_plugin_binary_cache } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsc_lint_option_changes_reuse_the_source_plugin_binary_cache";
 import { test_plugin_corpus_ttsc_lint_surfaces_rule_violations_through_the_normal_failure_path } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsc_lint_surfaces_rule_violations_through_the_normal_failure_path";
 import { test_native_transformer_project_go_sidecar_handles_project_build } from "./ttsc/native-plugins/driver/test_native_transformer_project_go_sidecar_handles_project_build";
@@ -467,6 +468,10 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
   [
     "test_plugin_corpus_ttsc_lint_no_emit_skips_redundant_tsgo_check",
     test_plugin_corpus_ttsc_lint_no_emit_skips_redundant_tsgo_check,
+  ],
+  [
+    "test_plugin_corpus_ttsx_check_host_accepts_sibling_sources_without_rootdir",
+    test_plugin_corpus_ttsx_check_host_accepts_sibling_sources_without_rootdir,
   ],
   [
     "test_plugin_corpus_ttsc_lint_option_changes_reuse_the_source_plugin_binary_cache",

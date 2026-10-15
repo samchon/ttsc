@@ -59,7 +59,7 @@ tsconfig.json
 
 `paths` applies to the type-check as it does for `src`, but aliases still need runtime module resolution. The entry is type-checked, and the project is built first: an error in either `clear.ts` or the project's sources stops the run.
 
-A project whose sources lie under its `tsconfig.json` directory needs no explicit `rootDir`. `ttsx` pins that config directory as the source root and emits into its private cache directory, so a check-only project with `noEmit: true` and sources under `src/` runs without JavaScript appearing beside them. An explicit `rootDir` is used as written. Sources above the config directory require a `rootDir` that contains them.
+A project needs no explicit `rootDir` when its source imports stay on the same filesystem volume. For its private output, `ttsx` uses the volume root when the project declares neither `rootDir` nor `composite`; its check plugins use that same layout, including when the project has `noEmit: true`. An explicit `rootDir` is used as written, and a composite project retains its config-directory root. Imports outside either declared root must be included by changing that project configuration.
 
 Positional `ttsc <file.ts>` resolves the same source root but accepts only a file included by its project. Otherwise it reports the file and tsconfig rather than assigning another file's output to that entry.
 

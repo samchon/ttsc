@@ -1104,7 +1104,7 @@ export namespace BuildExecution {
    * intact.
    */
   function runNativeCheckPlugins(
-    options: TtscBuildOptions,
+    options: RunBuildOptions,
     execution: ReturnType<typeof resolveExecutionContext>,
     timing: BuildTiming.BuildTiming,
   ): TtscBuildResult {
@@ -1133,7 +1133,7 @@ export namespace BuildExecution {
             "ttsc.check",
             timing,
             `ttsc check plugin ${plugin.name} time`,
-            TsgoArguments.createNativeTsgoArgs(options),
+            TsgoArguments.createNativeCheckTsgoArgs(execution, options),
           ),
         args[0],
       );
