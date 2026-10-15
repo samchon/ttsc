@@ -10,7 +10,7 @@ import type {
  * only ttsc's own lanes set (ttsx's private runtime builds, single-file emit,
  * watch).
  *
- * @evidence contracts/common.md#principled-implementation Public build selection is intersected with internal lane controls, preserving optional defaults while distinguishing diagnostic gating, compiler-output isolation and watch callbacks.
+ * @evidence contracts/common.md#principled-implementation Public build selection is intersected with internal lane controls, preserving optional defaults while distinguishing diagnostic gating, compiler-output isolation, emitting-watch output policy and watch callbacks.
  * @evidence contracts/common.md#clear-and-simple-design Lane-specific decisions are explicit options on the shared build boundary rather than hidden global switches or duplicated compiler APIs.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Internal controls express supported runtime/watch requirements; source-map and inferred-root exceptions are documented lane policies, not test-specific escape flags.
  * @evidence contracts/common.md#meaningful-documentation Native member paragraphs explain ownership, optional-state effects and the rootDir premise, with blank lines separating documented properties.
@@ -117,6 +117,14 @@ export type RunBuildOptions = TtscBuildOptions & {
    * spelling. It introduces no public flag or replacement producer.
    */
   privateEmitRootDir?: string;
+
+  /**
+   * Allow the native driver used by an emitting watch transform host to leave
+   * byte-identical regular outputs in place. Only the watch coordinator sets
+   * this for a one-shot emit cycle; other builds and check commands clear the
+   * corresponding child environment channel.
+   */
+  watchWriteIfChanged?: boolean;
 
   /**
    * Receives selected native-plugin source roots after the project resolves.

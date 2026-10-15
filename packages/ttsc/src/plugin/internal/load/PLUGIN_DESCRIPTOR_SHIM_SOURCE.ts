@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { PLUGIN_INPUT_OBSERVATION_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH";
 
 /**
@@ -22,6 +24,7 @@ export const PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   // factory could have said.
   `try {`,
   `  const { PluginDescriptorInputObservation } = createRequire(import.meta.url).cache[${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)}].exports;`,
+  `  const { PluginDescriptorInputReport } = createRequire(import.meta.url)(${JSON.stringify(path.resolve(path.dirname(PLUGIN_INPUT_OBSERVATION_PATH), "PluginDescriptorInputReport.js"))});`,
   // Runtime hooks are installed before this shim loads. Arm their internal
   // side channel only for the descriptor import itself, after this shim's own
   // imports have resolved, so ttsc implementation files never become project
@@ -38,6 +41,7 @@ export const PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `    throw new Error("ttsc: plugin descriptor declares unsupported JS transform functions; declare a native backend instead");`,
   `  }`,
   `  const serializedDescriptor = JSON.stringify(descriptor);`,
+  `  PluginDescriptorInputReport.finish();`,
   `  const payload = { observation: PluginDescriptorInputObservation.snapshot() };`,
   `  if (serializedDescriptor !== undefined) payload.descriptor = JSON.parse(serializedDescriptor);`,
   `  writeFileSync(process.env.TTSC_PLUGIN_DESCRIPTOR_OUT, JSON.stringify(payload));`,

@@ -20,13 +20,13 @@ import { residentCheckRequest } from "./residentCheckRequest";
 import { takeResidentCheckEntryRequest } from "./takeResidentCheckEntryRequest";
 
 /**
- * Analysis-only watch coordinator.
+ * Watch coordinator for retained project selection and analysis-only Programs.
  *
  * The selected project and compatible check-stage processes stay resident
  * across ordinary source/data edits. A config, root-set, contributor, or plugin
  * topology transition calls for a full reset before the next cycle. Emit and
- * transform lanes can pass through the coordinator, but compatibility checks
- * keep them on the established one-shot path without starting sidecars.
+ * transform lanes retain only project and plugin selection; each cycle runs a
+ * fresh one-shot build without starting resident check sidecars.
  *
  * The watch launcher must serialize cycles and use reload when invocation
  * selection or startup environment changes. A session does not independently
@@ -34,13 +34,13 @@ import { takeResidentCheckEntryRequest } from "./takeResidentCheckEntryRequest";
  * `TTSC_WATCH_DEBUG_INPUTS` reports why selection is reset and the active
  * sidecar count being retired, and distinguishes a failed resident transport.
  *
- * @evidence contracts/common.md#principled-implementation Stable invocation selection and serialized cycles let compatible analysis-only checks retain their Program; explicit reload and observed input-topology changes reset selection before another cycle. Initial capture and warm refresh await the watch owner's publication before retaining topology; warm refresh compares physical dependency identity while publishing every declared-alias update.
+ * @evidence contracts/common.md#principled-implementation Stable invocation selection and serialized cycles let compatible analysis-only checks retain their Program and emitting lanes retain only selection; explicit reload and observed input-topology changes reset selection before another cycle. Initial capture and warm refresh await the watch owner's publication before retaining topology; warm refresh compares physical dependency identity while publishing every declared-alias update.
  * @evidence contracts/common.md#clear-and-simple-design The session owns selected execution, dependency snapshot, process identities and per-entry delivery buffers while shared BuildExecution owns one-shot phase and failure policy. Initial capture wraps the existing discovery callback, and warm refresh joins discovery, comparison and watch registration without another topology owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Capability-aware residency retains the actual transport-failure one-shot path and distinct configured check positions. Pending or rejected registration cannot restamp topology, and unchanged physical dependencies cannot bypass declared-alias publication.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state supported lanes, reset causes and the caller's serialization/stable-invocation premise; private capture and refresh prose distinguish committed topology, physical comparison and declared-alias publication, while run and dispose document lifecycle effects.
  * @evidence contracts/portability.md#os-neutral-implementation Native filesystem checks, cache touch helpers and child creation retain selected binary paths and delegated executable/argv/environment handling. BuildExecution owns native discovery and path normalization; initial capture forwards its snapshot without native operations and warm comparison preserves physical and declared representations.
  * @evidence contracts/performance.md#efficient-algorithms Per-cycle command planning, key serialization and buffer unions process configured checks and pending path text; sorting/comparison bytes, native cache observations, subscribed input discovery and delegated checks add work. Initial capture adds one shallow options copy and one awaited callback; warm refresh adds one native discovery, linear normalized comparison and callback, avoiding reset when topology is unchanged. Accumulated output can repeatedly copy earlier phase text.
- * @evidence contracts/performance.md#reuse-equivalent-work Process keys include binary/name/argv/compiler payload, while stable invocation context and reload guard the remaining startup inputs. Accepted snapshots serve warm topology comparison only after watch registration completes; execution reuse also requires equal physical dependency topology.
+ * @evidence contracts/performance.md#reuse-equivalent-work Process keys include binary/name/argv/compiler payload, while stable invocation context and reload guard the remaining startup inputs. Accepted snapshots serve warm topology comparison only after watch registration completes; execution reuse also requires equal physical dependency topology. Emitting cycles reuse descriptor and plugin selection, then load a fresh native Program.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Initial capture closes over the session and caller for its build; warm handoff retains the previous and next snapshots until successful registration replaces the accepted population, while rejection preserves it. Reset clears active maps, execution and snapshots while retiring children and join promises remain separately retained. Unknown joins retain rejection and prevent replacement; delegated termination is not descendant settlement. Stable options bound active process keys by configured checks, but pending unique paths and repeated disposal chains have no independent historical ceiling.
  */
 export class ResidentCheckWatchSession {
@@ -67,20 +67,20 @@ export class ResidentCheckWatchSession {
    * stable until reload; callers must not run overlapping cycles.
    *
    * The first cycle, and any cycle after `change.reload`, resolves the project
-   * and plugins and starts resident check processes for compatible entries.
-   * Later cycles reuse them and forward `change` as an incremental request. A
+   * and plugins. Compatible check entries may then start resident processes;
+   * emitting entries reuse selection but rebuild their Program each cycle. A
    * resident process that fails is retired and its entry falls back to the
    * one-shot check for that cycle. Plugin and project watch handoffs complete
    * before checks begin; reused topology is republished through the same
    * completion boundary.
    *
-   * @evidence contracts/common.md#principled-implementation Compatible no-emit check-only selection uses the same diagnostic/failure policy as one-shot execution; reload, missing binaries and changed normalized dependency topology cold-resolve the next execution.
+   * @evidence contracts/common.md#principled-implementation Compatible no-emit check-only selection uses the same diagnostic/failure policy as one-shot execution; emitting selection retains its plugins but runs a fresh build, and reload, missing binaries and changed normalized dependency topology cold-resolve the next execution.
    * @evidence contracts/common.md#clear-and-simple-design The cycle separates setup/reuse, topology refresh, ordered checks and final diagnostics/timing, delegating each phase to its owning shared operation.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed resident transport retires that process and uses the established real check command; the fallback neither drops forwarded compiler options nor converts a nonzero check into success.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs document serialization, stable startup inputs, reload and failed-sidecar behavior instead of claiming arbitrary option changes are handled automatically.
    * @evidence contracts/portability.md#os-neutral-implementation Native binary existence and cache freshness use filesystem helpers; all commands preserve selected cwd and use native process/environment abstractions without shell interpolation.
-   * @evidence contracts/performance.md#efficient-algorithms Warm cycles avoid project/plugin re-resolution until a missing binary or changed subscribed topology resets selection. Native existence/cache touches, optional onProjectInputs discovery, command/key construction, per-entry unions/sorts, delegated host work and output normalization/merging retain their actual entry/text/byte costs.
-   * @evidence contracts/performance.md#reuse-equivalent-work Selected context and capability-supported sidecars survive only stable invocation cycles; change requests update Programs, reload/topology transitions reset them, and effectful configured entries remain separately scheduled.
+   * @evidence contracts/performance.md#efficient-algorithms Warm cycles avoid project/plugin re-resolution until a missing binary or changed subscribed topology resets selection. Emitting cycles still run whole-program native work; existence/cache touches, optional onProjectInputs discovery, command/key construction, per-entry unions/sorts, delegated host work and output normalization/merging retain their actual entry/text/byte costs.
+   * @evidence contracts/performance.md#reuse-equivalent-work Selected context and capability-supported check sidecars survive only stable invocation cycles; change requests update resident check Programs, while emitting cycles reuse selection and reload a fresh native Program. Reload/topology transitions reset selection, and effectful configured entries remain separately scheduled.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The session retains active sidecars and per-entry pending changes; transport failure retires its process and awaits actual close before fallback. Reset clears active state but not unknown retiring ownership or its rejection. Unconsumed path sets have no finite bound while an earlier entry repeatedly fails; child close does not certify descendants.
    */
   public async run(
@@ -120,18 +120,6 @@ export class ResidentCheckWatchSession {
         await this.resetForRun("preparation-result");
         return BuildTiming.appendTimingOutput(prepared.result, timing);
       }
-      if (!residentCheckExecutionIsCompatible(buildOptions, execution)) {
-        await this.resetForRun("incompatible-execution");
-        return BuildTiming.appendTimingOutput(
-          BuildExecution.runPreparedBuild(
-            options,
-            timing,
-            execution,
-            buildOptions,
-          ),
-          timing,
-        );
-      }
       this.execution = execution;
     } else {
       // The session keeps running the plugin binaries it resolved without
@@ -159,6 +147,19 @@ export class ResidentCheckWatchSession {
         await this.resetForRun("project-input-topology");
         return this.run(options);
       }
+    }
+
+    // An emitting cycle still loads a fresh native Program. Only its stable
+    // project/plugin selection survives, so a source edit does not reevaluate
+    // descriptors while config, plugin, and input-topology changes reset it.
+    if (!residentCheckExecutionIsCompatible(buildOptions, execution)) {
+      return BuildTiming.appendTimingOutput(
+        BuildExecution.runPreparedBuild(options, timing, execution, {
+          ...buildOptions,
+          watchWriteIfChanged: true,
+        }),
+        timing,
+      );
     }
 
     const checked = await this.runCheckPlugins(

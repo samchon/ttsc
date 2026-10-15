@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import {
   PLUGIN_INPUT_OBSERVATION_PATH,
   RESOLUTION_INPUT_RECORDER_PATH,
@@ -24,6 +26,7 @@ export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `const path = require("node:path");`,
   `const vm = require("node:vm");`,
   `const { PluginDescriptorInputObservation } = require.cache[${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)}]?.exports ?? require(${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)});`,
+  `const { PluginDescriptorInputReport } = require(${JSON.stringify(path.resolve(path.dirname(PLUGIN_INPUT_OBSERVATION_PATH), "PluginDescriptorInputReport.js"))});`,
   `const { fileURLToPath } = require("node:url");`,
   `const { createResolutionInputRecorder, requireResolveConsultsHooks } = (() => {`,
   `  const file = ${JSON.stringify(RESOLUTION_INPUT_RECORDER_PATH)};`,
@@ -164,6 +167,7 @@ export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   // that influence.
   `  const serializedDescriptor = JSON.stringify(descriptor);`,
   `  const recorded = recorder.finish();`,
+  `  PluginDescriptorInputReport.finish();`,
   `  const observation = PluginDescriptorInputObservation.snapshot();`,
   `  observation.complete = observation.complete && recorded.complete === true;`,
   `  const payload = { inputHashes: recorded.hashes, inputRealpaths: recorded.realpaths, inputs: recorded.inputs, observation };`,

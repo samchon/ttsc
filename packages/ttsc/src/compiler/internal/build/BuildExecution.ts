@@ -116,14 +116,16 @@ export namespace BuildExecution {
    *
    * Caller-provided values override inherited defaults, except the invocation's
    * selected compiler remains authoritative. Absent per-invocation payloads
-   * remove stale inherited state rather than leaking an ancestor's project.
+   * remove stale inherited state rather than leaking an ancestor's project. The
+   * emitting-watch write policy is always cleared here and only the selected
+   * build command may arm it for its direct native child.
    *
-   * @evidence contracts/common.md#principled-implementation Environment layering preserves caller overrides while the resolved compiler wins last; per-run compiler/config/link payloads are published or cleared according to invocation ownership.
+   * @evidence contracts/common.md#principled-implementation Environment layering preserves caller overrides while the resolved compiler wins last; per-run compiler/config/link payloads are published or cleared according to invocation ownership, and the emitting-watch write policy is cleared until an authorized build child selects it.
    * @evidence contracts/common.md#clear-and-simple-design Shared environment helpers own merging and key access; runtime discovery precedes the pure composer that owns invocation payload publication.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported environment channels convey compiler/plugin context without patching strict sidecar parsers; clearing inherited payloads corrects ownership rather than compensating for a stale ancestor selection.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain config anchoring, linked sources, precedence and absent-payload effects without mixing prose into tags.
    * @evidence contracts/portability.md#os-neutral-implementation Native environment helpers normalize Windows key aliases while retaining POSIX case distinctions; node:path builds the default launcher path and binary values remain native executable selections.
-   * @evidence contracts/performance.md#efficient-algorithms Environment layering copies inherited/caller fields, and Windows channel reads/writes repeatedly scan native-equivalent key names with key-text normalization costs. Linked selection/projection/JSON adds plugin count and payload work. Ordered runtime-candidate probes are delegated before publication and remain native process costs of this call.
+   * @evidence contracts/performance.md#efficient-algorithms Environment layering copies inherited/caller fields, and Windows channel reads/writes repeatedly scan native-equivalent key names with key-text normalization costs, including one write-policy removal. Linked selection/projection/JSON adds plugin count and payload work. Ordered runtime-candidate probes are delegated before publication and remain native process costs of this call.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Fresh environment composition depends on current invocation and mutable process environment, and coordinates no persistent producer.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The fresh environment and intermediate linked payload have invocation-local ownership and transfer to the spawn caller. Runtime probe acquisition/timeout/cleanup belongs to the capability owner, not a native-release guarantee made here; this function stores no child handle or global payload.
@@ -149,6 +151,9 @@ export namespace BuildExecution {
       // The invocation's resolved compiler owns the final environment layer.
       { TTSC_TSGO_BINARY: execution.tsgo.binary },
     );
+    // This opt-in belongs to an emitting watch child, never to a nested build
+    // or a host reached through an inherited process environment.
+    SidecarEnvironment.write(env, "TTSC_WATCH_WRITE_IF_CHANGED", undefined);
     return composeNativePluginEnv(
       env,
       extra,
@@ -1212,7 +1217,7 @@ export namespace BuildExecution {
    * the elapsed interval also includes environment preparation, not only
    * execution of the selected plugin.
    *
-   * @evidence contracts/common.md#principled-implementation The selected plugin receives the composed invocation context, and actual exit status/output become a normalized result while native launch errors remain thrown failures.
+   * @evidence contracts/common.md#principled-implementation The selected plugin receives the composed invocation context; only an emitting watch build child receives the write-if-changed opt-in. Actual exit status/output become a normalized result while native launch errors remain thrown failures.
    * @evidence contracts/common.md#clear-and-simple-design One command boundary owns environment publication, timing and output normalization for native build and check phases.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Execution uses the loaded binary and supported protocol rather than patching its implementation or manufacturing success on launch failure.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes result failures, thrown launch failures and error/timing label attribution.
@@ -1226,7 +1231,7 @@ export namespace BuildExecution {
   export function runNativePluginCommand(
     plugin: ITtscLoadedNativePlugin,
     args: readonly string[],
-    options: TtscBuildOptions,
+    options: RunBuildOptions,
     execution: ReturnType<typeof resolveExecutionContext>,
     label: string,
     timing: BuildTiming.BuildTiming,
@@ -1234,9 +1239,17 @@ export namespace BuildExecution {
     tsgoArgs?: string,
   ): TtscBuildResult {
     const startedAt = process.hrtime.bigint();
+    const env = nativePluginEnv(options.env, execution, plugin, tsgoArgs);
+    if (
+      label === "ttsc.build" &&
+      options.emit !== false &&
+      options.watchWriteIfChanged === true
+    ) {
+      SidecarEnvironment.write(env, "TTSC_WATCH_WRITE_IF_CHANGED", "1");
+    }
     const res = spawnNative(plugin.binary, args, {
       cwd: execution.projectRoot,
-      env: nativePluginEnv(options.env, execution, plugin, tsgoArgs),
+      env,
       encoding: "utf8",
     });
     BuildTiming.recordTiming(timing, timingLabel, startedAt);

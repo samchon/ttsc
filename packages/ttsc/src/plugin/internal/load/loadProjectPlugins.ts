@@ -2197,22 +2197,38 @@ function readTtsxDescriptorInputs(
   const signatures = new Map<string, string>();
   const unstableInputs = new Set<string>();
   let complete = false;
-  let text = "";
+  let envelopeText: string | undefined;
   if (
     PluginPackageResolution.isRecord(observation) &&
     Array.isArray(observation.lines) &&
     observation.lines.every((line: unknown) => typeof line === "string")
   ) {
     complete = observation.complete === true;
-    text = observation.lines.join("");
+    envelopeText = observation.lines.join("");
   }
+  let reportText: string | undefined;
   try {
-    text += fs.readFileSync(file, "utf8");
+    reportText = fs.readFileSync(file, "utf8");
   } catch {
     // The directly serialized observation copy remains authoritative when
     // no side-channel file was produced. A missing completion copy is never
     // repaired by whichever partial lines happen to remain on disk.
   }
+  if (
+    envelopeText !== undefined &&
+    reportText !== undefined &&
+    envelopeText !== reportText
+  ) {
+    // A partial or contradictory side channel cannot certify completeness.
+    // Keep both records so watch callers still learn every reported input.
+    complete = false;
+  }
+  const text =
+    envelopeText === undefined
+      ? (reportText ?? "")
+      : reportText === undefined || reportText === envelopeText
+        ? envelopeText
+        : `${envelopeText}\n${reportText}`;
   for (const line of text.split(/\r?\n/)) {
     if (line.trim() === "") continue;
     let record: TtsxDescriptorResolutionRecord;

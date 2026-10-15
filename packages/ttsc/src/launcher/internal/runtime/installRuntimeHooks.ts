@@ -32,6 +32,7 @@ import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
 import { OwnedProjectSource } from "./OwnedProjectSource";
 import type { OwningModuleOptions } from "./OwningModuleOptions";
 import { PluginDescriptorInputObservation } from "./PluginDescriptorInputObservation";
+import { PluginDescriptorInputReport } from "./PluginDescriptorInputReport";
 import type { ResolveResult } from "./ResolveResult";
 import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
 import { RuntimeEntrySources } from "./RuntimeEntrySources";
@@ -392,7 +393,7 @@ function observePluginDescriptorResolutionCandidates(
     );
     return {
       commit: (selectedURL) => {
-        appendPluginDescriptorInputs(
+        PluginDescriptorInputReport.append(
           observation
             .commit(
               selectedURL === undefined
@@ -431,7 +432,7 @@ function observePluginDescriptorResolutionCandidates(
         DESCRIPTOR_PROBE_EXTENSIONS,
       ),
     );
-    appendPluginDescriptorInputs([
+    PluginDescriptorInputReport.append([
       ...local,
       ...(reached === -1 ? roots : roots.slice(0, reached + 1)).flatMap(
         (root) => root.lines,
@@ -608,12 +609,13 @@ function recordPluginDescriptorInput(record: {
   specifier?: string;
   unstable?: boolean;
 }): void {
-  appendPluginDescriptorInputs(observePluginDescriptorInput(record));
+  PluginDescriptorInputReport.append(observePluginDescriptorInput(record));
 }
 
 /**
  * Observe one path and every symbolic link among its lexical ancestors, as the
- * lines `appendPluginDescriptorInputs` reports, without reporting them yet.
+ * lines `PluginDescriptorInputReport.append` reports, without reporting them
+ * yet.
  */
 function observePluginDescriptorInput(record: {
   hash?: string | null;
@@ -647,23 +649,6 @@ function observePluginDescriptorInput(record: {
     }
   }
   return lines;
-}
-
-/** Report observed lines to the parent loader, in the order given. */
-function appendPluginDescriptorInputs(lines: readonly string[]): void {
-  if (lines.length === 0) return;
-  if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return;
-  PluginDescriptorInputObservation.record(lines);
-  const out = process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_OUT;
-  if (out === undefined || out.length === 0) {
-    PluginDescriptorInputObservation.invalidate();
-    return;
-  }
-  try {
-    fs.appendFileSync(out, lines.join(""), "utf8");
-  } catch {
-    PluginDescriptorInputObservation.invalidate();
-  }
 }
 
 /** Observe one path without recursively revisiting its lexical ancestors. */

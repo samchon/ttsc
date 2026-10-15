@@ -14,15 +14,17 @@ import (
 )
 
 // NewEmitProvenanceRecorder wraps a writer and returns a build-owned snapshot
-// function for successfully written JavaScript outputs. The compiler's actual
+// function for successfully materialized JavaScript outputs. The compiler's actual
 // eligible source list and output resolver determine candidates; neither sibling
 // filenames nor source maps establish ownership.
 //
 // Snapshot keys are absolute native output paths. Values are sorted, distinct
 // physical source paths recorded by this compiler generation's input observer.
-// An empty value means an output was written but its eligible owners or some
+// An empty value means an output was emitted but its eligible owners or some
 // owner's physical proof were unavailable or inconsistent. Multiple values
-// preserve ambiguity. An empty object means no JavaScript write succeeded.
+// preserve ambiguity. An empty object means no JavaScript output succeeded.
+// A writer may leave an existing byte-identical output in place and return
+// success; that output remains part of this generation's emitted result.
 //
 // Call the snapshot after emission finishes. It remains attached to its captured
 // generation's ledger and never resolves an alias against post-build disk state.
@@ -32,12 +34,12 @@ import (
 // the supplied writer must not reenter either returned closure. Writer errors
 // prevent recording that callback even if the writer already had partial effects.
 //
-// @evidence contracts/common.md#principled-implementation Native eligible sources and resolved script destinations intersect only successful unskipped writes; all candidate generation-time physical proofs are required, with unknown and multiple owners represented explicitly.
+// @evidence contracts/common.md#principled-implementation Native eligible sources and resolved script destinations intersect only successful unskipped emit callbacks, including byte-identical existing outputs; all candidate generation-time physical proofs are required, with unknown and multiple owners represented explicitly.
 // @evidence contracts/common.md#clear-and-simple-design One compiler-owned candidate index, one serialized writer and one snapshot separate eligibility, successful publication and physical provenance without a same-stem fallback.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The recorder delegates supported emit-path helpers and actual writers; later realpath, fixture filenames or extension precedence cannot fabricate a unique source owner.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain snapshot timing, native keys, physical proof, ambiguity, unknown values and the non-atomic ledger limitation following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Compiler path normalization and its coordinate case policy index candidate collisions; recorded native physical paths prove source identity separately from that policy, preserving lexical output names without an OS-derived identity guess.
-// @evidence contracts/performance.md#efficient-algorithms Latched linked hooks and native eligibility/output-path helpers precede the source index. Candidate/path normalization and text keys contribute work; each callback delegates arbitrary writer work, then records a successful script row. Snapshot visits each written row's candidates, compares captured proofs, deduplicates physical paths and sorts each owner list with path-text comparison costs; shared candidate lists can be revisited across written spellings.
+// @evidence contracts/performance.md#efficient-algorithms Latched linked hooks and native eligibility/output-path helpers precede the source index. Candidate/path normalization and text keys contribute work; each callback delegates arbitrary writer work, then records a successful script row even when the writer reuses matching bytes. Snapshot visits each row's candidates, compares captured proofs, deduplicates physical paths and sorts each owner list with path-text comparison costs; shared candidate lists can be revisited across output spellings.
 // @evidence contracts/performance.md#reuse-equivalent-work One generation's native eligibility and output paths serve every writer callback; the snapshot reuses captured input observations without re-reading source bytes or recomputing an independent compiler Program.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Returned closures retain the captured input ledger and uncapped candidate/write path lists until their owner releases them. Snapshots allocate independent maps/slices; delegated writer resource release belongs to that writer. Shared locking serializes writer and snapshot with no deadline or reentrant acquisition; no independent descriptor or lease is acquired here.
 func (p *Program) NewEmitProvenanceRecorder(writeFile shimcompiler.WriteFile) (shimcompiler.WriteFile, func() map[string][]string, error) {

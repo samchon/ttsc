@@ -41,14 +41,15 @@ import { test_plugin_missing_ttsc_export_condition_falls_back_to_default_entry }
 import { test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch } from "./ttsc/native-plugins/corpus-misc/test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch";
 import { test_plugin_corpus_source_plugin_build_failure_reports_go_compiler_stderr } from "./ttsc/native-plugins/corpus-source/test_plugin_corpus_source_plugin_build_failure_reports_go_compiler_stderr";
 import { test_plugin_corpus_source_plugin_default_cache_is_workspace_local_content_cache } from "./ttsc/native-plugins/corpus-source/test_plugin_corpus_source_plugin_default_cache_is_workspace_local_content_cache";
+import { test_plugin_corpus_emit_watch_reuses_plugin_selection_until_config_changes } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_emit_watch_reuses_plugin_selection_until_config_changes";
 import { test_plugin_corpus_ttsc_lint_applies_forwarded_strict_flag } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsc_lint_applies_forwarded_strict_flag";
 import { test_plugin_corpus_ttsc_lint_failure_does_not_duplicate_typescript_diagnostics } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsc_lint_failure_does_not_duplicate_typescript_diagnostics";
 import { test_plugin_corpus_ttsc_lint_fix_rewrites_source_before_final_check } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsc_lint_fix_rewrites_source_before_final_check";
 import { test_plugin_corpus_ttsc_lint_format_subcommand_rewrites_source } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsc_lint_format_subcommand_rewrites_source";
 import { test_plugin_corpus_ttsc_lint_no_emit_skips_redundant_tsgo_check } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsc_lint_no_emit_skips_redundant_tsgo_check";
-import { test_plugin_corpus_ttsx_check_host_accepts_sibling_sources_without_rootdir } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsx_check_host_accepts_sibling_sources_without_rootdir";
 import { test_plugin_corpus_ttsc_lint_option_changes_reuse_the_source_plugin_binary_cache } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsc_lint_option_changes_reuse_the_source_plugin_binary_cache";
 import { test_plugin_corpus_ttsc_lint_surfaces_rule_violations_through_the_normal_failure_path } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsc_lint_surfaces_rule_violations_through_the_normal_failure_path";
+import { test_plugin_corpus_ttsx_check_host_accepts_sibling_sources_without_rootdir } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_ttsx_check_host_accepts_sibling_sources_without_rootdir";
 import { test_native_transformer_project_go_sidecar_handles_project_build } from "./ttsc/native-plugins/driver/test_native_transformer_project_go_sidecar_handles_project_build";
 import { test_ttscservice_answers_a_file_named_through_a_linked_project_root } from "./ttsc/native-plugins/service-incremental/test_ttscservice_answers_a_file_named_through_a_linked_project_root";
 import { test_transform_apis_resolve_relative_node_binary_from_project_root } from "./ttsc/native-plugins/service/test_transform_apis_resolve_relative_node_binary_from_project_root";
@@ -63,6 +64,7 @@ import { test_source_package_artifact_publisher_seals_real_builder_actions } fro
 import { test_source_package_artifacts_selects_only_matching_admitted_packs } from "./ttsc/native-plugins/source-plugin/test_source_package_artifacts_selects_only_matching_admitted_packs";
 import { test_ttsc_reclaims_dead_legacy_source_plugin_lock_e2e } from "./ttsc/native-plugins/source-plugin/test_ttsc_reclaims_dead_legacy_source_plugin_lock_e2e";
 import { test_ttsc_utility_plugins_paths_side_loads_into_driver_host } from "./ttsc/native-plugins/utility-host/test_ttsc_utility_plugins_paths_side_loads_into_driver_host";
+import { test_ttsc_descriptor_input_report_preserves_order_and_failure } from "./ttsc/native-plugins/utility/test_ttsc_descriptor_input_report_preserves_order_and_failure";
 import { test_ttsc_lint_config_evaluator_keeps_bootstrap_out_of_the_parent_descriptor_channel } from "./ttsc/native-plugins/utility/test_ttsc_lint_config_evaluator_keeps_bootstrap_out_of_the_parent_descriptor_channel";
 import { test_ttsc_lint_descriptor_tracks_external_discovery_candidates } from "./ttsc/native-plugins/utility/test_ttsc_lint_descriptor_tracks_external_discovery_candidates";
 import { test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build } from "./ttsc/native-plugins/utility/test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build";
@@ -470,6 +472,10 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
     test_plugin_corpus_ttsc_lint_no_emit_skips_redundant_tsgo_check,
   ],
   [
+    "test_plugin_corpus_emit_watch_reuses_plugin_selection_until_config_changes",
+    test_plugin_corpus_emit_watch_reuses_plugin_selection_until_config_changes,
+  ],
+  [
     "test_plugin_corpus_ttsx_check_host_accepts_sibling_sources_without_rootdir",
     test_plugin_corpus_ttsx_check_host_accepts_sibling_sources_without_rootdir,
   ],
@@ -540,6 +546,10 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
   [
     "test_ttsc_lint_descriptor_tracks_external_discovery_candidates",
     test_ttsc_lint_descriptor_tracks_external_discovery_candidates,
+  ],
+  [
+    "test_ttsc_descriptor_input_report_preserves_order_and_failure",
+    test_ttsc_descriptor_input_report_preserves_order_and_failure,
   ],
   [
     "test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build",

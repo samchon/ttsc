@@ -157,10 +157,13 @@ func (p *Program) EmitAll(rs *RewriteSet, writeFile shimcompiler.WriteFile) (*sh
 // is the standard place to carry per-file cursors or an output map), so ttsc
 // owns the serialization rather than pushing goroutine-safety onto every
 // plugin author. See the emit-concurrency contract in the plugin docs.
+// A watch-owned writer may leave an already identical file in place; that
+// successful output remains in EmittedFiles. Rejected outDir paths are marked
+// skipped and do not appear there.
 //
 // @evidence contracts/common.md#principled-implementation Native emission honors linked program hooks, compiler incremental-output policy, and output containment while omitting only ttsc text rewrites.
 // @evidence contracts/common.md#clear-and-simple-design One serialized writer callback wraps the compiler emit owner and shared diagnostic conversion.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler emission is not patched or replaced with expected-output text; skipped writes are marked for accurate emitted-file reporting.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler emission is not patched or replaced with expected-output text; rejected outDir writes are marked skipped, while identical existing watch outputs remain successful emitted files.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes raw output and guaranteed callback serialization following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native containment resolves compiler paths with its case policy, and DefaultWriteFile uses native filesystem APIs.
 // @evidence contracts/performance.md#efficient-algorithms Native generation processes the current program and emitted text; serialized callbacks add lexical path-containment and default filesystem or arbitrary caller-writer costs. Result diagnostics require conversion. Native threading policy remains selected by the loaded program, with no measured claim that callback serialization is inexpensive.
@@ -185,8 +188,8 @@ func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.Em
     wfMu.Lock()
     defer wfMu.Unlock()
     if p.outputEscapesOutDir(fileName) {
-      // Marking the write skipped keeps the file out of EmitResult.EmittedFiles,
-      // so callers reporting emitted counts don't include phantom outputs.
+      // Marking a rejected path skipped keeps it out of EmittedFiles. An
+      // existing identical output is still an emitted result and stays listed.
       if data != nil {
         data.SkippedDtsWrite = true
       }
@@ -243,8 +246,8 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
     wfMu.Lock()
     defer wfMu.Unlock()
     if p.outputEscapesOutDir(fileName) {
-      // See EmitAllRaw: mark the write skipped so EmitResult.EmittedFiles
-      // reflects only files actually written.
+      // See EmitAllRaw: rejected paths are absent from EmittedFiles, while an
+      // existing identical watch output remains a successful result.
       if data != nil {
         data.SkippedDtsWrite = true
       }
@@ -316,19 +319,25 @@ func (p *Program) emitsBuildInfo() bool {
 }
 
 // DefaultWriteFile is the default disk writer used when EmitAll's caller does not
-// supply a custom WriteFile callback. Existing files are truncated; a failed
-// write can leave partial output. Requested creation modes are subject to the
-// native platform and umask, and do not replace existing file permissions.
+// supply a custom WriteFile callback. Existing files are normally truncated; a
+// watch child setting TTSC_WATCH_WRITE_IF_CHANGED=1 preserves byte-identical
+// regular output files instead. A failed write can leave partial output.
+// Requested creation modes are subject to the native platform and umask, and
+// do not replace existing file permissions.
 //
-// @evidence contracts/common.md#principled-implementation Parent directories are created before the output is written, and native errors remain visible to emit callers.
-// @evidence contracts/common.md#clear-and-simple-design One directory-creation step precedes one file write.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts The writer uses actual requested filenames without suppressing filesystem failures or relying on shell commands.
-// @evidence contracts/common.md#meaningful-documentation Native prose identifies the default callback role following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation filepath.Dir, os.MkdirAll, and os.WriteFile supply OS-neutral native operations without separator or command assumptions.
-// @evidence contracts/performance.md#efficient-algorithms Native parent creation can walk missing ancestors and query existing entries; path length/depth and output bytes drive delegated work. The text-to-byte conversion and file write process the supplied output without a directory enumeration or intermediate output collection.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each emit write is requested independently; this writer owns no reuse coordinator.
-// @evidence contracts/performance.md#bound-retention-and-release-resources os.WriteFile opens one output handle and attempts its closure after the write, including write failure; open failure acquires no handle. The adapter retains no handle or historical output buffer after returning, but created directories and partial or completed files remain on disk without rollback.
+// @evidence contracts/common.md#principled-implementation The watch-only opt-in compares an existing writable regular output before deciding whether native writing is needed; all other writes use the original directory and file operations.
+// @evidence contracts/common.md#clear-and-simple-design One opt-in decision selects the unchanged-output check or the original writer.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Native file identity and bytes decide whether to skip; unknown state falls back to the original writer and its errors.
+// @evidence contracts/common.md#meaningful-documentation Native prose states normal truncation, watch opt-in, partial failure and permission behavior.
+// @evidence contracts/portability.md#os-neutral-implementation filepath.Dir, os.MkdirAll and os.WriteFile preserve native path and permission behavior; the optional check uses native file identity rather than path spelling.
+// @evidence contracts/performance.md#efficient-algorithms Normal writes retain one directory creation and file write. Watch writes add metadata and streamed comparison of up to the existing output size, then write only when content differs or safe comparison fails; no prior-output cache is retained.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each emit write is requested independently; this writer owns no cross-emit reuse coordinator.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The optional comparison closes its one read/write handle before return or fallback; os.WriteFile owns and closes the later write handle. No output buffer or handle survives this call, while created directories and partial or completed files remain on disk.
 func DefaultWriteFile(fileName, text string) error {
+  return writeFileWithWatchMode(fileName, text, os.Getenv("TTSC_WATCH_WRITE_IF_CHANGED") == "1")
+}
+
+func defaultWriteFile(fileName, text string) error {
   if dir := filepath.Dir(fileName); dir != "" {
     if err := os.MkdirAll(dir, 0o755); err != nil {
       return err
