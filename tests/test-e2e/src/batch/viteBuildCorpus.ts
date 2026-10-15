@@ -65,15 +65,16 @@ export interface ViteBuildRequest {
  * native retirement still govern host work and borrowed inputs.
  *
  * 1. Build the complete prepared graph once and inspect its values and map.
- * 2. Mutate declaration inputs through fallback and restored primary epochs.
+ * 2. Mutate declaration inputs through fallback and restored primary epochs,
+ *    retrying the first entry edit until the host reports invalidation.
  * 3. Close original outputs/watch ownership and collect late public errors.
  *
- * @evidence contracts/testing.md#behavioral-verification The same actual Vite graph supplies all 661 UTF-16 values, literal contract/JSON neighbors, map coordinates, native option paths and primary/fallback/restored publication assertions.
+ * @evidence contracts/testing.md#behavioral-verification The same actual Vite graph supplies all 661 UTF-16 values, literal contract/JSON neighbors, map coordinates, native option paths and primary/fallback/restored publication assertions. The first entry edit must cause Rollup's own invalidation before the fallback generation is accepted.
  * @evidence contracts/testing.md#independent-expectations Authored values and source coordinates remain independent of output; explicit alias grammar fixes native targets. Mutation epochs require actual publication after the corresponding authored change.
  * @evidence contracts/testing.md#distinguishing-cases Initial primary delivery, blocked primary with fallback, and restored primary are distinct states of one host. Public buildEnd errors remain collected even after watcher.close removes event listeners.
- * @evidence contracts/testing.md#execution-ownership One dedicated original Node actor calls the existing preparation once and build once with watch enabled. Opt-in phases observe existing writes, publication selection and public invalidation callbacks without adding a host or native invocation. A parent-shared deadline fails stalled observation without completing original promises. beforeExit collects queued work without forcing exit; actual native retirement is required separately by its parent.
+ * @evidence contracts/testing.md#execution-ownership One dedicated original Node actor calls the existing preparation once and build once with watch enabled. A bounded comment-only entry retry observes public invalidation without adding a host or native invocation; repeated attempts may cause extra native generations if notifications overlap. A parent-shared deadline fails stalled observation without completing original promises. beforeExit collects queued work without forcing exit; actual native retirement is required separately by its parent.
  * @evidence contracts/e2e.md#necessary-boundary Actual Vite/Rollup load the emitted adapter and native source delivery; direct callback units cannot establish this graph or public queued-work behavior.
- * @evidence contracts/e2e.md#shared-execution The parent lends the existing prepared workspace and one retained graph serves every value and record transition. No installation, per-case producer or duplicate shared preparation is introduced.
+ * @evidence contracts/e2e.md#shared-execution The parent lends the existing prepared workspace and one retained graph serves every value and record transition. The entry retry changes only a comment in that borrowed file and stops at the first public invalidation or a fixed attempt limit; no installation, per-case producer or duplicate shared preparation is introduced.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The actor records exclusive primary-file/blocker identities and never restores shared bytes. Known output/watch closes and errors are collected; natural actor termination plus the parent's native join, not close return or an idle interval, authorizes restoration.
  * @evidence contracts/e2e.md#preserved-coverage Every original value/map/path/native receipt and record assertion stays in this operation. The parent preserves independent restoration errors and unknown-lifetime retention; this operation does not certify later serve/native-watch scenarios.
  */
@@ -122,6 +123,8 @@ export async function viteBuildCorpus(
   assert.equal(fs.existsSync(heldPrimary), false);
   const transition: ViteRecordTransition = {};
   let mutationEpoch = 0;
+  let awaitingEntryInvalidation: number | undefined;
+  let observedEntryInvalidation: number | undefined;
   const checkpoint = (): void => {
     fs.writeFileSync(request.journal, JSON.stringify(transition));
     phase("record-checkpoint-completed", {
@@ -292,6 +295,11 @@ export async function viteBuildCorpus(
               epoch: mutationEpoch,
               file: id,
             });
+            if (
+              awaitingEntryInvalidation === mutationEpoch &&
+              path.resolve(id) === path.resolve(entry)
+            )
+              observedEntryInvalidation = mutationEpoch;
           },
         },
         rollupOptions: {
@@ -583,14 +591,36 @@ export async function viteBuildCorpus(
       epoch: mutationEpoch,
       file: declaration,
     });
-    fs.appendFileSync(
-      entry,
-      "\n// same host requests the changed declaration generation\n",
-    );
-    phase("input-append-completed", {
-      epoch: mutationEpoch,
-      file: entry,
-    });
+    // Rollup publishes END after requesting Chokidar registration, not after
+    // its native watcher opens. Only a real invalidation acknowledges delivery.
+    awaitingEntryInvalidation = mutationEpoch;
+    try {
+      let attempts = 0;
+      await waitFor(
+        () => {
+          if (observedEntryInvalidation === mutationEpoch) return true;
+          if (attempts === 100)
+            throw new Error(
+              "Rollup did not observe the changed entry after 100 owned edits",
+            );
+          attempts += 1;
+          fs.appendFileSync(
+            entry,
+            `\n// same host requests the changed declaration generation ${attempts}\n`,
+          );
+          phase("input-append-completed", {
+            epoch: mutationEpoch,
+            file: entry,
+            attempt: attempts,
+          });
+          return false;
+        },
+        "retained Vite entry watch invalidation",
+        { signal: lifetime.signal, check: () => lifetime.assertActive() },
+      );
+    } finally {
+      awaitingEntryInvalidation = undefined;
+    }
     const blocked = await nextGeneration(
       blockedOffset,
       fallback,
