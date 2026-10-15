@@ -2013,7 +2013,12 @@ function evaluateTtsxConfigPlugins(
 ): ConfigPluginEvaluation {
   const existing = evaluated.get(configPath);
   if (existing !== undefined) return existing;
-  const tempDir = createConfigLoaderTempDirectory(configPath);
+  const tempDir = createConfigLoaderTempDirectory(
+    configPath,
+    os.tmpdir(),
+    process.env.TTSC_PLUGIN_RECORD_ROOT,
+    context.projectRoot,
+  );
   try {
     linkNearestNodeModules(tempDir, path.dirname(configPath));
     const loaderPath = path.join(tempDir, "loader.mts");
@@ -2743,11 +2748,13 @@ function linkNearestNodeModules(tempDir: string, sourceDir: string): void {
  * loader and the lexical config path on one volume (#305), so a TEMP junction
  * cannot override the volume of the canonical loader path. Without a suitable
  * cache, an existing user temp directory outside the config tree is preferred
- * to writing beside the config. A TEMP path at or above the config directory
- * also yields to an existing identity store so its metadata remains stable. No
- * safe same-volume directory is an error.
+ * to writing beside the config. A TEMP path in or above the declared project or
+ * config directory yields to an existing identity store so observed ancestor
+ * metadata remains stable. An independent config evaluation without descriptor
+ * input capture may retain a strict external ancestor as its historical system
+ * temp. No safe same-volume directory is an error.
  *
- * @evidence contracts/common.md#principled-implementation Native realpath and the returned canonical child must share the config's lexical volume; a rejected empty child is removed by its physical path. A system temp at or above the config directory yields to an authoritative identity store. Descriptor identities need physical child and config-ancestor checks, and alternate user temp candidates must already exist outside the config tree.
+ * @evidence contracts/common.md#principled-implementation Native realpath and the returned canonical child must share the config's lexical volume; a rejected empty child is removed by its physical path. A system temp overlapping a physical project or config ancestor yields to an authoritative identity store, and descriptor-load children retain conservative ancestor handling. Descriptor identities need physical child and config-ancestor checks, and alternate user temp candidates must already exist outside the config tree.
  * @evidence contracts/common.md#clear-and-simple-design This function owns placement, while the existing canonical creator and nearest-cache selector retain their respective creation and discovery responsibilities.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Selection uses the descriptor's actual cache root and native filesystem identity, and every accepted fallback satisfies the compiler's lexical-volume requirement without returning a mutable junction spelling.
  * @evidence contracts/common.md#meaningful-documentation The comment explains the preexisting cache preference, TEMP junction and ancestor handling, and explicit failure when no usable same-volume directory exists.
@@ -2756,6 +2763,7 @@ export function createConfigLoaderTempDirectory(
   configPath: string,
   systemTemp: string = os.tmpdir(),
   recordRoot: string | undefined = process.env.TTSC_PLUGIN_RECORD_ROOT,
+  projectRoot?: string,
 ): string {
   const prefix = "ttsc-lint-cfg-";
   const configVolume = path.parse(configPath).root;
@@ -2764,6 +2772,14 @@ export function createConfigLoaderTempDirectory(
 
   const configDir = path.dirname(configPath);
   const physicalConfigDir = fs.realpathSync.native(configDir);
+  let physicalProjectRoot: string | undefined = physicalConfigDir;
+  if (projectRoot?.trim()) {
+    try {
+      physicalProjectRoot = fs.realpathSync.native(path.resolve(projectRoot));
+    } catch {
+      physicalProjectRoot = undefined;
+    }
+  }
   const contains = (ancestor: string, other: string): boolean => {
     const relative = path.relative(ancestor, other);
     return (
@@ -2783,28 +2799,6 @@ export function createConfigLoaderTempDirectory(
   } catch {
     // An unavailable system temp can be replaced by an existing safe owner.
   }
-  if (
-    physicalSystemTemp !== undefined &&
-    path.parse(physicalSystemTemp).root.toLowerCase() ===
-      configVolume.toLowerCase() &&
-    !contains(physicalSystemTemp, physicalConfigDir)
-  ) {
-    let directory: string | undefined;
-    try {
-      directory = createCanonicalTempDirectory(prefix, systemTemp);
-    } catch (error) {
-      if (!unavailable(error)) throw error;
-    }
-    if (directory !== undefined) {
-      if (
-        path.parse(directory).root.toLowerCase() === configVolume.toLowerCase()
-      ) {
-        return directory;
-      }
-      fs.rmdirSync(directory);
-    }
-  }
-
   const createOnConfigVolume = (parent: string): string | undefined => {
     let directory: string;
     try {
@@ -2821,6 +2815,30 @@ export function createConfigLoaderTempDirectory(
     fs.rmdirSync(directory);
     return undefined;
   };
+  const systemTempOnConfigVolume =
+    physicalSystemTemp !== undefined &&
+    path.parse(physicalSystemTemp).root.toLowerCase() ===
+      configVolume.toLowerCase();
+  const systemTempInsideProjectOrConfig =
+    physicalSystemTemp !== undefined &&
+    (physicalProjectRoot === undefined ||
+      contains(physicalProjectRoot, physicalSystemTemp) ||
+      contains(physicalConfigDir, physicalSystemTemp));
+  const systemTempExternalAncestor =
+    physicalSystemTemp !== undefined &&
+    !systemTempInsideProjectOrConfig &&
+    ((physicalProjectRoot !== undefined &&
+      contains(physicalSystemTemp, physicalProjectRoot)) ||
+      contains(physicalSystemTemp, physicalConfigDir));
+  const independentEvaluation = process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD !== "1";
+  if (
+    systemTempOnConfigVolume &&
+    !systemTempInsideProjectOrConfig &&
+    !systemTempExternalAncestor
+  ) {
+    const directory = createOnConfigVolume(systemTemp);
+    if (directory !== undefined) return directory;
+  }
 
   let preferred: string | undefined;
   if (recordRoot && path.isAbsolute(recordRoot)) {
@@ -2845,6 +2863,15 @@ export function createConfigLoaderTempDirectory(
   }
   if (preferred !== undefined) {
     const directory = createOnConfigVolume(preferred);
+    if (directory !== undefined) return directory;
+  }
+  if (
+    independentEvaluation &&
+    systemTempOnConfigVolume &&
+    systemTempExternalAncestor &&
+    !recordRoot
+  ) {
+    const directory = createOnConfigVolume(systemTemp);
     if (directory !== undefined) return directory;
   }
 
@@ -2880,6 +2907,15 @@ export function createConfigLoaderTempDirectory(
       continue;
     }
     const directory = createOnConfigVolume(physical);
+    if (directory !== undefined) return directory;
+  }
+  if (
+    independentEvaluation &&
+    systemTempOnConfigVolume &&
+    systemTempExternalAncestor &&
+    recordRoot
+  ) {
+    const directory = createOnConfigVolume(systemTemp);
     if (directory !== undefined) return directory;
   }
   if (

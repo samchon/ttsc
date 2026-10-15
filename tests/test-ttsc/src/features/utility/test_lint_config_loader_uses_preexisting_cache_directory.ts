@@ -21,10 +21,14 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 4. Compare the canonical system-temp volume with the config's lexical volume
  *    through junctions in either direction, checking the actual scratch
  *    parent.
+ * 5. Prefer selected identities over a system temp above the project or equal to
+ *    an explicit config directory outside the declared project. With no
+ *    selected cache, keep descriptor-load ancestor protection while an
+ *    independent evaluator retains the historical system temp.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls the real scratch allocator, checks native physical parents and project metadata around creation and removal, and asserts each accepted owner has no temporary child afterward.
+ * @evidence contracts/testing.md#behavioral-verification Calls the real scratch allocator, checks native physical parents and ancestor metadata around creation and removal, and asserts each accepted owner has no temporary child afterward.
  * @evidence contracts/testing.md#independent-expectations Independently created ordinary, blocked, absent and linked cache entries define literal expected parents; native bigint project timestamps must stay fixed while entries change only below the preexisting identities child.
- * @evidence contracts/testing.md#distinguishing-cases Preexisting identities, absent record authority, identity and cache junctions, ordinary and aliased system temp, and each physical-temp/lexical-config volume relationship distinguish accepted same-volume storage from a cross-volume fallback.
+ * @evidence contracts/testing.md#distinguishing-cases Preexisting identities, absent record authority, descriptor-load versus independent strict-ancestor temp, identity and cache junctions, inside-project system temp, and each physical-temp/lexical-config volume relationship distinguish accepted same-volume storage from a cross-volume fallback.
  * @evidence contracts/testing.md#execution-ownership This Windows-specific source unit calls only the allocator over TestProject-owned temporary directories; it starts no compiler, evaluator, native plugin, or product host. A missing second writable volume omits only the physical cross-volume link cases.
  */
 export function test_lint_config_loader_uses_preexisting_cache_directory(): void {
@@ -77,12 +81,72 @@ export function test_lint_config_loader_uses_preexisting_cache_directory(): void
     }
     assert.deepEqual(fs.readdirSync(expected), beforeEntries);
   };
+  const expectParentWithDescriptorLoad = (
+    descriptorLoad: "0" | "1",
+    systemTemp: string,
+    recordRoot: string,
+    expected: string,
+  ): void => {
+    const previous = process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD;
+    try {
+      process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD = descriptorLoad;
+      expectParent(systemTemp, recordRoot, expected);
+    } finally {
+      if (previous === undefined)
+        delete process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD;
+      else process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD = previous;
+    }
+  };
 
   const before = fs.statSync(project, { bigint: true });
   expectParent(otherVolumeTemp, project, identities);
   const after = fs.statSync(project, { bigint: true });
   assert.equal(after.mtimeNs, before.mtimeNs);
   assert.equal(after.ctimeNs, before.ctimeNs);
+
+  const beforeAncestor = fs.statSync(parent, { bigint: true });
+  const ancestorScratch = allocate(config, parent, project, project);
+  try {
+    assert.equal(
+      path.dirname(ancestorScratch),
+      fs.realpathSync.native(identities),
+    );
+  } finally {
+    fs.rmdirSync(ancestorScratch);
+  }
+  const afterAncestor = fs.statSync(parent, { bigint: true });
+  assert.equal(afterAncestor.mtimeNs, beforeAncestor.mtimeNs);
+  assert.equal(afterAncestor.ctimeNs, beforeAncestor.ctimeNs);
+  assert.deepEqual(fs.readdirSync(identities), []);
+  expectParentWithDescriptorLoad("0", parent, "", parent);
+
+  const externalConfigDir = TestProject.tmpdir("lint-external-config-", parent);
+  const externalConfig = path.join(externalConfigDir, "lint.config.ts");
+  try {
+    fs.writeFileSync(externalConfig, "export default {};\n", "utf8");
+    const beforeExternal = fs.statSync(externalConfigDir, { bigint: true });
+    const externalScratch = allocate(
+      externalConfig,
+      externalConfigDir,
+      project,
+      project,
+    );
+    try {
+      assert.equal(
+        path.dirname(externalScratch),
+        fs.realpathSync.native(identities),
+      );
+    } finally {
+      fs.rmdirSync(externalScratch);
+    }
+    const afterExternal = fs.statSync(externalConfigDir, { bigint: true });
+    assert.equal(afterExternal.mtimeNs, beforeExternal.mtimeNs);
+    assert.equal(afterExternal.ctimeNs, beforeExternal.ctimeNs);
+    assert.deepEqual(fs.readdirSync(identities), []);
+  } finally {
+    if (fs.existsSync(externalConfig)) fs.unlinkSync(externalConfig);
+    fs.rmdirSync(externalConfigDir);
+  }
 
   expectParent(otherVolumeTemp, "", project);
 
@@ -97,17 +161,24 @@ export function test_lint_config_loader_uses_preexisting_cache_directory(): void
   fs.unlinkSync(cache);
   fs.mkdirSync(cache);
   expectParent(otherVolumeTemp, "", cache);
+  expectParentWithDescriptorLoad("1", parent, "", cache);
+  expectParentWithDescriptorLoad(
+    "0",
+    parent,
+    path.join(project, "unavailable-record-root"),
+    cache,
+  );
   fs.rmdirSync(cache);
   expectParent(otherVolumeTemp, "", cache);
   fs.rmdirSync(cache);
 
   const sameVolumeTemp = path.join(project, "system-temp");
   fs.mkdirSync(sameVolumeTemp);
-  expectParent(sameVolumeTemp, "", sameVolumeTemp);
+  expectParent(sameVolumeTemp, "", cache);
   const sameVolumeAlias = path.join(project, "linked-same-volume-temp");
   fs.symlinkSync(sameVolumeTemp, sameVolumeAlias, "junction");
   try {
-    expectParent(sameVolumeAlias, "", sameVolumeTemp);
+    expectParent(sameVolumeAlias, "", cache);
   } finally {
     fs.unlinkSync(sameVolumeAlias);
   }
@@ -124,10 +195,11 @@ export function test_lint_config_loader_uses_preexisting_cache_directory(): void
     );
     fs.symlinkSync(sameVolumeTemp, crossLexicalSamePhysical, "junction");
     try {
-      expectParent(crossLexicalSamePhysical, "", sameVolumeTemp);
+      expectParent(crossLexicalSamePhysical, "", cache);
     } finally {
       fs.unlinkSync(crossLexicalSamePhysical);
     }
+    fs.rmdirSync(cache);
     fs.symlinkSync(physicalOtherVolume, cache, "junction");
     try {
       expectParent(otherVolumeTemp, "", project);
