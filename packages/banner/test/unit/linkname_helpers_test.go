@@ -63,6 +63,9 @@ func bannerTypeScriptConfigLoaderSource(importLiteral, recorderLiteral string) s
 //go:linkname bannerLoaderTempBase github.com/samchon/ttsc/packages/banner/driver.loaderTempBase
 func bannerLoaderTempBase(location, systemTemp string) string
 
+//go:linkname bannerCreateConfigLoaderTempDir github.com/samchon/ttsc/packages/banner/driver.createBannerConfigLoaderTempDir
+func bannerCreateConfigLoaderTempDir(location, systemTemp, recordRoot string) (string, error)
+
 //go:linkname bannerShouldRunTtsxThroughNode github.com/samchon/ttsc/packages/banner/driver.shouldRunTtsxThroughNode
 func bannerShouldRunTtsxThroughNode(binary string) bool
 

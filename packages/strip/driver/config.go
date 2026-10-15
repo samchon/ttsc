@@ -5,14 +5,17 @@ import (
   "context"
   "crypto/sha256"
   "encoding/json"
+  "errors"
   "fmt"
   "os"
   "os/exec"
   "path/filepath"
   "runtime"
   "strings"
+  "syscall"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver/configloaderscratch"
   "github.com/samchon/ttsc/packages/ttsc/driver/resolutioninputs"
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
@@ -494,9 +497,10 @@ declare const process: {
 //
 // Both tools this spawns — the launcher and the compiler handed to it — are
 // resolved from the project rather than from the process environment alone;
-// see stripConfigToolAnchors.
+// see stripConfigToolAnchors. An already-open identity store can hold the
+// loader on a cross-volume TEMP setup without moving the config directory.
 func loadStripTypeScriptConfigFileWithInputs(location, resolutionRoot string) (stripLoadedConfig, error) {
-  tempDir, err := os.MkdirTemp(stripLoaderTempBase(location, os.TempDir()), "ttsc-strip-config-")
+  tempDir, err := createStripConfigLoaderTempDir(location, os.TempDir(), os.Getenv("TTSC_NATIVE_PLUGIN_RECORD_ROOT"))
   if err != nil {
     return stripLoadedConfig{}, fmt.Errorf("@ttsc/strip: create config loader tempdir: %w", err)
   }
@@ -567,6 +571,25 @@ func loadStripTypeScriptConfigFileWithInputs(location, resolutionRoot string) (s
     return stripLoadedConfig{}, fmt.Errorf("@ttsc/strip: parse TypeScript config file %s output: %w", location, err)
   }
   return loaded, nil
+}
+
+// createStripConfigLoaderTempDir uses this invocation's existing identity
+// directory when it is safe for the config; otherwise it preserves the
+// historical loader base. Expected filesystem refusal of the preferred base
+// also falls back, while unexpected errors remain visible to the caller.
+func createStripConfigLoaderTempDir(location, systemTemp, recordRoot string) (string, error) {
+  preferred := configloaderscratch.IdentityTempBase(location, systemTemp, recordRoot)
+  var tempDir string
+  var err error
+  if preferred != "" {
+    tempDir, err = os.MkdirTemp(preferred, "ttsc-strip-config-")
+  }
+  if preferred == "" || (err != nil &&
+    (os.IsPermission(err) || os.IsNotExist(err) ||
+      errors.Is(err, syscall.ENOTDIR) || errors.Is(err, syscall.EROFS))) {
+    tempDir, err = os.MkdirTemp(stripLoaderTempBase(location, systemTemp), "ttsc-strip-config-")
+  }
+  return tempDir, err
 }
 
 // stripTypeScriptLoaderTsconfig generates the JSON content of the ephemeral

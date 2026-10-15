@@ -169,9 +169,11 @@ export namespace BuildExecution {
    *
    * The caller owns the fresh environment and the selected Node executable.
    * Executable capability discovery remains at the native spawn boundary; this
-   * composer only writes protocol values and removes stale payloads.
+   * composer only writes protocol values and removes stale payloads. The
+   * invocation's opened content-identity store supplies native config-loader
+   * scratch placement, or clears an inherited store when none was opened.
    *
-   * @evidence contracts/common.md#principled-implementation The selected compiler and Node executable own their channels; config, forwarded arguments and linked transforms are published or cleared according to this invocation and explicit caller ownership.
+   * @evidence contracts/common.md#principled-implementation The selected compiler and Node executable own their channels; config, content-identity scratch root, forwarded arguments and linked transforms are published or cleared according to this invocation and explicit caller ownership.
    * @evidence contracts/common.md#clear-and-simple-design A synchronous payload composer consumes the existing merged environment, keeping native executable discovery in nativePluginEnv without copying environment layers again.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supplied executable selections are preserved without guessing capabilities, launching a substitute producer or mutating the global environment.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the required fresh layered environment, caller ownership and the separation of runtime discovery from protocol publication.
@@ -191,6 +193,11 @@ export namespace BuildExecution {
     CompilerProjectSelection.assertCurrent(execution.compilerSelection);
     SidecarEnvironment.write(env, "TTSC_NODE_BINARY", nodeBinary);
     SidecarEnvironment.write(env, "TTSC_TSGO_BINARY", execution.tsgo.binary);
+    SidecarEnvironment.write(
+      env,
+      "TTSC_NATIVE_PLUGIN_RECORD_ROOT",
+      execution.identities?.root,
+    );
     // Forwarded tsgo argv is per-invocation state this host owns, exactly like
     // the config anchor below: publish this run's payload, or drop whatever an
     // ancestor ttsc process left behind when this lane forwards nothing.

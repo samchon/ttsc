@@ -2,7 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
+import { selectedRecordIdentityTempParent } from "../../plugin/internal/source/selectedRecordIdentityTempParent";
 import type { CapturedProcessOutput } from "./CapturedProcessOutput";
+import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 
 /**
  * Acquire two private files and descriptors for a child's output.
@@ -12,26 +14,38 @@ import type { CapturedProcessOutput } from "./CapturedProcessOutput";
  * string limits; file capture does not make output unbounded.
  *
  * The directory is per-call, so ordinary concurrent captures use separate
- * destinations. This is not held-directory protection against namespace
- * mutation. Descriptor acquisition failures attempt rollback; cleanup failures
- * are suppressed, and the temp creator can leave an unclaimed postflight
- * allocation. The caller owns the returned capture and must dispose it after
- * reading; read failures propagate, while disposal is idempotent and cleanup is
- * best effort.
+ * destinations. A descriptor child with a selected record root captures below
+ * its existing identities directory, keeping a project-root TEMP from changing
+ * the missing-input proof during evaluation. Other callers use system TEMP.
  *
- * @evidence contracts/common.md#principled-implementation Precreated files receive exact child stream bytes through inherited descriptors; decoding happens on read, and I/O errors cannot masquerade as empty successful output.
- * @evidence contracts/common.md#clear-and-simple-design One capture owns two descriptors and their private directory. Acquisition rollback and disposal share cleanup helpers, leaving consumers responsible for a finally boundary.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported Node filesystem and descriptor APIs capture diagnostics without foreign mutation, expected-output substitution or an arbitrary output ceiling.
- * @evidence contracts/common.md#meaningful-documentation Separate purpose, limits and ownership paragraphs follow the documentation skill and explain actual failure effects rather than claiming unlimited output.
- * @evidence contracts/portability.md#os-neutral-implementation Canonical temporary-directory ownership and path.join represent native paths; Node manages native descriptors. Removal remains best effort because inherited Windows handles may keep files live.
- * @evidence contracts/performance.md#efficient-algorithms Two streams require a fixed number of filesystem calls, including delegated canonical-parent/child observations and native creation/open work. Parent/path text and native lookup are not constant-cost; reading B bytes and optional decoding allocate complete raw/output text in O(B) storage. No output-byte quota is imposed by this capture owner.
+ * This is not held-directory protection against namespace mutation. Descriptor
+ * acquisition failures attempt rollback; cleanup failures are suppressed, and
+ * the temp creator can leave an unclaimed postflight allocation. The caller
+ * owns the returned capture and must dispose it after reading; read failures
+ * propagate, while disposal is idempotent and cleanup is best effort.
+ *
+ * @evidence contracts/common.md#principled-implementation Precreated files receive exact child stream bytes through inherited descriptors; a descriptor load uses only its preexisting, canonical selected identities directory, while other captures retain system TEMP. Decoding happens on read, and I/O errors cannot masquerade as empty successful output.
+ * @evidence contracts/common.md#clear-and-simple-design One capture owns two descriptors and their private directory. The shared record-parent selector checks the descriptor's existing cache before allocation; acquisition rollback and disposal share cleanup helpers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported Node filesystem and descriptor APIs capture diagnostics without foreign mutation, expected-output substitution or an arbitrary output ceiling; an absent or invalid private root does not invent a cache.
+ * @evidence contracts/common.md#meaningful-documentation Separate purpose, placement, limits and ownership paragraphs explain the descriptor-only placement and actual failure effects rather than claiming unlimited output.
+ * @evidence contracts/portability.md#os-neutral-implementation The shared selector confirms an ordinary physical identities child through native realpath and link-preserving stat; canonical temporary-directory ownership and path.join represent native paths. Removal remains best effort because inherited Windows handles may keep files live.
+ * @evidence contracts/performance.md#efficient-algorithms Descriptor selection adds a fixed number of native path observations before the fixed capture filesystem calls. Parent/path text and native lookup are not constant-cost; reading B bytes and optional decoding allocate complete raw/output text in O(B) storage. No output-byte quota is imposed by this capture owner.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each child requires independent effectful output destinations; sharing prior captures would mix bytes and ownership rather than reuse equivalent work.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources One accepted directory and two descriptors transfer to the capture until disposal. Acquisition rollback/disposal attempt close/removal; errors are suppressed, so closure and file reclamation can remain unconfirmed. Disposal marks itself consumed before cleanup and does not retry; caller-reachable capture closures retain path/state references until discarded. Output bytes are uncapped here.
  */
-export function captureProcessOutput(): CapturedProcessOutput {
-  const directory = createCanonicalTempDirectory("ttsc-spawn-");
+export function captureProcessOutput(
+  env: NodeJS.ProcessEnv = process.env,
+): CapturedProcessOutput {
+  const recordRoot =
+    env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
+      ? SidecarEnvironment.read(env, "TTSC_PLUGIN_RECORD_ROOT")
+      : undefined;
+  const directory = createCanonicalTempDirectory(
+    "ttsc-spawn-",
+    selectedRecordIdentityTempParent(recordRoot),
+  );
   const stdoutPath = path.join(directory, "stdout");
   const stderrPath = path.join(directory, "stderr");
   let stdoutFd: number;

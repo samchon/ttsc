@@ -121,7 +121,8 @@ export function startResidentTransform(
  * tsconfig) so config-file discovery walks the real project instead of the
  * wrapper's temp-dir ancestry, and forwards linked transform plugins via
  * `TTSC_LINKED_PLUGINS_JSON`. The load's record store proves the Node runtime
- * from metadata instead of streaming it again (#1723).
+ * from metadata instead of streaming it again (#1723), and supplies the
+ * invocation-owned native config-loader scratch root when available.
  */
 function residentEnv(
   context: ITtscCompilerContext,
@@ -146,6 +147,11 @@ function residentEnv(
   );
   const node = resolveNodeBinary(env, projectRoot, identities);
   SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
+  SidecarEnvironment.write(
+    env,
+    "TTSC_NATIVE_PLUGIN_RECORD_ROOT",
+    identities?.root,
+  );
   // The anchor is per-invocation state owned by this host: when this run
   // declared none (and the caller's env does not name one), drop any value
   // inherited from an ancestor ttsc process so a nested build never

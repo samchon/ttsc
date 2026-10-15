@@ -5,14 +5,17 @@ import (
   "context"
   "crypto/sha256"
   "encoding/json"
+  "errors"
   "fmt"
   "os"
   "os/exec"
   "path/filepath"
   "runtime"
   "strings"
+  "syscall"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver/configloaderscratch"
   "github.com/samchon/ttsc/packages/ttsc/driver/resolutioninputs"
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
@@ -573,9 +576,10 @@ func decodeBannerConfigLoaderOutput(output []byte) (bannerLoadedConfig, error) {
 //
 // Both tools this spawns, the launcher and the compiler handed to it, are
 // resolved from the project rather than from the process environment alone; see
-// configToolAnchors.
+// configToolAnchors. When TEMP is on another volume, an already-open identity
+// store can hold the loader without changing the config directory's metadata.
 func loadBannerTypeScriptConfigFileWithInputs(location, resolutionRoot string) (bannerLoadedConfig, error) {
-  tempDir, err := os.MkdirTemp(loaderTempBase(location, os.TempDir()), "ttsc-banner-config-")
+  tempDir, err := createBannerConfigLoaderTempDir(location, os.TempDir(), os.Getenv("TTSC_NATIVE_PLUGIN_RECORD_ROOT"))
   if err != nil {
     return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: create config loader tempdir: %w", err)
   }
@@ -624,6 +628,25 @@ func loadBannerTypeScriptConfigFileWithInputs(location, resolutionRoot string) (
     return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: parse TypeScript config file %s output: %w", location, err)
   }
   return loaded, nil
+}
+
+// createBannerConfigLoaderTempDir uses this invocation's existing identity
+// directory when it is safe for the config; otherwise it preserves the
+// historical loader base. Expected filesystem refusal of the preferred base
+// also falls back, while unexpected errors remain visible to the caller.
+func createBannerConfigLoaderTempDir(location, systemTemp, recordRoot string) (string, error) {
+  preferred := configloaderscratch.IdentityTempBase(location, systemTemp, recordRoot)
+  var tempDir string
+  var err error
+  if preferred != "" {
+    tempDir, err = os.MkdirTemp(preferred, "ttsc-banner-config-")
+  }
+  if preferred == "" || (err != nil &&
+    (os.IsPermission(err) || os.IsNotExist(err) ||
+      errors.Is(err, syscall.ENOTDIR) || errors.Is(err, syscall.EROFS))) {
+    tempDir, err = os.MkdirTemp(loaderTempBase(location, systemTemp), "ttsc-banner-config-")
+  }
+  return tempDir, err
 }
 
 // prepareBannerTypeScriptConfigLoader owns the ordered preparation needed before

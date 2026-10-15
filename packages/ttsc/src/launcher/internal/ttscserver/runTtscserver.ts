@@ -267,6 +267,11 @@ function lspSidecarEnvironment(options: {
   SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
   SidecarEnvironment.write(
     env,
+    "TTSC_NATIVE_PLUGIN_RECORD_ROOT",
+    options.identities?.root,
+  );
+  SidecarEnvironment.write(
+    env,
     "TTSC_PLUGIN_CONFIG_DIR",
     options.pluginConfigOrigin,
   );

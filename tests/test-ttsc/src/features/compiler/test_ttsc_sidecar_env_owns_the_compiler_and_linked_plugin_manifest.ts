@@ -9,7 +9,7 @@ import { publishLinkedTransformPlugins } from "../../../../../packages/ttsc/src/
 
 /**
  * Verifies a sidecar environment carries this invocation's compiler and linked
- * plugins, never an outer ttsc run's.
+ * plugins and content-identity scratch root, never an outer ttsc run's.
  *
  * Every sidecar env starts from `process.env`. The child constructors gave an
  * inherited `TTSC_TSGO_BINARY` priority over the compiler the invocation
@@ -19,15 +19,17 @@ import { publishLinkedTransformPlugins } from "../../../../../packages/ttsc/src/
  * inherited the outer manifest, and the Go host ran plugins it never chose or
  * failed parsing a payload it did not own.
  *
- * 1. Put an outer compiler and an invalid linked manifest in `process.env`.
+ * 1. Put an outer compiler and invalid linked manifest in `process.env`, then
+ *    supply a stale record root in the composer input.
  * 2. Build a check-host env, a transform-host env with no linked plugins, and a
  *    descriptor-evaluation env with an explicit compiler.
- * 3. Assert each carries the resolved compiler and no inherited manifest, while a
- *    caller-named manifest and this invocation's own linked list survive.
+ * 3. Assert each carries the resolved compiler and no inherited manifest or record
+ *    root, while a caller-named manifest, opened record store and this
+ *    invocation's linked list survive.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls composeNativePluginEnv, inheritedSidecarEnv and publishLinkedTransformPlugins with an outer compiler and invalid manifest, asserting exact selected compiler, removed inherited payload and retained caller/own linked-plugin contents.
+ * @evidence contracts/testing.md#behavioral-verification Calls composeNativePluginEnv, inheritedSidecarEnv and publishLinkedTransformPlugins with an outer compiler, stale record root and invalid manifest, asserting exact selected compiler, removed inherited payload and retained caller/own store and linked-plugin contents.
  * @evidence contracts/testing.md#independent-expectations Literal outer, selected, caller and descriptor compiler identities establish invocation precedence independently of composition. The explicit authored plugin DTO establishes the linked list without reading it back as an expected result.
- * @evidence contracts/testing.md#distinguishing-cases Check and transform stages both reject stale inherited state; caller compiler loses to selected compiler, explicit descriptor wins while absent descriptor selection preserves its inherited override, and caller-empty versus invocation-owned linked payloads remain distinct. A selected Node binary also overrides the outer binary without discovery.
+ * @evidence contracts/testing.md#distinguishing-cases Check and transform stages both reject stale inherited state; absent versus opened record store clears or replaces the inherited root. Caller compiler loses to selected compiler, explicit descriptor wins while absent descriptor selection preserves its inherited override, and caller-empty versus invocation-owned linked payloads remain distinct. A selected Node binary also overrides the outer binary without discovery.
  * @evidence contracts/testing.md#execution-ownership This named source unit invokes the real pure composer with already-layered environment and selected Node identity in its Node process. Production nativePluginEnv still owns executable runtime discovery; this case starts no subprocess, installs no consumer and restores each inherited environment mutation in finally.
  */
 export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest =
@@ -100,7 +102,9 @@ export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest 
 
       for (const stage of ["check", "transform"] as const) {
         const env = BuildExecution.composeNativePluginEnv(
-          SidecarEnvironment.merge(process.env),
+          SidecarEnvironment.merge(process.env, {
+            TTSC_NATIVE_PLUGIN_RECORD_ROOT: "/outer/cache",
+          }),
           undefined,
           execution,
           "/selected/node",
@@ -108,8 +112,26 @@ export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest 
         );
         assert.equal(env.TTSC_TSGO_BINARY, "/selected/tsgo", stage);
         assert.equal(env.TTSC_LINKED_PLUGINS_JSON, undefined, stage);
+        assert.equal(env.TTSC_NATIVE_PLUGIN_RECORD_ROOT, undefined, stage);
         assert.equal(env.TTSC_NODE_BINARY, "/selected/node", stage);
       }
+      const withStore = BuildExecution.composeNativePluginEnv(
+        SidecarEnvironment.merge(process.env, {
+          TTSC_NATIVE_PLUGIN_RECORD_ROOT: "/outer/cache",
+        }),
+        undefined,
+        {
+          ...execution,
+          identities: {
+            root: "/selected/cache",
+            references: new Map<bigint, bigint>(),
+            version: "test",
+          },
+        },
+        "/selected/node",
+        plugin("check"),
+      );
+      assert.equal(withStore.TTSC_NATIVE_PLUGIN_RECORD_ROOT, "/selected/cache");
       const overridden = BuildExecution.composeNativePluginEnv(
         SidecarEnvironment.merge(process.env, {
           TTSC_TSGO_BINARY: "/caller/tsgo",

@@ -45,6 +45,8 @@ export default {
 
 The config is a Node module and runs under the module format Node would give it: an explicit `.cts`/`.mts` extension decides on its own, and an ambiguous `.ts` or `.js` config follows the nearest `package.json` `"type"`. So `__dirname` works in a CommonJS package and `import.meta.dirname` in a `"type": "module"` package, and Node's globals need no `/// <reference types="node" />` directive as long as `@types/node` is installed beside the config.
 
+When the system temporary directory contains the TypeScript config directory, including through a link, the evaluator can use the already opened ttsc cache's `identities` directory to avoid changing the config directory. On Windows, it also uses `identities` when TEMP is on another drive, provided the cache is on the config path's drive. An independent temporary directory keeps its existing placement. If `identities` is unavailable, the evaluator uses its existing TEMP or nearest `node_modules/.cache` or config-directory fallback and removes its temporary files when it finishes.
+
 `@ttsc/strip` discovers its config by walking upward from the tsconfig directory, looking for `strip.config.{ts,cts,mts,js,cjs,mjs,json}`. When a build integration compiles through a generated tsconfig outside the project (the bundler adapters do this whenever an alias or a `compilerOptions` overlay is set), the integration declares the real project root (`pluginConfigDir` on `TtscCompiler`) and the walk starts there instead of the temp directory. To point at a specific file, set `configFile` on the tsconfig entry (a relative path resolves against the same base directory):
 
 ```jsonc

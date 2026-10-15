@@ -6,6 +6,7 @@ import (
   "crypto/sha256"
   "encoding/hex"
   "encoding/json"
+  "errors"
   "fmt"
   "io"
   "net/url"
@@ -16,6 +17,7 @@ import (
   "sort"
   "strings"
   "sync"
+  "syscall"
   "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
@@ -3860,7 +3862,18 @@ func loadTypeScriptConfigEvaluationWithin(
   location string,
   resolutionRoot string,
 ) (evaluatedConfigFile, error) {
-  tempDir, err := os.MkdirTemp(loaderTempBase(location, os.TempDir()), "ttsc-lint-config-")
+  systemTemp := os.TempDir()
+  preferred := loaderIdentityTempBase(location, systemTemp, os.Getenv("TTSC_NATIVE_PLUGIN_RECORD_ROOT"))
+  var tempDir string
+  var err error
+  if preferred != "" {
+    tempDir, err = os.MkdirTemp(preferred, "ttsc-lint-config-")
+  }
+  if preferred == "" || (err != nil &&
+    (os.IsPermission(err) || os.IsNotExist(err) ||
+      errors.Is(err, syscall.ENOTDIR) || errors.Is(err, syscall.EROFS))) {
+    tempDir, err = os.MkdirTemp(loaderTempBase(location, systemTemp), "ttsc-lint-config-")
+  }
   if err != nil {
     return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: create config loader tempdir: %w", err)
   }
@@ -5339,6 +5352,71 @@ func loaderRootDir(outDir string) string {
     return "/"
   }
   return filepath.ToSlash(vol + `\`)
+}
+
+// loaderIdentityTempBase accepts an already-created identity directory from
+// this native plugin invocation's record store when TEMP is on another volume
+// or contains the config directory. A loader beneath that directory
+// cannot move the config directory's own metadata. The store and config must
+// match the config's lexical drive when one exists. The identity directory must
+// be a real direct child rather than a link or an ancestor of the config directory. An empty
+// result leaves the established loader placement in control.
+func loaderIdentityTempBase(location, systemTemp, recordRoot string) string {
+  if recordRoot == "" || !filepath.IsAbs(recordRoot) {
+    return ""
+  }
+  if !filepath.IsAbs(location) {
+    return ""
+  }
+  volume := filepath.VolumeName(location)
+  configDir := filepath.Dir(location)
+  physicalConfigDir, err := loaderCanonicalDirectory(configDir)
+  if err != nil {
+    return ""
+  }
+  if strings.EqualFold(filepath.VolumeName(systemTemp), volume) {
+    lexicalContains := false
+    if volume != "" {
+      lexicalContains, err = loaderContainsDirectory(systemTemp, configDir)
+      if err != nil {
+        return ""
+      }
+    }
+    if !lexicalContains {
+      physicalTemp, err := loaderCanonicalDirectory(systemTemp)
+      if err != nil {
+        return ""
+      }
+      physicalContains, err := loaderContainsDirectory(physicalTemp, physicalConfigDir)
+      if err != nil || !physicalContains {
+        return ""
+      }
+    }
+  }
+  physicalRoot, err := loaderCanonicalDirectory(recordRoot)
+  if err != nil {
+    return ""
+  }
+  identity := filepath.Join(recordRoot, "identities")
+  entry, err := os.Lstat(identity)
+  if err != nil || !entry.IsDir() || entry.Mode()&os.ModeSymlink != 0 {
+    return ""
+  }
+  if _, err := os.Readlink(identity); err == nil {
+    return ""
+  }
+  physicalIdentity, err := loaderCanonicalDirectory(identity)
+  if err != nil || filepath.Dir(physicalIdentity) != physicalRoot ||
+    !strings.EqualFold(filepath.VolumeName(physicalIdentity), volume) {
+    return ""
+  }
+  if strings.EqualFold(filepath.VolumeName(physicalIdentity), filepath.VolumeName(physicalConfigDir)) {
+    contained, err := loaderContainsDirectory(physicalIdentity, physicalConfigDir)
+    if err != nil || contained {
+      return ""
+    }
+  }
+  return physicalIdentity
 }
 
 // loaderTempBase picks the parent directory for the ephemeral config-loader

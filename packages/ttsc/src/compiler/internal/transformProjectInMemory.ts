@@ -820,7 +820,10 @@ function serializeNativePlugins(
  * instead of the wrapper's temp-dir ancestry. For transform plugins, also
  * passes `TTSC_LINKED_PLUGINS_JSON` when linked sources are present. The load's
  * record store proves the Node runtime from metadata instead of streaming it
- * before every spawn of every generation (#1723).
+ * before every spawn of every generation (#1723). Its preexisting identity
+ * directory is offered to native config loaders as scratch storage on the
+ * project's volume; a nested ttsx descriptor load does not inherit the
+ * descriptor-only record-root channel.
  */
 function nativePluginEnv(
   options: ITtscCompilerContext,
@@ -846,6 +849,11 @@ function nativePluginEnv(
   );
   const node = resolveNodeBinary(env, projectRoot, identities);
   SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
+  SidecarEnvironment.write(
+    env,
+    "TTSC_NATIVE_PLUGIN_RECORD_ROOT",
+    identities?.root,
+  );
   // The anchor is per-invocation state owned by this host: when this run
   // declared none (and the caller's env does not name one), drop any value
   // inherited from an ancestor ttsc process so a nested build never

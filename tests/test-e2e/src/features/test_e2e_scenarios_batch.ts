@@ -69,6 +69,7 @@ import { test_ttsc_lint_config_evaluator_keeps_bootstrap_out_of_the_parent_descr
 import { test_ttsc_lint_descriptor_tracks_external_discovery_candidates } from "./ttsc/native-plugins/utility/test_ttsc_lint_descriptor_tracks_external_discovery_candidates";
 import { test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build } from "./ttsc/native-plugins/utility/test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build";
 import { test_loadprojectplugins_reports_the_directories_its_plugin_builds_key_on } from "./ttsc/project/test_loadprojectplugins_reports_the_directories_its_plugin_builds_key_on";
+import { test_loadprojectplugins_selected_record_root_contains_parent_descriptor_scratch } from "./ttsc/project/test_loadprojectplugins_selected_record_root_contains_parent_descriptor_scratch";
 import { test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies } from "./ttsc/project/test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies";
 import { test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp } from "./ttsc/project/test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp";
 import { test_resolution_recorder_observes_require_resolve_through_the_supported_hooks } from "./ttsc/project/test_resolution_recorder_observes_require_resolve_through_the_supported_hooks";
@@ -208,6 +209,7 @@ import { test_transformttsc_recompiles_after_its_plugin_source_is_edited } from 
 import { test_transformttsc_separated_stamp_re_earns_its_signature } from "./unplugin/native-plugins/transform/test_transformttsc_separated_stamp_re_earns_its_signature";
 import { test_transformttsc_survives_high_darwin_descriptors } from "./unplugin/native-plugins/transform/test_transformttsc_survives_high_darwin_descriptors";
 import { test_transformttsc_synchronous_membership_change_reaches_the_next_delivery } from "./unplugin/native-plugins/transform/test_transformttsc_synchronous_membership_change_reaches_the_next_delivery";
+import { test_transformttsc_typed_native_configs_keep_project_root_stable } from "./unplugin/native-plugins/transform/test_transformttsc_typed_native_configs_keep_project_root_stable";
 import { test_transformttsc_unnotified_utility_config_link_retarget_invalidates_generation } from "./unplugin/native-plugins/transform/test_transformttsc_unnotified_utility_config_link_retarget_invalidates_generation";
 import { test_transformttsc_uses_filesystem_path_identity } from "./unplugin/native-plugins/transform/test_transformttsc_uses_filesystem_path_identity";
 import { test_transformttsc_utility_config_proof_refuses_a_nearer_candidate_that_came_and_went } from "./unplugin/native-plugins/transform/test_transformttsc_utility_config_proof_refuses_a_nearer_candidate_that_came_and_went";
@@ -562,6 +564,10 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
   [
     "test_loadprojectplugins_reports_the_directories_its_plugin_builds_key_on",
     test_loadprojectplugins_reports_the_directories_its_plugin_builds_key_on,
+  ],
+  [
+    "test_loadprojectplugins_selected_record_root_contains_parent_descriptor_scratch",
+    test_loadprojectplugins_selected_record_root_contains_parent_descriptor_scratch,
   ],
   [
     "test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies",
@@ -1114,6 +1120,10 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
   [
     "test_transformttsc_synchronous_membership_change_reaches_the_next_delivery",
     test_transformttsc_synchronous_membership_change_reaches_the_next_delivery,
+  ],
+  [
+    "test_transformttsc_typed_native_configs_keep_project_root_stable",
+    test_transformttsc_typed_native_configs_keep_project_root_stable,
   ],
   [
     "test_transformttsc_unnotified_utility_config_link_retarget_invalidates_generation",

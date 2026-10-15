@@ -79,6 +79,9 @@ func stripTtsxCommandContext(ctx context.Context, anchors []string, args ...stri
 //go:linkname stripLoaderTempBase github.com/samchon/ttsc/packages/strip/driver.stripLoaderTempBase
 func stripLoaderTempBase(location, systemTemp string) string
 
+//go:linkname stripCreateConfigLoaderTempDir github.com/samchon/ttsc/packages/strip/driver.createStripConfigLoaderTempDir
+func stripCreateConfigLoaderTempDir(location, systemTemp, recordRoot string) (string, error)
+
 //go:linkname stripFindNearestNodeModules github.com/samchon/ttsc/packages/strip/driver.stripFindNearestNodeModules
 func stripFindNearestNodeModules(start string) string
 
