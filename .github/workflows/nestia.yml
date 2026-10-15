@@ -119,7 +119,13 @@ jobs:
             [[ "$suffix" =~ ^[0-9a-f]{64}$ ]] || exit 1
             gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/caches/$cache_id"
           done < "$RUNNER_TEMP/nestia-native-cache-index.tsv"
-      - run: pnpm test:e2e
+      - run: |
+          version="$(node -p "require(process.env.GITHUB_WORKSPACE + '/packages/ttsc/package.json').version")"
+          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-next\.[0-9]+$ ]]; then
+            npm_config_legacy_peer_deps=true pnpm test:e2e
+          else
+            pnpm test:e2e
+          fi
         working-directory: experimental/nestia
         env:
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
