@@ -775,10 +775,10 @@ function visitImportTargetCandidates(specifier, parent, extensions, visit) {
  *   the input set without a hash, even when resolution observation is
  *   complete.
  *
- * @evidence contracts/common.md#principled-implementation Before/after metadata plus repeated content and physical observations withdraw contradictory per-input proofs; the separate complete flag reports known observation capability gaps.
+ * @evidence contracts/common.md#principled-implementation Before/after metadata plus repeated content and physical observations withdraw contradictory per-input proofs; a selected file must have positive content and physical proof, while the separate complete flag reports known observation capability gaps.
  * @evidence contracts/common.md#clear-and-simple-design One evaluation owns its input ledger, resolution tokens and final envelope; callers explicitly invalidate capability rather than manipulating proof maps.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown observations retain missing proofs and incomplete capability remains false; no expected digest or resolver monkeypatch makes reuse appear valid.
- * @evidence contracts/common.md#meaningful-documentation JSDoc describes hook ownership, entry recording, final reread and capability versus stability; returned operations have native descriptions and tags are separated.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc describes hook ownership, entry recording, selected-file proof, final reread and capability versus stability; returned operations have native descriptions and tags are separated.
  * @evidence contracts/portability.md#os-neutral-implementation Native stat/realpath and URL conversion represent paths and identities; symlink ancestors are observed without equating an OS name to filesystem case policy.
  * @evidence contracts/performance.md#efficient-algorithms Sets/maps index paths, but candidate expansion and repeated pre/post/final observations still pay native stat/realpath/ancestor-link work and full file hashing; finish visits its captured input list and sorts output paths, with uncapped byte, path and manifest-expansion costs.
  * @evidence contracts/performance.md#reuse-equivalent-work Distinct candidates share the evaluation ledger and expanded bases; the first witness stays authoritative and contradictory later reads revoke its proof instead of refreshing it.
@@ -931,8 +931,8 @@ function createResolutionInputRecorder(options) {
     },
     /**
      * Settle a resolution: commit the fingerprints of the candidates it could
-     * have read, record them again as they are now, and record the module it
-     * selected.
+     * have read, record them again as they are now, and require positive proof
+     * for the file selected by a successful resolution.
      *
      * @param {{
      *   importPending: object[];
@@ -1008,6 +1008,18 @@ function createResolutionInputRecorder(options) {
         recordedBases,
       );
       recordFile(resolved);
+      const selected = asFile(resolved);
+      if (
+        selected !== undefined &&
+        (typeof hashes.get(selected) !== "string" ||
+          typeof realpaths.get(selected) !== "string")
+      ) {
+        inputs.add(selected);
+        hashes.delete(selected);
+        realpaths.delete(selected);
+        signatures.delete(selected);
+        unstable.add(selected);
+      }
     },
     recordFile,
 

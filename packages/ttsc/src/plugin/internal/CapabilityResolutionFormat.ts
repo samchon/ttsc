@@ -40,10 +40,11 @@ export namespace CapabilityResolutionFormat {
    * runtime observation envelope, so a partial side channel cannot authorize an
    * answer for reuse, and the shared module recorder's independent completion
    * proof, including its public require.resolve hook capability. Mapped import
-   * candidates retain their pre-resolution witnesses; entries from before that
-   * producer rule must be discovered again even when their later hashes match.
+   * candidates retain their pre-resolution witnesses. A selected file without
+   * positive content and physical proof now withdraws reuse, so entries from
+   * before that producer rule must be discovered again.
    */
-  const FORMAT = "ttsc-capability-resolution-v7";
+  const FORMAT = "ttsc-capability-resolution-v8";
 
   /**
    * The character that joins fields a path could otherwise forge.

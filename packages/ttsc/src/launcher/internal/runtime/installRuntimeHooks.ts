@@ -568,7 +568,8 @@ function observePluginDescriptorResolutionCandidates(
  * active for direct-evaluator user preloads after hook installation. The exact
  * generated evaluator entry bypasses these hooks and suspends recording only
  * while its synchronous implementation imports load; descriptor imports then
- * resume it.
+ * resume it. A selected file needs positive content and physical proof even
+ * when an earlier candidate enumeration did not name it.
  */
 function recordPluginDescriptorResolution(
   specifier: string,
@@ -579,11 +580,14 @@ function recordPluginDescriptorResolution(
   const resolved = runtimeFilePath(resolvedURL);
   if (resolved === undefined) return;
   const parent = runtimeFilePath(parentURL);
-  recordPluginDescriptorInput({
-    ...(parent === undefined ? {} : { parent }),
-    resolved,
-    specifier,
-  });
+  recordPluginDescriptorInput(
+    {
+      ...(parent === undefined ? {} : { parent }),
+      resolved,
+      specifier,
+    },
+    true,
+  );
   for (
     let directory = path.dirname(resolved);
     ;
@@ -600,16 +604,21 @@ function recordPluginDescriptorResolution(
   }
 }
 
-function recordPluginDescriptorInput(record: {
-  hash?: string | null;
-  parent?: string;
-  realpath?: string | null;
-  resolved: string;
-  signature?: string;
-  specifier?: string;
-  unstable?: boolean;
-}): void {
-  PluginDescriptorInputReport.append(observePluginDescriptorInput(record));
+function recordPluginDescriptorInput(
+  record: {
+    hash?: string | null;
+    parent?: string;
+    realpath?: string | null;
+    resolved: string;
+    signature?: string;
+    specifier?: string;
+    unstable?: boolean;
+  },
+  requirePresent: boolean = false,
+): void {
+  PluginDescriptorInputReport.append(
+    observePluginDescriptorInput(record, requirePresent),
+  );
 }
 
 /**
@@ -617,22 +626,25 @@ function recordPluginDescriptorInput(record: {
  * lines `PluginDescriptorInputReport.append` reports, without reporting them
  * yet.
  */
-function observePluginDescriptorInput(record: {
-  hash?: string | null;
-  parent?: string;
-  realpath?: string | null;
-  resolved: string;
-  signature?: string;
-  specifier?: string;
-  unstable?: boolean;
-}): string[] {
+function observePluginDescriptorInput(
+  record: {
+    hash?: string | null;
+    parent?: string;
+    realpath?: string | null;
+    resolved: string;
+    signature?: string;
+    specifier?: string;
+    unstable?: boolean;
+  },
+  requirePresent: boolean = false,
+): string[] {
   if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return [];
   const lines: string[] = [];
   const observe = (line: string | undefined): void => {
     if (line !== undefined) lines.push(line);
     else PluginDescriptorInputObservation.invalidate();
   };
-  observe(observePluginDescriptorInputOnce(record));
+  observe(observePluginDescriptorInputOnce(record, requirePresent));
   const resolved = path.resolve(record.resolved);
   const parsed = path.parse(resolved);
   let current = parsed.root;
@@ -652,15 +664,18 @@ function observePluginDescriptorInput(record: {
 }
 
 /** Observe one path without recursively revisiting its lexical ancestors. */
-function observePluginDescriptorInputOnce(record: {
-  hash?: string | null;
-  parent?: string;
-  realpath?: string | null;
-  resolved: string;
-  signature?: string;
-  specifier?: string;
-  unstable?: boolean;
-}): string | undefined {
+function observePluginDescriptorInputOnce(
+  record: {
+    hash?: string | null;
+    parent?: string;
+    realpath?: string | null;
+    resolved: string;
+    signature?: string;
+    specifier?: string;
+    unstable?: boolean;
+  },
+  requirePresent: boolean = false,
+): string | undefined {
   try {
     const beforeSignature = pluginDescriptorInputMetadataSignature(
       record.resolved,
@@ -672,6 +687,8 @@ function observePluginDescriptorInputOnce(record: {
     );
     const unstable =
       record.unstable === true ||
+      (requirePresent &&
+        (observedHash === null || observedRealpath === null)) ||
       beforeSignature === undefined ||
       afterSignature === undefined ||
       beforeSignature !== afterSignature ||

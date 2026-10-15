@@ -147,7 +147,7 @@ export function test_capabilityresolutioncache_refuses_unproved_host_inputs_and_
   verifyWalksAgain(record, read, "the prior producer proof generation", () => {
     const file = entryFile(cache);
     const entry = JSON.parse(fs.readFileSync(file, "utf8")) as IEntry;
-    entry.version = `ttsc-capability-resolution-v6:${key.version}`;
+    entry.version = `ttsc-capability-resolution-v7:${key.version}`;
     write(file, JSON.stringify(entry));
   });
 

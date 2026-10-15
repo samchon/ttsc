@@ -183,7 +183,7 @@ export function test_descriptor_evaluation_cache_preserves_declared_observation_
       const stored = JSON.parse(fs.readFileSync(entry, "utf8")) as {
         format: string;
       };
-      stored.format = "ttsc-descriptor-evaluation-v6";
+      stored.format = "ttsc-descriptor-evaluation-v7";
       fs.writeFileSync(entry, JSON.stringify(stored));
       assert.equal(PluginDescriptorEvaluationCache.read(entry), null);
       PluginDescriptorEvaluationCache.write(entry, value);
