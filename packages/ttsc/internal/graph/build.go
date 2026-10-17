@@ -187,11 +187,9 @@ func collectDeclarations(g *Graph, file *shimast.SourceFile) {
   collectStatements(g, file.FileName(), file.Statements.Nodes)
 }
 
-// collectStatements records the nodes for a statement list — the file's top
-// level, or the body of a namespace it recurses into. A member's id is built
-// from its symbol, which already carries the enclosing namespace in its parent
-// chain, so a node recorded here and an edge target resolved later agree without
-// the walk having to thread the namespace name through.
+// collectStatements records a file or namespace statement list. qualifiedName
+// combines compiler symbol ownership with lexical namespaces for private
+// declarations, keeping indexed nodes and later resolved targets consistent.
 func collectStatements(g *Graph, path string, statements []*shimast.Node) {
   for _, statement := range statements {
     switch statement.Kind {
@@ -214,6 +212,7 @@ func collectStatements(g *Graph, path string, statements []*shimast.Node) {
       collectMembers(g, path, statement)
     case shimast.KindTypeAliasDeclaration:
       addNode(g, path, statement, NodeTypeAlias)
+      collectMembers(g, path, statement)
     case shimast.KindEnumDeclaration:
       addNode(g, path, statement, NodeEnum)
     case shimast.KindVariableStatement:
@@ -242,6 +241,9 @@ func collectVariables(g *Graph, path string, statement *shimast.Node) {
   for _, binding := range list.Declarations.Nodes {
     addNode(g, path, binding, NodeVariable)
     g.collectObjectMembers(path, binding)
+    if expression := boundClassExpression(binding); expression != nil {
+      collectMembers(g, path, expression)
+    }
     collectClosures(g, path, binding)
   }
 }
@@ -533,9 +535,9 @@ func addNode(g *Graph, path string, node *shimast.Node, kind NodeKind) {
   putDeclaredNode(g, path, qualifiedName(symbol), kind, node)
 }
 
-// collectMembers records callable members (method, constructor, accessor) and
-// property members of a class or interface declaration, keyed by their
-// class-qualified names so resolved member references land on the same node.
+// collectMembers records callable and property members of modeled type and
+// class declarations. Structural and lexical owner names are shared with
+// checker-resolved targets, including parameter properties and bound literals.
 func collectMembers(g *Graph, path string, statement *shimast.Node) {
   for _, member := range classMembers(statement) {
     name := methodName(member.Symbol())
@@ -650,20 +652,44 @@ func declarationHasImplementation(declaration *shimast.Node, kind NodeKind) bool
   }
 }
 
-// classMembers returns the member nodes of a class or interface declaration, or
-// nil for anything else.
+// classMembers returns direct class/interface members, constructor parameter
+// properties and named nested type-literal members. Type aliases and bound class
+// expressions use the same member surface for indexing and edge attribution.
 func classMembers(statement *shimast.Node) []*shimast.Node {
+  var members []*shimast.Node
   switch statement.Kind {
   case shimast.KindClassDeclaration:
     if decl := statement.AsClassDeclaration(); decl != nil && decl.Members != nil {
-      return decl.Members.Nodes
+      members = decl.Members.Nodes
+    }
+  case shimast.KindClassExpression:
+    if decl := statement.AsClassExpression(); decl != nil && decl.Members != nil {
+      members = decl.Members.Nodes
     }
   case shimast.KindInterfaceDeclaration:
     if decl := statement.AsInterfaceDeclaration(); decl != nil && decl.Members != nil {
-      return decl.Members.Nodes
+      members = decl.Members.Nodes
     }
+  case shimast.KindTypeAliasDeclaration:
+    return typeLiteralMembers(statement.Type())
   }
-  return nil
+  var extra []*shimast.Node
+  for _, member := range members {
+    if member.Kind == shimast.KindConstructor {
+      for _, parameter := range member.Parameters() {
+        if isParameterProperty(parameter) {
+          extra = append(extra, parameter)
+        }
+      }
+    }
+    extra = append(extra, typeLiteralMembers(member.Type())...)
+  }
+  if len(extra) == 0 {
+    return members
+  }
+  result := make([]*shimast.Node, 0, len(members)+len(extra))
+  result = append(result, members...)
+  return append(result, extra...)
 }
 
 // isMethodMember reports whether a class/interface member kind is a callable the
@@ -680,7 +706,7 @@ func isMethodMember(kind shimast.Kind) bool {
 
 func isPropertyMember(kind shimast.Kind) bool {
   switch kind {
-  case shimast.KindPropertyDeclaration, shimast.KindPropertySignature:
+  case shimast.KindPropertyDeclaration, shimast.KindPropertySignature, shimast.KindParameter:
     return true
   default:
     return false
@@ -693,6 +719,9 @@ func isPropertyMember(kind shimast.Kind) bool {
 // symbol.Parent is the class/interface symbol, set by the binder for every
 // member.
 func methodName(symbol *shimast.Symbol) string {
+  if name, ok := structuralMemberName(symbol); ok {
+    return name
+  }
   if symbol == nil || symbol.Parent == nil || symbol.Parent.Name == "" {
     return ""
   }
@@ -763,6 +792,9 @@ func qualifiedName(symbol *shimast.Symbol) string {
       return name
     }
   }
+  if name, ok := structuralMemberName(symbol); ok {
+    return name
+  }
   name := simpleName(symbol)
   if prefix := containerPrefix(symbol); prefix != "" {
     return prefix + "." + name
@@ -776,11 +808,21 @@ func qualifiedName(symbol *shimast.Symbol) string {
 // `namespace` block — so a top-level declaration gets no prefix.
 func containerPrefix(symbol *shimast.Symbol) string {
   parent := symbol.Parent
-  if parent == nil || parent.Name == "" {
-    return ""
-  }
-  if isNamespaceSymbol(parent) || isTypeContainerSymbol(parent) {
+  if parent != nil && parent.Name != "" && (isNamespaceSymbol(parent) || isTypeContainerSymbol(parent)) {
     return qualifiedName(parent)
+  }
+  // The binder does not assign Symbol.Parent to private namespace locals.
+  // Their lexical namespace still owns their identity. Stop at a callable so
+  // ClosureName remains the owner of function-local qualification.
+  for _, declaration := range symbol.Declarations {
+    for owner := declaration.Parent; owner != nil; owner = owner.Parent {
+      if isFunctionLike(owner) {
+        break
+      }
+      if owner.Kind == shimast.KindModuleDeclaration && owner.Symbol() != nil && isNamespaceSymbol(owner.Symbol()) {
+        return qualifiedName(owner.Symbol())
+      }
+    }
   }
   return ""
 }

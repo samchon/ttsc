@@ -67,14 +67,15 @@ func (g *Graph) resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target
   return target
 }
 
-// Resolve uses the checker's external GetSymbolAtLocation API, then requests an
-// aliased symbol when one is reported. That API deliberately returns a contextual
+// Resolve uses the checker's external symbol APIs, including source-value lookup
+// for shorthand properties and contextual property lookup for destructuring and
+// JSX attributes, then unwraps aliases. These APIs return a contextual
 // symbol, not a universal type-checking binding guarantee. A valid checker and
 // parented source-tree ref are required. Nil means no reported symbol; a symbol
 // without a source declaration can instead return a target with empty File.
 //
-// @evidence contracts/common.md#principled-implementation The supported external symbol API and alias API supply a contextual endpoint; representative declaration selection prefers non-declaration-file bodies without certifying physical ownership or every expression's type-checking binding.
-// @evidence contracts/common.md#clear-and-simple-design Symbol lookup, alias unwrapping and declaration classification form one endpoint adapter shared by graph relation passes.
+// @evidence contracts/common.md#principled-implementation Supported upstream symbol, shorthand-value and contextual-type/property queries supply endpoints for their respective syntax. Alias unwrapping and representative declaration selection prefer workspace bodies without certifying physical ownership or every expression's type-checking binding.
+// @evidence contracts/common.md#clear-and-simple-design Syntax-specific supported checker queries feed shared alias unwrapping and declaration classification in one endpoint adapter.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Barrel resolution uses the supported checker API rather than guessing export files or rewriting foreign state.
 // @evidence contracts/common.md#meaningful-documentation Native prose states alias behavior, unresolved outcomes and source ownership, with documentation-skill tag spacing.
 // @evidence contracts/performance.md#efficient-algorithms Delegated contextual lookup/alias resolution can perform lazy semantic work beyond the returned symbol. Up to three declaration passes, source ancestry and filename classification add declaration-count/depth/string costs; this adapter itself performs no repository scan.
@@ -97,7 +98,31 @@ func Resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target {
       return nil
     }
   }
-  symbol := checker.GetSymbolAtLocation(ref)
+  var symbol *shimast.Symbol
+  switch ref.Kind {
+  case shimast.KindShorthandPropertyAssignment:
+    symbol = checker.GetShorthandAssignmentValueSymbol(ref)
+  case shimast.KindBindingElement:
+    binding := ref.AsBindingElement()
+    if ref.Parent != nil && ref.Parent.Kind == shimast.KindObjectBindingPattern && binding.DotDotDotToken == nil {
+      name := binding.PropertyName
+      if name == nil {
+        name = binding.Name()
+      }
+      if property, ok := staticObjectMemberName(name); ok {
+        symbol = checker.GetPropertyOfType(checker.GetTypeAtLocation(ref.Parent), property)
+      }
+    }
+  case shimast.KindJsxAttribute:
+    if property, ok := staticObjectMemberName(ref.Name()); ok && ref.Parent != nil {
+      // Zero requests the upstream API's ordinary contextual type, with no flags.
+      if contextual := checker.GetContextualType(ref.Parent, 0); contextual != nil {
+        symbol = checker.GetPropertyOfType(contextual, property)
+      }
+    }
+  default:
+    symbol = checker.GetSymbolAtLocation(ref)
+  }
   if symbol == nil {
     return nil
   }
