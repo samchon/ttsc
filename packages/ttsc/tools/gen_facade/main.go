@@ -175,6 +175,7 @@ func discoverBridges(bridgeRoot string) ([]string, error) {
 func loadBridge(dir string, importPath string) (*types.Package, error) {
   loaded, err := packages.Load(&packages.Config{
     Dir:  dir,
+    Env:  standaloneModuleEnv(),
     Mode: packages.NeedName | packages.NeedTypes,
   }, ".")
   if err != nil {
@@ -723,4 +724,11 @@ func (p *printer) forward(name string, target string, sig *types.Signature) (str
 // Generated facades contain no multi-line literal, so every tab is indentation.
 func spaceIndent(source []byte) []byte {
   return bytes.ReplaceAll(source, []byte("\t"), []byte("  "))
+}
+
+// standaloneModuleEnv resolves a bridge by its own go.mod. A target's bridges
+// are standalone modules outside the repository workspace, whose shim modules
+// share the facades' import paths.
+func standaloneModuleEnv() []string {
+  return append(os.Environ(), "GOWORK=off")
 }

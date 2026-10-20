@@ -70,7 +70,8 @@
   "scripts": {
     "build": "rimraf lib && tsc && node -e \"require('node:fs').copyFileSync('../../README.md', 'README.md')\"",
     "go:vet": "go vet ./...",
-    "shim:audit": "go -C tools/shim_audit run -mod=readonly . -check -anchor ../../shim/ast -shim ../../shim",
+    "shim:audit": "node scripts/shim-audit.cjs",
+    "shim:facade": "go -C tools/gen_facade run .",
     "shim:audit:test": "go -C tools/shim_audit test -mod=readonly -count=1 ./...",
     "evidence": "evidence"
   },
@@ -122,6 +123,7 @@
     "lib",
     "shim",
     "src",
+    "targets",
     "tools",
     "utility"
   ],

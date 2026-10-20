@@ -54,6 +54,7 @@
         "internal/**/*.go",
         "utility/**/*.go",
         "shim/**/*.go",
+        "targets/7.1/bridge/**/*.go",
         "!**/*_test.go",
         "!**/*_gen.go",
         "!shim/ast/surface.go",
@@ -66,7 +67,18 @@
         "!shim/tspath/shim.go",
         "!shim/vfs/shim.go",
         "!shim/vfs/cachedvfs/shim.go",
-        "!shim/vfs/osvfs/shim.go"
+        "!shim/vfs/osvfs/shim.go",
+        "!targets/7.1/bridge/ast/surface.go",
+        "!targets/7.1/bridge/bundled/shim.go",
+        "!targets/7.1/bridge/compiler/shim.go",
+        "!targets/7.1/bridge/parser/shim.go",
+        "!targets/7.1/bridge/scanner/shim.go",
+        "!targets/7.1/bridge/stringutil/shim.go",
+        "!targets/7.1/bridge/tsoptions/shim.go",
+        "!targets/7.1/bridge/tspath/shim.go",
+        "!targets/7.1/bridge/vfs/shim.go",
+        "!targets/7.1/bridge/vfs/cachedvfs/shim.go",
+        "!targets/7.1/bridge/vfs/osvfs/shim.go"
       ],
       "symbol": [
         "type",

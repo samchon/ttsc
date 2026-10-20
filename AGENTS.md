@@ -35,7 +35,7 @@ Read the skill whose trigger applies.
 
 - [contracts](.agents/skills/contracts/SKILL.md): writing or reviewing maintained source or tests, for their `@evidence` checklists.
 - [development](.agents/skills/development/SKILL.md): changing code, tests, fixtures, or workflows.
-- [typescript-go-sync](.agents/skills/typescript-go-sync/SKILL.md): touching `packages/ttsc/shim` or bumping typescript-go.
+- [typescript-go-sync](.agents/skills/typescript-go-sync/SKILL.md): touching `packages/ttsc/shim` or `packages/ttsc/targets`, or bumping a target's compiler.
 - [prompting](.agents/skills/prompting/SKILL.md): changing `AGENTS.md`, `CLAUDE.md`, or a skill.
 - [documentation](.agents/skills/documentation/SKILL.md): writing any document or doc comment.
 - [review](.agents/skills/review/SKILL.md): any review or self-review.
