@@ -74,6 +74,7 @@ const (
   NodeFlagsReachabilityAndEmitFlags              = innerast.NodeFlagsReachabilityAndEmitFlags
   NodeFlagsReachabilityCheckFlags                = innerast.NodeFlagsReachabilityCheckFlags
   NodeFlagsReparsed                              = innerast.NodeFlagsReparsed
+  NodeFlagsReparserTransformedLiteral            = innerast.NodeFlagsReparserTransformedLiteral
   NodeFlagsThisNodeHasError                      = innerast.NodeFlagsThisNodeHasError
   NodeFlagsThisNodeOrAnySubNodesHasError         = innerast.NodeFlagsThisNodeOrAnySubNodesHasError
   NodeFlagsTypeExcludesFlags                     = innerast.NodeFlagsTypeExcludesFlags

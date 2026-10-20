@@ -88,7 +88,9 @@ func (s *Session) Apply(absPath, content string) bool {
   }
   changed := shimtspath.ToPath(name, s.cwd, s.overlay.caseSensitive)
   newHost := DefaultHost(s.cwd, s.prog.FS)
-  newProg, reused := s.prog.TSProgram.UpdateProgram(changed, newHost, nil)
+  // The second result is the changed file as newHost parsed it, returned so a
+  // host with a parse cache can release it; DefaultHost parses without one.
+  newProg, _, reused := s.prog.TSProgram.UpdateProgram(changed, newHost, nil)
   if newProg != nil {
     e2etrace.Program("program-construction", "driver-update", "constructor-returned", reused, newProg)
     if s.prog.checkerRelease != nil {

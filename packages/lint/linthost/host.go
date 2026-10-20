@@ -443,7 +443,9 @@ func (p *program) applyChange(absPath string) bool {
   fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
   host := shimcompiler.NewCompilerHost(p.cwd, fs, bundled.LibPath(), nil, nil)
   changed := shimtspath.ToPath(name, p.cwd, fs.UseCaseSensitiveFileNames())
-  newProg, reused := p.tsProgram.UpdateProgram(changed, host, nil)
+  // The second result is the changed file as host parsed it, returned so a
+  // host with a parse cache can release it; this host parses without one.
+  newProg, _, reused := p.tsProgram.UpdateProgram(changed, host, nil)
   if newProg != nil {
     // An updated generation cannot inherit a one-shot check's observed inputs.
     // Resident commands currently negotiate no check sidecar; keep an explicit

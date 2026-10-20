@@ -32,6 +32,9 @@ const ComparisonEqual = stringutil.ComparisonEqual
 const ComparisonGreaterThan = stringutil.ComparisonGreaterThan
 const ComparisonLessThan = stringutil.ComparisonLessThan
 
+//go:linkname ContainsNonASCII github.com/microsoft/typescript-go/internal/stringutil.ContainsNonASCII
+func ContainsNonASCII(s string) bool
+
 //go:linkname DecodeJSStringRune github.com/microsoft/typescript-go/internal/stringutil.DecodeJSStringRune
 func DecodeJSStringRune(s string) (rune, int)
 
@@ -89,6 +92,12 @@ func IsOctalDigit(ch rune) bool
 //go:linkname IsSurrogate github.com/microsoft/typescript-go/internal/stringutil.IsSurrogate
 func IsSurrogate(ch rune) bool
 
+//go:linkname IsUnicodeIdentifierPart github.com/microsoft/typescript-go/internal/stringutil.IsUnicodeIdentifierPart
+func IsUnicodeIdentifierPart(ch rune) bool
+
+//go:linkname IsUnicodeIdentifierStart github.com/microsoft/typescript-go/internal/stringutil.IsUnicodeIdentifierStart
+func IsUnicodeIdentifierStart(ch rune) bool
+
 //go:linkname IsWhiteSpaceLike github.com/microsoft/typescript-go/internal/stringutil.IsWhiteSpaceLike
 func IsWhiteSpaceLike(ch rune) bool
 
@@ -111,6 +120,12 @@ const SurrogateLowStart = stringutil.SurrogateLowStart
 
 //go:linkname SurrogatePairToCodePoint github.com/microsoft/typescript-go/internal/stringutil.SurrogatePairToCodePoint
 func SurrogatePairToCodePoint(high rune, low rune) rune
+
+//go:linkname ToLowerJS github.com/microsoft/typescript-go/internal/stringutil.ToLowerJS
+func ToLowerJS(str string) string
+
+//go:linkname ToUpperJS github.com/microsoft/typescript-go/internal/stringutil.ToUpperJS
+func ToUpperJS(str string) string
 
 //go:linkname TruncateByRunes github.com/microsoft/typescript-go/internal/stringutil.TruncateByRunes
 func TruncateByRunes(str string, maxLength int) string
