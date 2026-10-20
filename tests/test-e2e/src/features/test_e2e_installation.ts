@@ -99,7 +99,7 @@ export async function test_e2e_installation(): Promise<void> {
       requireInstalled.resolve(`@ttsc/graph-${target}/package.json`),
     );
     const installedGraph = requireInstalled("@ttsc/graph") as {
-      resolveGraphBinary(env: NodeJS.ProcessEnv): string | null;
+      resolveGraphBinary(env: NodeJS.ProcessEnv, cwd?: string): string | null;
     };
     const fromInstalledSdk = createRequire(path.join(sdk, "package.json"));
     const executableSuffix = process.platform === "win32" ? ".exe" : "";
@@ -131,7 +131,9 @@ export async function test_e2e_installation(): Promise<void> {
       ],
       [
         "ttscgraph",
-        installedGraph.resolveGraphBinary({}),
+        // The consumer installs TypeScript 7.0, so its line selects ttscgraph
+        // whatever line the workspace running this test is on.
+        installedGraph.resolveGraphBinary({}, consumer),
         candidateGraphPlatform,
         `graph-${target}`,
         `bin/ttscgraph${executableSuffix}`,

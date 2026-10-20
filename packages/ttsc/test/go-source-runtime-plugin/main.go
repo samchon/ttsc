@@ -16,6 +16,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
@@ -117,7 +118,7 @@ func runBuild(args []string) (status int) {
       }
     }()
   }
-  pending := map[string]string{}
+  pending := map[shimtspath.RootedFilePath]string{}
   var transformError error
   transformPlugin := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
@@ -141,7 +142,7 @@ func runBuild(args []string) (status int) {
     visitor = ec.NewNodeVisitor(visit)
     return visitor.VisitSourceFile(sf)
   }
-  emitDiagnostics, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{transformPlugin}, func(name, text string, _ *shimcompiler.WriteFileData) error {
+  emitDiagnostics, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{transformPlugin}, func(name shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
     pending[name] = text
     return nil
   })
@@ -163,11 +164,11 @@ func runBuild(args []string) (status int) {
   return 0
 }
 
-func writeEmittedFile(name, text string, _ *shimcompiler.WriteFileData) error {
-  if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+func writeEmittedFile(name shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+  if err := os.MkdirAll(filepath.Dir(string(name)), 0o755); err != nil {
     return err
   }
-  return os.WriteFile(name, []byte(text), 0o644)
+  return os.WriteFile(string(name), []byte(text), 0o644)
 }
 
 func parsePlugins(input string) ([]Plugin, error) {

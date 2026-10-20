@@ -2,8 +2,10 @@ import { TestProject } from "@ttsc/testing";
 import { spawn as spawnProcess } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
+import { CompilerTarget } from "../../../../../../../packages/ttsc/lib/plugin/internal/source/CompilerTarget.js";
 import {
   assert,
   copyProject,
@@ -23,9 +25,13 @@ import {
  *    warm and edited output with actual Go hit receipts, HTTP requests and
  *    process attempts.
  *
+ * Packs cover 7.0 builds only: a 7.1 build carries the target tag in GOFLAGS.
+ * On a TypeScript 7.1 workspace the publisher build must instead refuse to seal
+ * and fail.
+ *
  * @evidence contracts/testing.md#behavioral-verification Runs the real ttsc CLI, stock Go source builder, recording helper and release sealer, then downloads the sealed pack into an independent consumer and observes exact JS, actual helper hit/miss counters, HTTP requests and warm-launch process attempts.
  * @evidence contracts/testing.md#independent-expectations The fixture's authored uppercase transform requires PLUGIN; the unchanged consumer must emit the producer's exact bytes, while editing its Go branch must yield [PLUGIN]. The workspace's declared ttsc package version supplies the expected release independently of the sealed pack. Go's recorded full action keys must be complete and include the fixture module.
- * @evidence contracts/testing.md#distinguishing-cases Cold publisher, independent downloaded consumer, warm exact executable with no helper or Go build startup, and changed Go plugin source distinguish package reuse from ordinary fallback or a stale binary.
+ * @evidence contracts/testing.md#distinguishing-cases Cold publisher, independent downloaded consumer, warm exact executable with no helper or Go build startup, and changed Go plugin source distinguish package reuse from ordinary fallback or a stale binary. A 7.1 workspace distinguishes the refused seal from a silently unsealed success.
  * @evidence contracts/testing.md#execution-ownership This discoverable E2E entry copies one maintained fixture, uses the prebuilt host-platform helper and SDK, and joins the CLI before the test harness reclaims its tracked root.
  * @evidence contracts/e2e.md#necessary-boundary Direct parser or helper tests cannot prove receipts came from ttsc's actual materialized source workspace before its cleanup.
  * @evidence contracts/e2e.md#shared-execution One cold publisher build supplies output, actiongraph, receipts and sealed pack; one independent consumer downloads the pack, then runs warm and edited cases against the admitted bodies.
@@ -109,6 +115,19 @@ export function test_source_package_artifact_publisher_seals_real_builder_action
     });
     assert.equal(result.error, undefined);
     assert.equal(result.signal, null);
+    const typescript = (
+      createRequire(path.join(workspaceRoot, "package.json"))(
+        "typescript/package.json",
+      ) as { version: string }
+    ).version;
+    if (CompilerTarget.lineOf(typescript).line !== "7.0") {
+      assert.notEqual(result.status, 0, result.stderr);
+      assert.match(
+        result.stderr,
+        /publisher artifacts require effective CGO_ENABLED=0 and no GOFLAGS/,
+      );
+      return;
+    }
     assert.equal(result.status, 0, result.stderr);
     const publisherOutput = fs.readFileSync(path.join(root, "dist", "main.js"));
     assert.match(publisherOutput.toString("utf8"), /"PLUGIN"/);
