@@ -75,7 +75,7 @@ require (
 )
 ```
 
-`ttsc` supplies the `v0.0.0` modules through its generated `go.work` overlay while it builds the plugin. The `go 1.26` directive matches the bundled toolchain that ships with `ttsc`; you do not need a system Go install at that version because the bundled SDK satisfies the directive at build time. For local editor support (`gopls`, `go test` directly), see [Local development](/docs/development/authoring/local-dev).
+`ttsc` supplies the `v0.0.0` modules through its generated `go.work` overlay while it builds the plugin. The `go` directive may name any release up to the Go 1.27 toolchain that ships with `ttsc`; you do not need a system Go install because the bundled SDK satisfies the directive at build time. For local editor support (`gopls`, `go test` directly), see [Local development](/docs/development/authoring/local-dev).
 
 ## 4. Implement the Plugin Commands
 

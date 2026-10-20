@@ -3959,8 +3959,10 @@ func fileURL(location string) string {
   if volume != "" {
     volumePath := filepath.ToSlash(volume)
     rest := strings.TrimPrefix(filepath.ToSlash(location[len(volume):]), "/")
-    if strings.HasPrefix(volumePath, "//?/UNC") {
-      return uncFileURL(rest)
+    if unc, ok := strings.CutPrefix(volumePath, "//?/UNC"); ok {
+      // Go 1.26 reports `\\?\UNC` as the volume and Go 1.27 reports
+      // `\\?\UNC\server\share`; the server and share follow the prefix either way.
+      return uncFileURL(strings.TrimPrefix(unc+"/"+rest, "/"))
     }
     if strings.HasPrefix(volumePath, "//?/") {
       pathname := "/" + strings.TrimPrefix(volumePath, "//?/")

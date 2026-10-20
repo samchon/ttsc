@@ -1,6 +1,6 @@
 module github.com/samchon/ttsc/packages/ttsc
 
-go 1.26
+go 1.27
 
 // Maintained shim sub-modules are resolved by these package-local replacements.
 // Their pinned typescript-go dependency is resolved through the Go module cache;

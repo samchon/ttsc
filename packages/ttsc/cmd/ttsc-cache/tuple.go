@@ -50,7 +50,7 @@ func readGoTuple(goBinary string) (packageartifacts.Tuple, error) {
     return tuple, errors.New("publisher artifacts require effective CGO_ENABLED=0 and no GOFLAGS")
   }
   if !supportedGoVersion.MatchString(values["GOVERSION"]) {
-    return tuple, errors.New("publisher cache protocol requires a stock Go 1.26 patch release")
+    return tuple, errors.New("publisher cache protocol requires a stock Go 1.26 or 1.27 patch release")
   }
   if values["GOVERSION"] == "" || values["GOOS"] == "" || values["GOARCH"] == "" {
     return tuple, errors.New("Go did not report a complete artifact tuple")
@@ -78,7 +78,11 @@ func readGoTuple(goBinary string) (packageartifacts.Tuple, error) {
   }, nil
 }
 
-var supportedGoVersion = regexp.MustCompile(`^go1\.26\.(0|[1-9][0-9]*)$`)
+// supportedGoVersion admits the stock Go releases whose GOCACHEPROG framing and
+// ActionID semantics the helper was checked against. Go 1.27 keeps Go 1.26's
+// request and response wire format; its changes fix client-side lock and
+// error handling, so publisher packs stay valid within each release line.
+var supportedGoVersion = regexp.MustCompile(`^go1\.2[67]\.(0|[1-9][0-9]*)$`)
 
 func runGoProbe(goBinary string, arguments ...string) ([]byte, error) {
   ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

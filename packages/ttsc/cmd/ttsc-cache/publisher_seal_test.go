@@ -28,7 +28,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership This discoverable Go integration test builds a local helper and two private modules, serves one loopback pack, and removes all files through t.TempDir; no consumer install or external network is involved.
 func TestPublisherSeal(t *testing.T) {
   if !supportedGoVersion.MatchString(runtime.Version()) {
-    t.Skip("publisher protocol requires a stock Go 1.26 patch release")
+    t.Skip("publisher protocol requires a stock Go 1.26 or 1.27 patch release")
   }
   goBinary, err := exec.LookPath("go")
   if err != nil {

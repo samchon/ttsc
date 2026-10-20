@@ -187,7 +187,7 @@ func serve(source io.Reader, destination io.Writer, store *artifactStore) error 
       if len(current.ActionID) != 32 || len(current.OutputID) != 32 || current.BodySize < 0 || current.BodySize > 512<<20 {
         return errors.New("invalid full Go cache put identity or body size")
       }
-      // Go 1.26 writes an extra newline after the encoded request.
+      // Go 1.26 and 1.27 write an extra newline after the encoded request.
       separator, err := input.ReadByte()
       if err != nil || separator != '\n' {
         return errors.New("missing Go cache request separator")

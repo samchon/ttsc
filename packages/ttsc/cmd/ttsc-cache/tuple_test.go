@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership Runs bounded local Go identity probes without building source modules, downloading packages or writing repository files.
 func TestReadGoTuple(t *testing.T) {
   if !supportedGoVersion.MatchString(runtime.Version()) {
-    t.Skip("the artifact tuple requires a stock Go 1.26 patch release")
+    t.Skip("the artifact tuple requires a stock Go 1.26 or 1.27 patch release")
   }
   goBinary, err := exec.LookPath("go")
   if err != nil {

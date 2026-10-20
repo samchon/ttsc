@@ -24,11 +24,11 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Runs stock go build with GOCACHEPROG through the production helper executable, then observes compiler commands and archive bytes.
 // @evidence contracts/testing.md#independent-expectations Identical source and dependency bytes under -trimpath should request the same actions; a changed dependency version must change the archive and require compilation.
-// @evidence contracts/testing.md#distinguishing-cases Exercises stock Go 1.26 protocol startup, put/get, path quoting, source and module-cache relocation, and a changed dependency version.
+// @evidence contracts/testing.md#distinguishing-cases Exercises stock Go 1.26 or 1.27 protocol startup, put/get, path quoting, source and module-cache relocation, and a changed dependency version.
 // @evidence contracts/testing.md#execution-ownership The test runs stock Go in temporary directories with a private file proxy and never contacts the network or publishes a release artifact.
 func TestStockGoCacheClient(t *testing.T) {
   if !supportedGoVersion.MatchString(runtime.Version()) {
-    t.Skip("the helper protocol requires a stock Go 1.26 patch release")
+    t.Skip("the helper protocol requires a stock Go 1.26 or 1.27 patch release")
   }
   root := filepath.Join(t.TempDir(), "native artifact path with spaces")
   if err := os.MkdirAll(root, 0700); err != nil {

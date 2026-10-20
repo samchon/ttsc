@@ -12,7 +12,7 @@ import (
   "testing"
 )
 
-// TestCacheProtocol verifies the Go 1.26 request framing and response contract.
+// TestCacheProtocol verifies the Go 1.26 and 1.27 request framing and response contract.
 //
 // Verifies: the helper advertises capabilities, echoes IDs, returns local hits and misses, writes a bounded usage receipt, and refuses malformed body transport.
 // 1. Send real Go-style request headers and separate base64 body values through the in-process server.
@@ -20,7 +20,7 @@ import (
 // 3. Break JSON, base64 and body framing independently and require terminal failure.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls the production protocol loop against an actual temporary store, parses its public JSON responses and reads the post-close local usage receipt.
-// @evidence contracts/testing.md#independent-expectations The Go 1.26 cacheprog Request and Response fields, the extra request separator, and SHA-256 of literal bytes define expected framing and identities.
+// @evidence contracts/testing.md#independent-expectations The cacheprog Request and Response fields, identical in Go 1.26 and 1.27, the extra request separator, and SHA-256 of literal bytes define expected framing and identities.
 // @evidence contracts/testing.md#distinguishing-cases Covers startup, two misses, a large put/hit, empty body, unknown command, close, malformed JSON, bad base64 and truncated body; stock Go subprocess interoperability is a separate installed-boundary check.
 // @evidence contracts/testing.md#execution-ownership This Go unit test calls serve directly without compiling a helper or launching a Go client; each case owns a temporary store.
 func TestCacheProtocol(t *testing.T) {

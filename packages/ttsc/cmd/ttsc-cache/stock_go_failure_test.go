@@ -25,7 +25,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership This narrow Go subprocess test uses a temporary helper and tiny local module; it never installs a consumer or runs the product E2E suite.
 func TestStockGoCacheFailures(t *testing.T) {
   if !supportedGoVersion.MatchString(runtime.Version()) {
-    t.Skip("the helper protocol requires a stock Go 1.26 patch release")
+    t.Skip("the helper protocol requires a stock Go 1.26 or 1.27 patch release")
   }
   root := t.TempDir()
   helperSource := filepath.Join(root, "broken-helper.go")
