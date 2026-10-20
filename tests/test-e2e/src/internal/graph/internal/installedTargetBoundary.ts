@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import { CompilerTarget } from "../../../../../../packages/ttsc/lib/plugin/internal/source/CompilerTarget.js";
 import { FixtureFiles } from "../../FixtureFiles";
 import { resolveGraphLauncher, resolveTtscgraphBinary } from "./ttsgraph";
 
@@ -66,13 +67,36 @@ function prepare(coordinates?: {
     "@ttsc",
     `graph-${platform}`,
   );
-  const binary = path.join(
-    platformDir,
-    "bin",
-    process.platform === "win32" ? "ttscgraph.exe" : "ttscgraph",
-  );
+  // The installed client runs the producer of the target project's TypeScript
+  // line, which is the workspace's own: ttscgraph for 7.0, ttscgraph-7.1 for
+  // 7.1. The installation carries that producer, so the dump and permission
+  // receipt below observe the binary the client actually launches.
+  const producer =
+    CompilerTarget.lineOf(
+      (
+        require_(
+          path.join(
+            TestProject.WORKSPACE_ROOT,
+            "node_modules",
+            "typescript",
+            "package.json",
+          ),
+        ) as { version: string }
+      ).version,
+    ).line === "7.0"
+      ? "ttscgraph"
+      : "ttscgraph-7.1";
+  const executable =
+    process.platform === "win32" ? `${producer}.exe` : producer;
+  const binary = path.join(platformDir, "bin", executable);
   fs.mkdirSync(path.dirname(binary), { recursive: true });
-  fs.copyFileSync(resolveTtscgraphBinary(), binary);
+  const override = process.env.TTSC_GRAPH_BINARY;
+  fs.copyFileSync(
+    override && path.isAbsolute(override)
+      ? override
+      : path.join(path.dirname(resolveTtscgraphBinary()), executable),
+    binary,
+  );
   fs.writeFileSync(
     path.join(platformDir, "package.json"),
     JSON.stringify({ name: `@ttsc/graph-${platform}`, version: "0.0.0" }),

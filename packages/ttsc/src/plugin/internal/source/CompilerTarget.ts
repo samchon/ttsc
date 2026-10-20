@@ -162,6 +162,35 @@ export namespace CompilerTarget {
     return "7.0";
   }
 
+  /**
+   * GOFLAGS without the 7.1 build tag ttsc adds: the tag leaves every -tags
+   * list, an emptied list leaves the flags, and every other field stays in
+   * order.
+   *
+   * @evidence contracts/common.md#principled-implementation The target tag is ttsc's own selection, not the caller's Go environment; the environment digest of a source state omits it so a reader with the caller's environment reproduces the state, while the build key still separates targets through their overlay modules.
+   * @evidence contracts/common.md#clear-and-simple-design The inverse of buildEnv's merge lives beside it, so the two cannot disagree on the tag or the -tags syntax.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Only the exact ttsc tag is removed; every other tag and flag is kept.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states what is removed and what is kept.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation GOFLAGS is a Go-defined space-separated value; the transform touches no native resource.
+   * @evidence contracts/performance.md#efficient-algorithms One pass over the GOFLAGS fields.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The pure transform coordinates no shared work.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The transform retains nothing.
+   */
+  export function withoutTag(flags: string): string {
+    return flags
+      .split(/\s+/)
+      .filter((field) => field !== "")
+      .flatMap((field) => {
+        const match = /^(-{1,2}tags=)(.*)$/.exec(field);
+        if (match === null) return [field];
+        const tags = match[2]!
+          .split(",")
+          .filter((tag) => tag !== "" && tag !== TYPESCRIPT_7_1_TAG);
+        return tags.length === 0 ? [] : [`${match[1]}${tags.join(",")}`];
+      })
+      .join(" ");
+  }
+
   const warned = new Set<string>();
   const customVersions = new Map<string, string>();
 

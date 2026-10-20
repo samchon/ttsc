@@ -20,10 +20,11 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    → 8.0.0, capturing the warnings.
  * 3. Resolve a custom binary whose `--version` reports 7.1.
  * 4. Build environments for both lines and read their targets back.
+ * 5. Remove the 7.1 tag from GOFLAGS, as the environment digest does.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the production lineOf, resolve, buildEnv and ofEnv. resolve reads an installed manifest through resolveTsgo and runs a real custom binary's --version, and stderr is captured to observe the newer-line warnings.
  * @evidence contracts/testing.md#independent-expectations Expected lines, warning text and GOFLAGS strings are authored literals from the issue's mapping (7.0.x → 7.0, 7.1.x including dev prereleases → 7.1, later → newest with a warning) and Go's -tags=a,b syntax.
- * @evidence contracts/testing.md#distinguishing-cases Each supported line contrasts with the newer lines and with pre-7 and unreadable versions; a repeated newer version must not warn twice, while a second newer version warns. GOFLAGS cases contrast absent flags, other flags kept in order, an existing tag list gaining the tag, an already-present tag not repeated, and 7.0 leaving the environment unchanged.
+ * @evidence contracts/testing.md#distinguishing-cases Each supported line contrasts with the newer lines and with pre-7 and unreadable versions; a repeated newer version must not warn twice, while a second newer version warns. GOFLAGS cases contrast absent flags, other flags kept in order, an existing tag list gaining the tag, an already-present tag not repeated, and 7.0 leaving the environment unchanged. withoutTag contrasts a lone tag, a tag among other tags and flags, a lookalike tag that must stay, and empty flags, and inverts buildEnv.
  * @evidence contracts/testing.md#execution-ownership A unit test over a temporary project with fake TypeScript manifests and a Node script as the custom binary; it runs no Go and no compiler, and stderr is restored in finally.
  */
 export function test_compilertarget_selects_the_line_of_the_installed_compiler(): void {
@@ -129,6 +130,29 @@ export function test_compilertarget_selects_the_line_of_the_installed_compiler()
     assert.equal(input.GOFLAGS, flags, "buildEnv leaves its input unchanged");
     assert.equal(CompilerTarget.ofEnv(built), "7.1");
   }
+  for (const [flags, expected] of [
+    ["-tags=ttsc_typescript_7_1", ""],
+    ["-mod=mod -tags=ttsc_typescript_7_1", "-mod=mod"],
+    ["-tags=netgo,ttsc_typescript_7_1,osusergo -v", "-tags=netgo,osusergo -v"],
+    [
+      "--tags=ttsc_typescript_7_1x -trimpath",
+      "--tags=ttsc_typescript_7_1x -trimpath",
+    ],
+    ["", ""],
+  ] as const)
+    assert.equal(
+      CompilerTarget.withoutTag(flags),
+      expected,
+      `withoutTag(${flags})`,
+    );
+  assert.equal(
+    CompilerTarget.withoutTag(
+      CompilerTarget.buildEnv({ GOFLAGS: "-mod=mod -tags=netgo" }, "7.1")
+        .GOFLAGS!,
+    ),
+    "-mod=mod -tags=netgo",
+    "withoutTag inverts buildEnv",
+  );
   assert.equal(CompilerTarget.ofEnv({ GOFLAGS: "-tags=netgo" }), "7.0");
   assert.equal(
     CompilerTarget.ofEnv({ GOFLAGS: "-ldflags=-X=a=ttsc_typescript_7_1" }),

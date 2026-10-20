@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { CompilerTarget } from "./CompilerTarget";
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
@@ -46,7 +47,7 @@ import { spawnGoTool } from "./spawnGoTool";
  * @param identities Record store that lets a new process prove the GOROOT
  *   corpus and executable bytes from their metadata (`PluginContentIdentities`,
  *   #1722); without it every process reads them.
- * @evidence contracts/common.md#principled-implementation Fixed artifact flags, observed compiler bytes/version, selected reported-or-fallback build values, named command executables and selected SDK files enter the same framed identity used by source-state reporting. Fallback values and metadata-qualified reuse are explicit premises, not complete observation of arbitrary toolchain inputs.
+ * @evidence contracts/common.md#principled-implementation Fixed artifact flags, observed compiler bytes/version, selected reported-or-fallback build values, named command executables and selected SDK files enter the same framed identity used by source-state reporting. Fallback values and metadata-qualified reuse are explicit premises, not complete observation of arbitrary toolchain inputs. GOFLAGS enters without ttsc's own compiler-target tag, so the caller's environment reproduces a 7.1 load's digest; targets are separated by their overlay modules in the build key.
  * @evidence contracts/common.md#clear-and-simple-design Private helpers separate compiler identity, Go-reported settings, external variables and SDK content while sharing one hash sink and optional pre-read witness.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache signatures include real identity/change metadata and effective invocation context; failed SDK witnessing refuses reuse rather than accepting a VERSION-only proxy.
  * @evidence contracts/common.md#meaningful-documentation Native documentation names the input classes and witness purpose; private comments explain context-sensitive compiler memoization and SDK exclusions without treating a passing check as proof.
@@ -494,6 +495,13 @@ function normalizeGoBuildEnvValue(
     PluginBuildEnvironmentWitness.add(witness, value);
     PluginBuildEnvironmentWitness.add(witness, path.join(value, "VERSION"));
     return resolveGoRootCacheIdentity(value, filesystem, witness, identities);
+  }
+  if (key === "GOFLAGS") {
+    // ttsc's compiler-target tag is not the caller's Go environment. Omitting
+    // it lets a reader holding the caller's environment reproduce a source
+    // state a 7.1 load reported; the build key separates targets through their
+    // overlay modules instead.
+    return CompilerTarget.withoutTag(value);
   }
   if (GO_BUILD_COMMAND_ENV_KEYS.has(key)) {
     return `${value}\0${resolveCommandCacheIdentity(
