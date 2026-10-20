@@ -13,7 +13,7 @@ import { FixtureFiles } from "../../../internal/FixtureFiles";
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the actual provenance adapter with the installed pinned tsgo executable and a callback that really emits once. Supported nested, encoded and operand responses require exact physical source ownership; mutation and unsupported controls preserve the original producer result while refusing unproved ownership.
  * @evidence contracts/testing.md#independent-expectations The authored source and independent native realpath define ownership. Recorded callback argv and native process status/streams define the transport facts; expected options follow native last-occurrence and response-frame grammar rather than the inspector's returned tokens.
- * @evidence contracts/testing.md#distinguishing-cases Nested space-containing names, direct option order, literal @ operands, UTF8/UTF16 BOMs, changed response bytes, malformed/missing responses, unknown options, the native parser's EOF-token result and profiling artifacts have separate labels; the EOF response panics TypeScript 7.0's parser and compiles on 7.1, so its expected status follows the installed line. Errors are collected so unrelated controls still execute. Native parsing has no cycle guard; test_external_response_refusal_preserves_the_supplied_operation_failure separately owns bounded public refusal and supplied-operation failure propagation, without claiming native cyclic compilation succeeds.
+ * @evidence contracts/testing.md#distinguishing-cases Nested space-containing names, direct option order, literal @ operands, UTF8/UTF16 BOMs, changed response bytes, malformed/missing responses, unknown options, the native parser's EOF-token result and profiling artifacts have separate labels; the EOF response panics TypeScript 7.0's parser and compiles on 7.1, so its expected status and ownership proof follow the installed line. Errors are collected so unrelated controls still execute. Native parsing has no cycle guard; test_external_response_refusal_preserves_the_supplied_operation_failure separately owns bounded public refusal and supplied-operation failure propagation, without claiming native cyclic compilation succeeds.
  * @evidence contracts/testing.md#execution-ownership This named E2E entry owns all compiler request labels; it calls authored adapter source but genuinely starts the external native producer and its read-only probes, so it is not a portable source unit.
  * @evidence contracts/e2e.md#necessary-boundary Native response decoding, argument grammar, actual compiler output and ownership admission must agree; a fabricated callback cannot establish those connections or the profiling artifact effect.
  * @evidence contracts/e2e.md#shared-execution All profiles share one installed immutable native compiler, one root project and authored source. Each option/response mutation requires its own actual emission and admission probes; no native artifact is rebuilt and no Node runtime host is started.
@@ -28,8 +28,8 @@ export function test_external_response_provenance_preserves_the_actual_producer(
   );
   const source = fs.realpathSync.native(path.join(root, "src/main.ts"));
   // TypeScript 7.0's response-file parser panics on an option that ends at
-  // EOF; 7.1 parses it and compiles. Either way ttsc must relay the producer's
-  // own result.
+  // EOF; 7.1 parses it and compiles, so its emission is owned like any other.
+  // Either way ttsc must relay the producer's own result.
   const eofPanics =
     CompilerTarget.lineOf(
       (
@@ -130,7 +130,7 @@ export function test_external_response_provenance_preserves_the_actual_producer(
       files: FixtureFiles.read(
         "ttsc/external_response_provenance_preserves_the_actual_producer/inputs-6",
       ),
-      proof: false,
+      proof: !eofPanics,
       ...(eofPanics ? {} : { status: 0 }),
     },
     { name: "missing", args: ["@missing.txt"], proof: false },
