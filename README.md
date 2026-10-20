@@ -21,6 +21,8 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 npm install -D ttsc typescript
 ```
 
+`ttsc` runs the native TypeScript compiler installed beside it, so the project needs `typescript` 7.0 or later.
+
 ```bash
 npx ttsx src/index.ts   # run a file, type-checked first
 npx ttsc                # build
