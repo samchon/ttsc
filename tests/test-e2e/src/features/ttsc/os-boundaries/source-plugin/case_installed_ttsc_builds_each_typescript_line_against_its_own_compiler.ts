@@ -27,6 +27,7 @@ const TYPESCRIPT_7_1 = "7.1.0-dev.20261020.3";
  *    `core.Version()` of the compiler it was linked against.
  * 3. Require the two versions, two cache entries, and a second check of each that
  *    rebuilds nothing.
+ * 4. Return both projects, which the installed graph case graphs.
  *
  * @evidence contracts/testing.md#behavioral-verification The installed ttsc CLI checks each project; the probe's recorded compiler version, the plugin cache entries and the absence of a build notice on the second run are the observed results.
  * @evidence contracts/testing.md#independent-expectations The 7.0 project expects its installed manifest version, and the 7.1 project the 7.1.0-dev version its pinned compiler declares; the nightly's gitHead must be the commit the 7.1 target pins, read from the repository's facade go.mod.
@@ -49,7 +50,13 @@ export function case_installed_ttsc_builds_each_typescript_line_against_its_own_
 
   /** Run pnpm in a directory. */
   pnpm: (args: string[], cwd: string) => void;
-}): void {
+}): {
+  /** The project installing `typescript@7.0.2`, through the consumer. */
+  readonly "7.0": string;
+
+  /** The project installing the 7.1 nightly. */
+  readonly "7.1": string;
+} {
   const fixture = path.join(
     input.repository,
     "tests",
@@ -150,4 +157,5 @@ export function case_installed_ttsc_builds_each_typescript_line_against_its_own_
       `the ${line} project reuses its own target's entry`,
     );
   assert.deepEqual(entries(), built);
+  return projects;
 }

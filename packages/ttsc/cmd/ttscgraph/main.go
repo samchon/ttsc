@@ -10,6 +10,8 @@ import (
   "os"
   "runtime"
   "strings"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
 // Build metadata; overwritten via -ldflags in release builds.
@@ -55,13 +57,16 @@ func run(args []string) int {
   return 2
 }
 
+// printVersion names the build and the TypeScript compiler it links, which is
+// how a platform package's per-target producers tell themselves apart.
 func printVersion(w io.Writer) {
   fmt.Fprintf(
     w,
-    "ttscgraph %s (commit %s, built %s, %s/%s, go %s)\n",
+    "ttscgraph %s (commit %s, built %s, typescript %s, %s/%s, go %s)\n",
     version,
     commit,
     date,
+    graph.TypescriptVersion(),
     runtime.GOOS,
     runtime.GOARCH,
     runtime.Version(),

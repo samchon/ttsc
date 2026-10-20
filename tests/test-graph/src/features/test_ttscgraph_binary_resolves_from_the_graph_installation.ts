@@ -12,20 +12,24 @@ import { resolveGraphBinary } from "../../../../packages/graph/src/resolveGraphB
  * package, not from the project being graphed.
  *
  * The resolver interprets package-shaped filesystem fixtures: an installed
- * `@ttsc/graph` beside its `@ttsc/graph-<platform>-<arch>` package whose binary
- * file is inert text, the same installation without that package, and a target
- * project in the layout earlier releases resolved from, its `ttsc` platform
- * package holding a `ttscgraph`. No binary is executed.
+ * `@ttsc/graph` beside its `@ttsc/graph-<platform>-<arch>` package whose two
+ * producer files, `ttscgraph` and `ttscgraph-7.1`, are inert text, the same
+ * installation without that package, projects installing TypeScript 7.0.2 and
+ * the 7.1 nightly, and a target project in the layout earlier releases resolved
+ * from, its `ttsc` platform package holding a `ttscgraph`. No binary is
+ * executed.
  *
  * 1. Resolve from the installed fixture and from the installation that lacks the
  *    platform package.
- * 2. Check absolute override precedence and a relative override being ignored.
- * 3. Require the public resolver to ignore the target project's old layout.
- * 4. Construct and close a session for a project with no `ttsc` at all.
+ * 2. Select each project line's producer, and the 7.0 producer for a project whose
+ *    TypeScript cannot be resolved.
+ * 3. Check absolute override precedence and a relative override being ignored.
+ * 4. Require the public resolver to ignore the target project's old layout.
+ * 5. Construct and close a session for a project with no `ttsc` at all.
  *
- * @evidence contracts/testing.md#behavioral-verification InstalledGraphBinary.resolve must return the fixture platform binary (compared by realpath) for an anchor inside the installed package and null for the installation without the platform package; an absolute TTSC_GRAPH_BINARY wins even there, and a relative one falls back to installation lookup. resolveGraphBinary must give the same answer for a cwd holding the old ttsc-platform layout and for an empty cwd, never the old-layout binary. TtscGraphSession must construct and close for a project without ttsc when an absolute override names the producer.
+ * @evidence contracts/testing.md#behavioral-verification InstalledGraphBinary.resolve must return the fixture platform binary (compared by realpath) for an anchor inside the installed package and null for the installation without the platform package; a TypeScript 7.0.2 project and a project without TypeScript get ttscgraph, and a 7.1 nightly project ttscgraph-7.1, even when an absolute override is absent; an absolute TTSC_GRAPH_BINARY wins even there, and a relative one falls back to installation lookup. resolveGraphBinary must give the same answer for a cwd holding the old ttsc-platform layout and for an empty cwd, never the old-layout binary. TtscGraphSession must construct and close for a project without ttsc when an absolute override names the producer.
  * @evidence contracts/testing.md#independent-expectations Expected paths are the files the test itself created and the override values are literals; the old-layout path is the location earlier releases resolved, so returning it is the regression this test distinguishes.
- * @evidence contracts/testing.md#distinguishing-cases Installed versus missing platform package, absolute versus relative override, and old-layout versus empty target cwd. The public resolver's own installation is not asserted to exist, because the workspace platform binary is only present after a native build; the installed-consumer E2E owns that positive path.
+ * @evidence contracts/testing.md#distinguishing-cases Installed versus missing platform package, 7.0 versus 7.1 versus unresolvable project TypeScript, absolute versus relative override (the override wins over a 7.1 project), and old-layout versus empty target cwd. The public resolver's own installation is not asserted to exist, because the workspace platform binary is only present after a native build; the installed-consumer E2E owns that positive path.
  * @evidence contracts/testing.md#execution-ownership Runs InstalledGraphBinary.resolve, resolveGraphBinary and the TtscGraphSession constructor in the test process over temporary node_modules layouts. The constructor applies ensureExecutable to the inert file, graph() is never called and no native process starts.
  */
 export async function test_ttscgraph_binary_resolves_from_the_graph_installation(): Promise<void> {
@@ -35,32 +39,62 @@ export async function test_ttscgraph_binary_resolves_from_the_graph_installation
 
   const installed = TestProject.tmpdir("ttscgraph-installed-");
   const anchor = writeGraphPackage(installed);
+  const platformPackage = path.join(
+    installed,
+    "node_modules",
+    "@ttsc",
+    `graph-${platform}`,
+  );
   const binary = writeInert(
-    path.join(installed, "node_modules", "@ttsc", `graph-${platform}`),
+    platformPackage,
     `@ttsc/graph-${platform}`,
     executable,
   );
+  const binary71 = path.join(
+    platformPackage,
+    "bin",
+    process.platform === "win32" ? "ttscgraph-7.1.exe" : "ttscgraph-7.1",
+  );
+  fs.writeFileSync(binary71, "inert module-resolution input; never executed");
   const missing = TestProject.tmpdir("ttscgraph-missing-platform-");
   const missingAnchor = writeGraphPackage(missing);
+  const project70 = writeTypeScriptProject("7.0.2");
+  const project71 = writeTypeScriptProject("7.1.0-dev.20261020.3");
+  const noTypeScript = TestProject.tmpdir("ttscgraph-no-typescript-");
 
-  const resolved = InstalledGraphBinary.resolve({}, anchor);
-  assert.ok(resolved !== null);
-  assert.equal(fs.realpathSync(resolved), fs.realpathSync(binary));
-  assert.equal(InstalledGraphBinary.resolve({}, missingAnchor), null);
+  for (const [project, expected] of [
+    [project70, binary],
+    [project71, binary71],
+    [noTypeScript, binary],
+  ] as const) {
+    const resolved = InstalledGraphBinary.resolve({}, anchor, project);
+    assert.ok(resolved !== null);
+    assert.equal(fs.realpathSync(resolved), fs.realpathSync(expected));
+  }
   assert.equal(
-    InstalledGraphBinary.resolve({ TTSC_GRAPH_BINARY: binary }, missingAnchor),
+    InstalledGraphBinary.resolve({}, missingAnchor, project70),
+    null,
+  );
+  assert.equal(
+    InstalledGraphBinary.resolve(
+      { TTSC_GRAPH_BINARY: binary },
+      missingAnchor,
+      project71,
+    ),
     binary,
   );
   assert.equal(
     InstalledGraphBinary.resolve(
       { TTSC_GRAPH_BINARY: "ttscgraph" },
       missingAnchor,
+      project70,
     ),
     null,
   );
   const relative = InstalledGraphBinary.resolve(
     { TTSC_GRAPH_BINARY: "ttscgraph" },
     anchor,
+    project70,
   );
   assert.ok(relative !== null);
   assert.equal(fs.realpathSync(relative), fs.realpathSync(binary));
@@ -92,6 +126,41 @@ export async function test_ttscgraph_binary_resolves_from_the_graph_installation
     if (previous === undefined) delete process.env.TTSC_GRAPH_BINARY;
     else process.env.TTSC_GRAPH_BINARY = previous;
   }
+}
+
+/**
+ * Write a project installing the given TypeScript version: its manifest and an
+ * inert platform compiler, which is all line selection reads.
+ */
+function writeTypeScriptProject(version: string): string {
+  const root = TestProject.tmpdir("ttscgraph-typescript-project-");
+  const modules = path.join(root, "node_modules");
+  writeInert(path.join(modules, "typescript"), "typescript", null);
+  fs.writeFileSync(
+    path.join(modules, "typescript", "package.json"),
+    JSON.stringify({ name: "typescript", version }),
+  );
+  writeInert(
+    path.join(
+      modules,
+      "@typescript",
+      `typescript-${process.platform}-${process.arch}`,
+    ),
+    `@typescript/typescript-${process.platform}-${process.arch}`,
+    null,
+  );
+  const lib = path.join(
+    modules,
+    "@typescript",
+    `typescript-${process.platform}-${process.arch}`,
+    "lib",
+  );
+  fs.mkdirSync(lib, { recursive: true });
+  fs.writeFileSync(
+    path.join(lib, process.platform === "win32" ? "tsc.exe" : "tsc"),
+    "inert compiler; never executed",
+  );
+  return root;
 }
 
 /** Write an installed `@ttsc/graph` package and return a file inside it. */

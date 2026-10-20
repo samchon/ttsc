@@ -10,7 +10,8 @@ It contains the native producer that `@ttsc/graph` spawns to build the checker-b
 
 This package intentionally ships the prebuilt `darwin-arm64` artifact for `@ttsc/graph`:
 
-- `bin/ttscgraph`: the native graph producer.
+- `bin/ttscgraph`: the native graph producer for projects on TypeScript 7.0.
+- `bin/ttscgraph-7.1`: the native graph producer for projects on TypeScript 7.1.
 
 Source and build entrypoint: [`packages/ttsc/cmd/ttscgraph`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/cmd/ttscgraph) and [`packages/ttsc/build/platform-package.cjs`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/build/platform-package.cjs).
 

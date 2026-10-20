@@ -72,8 +72,10 @@ export class TtscGraphSession {
 
   public constructor(options: TtscGraphSessionOptions) {
     // The producer belongs to this package's installation, so an MCP server
-    // started from any directory spawns the binary of its own release.
-    const binary = options.binary ?? resolveGraphBinary(process.env);
+    // started from any directory spawns a binary of its own release: the one
+    // of the graphed project's TypeScript line.
+    const binary =
+      options.binary ?? resolveGraphBinary(process.env, options.cwd);
     if (binary === null) throw new Error(InstalledGraphBinary.missingMessage());
     ensureExecutable(binary);
     this.cwd = options.cwd;

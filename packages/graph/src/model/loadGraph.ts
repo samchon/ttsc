@@ -58,9 +58,10 @@ export function loadGraph(
 ): TtscGraphMemory {
   const cwd = options.cwd ?? process.cwd();
   const tsconfig = options.tsconfig ?? "tsconfig.json";
-  // The producer belongs to this package's installation, so the selected
-  // project only becomes the native process's --cwd.
-  const binary = options.binary ?? resolveGraphBinary(process.env);
+  // The producer belongs to this package's installation; the selected project
+  // becomes the native process's --cwd and, by its TypeScript line, picks
+  // which of the installation's producers runs.
+  const binary = options.binary ?? resolveGraphBinary(process.env, cwd);
   if (binary === null) throw new Error(InstalledGraphBinary.missingMessage());
   ensureExecutable(binary);
 

@@ -5,6 +5,8 @@ import (
   "errors"
   "strings"
   "testing"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
 // TestRunHelpVersionAndBadFlagsExitCodes verifies the top-level run dispatcher
@@ -24,7 +26,7 @@ import (
 //  4. With getwd forced to fail, run dump and run serve exit 2 and explain why.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls the actual top-level dispatcher in-process. Help and version require status zero and their named text, unknown command requires status two and Usage:, dump/serve bad flags require status two only, and both failing cwd branches require status two plus could not resolve working directory. These are returned statuses, not OS exit transport assertions.
-// @evidence contracts/testing.md#independent-expectations The expected exit codes (0 for help and version, 2 for an unknown command, a bad dump or serve flag, and a failed working-directory lookup) and message fragments (ttscgraph, Usage:, could not resolve working directory) are literals from the documented command surface, written independently of run. The version check compares with the package's own version variable, so it only proves the version string is printed.
+// @evidence contracts/testing.md#independent-expectations The expected exit codes (0 for help and version, 2 for an unknown command, a bad dump or serve flag, and a failed working-directory lookup) and message fragments (ttscgraph, Usage:, could not resolve working directory) are literals from the documented command surface, written independently of run. The version check compares with the package's own version variable and the linked compiler's own version, so it proves those strings are printed, not that they are correct.
 // @evidence contracts/testing.md#distinguishing-cases run --help and run --version exit 0, printing the command name / version; run --bogus (unknown command) exits 2 and prints usage; run dump --nope and run serve --nope exit 2 (flag parse failure). 4. With getwd forced to fail, run dump and run serve exit 2 and explain why.
 // @evidence contracts/testing.md#execution-ownership TestRunHelpVersionAndBadFlagsExitCodes is a Go source-unit entry. It calls the package's top-level run dispatcher in-process with stdout, stderr and the getwd seam replaced; every case returns before a Program is loaded or a serve session starts, so nothing is installed, built or launched.
 func TestRunHelpVersionAndBadFlagsExitCodes(t *testing.T) {
@@ -49,6 +51,9 @@ func TestRunHelpVersionAndBadFlagsExitCodes(t *testing.T) {
   }
   if got := versionOut.String(); !strings.Contains(got, "ttscgraph") || !strings.Contains(got, version) {
     t.Fatalf("run --version did not print a version string:\n%s", got)
+  }
+  if got, want := versionOut.String(), "typescript "+graph.TypescriptVersion()+","; !strings.Contains(got, want) {
+    t.Fatalf("run --version did not name the linked compiler %q:\n%s", want, got)
   }
 
   // An unknown command is an invalid invocation: print usage and exit 2.

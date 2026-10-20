@@ -30,9 +30,10 @@ import { resolveGraphBinary } from "./resolveGraphBinary";
 export function runView(argv: readonly string[]): number | void {
   const opts = TtscGraphLauncherArguments.view(argv);
 
-  // The producer belongs to this package's installation; `--cwd` only selects
-  // the project the native process graphs.
-  const binary = resolveGraphBinary(process.env);
+  // The producer belongs to this package's installation; `--cwd` selects the
+  // project the native process graphs and, by its TypeScript line, which of
+  // the installation's producers graphs it.
+  const binary = resolveGraphBinary(process.env, opts.cwd);
   if (binary === null) {
     process.stderr.write(`${InstalledGraphBinary.missingMessage()}\n`);
     return 1;

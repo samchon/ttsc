@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import path from "node:path";
+import { CompilerTarget } from "ttsc/plugin-source";
 
 /**
  * The native `ttscgraph` producer installed with this `@ttsc/graph` release.
@@ -11,7 +12,13 @@ import path from "node:path";
  * release, and the directory a launcher starts in does not affect which binary
  * runs.
  *
- * @evidence contracts/common.md#principled-implementation Node module resolution from a file inside the installed package finds the optional platform dependency wherever the package manager placed it; an explicit absolute override keeps precedence.
+ * The producer links the compiler, so each platform package carries one per
+ * compiler target: `ttscgraph` against TypeScript 7.0 and `ttscgraph-7.1`
+ * against TypeScript 7.1. The graphed project's installed TypeScript line picks
+ * one, under the same selection ttsc's source builds use, so the graph is
+ * computed by the checker the project's own `tsc` runs.
+ *
+ * @evidence contracts/common.md#principled-implementation Node module resolution from a file inside the installed package finds the optional platform dependency wherever the package manager placed it; an explicit absolute override keeps precedence. The project's TypeScript line selects among that release's producers through ttsc's CompilerTarget, the owner of line selection.
  * @evidence contracts/common.md#clear-and-simple-design One owner holds the resolution order and the two remedies every launcher, loader and session reports, so their wording cannot drift.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Resolution uses the installed package contract rather than repository layouts, the target project's packages or guessed paths.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why the producer belongs to this package and what the anchor means.
@@ -27,32 +34,54 @@ export namespace InstalledGraphBinary {
    * 1. `TTSC_GRAPH_BINARY` when it is an absolute path. It is returned without a
    *    filesystem probe, so the spawn owns its executable error; a relative
    *    value is ignored.
-   * 2. `@ttsc/graph-<platform>-<arch>/bin/ttscgraph[.exe]`, resolved by Node
+   * 2. `@ttsc/graph-<platform>-<arch>/bin/<producer>[.exe]`, resolved by Node
    *    module resolution from `anchor`, a file inside the installed
-   *    `@ttsc/graph` package.
+   *    `@ttsc/graph` package. The producer is the one of the TypeScript line
+   *    installed at `projectRoot`; a line newer than every target selects the
+   *    newest after ttsc's warning.
    *
-   * @evidence contracts/common.md#principled-implementation An absolute override is honored before module resolution walks up from the anchor to the package manager's placement of the platform dependency.
+   * @evidence contracts/common.md#principled-implementation An absolute override is honored before module resolution walks up from the anchor to the package manager's placement of the platform dependency; CompilerTarget.resolve reads the project's line as source builds do, so an override is never second-guessed by the project.
    * @evidence contracts/common.md#clear-and-simple-design The function owns precedence and lookup; callers own the failure presentation through the shared remedies.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing package resolves to null instead of a guessed path, and the override is not probed on the caller's behalf.
    * @evidence contracts/common.md#meaningful-documentation The numbered list states the precedence, the anchor's meaning and the unprobed override.
    * @evidence contracts/portability.md#os-neutral-implementation path.isAbsolute applies the host's absolute-path rule, and the package and executable names come from process.platform and process.arch.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returns a path string and opens no handle.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms Performs at most one module resolution.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms Performs at most one module resolution after the project's line is read.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Resolves on every call so a reinstall is honored.
    */
   export function resolve(
     env: NodeJS.ProcessEnv,
     anchor: string,
+    projectRoot: string,
   ): string | null {
     const override = env.TTSC_GRAPH_BINARY;
     if (override && path.isAbsolute(override)) return override;
+    const producer = producerName(CompilerTarget.resolve(projectRoot, env));
     try {
       return createRequire(anchor).resolve(
-        `${packageName()}/bin/${process.platform === "win32" ? "ttscgraph.exe" : "ttscgraph"}`,
+        `${packageName()}/bin/${process.platform === "win32" ? `${producer}.exe` : producer}`,
       );
     } catch {
       return null;
     }
+  }
+
+  /**
+   * The executable name of a compiler target's producer, without the Windows
+   * suffix: `ttscgraph` for TypeScript 7.0, which every earlier release shipped
+   * under that name, and `ttscgraph-<line>` for a later line.
+   *
+   * @evidence contracts/common.md#principled-implementation The 7.0 producer keeps the name earlier releases shipped; each later line is named after itself, as the platform package build writes them.
+   * @evidence contracts/common.md#clear-and-simple-design One mapping serves resolution and its tests.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Names follow the target line, not a fixture or installed version.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states both name forms and why 7.0 has no suffix.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation The Windows suffix is added by resolve; this returns the platform-neutral stem.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Builds a string and holds nothing.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms One comparison and concatenation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A constant-time string needs no sharing.
+   */
+  export function producerName(line: CompilerTarget.Line): string {
+    return line === "7.0" ? "ttscgraph" : `ttscgraph-${line}`;
   }
 
   /**

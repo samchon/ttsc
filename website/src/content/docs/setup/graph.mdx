@@ -34,7 +34,7 @@ Median tokens on the shared onboarding question, against no MCP and the three co
   </Tabs.Tab>
 </Tabs>
 
-The native `ttscgraph` binary ships with `@ttsc/graph` itself, in a per-platform package such as `@ttsc/graph-linux-x64` that the package manager installs as an optional dependency. A project that does not use the graph downloads none of it. `ttsc` stays on the install line as the peer `@ttsc/graph` is built on, including the plugin resolution it uses to read what lint plugins publish.
+The native `ttscgraph` binary ships with `@ttsc/graph` itself, in a per-platform package such as `@ttsc/graph-linux-x64` that the package manager installs as an optional dependency. A project that does not use the graph downloads none of it. The producer links the TypeScript compiler, so the package carries one for each TypeScript line `ttsc` supports, and the graph runs the one of the project's installed `typescript`: `ttscgraph` for 7.0 and `ttscgraph-7.1` for 7.1. `ttsc` stays on the install line as the peer `@ttsc/graph` is built on, including the plugin resolution it uses to read what lint plugins publish.
 
 Keep `@ttsc/graph` and `ttsc` on the same version; upgrading from 0.31 means upgrading both. If the package manager skipped optional dependencies, the server reports which platform package is missing; reinstall `@ttsc/graph` with optional dependencies enabled, or point `TTSC_GRAPH_BINARY` at an absolute `ttscgraph` path. A binary from another build stops on a protocol or schema mismatch:
 

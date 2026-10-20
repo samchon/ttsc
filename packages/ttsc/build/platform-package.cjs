@@ -3,9 +3,14 @@
 // `@ttsc/{os}-{arch}` carries the ttsc helper, the ttscserver LSP proxy, the
 // local Go cache helper and the bundled Go compiler that source plugins build
 // with. `@ttsc/graph-{os}-{arch}`
-// carries only the ttscgraph producer that `@ttsc/graph` spawns, so a project
+// carries only the ttscgraph producers that `@ttsc/graph` spawns, so a project
 // without the graph downloads none of it. Both build from packages/ttsc with
 // the same flags and the same version stamp.
+//
+// ttscgraph links the compiler, so the graph package carries one producer per
+// compiler target: `ttscgraph` against TypeScript 7.0 and `ttscgraph-7.1`
+// against TypeScript 7.1, built through the repository's 7.1 workspace with the
+// 7.1 build tag. `@ttsc/graph` spawns the one of the project's TypeScript line.
 //
 // Every 32-bit arm executable is built with GOARM=6: the arm package bundles the
 // armv6l SDK, and without it Go defaults to ARMv7, which that baseline cannot run.
@@ -31,19 +36,26 @@ const [, graphPrefix, npmOs, npmArch] =
   ) ?? [];
 if (!npmOs) throw new Error(`unsupported platform package ${manifest.name}`);
 const graph = graphPrefix !== undefined;
+const root = path.resolve(cwd, "../..");
+const typescript71 = {
+  GOWORK: path.join(root, "go.7.1.work"),
+  GOFLAGS: "-tags=ttsc_typescript_7_1",
+};
 const commands = graph
-  ? [["ttscgraph", "./cmd/ttscgraph"]]
+  ? [
+      ["ttscgraph", "./cmd/ttscgraph", {}],
+      ["ttscgraph-7.1", "./cmd/ttscgraph", typescript71],
+    ]
   : [
-      ["ttsc", "./cmd/platform"],
-      ["ttscserver", "./cmd/ttscserver"],
-      ["ttsc-cache", "./cmd/ttsc-cache"],
+      ["ttsc", "./cmd/platform", {}],
+      ["ttscserver", "./cmd/ttscserver", {}],
+      ["ttsc-cache", "./cmd/ttsc-cache", {}],
     ];
 
 const goos = npmOs === "win32" ? "windows" : npmOs;
 const goarch = npmArch === "x64" ? "amd64" : npmArch;
 const goarm = npmArch === "arm" ? "6" : undefined;
 const exe = npmOs === "win32" ? ".exe" : "";
-const root = path.resolve(cwd, "../..");
 const source = path.join(root, "packages", "ttsc");
 const bin = path.join(cwd, "bin");
 const bundledGo = path.join(bin, "go");
@@ -62,7 +74,7 @@ const commit = (() => {
   }
 })();
 const ldflags = `-s -w -X main.version=${manifest.version} -X main.commit=${commit} -X main.date=${new Date().toISOString()}`;
-for (const [name, pkg] of commands) {
+for (const [name, pkg, target] of commands) {
   cp.execFileSync(
     "go",
     [
@@ -78,6 +90,7 @@ for (const [name, pkg] of commands) {
       stdio: "inherit",
       env: {
         ...process.env,
+        ...target,
         CGO_ENABLED: "0",
         GOOS: goos,
         GOARCH: goarch,

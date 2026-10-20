@@ -16,17 +16,18 @@ import { InstalledGraphBinary } from "./internal/InstalledGraphBinary";
  * Resolution order:
  *
  * 1. `TTSC_GRAPH_BINARY` env var, when set to an absolute path.
- * 2. `@ttsc/graph-<platform>-<arch>/bin/ttscgraph[.exe]`, resolved from the
- *    installed `@ttsc/graph` package.
+ * 2. The producer of the TypeScript line installed at `cwd` (default:
+ *    `process.cwd()`) in `@ttsc/graph-<platform>-<arch>/bin`, resolved from the
+ *    installed `@ttsc/graph` package: `ttscgraph[.exe]` for TypeScript 7.0 and
+ *    `ttscgraph-7.1[.exe]` for TypeScript 7.1.
  *
- * `cwd` is still accepted so existing callers keep compiling. It no longer
- * affects resolution: the binary used to come from the target project's `ttsc`
- * platform package, and now belongs to `@ttsc/graph` itself.
+ * `cwd` names the graphed project only to read its TypeScript line; the binary
+ * itself always belongs to `@ttsc/graph`.
  *
  * @evidence contracts/common.md#principled-implementation The installed-package resolver locates the exact-version platform dependency from this module's own location; an explicit absolute override has precedence.
  * @evidence contracts/common.md#clear-and-simple-design The public function delegates to the one resolver every launcher, loader and session uses, anchored at this package's installation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Resolution uses the installed package contract rather than repository layouts or the target project's packages.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs and the ordered list explain package ownership, override precedence and the retained but ignored cwd argument.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs and the ordered list explain package ownership, override precedence and that cwd only selects the project's TypeScript line.
  * @evidence contracts/portability.md#os-neutral-implementation The delegated resolver selects the platform/architecture package through Node module resolution; only Windows's executable suffix differs.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a path string and opens no handle.
  * @evidenceExclude contracts/performance.md#efficient-algorithms performs at most one module resolution.
@@ -36,6 +37,5 @@ export function resolveGraphBinary(
   env: NodeJS.ProcessEnv = process.env,
   cwd?: string,
 ): string | null {
-  void cwd;
-  return InstalledGraphBinary.resolve(env, __filename);
+  return InstalledGraphBinary.resolve(env, __filename, cwd ?? process.cwd());
 }

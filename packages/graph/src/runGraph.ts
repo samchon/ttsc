@@ -52,11 +52,12 @@ export function runGraph(
  * on this process's stdout. Returns the child's exit code.
  */
 function runDump(argv: readonly string[]): number {
-  // The producer belongs to this package's installation; `--cwd` only selects
-  // the project the native process graphs.
+  // The producer belongs to this package's installation; `--cwd` selects the
+  // project the native process graphs and, by its TypeScript line, which of
+  // the installation's producers graphs it.
   const { cwd, tsconfig, artifactsSpecified } =
     TtscGraphLauncherArguments.dump(argv);
-  const binary = resolveGraphBinary(process.env);
+  const binary = resolveGraphBinary(process.env, cwd);
   if (binary === null) {
     // `ttscgraph` owns the flag contract, so a resolvable binary always answers
     // `--help` itself and stays the single source of truth. It cannot answer
