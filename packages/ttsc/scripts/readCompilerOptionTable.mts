@@ -18,7 +18,7 @@ export function readCompilerOptionTable(): {
   readonly enumWhitespace: ReadonlySet<string>;
 } {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-  const result = spawnSync("go", ["run", "-mod=readonly", "./scripts/compiler-options/main.go"], {
+  const result = spawnSync("go", ["run", "-mod=readonly", "./scripts/compiler-options"], {
     cwd: root,
     encoding: "utf8",
     maxBuffer: 4 * 1024 * 1024,
