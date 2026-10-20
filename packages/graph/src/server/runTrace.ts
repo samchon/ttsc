@@ -978,10 +978,11 @@ function hasBodylessModifier(node: ITtscGraphNode): boolean {
 
 /**
  * Whether an owner up the `contains` tree makes this declaration bodyless: an
- * interface, a type alias, or an ambient container. A member writes no keyword of its own —
- * `declare` on a class or namespace is not repeated on what it holds — so the
- * fact lives on the owner and the walk has to go get it. An abstract class can
- * contain concrete bodies; its abstract modifier applies only to itself.
+ * interface, a type alias, or an ambient container. A member writes no keyword
+ * of its own — `declare` on a class or namespace is not repeated on what it
+ * holds — so the fact lives on the owner and the walk has to go get it. An
+ * abstract class can contain concrete bodies; its abstract modifier applies
+ * only to itself.
  */
 function inBodylessContainer(
   graph: TtscGraphMemory,

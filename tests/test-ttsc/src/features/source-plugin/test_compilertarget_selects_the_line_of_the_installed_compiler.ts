@@ -142,8 +142,7 @@ export function test_compilertarget_selects_the_line_of_the_installed_compiler()
     ["-mod=mod -tags=netgo", "-v", "-v -tags=ttsc_typescript_7_1"],
   ] as const) {
     if (storedFlags === undefined) fs.rmSync(stored, { force: true });
-    else fs.writeFileSync(stored, `GOFLAGS=${storedFlags}
-`);
+    else fs.writeFileSync(stored, `GOFLAGS=${storedFlags}\n`);
     const input: NodeJS.ProcessEnv =
       flags === undefined ? { ...base } : { ...base, GOFLAGS: flags };
     const built = CompilerTarget.buildEnv(input, "7.1", root);
