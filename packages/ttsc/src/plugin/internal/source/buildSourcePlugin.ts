@@ -8,6 +8,7 @@ import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProce
 import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { runHoldingLock } from "../../../internal/runHoldingLock";
+import { CompilerTarget } from "./CompilerTarget";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
 import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
@@ -208,7 +209,8 @@ function buildSourcePluginAttempt(
   OwnedSynchronousProcess.checkpoint();
   const { dir, entry, source } = resolveSourceBuildTarget(opts);
   const overlayDirs = [
-    ...(opts.overlayDirs ?? SourcePluginWorkspace.findTtscOverlayDirs()),
+    ...(opts.overlayDirs ??
+      SourcePluginWorkspace.findTtscOverlayDirs(CompilerTarget.ofEnv(env))),
   ].sort();
   const contributors = opts.contributors ?? [];
   const compiler = resolveGoCompiler(env);

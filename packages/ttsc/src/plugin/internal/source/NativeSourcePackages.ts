@@ -6,6 +6,7 @@ import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/Sideca
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { CompilerTarget } from "./CompilerTarget";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
@@ -211,7 +212,7 @@ export namespace NativeSourcePackages {
       );
       SourcePluginWorkspace.writeGoWork(
         scratch,
-        SourcePluginWorkspace.findTtscOverlayDirs(),
+        SourcePluginWorkspace.findTtscOverlayDirs(CompilerTarget.ofEnv(env)),
         goBinary,
         opts.pluginName,
         env,
@@ -228,7 +229,7 @@ export namespace NativeSourcePackages {
         identity !== undefined &&
         copiesKeyed &&
         observed.every((input) => input.Error === undefined) &&
-        JSON.stringify(overlayDigests(opts.identities)) ===
+        JSON.stringify(overlayDigests(env, opts.identities)) ===
           JSON.stringify(identity.overlays)
       )
         PluginLoadAnswers.write(
@@ -622,7 +623,9 @@ function selectionIdentity(
           : ["go.mod", "go.sum"].map((name) =>
               fileDigest(path.join(host, name)),
             ),
-      overlays: SourcePluginWorkspace.findTtscOverlayDirs().map(directory),
+      overlays: SourcePluginWorkspace.findTtscOverlayDirs(
+        CompilerTarget.ofEnv(env),
+      ).map(directory),
       entries: opts.packages.map((input) => [
         input.entry,
         input.name ?? null,
@@ -637,9 +640,12 @@ function selectionIdentity(
 
 /** The digest of every overlay module, in the generated workspace's order. */
 function overlayDigests(
+  env: NodeJS.ProcessEnv,
   identities: PluginContentIdentities.Store | undefined,
 ): string[] {
-  return SourcePluginWorkspace.findTtscOverlayDirs().map((directory) =>
+  return SourcePluginWorkspace.findTtscOverlayDirs(
+    CompilerTarget.ofEnv(env),
+  ).map((directory) =>
     PluginContentIdentities.sourceDirectory(identities, directory),
   );
 }

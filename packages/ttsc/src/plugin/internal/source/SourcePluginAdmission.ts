@@ -77,7 +77,7 @@ export namespace SourcePluginAdmission {
    * Identify compiler/shim module names whose replacement ttsc owns. This is
    * module-name policy, not a lookup of a physical Go module.
    *
-   * @evidence contracts/common.md#principled-implementation Exact ttsc/compiler roots and the compiler shim namespace retain the existing managed-module discriminants.
+   * @evidence contracts/common.md#principled-implementation Exact ttsc and compiler roots of both targets and every shim namespace are the managed-module discriminants.
    * @evidence contracts/common.md#clear-and-simple-design Both replacement rejection and workspace filtering use this same predicate.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Module-name policy does not fabricate filesystem module identity or compiled provenance.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes module-name classification from physical lookup.
@@ -90,7 +90,33 @@ export namespace SourcePluginAdmission {
     return (
       modulePath === "github.com/samchon/ttsc/packages/ttsc" ||
       modulePath === "github.com/microsoft/typescript-go" ||
-      modulePath.startsWith("github.com/microsoft/typescript-go/shim/")
+      modulePath === "github.com/microsoft/TypeScript/tsc" ||
+      isManagedShimModule(modulePath)
+    );
+  }
+
+  /** The module-path prefix of the TypeScript 7.1 target's bridges. */
+  export const BRIDGE_MODULE_PREFIX =
+    "github.com/microsoft/TypeScript/tsc/shim/";
+
+  /**
+   * Identify a ttsc-owned shim module of any compiler target: a 7.0 shim or a
+   * 7.1 facade, both `github.com/microsoft/typescript-go/shim/*`, or a 7.1
+   * bridge. This is module-name policy, not a lookup of a physical Go module.
+   *
+   * @evidence contracts/common.md#principled-implementation Both shim namespaces are ttsc-owned module names; a prefix test classifies each.
+   * @evidence contracts/common.md#clear-and-simple-design isManagedModule and workspace writing share this predicate.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Module-name policy does not fabricate filesystem module identity.
+   * @evidence contracts/common.md#meaningful-documentation Native prose names the three shim kinds.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Go module identifiers are supplied strings, not native filesystem paths.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms Two prefix comparisons own no population-processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current module text is classified without retained lookup results.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No native handle, module registry or task is acquired or retained.
+   */
+  export function isManagedShimModule(modulePath: string): boolean {
+    return (
+      modulePath.startsWith("github.com/microsoft/typescript-go/shim/") ||
+      modulePath.startsWith(BRIDGE_MODULE_PREFIX)
     );
   }
 

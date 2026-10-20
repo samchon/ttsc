@@ -83,6 +83,8 @@ Do not import `github.com/microsoft/typescript-go/internal/...` directly. The sh
 
 `ttsc` builds a plugin against the compiler of the TypeScript line the project installs: TypeScript 7.0, whose compiler is the Go module `github.com/microsoft/typescript-go`, or TypeScript 7.1, whose compiler moved to `github.com/microsoft/TypeScript/tsc`. The import paths above are the same on both targets, and on 7.1 they alias the 7.1 compiler's own types, so a value crosses any two shim packages unchanged.
 
+The installed `typescript` version picks the target by its major.minor line. `7.0.x` builds against 7.0. `7.1.x`, including the `7.1.0-dev.*` nightlies, builds against 7.1. When `TTSC_TSGO_BINARY` names a custom compiler, `ttsc` reads the line from that binary's `--version` output. A line newer than every target, such as 7.2, builds against 7.1, and `ttsc` warns once on stderr naming both versions. The in-memory compiler host behind the `TtscCompiler` API, `ttsx`, `@ttsc/unplugin` and `@ttsc/metro` follows the same choice. Each target keeps its own cache entry, so switching a project's TypeScript line never reuses the other line's binary.
+
 The two compilers differ in API shape. TypeScript 7.1 types every path, hides `ast.Symbol` state behind getters, and changes several compiler signatures. A plugin that must build on both targets uses only what both declare:
 
 - Paths: `shim/tspath` declares 7.1's `RootedPath`, `RootedFilePath`, `RootedDirectoryPath`, `RelativePath`, `PathKey` and `CaseSensitivity` on 7.0 as aliases of the strings and booleans 7.0 uses. Convert a string with `shimtspath.RootedFilePath(name)` and a path back with `string(path)`. 7.1's path methods, such as `AsString()`, do not exist on 7.0.

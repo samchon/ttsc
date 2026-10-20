@@ -31,11 +31,11 @@ const cp = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
  * 2. Execute each filesystem, process and compiler case with its installed owner.
  * 3. Collect independent failures and release the consumer through its OS owner.
  *
- * @evidence contracts/testing.md#behavioral-verification Runs the installed default compiler, server and Go locators plus the installed @ttsc/graph's own resolveGraphBinary; each must match its direct candidate physical file (the ttsc platform package for the first three, @ttsc/graph-<target> for the graph) and independent pack producer SHA rather than only its version. Resolves the packed SDK from the owned CLI consumer and calls the three volume/path-identity cases, held-generation retirement case and real child/pipe lifetime entry with its actual exported owners. The ordinary-volume compiler case-only resolution probe, Windows ttsx junction and ttsc short-cwd cases and two source-owned VS Code command-shim cases retain their original assertions; each failure leaves independent cases observable.
+ * @evidence contracts/testing.md#behavioral-verification Runs the installed default compiler, server and Go locators plus the installed @ttsc/graph's own resolveGraphBinary; each must match its direct candidate physical file (the ttsc platform package for the first three, @ttsc/graph-<target> for the graph) and independent pack producer SHA rather than only its version. Resolves the packed SDK from the owned CLI consumer and calls the three volume/path-identity cases, held-generation retirement case and real child/pipe lifetime entry with its actual exported owners. The ordinary-volume compiler case-only resolution probe, Windows ttsx junction and ttsc short-cwd cases and two source-owned VS Code command-shim cases retain their original assertions; each failure leaves independent cases observable. The compiler-target scene checks a 7.0 and a 7.1 project with the installed CLI and observes the compiler version each project's source plugin was linked against.
  * @evidence contracts/testing.md#independent-expectations The authored host-platform overrides apply the same file tarballs to nested optional edges, including @ttsc/graph's own platform dependency; producer binary bytes prescribe executable SHA while root candidate native dev/ino and realpath prescribe identity independently of default locator outputs. This entry resolves its SDK from its authored tarball dependencies and compares the consumer's physical parent and basename with independent temporary-root facts, not a marker. Filesystem scenes own their native alias/case premises; observed authority is not an independent OS-name classifier oracle. Process scenes use authored exit statuses and inherited pipes rather than fabricated close events.
  * @evidence contracts/testing.md#distinguishing-cases Physical aliases, ordinary empty/missing-directory authority, Windows sensitive-directory overrides and open-descriptor rename refusal retain their distinct named cases. Installed process closure additionally distinguishes EOF zero/two, forced termination and short/long inherited pipe holds. Portable injected authority remains in source units and Windows Go kernel cases run in their own same-install batch.
  * @evidence contracts/testing.md#execution-ownership This entry performs its own four packs and install, resolves SDK operations and calls the named filesystem/process/compiler scenes. The Graph line-peer scene explicitly imports authored Graph source, and VS Code command scenes own their source-side shim transport; those are not installed SDK owners. Per-case failures and final cleanup failures remain named and observable.
- * @evidence contracts/e2e.md#necessary-boundary The installed SDK identity, retirement, process-closure and compiler-resolution owners must agree with real filesystem, child and pipe behavior. Windows junction/short-cwd runtime and source-owned VS Code shim transport additionally cross their actual native boundaries; direct source units cannot prove these installed connections.
+ * @evidence contracts/e2e.md#necessary-boundary The installed SDK identity, retirement, process-closure and compiler-resolution owners must agree with real filesystem, child and pipe behavior. Windows junction/short-cwd runtime and source-owned VS Code shim transport additionally cross their actual native boundaries; direct source units cannot prove these installed connections. Compiler-target selection meets the packed shim trees only in an installed source-plugin build.
  * @evidence contracts/e2e.md#shared-execution Installed SDK scenes share one prepared consumer and the caller's Node process, with distinct child/pipe lifetimes. Windows selects driver/windowsjunction::TestCreateTreatsPathsAsData through the Go boundary; its direct owning operation has no SDK prerequisite. Parent calls or terminal Go status do not establish internal process/Program totals or executed coverage on an unavailable platform.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The exact created temporary root is the cleanup owner; successful setup independently checks its physical parent and prefix. Each scene owns separate inputs and closure checks. Finally attempts root removal and asserts absence, including setup failure, retaining cleanup errors; removal is not arbitrary descendant shutdown or loaded-image identity. Go inputs/environment retain their own test owners.
  * @evidence contracts/e2e.md#preserved-coverage Calls each original filesystem OS function with the candidate operation and retains the real Windows junction runtime, short-cwd compiler and both VS Code shim argv cases. The six child/pipe lifetimes also retain their exact assertions with the actual installed constructor. Independent failures are collected before reporting; no assertion, existing capability guard or failure identity is dropped and no simulated OS result is introduced.
@@ -284,6 +284,24 @@ export async function test_e2e_installation(): Promise<void> {
     } catch (error) {
       failures.push(new Error(policyCase, { cause: error }));
       console.error(policyCase, error);
+    }
+    const targetCase =
+      "case_installed_ttsc_builds_each_typescript_line_against_its_own_compiler";
+    const targetStarted = performance.now();
+    try {
+      const entry = await import(
+        new URL(
+          `./ttsc/os-boundaries/source-plugin/${targetCase}.ts`,
+          import.meta.url,
+        ).href
+      );
+      entry[targetCase]({ consumer: physicalConsumer, sdk, repository, pnpm });
+      console.log(
+        `${targetCase}: PASS ${(performance.now() - targetStarted).toFixed(1)} ms`,
+      );
+    } catch (error) {
+      failures.push(new Error(targetCase, { cause: error }));
+      console.error(targetCase, error);
     }
     const graphCase = "case_ttscgraph_line_peer_joins_actual_child_lifetimes";
     const graphStarted = performance.now();

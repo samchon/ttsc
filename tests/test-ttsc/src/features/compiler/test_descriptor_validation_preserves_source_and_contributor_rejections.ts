@@ -26,7 +26,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Calls actual production descriptor and source admission operations; preserves original source/JavaScript/contributor checks and observes export identity, stage diagnostics, native go.mod existence, cache containment and replacement refusals.
  * @evidence contracts/testing.md#independent-expectations Literal error strings, explicit source fixtures and normalized physical paths establish independent expected results rather than copying function outputs.
- * @evidence contracts/testing.md#distinguishing-cases Original source/contributor boundaries remain; added controls contrast primitive/array/object exports, omitted/supported/removed/unknown stages, file/directory/absent go.mod, included/pruned/sibling caches and managed/overlay/ordinary replacements with first-error order.
+ * @evidence contracts/testing.md#distinguishing-cases Original source/contributor boundaries remain; added controls contrast primitive/array/object exports, omitted/supported/removed/unknown stages, file/directory/absent go.mod, included/pruned/sibling caches and managed/overlay/ordinary replacements with first-error order; managed modules cover the 7.0 compiler and shims and the 7.1 compiler, bridges and facades, against the bare shim namespaces and a lookalike module.
  * @evidence contracts/testing.md#execution-ownership The named export directly imports production-used guards with owned filesystem inputs and supplied replacement records. It invokes no evaluator, Go or compiler; passing admission does not certify native acquisition, physical cache aliases, caller root exemptions or whole builder ordering.
  */
 export function test_descriptor_validation_preserves_source_and_contributor_rejections(): void {
@@ -270,6 +270,10 @@ export function test_descriptor_validation_preserves_source_and_contributor_reje
     ["github.com/microsoft/typescript-go/shim/printer", true],
     ["github.com/microsoft/typescript-go/shim", false],
     ["github.com/microsoft/typescript-go-extra", false],
+    ["github.com/microsoft/TypeScript/tsc", true],
+    ["github.com/microsoft/TypeScript/tsc/shim/checker", true],
+    ["github.com/microsoft/TypeScript/tsc/shim", false],
+    ["github.com/microsoft/TypeScript", false],
     ["example.com/ordinary", false],
   ] as const)
     assert.equal(SourcePluginAdmission.isManagedModule(modulePath), expected);
@@ -283,6 +287,8 @@ export function test_descriptor_validation_preserves_source_and_contributor_reje
   SourcePluginAdmission.requireSourceReplacements([], overlays, "host");
   for (const forbidden of [
     "github.com/microsoft/typescript-go/shim/printer",
+    "github.com/microsoft/TypeScript/tsc",
+    "github.com/microsoft/TypeScript/tsc/shim/checker",
     "example.com/overlay",
   ]) {
     const replacements = [

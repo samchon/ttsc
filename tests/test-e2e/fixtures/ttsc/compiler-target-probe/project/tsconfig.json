@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "nodenext",
+    "strict": true,
+    "noEmit": true,
+    "plugins": [{ "transform": "../plugin/plugin.cjs" }]
+  },
+  "include": ["src"]
+}

@@ -1,21 +1,27 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { CompilerTarget } from "../../plugin/internal/source/CompilerTarget";
+import { SourcePluginWorkspace } from "../../plugin/internal/source/SourcePluginWorkspace";
 import { buildSourcePlugin } from "../../plugin/internal/source/buildSourcePlugin";
+import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 
 /**
  * Build (or retrieve from cache) the native ttsc compiler host binary used by
  * the in-memory API compilation paths (`compileProjectInMemory`,
  * `transformProjectInMemory`).
  *
- * The host is the `cmd/ttsc` Go entrypoint compiled with `buildSourcePlugin`.
+ * The host is the `cmd/ttsc` Go entrypoint compiled with `buildSourcePlugin`
+ * against the compiler target of the project's TypeScript line. The 7.0 host
+ * builds from the ttsc module alone, whose own go.mod replaces the 7.0 shims;
+ * the 7.1 host overlays its bridges and facades and carries the 7.1 build tag.
  * The cache key incorporates the ttsc package version and the full `go.mod`
  * contents as supplemental cache tokens. Actual source and selected toolchain
  * identity are established by the owning builder; metadata labels alone do not
  * certify every toolchain upgrade.
  *
  * @returns Absolute path to the compiled host executable.
- * @evidence contracts/common.md#principled-implementation The compiler host is the package's cmd/ttsc Go source built by the same source-plugin artifact owner; package version and full module text supplement that owner's source and environment identity.
+ * @evidence contracts/common.md#principled-implementation The compiler host is the package's cmd/ttsc Go source built by the same source-plugin artifact owner against the project's compiler target, so in-memory compilation checks with the compiler the project's tsc runs; package version and full module text supplement that owner's source and environment identity, and the target's tag and overlays enter it.
  * @evidence contracts/common.md#clear-and-simple-design This adapter supplies the host source, cache anchor and version tokens while buildSourcePlugin owns compilation, locking and artifact admission.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Version read fallbacks label unavailable metadata; they do not replace the owning builder's actual source/environment proof or synthesize a binary path.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies the compiler consumers and version-token inputs; separated option members distinguish project cache base, optional override and package source root.
@@ -39,12 +45,15 @@ export function buildNativeCompiler(options: {
   /** Installed ttsc package containing cmd/ttsc and its module metadata. */
   packageRoot: string;
 }): string {
+  const callerEnv = SidecarEnvironment.merge(options.env ?? process.env);
+  const line = CompilerTarget.resolve(options.cacheBaseDir, callerEnv);
   return buildSourcePlugin({
     baseDir: options.cacheBaseDir,
     cacheDir: options.cacheDir,
-    env: options.env,
+    env: CompilerTarget.buildEnv(callerEnv, line),
     label: "compiler host",
-    overlayDirs: [],
+    overlayDirs:
+      line === "7.0" ? [] : SourcePluginWorkspace.findTtscOverlayDirs(line),
     pluginName: "ttsc",
     quiet: true,
     source: path.join(options.packageRoot, "cmd", "ttsc"),

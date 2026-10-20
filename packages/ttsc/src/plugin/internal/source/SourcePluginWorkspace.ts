@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
+import type { CompilerTarget } from "./CompilerTarget";
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
@@ -86,26 +87,44 @@ export namespace SourcePluginWorkspace {
   ): void {
     validateSourceReplacements(scratchDir, useDirs, goModReader, pluginName);
     const sourceInfo = goModReader.read(scratchDir);
-    const effectiveUseDirs =
-      sourceInfo.modulePath === TTSC_GO_MODULE_PATH
-        ? useDirs.filter((dir) => {
-            OwnedSynchronousProcess.checkpoint();
-            const modulePath = goModReader.read(dir).modulePath;
-            return (
-              modulePath !== null &&
-              !SourcePluginAdmission.isManagedModule(modulePath)
-            );
-          })
-        : useDirs;
+    // A TypeScript 7.1 target overlays bridges and facades. Each facade shares
+    // its module path with a 7.0 shim that the ttsc module's own go.mod
+    // replaces, so the shims become workspace replacements, which override
+    // module replacements, rather than workspace modules.
+    const bridged = useDirs.some((dir) =>
+      (goModReader.read(dir).modulePath ?? "").startsWith(
+        SourcePluginAdmission.BRIDGE_MODULE_PREFIX,
+      ),
+    );
+    const shimReplaceLines: string[] = [];
+    const effectiveUseDirs = useDirs.filter((dir) => {
+      OwnedSynchronousProcess.checkpoint();
+      const modulePath = goModReader.read(dir).modulePath;
+      if (
+        bridged &&
+        modulePath !== null &&
+        SourcePluginAdmission.isManagedShimModule(modulePath)
+      ) {
+        shimReplaceLines.push(
+          `replace ${modulePath} => ${formatGoWorkPath(dir)}`,
+        );
+        return false;
+      }
+      return (
+        sourceInfo.modulePath !== TTSC_GO_MODULE_PATH ||
+        (modulePath !== null &&
+          !SourcePluginAdmission.isManagedModule(modulePath))
+      );
+    });
     const useLines = ["\t."];
     for (const dir of effectiveUseDirs) {
       OwnedSynchronousProcess.checkpoint();
       useLines.push(`\t${formatGoWorkPath(dir)}`);
     }
-    const replaceLines = sourceBuildWorkspaceReplacements(
-      effectiveUseDirs,
-      goModReader,
-    );
+    const replaceLines = [
+      ...sourceBuildWorkspaceReplacements(effectiveUseDirs, goModReader),
+      ...shimReplaceLines.sort(),
+    ];
     const replaceBlock =
       replaceLines.length === 0 ? "" : `\n\n${replaceLines.join("\n")}\n`;
     const goWork = `use (\n${useLines.join("\n")}\n)${replaceBlock}`;
@@ -683,9 +702,11 @@ export namespace SourcePluginWorkspace {
   }
 
   /**
-   * Discover the installed native compiler/shim module overlays.
+   * Discover the installed native compiler/shim module overlays of a compiler
+   * target: the ttsc module and, for 7.0, the shim tree, or for 7.1 its bridges
+   * and facades. Omitting line selects 7.0.
    *
-   * @evidence contracts/common.md#principled-implementation Existing ttsc and shim go.mod files enter overlay selection under shared directory pruning policy.
+   * @evidence contracts/common.md#principled-implementation Existing ttsc and target shim go.mod files enter overlay selection under shared directory pruning policy; each line's tree is a separate directory, so one target's modules never enter another's workspace.
    * @evidence contracts/common.md#clear-and-simple-design One recursive walker gathers modules and one sort stabilizes ordering.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No guessed list of shim modules replaces current filesystem discovery.
    * @evidence contracts/common.md#meaningful-documentation Native prose states this operation's authority and delegated boundaries; fields retain separate native comments.
@@ -694,13 +715,18 @@ export namespace SourcePluginWorkspace {
    * @evidence contracts/performance.md#reuse-equivalent-work Each call observes installed layout afresh; contextual module readers separately reuse manifest content observations.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Directory arrays/path strings live only for this call/result; synchronous fs calls retain no open handle.
    */
-  export function findTtscOverlayDirs(): readonly string[] {
+  export function findTtscOverlayDirs(
+    line: CompilerTarget.Line = "7.0",
+  ): readonly string[] {
     const ttscRoot = path.resolve(__dirname, "..", "..", "..", "..");
     const dirs: string[] = [];
     if (fs.existsSync(path.join(ttscRoot, "go.mod"))) {
       dirs.push(ttscRoot);
     }
-    const shimRoot = path.join(ttscRoot, "shim");
+    const shimRoot =
+      line === "7.0"
+        ? path.join(ttscRoot, "shim")
+        : path.join(ttscRoot, "targets", line);
     if (fs.existsSync(shimRoot)) {
       walkForGoMod(shimRoot, dirs);
     }

@@ -24,6 +24,7 @@ import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITts
 import type { TtscPluginSourceInputsHandler } from "../../../structures/internal/TtscSingleFileEmitOptions";
 import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason";
 import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailure";
+import { CompilerTarget } from "../source/CompilerTarget";
 import { NativeSourcePackages } from "../source/NativeSourcePackages";
 import type { PluginBuildEnvironmentWitness } from "../source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../source/PluginContentIdentities";
@@ -242,7 +243,7 @@ export namespace loadProjectPlugins {
     // host-owned Node/ttsx locators into process.env. Under a Bun parent the
     // direct descriptor evaluator must remain Bun unless the caller explicitly
     // selected another runtime.
-    const effectiveEnv = SidecarEnvironment.merge(options.env ?? process.env);
+    const callerEnv = SidecarEnvironment.merge(options.env ?? process.env);
     const projectSnapshot = readProjectHostInputSnapshot({
       cwd: options.cwd,
       file: options.file,
@@ -285,6 +286,12 @@ export namespace loadProjectPlugins {
       };
     }
 
+    // Every Go command of this load compiles the compiler target of the
+    // project's TypeScript line; the target travels in the environment.
+    const effectiveEnv = CompilerTarget.buildEnv(
+      callerEnv,
+      CompilerTarget.resolve(project.root, callerEnv),
+    );
     const cwd = path.resolve(options.cwd ?? process.cwd());
     const context = {
       binary: options.binary,
@@ -462,7 +469,9 @@ export namespace loadProjectPlugins {
         candidate.packageDir,
         ...(candidate.contributors ?? []).map((input) => input.source),
       ]),
-      ...SourcePluginWorkspace.findTtscOverlayDirs(),
+      ...SourcePluginWorkspace.findTtscOverlayDirs(
+        CompilerTarget.ofEnv(effectiveEnv),
+      ),
     ]);
     // One fixed-effective-environment load owns manifest syntax sharing from the
     // first watch query through metadata and builds. Do not allocate this after
