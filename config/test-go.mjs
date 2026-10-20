@@ -12,7 +12,7 @@ const native = run([
     (name) => `./packages/${name}/...`,
   ),
   // Recursive Go patterns stop at nested module boundaries, including shims.
-  ...["shim/ast", "shim/vfs", "tools/gen_shims", "tools/shim_audit"].map(
+  ...["shim/ast", "shim/vfs", "tools/gen_facade", "tools/gen_shims", "tools/shim_audit"].map(
     (name) => `./packages/ttsc/${name}/...`,
   ),
 ]);

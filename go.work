@@ -25,6 +25,7 @@ use (
 	./packages/ttsc/shim/vfs
 	./packages/ttsc/shim/vfs/cachedvfs
 	./packages/ttsc/shim/vfs/osvfs
+	./packages/ttsc/tools/gen_facade
 	./packages/ttsc/tools/gen_shims
 	./packages/ttsc/tools/shim_audit
 	./packages/wasm

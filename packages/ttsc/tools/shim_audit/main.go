@@ -67,7 +67,11 @@ import (
   "golang.org/x/tools/go/packages"
 )
 
-const internalPrefix = "github.com/microsoft/typescript-go/internal/"
+// defaultInternalPrefix is the TypeScript 7.0 compiler's internal tree.
+const defaultInternalPrefix = "github.com/microsoft/typescript-go/internal/"
+
+// internalPrefix is the internal tree of the target being audited (-internal).
+var internalPrefix = defaultInternalPrefix
 
 // shimDirs maps each full re-export shim directory to its upstream internal
 // package suffix. Kept explicit (rather than globbed) so a new shim dir is a
@@ -202,9 +206,14 @@ func opposite(direction flowDirection) flowDirection {
 
 // linknameRe captures the trailing symbol name of a go:linkname target like
 // `...internal/checker.(*Checker).getMinArgumentCount` or `...checker.foo`.
-var linknameRe = regexp.MustCompile(`(?m)^//go:linkname\s+\S+\s+` +
-  regexp.QuoteMeta("github.com/microsoft/typescript-go/internal/") +
-  `([A-Za-z0-9_/]+)\.(?:\(\*?[A-Za-z0-9_]+\)\.)?([A-Za-z0-9_]+)`)
+var linknameRe = newLinknameRe(defaultInternalPrefix)
+
+// newLinknameRe matches go:linkname targets below one compiler's internal tree.
+func newLinknameRe(prefix string) *regexp.Regexp {
+  return regexp.MustCompile(`(?m)^//go:linkname\s+\S+\s+` +
+    regexp.QuoteMeta(prefix) +
+    `([A-Za-z0-9_/]+)\.(?:\(\*?[A-Za-z0-9_]+\)\.)?([A-Za-z0-9_]+)`)
+}
 
 // scanShimReachable parses every .go file under each shim dir and records the
 // upstream symbols it references.
@@ -869,11 +878,20 @@ func main() {
   baselinePath := flag.String("baseline", "baseline.json", "path to the accepted-gap baseline")
   anchor := flag.String("anchor", "./shim/ast", "module dir anchoring the typescript-go require")
   shimRoot := flag.String("shim", "./shim", "shim root directory")
+  internal := flag.String("internal", defaultInternalPrefix, "internal import prefix of the audited compiler target")
   flag.Parse()
+  internalPrefix = *internal
+  linknameRe = newLinknameRe(internalPrefix)
 
   // A shim directory that is not registered for audit coverage would silently
   // escape every check — close that hole before doing anything else.
   if err := checkShimDirCoverage(*shimRoot); err != nil {
+    fmt.Fprintln(os.Stderr, "shim_audit:", err)
+    os.Exit(2)
+  }
+  // A linked declaration whose signature drifted from its compiler target
+  // still links, then corrupts arguments at run time; refuse it outright.
+  if err := checkLinknameSignatures(*shimRoot); err != nil {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
     os.Exit(2)
   }

@@ -12,15 +12,23 @@
 //
 //  cd packages/ttsc
 //  go run -modfile=tools/gen_shims/go.mod ./tools/gen_shims/main.go
+//  go run -modfile=tools/gen_shims/go.mod ./tools/gen_shims/main.go -check
 //
-// Each shim directory (`packages/ttsc/shim/<name>`) may contain an
+// -shim and -internal select a compiler target: the shim root and the
+// compiler's internal import prefix. The defaults are the TypeScript 7.0 target.
+// -check writes nothing and fails when a committed file differs from the output.
+//
+// Each shim directory (`<shim root>/<name>`) may contain an
 // `extra-shim.json` file (an absent file means no extras); the generator writes its output to
-// `packages/ttsc/shim/<name>/shim.go` or a configured private support file.
+// `<shim root>/<name>/shim.go` or a configured private support file, formatted
+// as gofmt with two-space indentation like the repository's Go sources.
 package main
 
 import (
   "bytes"
+  "flag"
   "fmt"
+  "go/format"
   "go/types"
   "log"
   "maps"
@@ -36,7 +44,11 @@ import (
   "golang.org/x/tools/go/packages"
 )
 
-const tsgoInternalPrefix = "github.com/microsoft/typescript-go/internal/"
+// defaultInternalPrefix is the TypeScript 7.0 compiler's internal tree.
+const defaultInternalPrefix = "github.com/microsoft/typescript-go/internal/"
+
+// tsgoInternalPrefix is the internal tree of the target being generated.
+var tsgoInternalPrefix = defaultInternalPrefix
 
 // Packages for which we generate a shim. Mirrors tsgolint's list with
 // project/lsp/lsproto removed for the current host boundary and the rest kept
@@ -99,14 +111,47 @@ func signatureHasUnexportedType(t types.Signature) bool {
   return false
 }
 
+// generatedFile is one generator output and its destination.
+type generatedFile struct {
+  path   string
+  source []byte
+}
+
 func main() {
+  shimRoot := flag.String("shim", "./shim", "shim root of the compiler target")
+  internal := flag.String("internal", defaultInternalPrefix, "internal import prefix of the compiler target")
+  check := flag.Bool("check", false, "report stale generated files without writing them")
+  flag.Parse()
+  tsgoInternalPrefix = *internal
+
+  var stale []string
+  for _, output := range generate(*shimRoot) {
+    if *check {
+      if current, err := os.ReadFile(output.path); err != nil || !bytes.Equal(current, output.source) {
+        stale = append(stale, output.path)
+      }
+      continue
+    }
+    if err := os.WriteFile(output.path, output.source, 0o644); err != nil {
+      log.Fatalf("gen_shims: writing %v: %v", output.path, err)
+    }
+    fmt.Fprintf(os.Stdout, "gen_shims: wrote %s (%d bytes)\n", output.path, len(output.source))
+  }
+  if len(stale) > 0 {
+    log.Fatalf("gen_shims: stale generated files (run without -check):\n  %s", strings.Join(stale, "\n  "))
+  }
+}
+
+// generate renders every shim of the target rooted at shimRoot without writing
+// it, so -check and a regeneration share one output.
+func generate(shimRoot string) []generatedFile {
   fullNames := make([]string, len(packagesToShim))
   for i, pkg := range packagesToShim {
     fullNames[i] = tsgoInternalPrefix + pkg
   }
 
   loaded, err := packages.Load(&packages.Config{
-    Dir:  "./shim/ast", // any shim module works as anchor; they all require typescript-go
+    Dir:  path.Join(shimRoot, "ast"), // any shim module works as anchor; they all require the compiler
     Mode: packages.LoadSyntax,
   }, fullNames...)
   if err != nil {
@@ -116,12 +161,13 @@ func main() {
     log.Fatalf("gen_shims: packages.Load: %v", err)
   }
 
+  var outputs []generatedFile
   var shimHeaderBuilder strings.Builder
   var shimBuilder strings.Builder
   var tempBuffer bytes.Buffer
 
   for _, pkg := range loaded {
-    shimDirPath := path.Join("./shim/", strings.TrimPrefix(pkg.PkgPath, tsgoInternalPrefix))
+    shimDirPath := path.Join(shimRoot, strings.TrimPrefix(pkg.PkgPath, tsgoInternalPrefix))
 
     var extraShim ExtraShim
     extraShimFilePath := path.Join(shimDirPath, "extra-shim.json")
@@ -148,6 +194,8 @@ func main() {
     // true  = referenced by name (needs a named import).
     // false = only needed for its side-effects (blank import "_").
     importedPackages := map[string]bool{}
+    // mirrored records the extra_ mirror structs this file already declares.
+    mirrored := map[string]bool{}
     importPackage := func(path string, directly bool) {
       if directly {
         importedPackages[path] = true
@@ -331,10 +379,11 @@ func main() {
             if path.Base(filename) != filename || !strings.HasSuffix(filename, "_gen.go") {
               log.Fatalf("gen_shims: invalid generated field support filename %q", filename)
             }
-            if err := os.WriteFile(path.Join(shimDirPath, filename), output, 0o644); err != nil {
-              log.Fatal(err)
+            formatted, err := formatShim(output)
+            if err != nil {
+              log.Fatalf("gen_shims: field support %s: %v", name, err)
             }
-            fmt.Fprintf(os.Stdout, "gen_shims: wrote %s (private field support)\n", path.Join(shimDirPath, filename))
+            outputs = append(outputs, generatedFile{path: path.Join(shimDirPath, filename), source: formatted})
             matchedExtraFields[name] = true
             continue
           }
@@ -342,60 +391,13 @@ func main() {
           matchedExtraFields[name] = true
           mirrorStructName := "extra_" + name
 
-          // emitExtraStruct emits a mirror struct (`extra_<Name>`) whose field
-          // layout matches the unexported original so that unsafe.Pointer casts
-          // in the generated accessor functions are safe. Unexported pointer
-          // fields whose element type is also unexported are recursively mirrored.
-          var emitExtraStruct func(name string, s *types.Struct)
-          emitExtraStruct = func(name string, s *types.Struct) {
-            shimBuilder.WriteString("type extra_")
-            shimBuilder.WriteString(name)
-            shimBuilder.WriteString(" struct {")
-
-            dependencies := []struct {
-              string
-              *types.Struct
-            }{}
-            for field := range s.Fields() {
-              shimBuilder.WriteString("\n  ")
-              if !field.Embedded() {
-                shimBuilder.WriteString(field.Name())
-                shimBuilder.WriteByte(' ')
-              }
-
-              ptrType, ok := field.Type().(*types.Pointer)
-              if ok {
-                named, ok := ptrType.Elem().(*types.Named)
-                if ok && !named.Obj().Exported() {
-                  strct, ok := named.Underlying().(*types.Struct)
-                  if ok {
-                    n := named.Obj().Name()
-                    dependencies = append(dependencies, struct {
-                      string
-                      *types.Struct
-                    }{n, strct})
-                    shimBuilder.WriteString("extra_")
-                    shimBuilder.WriteString(n)
-                    continue
-                  }
-                }
-              }
-
-              shimBuilder.WriteString(
-                strings.ReplaceAll(types.TypeString(field.Type(), qualifierOnlyPackageName), "checker.thisAssignmentDeclarationKind", "int32"),
-              )
-            }
-            shimBuilder.WriteString("\n}\n")
-            for _, dep := range dependencies {
-              emitExtraStruct(dep.string, dep.Struct)
-            }
-          }
-
           strct, ok := named.Underlying().(*types.Struct)
           if !ok {
             log.Fatalf("gen_shims: expected %v to be struct", name)
           }
-          emitExtraStruct(name, strct)
+          writeMirrorStructs(&shimBuilder, name, strct, mirrored, func(t types.Type) string {
+            return strings.ReplaceAll(types.TypeString(t, qualifierOnlyPackageName), "checker.thisAssignmentDeclarationKind", "int32")
+          })
 
           mappedFieldTypes := make(map[string]*types.Var, strct.NumFields())
           for field := range strct.Fields() {
@@ -483,21 +485,77 @@ func main() {
     if isHandMaintained(shimGoPath) {
       fmt.Fprintf(os.Stderr, "gen_shims: skipping %s (hand-maintained marker present; remove '// gen_shims:hand-maintained' to regenerate)\n", shimGoPath)
     } else {
-      file, err := os.Create(shimGoPath)
+      formatted, err := formatShim([]byte(shimHeaderBuilder.String() + shimBuilder.String()))
       if err != nil {
-        log.Fatalf("gen_shims: opening %v for write: %v", shimGoPath, err)
+        log.Fatalf("gen_shims: %v: %v", shimGoPath, err)
       }
-      file.WriteString(shimHeaderBuilder.String())
-      file.WriteString(shimBuilder.String())
-      if err := file.Close(); err != nil {
-        log.Fatalf("gen_shims: closing %v: %v", shimGoPath, err)
-      }
-      fmt.Fprintf(os.Stdout, "gen_shims: wrote %s (%d bytes)\n", shimGoPath, len(shimBuilder.String()))
+      outputs = append(outputs, generatedFile{path: shimGoPath, source: formatted})
     }
 
     shimHeaderBuilder.Reset()
     shimBuilder.Reset()
   }
+  return outputs
+}
+
+// writeMirrorStructs writes a mirror struct `extra_<name>` whose field layout
+// matches the unexported original, so the generated accessors' unsafe.Pointer
+// casts read the right offsets. An unexported pointer-to-struct field is
+// mirrored in turn. seen holds the mirrors the file already declares: a cycle
+// of unexported pointers then terminates, and a struct reached through two
+// fields is declared once. typeString spells every other field type.
+func writeMirrorStructs(out *strings.Builder, name string, s *types.Struct, seen map[string]bool, typeString func(types.Type) string) {
+  if seen[name] {
+    return
+  }
+  seen[name] = true
+  out.WriteString("type extra_")
+  out.WriteString(name)
+  out.WriteString(" struct {")
+
+  type dependency struct {
+    name   string
+    layout *types.Struct
+  }
+  var dependencies []dependency
+  for field := range s.Fields() {
+    out.WriteString("\n  ")
+    if !field.Embedded() {
+      out.WriteString(field.Name())
+      out.WriteByte(' ')
+    }
+    if pointer, ok := field.Type().(*types.Pointer); ok {
+      if named, ok := pointer.Elem().(*types.Named); ok && !named.Obj().Exported() {
+        if structure, ok := named.Underlying().(*types.Struct); ok {
+          dependencies = append(dependencies, dependency{named.Obj().Name(), structure})
+          out.WriteString("*extra_")
+          out.WriteString(named.Obj().Name())
+          continue
+        }
+      }
+    }
+    out.WriteString(typeString(field.Type()))
+  }
+  out.WriteString("\n}\n")
+  for _, dep := range dependencies {
+    writeMirrorStructs(out, dep.name, dep.layout, seen, typeString)
+  }
+}
+
+// formatShim applies the repository's Go layout to generated source: gofmt,
+// then two spaces for each leading tab. gofmt indents with tabs and aligns with
+// spaces, so leading tabs are exactly the indentation.
+func formatShim(source []byte) ([]byte, error) {
+  formatted, err := format.Source(source)
+  if err != nil {
+    return nil, err
+  }
+  lines := bytes.Split(formatted, []byte("\n"))
+  for i, line := range lines {
+    trimmed := bytes.TrimLeft(line, "\t")
+    lines[i] = append(bytes.Repeat([]byte("  "), len(line)-len(trimmed)), trimmed...)
+  }
+  return bytes.Join(lines, []byte("\n")), nil
 }
 
 // validateShimPackages admits a complete, error-free package population before
