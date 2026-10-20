@@ -59,6 +59,22 @@ jobs:
             ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
             ttsc-go-full-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
             ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+      - run: pnpm install --frozen-lockfile
+      - uses: oven-sh/setup-bun@v2
+      - run: npm install --global yarn
+      - run: pnpm run build --host-graph
+        id: build
+      - name: Save Built Go Modules and Objects
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.go-objects.outputs.cache-primary-key != '' && steps.go-objects.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.objects }}
+          key: ${{ steps.go-objects.outputs.cache-primary-key }}
+      # The repository itself builds on its own 7.0 toolchain: its packages use
+      # typia's transform, whose native code compiles on 7.0 only. Only the E2E
+      # consumers then switch to the 7.1 nightly.
       - name: Select the TypeScript 7.1 nightly
         if: ${{ matrix.typescript == '7.1' }}
         shell: bash
@@ -77,19 +93,9 @@ jobs:
           fs.writeFileSync(file, after);
           console.info("TypeScript catalog: " + version);
           NODE
-      - run: pnpm install ${{ matrix.typescript && '--no-frozen-lockfile' || '--frozen-lockfile' }}
-      - uses: oven-sh/setup-bun@v2
-      - run: npm install --global yarn
-      - run: pnpm run build --host-graph
-        id: build
-      - name: Save Built Go Modules and Objects
-        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.go-objects.outputs.cache-primary-key != '' && steps.go-objects.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ${{ steps.go-cache.outputs.modules }}
-            ${{ steps.go-cache.outputs.objects }}
-          key: ${{ steps.go-objects.outputs.cache-primary-key }}
+      - name: Install the TypeScript 7.1 nightly
+        if: ${{ matrix.typescript == '7.1' }}
+        run: pnpm install --no-frozen-lockfile
       - name: Select the supported runtime Node release
         id: runtime-node
         shell: bash
