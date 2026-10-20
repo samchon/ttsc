@@ -69,7 +69,10 @@ export class CapabilityPluginResolver {
     return {
       status: value.status,
       plugins: value.plugins,
-      isCurrent: async ({ signal } = {}) =>
+      // TypeScript 7.1 nightlies drop the contextual type of a defaulted
+      // binding pattern (microsoft/TypeScript#64431, fix in #64671), so the
+      // option type is spelled out for both compiler lines.
+      isCurrent: async ({ signal }: { signal?: AbortSignal } = {}) =>
         released || this.closed
           ? false
           : ((await this.request(

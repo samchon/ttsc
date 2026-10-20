@@ -53,7 +53,7 @@ func (plugin) ApplyProgram(program *driver.Program, context driver.PluginContext
     if source.IsDeclarationFile {
       continue
     }
-    relative, err := filepath.Rel(context.Cwd, source.FileName())
+    relative, err := filepath.Rel(context.Cwd, string(source.FileName()))
     if err != nil {
       // Project-relative selectors cannot name a source on another volume.
       continue

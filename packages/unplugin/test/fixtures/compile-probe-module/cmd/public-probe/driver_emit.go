@@ -132,7 +132,7 @@ func runBuild(args []string) (status int) {
       fmt.Fprintln(os.Stderr, err)
       return 2
     }
-    emitted = append(emitted, name.AsString())
+    emitted = append(emitted, string(name))
   }
   if *manifest != "" {
     manifestPath := *manifest
@@ -176,7 +176,7 @@ func replaceBeforeLiteral(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *
 }
 
 func writeFile(file shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
-  fileName := file.AsString()
+  fileName := string(file)
   if err := os.MkdirAll(filepath.Dir(fileName), 0o755); err != nil {
     return err
   }
