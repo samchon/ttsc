@@ -790,7 +790,13 @@ export namespace BatchWorkspace {
         dependencies: {
           ttsc: "file:./.compiler-archives/ttsc.tgz",
           [`@ttsc/${target}`]: `file:./.compiler-archives/ttsc-${target}.tgz`,
-          typescript: "7.0.2",
+          // The workspace's own TypeScript, so a lane that installs another
+          // line, such as the 7.1 E2E lane, tests that line's compiler target.
+          typescript: (
+            createRequire(
+              path.join(TestProject.WORKSPACE_ROOT, "package.json"),
+            )("typescript/package.json") as { version: string }
+          ).version,
         },
         pnpm: {
           ...authoredManifest.pnpm,

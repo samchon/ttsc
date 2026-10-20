@@ -48,6 +48,9 @@ jobs:
             ttsc-go-full-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
             ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
       - run: pnpm install --frozen-lockfile
+      # Every compiler target's shims must cover its compiler's exported API,
+      # and both targets must declare the same version-neutral API.
+      - run: pnpm --filter ttsc shim:audit
       - run: pnpm run evidence
         env:
           EVID_CACHE_DIR: ${{ runner.temp }}/evidence-cache

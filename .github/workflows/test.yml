@@ -68,6 +68,10 @@ jobs:
           pnpm --filter @ttsc/graph run build
       - run: pnpm run test:go
         id: go-tests
+      # The same first-party Go modules against the TypeScript 7.1 compiler
+      # target, independent of the 7.0 verdict.
+      - run: pnpm run test:go:7.1
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
       - run: pnpm run test:units
         if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
       - name: Save Completed Native Go Caches

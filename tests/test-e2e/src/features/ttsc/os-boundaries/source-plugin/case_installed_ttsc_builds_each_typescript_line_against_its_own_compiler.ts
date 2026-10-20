@@ -5,12 +5,6 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * The TypeScript 7.1 nightly whose `gitHead` is the 7.1 compiler target's pin.
- * Bumping the target pins a new nightly, and this case then names it.
- */
-const TYPESCRIPT_7_1 = "7.1.0-dev.20261020.3";
-
-/**
  * Verifies the installed ttsc builds a source plugin against the compiler of
  * the project's own TypeScript line, from one installation.
  *
@@ -65,6 +59,13 @@ export function case_installed_ttsc_builds_each_typescript_line_against_its_own_
     "ttsc",
     "compiler-target-probe",
   );
+  // The TypeScript 7.1 nightly whose gitHead is the 7.1 target's pin. The E2E
+  // workflow's 7.1 lane installs the same version from this file.
+  const TYPESCRIPT_7_1 = (
+    JSON.parse(
+      fs.readFileSync(path.join(fixture, "typescript-7.1.json"), "utf8"),
+    ) as { version: string }
+  ).version;
   const root = fs.mkdtempSync(path.join(input.consumer, "compiler-target-"));
   TestProject.copyDirectory(
     path.join(fixture, "plugin"),

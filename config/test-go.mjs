@@ -4,33 +4,67 @@ import { fileURLToPath } from "node:url";
 
 // Keep independent Go populations observable when native tests fail. Go owns
 // package discovery, per-package timeouts and the final test verdicts.
+//
+// `--target=7.1` runs the first-party modules against the TypeScript 7.1
+// compiler target instead: the go.7.1.work workspace overlays its bridges and
+// facades, and the ttsc_typescript_7_1 tag selects the 7.1 side of tagged
+// files. The tools and the dependency-free fixture modules compile no compiler,
+// so only the default 7.0 run tests them.
 const root = fileURLToPath(new URL("../", import.meta.url));
-const native = run([
-  "test",
-  "-count=1",
-  ...["banner", "evidence", "lint", "paths", "strip", "ttsc", "wasm"].map(
-    (name) => `./packages/${name}/...`,
-  ),
-  // Recursive Go patterns stop at nested module boundaries, including shims.
-  ...["shim/ast", "shim/vfs", "tools/gen_facade", "tools/gen_shims", "tools/shim_audit"].map(
-    (name) => `./packages/ttsc/${name}/...`,
-  ),
-]);
-// This maintained fixture has its own dependency-free module outside go.work.
-// Run its direct units independently without changing consumer workspace inputs.
-const transformer = run([
-  "-C", "packages/ttsc/test/go-transformer", "test", "-count=1", "./...",
-], { ...process.env, GOWORK: "off" });
-// The process-lifetime observer is another standalone fixture module. Its
-// original-handle units must run even when another Go population fails.
-const observer = run([
-  "-C", "packages/ttsc/test/fixtures/process-observer", "test", "-count=1", "./...",
-], { ...process.env, GOWORK: "off" });
-// The shared native cache-probe fixture owns its portable gate receipt tests.
-// Keep this standalone module independent of product and observer failures.
-const nativeFixture = run([
-  "-C", "packages/unplugin/test/fixtures/native-transform-producer", "test", "-count=1", ".",
-], { ...process.env, GOWORK: "off" });
+const target = process.argv
+  .slice(2)
+  .find((argument) => argument.startsWith("--target="))
+  ?.slice("--target=".length) ?? "7.0";
+if (target !== "7.0" && target !== "7.1")
+  throw new Error(`unknown compiler target ${target}; expected 7.0 or 7.1`);
+const targetEnv =
+  target === "7.0"
+    ? process.env
+    : {
+        ...process.env,
+        GOWORK: path.join(root, "go.7.1.work"),
+        GOFLAGS: [process.env.GOFLAGS, "-tags=ttsc_typescript_7_1"]
+          .filter(Boolean)
+          .join(" "),
+      };
+const firstParty = ["banner", "evidence", "lint", "paths", "strip", "ttsc", "wasm"].map(
+  (name) => `./packages/${name}/...`,
+);
+const populations = [];
+if (target === "7.0") {
+  populations.push(run([
+    "test",
+    "-count=1",
+    ...firstParty,
+    // Recursive Go patterns stop at nested module boundaries, including shims.
+    ...["shim/ast", "shim/vfs", "tools/gen_facade", "tools/gen_shims", "tools/shim_audit"].map(
+      (name) => `./packages/ttsc/${name}/...`,
+    ),
+  ]));
+  // This maintained fixture has its own dependency-free module outside go.work.
+  // Run its direct units independently without changing consumer workspace inputs.
+  populations.push(run([
+    "-C", "packages/ttsc/test/go-transformer", "test", "-count=1", "./...",
+  ], { ...process.env, GOWORK: "off" }));
+  // The process-lifetime observer is another standalone fixture module. Its
+  // original-handle units must run even when another Go population fails.
+  populations.push(run([
+    "-C", "packages/ttsc/test/fixtures/process-observer", "test", "-count=1", "./...",
+  ], { ...process.env, GOWORK: "off" }));
+  // The shared native cache-probe fixture owns its portable gate receipt tests.
+  // Keep this standalone module independent of product and observer failures.
+  populations.push(run([
+    "-C", "packages/unplugin/test/fixtures/native-transform-producer", "test", "-count=1", ".",
+  ], { ...process.env, GOWORK: "off" }));
+} else {
+  populations.push(run(["test", "-count=1", ...firstParty], targetEnv));
+  // The 7.1 bridges are standalone modules: Go admits their imports of the
+  // compiler's internal tree only inside their own module graph.
+  for (const bridge of ["ast", "vfs"])
+    populations.push(run([
+      "-C", `packages/ttsc/targets/7.1/bridge/${bridge}`, "test", "-count=1", "./...",
+    ], { ...process.env, GOWORK: "off" }));
+}
 const toolchain = spawnSync("go", ["env", "GOROOT"], {
   cwd: root,
   encoding: "utf8",
@@ -54,11 +88,11 @@ if (toolchain.status === 0) {
   // preload/options from taking effect before its launcher trims the env.
   wasm = run([
     "-C", "packages/wasm", "test", "-count=1", "-exec", command, "./test/host",
-  ], { ...process.env, NODE_OPTIONS: "", GOOS: "js", GOARCH: "wasm" });
+  ], { ...targetEnv, NODE_OPTIONS: "", GOOS: "js", GOARCH: "wasm" });
 } else {
   console.error(toolchain.error ?? `Cannot locate the Go WASM runner (go env GOROOT exited ${toolchain.status}): ${toolchain.stderr}`);
 }
-process.exitCode = native || transformer || observer || nativeFixture || wasm;
+process.exitCode = populations.find((status) => status !== 0) ?? wasm;
 
 // Await each complete Go population and retain launch failures and native
 // child exit codes. No command shell interprets Go arguments or environment.

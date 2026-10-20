@@ -24,12 +24,12 @@ Go admits an import of a module's `internal/` tree only from a path rooted at th
 
 1. Update the identical compiler `require` line in every shim or bridge of the target and in each consumer that pins it, and refresh sums through the real module or workspace resolution. Never add permanent absolute replacements. `go work sync` can succeed while leaving a module stale; then set its requirements with `go mod edit -require` and run `go mod download`.
 2. Run the generator with `GOWORK=off`, then `pnpm --filter ttsc shim:audit -fix`, and regenerate 7.1 facades.
-3. For the 7.1 target, set `TYPESCRIPT_7_1` in `tests/test-e2e/src/features/ttsc/os-boundaries/source-plugin/case_installed_ttsc_builds_each_typescript_line_against_its_own_compiler.ts` to the `typescript` nightly whose `gitHead` is the new commit.
+3. For the 7.1 target, set the version in `tests/test-e2e/fixtures/ttsc/compiler-target-probe/typescript-7.1.json` to the `typescript` nightly whose `gitHead` is the new commit. The installation E2E and the 7.1 E2E lane install it.
 4. Fix hand-maintained files and `extra-shim.json` for upstream renames, signature changes, and export flips, keep previously exported enum families, and document public migrations in the [AST and Checker guide](../../../website/src/content/docs/development/concepts/tsgo.mdx).
 
 ## Audit
 
-CI runs `pnpm --filter ttsc shim:audit`, which audits every target and checks each bodiless `go:linkname` declaration against its target's signature. Accept a new gap into the target's baseline with `-write-baseline` only on purpose, and give every `producer_exemptions` entry a rationale. The audit proves only that code compiles, so add a runtime probe in `packages/lint/linthost/` that walks a Checker loaded through `loadProgram` for each new graph-walk operation.
+CI runs `pnpm --filter ttsc shim:audit`, which audits every target and checks each bodiless `go:linkname` declaration against its target's signature. It also runs the first-party Go suites on each target, through `pnpm run test:go` for 7.0 and `pnpm run test:go:7.1` for 7.1, plus an E2E lane on the pinned 7.1 nightly. Accept a new gap into the target's baseline with `-write-baseline` only on purpose, and give every `producer_exemptions` entry a rationale. The audit proves only that code compiles, so add a runtime probe in `packages/lint/linthost/` that walks a Checker loaded through `loadProgram` for each new graph-walk operation.
 
 ## Consumer Validation
 

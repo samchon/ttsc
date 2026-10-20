@@ -65,3 +65,13 @@ jobs:
         working-directory: experimental/typia
         env:
           GOWORK: ${{ github.workspace }}/experimental/typia/go.work
+
+  # typia's native code compiles against the TypeScript 7.0 target only, so
+  # this consumer stays on the 7.0 lane until typia ships native code that
+  # compiles on both targets (samchon/ttsc#1804).
+  typia-typescript-7-1:
+    name: typia (TypeScript 7.1, skipped)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip until typia's native code compiles on the TypeScript 7.1 target
+        run: echo "typia runs on the TypeScript 7.0 lane only; see samchon/ttsc#1804."
