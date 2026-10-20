@@ -291,6 +291,7 @@ export namespace loadProjectPlugins {
     const effectiveEnv = CompilerTarget.buildEnv(
       callerEnv,
       CompilerTarget.resolve(project.root, callerEnv),
+      project.root,
     );
     const cwd = path.resolve(options.cwd ?? process.cwd());
     const context = {

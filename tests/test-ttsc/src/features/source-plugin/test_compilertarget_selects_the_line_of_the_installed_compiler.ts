@@ -19,13 +19,14 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 2. Resolve a project whose installed manifest moves 7.0.2 → 7.1 nightly → 7.2.0
  *    → 8.0.0, capturing the warnings.
  * 3. Resolve a custom binary whose `--version` reports 7.1.
- * 4. Build environments for both lines and read their targets back.
+ * 4. Build environments for both lines and read their targets back, including
+ *    GOFLAGS stored by `go env -w` in the file GOENV names.
  * 5. Remove the 7.1 tag from GOFLAGS, as the environment digest does.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls the production lineOf, resolve, buildEnv and ofEnv. resolve reads an installed manifest through resolveTsgo and runs a real custom binary's --version, and stderr is captured to observe the newer-line warnings.
+ * @evidence contracts/testing.md#behavioral-verification Calls the production lineOf, resolve, buildEnv and ofEnv. resolve reads an installed manifest through resolveTsgo and runs a real custom binary's --version, stderr is captured to observe the newer-line warnings, and buildEnv asks the real Go toolchain for the GOFLAGS stored in a temporary GOENV file.
  * @evidence contracts/testing.md#independent-expectations Expected lines, warning text and GOFLAGS strings are authored literals from the issue's mapping (7.0.x → 7.0, 7.1.x including dev prereleases → 7.1, later → newest with a warning) and Go's -tags=a,b syntax.
- * @evidence contracts/testing.md#distinguishing-cases Each supported line contrasts with the newer lines and with pre-7 and unreadable versions; a repeated newer version must not warn twice, while a second newer version warns. GOFLAGS cases contrast absent flags, other flags kept in order, an existing tag list gaining the tag, an already-present tag not repeated, and 7.0 leaving the environment unchanged. withoutTag contrasts a lone tag, a tag among other tags and flags, a lookalike tag that must stay, and empty flags, and inverts buildEnv.
- * @evidence contracts/testing.md#execution-ownership A unit test over a temporary project with fake TypeScript manifests and a Node script as the custom binary; it runs no Go and no compiler, and stderr is restored in finally.
+ * @evidence contracts/testing.md#distinguishing-cases Each supported line contrasts with the newer lines and with pre-7 and unreadable versions; a repeated newer version must not warn twice, while a second newer version warns. GOFLAGS cases contrast absent flags, other flags kept in order, an existing tag list gaining the tag, an already-present tag not repeated, flags stored by go env -w joined when the environment sets none and replaced when it sets its own, and 7.0 leaving the environment unchanged. withoutTag contrasts a lone tag, a tag among other tags and flags, a lookalike tag that must stay, and empty flags, and inverts buildEnv.
+ * @evidence contracts/testing.md#execution-ownership A unit test over a temporary project with fake TypeScript manifests and a Node script as the custom binary; Go runs only go env against a temporary GOENV file, no compiler runs, and stderr is restored in finally.
  */
 export function test_compilertarget_selects_the_line_of_the_installed_compiler(): void {
   for (const [version, line, newer] of [
@@ -113,23 +114,49 @@ export function test_compilertarget_selects_the_line_of_the_installed_compiler()
     "ttsc: TypeScript 8.0.0 is newer than every compiler target this ttsc supports; using the TypeScript 7.1 compiler target.\n",
   ]);
 
-  const base = { PATH: "p" };
-  assert.equal(CompilerTarget.buildEnv(base, "7.0"), base);
+  // GOENV names a file `go env -w` would write, so no GOFLAGS stored for the
+  // machine reaches the cases below.
+  const stored = path.join(root, "go-env");
+  const base: NodeJS.ProcessEnv = { ...process.env, GOENV: stored };
+  delete base.GOFLAGS;
+  assert.equal(CompilerTarget.buildEnv(base, "7.0", root), base);
   assert.equal(CompilerTarget.ofEnv(base), "7.0");
-  for (const [flags, expected] of [
-    [undefined, "-tags=ttsc_typescript_7_1"],
-    ["-mod=mod  -trimpath", "-mod=mod -trimpath -tags=ttsc_typescript_7_1"],
-    ["-tags=netgo,osusergo -v", "-tags=netgo,osusergo,ttsc_typescript_7_1 -v"],
-    ["--tags=ttsc_typescript_7_1", "--tags=ttsc_typescript_7_1"],
+  for (const [storedFlags, flags, expected] of [
+    [undefined, undefined, "-tags=ttsc_typescript_7_1"],
+    [
+      undefined,
+      "-mod=mod  -trimpath",
+      "-mod=mod -trimpath -tags=ttsc_typescript_7_1",
+    ],
+    [
+      undefined,
+      "-tags=netgo,osusergo -v",
+      "-tags=netgo,osusergo,ttsc_typescript_7_1 -v",
+    ],
+    [undefined, "--tags=ttsc_typescript_7_1", "--tags=ttsc_typescript_7_1"],
+    [
+      "-mod=mod -tags=netgo",
+      undefined,
+      "-mod=mod -tags=netgo,ttsc_typescript_7_1",
+    ],
+    ["-mod=mod -tags=netgo", "-v", "-v -tags=ttsc_typescript_7_1"],
   ] as const) {
+    if (storedFlags === undefined) fs.rmSync(stored, { force: true });
+    else fs.writeFileSync(stored, `GOFLAGS=${storedFlags}
+`);
     const input: NodeJS.ProcessEnv =
       flags === undefined ? { ...base } : { ...base, GOFLAGS: flags };
-    const built = CompilerTarget.buildEnv(input, "7.1");
-    assert.equal(built.GOFLAGS, expected, `buildEnv(${String(flags)})`);
-    assert.equal(built.PATH, "p");
+    const built = CompilerTarget.buildEnv(input, "7.1", root);
+    assert.equal(
+      built.GOFLAGS,
+      expected,
+      `buildEnv(stored ${String(storedFlags)}, ${String(flags)})`,
+    );
+    assert.equal(built.GOENV, stored);
     assert.equal(input.GOFLAGS, flags, "buildEnv leaves its input unchanged");
     assert.equal(CompilerTarget.ofEnv(built), "7.1");
   }
+  fs.rmSync(stored, { force: true });
   for (const [flags, expected] of [
     ["-tags=ttsc_typescript_7_1", ""],
     ["-mod=mod -tags=ttsc_typescript_7_1", "-mod=mod"],
@@ -147,8 +174,11 @@ export function test_compilertarget_selects_the_line_of_the_installed_compiler()
     );
   assert.equal(
     CompilerTarget.withoutTag(
-      CompilerTarget.buildEnv({ GOFLAGS: "-mod=mod -tags=netgo" }, "7.1")
-        .GOFLAGS!,
+      CompilerTarget.buildEnv(
+        { ...base, GOFLAGS: "-mod=mod -tags=netgo" },
+        "7.1",
+        root,
+      ).GOFLAGS!,
     ),
     "-mod=mod -tags=netgo",
     "withoutTag inverts buildEnv",

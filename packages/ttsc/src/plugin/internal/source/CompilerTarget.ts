@@ -2,6 +2,10 @@ import { outputText } from "../../../compiler/internal/outputText";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
+import { GoSourceInputs } from "./GoSourceInputs";
+import { GoToolResolution } from "./GoToolResolution";
+import { resolveGoCompiler } from "./resolveGoCompiler";
+import { spawnGoTool } from "./spawnGoTool";
 
 /**
  * The compiler target a source build compiles against, chosen from the
@@ -104,24 +108,30 @@ export namespace CompilerTarget {
 
   /**
    * The environment a build of line runs Go with: env itself for 7.0, and for
-   * 7.1 env with the 7.1 build tag added to GOFLAGS, merged into any -tags the
-   * caller already set.
+   * 7.1 env with the 7.1 build tag added to the GOFLAGS Go would use, merged
+   * into any -tags already set there.
    *
-   * @evidence contracts/common.md#principled-implementation GOFLAGS reaches every go command a build runs, so go list, the package-artifact probe and go build select the same tagged files; an existing -tags list gains the tag instead of being replaced.
+   * A GOFLAGS variable replaces the value `go env -w` stored rather than adding
+   * to it, so when env sets no GOFLAGS the stored value is asked of Go from cwd
+   * and the tag joins that.
+   *
+   * @evidence contracts/common.md#principled-implementation GOFLAGS reaches every go command a build runs, so go list, the package-artifact probe and go build select the same tagged files; an existing -tags list gains the tag instead of being replaced, and flags stored by go env -w survive because Go reports them before the variable is set.
    * @evidence contracts/common.md#clear-and-simple-design One environment transform per target replaces threading tags through each command.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Other GOFLAGS entries are kept unchanged and in order.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states the per-line result and the merge.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation GOFLAGS is a Go-defined space-separated value; the transform reads and writes no native resource.
-   * @evidence contracts/performance.md#efficient-algorithms One pass over the GOFLAGS fields.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The transform coordinates no shared work.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned environment is a caller-owned copy.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Other GOFLAGS entries are kept unchanged and in order, and the stored value comes from Go itself rather than a handwritten environment-file location.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states the per-line result, the merge and why the stored value is read.
+   * @evidence contracts/portability.md#os-neutral-implementation Go locates and reads its own environment file; resolveGoCompiler, GoToolResolution and spawnGoTool own the native lookup and launch.
+   * @evidence contracts/performance.md#efficient-algorithms One pass over the GOFLAGS fields; only a 7.1 build whose env sets no GOFLAGS adds one go env process.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The stored value is read afresh because go env -w can change it between loads.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned environment is a caller-owned copy, and the go env process is synchronous and released on return.
    */
   export function buildEnv(
     env: NodeJS.ProcessEnv,
     line: Line,
+    cwd: string,
   ): NodeJS.ProcessEnv {
     if (line !== "7.1") return env;
-    const current = SidecarEnvironment.read(env, "GOFLAGS") ?? "";
+    const current =
+      SidecarEnvironment.read(env, "GOFLAGS") || storedGoFlags(env, cwd);
     const fields = current.split(/\s+/).filter((field) => field !== "");
     let tagged = false;
     const next = fields.map((field) => {
@@ -189,6 +199,24 @@ export namespace CompilerTarget {
         return tags.length === 0 ? [] : [`${match[1]}${tags.join(",")}`];
       })
       .join(" ");
+  }
+
+  /** The GOFLAGS Go reports from cwd, or empty when Go cannot answer. */
+  function storedGoFlags(env: NodeJS.ProcessEnv, cwd: string): string {
+    const goBinary = GoToolResolution.resolveGoToolForBuild(
+      resolveGoCompiler(env).binary,
+      env,
+      cwd,
+    );
+    const result = spawnGoTool(goBinary, ["env", "GOFLAGS"], {
+      cwd,
+      encoding: "utf8",
+      env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
+      windowsHide: true,
+    });
+    return result.error === undefined && result.status === 0
+      ? result.stdout.trim()
+      : "";
   }
 
   const warned = new Set<string>();
