@@ -242,7 +242,7 @@ func (unicornFilenameCase) Check(ctx *Context, _ *shimast.Node) {
     caseFunctions = append(caseFunctions, unicornFilenameCaseFunction(chosen))
   }
 
-  segments := unicornFilenameCasePathSegments(ctx.CurrentDirectory, fileName)
+  segments := unicornFilenameCasePathSegments(ctx.CurrentDirectory, string(fileName))
   for _, segment := range segments {
     for _, pattern := range options.ignore {
       if pattern.MatchString(segment) {

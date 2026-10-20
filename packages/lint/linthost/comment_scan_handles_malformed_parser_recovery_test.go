@@ -6,6 +6,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // TestCommentScanHandlesMalformedParserRecovery verifies incomplete source is
@@ -27,7 +28,7 @@ import (
 func TestCommentScanHandlesMalformedParserRecovery(t *testing.T) {
   cases := []struct {
     name     string
-    fileName string
+    fileName shimtspath.RootedFilePath
     kind     shimcore.ScriptKind
     source   string
     comments []string

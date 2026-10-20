@@ -5,6 +5,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/samchon/ttsc/packages/lint/rule"
   "os"
   "path/filepath"
@@ -41,7 +42,7 @@ func runGraphNodes(
       continue
     }
     sources = append(sources, shimparser.ParseSourceFile(
-      shimast.SourceFileParseOptions{FileName: filepath.ToSlash(absolute)},
+      shimast.SourceFileParseOptions{FileName: shimtspath.RootedFilePathFromAbsolute(absolute)},
       content,
       shimcore.ScriptKindTS,
     ))

@@ -9,6 +9,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // TestCommentScanUsesParserLexicalRangesAcrossSourceModes verifies exact,
@@ -58,7 +59,7 @@ func TestCommentScanUsesParserLexicalRangesAcrossSourceModes(t *testing.T) {
 
   cases := []struct {
     name     string
-    fileName string
+    fileName shimtspath.RootedFilePath
     kind     shimcore.ScriptKind
     source   string
     comments []string

@@ -9,6 +9,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -68,8 +69,8 @@ export const value = plugin.make();
         rewrites := driver.NewRewriteSet()
         rewrites.Add(driver.Rewrite{File: source, RootName: "plugin", Method: "make", Replacement: `"selected-state-replaced"`, ConsumeParens: true})
         capture := func(outputs map[string]string) shimcompiler.WriteFile {
-          return func(file, text string, _ *shimcompiler.WriteFileData) error {
-            outputs[filepath.Clean(file)] = text
+          return func(file shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+            outputs[filepath.Clean(string(file))] = text
             return nil
           }
         }
@@ -96,8 +97,8 @@ export const value = plugin.make();
           if len(output) != 1 || output[javascript] != "" {
             t.Errorf("noEmit must write only selected state: %v", sortedStringKeys(output))
           }
-          _, diagnostics, err = program.EmitAll(rewrites, func(file, _ string, _ *shimcompiler.WriteFileData) error {
-            if filepath.Clean(file) != state {
+          _, diagnostics, err = program.EmitAll(rewrites, func(file shimtspath.RootedFilePath, _ string, _ *shimcompiler.WriteFileData) error {
+            if filepath.Clean(string(file)) != state {
               t.Errorf("unexpected metadata-only write: %s", file)
             }
             return os.ErrPermission

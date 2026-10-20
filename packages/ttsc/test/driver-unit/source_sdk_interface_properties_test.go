@@ -54,7 +54,7 @@ func TestSourceSDKInterfaceProperties(t *testing.T) {
       }
       properties := []string{}
       for _, property := range shimchecker.Checker_getPropertiesOfType(checker, typ) {
-        properties = append(properties, property.Name)
+        properties = append(properties, shimast.SymbolNameOf(property))
       }
       semantic[name] = properties
     }

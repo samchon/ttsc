@@ -7,6 +7,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -37,7 +38,7 @@ func TestEmitPluginSourceErrorsWithholdOutputs(t *testing.T) {
       }
       defer p.Close()
       writes := 0
-      diagnostics, err = p.EmitWithPluginTransformers(nil, func(_, _ string, _ *shimcompiler.WriteFileData) error {
+      diagnostics, err = p.EmitWithPluginTransformers(nil, func(_ shimtspath.RootedFilePath, _ string, _ *shimcompiler.WriteFileData) error {
         writes++
         return nil
       })

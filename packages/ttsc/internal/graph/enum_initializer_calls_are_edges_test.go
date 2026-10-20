@@ -54,8 +54,8 @@ export enum E {
 
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
-  enumID := nodeID(path, "E", NodeEnum)
-  baseID := nodeID(path, "base", NodeFunction)
+  enumID := nodeID(string(path), "E", NodeEnum)
+  baseID := nodeID(string(path), "base", NodeFunction)
 
   if _, ok := graph.Nodes[enumID]; !ok {
     t.Fatalf("enum E was not recorded as a node")

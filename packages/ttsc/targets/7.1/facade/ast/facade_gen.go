@@ -7,6 +7,7 @@ package ast
 
 import (
   tscast "github.com/microsoft/TypeScript/tsc/shim/ast"
+  tsctspath "github.com/microsoft/TypeScript/tsc/shim/tspath"
 )
 
 type AbstractKeyword = tscast.AbstractKeyword
@@ -2219,6 +2220,10 @@ type SourceFileNode = tscast.SourceFileNode
 
 type SourceFileParseOptions = tscast.SourceFileParseOptions
 
+func SourceFilePathKey(p0 *tscast.SourceFile) tsctspath.PathKey {
+  return tscast.SourceFilePathKey(p0)
+}
+
 type SpreadAssignment = tscast.SpreadAssignment
 
 type SpreadAssignmentNode = tscast.SpreadAssignmentNode
@@ -2252,6 +2257,22 @@ type SwitchStatement = tscast.SwitchStatement
 type SwitchStatementNode = tscast.SwitchStatementNode
 
 type Symbol = tscast.Symbol
+
+func SymbolCheckFlagsOf(p0 *tscast.Symbol) tscast.CheckFlags {
+  return tscast.SymbolCheckFlagsOf(p0)
+}
+
+func SymbolDeclarationsOf(p0 *tscast.Symbol) []*tscast.Node {
+  return tscast.SymbolDeclarationsOf(p0)
+}
+
+func SymbolExportSymbolOf(p0 *tscast.Symbol) *tscast.Symbol {
+  return tscast.SymbolExportSymbolOf(p0)
+}
+
+func SymbolExportsOf(p0 *tscast.Symbol) tscast.SymbolTable {
+  return tscast.SymbolExportsOf(p0)
+}
 
 type SymbolExtraArena = tscast.SymbolExtraArena
 
@@ -2345,6 +2366,10 @@ const SymbolFlagsNone = tscast.SymbolFlagsNone
 
 const SymbolFlagsObjectLiteral = tscast.SymbolFlagsObjectLiteral
 
+func SymbolFlagsOf(p0 *tscast.Symbol) tscast.SymbolFlags {
+  return tscast.SymbolFlagsOf(p0)
+}
+
 const SymbolFlagsOptional = tscast.SymbolFlagsOptional
 
 const SymbolFlagsParameterExcludes = tscast.SymbolFlagsParameterExcludes
@@ -2393,7 +2418,23 @@ const SymbolFlagsVariable = tscast.SymbolFlagsVariable
 
 type SymbolId = tscast.SymbolId
 
+func SymbolMembersOf(p0 *tscast.Symbol) tscast.SymbolTable {
+  return tscast.SymbolMembersOf(p0)
+}
+
+func SymbolNameOf(p0 *tscast.Symbol) string {
+  return tscast.SymbolNameOf(p0)
+}
+
+func SymbolParentOf(p0 *tscast.Symbol) *tscast.Symbol {
+  return tscast.SymbolParentOf(p0)
+}
+
 type SymbolTable = tscast.SymbolTable
+
+func SymbolValueDeclarationOf(p0 *tscast.Symbol) *tscast.Node {
+  return tscast.SymbolValueDeclarationOf(p0)
+}
 
 type SyntaxList = tscast.SyntaxList
 

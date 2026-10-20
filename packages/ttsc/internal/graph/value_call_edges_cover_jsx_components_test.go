@@ -66,8 +66,8 @@ export function Parent(): JSX.Element {
   graph := Build(prog)
   path := sourceFile(t, prog, "main.tsx").FileName()
 
-  parent := nodeID(path, "Parent", NodeFunction)
-  child := nodeID(path, "Child", NodeFunction)
+  parent := nodeID(string(path), "Parent", NodeFunction)
+  child := nodeID(string(path), "Child", NodeFunction)
 
   if !hasEdge(graph, parent, child, EdgeValueCall) {
     t.Fatalf("missing value-call edge Parent -> Child (JSX component use); edges: %v", graph.Edges)

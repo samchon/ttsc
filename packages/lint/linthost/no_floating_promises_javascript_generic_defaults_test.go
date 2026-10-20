@@ -84,7 +84,7 @@ export class JsSafeCatch {
   }
   var file *shimast.SourceFile
   for _, candidate := range prog.userSourceFiles() {
-    if filepath.Base(candidate.FileName()) == "main.ts" {
+    if filepath.Base(string(candidate.FileName())) == "main.ts" {
       file = candidate
       break
     }

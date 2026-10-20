@@ -52,43 +52,40 @@ func (p *Program) NewEmitProvenanceRecorder(writeFile shimcompiler.WriteFile) (s
   program := p.TSProgram
   observer := p.inputObserver
   cwd := program.GetCurrentDirectory()
-  caseSensitive := program.UseCaseSensitiveFileNames()
+  caseSensitivity := shimcompiler.ProgramCaseSensitivity(program)
   nativePath := func(name string) string {
     return filepath.FromSlash(shimtspath.GetNormalizedAbsolutePath(name, cwd))
   }
   coordinateKey := func(name string) string {
-    return shimtspath.GetCanonicalFileName(
-      shimtspath.NormalizePath(nativePath(name)),
-      caseSensitive,
-    )
+    return shimtspath.Canonicalize(caseSensitivity, shimtspath.NormalizePath(nativePath(name)))
   }
   candidates := map[string][]string{}
   host := &pluginEmitHost{program: program}
-  for _, source := range shimcompiler.GetSourceFilesToEmit(host, nil, false) {
-    output := shimcompiler.GetOutputPathsFor(source, program.Options(), host, false).JsFilePath()
-    switch strings.ToLower(filepath.Ext(output)) {
+  for _, source := range shimcompiler.SourceFilesToEmit(host) {
+    output := shimcompiler.OutputPathsFor(source, program.Options(), host).JsFilePath()
+    switch strings.ToLower(filepath.Ext(string(output))) {
     case ".js", ".jsx", ".mjs", ".cjs":
-      key := coordinateKey(output)
-      candidates[key] = append(candidates[key], nativePath(source.FileName()))
+      key := coordinateKey(string(output))
+      candidates[key] = append(candidates[key], nativePath(string(source.FileName())))
     }
   }
   if writeFile == nil {
-    writeFile = func(name, text string, _ *shimcompiler.WriteFileData) error {
-      return DefaultWriteFile(name, text)
+    writeFile = func(name shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+      return DefaultWriteFile(string(name), text)
     }
   }
   written := map[string]string{}
   var mu sync.Mutex
-  record := func(name, text string, data *shimcompiler.WriteFileData) error {
+  record := func(name shimtspath.RootedFilePath, text string, data *shimcompiler.WriteFileData) error {
     mu.Lock()
     defer mu.Unlock()
     if err := writeFile(name, text, data); err != nil {
       return err
     }
     if data == nil || !data.SkippedDtsWrite {
-      switch strings.ToLower(filepath.Ext(name)) {
+      switch strings.ToLower(filepath.Ext(string(name))) {
       case ".js", ".jsx", ".mjs", ".cjs":
-        written[nativePath(name)] = coordinateKey(name)
+        written[nativePath(string(name))] = coordinateKey(string(name))
       }
     }
     return nil

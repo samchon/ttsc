@@ -55,10 +55,10 @@ export function dynamic(host: any): void {
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  rec := nodeID(path, "rec", NodeFunction)
-  helper := nodeID(path, "helper", NodeFunction)
-  caller := nodeID(path, "caller", NodeFunction)
-  dynamic := nodeID(path, "dynamic", NodeFunction)
+  rec := nodeID(string(path), "rec", NodeFunction)
+  helper := nodeID(string(path), "helper", NodeFunction)
+  caller := nodeID(string(path), "caller", NodeFunction)
+  dynamic := nodeID(string(path), "dynamic", NodeFunction)
 
   for _, id := range []string{rec, helper, caller, dynamic} {
     if graph.Nodes[id] == nil {

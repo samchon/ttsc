@@ -7,6 +7,7 @@ import (
   "sync"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
@@ -15,30 +16,31 @@ import (
 )
 
 // pluginEmitHost implements printer.EmitHost (and, structurally,
-// SourceFileMayBeEmittedHost + OutputPathsHost — their methods are a subset) by
-// delegating to the driver Program, exactly like tsgo's internal emitHost. It
-// carries the emit resolver from the program's single checker.
+// SourceFileMayBeEmittedHost, OutputPathsHost and, on TypeScript 7.1,
+// SourceMapHost — their methods are a subset) by delegating to the driver
+// Program, exactly like tsgo's internal emitHost. Its emit resolver comes from
+// the program's single checker, guarded to the program's original member
+// accesses. The methods whose names or types differ between compiler targets
+// live in target_ts70.go and target_ts71.go.
 type pluginEmitHost struct {
-  program      *shimcompiler.Program
-  emitResolver shimprinter.EmitResolver
+  program         *shimcompiler.Program
+  checker         *shimchecker.Checker
+  originalMembers map[*shimast.Node]struct{}
 }
 
 func (h *pluginEmitHost) Options() *shimcore.CompilerOptions { return h.program.Options() }
 func (h *pluginEmitHost) SourceFiles() []*shimast.SourceFile { return h.program.SourceFiles() }
-func (h *pluginEmitHost) UseCaseSensitiveFileNames() bool {
-  return h.program.UseCaseSensitiveFileNames()
+func (h *pluginEmitHost) CommonSourceDirectory() shimtspath.RootedDirectoryPath {
+  return h.program.CommonSourceDirectory()
 }
-func (h *pluginEmitHost) GetCurrentDirectory() string    { return h.program.GetCurrentDirectory() }
-func (h *pluginEmitHost) CommonSourceDirectory() string  { return h.program.CommonSourceDirectory() }
-func (h *pluginEmitHost) IsEmitBlocked(file string) bool { return h.program.IsEmitBlocked(file) }
-func (h *pluginEmitHost) WriteFile(fileName string, text string) error {
+func (h *pluginEmitHost) IsEmitBlocked(file shimtspath.RootedFilePath) bool {
+  return h.program.IsEmitBlocked(file)
+}
+func (h *pluginEmitHost) WriteFile(fileName shimtspath.RootedFilePath, text string) error {
   return h.program.Host().FS().WriteFile(fileName, text)
 }
 func (h *pluginEmitHost) GetEmitModuleFormatOfFile(file shimast.HasFileName) shimcore.ModuleKind {
   return h.program.GetEmitModuleFormatOfFile(file)
-}
-func (h *pluginEmitHost) GetEmitResolver() shimprinter.EmitResolver {
-  return h.emitResolver
 }
 
 // guardedEmitResolver only resolves member accesses from the program's input
@@ -67,7 +69,7 @@ func collectOriginalMembers(node *shimast.Node, members map[*shimast.Node]struct
     return false
   })
 }
-func (h *pluginEmitHost) GetProjectReferenceFromSource(path shimtspath.Path) *shimtsoptions.SourceOutputAndProjectReference {
+func (h *pluginEmitHost) GetProjectReferenceFromSource(path shimtspath.PathKey) *shimtsoptions.SourceOutputAndProjectReference {
   return h.program.GetProjectReferenceFromSource(path)
 }
 func (h *pluginEmitHost) IsSourceFileFromExternalLibrary(file *shimast.SourceFile) bool {
@@ -239,7 +241,9 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
     }
     return p.pluginEmitDiagnostics("analysis-only emit", result.Diagnostics)
   }
-  if result := shimcompiler.HandleNoEmitOnError(context.Background(), p.TSProgram, nil); result != nil {
+  // noEmit returned above, so this applies exactly noEmitOnError's
+  // whole-program diagnostic gate.
+  if result := handleNoEmit(context.Background(), p.TSProgram); result != nil {
     return p.pluginEmitDiagnostics("pre-emit checking", result.Diagnostics)
   }
   hasTransform := false
@@ -251,15 +255,15 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
   }
   if !hasTransform {
     correctSourceMap := p.NewSourceMapCorrector()
-    result, diagnostics, err := p.EmitAllRaw(func(fileName, text string, data *shimcompiler.WriteFileData) error {
-      corrected, err := correctSourceMap(fileName, text)
+    result, diagnostics, err := p.EmitAllRaw(func(fileName shimtspath.RootedFilePath, text string, data *shimcompiler.WriteFileData) error {
+      corrected, err := correctSourceMap(string(fileName), text)
       if err != nil {
         return err
       }
       if writeFile != nil {
         return writeFile(fileName, corrected, data)
       }
-      return DefaultWriteFile(fileName, corrected)
+      return DefaultWriteFile(string(fileName), corrected)
     })
     if err != nil || result == nil {
       return diagnostics, err
@@ -276,15 +280,15 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
   for _, sf := range p.TSProgram.SourceFiles() {
     collectOriginalMembers(sf.AsNode(), members)
   }
-  host := &pluginEmitHost{program: p.TSProgram, emitResolver: guardedEmitResolver{p.Checker.GetEmitResolver(), members}}
+  host := &pluginEmitHost{program: p.TSProgram, checker: p.Checker, originalMembers: members}
 
   // noEmitOnError applies to the whole build. The JS lane runs before the
   // declaration lane, so defer callbacks until both have succeeded. Outside
   // that option keep upstream's emit-despite-errors behavior.
   output := newPluginEmitOutput(writeFile, options.NoEmitOnError.IsTrue())
   correctSourceMap := p.NewSourceMapCorrector()
-  for _, sf := range shimcompiler.GetSourceFilesToEmit(host, nil, false) {
-    paths := shimcompiler.GetOutputPathsFor(sf, options, host, false)
+  for _, sf := range shimcompiler.SourceFilesToEmit(host) {
+    paths := shimcompiler.OutputPathsFor(sf, options, host)
     if paths.JsFilePath() != "" && !p.outputEscapesOutDir(paths.JsFilePath()) {
       ec := shimprinter.NewEmitContext()
       out := sf
@@ -330,9 +334,7 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       // Marks accumulate on the checker and are never cleared, so marking one
       // fixed tree per file also stops a second emit on the same Program from
       // inheriting the first pass's plugin-tree marks.
-      for _, tr := range shimcompiler.GetScriptTransformers(ec, host, sf) {
-        out = tr.TransformSourceFile(out)
-      }
+      out = applyScriptTransformers(ec, host, sf, out)
       // Print through the source-map-aware helper for an external sourceMap or
       // an inlineSourceMap trailer, and an emitBOM leading mark: the hand-assembled
       // emit pipeline does not run tsgo's emitter, so everything printSourceFile
@@ -346,26 +348,24 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       // the external `.js.map` and an inline base64 map embedded in the JS.
       if p.SourcePreamble != "" {
         var err error
-        if printed.JS, err = correctSourceMap(paths.JsFilePath(), printed.JS); err != nil {
+        if printed.JS, err = correctSourceMap(string(paths.JsFilePath()), printed.JS); err != nil {
           return nil, err
         }
         if printed.MapPath != "" {
-          if printed.MapText, err = correctSourceMap(printed.MapPath, printed.MapText); err != nil {
+          if printed.MapText, err = correctSourceMap(string(printed.MapPath), printed.MapText); err != nil {
             return nil, err
           }
         }
       }
       // The emitter hands its writeFile callback a WriteFileData for the
-      // JavaScript and a nil one for the map (printSourceFile:
-      // `writeText(sourceMapFilePath, sourceMap, nil)`), so this lane does the
-      // same. See writePluginEmitOutput for what the struct carries here and
-      // why the remaining fields stay zero.
-      if err := p.writePluginEmitOutput(paths.JsFilePath(), printed.JS, &shimcompiler.WriteFileData{
-        SourceMapUrlPos: printed.SourceMapUrlPos,
-      }, output.write); err != nil {
+      // JavaScript and, for the map, nil on TypeScript 7.0 or one carrying only
+      // the emitted source file on 7.1 (printSourceFile's `writeText` call), so
+      // this lane does the same. See writePluginEmitOutput for what the struct
+      // carries here and why the remaining fields stay zero.
+      if err := p.writePluginEmitOutput(paths.JsFilePath(), printed.JS, scriptWriteFileData(sf, printed.SourceMapUrlPos), output.write); err != nil {
         return nil, fmt.Errorf("driver: native plugin JavaScript emit failed: %w", err)
       }
-      if err := p.writePluginEmitOutput(printed.MapPath, printed.MapText, nil, output.write); err != nil {
+      if err := p.writePluginEmitOutput(printed.MapPath, printed.MapText, sourceMapWriteFileData(sf), output.write); err != nil {
         return nil, fmt.Errorf("driver: native plugin source map emit failed: %w", err)
       }
     }
@@ -374,7 +374,7 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
   // so it also runs for a JavaScript-only `incremental` / `composite` project
   // that has no declarations to write at all.
   if !options.GetEmitDeclarations() && !p.emitsBuildInfo() {
-    if result := shimcompiler.HandleNoEmitOnError(context.Background(), p.TSProgram, nil); result != nil {
+    if result := handleNoEmit(context.Background(), p.TSProgram); result != nil {
       return p.pluginEmitDiagnostics("JavaScript emit", result.Diagnostics)
     }
     return nil, output.flush()
@@ -398,7 +398,7 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
   var wfMu sync.Mutex
   result := p.emitProgram(shimcompiler.EmitOptions{
     EmitOnly: shimcompiler.EmitOnlyDts,
-    WriteFile: func(fileName string, text string, data *shimcompiler.WriteFileData) error {
+    WriteFile: func(fileName shimtspath.RootedFilePath, text string, data *shimcompiler.WriteFileData) error {
       wfMu.Lock()
       defer wfMu.Unlock()
       if p.outputEscapesOutDir(fileName) {
@@ -407,7 +407,7 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
         }
         return nil
       }
-      corrected, err := correctSourceMap(fileName, text)
+      corrected, err := correctSourceMap(string(fileName), text)
       if err != nil {
         return err
       }
@@ -435,6 +435,10 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
 //     when none was written. PrintFileWithSourceMap records it exactly where
 //     printSourceFile does, so a consumer that relocates or rewrites the trailer
 //     works the same on both lanes.
+//   - SourceFile, on TypeScript 7.1: the program source file the artifact was
+//     emitted from, the file as parsed rather than the transformed tree,
+//     exactly as the emitter's own field names its input file. The map carries
+//     only this; on 7.0, where the field does not exist, the map gets nil.
 //   - Diagnostics: always empty. The emitter's field carries its accumulated
 //     emitterDiagnostics, which on the JavaScript lane are its own write
 //     failures; here a write failure is returned as an `error` from
@@ -450,12 +454,12 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
 // Nothing on this lane reads the struct back afterwards: unlike tsgo's emitter,
 // EmitWithPluginTransformers builds no EmitResult, so there is no EmittedFiles
 // list for a callee-set SkippedDtsWrite to keep a file out of.
-func (p *Program) writePluginEmitOutput(fileName, text string, data *shimcompiler.WriteFileData, writeFile shimcompiler.WriteFile) error {
+func (p *Program) writePluginEmitOutput(fileName shimtspath.RootedFilePath, text string, data *shimcompiler.WriteFileData, writeFile shimcompiler.WriteFile) error {
   if fileName == "" || p.outputEscapesOutDir(fileName) {
     return nil
   }
   if writeFile != nil {
     return writeFile(fileName, text, data)
   }
-  return DefaultWriteFile(fileName, text)
+  return DefaultWriteFile(string(fileName), text)
 }

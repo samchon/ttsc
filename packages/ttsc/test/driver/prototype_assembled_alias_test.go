@@ -6,6 +6,7 @@ import (
   "testing"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
@@ -16,29 +17,30 @@ import (
 )
 
 // assembledEmitHost implements printer.EmitHost by delegating to driver.Program
-// (the same delegation tsgo's internal emitHost does). It carries the emit
-// resolver from the program's single checker.
+// (the same delegation tsgo's internal emitHost does). Its emit resolver comes
+// from the program's single checker. The methods whose names or types differ
+// between compiler targets live in assembled_emit_host_ts70_test.go and
+// assembled_emit_host_ts71_test.go.
 type assembledEmitHost struct {
-  program      *shimcompiler.Program
-  emitResolver shimprinter.EmitResolver
+  program *shimcompiler.Program
+  checker *shimchecker.Checker
 }
 
 func (h *assembledEmitHost) Options() *shimcore.CompilerOptions { return h.program.Options() }
 func (h *assembledEmitHost) SourceFiles() []*shimast.SourceFile { return h.program.SourceFiles() }
-func (h *assembledEmitHost) UseCaseSensitiveFileNames() bool {
-  return h.program.UseCaseSensitiveFileNames()
+func (h *assembledEmitHost) CommonSourceDirectory() shimtspath.RootedDirectoryPath {
+  return h.program.CommonSourceDirectory()
 }
-func (h *assembledEmitHost) GetCurrentDirectory() string    { return h.program.GetCurrentDirectory() }
-func (h *assembledEmitHost) CommonSourceDirectory() string  { return h.program.CommonSourceDirectory() }
-func (h *assembledEmitHost) IsEmitBlocked(file string) bool { return h.program.IsEmitBlocked(file) }
-func (h *assembledEmitHost) WriteFile(fileName string, text string) error {
+func (h *assembledEmitHost) IsEmitBlocked(file shimtspath.RootedFilePath) bool {
+  return h.program.IsEmitBlocked(file)
+}
+func (h *assembledEmitHost) WriteFile(fileName shimtspath.RootedFilePath, text string) error {
   return h.program.Host().FS().WriteFile(fileName, text)
 }
 func (h *assembledEmitHost) GetEmitModuleFormatOfFile(file shimast.HasFileName) shimcore.ModuleKind {
   return h.program.GetEmitModuleFormatOfFile(file)
 }
-func (h *assembledEmitHost) GetEmitResolver() shimprinter.EmitResolver { return h.emitResolver }
-func (h *assembledEmitHost) GetProjectReferenceFromSource(path shimtspath.Path) *shimtsoptions.SourceOutputAndProjectReference {
+func (h *assembledEmitHost) GetProjectReferenceFromSource(path shimtspath.PathKey) *shimtsoptions.SourceOutputAndProjectReference {
   return h.program.GetProjectReferenceFromSource(path)
 }
 func (h *assembledEmitHost) IsSourceFileFromExternalLibrary(file *shimast.SourceFile) bool {
@@ -85,7 +87,7 @@ func TestPrototypeAssembledAlias(t *testing.T) {
   }
 
   ec := shimprinter.NewEmitContext()
-  host := &assembledEmitHost{program: prog.TSProgram, emitResolver: prog.Checker.GetEmitResolver()}
+  host := &assembledEmitHost{program: prog.TSProgram, checker: prog.Checker}
 
   // Plugin transformer stand-in: replace every parse-tree `foo` with a fresh
   // node built by the EMIT EmitContext's factory, linked to the original via
@@ -108,11 +110,7 @@ func TestPrototypeAssembledAlias(t *testing.T) {
   // built from the PARSE tree and applied to the transformed one, exactly as
   // EmitWithPluginTransformers does it: the file handed to GetScriptTransformers
   // is the reference-marking target, not the file being transformed.
-  builtins := shimcompiler.GetScriptTransformers(ec, host, sf)
-  out := transformed
-  for _, tr := range builtins {
-    out = tr.TransformSourceFile(out)
-  }
+  out := applyAssembledBuiltins(ec, host, sf, transformed)
 
   writer := shimprinter.NewTextWriter("\n", 0)
   p := shimprinter.NewPrinter(shimprinter.PrinterOptions{}, shimprinter.PrintHandlers{}, ec)

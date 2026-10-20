@@ -8,6 +8,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -51,7 +52,7 @@ func TestEmitPluginLateErrorsWithholdOutputs(t *testing.T) {
         }
         return sf
       }
-      diagnostics, err = p.EmitWithPluginTransformer(transform, func(_, _ string, _ *shimcompiler.WriteFileData) error {
+      diagnostics, err = p.EmitWithPluginTransformer(transform, func(_ shimtspath.RootedFilePath, _ string, _ *shimcompiler.WriteFileData) error {
         writes++
         return nil
       })

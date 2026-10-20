@@ -58,28 +58,28 @@ export const c = hidden();
       "hidden": NodeFunction, "Local": NodeClass, "Local.method": NodeMethod,
       "Shape": NodeInterface, "Shape.value": NodeVariable, "Alias": NodeTypeAlias, "local": NodeVariable,
     } {
-      if node := g.Nodes[nodeID(file, prefix+"."+name, kind)]; node == nil || node.Name != prefix+"."+name || node.End <= node.Pos {
+      if node := g.Nodes[nodeID(string(file), prefix+"."+name, kind)]; node == nil || node.Name != prefix+"."+name || node.End <= node.Pos {
         t.Errorf("missing lexical declaration %s.%s", prefix, name)
       }
     }
   }
   for _, name := range []string{"A.hidden", "B.hidden", "hidden", "A.Deep.hidden", "A.factory.hidden"} {
-    id := nodeID(file, name, NodeFunction)
+    id := nodeID(string(file), name, NodeFunction)
     if g.Nodes[id] == nil {
       t.Errorf("missing %s", name)
     }
-    if got := hasEdge(g, id, nodeID(file, "target", NodeFunction), EdgeValueCall); got != (name == "B.hidden") {
+    if got := hasEdge(g, id, nodeID(string(file), "target", NodeFunction), EdgeValueCall); got != (name == "B.hidden") {
       t.Errorf("%s calls target = %t, want %t", name, got, name == "B.hidden")
     }
   }
   for caller, target := range map[string]string{"A.a": "A.hidden", "B.b": "B.hidden", "c": "hidden", "A.Deep.d": "A.Deep.hidden"} {
     for _, candidate := range []string{"A.hidden", "B.hidden", "hidden", "A.Deep.hidden", "A.factory.hidden"} {
-      if got := hasEdge(g, nodeID(file, caller, NodeVariable), nodeID(file, candidate, NodeFunction), EdgeValueCall); got != (candidate == target) {
+      if got := hasEdge(g, nodeID(string(file), caller, NodeVariable), nodeID(string(file), candidate, NodeFunction), EdgeValueCall); got != (candidate == target) {
         t.Errorf("%s -> %s = %t, want %t", caller, candidate, got, candidate == target)
       }
     }
   }
-  if !hasEdge(g, nodeID(file, "A.factory", NodeFunction), nodeID(file, "A.factory.hidden", NodeFunction), EdgeValueCall) {
+  if !hasEdge(g, nodeID(string(file), "A.factory", NodeFunction), nodeID(string(file), "A.factory.hidden", NodeFunction), EdgeValueCall) {
     t.Error("factory lost its own hidden closure")
   }
 }

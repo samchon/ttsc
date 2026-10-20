@@ -233,17 +233,14 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
   }
 
   var captured string
-  capture := func(name, text string, _ *shimcompiler.WriteFileData) error {
-    if !isJavaScriptOutput(name) {
+  capture := func(name shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    if !isJavaScriptOutput(string(name)) {
       return nil
     }
     captured = text
     return nil
   }
-  result := prog.tsProgram.Emit(context.Background(), shimcompiler.EmitOptions{
-    TargetSourceFile: target,
-    WriteFile:        shimcompiler.WriteFile(capture),
-  })
+  result := prog.tsProgram.Emit(context.Background(), shimcompiler.TargetedEmitOptions(target, shimcompiler.WriteFile(capture)))
   if result == nil {
     fmt.Fprintln(stderr, "@ttsc/lint transform: Emit returned nil")
     return 3
@@ -512,8 +509,8 @@ func runProject(opts *subcommandOpts) (code int) {
   }
 
   result := prog.tsProgram.Emit(context.Background(), shimcompiler.EmitOptions{
-    WriteFile: shimcompiler.WriteFile(func(fileName, text string, data *shimcompiler.WriteFileData) error {
-      return defaultWriteFile(fileName, text)
+    WriteFile: shimcompiler.WriteFile(func(fileName shimtspath.RootedFilePath, text string, data *shimcompiler.WriteFileData) error {
+      return defaultWriteFile(string(fileName), text)
     }),
   })
   if result == nil {

@@ -28,6 +28,6 @@ func IsWorkspaceSourceFile(file *shimast.SourceFile) bool {
   if file == nil || file.IsDeclarationFile {
     return false
   }
-  normalized := filepath.ToSlash(file.FileName())
+  normalized := filepath.ToSlash(string(file.FileName()))
   return !strings.Contains("/"+strings.TrimPrefix(normalized, "/"), "/node_modules/")
 }

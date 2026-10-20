@@ -149,8 +149,8 @@ export class ProtectedPretender implements ProtectedBase {
   built := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
   for _, id := range []string{
-    nodeID(path, "MixedFlagDerived.item", NodeMethod),
-    nodeID(path, "MixedFlagBase.item", NodeVariable),
+    nodeID(string(path), "MixedFlagDerived.item", NodeMethod),
+    nodeID(string(path), "MixedFlagBase.item", NodeVariable),
   } {
     if _, ok := built.Nodes[id]; !ok {
       t.Fatalf("mixed-symbol boundary node %s is missing; nodes: %v", id, built.Nodes)
@@ -161,17 +161,17 @@ export class ProtectedPretender implements ProtectedBase {
     to     string
     origin string
   }{
-    {nodeID(path, "StringGeneric.map", NodeMethod), nodeID(path, "Generic.map", NodeMethod), "implements"},
-    {nodeID(path, "StringGeneric.required", NodeVariable), nodeID(path, "Generic.required", NodeVariable), "implements"},
-    {nodeID(path, "WrongGeneric.required", NodeVariable), nodeID(path, "Generic.required", NodeVariable), "implements"},
-    {nodeID(path, "ParserImpl.parse", NodeMethod), nodeID(path, "Parser.parse", NodeMethod), "implements"},
-    {nodeID(path, "RequiredGood.value", NodeVariable), nodeID(path, "OptionalContract.value", NodeVariable), "implements"},
-    {nodeID(path, "PropertyDerived.run", NodeVariable), nodeID(path, "MethodBase.run", NodeMethod), "overrides"},
-    {nodeID(path, "AbstractPropertyDerived.label", NodeVariable), nodeID(path, "AbstractAccessorBase.label", NodeMethod), "overrides"},
-    {nodeID(path, "SplitDerived.alpha", NodeMethod), nodeID(path, "SplitBase.alpha", NodeMethod), "overrides"},
-    {nodeID(path, "SplitDerived.beta", NodeMethod), nodeID(path, "SplitBase.beta", NodeMethod), "overrides"},
-    {nodeID(path, "MergedDerived.augment", NodeMethod), nodeID(path, "MergedBase.augment", NodeMethod), "overrides"},
-    {nodeID(path, "ProtectedGood.token", NodeVariable), nodeID(path, "ProtectedBase.token", NodeVariable), "overrides"},
+    {nodeID(string(path), "StringGeneric.map", NodeMethod), nodeID(string(path), "Generic.map", NodeMethod), "implements"},
+    {nodeID(string(path), "StringGeneric.required", NodeVariable), nodeID(string(path), "Generic.required", NodeVariable), "implements"},
+    {nodeID(string(path), "WrongGeneric.required", NodeVariable), nodeID(string(path), "Generic.required", NodeVariable), "implements"},
+    {nodeID(string(path), "ParserImpl.parse", NodeMethod), nodeID(string(path), "Parser.parse", NodeMethod), "implements"},
+    {nodeID(string(path), "RequiredGood.value", NodeVariable), nodeID(string(path), "OptionalContract.value", NodeVariable), "implements"},
+    {nodeID(string(path), "PropertyDerived.run", NodeVariable), nodeID(string(path), "MethodBase.run", NodeMethod), "overrides"},
+    {nodeID(string(path), "AbstractPropertyDerived.label", NodeVariable), nodeID(string(path), "AbstractAccessorBase.label", NodeMethod), "overrides"},
+    {nodeID(string(path), "SplitDerived.alpha", NodeMethod), nodeID(string(path), "SplitBase.alpha", NodeMethod), "overrides"},
+    {nodeID(string(path), "SplitDerived.beta", NodeMethod), nodeID(string(path), "SplitBase.beta", NodeMethod), "overrides"},
+    {nodeID(string(path), "MergedDerived.augment", NodeMethod), nodeID(string(path), "MergedBase.augment", NodeMethod), "overrides"},
+    {nodeID(string(path), "ProtectedGood.token", NodeVariable), nodeID(string(path), "ProtectedBase.token", NodeVariable), "overrides"},
   }
   for _, pair := range expected {
     if got := edgeOrigin(built, pair.from, pair.to, EdgeMemberRelation); got != pair.origin {
@@ -183,12 +183,12 @@ export class ProtectedPretender implements ProtectedBase {
     from string
     to   string
   }{
-    {nodeID(path, "WrongGeneric.map", NodeMethod), nodeID(path, "Generic.map", NodeMethod)},
-    {nodeID(path, "OptionalWrong.value", NodeVariable), nodeID(path, "RequiredContract.value", NodeVariable)},
-    {nodeID(path, "MethodWrong.run", NodeMethod), nodeID(path, "PropertyBase.run", NodeVariable)},
-    {nodeID(path, "ConcretePropertyWrong.label", NodeVariable), nodeID(path, "ConcreteAccessorBase.label", NodeMethod)},
-    {nodeID(path, "MixedFlagDerived.item", NodeMethod), nodeID(path, "MixedFlagBase.item", NodeVariable)},
-    {nodeID(path, "ProtectedPretender.token", NodeVariable), nodeID(path, "ProtectedBase.token", NodeVariable)},
+    {nodeID(string(path), "WrongGeneric.map", NodeMethod), nodeID(string(path), "Generic.map", NodeMethod)},
+    {nodeID(string(path), "OptionalWrong.value", NodeVariable), nodeID(string(path), "RequiredContract.value", NodeVariable)},
+    {nodeID(string(path), "MethodWrong.run", NodeMethod), nodeID(string(path), "PropertyBase.run", NodeVariable)},
+    {nodeID(string(path), "ConcretePropertyWrong.label", NodeVariable), nodeID(string(path), "ConcreteAccessorBase.label", NodeMethod)},
+    {nodeID(string(path), "MixedFlagDerived.item", NodeMethod), nodeID(string(path), "MixedFlagBase.item", NodeVariable)},
+    {nodeID(string(path), "ProtectedPretender.token", NodeVariable), nodeID(string(path), "ProtectedBase.token", NodeVariable)},
   }
   for _, pair := range rejected {
     if built.Nodes[pair.from] == nil || built.Nodes[pair.to] == nil {

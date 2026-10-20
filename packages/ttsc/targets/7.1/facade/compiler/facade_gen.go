@@ -12,6 +12,7 @@ import (
   tsccore "github.com/microsoft/TypeScript/tsc/shim/core"
   tscprinter "github.com/microsoft/TypeScript/tsc/shim/printer"
   tsctransformers "github.com/microsoft/TypeScript/tsc/shim/transformers"
+  tsctsoptions "github.com/microsoft/TypeScript/tsc/shim/tsoptions"
   tsctspath "github.com/microsoft/TypeScript/tsc/shim/tspath"
   tscvfs "github.com/microsoft/TypeScript/tsc/shim/vfs"
 )
@@ -45,6 +46,10 @@ const EmitOnlyJs = tsccompiler.EmitOnlyJs
 type EmitOptions = tsccompiler.EmitOptions
 
 type EmitResult = tsccompiler.EmitResult
+
+func EmitsWholeProgram(p0 tsccompiler.EmitOptions) bool {
+  return tsccompiler.EmitsWholeProgram(p0)
+}
 
 func FileAffectsGlobalScope(p0 *tscast.SourceFile) bool {
   return tsccompiler.FileAffectsGlobalScope(p0)
@@ -92,11 +97,23 @@ var NewCachedFSCompilerHost = tsccompiler.NewCachedFSCompilerHost
 // exposes (github.com/microsoft/TypeScript/tsc/internal/diagnostics.Message).
 var NewCompilerHost = tsccompiler.NewCompilerHost
 
+func NewHost(p0 tsctspath.RootedDirectoryPath, p1 tscvfs.FS, p2 tsctspath.RootedDirectoryPath) tsccompiler.CompilerHost {
+  return tsccompiler.NewHost(p0, p1, p2)
+}
+
 func NewProgram(p0 tsccompiler.ProgramOptions) *tsccompiler.Program {
   return tsccompiler.NewProgram(p0)
 }
 
+func NewProgramOptions(p0 *tsctsoptions.ParsedCommandLine, p1 tsccompiler.CompilerHost, p2 bool) tsccompiler.ProgramOptions {
+  return tsccompiler.NewProgramOptions(p0, p1, p2)
+}
+
 type OutputPaths = tsccompiler.OutputPaths
+
+// OutputPathsFor holds the bridge function: its signature uses a type no bridge
+// exposes (github.com/microsoft/TypeScript/tsc/internal/outputpaths.OutputPathsHost).
+var OutputPathsFor = tsccompiler.OutputPathsFor
 
 func PrintFileWithSourceMap(p0 *tscprinter.EmitContext, p1 *tscast.Node, p2 *tscast.SourceFile, p3 *tsccore.CompilerOptions, p4 tsccompiler.SourceMapHost, p5 tsctspath.RootedFilePath, p6 tsctspath.RootedFilePath) tsccompiler.PrintedFile {
   return tsccompiler.PrintFileWithSourceMap(p0, p1, p2, p3, p4, p5, p6)
@@ -105,6 +122,10 @@ func PrintFileWithSourceMap(p0 *tscprinter.EmitContext, p1 *tscast.Node, p2 *tsc
 type PrintedFile = tsccompiler.PrintedFile
 
 type Program = tsccompiler.Program
+
+func ProgramCaseSensitivity(p0 *tsccompiler.Program) tsctspath.CaseSensitivity {
+  return tsccompiler.ProgramCaseSensitivity(p0)
+}
 
 type ProgramConfig = tsccompiler.ProgramConfig
 
@@ -115,6 +136,10 @@ type ProgramHosts = tsccompiler.ProgramHosts
 type ProgramLike = tsccompiler.ProgramLike
 
 type ProgramOptions = tsccompiler.ProgramOptions
+
+func ProgramPathKey(p0 *tsccompiler.Program, p1 tsctspath.RootedFilePath) tsctspath.PathKey {
+  return tsccompiler.ProgramPathKey(p0, p1)
+}
 
 type ProgramResolutionKind = tsccompiler.ProgramResolutionKind
 
@@ -142,6 +167,10 @@ func SortAndDeduplicateDiagnostics(p0 []*tscast.Diagnostic) []*tscast.Diagnostic
 
 type SourceFileMayBeEmittedHost = tsccompiler.SourceFileMayBeEmittedHost
 
+func SourceFilesToEmit(p0 tsccompiler.SourceFileMayBeEmittedHost) []*tscast.SourceFile {
+  return tsccompiler.SourceFilesToEmit(p0)
+}
+
 func SourceMapDirectory(p0 *tsccore.CompilerOptions, p1 tsccompiler.SourceMapHost, p2 tsctspath.RootedFilePath, p3 *tscast.SourceFile) tsctspath.RootedDirectoryPath {
   return tsccompiler.SourceMapDirectory(p0, p1, p2, p3)
 }
@@ -149,6 +178,14 @@ func SourceMapDirectory(p0 *tsccore.CompilerOptions, p1 tsccompiler.SourceMapHos
 type SourceMapEmitResult = tsccompiler.SourceMapEmitResult
 
 type SourceMapHost = tsccompiler.SourceMapHost
+
+func TargetedEmitOptions(p0 *tscast.SourceFile, p1 tsccompiler.WriteFile) tsccompiler.EmitOptions {
+  return tsccompiler.TargetedEmitOptions(p0, p1)
+}
+
+func UpdateProgram(p0 *tsccompiler.Program, p1 tsctspath.PathKey, p2 tsccompiler.CompilerHost) (*tsccompiler.Program, *tscast.SourceFile, bool) {
+  return tsccompiler.UpdateProgram(p0, p1, p2)
+}
 
 type WriteFile = tsccompiler.WriteFile
 

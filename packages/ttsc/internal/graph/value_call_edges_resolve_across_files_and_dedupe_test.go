@@ -47,8 +47,8 @@ export function caller(): number {
   defer func() { _ = prog.Close() }()
 
   graph := Build(prog)
-  caller := nodeID(sourceFile(t, prog, "main.ts").FileName(), "caller", NodeFunction)
-  helper := nodeID(sourceFile(t, prog, "util.ts").FileName(), "helper", NodeFunction)
+  caller := nodeID(string(sourceFile(t, prog, "main.ts").FileName()), "caller", NodeFunction)
+  helper := nodeID(string(sourceFile(t, prog, "util.ts").FileName()), "helper", NodeFunction)
 
   count := 0
   for _, edge := range graph.Edges {

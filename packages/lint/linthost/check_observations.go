@@ -60,22 +60,22 @@ func (p *program) checkGraph() *lintCheckGraph {
   graph := &lintCheckGraph{Edges: map[string][]string{}, Globals: []string{}, Configs: []string{}, ResolutionInputs: []string{}, InputObservations: map[string]transformInputObservation{}, InputHashes: map[string]*string{}, InputRealpaths: map[string]*string{}, InputProofFailures: map[string]string{}, UseCaseSensitiveFileNames: p.tsProgram.UseCaseSensitiveFileNames()}
   realized := map[string]bool{}
   for _, file := range p.tsProgram.SourceFiles() {
-    if file == nil || strings.HasPrefix(file.FileName(), "bundled:///") {
+    if file == nil || strings.HasPrefix(string(file.FileName()), "bundled:///") {
       continue
     }
-    key := lintInputKey(p.cwd, file.FileName())
-    realized[file.FileName()] = true
+    key := lintInputKey(p.cwd, string(file.FileName()))
+    realized[string(file.FileName())] = true
     targets := []string{}
-    // The shim returns canonical tspath.Path values encoded as strings, not
-    // filenames. Preserve that exact identity and recover this Program's
-    // resident source spelling; unresolved candidates are not realized edges.
+    // The shim returns canonical tspath.PathKey values, not filenames. Preserve
+    // that exact key and recover this Program's resident source spelling;
+    // unresolved candidates are not realized edges.
     for _, referenced := range shimcompiler.GetReferencedFilePaths(p.tsProgram, file) {
-      source := p.tsProgram.GetSourceFileByPath(shimtspath.Path(referenced))
-      if source == nil || source == file || strings.HasPrefix(source.FileName(), "bundled:///") {
+      source := p.tsProgram.GetSourceFileByPath(shimtspath.PathKey(referenced))
+      if source == nil || source == file || strings.HasPrefix(string(source.FileName()), "bundled:///") {
         continue
       }
-      realized[source.FileName()] = true
-      targets = append(targets, lintInputKey(p.cwd, source.FileName()))
+      realized[string(source.FileName())] = true
+      targets = append(targets, lintInputKey(p.cwd, string(source.FileName())))
     }
     sort.Strings(targets)
     graph.Edges[key] = targets
@@ -86,12 +86,12 @@ func (p *program) checkGraph() *lintCheckGraph {
   sort.Strings(graph.Globals)
   if p.parsed != nil && p.parsed.ConfigFile != nil {
     if file := p.parsed.ConfigFile.SourceFile; file != nil {
-      realized[file.FileName()] = true
-      graph.Configs = append(graph.Configs, lintInputKey(p.cwd, file.FileName()))
+      realized[string(file.FileName())] = true
+      graph.Configs = append(graph.Configs, lintInputKey(p.cwd, string(file.FileName())))
     }
     for _, file := range p.parsed.ExtendedSourceFiles() {
-      realized[file] = true
-      graph.Configs = append(graph.Configs, lintInputKey(p.cwd, file))
+      realized[string(file)] = true
+      graph.Configs = append(graph.Configs, lintInputKey(p.cwd, string(file)))
     }
   }
   // Conservatively universalize actual compiler predicates. This needs no

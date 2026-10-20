@@ -8,7 +8,7 @@ func structuralMemberName(symbol *shimast.Symbol) (string, bool) {
   if symbol == nil {
     return "", false
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range shimast.SymbolDeclarationsOf(symbol) {
     parent := declaration.Parent
     if parent == nil {
       continue

@@ -79,6 +79,27 @@ Useful shim sub-packages:
 
 Do not import `github.com/microsoft/typescript-go/internal/...` directly. The shim is the plugin boundary.
 
+## Compiler Targets
+
+`ttsc` builds a plugin against the compiler of the TypeScript line the project installs: TypeScript 7.0, whose compiler is the Go module `github.com/microsoft/typescript-go`, or TypeScript 7.1, whose compiler moved to `github.com/microsoft/TypeScript/tsc`. The import paths above are the same on both targets, and on 7.1 they alias the 7.1 compiler's own types, so a value crosses any two shim packages unchanged.
+
+The two compilers differ in API shape. TypeScript 7.1 types every path, hides `ast.Symbol` state behind getters, and changes several compiler signatures. A plugin that must build on both targets uses only what both declare:
+
+- Paths: `shim/tspath` declares 7.1's `RootedPath`, `RootedFilePath`, `RootedDirectoryPath`, `RelativePath`, `PathKey` and `CaseSensitivity` on 7.0 as aliases of the strings and booleans 7.0 uses. Convert a string with `shimtspath.RootedFilePath(name)` and a path back with `string(path)`. 7.1's path methods, such as `AsString()`, do not exist on 7.0.
+- Version-neutral functions, declared with identical signatures on both targets:
+
+| Package | Functions |
+| --- | --- |
+| `shim/ast` | `SymbolNameOf`, `SymbolFlagsOf`, `SymbolCheckFlagsOf`, `SymbolDeclarationsOf`, `SymbolValueDeclarationOf`, `SymbolMembersOf`, `SymbolExportsOf`, `SymbolParentOf`, `SymbolExportSymbolOf`, `SourceFilePathKey` |
+| `shim/tspath` | `ToRootedFilePath`, `ToRootedDirectoryPath`, `TryRootedPathFromAbsolute`, `TryRootedFilePathFromAbsolute`, `RootedPathFromAbsolute`, `RootedFilePathFromAbsolute`, `RootedDirectoryPathFromAbsolute`, `RootedPathFromNormalized`, `RootedDirectoryPathFromNormalized`, `RootedDirectoryPathFromPath`, `Canonicalize`, `CompareFilePaths`, `ContainsPathWith`, `RelativePathFromFile`, `RelativePathFromDirectoryWith`, `RelativeModuleSpecifier`, `ResolveFile`, `FileBaseName`, `FileDirectory` |
+| `shim/vfs` | `CaseSensitivityOf` |
+| `shim/compiler` | `NewHost`, `NewProgramOptions`, `UpdateProgram`, `ProgramCaseSensitivity`, `ProgramPathKey`, `SourceFilesToEmit`, `OutputPathsFor`, `TargetedEmitOptions`, `EmitsWholeProgram` |
+| `shim/tsoptions` | `NewParseConfigHost`, `ParseCommandLineAt` |
+
+For example, `sym.Name` on 7.0 and `sym.Name()` on 7.1 are both `shimast.SymbolNameOf(sym)`, and `program.UseCaseSensitiveFileNames()` and `program.CaseSensitivity()` are both `shimcompiler.ProgramCaseSensitivity(program)`.
+
+- Build tags: a plugin built for 7.1 compiles with the `ttsc_typescript_7_1` tag. Code the neutral API cannot express, such as the methods of a type that implements an upstream interface whose method set changed, goes in a file marked `//go:build ttsc_typescript_7_1` beside one marked `//go:build !ttsc_typescript_7_1`. `ttsc`'s own driver splits its emit host this way in `target_ts70.go` and `target_ts71.go`.
+
 ## Bootstrap with the driver
 
 The canonical bootstrap is `driver.LoadProgram`. It returns a `*driver.Program` that already owns the parsed config, the leased `*shimchecker.Checker`, the compiler host, and the VFS, and folds in `ForceEmit` / `ForceNoEmit` / `OutDir` / `SourcePreamble` overrides:

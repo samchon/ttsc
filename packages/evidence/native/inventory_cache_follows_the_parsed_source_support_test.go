@@ -4,13 +4,14 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "testing"
 )
 
 func parseTestSource(t *testing.T, name string, content string) *shimast.SourceFile {
   t.Helper()
   file := shimparser.ParseSourceFile(
-    shimast.SourceFileParseOptions{FileName: name},
+    shimast.SourceFileParseOptions{FileName: shimtspath.RootedFilePathFromAbsolute(name)},
     content,
     shimcore.ScriptKindTS,
   )

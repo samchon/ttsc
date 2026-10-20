@@ -879,6 +879,7 @@ func main() {
   anchor := flag.String("anchor", "./shim/ast", "module dir anchoring the typescript-go require")
   shimRoot := flag.String("shim", "./shim", "shim root directory")
   internal := flag.String("internal", defaultInternalPrefix, "internal import prefix of the audited compiler target")
+  neutralWith := flag.String("neutral-with", "", "shim root of another compiler target whose version-neutral API must match")
   flag.Parse()
   internalPrefix = *internal
   linknameRe = newLinknameRe(internalPrefix)
@@ -894,6 +895,12 @@ func main() {
   if err := checkLinknameSignatures(*shimRoot); err != nil {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
     os.Exit(2)
+  }
+  if *neutralWith != "" {
+    if err := checkNeutralAPI(*shimRoot, *neutralWith); err != nil {
+      fmt.Fprintln(os.Stderr, "shim_audit:", err)
+      os.Exit(2)
+    }
   }
 
   r, err := scanShimReachable(*shimRoot)

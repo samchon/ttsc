@@ -612,8 +612,8 @@ func (s *unicornConsistentDestructuringState) resolveValueSymbol(
   if symbol == nil {
     return nil
   }
-  if symbol.Flags&shimast.SymbolFlagsExportValue != 0 && symbol.ExportSymbol != nil {
-    symbol = symbol.ExportSymbol
+  if shimast.SymbolFlagsOf(symbol)&shimast.SymbolFlagsExportValue != 0 && shimast.SymbolExportSymbolOf(symbol) != nil {
+    symbol = shimast.SymbolExportSymbolOf(symbol)
   }
   return s.ctx.Checker.GetMergedSymbol(symbol)
 }

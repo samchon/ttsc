@@ -11,6 +11,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // typeScriptLoader materializes TypeScript inventories for a reference
@@ -123,14 +124,25 @@ func (loader *typeScriptLoader) parse(relative string) *artifactInventory {
     loader.failures[relative] = err.Error()
     return nil
   }
+  // The parser's file name must be rooted. The read above resolves a relative
+  // path against the working directory (only an empty project root leaves one),
+  // so anchor the name at that same directory: it names the file that was read.
+  absolute, err := filepath.Abs(resolveProjectPath(loader.root, relative))
+  if err != nil {
+    loader.failures[relative] = err.Error()
+    return nil
+  }
+  fileName, ok := shimtspath.TryRootedFilePathFromAbsolute(absolute)
+  if !ok {
+    loader.failures[relative] = "the TypeScript source path is not rooted: " + absolute
+    return nil
+  }
   kind := shimcore.ScriptKindTS
   if strings.HasSuffix(strings.ToLower(relative), ".tsx") {
     kind = shimcore.ScriptKindTSX
   }
   file := shimparser.ParseSourceFile(
-    shimast.SourceFileParseOptions{
-      FileName: filepath.ToSlash(resolveProjectPath(loader.root, relative)),
-    },
+    shimast.SourceFileParseOptions{FileName: fileName},
     string(content),
     kind,
   )

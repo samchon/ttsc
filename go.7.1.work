@@ -1,0 +1,55 @@
+// The repository workspace for the TypeScript 7.1 compiler target. Build and
+// test with GOWORK=$PWD/go.7.1.work and GOFLAGS=-tags=ttsc_typescript_7_1.
+// The facades share the 7.0 shims' module paths, so they are replacements here
+// rather than workspace modules; go.work keeps the default 7.0 target.
+
+go 1.27
+
+use (
+	./packages/banner
+	./packages/evidence
+	./packages/lint
+	./packages/paths
+	./packages/strip
+	./packages/ttsc
+	./packages/wasm
+)
+
+replace (
+	github.com/microsoft/typescript-go/shim/ast => ./packages/ttsc/targets/7.1/facade/ast
+	github.com/microsoft/TypeScript/tsc/shim/ast => ./packages/ttsc/targets/7.1/bridge/ast
+	github.com/microsoft/typescript-go/shim/astnav => ./packages/ttsc/targets/7.1/facade/astnav
+	github.com/microsoft/TypeScript/tsc/shim/astnav => ./packages/ttsc/targets/7.1/bridge/astnav
+	github.com/microsoft/typescript-go/shim/bundled => ./packages/ttsc/targets/7.1/facade/bundled
+	github.com/microsoft/TypeScript/tsc/shim/bundled => ./packages/ttsc/targets/7.1/bridge/bundled
+	github.com/microsoft/typescript-go/shim/checker => ./packages/ttsc/targets/7.1/facade/checker
+	github.com/microsoft/TypeScript/tsc/shim/checker => ./packages/ttsc/targets/7.1/bridge/checker
+	github.com/microsoft/typescript-go/shim/compiler => ./packages/ttsc/targets/7.1/facade/compiler
+	github.com/microsoft/TypeScript/tsc/shim/compiler => ./packages/ttsc/targets/7.1/bridge/compiler
+	github.com/microsoft/typescript-go/shim/core => ./packages/ttsc/targets/7.1/facade/core
+	github.com/microsoft/TypeScript/tsc/shim/core => ./packages/ttsc/targets/7.1/bridge/core
+	github.com/microsoft/typescript-go/shim/diagnosticwriter => ./packages/ttsc/targets/7.1/facade/diagnosticwriter
+	github.com/microsoft/TypeScript/tsc/shim/diagnosticwriter => ./packages/ttsc/targets/7.1/bridge/diagnosticwriter
+	github.com/microsoft/typescript-go/shim/lsp => ./packages/ttsc/targets/7.1/facade/lsp
+	github.com/microsoft/TypeScript/tsc/shim/lsp => ./packages/ttsc/targets/7.1/bridge/lsp
+	github.com/microsoft/typescript-go/shim/parser => ./packages/ttsc/targets/7.1/facade/parser
+	github.com/microsoft/TypeScript/tsc/shim/parser => ./packages/ttsc/targets/7.1/bridge/parser
+	github.com/microsoft/typescript-go/shim/printer => ./packages/ttsc/targets/7.1/facade/printer
+	github.com/microsoft/TypeScript/tsc/shim/printer => ./packages/ttsc/targets/7.1/bridge/printer
+	github.com/microsoft/typescript-go/shim/scanner => ./packages/ttsc/targets/7.1/facade/scanner
+	github.com/microsoft/TypeScript/tsc/shim/scanner => ./packages/ttsc/targets/7.1/bridge/scanner
+	github.com/microsoft/typescript-go/shim/stringutil => ./packages/ttsc/targets/7.1/facade/stringutil
+	github.com/microsoft/TypeScript/tsc/shim/stringutil => ./packages/ttsc/targets/7.1/bridge/stringutil
+	github.com/microsoft/typescript-go/shim/transformers => ./packages/ttsc/targets/7.1/facade/transformers
+	github.com/microsoft/TypeScript/tsc/shim/transformers => ./packages/ttsc/targets/7.1/bridge/transformers
+	github.com/microsoft/typescript-go/shim/tsoptions => ./packages/ttsc/targets/7.1/facade/tsoptions
+	github.com/microsoft/TypeScript/tsc/shim/tsoptions => ./packages/ttsc/targets/7.1/bridge/tsoptions
+	github.com/microsoft/typescript-go/shim/tspath => ./packages/ttsc/targets/7.1/facade/tspath
+	github.com/microsoft/TypeScript/tsc/shim/tspath => ./packages/ttsc/targets/7.1/bridge/tspath
+	github.com/microsoft/typescript-go/shim/vfs => ./packages/ttsc/targets/7.1/facade/vfs
+	github.com/microsoft/TypeScript/tsc/shim/vfs => ./packages/ttsc/targets/7.1/bridge/vfs
+	github.com/microsoft/typescript-go/shim/vfs/cachedvfs => ./packages/ttsc/targets/7.1/facade/vfs/cachedvfs
+	github.com/microsoft/TypeScript/tsc/shim/vfs/cachedvfs => ./packages/ttsc/targets/7.1/bridge/vfs/cachedvfs
+	github.com/microsoft/typescript-go/shim/vfs/osvfs => ./packages/ttsc/targets/7.1/facade/vfs/osvfs
+	github.com/microsoft/TypeScript/tsc/shim/vfs/osvfs => ./packages/ttsc/targets/7.1/bridge/vfs/osvfs
+)

@@ -4,6 +4,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "path/filepath"
   "testing"
 )
@@ -29,7 +30,7 @@ func TestTypeScriptInventoryIncludesTSXProgramFiles(t *testing.T) {
   root := t.TempDir()
   file := shimparser.ParseSourceFile(
     shimast.SourceFileParseOptions{
-      FileName: filepath.ToSlash(filepath.Join(root, "view.tsx")),
+      FileName: shimtspath.RootedFilePathFromAbsolute(filepath.Join(root, "view.tsx")),
     },
     "export const View = () => <div />;",
     shimcore.ScriptKindTSX,

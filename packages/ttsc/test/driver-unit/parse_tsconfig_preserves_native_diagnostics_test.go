@@ -8,6 +8,7 @@ import (
   "github.com/microsoft/typescript-go/shim/ast"
   "github.com/microsoft/typescript-go/shim/core"
   "github.com/microsoft/typescript-go/shim/tsoptions"
+  "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/microsoft/typescript-go/shim/vfs"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -49,7 +50,7 @@ func TestParseTSConfigPreservesNativeDiagnostics(t *testing.T) {
       }
       fs := driver.DefaultFS()
       host := driver.DefaultHost(root, fs)
-      native, readDiagnostics := tsoptions.GetParsedCommandLineOfConfigFile(config, &core.CompilerOptions{}, nil, host, nil)
+      native, readDiagnostics := tsoptions.GetParsedCommandLineOfConfigFile(tspath.RootedFilePathFromAbsolute(config), &core.CompilerOptions{}, nil, tsoptions.NewParseConfigHost(fs, tspath.RootedDirectoryPath(root)), nil)
       expected := append([]*ast.Diagnostic{}, readDiagnostics...)
       if native != nil {
         expected = append(expected, native.GetConfigFileParsingDiagnostics()...)
@@ -73,7 +74,7 @@ func TestParseTSConfigPreservesNativeDiagnostics(t *testing.T) {
         if got.Code != want.Code() || got.Message != want.String() {
           t.Errorf("diagnostic %d=%+v, want native code %d and message %q", i, got, want.Code(), want.String())
         }
-        if file := want.File(); file != nil && got.File != file.FileName() {
+        if file := want.File(); file != nil && got.File != string(file.FileName()) {
           t.Errorf("diagnostic %d file=%q, want native file %q", i, got.File, file.FileName())
         }
         // Every authored config is one ASCII line, so source positions have
@@ -114,8 +115,8 @@ type unreadableConfigFS struct {
   config string
 }
 
-func (fs *unreadableConfigFS) ReadFile(path string) (string, bool) {
-  if filepath.ToSlash(path) == fs.config {
+func (fs *unreadableConfigFS) ReadFile(path tspath.RootedFilePath) (string, bool) {
+  if string(path) == fs.config {
     return "", false
   }
   return fs.FS.ReadFile(path)

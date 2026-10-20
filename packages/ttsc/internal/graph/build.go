@@ -75,7 +75,7 @@ func BuildFiles(prog *driver.Program, selected []string, baseNodes map[string]*N
     if !IsWorkspaceSourceFile(file) {
       continue
     }
-    if selected != nil && !selectedFiles[file.FileName()] {
+    if selected != nil && !selectedFiles[string(file.FileName())] {
       continue
     }
     g.putModuleNode(file)
@@ -139,7 +139,7 @@ func SourceTexts(prog *driver.Program) map[string]string {
     if file == nil {
       continue
     }
-    out[file.FileName()] = file.Text()
+    out[string(file.FileName())] = file.Text()
   }
   return out
 }
@@ -168,8 +168,8 @@ func SourceTextsForFiles(prog *driver.Program, files []string) map[string]string
   }
   out := make(map[string]string, len(files))
   for _, source := range prog.TSProgram.SourceFiles() {
-    if source != nil && selected[source.FileName()] {
-      out[source.FileName()] = source.Text()
+    if source != nil && selected[string(source.FileName())] {
+      out[string(source.FileName())] = source.Text()
     }
   }
   return out
@@ -184,7 +184,7 @@ func collectDeclarations(g *Graph, file *shimast.SourceFile) {
   if file.Statements == nil {
     return
   }
-  collectStatements(g, file.FileName(), file.Statements.Nodes)
+  collectStatements(g, string(file.FileName()), file.Statements.Nodes)
 }
 
 // collectStatements records a file or namespace statement list. qualifiedName
@@ -529,7 +529,7 @@ func functionBodyOfInitializer(initializer *shimast.Node) *shimast.Node {
 // code instead of just the overload header.
 func addNode(g *Graph, path string, node *shimast.Node, kind NodeKind) {
   symbol := node.Symbol()
-  if symbol == nil || symbol.Name == "" {
+  if symbol == nil || shimast.SymbolNameOf(symbol) == "" {
     return
   }
   putDeclaredNode(g, path, qualifiedName(symbol), kind, node)
@@ -722,7 +722,7 @@ func methodName(symbol *shimast.Symbol) string {
   if name, ok := structuralMemberName(symbol); ok {
     return name
   }
-  if symbol == nil || symbol.Parent == nil || symbol.Parent.Name == "" {
+  if symbol == nil || shimast.SymbolParentOf(symbol) == nil || shimast.SymbolNameOf(shimast.SymbolParentOf(symbol)) == "" {
     return ""
   }
   return qualifiedName(symbol)
@@ -733,11 +733,11 @@ func methodName(symbol *shimast.Symbol) string {
 // private declaration loses its binder counter; public literal names can contain
 // the same text. A constructor's internal-name prefix (\xFE) becomes "__".
 func simpleName(symbol *shimast.Symbol) string {
-  if symbol == nil || symbol.Name == "" {
+  if symbol == nil || shimast.SymbolNameOf(symbol) == "" {
     return ""
   }
-  name := strings.ReplaceAll(symbol.Name, "\xFE", "__")
-  for _, declaration := range symbol.Declarations {
+  name := strings.ReplaceAll(shimast.SymbolNameOf(symbol), "\xFE", "__")
+  for _, declaration := range shimast.SymbolDeclarationsOf(symbol) {
     if declared := declaration.Name(); declared != nil && declared.Kind == shimast.KindPrivateIdentifier {
       return stripPrivateMangling(name)
     }
@@ -787,7 +787,7 @@ func qualifiedName(symbol *shimast.Symbol) string {
   if symbol == nil {
     return ""
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range shimast.SymbolDeclarationsOf(symbol) {
     if name, ok := objectDeclarationName(declaration); ok {
       return name
     }
@@ -807,14 +807,14 @@ func qualifiedName(symbol *shimast.Symbol) string {
 // module symbol is not a namespace — its declaration is the file, not a
 // `namespace` block — so a top-level declaration gets no prefix.
 func containerPrefix(symbol *shimast.Symbol) string {
-  parent := symbol.Parent
-  if parent != nil && parent.Name != "" && (isNamespaceSymbol(parent) || isTypeContainerSymbol(parent)) {
+  parent := shimast.SymbolParentOf(symbol)
+  if parent != nil && shimast.SymbolNameOf(parent) != "" && (isNamespaceSymbol(parent) || isTypeContainerSymbol(parent)) {
     return qualifiedName(parent)
   }
   // The binder does not assign Symbol.Parent to private namespace locals.
   // Their lexical namespace still owns their identity. Stop at a callable so
   // ClosureName remains the owner of function-local qualification.
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range shimast.SymbolDeclarationsOf(symbol) {
     for owner := declaration.Parent; owner != nil; owner = owner.Parent {
       if isFunctionLike(owner) {
         break
@@ -833,10 +833,10 @@ func containerPrefix(symbol *shimast.Symbol) string {
 // also module declarations, but qualifying members by their quoted or internal
 // names would produce malformed ids, so they are excluded.
 func isNamespaceSymbol(symbol *shimast.Symbol) bool {
-  if strings.HasPrefix(symbol.Name, "\"") || strings.Contains(symbol.Name, "\xFE") {
+  if strings.HasPrefix(shimast.SymbolNameOf(symbol), "\"") || strings.Contains(shimast.SymbolNameOf(symbol), "\xFE") {
     return false
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range shimast.SymbolDeclarationsOf(symbol) {
     if declaration.Kind == shimast.KindModuleDeclaration {
       return true
     }
@@ -847,7 +847,7 @@ func isNamespaceSymbol(symbol *shimast.Symbol) bool {
 // isTypeContainerSymbol reports whether symbol is a class or interface, whose
 // members the graph qualifies ("Class.method").
 func isTypeContainerSymbol(symbol *shimast.Symbol) bool {
-  return symbol.Flags&(shimast.SymbolFlagsClass|shimast.SymbolFlagsInterface) != 0
+  return shimast.SymbolFlagsOf(symbol)&(shimast.SymbolFlagsClass|shimast.SymbolFlagsInterface) != 0
 }
 
 // moduleStatements returns the member statements inside a namespace/module body,

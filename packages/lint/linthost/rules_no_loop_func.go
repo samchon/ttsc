@@ -244,7 +244,7 @@ func (a *noLoopFuncAnalysis) isReferencedNamedIIFE(function *shimast.Node) bool 
 }
 
 func (a *noLoopFuncAnalysis) symbolDeclaredInside(symbol *shimast.Symbol, function *shimast.Node) bool {
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range shimast.SymbolDeclarationsOf(symbol) {
     if declaration != nil && declaration.Pos() >= function.Pos() && declaration.End() <= function.End() {
       return true
     }
@@ -280,9 +280,9 @@ func (a *noLoopFuncAnalysis) binding(symbol *shimast.Symbol) noLoopFuncBinding {
     return binding
   }
   binding := noLoopFuncBinding{kind: noLoopFuncOtherBinding}
-  declarations := symbol.Declarations
-  if symbol.ValueDeclaration != nil {
-    declarations = append([]*shimast.Node{symbol.ValueDeclaration}, declarations...)
+  declarations := shimast.SymbolDeclarationsOf(symbol)
+  if shimast.SymbolValueDeclarationOf(symbol) != nil {
+    declarations = append([]*shimast.Node{shimast.SymbolValueDeclarationOf(symbol)}, declarations...)
   }
   for _, declaration := range declarations {
     root := noLoopFuncRootVariableDeclaration(declaration)

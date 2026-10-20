@@ -137,7 +137,7 @@ func fingerprintFindings(findings []*Finding) []string {
     }
     name := ""
     if finding.File != nil {
-      name = filepath.Base(finding.File.FileName())
+      name = filepath.Base(string(finding.File.FileName()))
     }
     out = append(out, finding.Rule+"|"+name+"|"+
       strconv.Itoa(finding.Pos)+"|"+strconv.Itoa(finding.End)+"|"+finding.Message)

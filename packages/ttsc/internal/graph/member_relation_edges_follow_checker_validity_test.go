@@ -71,11 +71,11 @@ export class Derived extends Base {
     to     string
     origin string
   }{
-    {nodeID(path, "Implementation.run", NodeMethod), nodeID(path, "Contract.run", NodeMethod), "implements"},
-    {nodeID(path, "Implementation.name", NodeMethod), nodeID(path, "Contract.name", NodeVariable), "implements"},
-    {nodeID(path, "Implementation.callback", NodeMethod), nodeID(path, "Contract.callback", NodeVariable), "implements"},
-    {nodeID(path, "Derived.act", NodeMethod), nodeID(path, "Base.act", NodeMethod), "overrides"},
-    {nodeID(path, "Derived.property", NodeVariable), nodeID(path, "Base.property", NodeVariable), "overrides"},
+    {nodeID(string(path), "Implementation.run", NodeMethod), nodeID(string(path), "Contract.run", NodeMethod), "implements"},
+    {nodeID(string(path), "Implementation.name", NodeMethod), nodeID(string(path), "Contract.name", NodeVariable), "implements"},
+    {nodeID(string(path), "Implementation.callback", NodeMethod), nodeID(string(path), "Contract.callback", NodeVariable), "implements"},
+    {nodeID(string(path), "Derived.act", NodeMethod), nodeID(string(path), "Base.act", NodeMethod), "overrides"},
+    {nodeID(string(path), "Derived.property", NodeVariable), nodeID(string(path), "Base.property", NodeVariable), "overrides"},
   }
   for _, assertion := range assertions {
     if got := edgeOrigin(built, assertion.from, assertion.to, EdgeMemberRelation); got != assertion.origin {
@@ -83,8 +83,8 @@ export class Derived extends Base {
     }
   }
 
-  derivedConstructor := nodeID(path, "Derived.__constructor", NodeMethod)
-  baseConstructor := nodeID(path, "Base.__constructor", NodeMethod)
+  derivedConstructor := nodeID(string(path), "Derived.__constructor", NodeMethod)
+  baseConstructor := nodeID(string(path), "Base.__constructor", NodeMethod)
   if built.Nodes[derivedConstructor] == nil || built.Nodes[baseConstructor] == nil {
     t.Fatalf("missing fixture constructor nodes; nodes: %v", nodeIDSet(built))
   }

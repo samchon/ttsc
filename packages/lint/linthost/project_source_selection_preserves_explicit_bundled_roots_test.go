@@ -9,6 +9,7 @@ import (
   "testing"
 
   "github.com/microsoft/typescript-go/shim/bundled"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // TestProjectSourceSelectionPreservesExplicitBundledRoots verifies that an
@@ -21,10 +22,10 @@ import (
 // @evidence contracts/testing.md#execution-ownership This public Go unit requires embedded libraries and invokes both source projections and the writable guard in process over temporary config/source inputs, without an installed package, product subprocess or native build. Native noembed ownership belongs to the native source-selection units.
 func TestProjectSourceSelectionPreservesExplicitBundledRoots(t *testing.T) {
   root := t.TempDir()
-  library := bundled.LibPath() + "/lib.es5.d.ts"
+  library := shimtspath.ResolveFile(bundled.LibPath(), "lib.es5.d.ts")
   config, err := json.Marshal(map[string]any{
     "compilerOptions": map[string]any{"target": "ES2022", "strict": true},
-    "files":           []string{"main.ts", library},
+    "files":           []string{"main.ts", string(library)},
   })
   if err != nil {
     t.Fatal(err)
@@ -39,7 +40,7 @@ func TestProjectSourceSelectionPreservesExplicitBundledRoots(t *testing.T) {
   bundledFiles := 0
   var excluded *Finding
   for _, file := range prog.tsProgram.SourceFiles() {
-    if bundled.IsBundled(file.FileName()) {
+    if bundled.IsBundled(string(file.FileName())) {
       bundledFiles++
       if file.FileName() != library && excluded == nil {
         excluded = &Finding{File: file}
@@ -56,10 +57,10 @@ func TestProjectSourceSelectionPreservesExplicitBundledRoots(t *testing.T) {
       sources = prog.projectSourceFiles
     }
     for _, file := range sources() {
-      files = append(files, filepath.ToSlash(file.FileName()))
+      files = append(files, filepath.ToSlash(string(file.FileName())))
     }
     expectedMain := filepath.ToSlash(filepath.Join(root, "main.ts"))
-    if len(files) != 2 || !slices.Contains(files, expectedMain) || !slices.Contains(files, library) {
+    if len(files) != 2 || !slices.Contains(files, expectedMain) || !slices.Contains(files, string(library)) {
       t.Errorf("%s source membership=%v, want main.ts and explicit %s", name, files, library)
     }
   }

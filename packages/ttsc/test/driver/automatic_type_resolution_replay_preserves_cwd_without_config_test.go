@@ -54,7 +54,7 @@ func TestAutomaticTypeResolutionReplayPreservesCwdWithoutConfig(t *testing.T) {
       if len(tasks) != 1 || !tasks[0].Universal || tasks[0].ResolvedFile == "" {
         t.Fatalf("expected one resolved automatic type: %+v", tasks)
       }
-      if expected := root + "/__inferred type names__.ts"; tasks[0].ContainingFile != expected {
+      if expected := root + "/__inferred type names__.ts"; string(tasks[0].ContainingFile) != expected {
         t.Fatalf("containing file = %q, want %q", tasks[0].ContainingFile, expected)
       }
       if !shimcompiler.ReplayProgramResolutions(tasks, filesystem) {

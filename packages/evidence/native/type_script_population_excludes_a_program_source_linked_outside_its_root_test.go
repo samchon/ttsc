@@ -5,6 +5,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/samchon/ttsc/packages/lint/rule"
   "os"
   "path/filepath"
@@ -53,7 +54,7 @@ func TestTypeScriptPopulationExcludesAProgramSourceLinkedOutsideItsRoot(t *testi
   }
   parse := func(name string, content string) *shimast.SourceFile {
     return shimparser.ParseSourceFile(
-      shimast.SourceFileParseOptions{FileName: filepath.ToSlash(name)},
+      shimast.SourceFileParseOptions{FileName: shimtspath.RootedFilePathFromAbsolute(name)},
       content,
       shimcore.ScriptKindTS,
     )

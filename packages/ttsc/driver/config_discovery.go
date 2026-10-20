@@ -4,6 +4,7 @@ import (
   "os"
   "path/filepath"
 
+  "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/microsoft/typescript-go/shim/vfs/osvfs"
 )
 
@@ -159,7 +160,10 @@ func ReportRejectedConfigCandidates(candidates []ConfigCandidate, hashReporter, 
         // conflict and leave every persistent consumer unable to reuse.
         before, beforeErr := os.Stat(resolved)
         if beforeErr == nil && before.IsDir() {
-          physical := osvfs.FS().Realpath(resolved)
+          physical := resolved
+          if rooted, ok := tspath.TryRootedPathFromAbsolute(resolved); ok {
+            physical = string(osvfs.FS().Realpath(rooted))
+          }
           // Realpath returns its argument if the native resolver fails. An
           // unchanged spelling is proof only when no component is an alias or
           // unknown reparse entry; SameFile alone cannot prove its spelling.

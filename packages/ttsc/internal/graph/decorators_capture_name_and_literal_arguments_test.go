@@ -62,9 +62,9 @@ export class UsersController {
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  controller := nodeID(path, "UsersController", NodeClass)
-  find := nodeID(path, "UsersController.find", NodeMethod)
-  plain := nodeID(path, "UsersController.plain", NodeMethod)
+  controller := nodeID(string(path), "UsersController", NodeClass)
+  find := nodeID(string(path), "UsersController.find", NodeMethod)
+  plain := nodeID(string(path), "UsersController.plain", NodeMethod)
 
   classDec := findDecorator(graph, controller, "Controller")
   if classDec == nil {

@@ -228,7 +228,7 @@ function checkUncertainArray<U>(
       if diagnostic == nil || diagnostic.Code() != 2349 || diagnostic.File() == nil {
         continue
       }
-      fileName := strings.ReplaceAll(diagnostic.File().FileName(), "\\", "/")
+      fileName := strings.ReplaceAll(string(diagnostic.File().FileName()), "\\", "/")
       if fileName != "main.ts" && !strings.HasSuffix(fileName, "/main.ts") {
         continue
       }

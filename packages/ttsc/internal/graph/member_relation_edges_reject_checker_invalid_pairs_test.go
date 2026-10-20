@@ -84,12 +84,12 @@ export class InvalidDerived extends Base {
     from string
     to   string
   }{
-    {nodeID(path, "WrongKind.value", NodeMethod), nodeID(path, "Contract.value", NodeVariable)},
-    {nodeID(path, "WrongKind.run", NodeMethod), nodeID(path, "Contract.run", NodeMethod)},
-    {nodeID(path, "StaticOnly.value", NodeVariable), nodeID(path, "Contract.value", NodeVariable)},
-    {nodeID(path, "StaticOnly.run", NodeMethod), nodeID(path, "Contract.run", NodeMethod)},
-    {nodeID(path, "InvalidDerived.value", NodeMethod), nodeID(path, "Base.value", NodeVariable)},
-    {nodeID(path, "InvalidDerived.run", NodeMethod), nodeID(path, "Base.run", NodeMethod)},
+    {nodeID(string(path), "WrongKind.value", NodeMethod), nodeID(string(path), "Contract.value", NodeVariable)},
+    {nodeID(string(path), "WrongKind.run", NodeMethod), nodeID(string(path), "Contract.run", NodeMethod)},
+    {nodeID(string(path), "StaticOnly.value", NodeVariable), nodeID(string(path), "Contract.value", NodeVariable)},
+    {nodeID(string(path), "StaticOnly.run", NodeMethod), nodeID(string(path), "Contract.run", NodeMethod)},
+    {nodeID(string(path), "InvalidDerived.value", NodeMethod), nodeID(string(path), "Base.value", NodeVariable)},
+    {nodeID(string(path), "InvalidDerived.run", NodeMethod), nodeID(string(path), "Base.run", NodeMethod)},
   }
   for _, pair := range absent {
     if built.Nodes[pair.from] == nil || built.Nodes[pair.to] == nil {
@@ -104,9 +104,9 @@ export class InvalidDerived extends Base {
     from string
     to   string
   }{
-    {nodeID(path, "WrongKind.kept", NodeVariable), nodeID(path, "Contract.kept", NodeVariable)},
-    {nodeID(path, "Valid.value", NodeVariable), nodeID(path, "Contract.value", NodeVariable)},
-    {nodeID(path, "Valid.run", NodeMethod), nodeID(path, "Contract.run", NodeMethod)},
+    {nodeID(string(path), "WrongKind.kept", NodeVariable), nodeID(string(path), "Contract.kept", NodeVariable)},
+    {nodeID(string(path), "Valid.value", NodeVariable), nodeID(string(path), "Contract.value", NodeVariable)},
+    {nodeID(string(path), "Valid.run", NodeMethod), nodeID(string(path), "Contract.run", NodeMethod)},
   }
   for _, pair := range valid {
     if got := edgeOrigin(built, pair.from, pair.to, EdgeMemberRelation); got != "implements" {
@@ -115,8 +115,8 @@ export class InvalidDerived extends Base {
   }
   if got := edgeOrigin(
     built,
-    nodeID(path, "InvalidDerived.kept", NodeVariable),
-    nodeID(path, "Base.kept", NodeVariable),
+    nodeID(string(path), "InvalidDerived.kept", NodeVariable),
+    nodeID(string(path), "Base.kept", NodeVariable),
     EdgeMemberRelation,
   ); got != "overrides" {
     t.Fatalf("valid override sibling in an invalid class was suppressed: got %q; edges: %v", got, built.Edges)

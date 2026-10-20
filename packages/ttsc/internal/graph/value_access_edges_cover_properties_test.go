@@ -68,11 +68,11 @@ export class Store {
 
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
-  read := nodeID(path, "Store.read", NodeMethod)
-  write := nodeID(path, "Store.write", NodeMethod)
-  count := nodeID(path, "Store.count", NodeMethod)
-  items := nodeID(path, "Store.items", NodeVariable)
-  seed := nodeID(path, "seed", NodeFunction)
+  read := nodeID(string(path), "Store.read", NodeMethod)
+  write := nodeID(string(path), "Store.write", NodeMethod)
+  count := nodeID(string(path), "Store.count", NodeMethod)
+  items := nodeID(string(path), "Store.items", NodeVariable)
+  seed := nodeID(string(path), "seed", NodeFunction)
 
   if _, ok := graph.Nodes[items]; !ok {
     t.Fatalf("Build did not record Store.items; have %v", nodeIDSet(graph))

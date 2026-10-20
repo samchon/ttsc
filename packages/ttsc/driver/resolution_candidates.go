@@ -4,9 +4,11 @@ import (
   "sort"
   "strings"
 
+  "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimtsoptions "github.com/microsoft/typescript-go/shim/tsoptions"
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
+  shimvfs "github.com/microsoft/typescript-go/shim/vfs"
 )
 
 // ProgramResolutionInput is one reported lexical filesystem input from
@@ -93,7 +95,7 @@ func ObserveProgramResolutions(prog *Program, cwd string) ProgramResolutionObser
   if prog == nil || prog.TSProgram == nil || prog.FS == nil || prog.inputObserver == nil {
     return output
   }
-  caseSensitive := prog.FS.UseCaseSensitiveFileNames()
+  caseSensitivity := shimvfs.CaseSensitivityOf(prog.FS)
   tasks := shimcompiler.ProgramResolutionTasks(prog.TSProgram)
   sort.Slice(tasks, func(left, right int) bool {
     a, b := tasks[left], tasks[right]
@@ -116,7 +118,7 @@ func ObserveProgramResolutions(prog *Program, cwd string) ProgramResolutionObser
   })
 
   if !prog.TSProgram.Options().NoResolve.IsTrue() {
-    observeProgramPathReferences(prog, cwd, caseSensitive, &output)
+    observeProgramPathReferences(prog, cwd, caseSensitivity, &output)
   }
 
   // Automatic type discovery is a separate compiler operation that enumerates
@@ -125,7 +127,7 @@ func ObserveProgramResolutions(prog *Program, cwd string) ProgramResolutionObser
   // package invalidates a resident program without an importer edit.
   automatic := newInputObservationFS(prog.FS)
   shimcompiler.ReplayAutomaticTypeDirectiveDiscovery(prog.TSProgram, automatic)
-  output.Universal = appendResolutionPaths(output.Universal, cwd, automatic, nil, caseSensitive, &output.Inputs)
+  output.Universal = appendResolutionPaths(output.Universal, cwd, automatic, nil, caseSensitivity, &output.Inputs)
   prog.inputObserver.mergeFrom(automatic)
 
   for first := 0; first < len(tasks); {
@@ -143,18 +145,18 @@ func ObserveProgramResolutions(prog *Program, cwd string) ProgramResolutionObser
       // leave a successful resolution outside the graph; retain those targets
       // as resolver inputs instead of silently dropping them.
       if task.TargetFile != "" {
-        selected = append(selected, task.TargetFile)
+        selected = append(selected, string(task.TargetFile))
       }
     }
     owner := group[0]
     if owner.Universal {
-      output.Universal = appendResolutionPaths(output.Universal, cwd, replay, selected, caseSensitive, &output.Inputs)
+      output.Universal = appendResolutionPaths(output.Universal, cwd, replay, selected, caseSensitivity, &output.Inputs)
       if !matches {
         output.universalFailure = true
       }
     } else if owner.SourceFile != "" {
-      source := TransformOutputKey(cwd, owner.SourceFile)
-      output.Candidates[source] = appendResolutionPaths(output.Candidates[source], cwd, replay, selected, caseSensitive, &output.Inputs)
+      source := TransformOutputKey(cwd, string(owner.SourceFile))
+      output.Candidates[source] = appendResolutionPaths(output.Candidates[source], cwd, replay, selected, caseSensitivity, &output.Inputs)
       if !matches {
         output.Failures[source] = string(inputProofResolutionChanged)
       }
@@ -184,21 +186,25 @@ func sameResolutionTaskOwner(left, right shimcompiler.ProgramResolutionTask) boo
 // observeProgramPathReferences replays the file predicates for triple-slash
 // path references. These use the compiler's supported-extension list directly
 // rather than the module resolver cache covered by ProgramResolutionTasks.
-func observeProgramPathReferences(prog *Program, cwd string, caseSensitive bool, output *ProgramResolutionObservation) {
+func observeProgramPathReferences(prog *Program, cwd string, caseSensitivity shimtspath.CaseSensitivity, output *ProgramResolutionObservation) {
   supported := shimtsoptions.GetSupportedExtensions(prog.TSProgram.Options(), nil)
   supported = shimtsoptions.GetSupportedExtensionsWithJsonIfResolveJsonModule(prog.TSProgram.Options(), supported)
   for _, source := range prog.TSProgram.SourceFiles() {
-    if source == nil || source.FileName() == "" || strings.HasPrefix(source.FileName(), bundledScheme) {
+    if source == nil || source.FileName() == "" || strings.HasPrefix(string(source.FileName()), bundledScheme) {
       continue
     }
-    sourceKey := TransformOutputKey(cwd, source.FileName())
+    sourceKey := TransformOutputKey(cwd, string(source.FileName()))
     for _, reference := range source.ReferencedFiles {
       replay := newInputObservationFS(prog.FS)
       selected := []string(nil)
-      for _, candidate := range pathReferenceCandidates(source.FileName(), reference.FileName, prog.TSProgram.Options().AllowNonTsExtensions.IsTrue(), supported, caseSensitive) {
-        if replay.FileExists(candidate) {
-          if resident := prog.TSProgram.GetSourceFileForResolvedModule(candidate); resident != nil {
-            selected = []string{resident.FileName()}
+      for _, candidate := range pathReferenceCandidates(string(source.FileName()), reference.FileName, prog.TSProgram.Options().AllowNonTsExtensions.IsTrue(), supported, caseSensitivity) {
+        candidateFile, rooted := shimtspath.TryRootedFilePathFromAbsolute(candidate)
+        if !rooted {
+          continue
+        }
+        if replay.FileExists(candidateFile) {
+          if resident := residentSourceWithRedirect(prog.TSProgram, candidateFile); resident != nil {
+            selected = []string{string(resident.FileName())}
           }
           break
         }
@@ -207,30 +213,42 @@ func observeProgramPathReferences(prog *Program, cwd string, caseSensitive bool,
         // predicates so a later output appearance or source disappearance
         // invalidates the same resolution without turning either spelling into
         // a realized graph edge.
-        outputPath := shimtspath.ToPath(candidate, prog.TSProgram.GetCurrentDirectory(), caseSensitive)
-        redirect := prog.TSProgram.GetProjectReferenceFromOutputDts(outputPath)
+        redirect := prog.TSProgram.GetProjectReferenceFromOutputDts(shimcompiler.ProgramPathKey(prog.TSProgram, candidateFile))
         if redirect == nil || !replay.FileExists(redirect.Source) {
           continue
         }
         if resident := prog.TSProgram.GetSourceFile(redirect.Source); resident != nil {
-          selected = []string{resident.FileName()}
+          selected = []string{string(resident.FileName())}
         }
         break
       }
-      output.Candidates[sourceKey] = appendResolutionPaths(output.Candidates[sourceKey], cwd, replay, selected, caseSensitive, &output.Inputs)
+      output.Candidates[sourceKey] = appendResolutionPaths(output.Candidates[sourceKey], cwd, replay, selected, caseSensitivity, &output.Inputs)
       prog.inputObserver.mergeFrom(replay)
     }
   }
 }
 
-func pathReferenceCandidates(containingFile, reference string, allowNonTsExtensions bool, supported [][]string, caseSensitive bool) []string {
+// residentSourceWithRedirect is the Program's lookup of a resolved file: the
+// resident source at that name, else the source its project-reference
+// redirect loaded in its place.
+func residentSourceWithRedirect(program *shimcompiler.Program, file shimtspath.RootedFilePath) *ast.SourceFile {
+  if resident := program.GetSourceFile(file); resident != nil {
+    return resident
+  }
+  if redirect := program.GetParseFileRedirect(file); redirect != "" {
+    return program.GetSourceFile(redirect)
+  }
+  return nil
+}
+
+func pathReferenceCandidates(containingFile, reference string, allowNonTsExtensions bool, supported [][]string, caseSensitivity shimtspath.CaseSensitivity) []string {
   base := reference
   if !shimtspath.IsRootedDiskPath(base) {
     base = shimtspath.CombinePaths(shimtspath.GetDirectoryPath(containingFile), base)
   }
   base = shimtspath.NormalizePath(base)
   if shimtspath.HasExtension(base) {
-    canonicalBase := shimtspath.GetCanonicalFileName(base, caseSensitive)
+    canonicalBase := shimtspath.Canonicalize(caseSensitivity, base)
     if allowNonTsExtensions || supportedFileExtension(canonicalBase, supported) {
       return []string{base}
     }
@@ -282,18 +300,18 @@ func appendResolutionPaths(
   cwd string,
   observer *inputObservationFS,
   selected []string,
-  caseSensitive bool,
+  caseSensitivity shimtspath.CaseSensitivity,
   flat *[]ProgramResolutionInput,
 ) []string {
   for _, candidate := range observer.observedPaths() {
-    selectedPath := slicesContainResolutionPath(selected, candidate, caseSensitive)
-    identityOnly := selectedPath && observedResolutionPathHasDistinctIdentity(observer, candidate, caseSensitive)
+    selectedPath := slicesContainResolutionPath(selected, candidate, caseSensitivity)
+    identityOnly := selectedPath && observedResolutionPathHasDistinctIdentity(observer, candidate, caseSensitivity)
     if selectedPath && !identityOnly {
       continue
     }
     if !identityOnly {
       for _, target := range selected {
-        if observedResolutionAlias(observer, candidate, target, caseSensitive) {
+        if observedResolutionAlias(observer, candidate, target, caseSensitivity) {
           identityOnly = true
           break
         }
@@ -309,36 +327,36 @@ func appendResolutionPaths(
   return target
 }
 
-func observedResolutionPathHasDistinctIdentity(observer *inputObservationFS, candidate string, caseSensitive bool) bool {
+func observedResolutionPathHasDistinctIdentity(observer *inputObservationFS, candidate string, caseSensitivity shimtspath.CaseSensitivity) bool {
   if observer == nil || candidate == "" {
     return false
   }
   observation, failure := observer.predicateProof(candidate)
-  return failure == "" && observation.Realpath != nil && observation.Realpath.OK && !sameResolutionPath(observation.Realpath.Path, candidate, caseSensitive)
+  return failure == "" && observation.Realpath != nil && observation.Realpath.OK && !sameResolutionPath(observation.Realpath.Path, candidate, caseSensitivity)
 }
 
-func slicesContainResolutionPath(paths []string, candidate string, caseSensitive bool) bool {
+func slicesContainResolutionPath(paths []string, candidate string, caseSensitivity shimtspath.CaseSensitivity) bool {
   for _, path := range paths {
-    if sameResolutionPath(candidate, path, caseSensitive) {
+    if sameResolutionPath(candidate, path, caseSensitivity) {
       return true
     }
   }
   return false
 }
 
-func sameResolutionPath(left, right string, caseSensitive bool) bool {
+func sameResolutionPath(left, right string, caseSensitivity shimtspath.CaseSensitivity) bool {
   if left == "" || right == "" {
     return false
   }
-  return shimtspath.GetCanonicalFileName(shimtspath.NormalizePath(left), caseSensitive) == shimtspath.GetCanonicalFileName(shimtspath.NormalizePath(right), caseSensitive)
+  return shimtspath.Canonicalize(caseSensitivity, shimtspath.NormalizePath(left)) == shimtspath.Canonicalize(caseSensitivity, shimtspath.NormalizePath(right))
 }
 
-func observedResolutionAlias(observer *inputObservationFS, candidate, target string, caseSensitive bool) bool {
+func observedResolutionAlias(observer *inputObservationFS, candidate, target string, caseSensitivity shimtspath.CaseSensitivity) bool {
   if observer == nil || candidate == "" || target == "" {
     return false
   }
   observation, failure := observer.predicateProof(candidate)
-  return failure == "" && observation.Realpath != nil && observation.Realpath.OK && sameResolutionPath(observation.Realpath.Path, target, caseSensitive)
+  return failure == "" && observation.Realpath != nil && observation.Realpath.OK && sameResolutionPath(observation.Realpath.Path, target, caseSensitivity)
 }
 
 func compactResolutionInputs(inputs []ProgramResolutionInput) []ProgramResolutionInput {

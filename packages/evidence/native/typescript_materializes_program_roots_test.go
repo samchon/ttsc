@@ -5,6 +5,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "os"
   "path/filepath"
   "strings"
@@ -37,7 +38,7 @@ func rootedTypeScriptProgram(
     content := files[relative]
     absolute := filepath.Join(workspace, filepath.FromSlash(relative))
     sources = append(sources, shimparser.ParseSourceFile(
-      shimast.SourceFileParseOptions{FileName: filepath.ToSlash(absolute)},
+      shimast.SourceFileParseOptions{FileName: shimtspath.RootedFilePathFromAbsolute(absolute)},
       content,
       shimcore.ScriptKindTS,
     ))

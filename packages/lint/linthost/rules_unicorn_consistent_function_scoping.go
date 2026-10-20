@@ -168,7 +168,7 @@ func unicornConsistentFunctionScopingIsImplicitArguments(
   symbol *shimast.Symbol,
 ) bool {
   return node.Kind == shimast.KindIdentifier && identifierText(node) == "arguments" &&
-    symbol.ValueDeclaration == nil && len(symbol.Declarations) == 0
+    shimast.SymbolValueDeclarationOf(symbol) == nil && len(shimast.SymbolDeclarationsOf(symbol)) == 0
 }
 
 func (analysis *unicornConsistentFunctionScopingAnalysis) isReference(node *shimast.Node) bool {
@@ -244,10 +244,10 @@ func unicornConsistentFunctionScopingIsDeclarationName(
   if node == nil || symbol == nil {
     return false
   }
-  if declaration := symbol.ValueDeclaration; declaration != nil && declaration.Name() == node {
+  if declaration := shimast.SymbolValueDeclarationOf(symbol); declaration != nil && declaration.Name() == node {
     return true
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range shimast.SymbolDeclarationsOf(symbol) {
     if declaration != nil && declaration.Name() == node {
       return true
     }
@@ -340,10 +340,10 @@ func unicornConsistentFunctionScopingSymbolDeclaredInside(
   if symbol == nil || function == nil {
     return false
   }
-  if symbol.ValueDeclaration != nil && noLoopFuncNodeContains(function, symbol.ValueDeclaration) {
+  if shimast.SymbolValueDeclarationOf(symbol) != nil && noLoopFuncNodeContains(function, shimast.SymbolValueDeclarationOf(symbol)) {
     return true
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range shimast.SymbolDeclarationsOf(symbol) {
     if declaration != nil && noLoopFuncNodeContains(function, declaration) {
       return true
     }
@@ -358,10 +358,10 @@ func unicornConsistentFunctionScopingSymbolDeclaredInScopes(
   if symbol == nil {
     return false
   }
-  if unicornConsistentFunctionScopingDeclarationPins(symbol.ValueDeclaration, scopes) {
+  if unicornConsistentFunctionScopingDeclarationPins(shimast.SymbolValueDeclarationOf(symbol), scopes) {
     return true
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range shimast.SymbolDeclarationsOf(symbol) {
     if unicornConsistentFunctionScopingDeclarationPins(declaration, scopes) {
       return true
     }

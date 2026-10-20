@@ -107,7 +107,7 @@ func (boundariesDependencies) Check(ctx *Context, node *shimast.Node) {
   if err != nil {
     return
   }
-  source := classifyBoundaryFile(ctx.File.FileName(), options.Elements)
+  source := classifyBoundaryFile(string(ctx.File.FileName()), options.Elements)
   if source == nil {
     return
   }
@@ -595,12 +595,12 @@ func describeBoundaryDependency(
   source *boundaryFile,
   dependency boundaryDependency,
 ) boundaryDependenciesDescription {
-  from := boundaryDependenciesEntityFromFile(source, ctx.File.FileName(), "local")
+  from := boundaryDependenciesEntityFromFile(source, string(ctx.File.FileName()), "local")
   resolvedPath, resolved := resolveBoundaryDependencyPath(ctx, dependency)
   local := dependency.relative || (resolved && boundaryDependenciesProjectLocalPath(ctx.CurrentDirectory, resolvedPath))
   if local {
     if !resolved && dependency.relative {
-      resolvedPath = filepath.Clean(filepath.Join(filepath.Dir(ctx.File.FileName()), filepath.FromSlash(dependency.specifier)))
+      resolvedPath = filepath.Clean(filepath.Join(filepath.Dir(string(ctx.File.FileName())), filepath.FromSlash(dependency.specifier)))
     }
     target := classifyBoundaryFile(resolvedPath, options.Elements)
     to := boundaryDependenciesEntityFromFile(target, resolvedPath, "local")
@@ -648,21 +648,21 @@ func boundaryDependenciesEntityFromFile(file *boundaryFile, path, origin string)
 func resolveBoundaryDependencyPath(ctx *Context, dependency boundaryDependency) (string, bool) {
   if ctx != nil && ctx.Checker != nil && dependency.node != nil {
     symbol := ctx.Checker.GetSymbolAtLocation(dependency.node)
-    if symbol != nil && symbol.Flags&shimast.SymbolFlagsAlias != 0 {
+    if symbol != nil && shimast.SymbolFlagsOf(symbol)&shimast.SymbolFlagsAlias != 0 {
       symbol = ctx.Checker.GetAliasedSymbol(symbol)
     }
     if symbol != nil {
-      for _, declaration := range symbol.Declarations {
+      for _, declaration := range shimast.SymbolDeclarationsOf(symbol) {
         source := sourceFileForBoundaryDeclaration(declaration)
         if source == nil || source.FileName() == "" {
           continue
         }
-        return filepath.Clean(source.FileName()), true
+        return filepath.Clean(string(source.FileName())), true
       }
     }
   }
   if ctx != nil && ctx.File != nil {
-    return resolveBoundaryImport(ctx.File.FileName(), dependency.specifier)
+    return resolveBoundaryImport(string(ctx.File.FileName()), dependency.specifier)
   }
   return "", false
 }
@@ -715,9 +715,9 @@ func boundaryDependenciesShadowedRequire(ctx *Context, dependency boundaryDepend
   if symbol == nil {
     return false
   }
-  for _, declaration := range symbol.Declarations {
+  for _, declaration := range shimast.SymbolDeclarationsOf(symbol) {
     source := sourceFileForBoundaryDeclaration(declaration)
-    if source != nil && boundaryDependenciesProjectLocalPath(ctx.CurrentDirectory, source.FileName()) {
+    if source != nil && boundaryDependenciesProjectLocalPath(ctx.CurrentDirectory, string(source.FileName())) {
       return true
     }
   }

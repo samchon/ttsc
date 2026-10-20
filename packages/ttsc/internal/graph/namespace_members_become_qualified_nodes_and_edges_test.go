@@ -77,13 +77,13 @@ export type WorkerRef = Service.Worker;
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  serviceHelper := nodeID(path, "Service.helper", NodeFunction)
-  serviceRun := nodeID(path, "Service.run", NodeFunction)
-  serviceWorker := nodeID(path, "Service.Worker", NodeClass)
-  workerProcess := nodeID(path, "Service.Worker.process", NodeMethod)
-  bootstrap := nodeID(path, "bootstrap", NodeFunction)
-  workerRef := nodeID(path, "WorkerRef", NodeTypeAlias)
-  payload := nodeID(path, "Payload", NodeInterface)
+  serviceHelper := nodeID(string(path), "Service.helper", NodeFunction)
+  serviceRun := nodeID(string(path), "Service.run", NodeFunction)
+  serviceWorker := nodeID(string(path), "Service.Worker", NodeClass)
+  workerProcess := nodeID(string(path), "Service.Worker.process", NodeMethod)
+  bootstrap := nodeID(string(path), "bootstrap", NodeFunction)
+  workerRef := nodeID(string(path), "WorkerRef", NodeTypeAlias)
+  payload := nodeID(string(path), "Payload", NodeInterface)
 
   // The namespaced declarations are nodes in their own right.
   for _, id := range []string{serviceHelper, serviceRun, serviceWorker, workerProcess} {

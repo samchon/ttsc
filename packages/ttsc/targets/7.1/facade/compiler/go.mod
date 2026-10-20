@@ -21,6 +21,7 @@ require (
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
+	github.com/microsoft/TypeScript/tsc/shim/tsoptions v0.0.0
 )
 
 replace github.com/microsoft/TypeScript/tsc/shim/ast => ../../bridge/ast
@@ -36,3 +37,5 @@ replace github.com/microsoft/TypeScript/tsc/shim/transformers => ../../bridge/tr
 replace github.com/microsoft/TypeScript/tsc/shim/tspath => ../../bridge/tspath
 
 replace github.com/microsoft/TypeScript/tsc/shim/vfs => ../../bridge/vfs
+
+replace github.com/microsoft/TypeScript/tsc/shim/tsoptions => ../../bridge/tsoptions

@@ -107,6 +107,14 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   if !filepath.IsAbs(resolved) {
     resolved = filepath.Join(cwd, resolved)
   }
+  configFile, ok := shimtspath.TryRootedFilePathFromAbsolute(resolved)
+  if !ok {
+    return nil, nil, fmt.Errorf("loadProgram: tsconfig path is not absolute: %s", resolved)
+  }
+  cwdDir, ok := rootedDirectory(cwd)
+  if !ok {
+    return nil, nil, fmt.Errorf("loadProgram: cwd is not absolute: %s", cwd)
+  }
 
   var fs vfs.FS = bundled.WrapFS(cachedvfs.From(osvfs.FS()))
   var observer *inputObservationFS
@@ -116,18 +124,20 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     reader = newProjectInputReader(observer)
     fs = observer
   }
-  host := shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
-  argumentHost := host
+  host := shimcompiler.NewHost(cwdDir, fs, shimtspath.RootedDirectoryPath(bundled.LibPath()))
+  // Forwarded flags convert relative values against their own argv base, so
+  // only the parser's directory changes.
+  argumentDir := cwdDir
   if options.tsgoArgsCwd != "" {
     argumentCwd := options.tsgoArgsCwd
     if !filepath.IsAbs(argumentCwd) {
       argumentCwd = filepath.Join(cwd, argumentCwd)
     }
-    if argumentCwd != cwd {
-      argumentHost = shimcompiler.NewCompilerHost(argumentCwd, fs, bundled.LibPath(), nil, nil)
+    if argumentDir, ok = rootedDirectory(argumentCwd); !ok {
+      return nil, nil, fmt.Errorf("loadProgram: tsgo args cwd is not absolute: %s", argumentCwd)
     }
   }
-  commandLine, cliDiags := parseTsgoArgs(options.tsgoArgs, argumentHost)
+  commandLine, cliDiags := parseTsgoArgs(options.tsgoArgs, fs, argumentDir)
   if len(cliDiags) > 0 {
     return nil, cliDiags, nil
   }
@@ -140,10 +150,10 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     cliOptions = &shimcore.CompilerOptions{}
   }
   parsed, parseDiags := tsoptions.GetParsedCommandLineOfConfigFile(
-    resolved,
+    configFile,
     cliOptions,
     tsoptions.CommandLineRawOptions(commandLine),
-    argumentHost,
+    tsoptions.NewParseConfigHost(fs, argumentDir),
     nil,
   )
   if parsed == nil {
@@ -155,8 +165,12 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   if len(parsed.Errors) > 0 {
     return nil, parsed.Errors, nil
   }
-  if err := applySemanticConfigPath(parsed, options.semanticConfigPath); err != nil {
+  parsed, semanticDiags, err := parseSemanticConfig(parsed, options.semanticConfigPath, commandLine, fs)
+  if err != nil {
     return nil, nil, err
+  }
+  if len(semanticDiags) > 0 {
+    return nil, semanticDiags, nil
   }
   if options.forceNoEmit {
     forceNoEmit(parsed)
@@ -165,7 +179,7 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     forceEmit(parsed)
   }
   if options.outDir != "" {
-    overrideOutDir(cwd, parsed, options.outDir)
+    overrideOutDir(cwdDir, parsed, options.outDir)
   }
   applyThreading(parsed, options.singleThreaded, options.checkers)
 
@@ -177,11 +191,7 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   // Every lint type is then produced by one checker, while the Program's pool
   // remains free to check its file groups in parallel. The engine serializes
   // type-aware walks, so this dedicated checker is never accessed concurrently.
-  tsProgram := shimcompiler.NewProgram(shimcompiler.ProgramOptions{
-    Config:                      parsed,
-    Host:                        host,
-    UseSourceOfProjectReference: true,
-  })
+  tsProgram := shimcompiler.NewProgram(shimcompiler.NewProgramOptions(parsed, host, true))
   if tsProgram == nil {
     return nil, nil, errors.New("compiler.NewProgram returned nil")
   }
@@ -200,16 +210,47 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   }, nil, nil
 }
 
-func applySemanticConfigPath(parsed *tsoptions.ParsedCommandLine, semanticConfigPath string) error {
+// parseSemanticConfig makes the user-authored config the parsed project when
+// a generated wrapper extends it from a scratch directory. TypeScript-Go
+// anchors resolution, automatic type discovery and the Program's current
+// directory at the directory of the config file it parsed, so the wrapper must
+// not become the project. The wrapper's merged options, which already carry the
+// user config's own options, the overlay and the command line, take
+// command-line precedence over a fresh parse of the user config; the command
+// line's raw options keep its resets.
+func parseSemanticConfig(wrapper *tsoptions.ParsedCommandLine, semanticConfigPath string, commandLine *tsoptions.ParsedCommandLine, fs vfs.FS) (*tsoptions.ParsedCommandLine, []*shimast.Diagnostic, error) {
   configured := strings.TrimSpace(semanticConfigPath)
   if configured == "" {
-    return nil
+    return wrapper, nil, nil
   }
   if !filepath.IsAbs(configured) {
-    return fmt.Errorf("linthost: semantic config path must be absolute: %s", configured)
+    return nil, nil, fmt.Errorf("linthost: semantic config path must be absolute: %s", configured)
   }
-  parsed.ParsedConfig.CompilerOptions.ConfigFilePath = shimtspath.ResolvePath(configured)
-  return nil
+  semanticConfig, ok := shimtspath.TryRootedFilePathFromAbsolute(configured)
+  if !ok {
+    return nil, nil, fmt.Errorf("linthost: semantic config path cannot be rooted: %s", configured)
+  }
+  wrapperConfig := wrapper.CompilerOptions().ConfigFilePath
+  if wrapperConfig != "" && shimtspath.CompareFilePaths(vfs.CaseSensitivityOf(fs), wrapperConfig, semanticConfig) == 0 {
+    return wrapper, nil, nil
+  }
+  parsed, diagnostics := tsoptions.GetParsedCommandLineOfConfigFile(
+    semanticConfig,
+    wrapper.CompilerOptions().Clone(),
+    tsoptions.CommandLineRawOptions(commandLine),
+    tsoptions.NewParseConfigHost(fs, shimtspath.FileDirectory(semanticConfig)),
+    nil,
+  )
+  if parsed == nil {
+    return nil, nil, fmt.Errorf("tsoptions: parsed command line was nil for %s", string(semanticConfig))
+  }
+  if len(diagnostics) > 0 {
+    return nil, diagnostics, nil
+  }
+  if len(parsed.Errors) > 0 {
+    return nil, parsed.Errors, nil
+  }
+  return parsed, nil, nil
 }
 
 func normalizeProjectIdentity(
@@ -415,7 +456,7 @@ func (p *program) sourceFileByPath(absPath string) *shimast.SourceFile {
     if file == nil {
       continue
     }
-    if filepath.ToSlash(file.FileName()) == normalized {
+    if filepath.ToSlash(string(file.FileName())) == normalized {
       return file
     }
   }
@@ -432,20 +473,21 @@ func (p *program) sourceFileByPath(absPath string) *shimast.SourceFile {
 // when the edit reshaped the import graph, and that rebuilt Program is still
 // correct, but callers use the reused flag to distinguish incremental updates
 // from full Program reconstruction in product telemetry.
+// It returns false, leaving the Program unchanged, when absPath has no rooted
+// file name.
 func (p *program) applyChange(absPath string) bool {
   if p == nil || p.tsProgram == nil {
     return false
   }
-  name := absPath
-  if file := p.sourceFileByPath(absPath); file != nil {
-    name = file.FileName()
+  name, ok := p.changedFileName(absPath)
+  if !ok {
+    return false
   }
   fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
-  host := shimcompiler.NewCompilerHost(p.cwd, fs, bundled.LibPath(), nil, nil)
-  changed := shimtspath.ToPath(name, p.cwd, fs.UseCaseSensitiveFileNames())
+  host := shimcompiler.NewHost(shimtspath.RootedDirectoryPath(p.cwd), fs, shimtspath.RootedDirectoryPath(bundled.LibPath()))
   // The second result is the changed file as host parsed it, returned so a
   // host with a parse cache can release it; this host parses without one.
-  newProg, _, reused := p.tsProgram.UpdateProgram(changed, host, nil)
+  newProg, _, reused := shimcompiler.UpdateProgram(p.tsProgram, shimcompiler.ProgramPathKey(p.tsProgram, name), host)
   if newProg != nil {
     // An updated generation cannot inherit a one-shot check's observed inputs.
     // Resident commands currently negotiate no check sidecar; keep an explicit
@@ -464,6 +506,31 @@ func (p *program) applyChange(absPath string) bool {
   // re-evaluates its rules over the updated ASTs.
   p.projectCycle = nil
   return reused
+}
+
+// changedFileName names the file absPath addresses as the compiler keys it. The
+// resident Program's own spelling wins; otherwise absPath resolves against the
+// Program's cwd. It reports false when no rooted name exists.
+func (p *program) changedFileName(absPath string) (shimtspath.RootedFilePath, bool) {
+  if file := p.sourceFileByPath(absPath); file != nil {
+    return file.FileName(), true
+  }
+  cwd, ok := rootedDirectory(p.cwd)
+  if !ok || absPath == "" {
+    return "", false
+  }
+  return shimtspath.ToRootedFilePath(absPath, cwd), true
+}
+
+// rootedDirectory gives an absolute native directory the compiler's rooted
+// identity. A relative directory has no such identity, so it reports false
+// instead of resolving against an implicit working directory.
+func rootedDirectory(absolute string) (shimtspath.RootedDirectoryPath, bool) {
+  path, ok := shimtspath.TryRootedPathFromAbsolute(absolute)
+  if !ok {
+    return "", false
+  }
+  return shimtspath.RootedDirectoryPathFromPath(path), true
 }
 
 // userSourceFiles returns the source files the lint engine reads for one cycle:
@@ -497,7 +564,7 @@ func (p *program) userSourceFiles() []*shimast.SourceFile {
     if f == nil {
       continue
     }
-    if p.selectedByProject(roots, f.FileName()) {
+    if p.selectedByProject(roots, string(f.FileName())) {
       out = append(out, f)
       continue
     }
@@ -518,7 +585,7 @@ func (p *program) projectSourceFiles() []*shimast.SourceFile {
     if f == nil {
       continue
     }
-    if !p.selectedByProject(roots, f.FileName()) {
+    if !p.selectedByProject(roots, string(f.FileName())) {
       continue
     }
     out = append(out, f)
@@ -557,14 +624,14 @@ func (p *program) projectSourceFileNames() map[string]struct{} {
   out := make(map[string]struct{})
   if p.parsed != nil && p.parsed.ParsedConfig != nil {
     for _, fileName := range p.parsed.ParsedConfig.FileNames {
-      if !isLintSourceFileName(fileName) {
+      if !isLintSourceFileName(string(fileName)) {
         continue
       }
-      if bundled.IsBundled(fileName) {
-        out[fileName] = struct{}{}
+      if bundled.IsBundled(string(fileName)) {
+        out[string(fileName)] = struct{}{}
         continue
       }
-      absolute := absoluteProjectPath(p.cwd, fileName)
+      absolute := absoluteProjectPath(p.cwd, string(fileName))
       out[canonicalProjectPath(p.cwd, absolute)] = struct{}{}
       out[canonicalProjectPath(p.cwd, realProjectPath(absolute))] = struct{}{}
     }
@@ -619,7 +686,7 @@ func (p *program) projectWritableFindings(findings []*Finding) []*Finding {
     if finding == nil || finding.File == nil {
       continue
     }
-    if !p.selectedByProject(roots, finding.File.FileName()) {
+    if !p.selectedByProject(roots, string(finding.File.FileName())) {
       continue
     }
     out = append(out, finding)
@@ -640,7 +707,7 @@ func isImportedLintSourceFile(file *shimast.SourceFile) bool {
   if file == nil || file.IsDeclarationFile {
     return false
   }
-  return isTypeScriptSourceFileName(file.FileName())
+  return isTypeScriptSourceFileName(string(file.FileName()))
 }
 
 // isLintSourceFileName reports whether a tsconfig-selected file is a lint/format
@@ -697,7 +764,7 @@ func (p *program) programDiagnostics() []*shimast.Diagnostic {
 func (p *program) findSourceFile(target string) *shimast.SourceFile {
   want := shimtspath.NormalizePath(target)
   for _, file := range p.tsProgram.SourceFiles() {
-    if shimtspath.NormalizePath(file.FileName()) == want {
+    if shimtspath.NormalizePath(string(file.FileName())) == want {
       return file
     }
   }
@@ -730,11 +797,11 @@ func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
 // loadProgram merges over the tsconfig — so a flag like `ttsc --strict` reaches
 // the in-process lint program even though @ttsc/lint never shells out to
 // `tsgo`. Returns nil when there are no forwarded flags.
-func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*tsoptions.ParsedCommandLine, []*shimast.Diagnostic) {
+func parseTsgoArgs(args []string, fs vfs.FS, cwd shimtspath.RootedDirectoryPath) (*tsoptions.ParsedCommandLine, []*shimast.Diagnostic) {
   if len(args) == 0 {
     return nil, nil
   }
-  cli := tsoptions.ParseCommandLine(args, host)
+  cli := tsoptions.ParseCommandLineAt(args, fs, cwd)
   if cli == nil {
     return nil, nil
   }
@@ -766,19 +833,15 @@ func applyThreading(parsed *tsoptions.ParsedCommandLine, singleThreaded bool, ch
   }
 }
 
-// overrideOutDir replaces the parsed config's OutDir with `outDir`.
-// Relative outDir values are resolved against `cwd`; absolute paths are
-// used as-is. Paths are converted to forward slashes for tsgo
-// compatibility.
-func overrideOutDir(cwd string, parsed *tsoptions.ParsedCommandLine, outDir string) {
+// overrideOutDir replaces the parsed config's OutDir with outDir, which the
+// caller has checked is nonempty. Relative values resolve against cwd, and
+// absolute values keep their location. The compiler stores the result as a
+// rooted directory, which expresses the forward-slash form tsgo expects.
+func overrideOutDir(cwd shimtspath.RootedDirectoryPath, parsed *tsoptions.ParsedCommandLine, outDir string) {
   if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
     return
   }
-  if filepath.IsAbs(outDir) {
-    parsed.ParsedConfig.CompilerOptions.OutDir = filepath.ToSlash(outDir)
-    return
-  }
-  parsed.ParsedConfig.CompilerOptions.OutDir = filepath.ToSlash(filepath.Join(cwd, outDir))
+  parsed.ParsedConfig.CompilerOptions.OutDir = shimtspath.ToRootedDirectoryPath(outDir, cwd)
 }
 
 // projectInputReaders exposes only this loaded generation's reader. Manual or

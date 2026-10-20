@@ -698,7 +698,7 @@ func nextjsFilePath(file *shimast.SourceFile) string {
   if file == nil {
     return ""
   }
-  return filepath.ToSlash(file.FileName())
+  return filepath.ToSlash(string(file.FileName()))
 }
 
 func nextjsIsPagesFile(file *shimast.SourceFile) bool {

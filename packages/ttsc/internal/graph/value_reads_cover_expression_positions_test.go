@@ -59,29 +59,29 @@ export function labels() { num: for (;;) { break num; } }
   g := Build(prog)
   file := sourceFile(t, prog, "main.tsx").FileName()
   for _, reader := range []string{"asArgument", "returned", "added", "tested", "inArray", "inObject", "shorthand", "inTemplate", "assigned", "closure", "renamed"} {
-    if !hasEdge(g, nodeID(file, reader, NodeFunction), nodeID(file, "num", NodeVariable), EdgeValueAccess) {
+    if !hasEdge(g, nodeID(string(file), reader, NodeFunction), nodeID(string(file), "num", NodeVariable), EdgeValueAccess) {
       t.Errorf("%s lost num read", reader)
     }
   }
   for _, reader := range []string{"dotted", "destructured", "renamed", "parameter", "jsxAttribute"} {
-    if !hasEdge(g, nodeID(file, reader, NodeFunction), nodeID(file, "Props.label", NodeVariable), EdgeValueAccess) {
+    if !hasEdge(g, nodeID(string(file), reader, NodeFunction), nodeID(string(file), "Props.label", NodeVariable), EdgeValueAccess) {
       t.Errorf("%s lost Props.label read", reader)
     }
   }
   for _, reader := range []string{"enumMember", "enumBracket"} {
-    if !hasEdge(g, nodeID(file, reader, NodeFunction), nodeID(file, "Color", NodeEnum), EdgeValueAccess) {
+    if !hasEdge(g, nodeID(string(file), reader, NodeFunction), nodeID(string(file), "Color", NodeEnum), EdgeValueAccess) {
       t.Errorf("%s lost enum read", reader)
     }
   }
   for _, reader := range []string{"onlyTypes", "shadowed", "labels"} {
-    if hasEdge(g, nodeID(file, reader, NodeFunction), nodeID(file, "num", NodeVariable), EdgeValueAccess) {
+    if hasEdge(g, nodeID(string(file), reader, NodeFunction), nodeID(string(file), "num", NodeVariable), EdgeValueAccess) {
       t.Errorf("%s invented num read", reader)
     }
   }
-  if hasEdge(g, nodeID(file, "OnlyType", NodeTypeAlias), nodeID(file, "num", NodeVariable), EdgeValueAccess) {
+  if hasEdge(g, nodeID(string(file), "OnlyType", NodeTypeAlias), nodeID(string(file), "num", NodeVariable), EdgeValueAccess) {
     t.Error("type-literal computed name invented a runtime read")
   }
-  from, to := nodeID(file, "invoked", NodeFunction), nodeID(file, "Badge", NodeFunction)
+  from, to := nodeID(string(file), "invoked", NodeFunction), nodeID(string(file), "Badge", NodeFunction)
   if !hasEdge(g, from, to, EdgeValueCall) || hasEdge(g, from, to, EdgeValueAccess) {
     t.Error("direct invocation must retain only its call edge")
   }

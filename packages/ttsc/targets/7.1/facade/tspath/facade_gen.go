@@ -13,6 +13,10 @@ var AllSupportedExtensions = tsctspath.AllSupportedExtensions
 
 var AllSupportedExtensionsWithJson = tsctspath.AllSupportedExtensionsWithJson
 
+func Canonicalize(p0 tsctspath.CaseSensitivity, p1 string) string {
+  return tsctspath.Canonicalize(p0, p1)
+}
+
 const CaseInsensitive = tsctspath.CaseInsensitive
 
 const CaseSensitive = tsctspath.CaseSensitive
@@ -33,6 +37,10 @@ func ChangeFullExtension(p0 string, p1 string) string {
 
 func CombinePaths(p0 string, p1 ...string) string {
   return tsctspath.CombinePaths(p0, p1...)
+}
+
+func CompareFilePaths(p0 tsctspath.CaseSensitivity, p1 tsctspath.RootedFilePath, p2 tsctspath.RootedFilePath) int {
+  return tsctspath.CompareFilePaths(p0, p1, p2)
 }
 
 func CompareNumberOfDirectorySeparators(p0 string, p1 string) int {
@@ -61,6 +69,10 @@ func ContainsIgnoredPathKey(p0 tsctspath.PathKey) bool {
 
 func ContainsPath(p0 string, p1 string, p2 tsctspath.CaseSensitivity) bool {
   return tsctspath.ContainsPath(p0, p1, p2)
+}
+
+func ContainsPathWith(p0 tsctspath.CaseSensitivity, p1 tsctspath.RootedDirectoryPath, p2 tsctspath.RootedPath) bool {
+  return tsctspath.ContainsPathWith(p0, p1, p2)
 }
 
 func ConvertToRelativePath(p0 string, p1 tsctspath.RootedDirectoryPath, p2 tsctspath.CaseSensitivity) string {
@@ -172,6 +184,14 @@ const ExtensionTsBuildInfo = tsctspath.ExtensionTsBuildInfo
 const ExtensionTsx = tsctspath.ExtensionTsx
 
 var ExtensionsNotSupportingExtensionlessResolution = tsctspath.ExtensionsNotSupportingExtensionlessResolution
+
+func FileBaseName(p0 tsctspath.RootedFilePath) string {
+  return tsctspath.FileBaseName(p0)
+}
+
+func FileDirectory(p0 tsctspath.RootedFilePath) tsctspath.RootedDirectoryPath {
+  return tsctspath.FileDirectory(p0)
+}
 
 func FileExtensionIs(p0 string, p1 string) bool {
   return tsctspath.FileExtensionIs(p0, p1)
@@ -339,7 +359,19 @@ func PathKeyFromCanonical(p0 string) tsctspath.PathKey {
 
 type PathPattern = tsctspath.PathPattern
 
+func RelativeModuleSpecifier(p0 tsctspath.RelativePath) tsctspath.ModuleSpecifier {
+  return tsctspath.RelativeModuleSpecifier(p0)
+}
+
 type RelativePath = tsctspath.RelativePath
+
+func RelativePathFromDirectoryWith(p0 tsctspath.CaseSensitivity, p1 string, p2 string) string {
+  return tsctspath.RelativePathFromDirectoryWith(p0, p1, p2)
+}
+
+func RelativePathFromFile(p0 tsctspath.CaseSensitivity, p1 tsctspath.RootedFilePath, p2 tsctspath.RootedFilePath) (tsctspath.RelativePath, bool) {
+  return tsctspath.RelativePathFromFile(p0, p1, p2)
+}
 
 func RelativePathFromNormalized(p0 string) tsctspath.RelativePath {
   return tsctspath.RelativePathFromNormalized(p0)
@@ -359,6 +391,10 @@ func RemoveFileExtension(p0 string) string {
 
 func RemoveTrailingDirectorySeparator(p0 string) string {
   return tsctspath.RemoveTrailingDirectorySeparator(p0)
+}
+
+func ResolveFile(p0 tsctspath.RootedDirectoryPath, p1 string) tsctspath.RootedFilePath {
+  return tsctspath.ResolveFile(p0, p1)
 }
 
 func ResolvePath(p0 string, p1 ...string) string {

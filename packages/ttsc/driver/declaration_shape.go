@@ -34,23 +34,21 @@ func (p *Program) DeclarationShapeDigest(file *ast.SourceFile) (string, error) {
   }
   var signature strings.Builder
   emitted := false
-  p.TSProgram.Emit(context.Background(), shimcompiler.EmitOptions{
-    TargetSourceFile: file,
-    EmitOnly:         shimcompiler.EmitOnlyForcedDts,
-    WriteFile: func(_ string, text string, data *shimcompiler.WriteFileData) error {
-      emitted = true
-      if data != nil && data.SourceMapUrlPos >= 0 && data.SourceMapUrlPos <= len(text) {
-        text = text[:data.SourceMapUrlPos]
+  // The forced declaration mode is upstream's declaration emit for
+  // incremental signatures; declarationShapeEmitOptions names each target's.
+  p.TSProgram.Emit(context.Background(), declarationShapeEmitOptions(file, func(_ shimtspath.RootedFilePath, text string, data *shimcompiler.WriteFileData) error {
+    emitted = true
+    if data != nil && data.SourceMapUrlPos >= 0 && data.SourceMapUrlPos <= len(text) {
+      text = text[:data.SourceMapUrlPos]
+    }
+    signature.WriteString(text)
+    if data != nil {
+      for _, diagnostic := range data.Diagnostics {
+        appendDeclarationShapeDiagnostic(&signature, file, diagnostic)
       }
-      signature.WriteString(text)
-      if data != nil {
-        for _, diagnostic := range data.Diagnostics {
-          appendDeclarationShapeDiagnostic(&signature, file, diagnostic)
-        }
-      }
-      return nil
-    },
-  })
+    }
+    return nil
+  }))
   if !emitted {
     // Mirrors tsgo's incremental fallback to the file version when forced
     // declaration emit has no output. This is conservative: any body movement
@@ -68,11 +66,7 @@ func appendDeclarationShapeDiagnostic(builder *strings.Builder, source *ast.Sour
   builder.WriteString("\n")
   diagnosticFile := diagnostic.File()
   if diagnosticFile != nil && diagnosticFile != source {
-    builder.WriteString(shimtspath.EnsurePathIsNonModuleName(shimtspath.GetRelativePathFromDirectory(
-      shimtspath.GetDirectoryPath(string(source.Path())),
-      string(diagnosticFile.Path()),
-      shimtspath.ComparePathsOptions{},
-    )))
+    writeDeclarationShapeDiagnosticFile(builder, source, diagnosticFile)
   }
   if diagnosticFile != nil {
     builder.WriteString(fmt.Sprintf("(%d,%d): ", diagnostic.Pos(), diagnostic.Len()))

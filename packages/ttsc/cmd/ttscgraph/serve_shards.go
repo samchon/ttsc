@@ -1213,16 +1213,16 @@ func advanceServeGraphProvenance(
       return graph.Provenance{}, graph.Provenance{}, false
     }
     physical := source.FileName()
-    index, ok := positions[physical]
+    index, ok := positions[string(physical)]
     if !ok {
       return graph.Provenance{}, graph.Provenance{}, false
     }
     updated := graph.SourceDigest{
-      File:    physical,
+      File:    string(physical),
       Checker: graph.Digest(sha256.Sum256([]byte(source.Text()))),
-      Disk:    diskDigests[physical],
+      Disk:    diskDigests[string(physical)],
     }
-    wireFile, ok := wireSources[physical]
+    wireFile, ok := wireSources[string(physical)]
     if !ok {
       return graph.Provenance{}, graph.Provenance{}, false
     }
@@ -1344,7 +1344,7 @@ func authoredGraphFiles(program *driver.Program) map[string]bool {
     if !graph.IsWorkspaceSourceFile(file) {
       continue
     }
-    authored[file.FileName()] = true
+    authored[string(file.FileName())] = true
   }
   return authored
 }
@@ -1357,8 +1357,8 @@ func reverseGraphDependencies(program *driver.Program) map[string][]string {
     if !graph.IsWorkspaceSourceFile(file) {
       continue
     }
-    authored[file.FileName()] = true
-    authoredByPath[string(file.Path())] = file.FileName()
+    authored[string(file.FileName())] = true
+    authoredByPath[string(shimast.SourceFilePathKey(file))] = string(file.FileName())
   }
   add := func(target, dependent string) {
     if !authored[target] || target == dependent {
@@ -1376,8 +1376,8 @@ func reverseGraphDependencies(program *driver.Program) map[string][]string {
       continue
     }
     for _, referencedPath := range shimcompiler.GetReferencedFilePaths(program.TSProgram, source) {
-      if target, ok := authoredByPath[referencedPath]; ok {
-        add(target, source.FileName())
+      if target, ok := authoredByPath[string(referencedPath)]; ok {
+        add(target, string(source.FileName()))
       }
     }
   }
@@ -1399,11 +1399,11 @@ func serveGraphResolutionDigests(program *driver.Program, project string) (map[s
     raw := shimcompiler.GetReferencedFilePaths(program.TSProgram, source)
     references := make([]string, 0, len(raw))
     for _, reference := range raw {
-      target := program.TSProgram.GetSourceFileByPath(shimtspath.Path(reference))
+      target := program.TSProgram.GetSourceFileByPath(shimtspath.PathKey(reference))
       if target == nil {
         continue
       }
-      file, err := serveGraphFile(project, target.FileName(), program.TSProgram.UseCaseSensitiveFileNames())
+      file, err := serveGraphFile(project, string(target.FileName()), program.TSProgram.UseCaseSensitiveFileNames())
       if err != nil {
         return nil, err
       }
@@ -1411,7 +1411,7 @@ func serveGraphResolutionDigests(program *driver.Program, project string) (map[s
     }
     sort.Strings(references)
     digest, _ := digestJSON(references)
-    digests[source.FileName()] = digest
+    digests[string(source.FileName())] = digest
   }
   return digests, nil
 }
@@ -1421,7 +1421,7 @@ func serveGraphResolutionDigests(program *driver.Program, project string) (map[s
 // spelling and authored-source boundary remain the shard ownership coordinates.
 func graphSourceFile(program *driver.Program, file string) *shimast.SourceFile {
   source := program.SourceFile(file)
-  if graph.IsWorkspaceSourceFile(source) && source.FileName() == file {
+  if graph.IsWorkspaceSourceFile(source) && string(source.FileName()) == file {
     return source
   }
   return nil

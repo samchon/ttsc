@@ -6,7 +6,14 @@ const { spawnSync } = require("node:child_process");
 const targets = [
   {
     name: "TypeScript 7.0",
-    args: ["-anchor", "../../shim/ast", "-shim", "../../shim"],
+    args: [
+      "-anchor",
+      "../../shim/ast",
+      "-shim",
+      "../../shim",
+      "-neutral-with",
+      "../../targets/7.1/bridge",
+    ],
     env: {},
   },
   {

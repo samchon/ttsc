@@ -11,6 +11,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
@@ -115,8 +116,8 @@ func runBuild(args []string) (status int) {
 
   // Match existing native hosts that buffer outputs and check only the Go
   // error before publication. Compiler diagnostics must also fail this host.
-  pending := map[string]string{}
-  emitDiags, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{replaceBeforeLiteral}, func(name, text string, _ *shimcompiler.WriteFileData) error {
+  pending := map[shimtspath.RootedFilePath]string{}
+  emitDiags, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{replaceBeforeLiteral}, func(name shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
     pending[name] = text
     return nil
   })
@@ -131,7 +132,7 @@ func runBuild(args []string) (status int) {
       fmt.Fprintln(os.Stderr, err)
       return 2
     }
-    emitted = append(emitted, name)
+    emitted = append(emitted, name.AsString())
   }
   if *manifest != "" {
     manifestPath := *manifest
@@ -143,7 +144,7 @@ func runBuild(args []string) (status int) {
       fmt.Fprintln(os.Stderr, err)
       return 2
     }
-    if err := writeFile(manifestPath, string(data), nil); err != nil {
+    if err := writeFile(shimtspath.RootedFilePathFromAbsolute(manifestPath), string(data), nil); err != nil {
       fmt.Fprintln(os.Stderr, err)
       return 2
     }
@@ -174,7 +175,8 @@ func replaceBeforeLiteral(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *
   return visitor.VisitSourceFile(sf)
 }
 
-func writeFile(fileName, text string, _ *shimcompiler.WriteFileData) error {
+func writeFile(file shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+  fileName := file.AsString()
   if err := os.MkdirAll(filepath.Dir(fileName), 0o755); err != nil {
     return err
   }

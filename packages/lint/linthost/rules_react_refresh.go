@@ -65,11 +65,11 @@ func (onlyExportComponents) Check(ctx *Context, node *shimast.Node) {
   if err := ctx.DecodeOptions(&options); err != nil {
     return
   }
-  if !shouldScanReactRefreshFile(ctx.File.FileName(), options.CheckJS) {
+  if !shouldScanReactRefreshFile(string(ctx.File.FileName()), options.CheckJS) {
     return
   }
 
-  scan := newReactRefreshScan(ctx, options, reactRefreshRequiresReactImport(ctx.File.FileName(), options.CheckJS))
+  scan := newReactRefreshScan(ctx, options, reactRefreshRequiresReactImport(string(ctx.File.FileName()), options.CheckJS))
   for _, stmt := range node.Statements() {
     scan.handleStatement(stmt)
   }

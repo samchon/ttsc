@@ -6,6 +6,7 @@ import (
   "path/filepath"
   "testing"
 
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
@@ -32,16 +33,16 @@ func TestWindowsProjectSourceSelectionPreservesPhysicalAliases(t *testing.T) {
     t.Fatalf("load: err=%v diagnostics=%v", err, diags)
   }
   defer prog.close()
-  configured := prog.tsProgram.GetSourceFile(filepath.ToSlash(filepath.Join(root, "owned", "main.ts")))
-  imported := prog.tsProgram.GetSourceFile(filepath.ToSlash(filepath.Join(root, "alias", "main.ts")))
+  configured := prog.tsProgram.GetSourceFile(shimtspath.RootedFilePath(filepath.ToSlash(filepath.Join(root, "owned", "main.ts"))))
+  imported := prog.tsProgram.GetSourceFile(shimtspath.RootedFilePath(filepath.ToSlash(filepath.Join(root, "alias", "main.ts"))))
   if configured == nil || imported == nil || configured == imported {
     t.Fatal("fixture must load distinct configured and imported AST spellings")
   }
   roots := prog.projectSourceFileNames()
-  if _, direct := roots[canonicalProjectPath(root, imported.FileName())]; direct {
+  if _, direct := roots[canonicalProjectPath(root, string(imported.FileName()))]; direct {
     t.Fatal("alternate spelling must exercise physical fallback, not direct lookup")
   }
-  if !prog.selectedByProject(roots, imported.FileName()) {
+  if !prog.selectedByProject(roots, string(imported.FileName())) {
     t.Error("physical alias lost selected-file ownership")
   }
   if prog.selectedByProject(roots, filepath.Join(root, "outside.ts")) {

@@ -169,6 +169,10 @@ func NewDefaultParseConfigHost(p0 tscvfs.FS) tsctsoptions.ParseConfigHost {
   return tsctsoptions.NewDefaultParseConfigHost(p0)
 }
 
+func NewParseConfigHost(p0 tscvfs.FS, p1 tsctspath.RootedDirectoryPath) tsctsoptions.ParseConfigHost {
+  return tsctsoptions.NewParseConfigHost(p0, p1)
+}
+
 // NewParsedCommandLine holds the bridge function: its signature uses a type no bridge
 // exposes (github.com/microsoft/TypeScript/tsc/internal/core.ProjectReference).
 var NewParsedCommandLine = tsctsoptions.NewParsedCommandLine
@@ -191,6 +195,10 @@ var ParseBuildOptions = tsctsoptions.ParseBuildOptions
 
 func ParseCommandLine(p0 []string, p1 tscvfs.FS, p2 tsctspath.RootedDirectoryPath) *tsctsoptions.ParsedCommandLine {
   return tsctsoptions.ParseCommandLine(p0, p1, p2)
+}
+
+func ParseCommandLineAt(p0 []string, p1 tscvfs.FS, p2 tsctspath.RootedDirectoryPath) *tsctsoptions.ParsedCommandLine {
+  return tsctsoptions.ParseCommandLineAt(p0, p1, p2)
 }
 
 type ParseCommandLineWorkerDiagnostics = tsctsoptions.ParseCommandLineWorkerDiagnostics

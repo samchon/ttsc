@@ -5,6 +5,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/samchon/ttsc/packages/lint/rule"
   "os"
   "path/filepath"
@@ -56,7 +57,7 @@ func TestTypeScriptPopulationMatchesAProgramOpenedThroughTheLogicalRoot(t *testi
   }
   source := shimparser.ParseSourceFile(
     shimast.SourceFileParseOptions{
-      FileName: filepath.ToSlash(filepath.Join(logical, "src", "ISale.ts")),
+      FileName: shimtspath.RootedFilePathFromAbsolute(filepath.Join(logical, "src", "ISale.ts")),
     },
     files["src/ISale.ts"],
     shimcore.ScriptKindTS,

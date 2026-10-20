@@ -56,10 +56,10 @@ func TestValueCallEdgesDoNotDoubleRecordInvokedMemberAccess(t *testing.T) {
 
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
-  handle := nodeID(path, "handle", NodeFunction)
-  run := nodeID(path, "Providers.Service.run", NodeMethod)
-  service := nodeID(path, "Providers.Service", NodeClass)
-  html := nodeID(path, "Tags.html", NodeFunction)
+  handle := nodeID(string(path), "handle", NodeFunction)
+  run := nodeID(string(path), "Providers.Service.run", NodeMethod)
+  service := nodeID(string(path), "Providers.Service", NodeClass)
+  html := nodeID(string(path), "Tags.html", NodeFunction)
 
   for _, target := range []string{run, service, html} {
     if !hasEdge(graph, handle, target, EdgeValueCall) {

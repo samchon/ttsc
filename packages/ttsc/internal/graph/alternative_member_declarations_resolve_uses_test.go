@@ -89,16 +89,16 @@ export namespace Names {
     {"Names.read", "Names.Props.nested.deep", NodeVariable, EdgeValueAccess},
     {"Names.read", "Names.Widget.render", NodeMethod, EdgeValueCall},
   } {
-    target := nodeID(file, item.member, item.kind)
+    target := nodeID(string(file), item.member, item.kind)
     if node := g.Nodes[target]; node == nil || node.End <= node.Pos || node.Name != item.member {
       t.Errorf("missing member %s", item.member)
     }
-    if !hasEdge(g, nodeID(file, item.caller, NodeFunction), target, item.edge) {
+    if !hasEdge(g, nodeID(string(file), item.caller, NodeFunction), target, item.edge) {
       t.Errorf("missing %s -> %s", item.caller, item.member)
     }
   }
   for member, kind := range map[string]NodeKind{"Widget.render": NodeMethod, "Widget.field": NodeVariable, "Sale.secret": NodeVariable} {
-    if !hasEdge(g, nodeID(file, member, kind), nodeID(file, "helper", NodeFunction), EdgeValueCall) {
+    if !hasEdge(g, nodeID(string(file), member, kind), nodeID(string(file), "helper", NodeFunction), EdgeValueCall) {
       t.Errorf("%s lost helper call", member)
     }
   }
@@ -106,10 +106,10 @@ export namespace Names {
     name string
     kind NodeKind
   }{{"Base", NodeClass}, {"Drawable", NodeInterface}} {
-    if !hasEdge(g, nodeID(file, "Widget", NodeVariable), nodeID(file, target.name, target.kind), EdgeHeritage) {
+    if !hasEdge(g, nodeID(string(file), "Widget", NodeVariable), nodeID(string(file), target.name, target.kind), EdgeHeritage) {
       t.Errorf("Widget lost heritage to %s", target.name)
     }
-    if !hasEdge(g, nodeID(file, "Widget.render", NodeMethod), nodeID(file, target.name+".render", NodeMethod), EdgeMemberRelation) {
+    if !hasEdge(g, nodeID(string(file), "Widget.render", NodeMethod), nodeID(string(file), target.name+".render", NodeMethod), EdgeMemberRelation) {
       t.Errorf("Widget.render lost relation to %s.render", target.name)
     }
   }
@@ -117,19 +117,19 @@ export namespace Names {
     member string
     kind   EdgeKind
   }{{"Widget.create", EdgeValueCall}, {"Widget.identity", EdgeValueAccess}} {
-    if !hasEdge(g, nodeID(file, item.member, NodeMethod), nodeID(file, "Widget", NodeVariable), item.kind) {
+    if !hasEdge(g, nodeID(string(file), item.member, NodeMethod), nodeID(string(file), "Widget", NodeVariable), item.kind) {
       t.Errorf("%s lost its bound class identity", item.member)
     }
   }
-  if hasEdge(g, nodeID(file, "draw", NodeFunction), nodeID(file, "Other.render", NodeMethod), EdgeValueCall) ||
-    hasEdge(g, nodeID(file, "other", NodeFunction), nodeID(file, "Widget.render", NodeMethod), EdgeValueCall) {
+  if hasEdge(g, nodeID(string(file), "draw", NodeFunction), nodeID(string(file), "Other.render", NodeMethod), EdgeValueCall) ||
+    hasEdge(g, nodeID(string(file), "other", NodeFunction), nodeID(string(file), "Widget.render", NodeMethod), EdgeValueCall) {
     t.Error("class-expression calls crossed their lexical owners")
   }
   for _, item := range []struct {
     caller, target string
     kind           NodeKind
   }{{"localClass", "Widget", NodeVariable}, {"localClass", "Widget.create", NodeMethod}, {"localObject", "api.run", NodeMethod}} {
-    if hasEdge(g, nodeID(file, item.caller, NodeFunction), nodeID(file, item.target, item.kind), EdgeValueCall) {
+    if hasEdge(g, nodeID(string(file), item.caller, NodeFunction), nodeID(string(file), item.target, item.kind), EdgeValueCall) {
       t.Errorf("%s borrowed unrelated top-level target %s", item.caller, item.target)
     }
   }

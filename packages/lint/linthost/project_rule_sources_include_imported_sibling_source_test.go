@@ -24,8 +24,8 @@ func (r importedSourcePopulationRule) Check(ctx *publicrule.ProjectContext) {
     if file == nil {
       continue
     }
-    *r.observed = append(*r.observed, filepath.Base(file.FileName()))
-    *r.paths = append(*r.paths, file.FileName())
+    *r.observed = append(*r.observed, filepath.Base(string(file.FileName())))
+    *r.paths = append(*r.paths, string(file.FileName()))
   }
 }
 

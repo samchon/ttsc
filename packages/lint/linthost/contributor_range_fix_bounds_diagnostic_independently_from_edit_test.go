@@ -20,8 +20,8 @@ import (
 func TestContributorRangeFixBoundsDiagnosticIndependentlyFromEdit(t *testing.T) {
   file := parseTSFile(t, "/virtual/range-fix.ts", "const value = 1;\n")
   contributor := &boundedDiagnosticRangeContributor{
-    spans:   map[string][2]int{file.FileName(): {999, -5}},
-    fixFile: file.FileName(),
+    spans:   map[string][2]int{string(file.FileName()): {999, -5}},
+    fixFile: string(file.FileName()),
   }
   metadata, err := inspectContributor(contributor)
   if err != nil {

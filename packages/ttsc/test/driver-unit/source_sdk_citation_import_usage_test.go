@@ -11,6 +11,7 @@ import (
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   "github.com/microsoft/typescript-go/shim/core"
   "github.com/microsoft/typescript-go/shim/tsoptions"
+  "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/microsoft/typescript-go/shim/vfs/cachedvfs"
   "github.com/microsoft/typescript-go/shim/vfs/osvfs"
 )
@@ -48,8 +49,8 @@ func TestSourceSDKCitationImportUsage(t *testing.T) {
         }
       }
       fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
-      host := shimcompiler.NewCompilerHost(root, fs, bundled.LibPath(), nil, nil)
-      parsed, _ := tsoptions.GetParsedCommandLineOfConfigFile(filepath.Join(root, "tsconfig.json"), &core.CompilerOptions{}, nil, host, nil)
+      host := shimcompiler.NewHost(tspath.RootedDirectoryPath(root), fs, tspath.RootedDirectoryPath(bundled.LibPath()))
+      parsed, _ := tsoptions.GetParsedCommandLineOfConfigFile(tspath.RootedFilePathFromAbsolute(filepath.Join(root, "tsconfig.json")), &core.CompilerOptions{}, nil, tsoptions.NewParseConfigHost(fs, tspath.RootedDirectoryPath(root)), nil)
       if parsed == nil || len(parsed.Errors) != 0 {
         t.Fatalf("config parse failed: %#v", parsed)
       }
@@ -70,7 +71,7 @@ func TestSourceSDKCitationImportUsage(t *testing.T) {
       }
       for _, diagnostic := range diagnostics {
         if diagnostic.Code() == 6133 {
-          if diagnostic.File() == nil || filepath.Clean(diagnostic.File().FileName()) != filepath.Join(root, "src", "view.ts") {
+          if diagnostic.File() == nil || filepath.Clean(string(diagnostic.File().FileName())) != filepath.Join(root, "src", "view.ts") {
             t.Fatal("TS6133 belongs to the wrong source")
           }
           return

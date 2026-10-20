@@ -10,6 +10,10 @@ import (
   tscvfs "github.com/microsoft/TypeScript/tsc/shim/vfs"
 )
 
+func CaseSensitivityOf(p0 tscvfs.FS) tsctspath.CaseSensitivity {
+  return tscvfs.CaseSensitivityOf(p0)
+}
+
 func DecodeBytes(p0 string) (string, bool) {
   return tscvfs.DecodeBytes(p0)
 }
