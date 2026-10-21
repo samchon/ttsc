@@ -45,8 +45,10 @@ import { singleRootProjectConfig } from "./singleRootProjectConfig";
  * JavaScript output's source is the one the compiler emitted it from.
  *
  * The route is unavailable, and the caller keeps the command-line build, when
- * the project's TypeScript publishes no such API (7.0), when a custom compiler
- * binary or compiler environment is selected, when the build would run native
+ * the project's TypeScript publishes no such API (7.0), when a compiler binary
+ * other than that TypeScript's own or a compiler environment is selected (the
+ * binary ttsx hands its runtime is the one it resolved, so a root the running
+ * program reaches is admitted like an entry), when the build would run native
  * plugins (they run inside ttsc's own host, which reads its tsconfig from
  * disk), or when its arguments cannot be carried by a tsconfig: a response
  * file, a terminal flag, or another command-line-only argument.
@@ -106,20 +108,29 @@ export function buildSingleRootInMemory(props: {
   const options = props.options;
   if (
     readCompilerOptionValues(options.passthrough).responseFiles.length !== 0 ||
-    options.binary !== undefined ||
-    SidecarEnvironment.read(process.env, "TTSC_TSGO_BINARY") ||
     (options.env !== undefined && Object.keys(options.env).length !== 0)
   )
     return undefined;
   // Checked first: a 7.0 project, the common case, then costs one package
-  // resolution before the command-line build.
+  // resolution before the command-line build. The package is resolved past any
+  // selected binary, so the selection can be compared with it.
+  const packageEnv = SidecarEnvironment.merge(process.env);
+  SidecarEnvironment.write(packageEnv, "TTSC_TSGO_BINARY", undefined);
   let compiler: ReturnType<typeof resolveTsgo>;
   try {
-    compiler = resolveTsgo({ cwd: path.dirname(props.tsconfig) });
+    compiler = resolveTsgo({
+      cwd: path.dirname(props.tsconfig),
+      env: packageEnv,
+    });
   } catch {
     // The command-line build reports a missing compiler in its own words.
     return undefined;
   }
+  // ttsx hands its runtime the compiler it resolved as `TTSC_TSGO_BINARY`, so
+  // only a selection naming another binary is a custom compiler.
+  const selected =
+    options.binary ?? SidecarEnvironment.read(process.env, "TTSC_TSGO_BINARY");
+  if (selected && !sameFile(selected, compiler.binary)) return undefined;
   const api = TypeScriptSyncApi.load(compiler.packageJson);
   if (api === undefined) return undefined;
   const project = readProjectConfig({
@@ -169,7 +180,7 @@ export function buildSingleRootInMemory(props: {
     execution.compilerSelection.inspectionError !== undefined ||
     execution.pluginSetupFailure !== undefined ||
     execution.nativePlugins.length !== 0 ||
-    execution.tsgo.packageJson !== compiler.packageJson
+    !sameFile(execution.tsgo.binary, compiler.binary)
   )
     return undefined;
   const buildOptions = BuildExecution.applyProjectNoEmit(runOptions, execution);
@@ -282,6 +293,18 @@ export function buildSingleRootInMemory(props: {
     };
   } finally {
     session.close();
+  }
+}
+
+/** Whether two paths name the same existing file. */
+function sameFile(left: string, right: string): boolean {
+  try {
+    return (
+      fs.realpathSync.native(path.resolve(left)) ===
+      fs.realpathSync.native(path.resolve(right))
+    );
+  } catch {
+    return false;
   }
 }
 
