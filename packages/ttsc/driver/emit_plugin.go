@@ -81,8 +81,12 @@ func (h *pluginEmitHost) IsSourceFileFromExternalLibrary(file *shimast.SourceFil
 // used by builtin transforms; they do not make every arbitrary constructed tree
 // valid. Injected bindings must use the supported generated-name policy and
 // preserve the original links needed by the particular transformation.
-// Returning nil leaves the file unchanged. This is the AST-integration contract
-// that replaces text-splice: a plugin returns AST, not text. The shape mirrors a
+// Build returned nodes with ec.Factory, or with a factory created inside the
+// call. A package-global or retained factory shares one node arena across files
+// and Programs, so once distinct Programs emit at the same time its nodes race
+// and can print under another file. Returning nil leaves the file unchanged.
+// This is the AST-integration contract that replaces text-splice: a plugin
+// returns AST, not text. The shape mirrors a
 // classic source-file transformer, with EmitContext supplied on each call;
 // adapting an existing transformer still requires the native AST and context
 // APIs rather than only changing its function signature.
@@ -90,7 +94,7 @@ func (h *pluginEmitHost) IsSourceFileFromExternalLibrary(file *shimast.SourceFil
 // @evidence contracts/common.md#principled-implementation Generated AST identity belongs to the shared emit context, allowing builtin import and module transforms to interpret plugin nodes.
 // @evidence contracts/common.md#clear-and-simple-design A per-source callback returns an optional replacement; the host owns ordering and printing.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported AST factory and original links replace textual alias guesses or patched compiler methods.
-// @evidence contracts/common.md#meaningful-documentation Native prose specifies context identity, nil behavior, and source transformation following the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation Native prose specifies context identity, the per-file factory requirement and its concurrency consequence, nil behavior, and source transformation following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation The callback signature defines AST work rather than native path or process operations.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Concrete callbacks select their algorithms; the signature performs no traversal.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature owns no shared-work coordinator.

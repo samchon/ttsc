@@ -72,6 +72,12 @@ jobs:
       # target, independent of the 7.0 verdict.
       - run: pnpm run test:go:7.1
         if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
+      # Distinct Programs emitting at once must share no unsynchronized driver
+      # state. The race detector needs cgo, which the Linux runner provides.
+      - run: pnpm run test:go:race
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' && runner.os == 'Linux' }}
+        env:
+          CGO_ENABLED: "1"
       - run: pnpm run test:units
         if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
       - name: Save Completed Native Go Caches

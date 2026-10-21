@@ -73,6 +73,10 @@ A plugin's callback can therefore keep rewrite cursors, an output map or a runti
 
 This is the one ttsc-layered phase that observes emit at all; everything else a plugin does (`SourcePreamble`, `ApplyProgram`, rewrite collection against the pooled `Checker`) already runs on ttsc's own serial path.
 
+An embedder may load several Programs in one process and emit them at the same time, one goroutine per Program. Each Program owns its compiler state, and the driver shares only the linked-plugin registry that `init` fills before any Program exists. Running two emits of the same Program at once is outside this contract, so give each concurrent worker its own Program.
+
+That guarantee holds only while every transform builds the nodes it returns with the `ec.Factory` it was handed, or with a factory it creates inside that call. A package-level or retained `NodeFactory` shares one node arena across files and Programs: once two emits overlap, its nodes race and can print under another file's source, which the printer reports as `Debug failure. False expression.` from `emitIdentifierText`. `TestEmitWithPluginTransformerDistinctProgramsConcurrently` emits two Programs concurrently through an `ec.Factory` transform, and CI runs it under the Go race detector with `pnpm test:go:race`.
+
 ### Output containment
 
 When the project configures `outDir`, every driver emit lane (`EmitAll`, `EmitAllRaw`, `EmitFile`, `EmitWithPluginTransformers`) skips any output whose computed path would land outside it (outside `declarationDir` too, when set; the compiler-selected build-information artifact is exempt because its configured location can be outside those directories, regardless of its extension). A forced emit past the `TS6059` rootDir check would otherwise resolve an out-of-`rootDir` source (typically a dependency package's raw `.ts` entry reached by package self-reference) to a `.js` right next to the dependency's own source, polluting a sibling package's tree. Skipped files behave exactly like `node_modules` externals: no write, no diagnostic, and your `WriteFile` callback never sees them.

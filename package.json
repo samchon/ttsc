@@ -9,6 +9,7 @@
     "test": "pnpm run test:go && pnpm run test:units",
     "test:go": "node config/test-go.mjs",
     "test:go:7.1": "node config/test-go.mjs --target=7.1",
+    "test:go:race": "go test -race -count=1 -run TestEmitWithPluginTransformerDistinctProgramsConcurrently ./packages/ttsc/test/driver/",
     "test:units": "pnpm --filter \"./tests/*\" --filter \"!@ttsc/test-e2e\" -r --no-bail --workspace-concurrency=1 start",
     "test:e2e": "pnpm --filter @ttsc/test-e2e start",
     "format": "pnpm run gen:flags --skip-website && prettier --write --no-error-on-unmatched-pattern \"**/*.ts\" \"**/*.md\" \"**/*.mdx\" \"!website/**\" && pnpm run format:go",
