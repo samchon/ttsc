@@ -29,6 +29,11 @@ type artifactStore struct {
   pinned      map[string]bool
   verified    map[string]bool
   receiptName string
+
+  // accountingListed is told each directory batch accounting has listed,
+  // before it stats the batch's entries. Nil outside tests, which use it to
+  // remove an entry the way a concurrent preparation does.
+  accountingListed func(directory string)
 }
 
 func openArtifactStore(directory string, manifest *packageartifacts.Manifest) (*artifactStore, error) {

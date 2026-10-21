@@ -4,6 +4,7 @@ import (
   "errors"
   "fmt"
   "io"
+  "io/fs"
   "os"
   "path/filepath"
 )
@@ -21,6 +22,12 @@ type artifactAccounting struct {
 // accountArtifactStore reads bounded rooted metadata for every retained cache
 // population. The byte totals are logical file lengths, not free-space or
 // physical allocated-byte claims; concurrent writers can change them later.
+//
+// A concurrent preparation of the same store removes its staging lock, and
+// cleanup removes staged files, while this walks. An entry or directory that
+// no longer exists when it is reached is therefore skipped as absent rather
+// than failing the accounting; the depth, count, size and alias policies
+// still apply to everything that does exist.
 func accountArtifactStore(store *artifactStore) (artifactAccounting, error) {
   var result artifactAccounting
   var entries int
@@ -30,12 +37,18 @@ func accountArtifactStore(store *artifactStore) (artifactAccounting, error) {
       return errors.New("artifact storage exceeds directory depth policy")
     }
     opened, err := store.root.Open(directory)
+    if errors.Is(err, fs.ErrNotExist) {
+      return nil
+    }
     if err != nil {
       return err
     }
     defer opened.Close()
     for {
       batch, readErr := opened.ReadDir(256)
+      if len(batch) != 0 && store.accountingListed != nil {
+        store.accountingListed(directory)
+      }
       for _, entry := range batch {
         entries++
         if entries > 100000 {
@@ -43,6 +56,9 @@ func accountArtifactStore(store *artifactStore) (artifactAccounting, error) {
         }
         child := filepath.ToSlash(filepath.Join(directory, entry.Name()))
         info, err := store.root.Lstat(child)
+        if errors.Is(err, fs.ErrNotExist) {
+          continue
+        }
         if err != nil {
           return err
         }
