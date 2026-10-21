@@ -26,9 +26,9 @@ func TestAccountArtifactStore(t *testing.T) {
     }
     t.Cleanup(func() { store.close() })
     for name, body := range map[string]string{
-      "base/packs/base.pack":                 "packbin",
-      "base/staging/base-0123.lock":          "lockowner",
-      "base/staging/keep.bin":                "kept!",
+      "base/packs/base.pack":                  "packbin",
+      "base/staging/base-0123.lock":           "lockowner",
+      "base/staging/keep.bin":                 "kept!",
       "overlay/staging/transient/partial.bin": "gone",
     } {
       file := filepath.Join(store.path, filepath.FromSlash(name))
