@@ -298,6 +298,8 @@ assert.ok(rejected.pid > 0);
 try { process.kill(rejected.pid, 0); throw new Error("rejection actor closure remained unresolved"); }
 catch (error) { if (error.code !== "ESRCH") throw error; }
 const readonlyActive = process.env.TTSC_E2E_READONLY_DENIED === "1";
+// On TypeScript 7.1 the excluded readonly entry compiles in memory and runs.
+const excludedRan = readonlyActive && process.env.TTSC_E2E_IN_MEMORY_ROOTS === "1";
 const rejectedLines = rejected.stdout.trim().split(/\r?\n/);
 const dependencyDeliveryPrefix = "dependency entry ran";
 assert.deepEqual(rejectedLines.filter((line) => line.startsWith(dependencyDeliveryPrefix)),
@@ -310,8 +312,10 @@ const cjsMain = JSON.parse(cjsMainLines[0].slice(cjsMainPrefix.length));
 assert.equal(fs.realpathSync.native(cjsMain.argv1), fs.realpathSync.native(path.join(__dirname, "runtime-negative/readonly/src/main.ts")));
 const { argv1: cjsArgv, ...cjsIdentity } = cjsMain;
 assert.deepEqual(cjsIdentity, { main: true, cache: "object", shared: true }, "the existing typed CommonJS child must stay the main module under an actual import preload");
-assert.equal(responseLines.filter((line) => !line.startsWith(cjsMainPrefix)).join("\n"), "Hello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:true\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nread-only-ran\nHello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:false\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nincluded-ran", "the two existing entry children must preserve complete decorator effects, opposite native response targets and automatic/forwarded preserved JSX");
-assert.doesNotMatch(rejected.stdout, /(?:^|\r?\n)(?:ran|outside-ran)(?:\r?\n|$)/, "neither the refused JavaScript entry nor the excluded typed entry may execute");
+assert.equal(responseLines.filter((line) => !line.startsWith(cjsMainPrefix)).join("\n"), "Hello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:true\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nread-only-ran\n" + (excludedRan ? "outside-ran\n" : "") + "Hello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:false\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nincluded-ran", "the two existing entry children must preserve complete decorator effects, opposite native response targets and automatic/forwarded preserved JSX");
+assert.doesNotMatch(rejected.stdout, /(?:^|\r?\n)ran(?:\r?\n|$)/, "the refused JavaScript entry must not execute");
+if (!excludedRan)
+  assert.doesNotMatch(rejected.stdout, /(?:^|\r?\n)outside-ran(?:\r?\n|$)/, "the excluded typed entry must not execute when its temporary tsconfig is refused");
 assert.match(rejected.stderr, /-r requires a value/);
 assert.match(rejected.stderr, /ttsx: entry not found:/);
 assert.match(rejected.stderr, /missing-entry\.ts/);
@@ -325,7 +329,8 @@ assert.match(rejected.stderr, /TS6133/);
 const plainRejectedDiagnostics = rejected.stderr.replace(/\x1b\[[0-9;]*m/g, "");
 assert.match(plainRejectedDiagnostics, /tools[\\/]configured-owners[\\/]diagnostic[\\/]tsconfig\.json/);
 assert.match(plainRejectedDiagnostics, /src[\\/]index\.ts:[^\r\n]*TS6133[^\r\n]*unused/);
-if (readonlyActive) {
+if (excludedRan) assert.doesNotMatch(rejected.stderr, /is not writable/);
+else if (readonlyActive) {
   assert.match(rejected.stderr, /is not writable/);
   assert.ok(rejected.stderr.includes(process.env.TTSC_E2E_READONLY_ROOT));
   assert.match(rejected.stderr, /"include" or "files"/);
@@ -337,7 +342,7 @@ assert.equal(rejectedObservation.dependencyDeliveryStatus, 0);
 const { dependencyStatus, dependencyDeliveryStatus, ...priorRejectionObservation } = rejectedObservation;
 assert.deepEqual(priorRejectionObservation,
   { statuses: [2, 2], exitCode: 2, pid: rejected.pid,
-    readonly: readonlyActive ? { skipped: false, statuses: [0, 2, 0] } : { skipped: true, statuses: [] },
+    readonly: readonlyActive ? { skipped: false, statuses: [0, excludedRan ? 0 : 2, 0] } : { skipped: true, statuses: [] },
     response: { statuses: [0, 0, 2] } });
 assert.equal(receiptCount(), registerBefore, "frontend refusals and plugin-free readonly calls must not execute a context-reporting fixture contributor; this is not a raw compiler/Program count");
 unchanged();

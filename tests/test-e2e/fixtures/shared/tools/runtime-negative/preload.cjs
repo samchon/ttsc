@@ -25,6 +25,9 @@ Promise.all([
   }
   const directory = process.env.TTSC_E2E_READONLY_ROOT;
   const denied = process.env.TTSC_E2E_READONLY_DENIED === "1";
+  // TypeScript 7.1 compiles the excluded entry in memory; 7.0 needs a temporary
+  // tsconfig beside the project's own, which the denied directory refuses.
+  const inMemory = process.env.TTSC_E2E_IN_MEMORY_ROOTS === "1";
   const before = fs.readdirSync(directory).sort();
   const cache = process.env.TTSC_CACHE_DIR;
   const nodeOptions = process.env.NODE_OPTIONS;
@@ -45,7 +48,7 @@ Promise.all([
     response = { statuses: [defaultStatus, includedStatus, invalidStatus] };
     assert.deepEqual(response.statuses, [0, 0, 2]);
     readonly = denied ? { skipped: false, statuses: [defaultStatus, excludedStatus, includedStatus] } : { skipped: true, statuses: [] };
-    if (denied) assert.deepEqual(readonly.statuses, [0, 2, 0]);
+    if (denied) assert.deepEqual(readonly.statuses, [0, inMemory ? 0 : 2, 0]);
     assert.deepEqual(fs.readdirSync(directory).sort(), before, "denied input namespace must not gain a temporary config or output");
   } finally {
     process.chdir(previousDirectory);

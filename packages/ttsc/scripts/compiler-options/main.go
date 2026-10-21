@@ -16,6 +16,12 @@ type option struct {
   Kind       string `json:"kind"`
   Element    string `json:"element,omitempty"`
   ConfigOnly bool   `json:"configOnly"`
+  // A command-line value that names a path, which the compiler resolves
+  // against the working directory; for a list, its elements.
+  FilePath bool `json:"filePath"`
+  // An option the compiler accepts only on the command line, never in a
+  // tsconfig.
+  CommandLineOnly bool `json:"commandLineOnly"`
 }
 
 // Read exported declarations from the same pinned module as ParseCommandLine.
@@ -23,9 +29,10 @@ func main() {
   options := []option{}
   declarations := append(append([]*tsoptions.CommandLineOption{}, tsoptions.OptionsDeclarations...), watchOptionDeclarations()...)
   for _, declaration := range declarations {
-    entry := option{Name: declaration.Name, Alias: declaration.ShortName, Kind: string(declaration.Kind), ConfigOnly: declaration.IsTSConfigOnly}
+    entry := option{Name: declaration.Name, Alias: declaration.ShortName, Kind: string(declaration.Kind), ConfigOnly: declaration.IsTSConfigOnly, FilePath: declaration.IsFilePath, CommandLineOnly: declaration.IsCommandLineOnly}
     if declaration.Kind == "list" {
       entry.Element = string(declaration.Elements().Kind)
+      entry.FilePath = declaration.Elements().IsFilePath
     }
     options = append(options, entry)
   }

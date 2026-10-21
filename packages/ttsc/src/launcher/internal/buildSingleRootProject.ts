@@ -8,6 +8,7 @@ import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEn
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
+import { buildSingleRootInMemory } from "./buildSingleRootInMemory";
 import { DependencyBuildGeneration } from "./runtime/DependencyBuildGeneration";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { runtimeEmitProfile } from "./runtimeEmitProfile";
@@ -35,20 +36,24 @@ import { singleRootProjectConfig } from "./singleRootProjectConfig";
  * there. A checked build needs all of them exactly as the user's config sees
  * them, so its tsconfig is written beside the real one, and a directory that
  * refuses the write is reported by name. TypeScript-Go's command line cannot
- * combine a project with a file list, and ttsc ships no host that replaces a
- * project's roots in memory, so no other placement is faithful. An emit-only
- * build ignores diagnostics, and none of those lookups changes what it emits,
- * with one exception: `${configDir}` inside `paths` or `baseUrl` decides which
- * module an import resolves to, and so whether a re-exported name is elided as
- * a type. Unless its config chain uses `${configDir}`, an emit-only build's
- * tsconfig is written beside `emitDir` instead, because such a build runs while
- * the program is running, for an installed package whose directory may be
- * read-only or for a plugin descriptor whose inputs are fingerprinted by their
- * directory's metadata, and a file created and removed in the user's tree would
- * disturb both. The overlay is created exclusively: an occupied name is refused
- * without writing or removing that entry. After acquisition, closing its
- * descriptor and removing the overlay are attempted on success or failure;
- * native cleanup failures may leave the overlay behind.
+ * combine a project with a file list, so no other placement is faithful for it.
+ * TypeScript 7.1's API can hold that tsconfig in memory, beside the real one,
+ * without creating a file: `buildSingleRootInMemory` takes the build first, and
+ * everything below runs only when that route is unavailable: for a TypeScript
+ * 7.0 project, native plugins, a custom compiler, or arguments a tsconfig
+ * cannot carry. An emit-only build ignores diagnostics, and none of those
+ * lookups changes what it emits, with one exception: `${configDir}` inside
+ * `paths` or `baseUrl` decides which module an import resolves to, and so
+ * whether a re-exported name is elided as a type. Unless its config chain uses
+ * `${configDir}`, an emit-only build's tsconfig is written beside `emitDir`
+ * instead, because such a build runs while the program is running, for an
+ * installed package whose directory may be read-only or for a plugin descriptor
+ * whose inputs are fingerprinted by their directory's metadata, and a file
+ * created and removed in the user's tree would disturb both. The overlay is
+ * created exclusively: an occupied name is refused without writing or removing
+ * that entry. After acquisition, closing its descriptor and removing the
+ * overlay are attempted on success or failure; native cleanup failures may
+ * leave the overlay behind.
  *
  * `rootDir` is the root of the source's volume. The layout of this emit is
  * private, so `rootDir` decides nothing here but whether a file of the program
@@ -76,12 +81,12 @@ import { singleRootProjectConfig } from "./singleRootProjectConfig";
  *   synthesized from maps.
  * @throws When the build fails. A checked build fails on any diagnostic; an
  *   emit-only build fails only when it produced no JavaScript at all.
- * @evidence contracts/common.md#principled-implementation A transient extends overlay changes only roots and runtime output constraints, while preserving configDir-sensitive anchors; effective rootDir is returned for output ownership rather than inferred from emitted filenames.
- * @evidence contracts/common.md#clear-and-simple-design This boundary owns single-root overlay construction and cleanup, delegates project parsing/building, and isolates writable-directory diagnostics in a private helper.
+ * @evidence contracts/common.md#principled-implementation The in-memory API route is tried first and owns its own admission; otherwise a transient extends overlay changes only roots and runtime output constraints, while preserving configDir-sensitive anchors; effective rootDir is returned for output ownership rather than inferred from emitted filenames.
+ * @evidence contracts/common.md#clear-and-simple-design This boundary selects the in-memory route when it is available and otherwise owns single-root overlay construction and cleanup, delegates project parsing/building, and isolates writable-directory diagnostics in a private helper.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Private emit layout, disabled declaration/composite products and checked versus installed-package diagnostics are runtime contract distinctions, not source patches or tests-only compiler modes.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain overlay placement, wide rootDir, diagnostics and cleanup, while separately documented input members preserve their ownership facts.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the in-memory route and when it is unavailable, overlay placement, wide rootDir, diagnostics and cleanup, while separately documented input members preserve their ownership facts.
  * @evidence contracts/portability.md#os-neutral-implementation Shared filesystem identity selects the source volume from resolved native identity when available and retained spelling otherwise; overlay JSON converts only native separators, preserving literal POSIX backslashes. Public exclusive creation refuses an occupied overlay name without overwriting it; explicit compiler paths avoid shell interpolation and blanket case folding.
- * @evidence contracts/performance.md#efficient-algorithms Emit-only placement parses the config chain and scans its text for configDir anchors; checked placement skips that scan. Native identity resolution, overlay serialization/write, effective-options preparation and delegated compilation contribute path/input/output byte costs; this boundary performs no source-directory mirror or second whole-project compilation.
+ * @evidence contracts/performance.md#efficient-algorithms An admitted in-memory build replaces every step below with its own single API session; a refused one adds its admission (a project parse and an execution resolution without plugin loading) before them. Emit-only placement parses the config chain and scans its text for configDir anchors; checked placement skips that scan. Native identity resolution, overlay serialization/write, effective-options preparation and delegated compilation contribute path/input/output byte costs; this boundary performs no source-directory mirror or second whole-project compilation.
  * @evidence contracts/performance.md#reuse-equivalent-work One effective-options reader for this overlay and exact forwarded tokens is shared by runtime lowering, emit classification and rootDir selection, avoiding duplicate response-file compiler queries. Callers own sharing of completed build generations.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Exclusive open establishes ownership of one transient tsconfig and descriptor. The descriptor is closed before parsing; finally attempts any remaining close and removal after write, close, parse or build failure, without removing a failed-acquisition entry. Native cleanup failures may retain the overlay; caller owns emit storage and delegated build lifetimes.
  */
@@ -139,6 +144,8 @@ export function buildSingleRootProject(props: {
       throwOnRealpathError: false,
     }).resolve(props.source).path,
   ).root;
+  const inMemory = buildSingleRootInMemory({ ...props, options, volumeRoot });
+  if (inMemory !== undefined) return inMemory;
   const beside =
     props.checked ||
     readProjectConfig({ tsconfig: props.tsconfig }).configPaths.some((file) =>
@@ -300,6 +307,7 @@ function unwritableConfigDirectory(
       `ttsx: cannot compile ${props.source} with the options of ${props.tsconfig}: ${directory} is not writable (${code}).`,
       "The file is outside that project's file set, and ttsx compiles it through a temporary tsconfig placed beside the project's own for the length of the build.",
       `Make the directory writable, or add the file to the project's "include" or "files".`,
+      "With TypeScript 7.1 or later, a build without native plugins, a custom compiler or a response file compiles it in memory instead.",
     ].join("\n"),
   );
 }

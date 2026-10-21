@@ -3,10 +3,10 @@
  * configuration-only options have their own lookahead rules; non-configuration
  * scalar options consume a following dash-prefixed token as data.
  *
- * @evidence contracts/common.md#principled-implementation Kind, list element and configuration-only status preserve the distinctions consumed by the pinned native parser instead of collapsing every nonboolean option into one arity.
+ * @evidence contracts/common.md#principled-implementation Kind, list element and configuration-only status preserve the distinctions consumed by the pinned native parser instead of collapsing every nonboolean option into one arity; path and command-line-only status are the declaration's own IsFilePath and IsCommandLineOnly, which decide how a command-line value moves into a tsconfig.
  * @evidence contracts/common.md#clear-and-simple-design One immutable metadata record describes grammar; occurrence reading separately owns argv lookahead and launcher FlagSpec separately owns launcher semantics.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The generator obtains these fields from exported native declarations rather than help text, spelling exceptions or source-file suffix guesses.
- * @evidence contracts/common.md#meaningful-documentation Native prose identifies the scalar, list and configuration-only distinctions; member comments state the source and optional element meaning.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies the scalar, list and configuration-only distinctions; member comments state the source, optional element meaning, and which values are paths or command-line only.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
  * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
@@ -27,4 +27,13 @@ export interface CompilerOptionSpec {
    * other kinds.
    */
   readonly configOnly: boolean;
+
+  /**
+   * Whether a command-line value names a path the compiler resolves against the
+   * working directory; for a list, whether its elements do.
+   */
+  readonly filePath: boolean;
+
+  /** Whether the compiler accepts the option only on the command line. */
+  readonly commandLineOnly: boolean;
 }

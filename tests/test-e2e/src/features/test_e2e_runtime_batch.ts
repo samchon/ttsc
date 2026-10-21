@@ -5,9 +5,11 @@ import {
 } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { CompilerTarget } from "../../../../packages/ttsc/src/plugin/internal/source/CompilerTarget";
 import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { NativeProcessObserver } from "../../../utils/src/NativeProcessObserver";
@@ -194,7 +196,7 @@ import { case_worker_modules_preserve_inherited_node_execution_options } from ".
  * @evidence contracts/testing.md#behavioral-verification Native static ESM linking must expose all six literal package-star bindings while default/require values and one-evaluation counters agree. Installed-boundary plugin effects must match the authored JSON oracle in both public runtime and retained register output; authored fixture bytes and the complete non-cache population remain unchanged; only the independently expected default plugin cache is omitted before traversal, and orphan maps identify all three authored sources by native physical paths. Opt-in compiler rewrite events retain the actual primitive attempt/return/throw with the existing identity and caller thread; these observations do not certify the OS lock owner. The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects. The original binding-only main.mjs and independent b/a modules also execute inside this same Node graph, requiring exactly one b,a stdout line and unchanged authored bytes.
  * @evidence contracts/testing.md#independent-expectations Authored require/import targets have distinct literal values, and consumerEffect versus ownEffect independently distinguishes isolated, consumer-owned and package-owned compilation. The static expected.json is authored before execution, never derived from emitted code or runtime results. The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation. Windows native environment-name identity requires the constructor's literal missing Go executable to reach one actual failed primitive, independently of its documented diagnostic envelope; POSIX distinct names require no attempt of that missing path while the three positive API operations retain their existing descriptor and output assertions.
  * @evidence contracts/testing.md#distinguishing-cases Bare, conditional, source-only, relative and cycle edges coexist with direct exports, type-only erasure and blocked/missing native failures. A proven native NODE_MODULES alias contrasts with its own nearer config and a linked physical workspace outside the store; explicit cts/mts sources leave compiler module-format policy unchanged. Quoted/expression/ordinary JSX strings, JSON alias versus unchanged neighbor and configured throwing call versus retained console.info share the same module graph. The same Program preserves an enum through direct/barrel CommonJS-to-ESM loading with named/default identity, erased interface absence, repeated import identity, one source effect and live default getter42-to43; no extra producer/profile loop is introduced. Static if(false) reexport metadata yields an undefined namespace slot while the real CommonJS object owns no hidden property; template-only ghost metadata yields neither slot nor value. Both throwing helpers must remain inert. The existing ESNext owner additionally imports a literal node_modules CommonJS package and a miscased Node_Modules project source; their different physical parents prevent a case-insensitive filesystem from aliasing the two directory spellings.
- * The existing rejection actor also consumes one upfront readonly namespace. Native permission denial is required before its default-cache success, explicit-cache excluded refusal and included success; restored writes and complete input bytes establish release and nonmutation. Root privilege supplies zero readonly coverage. The two successful dispatches launch two real entry children, while the three former CLI parent launches and separate readonly staging disappear.
+ * The existing rejection actor also consumes one upfront readonly namespace. Native permission denial is required before its default-cache success, explicit-cache excluded entry and included success. On TypeScript 7.0 the excluded entry is refused, because its temporary tsconfig cannot be written beside the project; on 7.1 it compiles in memory and runs, and the denied namespace still gains no entry; restored writes and complete input bytes establish release and nonmutation. Root privilege supplies zero readonly coverage. The two successful dispatches launch two real entry children, while the three former CLI parent launches and separate readonly staging disappear.
  * Those same two entries carry complete standard-decorator effects, opposite optional-chain emission and configured automatic versus direct/response-preserved JSX HTML. The included CommonJS entry also carries an actual import preload, main-module identity, physical argv1 and native shared require.cache identity without another entry child. Nested response before/after visible target flags selects ESNext versus ES2019; an invalid response is a failed dispatcher call with no extra entry child. Privileged runs use an explicit external cache for these two controls while retaining zero permission coverage. The existing register actor starts in the upfront legacy owner's preserve-mode TSX graph and then loads the original declared/descendant graph, keeping its native preparations as explicit work.
  * The already retained lock-holder actor installs public registration, rejects an included number-to-string error before its marker and leaves an empty register project index. Repairing that same source permits FIRST from one excluded index; the next same-basename index fails its entry check before its marker. The final missing owned output still causes actual exit1 and dead-holder cleanup. These checked loads retain native work but introduce no extra host or private profile.
  * The inherited live descendant additionally shares its existing runtime index
@@ -410,6 +412,22 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     ? undefined
     : await FileSystemIterator.read(readonlyRoot);
   const readonlyActive = !workspace.installationOnly && !runsAsRoot();
+  // TypeScript 7.1 publishes the API that compiles an entry outside its project
+  // in memory, so the denied directory does not refuse that entry there.
+  const inMemoryRoots =
+    !workspace.installationOnly &&
+    CompilerTarget.lineOf(
+      (
+        JSON.parse(
+          fs.readFileSync(
+            createRequire(path.join(workspace.root, "package.json")).resolve(
+              "typescript/package.json",
+            ),
+            "utf8",
+          ),
+        ) as { version: string }
+      ).version,
+    ).line !== "7.0";
   if (readonlyActive)
     assert.equal(
       resolveSourceBuildCachePaths(readonlyRoot, undefined, {}).root,
@@ -556,6 +574,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
               ? undefined
               : readonlyRoot,
             TTSC_E2E_READONLY_DENIED: readonlyActive ? "1" : undefined,
+            TTSC_E2E_IN_MEMORY_ROOTS: inMemoryRoots ? "1" : undefined,
             TTSC_E2E_TRACE: runtimeTraceRoot ?? process.env.TTSC_E2E_TRACE,
             TTSC_E2E_DESCENDANT_ROOT: controllerAddress?.directory,
             TTSC_E2E_DESCENDANT_NONCE: controllerAddress?.nonce,
