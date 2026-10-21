@@ -77,6 +77,28 @@ function main() {
     }
   }
 
+  // The generated TypeScript tables are committed as `pnpm format` leaves
+  // them, so format them the same way before comparing, as gofmt does above.
+  const typescriptTargets = selectedTargets.filter(target => target.endsWith(".ts"));
+  if (typescriptTargets.length !== 0) {
+    const prettier = child.spawnSync(
+      process.execPath,
+      [
+        path.join(path.dirname(require.resolve("prettier/package.json")), "bin/prettier.cjs"),
+        "--write",
+        "--log-level=warn",
+        ...typescriptTargets,
+      ],
+      { stdio: "inherit" },
+    );
+    if (prettier.error) {
+      throw prettier.error;
+    }
+    if (prettier.status !== 0) {
+      process.exit(prettier.status ?? 1);
+    }
+  }
+
   const after = snapshot(selectedTargets);
   const drift = computeDrift(before, after, selectedTargets);
   if (drift.length !== 0) {

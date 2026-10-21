@@ -51,6 +51,9 @@ jobs:
       # Every compiler target's shims must cover its compiler's exported API,
       # and both targets must declare the same version-neutral API.
       - run: pnpm --filter ttsc shim:audit
+      # Generated flag tables and the flags reference must match the launcher
+      # schema and the pinned compiler declarations.
+      - run: pnpm run check:flags
       - run: pnpm run evidence
         env:
           EVID_CACHE_DIR: ${{ runner.temp }}/evidence-cache
