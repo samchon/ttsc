@@ -1393,8 +1393,13 @@ func reverseGraphDependencies(program *driver.Program) map[string][]string {
   return reverse
 }
 
+// serveGraphResolutionDigests digests each source's resolved references.
+// Projecting a target resolves its symlinks on disk, and a widely imported
+// file is the target of many references, so each target is projected once per
+// call rather than once per import.
 func serveGraphResolutionDigests(program *driver.Program, project string) (map[string]string, error) {
   digests := map[string]string{}
+  projected := map[string]string{}
   for _, source := range program.TSProgram.SourceFiles() {
     raw := shimcompiler.GetReferencedFilePaths(program.TSProgram, source)
     references := make([]string, 0, len(raw))
@@ -1403,9 +1408,15 @@ func serveGraphResolutionDigests(program *driver.Program, project string) (map[s
       if target == nil {
         continue
       }
-      file, err := serveGraphFile(project, string(target.FileName()), program.TSProgram.UseCaseSensitiveFileNames())
-      if err != nil {
-        return nil, err
+      name := string(target.FileName())
+      file, ok := projected[name]
+      if !ok {
+        var err error
+        file, err = serveGraphFile(project, name, program.TSProgram.UseCaseSensitiveFileNames())
+        if err != nil {
+          return nil, err
+        }
+        projected[name] = file
       }
       references = append(references, file)
     }
