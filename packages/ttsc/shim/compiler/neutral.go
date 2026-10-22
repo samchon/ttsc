@@ -34,6 +34,64 @@ func NewHost(currentDirectory string, fs innervfs.FS, defaultLibraryPath string)
   return innercompiler.NewCompilerHost(currentDirectory, fs, defaultLibraryPath, nil, nil)
 }
 
+// ProjectHosts builds the compiler hosts of the Programs one parsed project
+// produces and owns what those hosts share. On TypeScript 7.1 that is the
+// project's content mappers. TypeScript 7.0 has none, so here every host is a
+// plain host and Close releases nothing.
+//
+// @evidence contracts/common.md#principled-implementation 7.0 has no content mappers, so the type carries no state and its hosts are NewHost's.
+// @evidence contracts/common.md#clear-and-simple-design An empty type gives 7.0 callers the same host construction and release calls as 7.1.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No content-mapper behavior is emulated on a compiler that has none.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the 7.1 meaning and the 7.0 difference.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The type performs no native operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The type stores nothing.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work There is no shared state to reuse.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The type retains nothing.
+type ProjectHosts struct{}
+
+// NewProjectHosts returns the hosts of Programs built from config. TypeScript
+// 7.0 has no content mappers, so the result is always nil.
+//
+// @evidence contracts/common.md#principled-implementation Returns nil, the value whose hosts are plain NewHost hosts.
+// @evidence contracts/common.md#clear-and-simple-design One return keeps the target difference inside the shim.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts config is not inspected for options 7.0 does not define.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the constant result.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The function performs no native operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The function returns a constant.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The function coordinates no shared work.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The function retains nothing.
+func NewProjectHosts(config *innertsoptions.ParsedCommandLine) *ProjectHosts {
+  return nil
+}
+
+// Host returns NewHost's compiler host over fs.
+//
+// @evidence contracts/common.md#principled-implementation Delegates to NewHost, the only 7.0 host.
+// @evidence contracts/common.md#clear-and-simple-design The method exists so 7.0 and 7.1 callers make the same call.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No host behavior is reimplemented here.
+// @evidence contracts/common.md#meaningful-documentation Native prose names the delegate.
+// @evidence contracts/portability.md#os-neutral-implementation The supplied FS owns every native operation the host later makes.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Construction assigns fields.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call returns a fresh host.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The host retains fs and the two strings for the caller's lifetime and owns no handle.
+func (h *ProjectHosts) Host(currentDirectory string, fs innervfs.FS, defaultLibraryPath string) innercompiler.CompilerHost {
+  return NewHost(currentDirectory, fs, defaultLibraryPath)
+}
+
+// Close releases nothing on TypeScript 7.0 and returns nil.
+//
+// @evidence contracts/common.md#principled-implementation 7.0 hosts share no state, so there is nothing to release.
+// @evidence contracts/common.md#clear-and-simple-design The method exists so 7.0 and 7.1 owners make the same call.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No release is pretended for state that does not exist.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the result.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The method performs no native operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The method returns a constant.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The method coordinates no shared work.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The method retains nothing.
+func (h *ProjectHosts) Close() error {
+  return nil
+}
+
 // UpdateProgram returns a Program in which only the file keyed by changed was
 // edited, the changed file as host parsed it, and whether the old Program's
 // data was reused. A nil Program means the update could not be made.

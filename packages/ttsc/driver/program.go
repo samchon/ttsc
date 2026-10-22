@@ -321,6 +321,9 @@ type Program struct {
 
   // Host is the compiler host for this generation.
   Host shimcompiler.CompilerHost
+  // hosts builds every generation's Host and owns the content-mapper processes
+  // those hosts share; Close releases it.
+  hosts *shimcompiler.ProjectHosts
 
   // FS is the input-observing filesystem, including any source preamble layer.
   FS            vfs.FS
@@ -393,22 +396,26 @@ type LoadProgramOptions struct {
   FS vfs.FS
 }
 
-// Close releases the checker pool lease acquired by LoadProgram.
+// Close releases the checker pool lease acquired by LoadProgram and, on the
+// TypeScript 7.1 target, stops the project's content-mapper processes. Its
+// error is the content mappers' close error.
 //
-// @evidence contracts/common.md#principled-implementation The recorded release callback returns the checker lease once and is cleared after release.
-// @evidence contracts/common.md#clear-and-simple-design Checker ownership has one cleanup operation instead of independent releases by each consumer.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Cleanup invokes the owned callback rather than patching the checker pool or fabricating success after another operation fails.
-// @evidence contracts/common.md#meaningful-documentation Native prose names the lease acquired by LoadProgram following the documentation skill.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker release is an in-process pool operation without native path or process representation.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Releasing one recorded lease involves no input-processing algorithm.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Pool lease cleanup does not determine whether compiler outputs may be reused.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Program owns one checker lease, clears its release callback on Close and leaves facade memory lifetime to the caller; repeated Close does not release twice.
+// @evidence contracts/common.md#principled-implementation The recorded release callback returns the checker lease once and is cleared after release; the project hosts then close the mapper project and processes the Program's hosts shared.
+// @evidence contracts/common.md#clear-and-simple-design Checker and content-mapper ownership share one cleanup operation instead of independent releases by each consumer.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Cleanup invokes the owned callbacks rather than patching the checker pool, and returns the mapper close error instead of fabricating success.
+// @evidence contracts/common.md#meaningful-documentation Native prose names the lease and the mapper processes released and the error returned, following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Checker release is in-process; stopping a mapper process goes through the shim's os/exec boundary.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Releasing two recorded owners involves no input-processing algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Cleanup does not determine whether compiler outputs may be reused.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Program owns one checker lease and its project hosts; Close clears both, so repeated Close releases neither twice, and leaves facade memory lifetime to the caller.
 func (p *Program) Close() error {
   if p.checkerRelease != nil {
     p.checkerRelease()
     p.checkerRelease = nil
   }
-  return nil
+  hosts := p.hosts
+  p.hosts = nil
+  return hosts.Close()
 }
 
 // ParseTSConfig parses a tsconfig.json file via tsgo's native JSONC parser.
@@ -672,6 +679,10 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   }
   applyThreadingOptions(parsed, options.SingleThreaded, options.Checkers)
 
+  // The parsed project decides whether its content mappers run, so the
+  // Program's host is built only now, over the same filesystem.
+  hosts := shimcompiler.NewProjectHosts(parsed)
+  host = projectHost(hosts, cwd, fs)
   tsProgram, _, _ := CreateProgramFromConfig(parsed, host)
 
   checker, done := tsProgram.GetTypeChecker(context.Background())
@@ -681,6 +692,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
     Checker:        checker,
     checkerRelease: done,
     Host:           host,
+    hosts:          hosts,
     FS:             fs,
     inputObserver:  inputObserver,
     SourcePreamble: options.SourcePreamble,

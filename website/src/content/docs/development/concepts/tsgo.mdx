@@ -95,10 +95,12 @@ The two compilers differ in API shape. TypeScript 7.1 types every path, hides `a
 | `shim/ast` | `SymbolNameOf`, `SymbolFlagsOf`, `SymbolCheckFlagsOf`, `SymbolDeclarationsOf`, `SymbolValueDeclarationOf`, `SymbolMembersOf`, `SymbolExportsOf`, `SymbolParentOf`, `SymbolExportSymbolOf`, `SourceFilePathKey` |
 | `shim/tspath` | `ToRootedFilePath`, `ToRootedDirectoryPath`, `TryRootedPathFromAbsolute`, `TryRootedFilePathFromAbsolute`, `RootedPathFromAbsolute`, `RootedFilePathFromAbsolute`, `RootedDirectoryPathFromAbsolute`, `RootedPathFromNormalized`, `RootedDirectoryPathFromNormalized`, `RootedDirectoryPathFromPath`, `Canonicalize`, `CompareFilePaths`, `ContainsPathWith`, `RelativePathFromFile`, `RelativePathFromDirectoryWith`, `RelativeModuleSpecifier`, `ResolveFile`, `FileBaseName`, `FileDirectory` |
 | `shim/vfs` | `CaseSensitivityOf` |
-| `shim/compiler` | `NewHost`, `NewProgramOptions`, `UpdateProgram`, `ProgramCaseSensitivity`, `ProgramPathKey`, `SourceFilesToEmit`, `OutputPathsFor`, `TargetedEmitOptions`, `EmitsWholeProgram` |
+| `shim/compiler` | `NewHost`, `NewProjectHosts`, `NewProgramOptions`, `UpdateProgram`, `ProgramCaseSensitivity`, `ProgramPathKey`, `SourceFilesToEmit`, `OutputPathsFor`, `TargetedEmitOptions`, `EmitsWholeProgram` |
 | `shim/tsoptions` | `NewParseConfigHost`, `ParseCommandLineAt` |
 
 For example, `sym.Name` on 7.0 and `sym.Name()` on 7.1 are both `shimast.SymbolNameOf(sym)`, and `program.UseCaseSensitiveFileNames()` and `program.CaseSensitivity()` are both `shimcompiler.ProgramCaseSensitivity(program)`.
+
+A plugin that builds its own Program, instead of calling `driver.LoadProgram`, builds its host with `NewProjectHosts(parsed).Host(directory, fs, libraryPath)` after parsing the config, and calls `Close` on the `ProjectHosts` when it drops the Program. On 7.1 a project that declares `contentMappers` and was given `--runExternalCode` then reads its mapped files through those mappers, and `Close` stops the mapper processes. Build each incremental generation's host from the same `ProjectHosts`, so it keeps those processes. On 7.0 `NewProjectHosts` returns nil, whose `Host` is `NewHost`. `NewHost` alone never runs a content mapper.
 
 - Build tags: a plugin built for 7.1 compiles with the `ttsc_typescript_7_1` tag. Code the neutral API cannot express, such as the methods of a type that implements an upstream interface whose method set changed, goes in a file marked `//go:build ttsc_typescript_7_1` beside one marked `//go:build !ttsc_typescript_7_1`. `ttsc`'s own driver splits its emit host this way in `target_ts70.go` and `target_ts71.go`.
 

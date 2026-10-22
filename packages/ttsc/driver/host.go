@@ -55,3 +55,10 @@ func DefaultFS() vfs.FS {
 func DefaultHost(cwd string, fs vfs.FS) shimcompiler.CompilerHost {
   return shimcompiler.NewHost(shimtspath.RootedDirectoryPath(cwd), fs, shimtspath.RootedDirectoryPath(bundled.LibPath()))
 }
+
+// projectHost is DefaultHost for a Program built from a parsed project: on the
+// TypeScript 7.1 target, hosts transforms the project's content-mapped files
+// through its content mappers. A nil hosts yields DefaultHost's host.
+func projectHost(hosts *shimcompiler.ProjectHosts, cwd string, fs vfs.FS) shimcompiler.CompilerHost {
+  return hosts.Host(shimtspath.RootedDirectoryPath(cwd), fs, shimtspath.RootedDirectoryPath(bundled.LibPath()))
+}

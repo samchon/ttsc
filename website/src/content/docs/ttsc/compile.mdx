@@ -98,6 +98,18 @@ Flag names are matched the way `tsc` matches them: case-insensitively, with one 
 
 Any flag `ttsc` does not own is forwarded as-is to `tsc`, so classic `tsc` compilerOptions work on the command line too, `ttsc --strict src/main.ts`, `ttsc --target es2020`, `ttsc --listFiles`. The usual home for `target`, `module`, `strict`, `lib`, and friends is still `tsconfig.json`; the CLI form just overrides it for one run. On a project that configures a ttsc plugin, the forwarded flag still reaches the in-process compiler, though tsc's reporting flags (`--listFiles`, `--showConfig`, …) only print on a plain, plugin-free build. A plugin build receives the flags through the environment rather than its command line, so a sidecar with a strict flag parser is never handed an option it does not know; see [Plugin protocol → Environment](/docs/development/concepts/protocol#environment).
 
+## Content mappers
+
+TypeScript 7.1 content mappers turn files the compiler cannot read, such as `.sql` or `.vue`, into TypeScript while the program is built. Declare them under `contentMappers` in `tsconfig.json`, then pass `--runExternalCode`, the flag `tsc` requires before it runs a mapper's process:
+
+```bash
+npx ttsc --runExternalCode
+```
+
+On a project that configures a ttsc plugin, the mapped TypeScript joins the program the plugins see. A plugin such as typia therefore reads the types a mapped `.sql` import exports, as it reads any other source. Each mapper process lives as long as the program that started it. A resident session, such as `ttsc check --watch`, keeps its mappers across the edits it applies to that program.
+
+Without the flag, the build fails with `TS18068`, as `tsc` does. A TypeScript 7.0 project has no content mappers, so 7.0 rejects `--runExternalCode` as an unknown option (`TS5023`).
+
 ## Build information
 
 `incremental` and `composite` make `tsc` write a `.tsbuildinfo` next to the tsconfig, or wherever `tsBuildInfoFile` points. `ttsc` writes the same file, in the same format and at the same path, on both lanes: a plain build, and a build a ttsc plugin owns.

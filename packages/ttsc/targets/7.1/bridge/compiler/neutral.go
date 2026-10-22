@@ -1,9 +1,15 @@
 package compiler
 
 import (
+  "context"
+  "errors"
+  "sync"
+
   innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
   innercompiler "github.com/microsoft/TypeScript/tsc/internal/compiler"
+  "github.com/microsoft/TypeScript/tsc/internal/contentmapper"
   innercore "github.com/microsoft/TypeScript/tsc/internal/core"
+  innerlocale "github.com/microsoft/TypeScript/tsc/internal/locale"
   inneroutputpaths "github.com/microsoft/TypeScript/tsc/internal/outputpaths"
   innertsoptions "github.com/microsoft/TypeScript/tsc/internal/tsoptions"
   innertspath "github.com/microsoft/TypeScript/tsc/internal/tspath"
@@ -32,6 +38,94 @@ import (
 // @evidence contracts/performance.md#bound-retention-and-release-resources The host retains fs and the library path for the caller's lifetime and owns no handle.
 func NewHost(currentDirectory innertspath.RootedDirectoryPath, fs innervfs.FS, defaultLibraryPath innertspath.RootedDirectoryPath) innercompiler.CompilerHost {
   return innercompiler.NewCompilerHost(fs, defaultLibraryPath, nil, nil, nil)
+}
+
+// ProjectHosts builds the compiler hosts of the Programs one parsed project
+// produces and owns what those hosts share. On TypeScript 7.1 that is the
+// project's content mappers: when the config declares `contentMappers` and the
+// command line passed `--runExternalCode`, every host transforms content-mapped
+// files through one mapper project, and Close stops the mapper processes. A nil
+// ProjectHosts builds plain hosts. TypeScript 7.0 has no content mappers.
+//
+// @evidence contracts/common.md#principled-implementation Mirrors tsc's own setup: a content-mapper host and its ProjectSpec project exist only under runExternalCode with configured mappers, and the project is handed to every compiler host.
+// @evidence contracts/common.md#clear-and-simple-design One value pairs host construction with the release of the mapper state the hosts share, so incremental hosts keep the project the first host used.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The compiler's own runExternalCode gate and mapper resolution decide whether mappers run; no ttsc authorization or mapping policy is added.
+// @evidence contracts/common.md#meaningful-documentation Native prose states when mappers run, the nil meaning and the 7.0 difference.
+// @evidence contracts/portability.md#os-neutral-implementation Mapper processes start through spawnContentMapper's os/exec boundary in each mapper package's directory; the supplied FS owns every file read.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The type stores two handles and chooses no algorithm.
+// @evidence contracts/performance.md#reuse-equivalent-work Every host built from one ProjectHosts shares one mapper project, so an incremental generation reuses the processes the first generation started.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The mapper project and host, and with them every spawned mapper process, live until Close; Close releases them once.
+type ProjectHosts struct {
+  mappers   contentmapper.Host
+  project   contentmapper.Project
+  closeOnce sync.Once
+  closeErr  error
+}
+
+// NewProjectHosts returns the hosts of Programs built from config. It starts
+// no process: mapper processes start when a host first reads a mapped file.
+//
+// @evidence contracts/common.md#principled-implementation Opens the content-mapper host and project exactly as tsc's NewContentMapperHost and getContentMapperProject do, from the config's resolved mappers and effective options.
+// @evidence contracts/common.md#clear-and-simple-design One gate returns either a nil value or a value holding the mapper project.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Mapper resolution and its diagnostics stay with the config parser; this function adds none.
+// @evidence contracts/common.md#meaningful-documentation Native prose states that construction starts no process.
+// @evidence contracts/portability.md#os-neutral-implementation Construction performs no native operation; mapper processes start later through spawnContentMapper.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Construction checks one option and one slice length.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call opens its own mapper state; callers share it by holding the value.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned value owns the mapper host and project until Close.
+func NewProjectHosts(config *innertsoptions.ParsedCommandLine) *ProjectHosts {
+  if config == nil || !config.CompilerOptions().RunExternalCode.IsTrue() || len(config.ContentMappers()) == 0 {
+    return nil
+  }
+  diagnosticLocale, _ := innerlocale.Parse(config.CompilerOptions().Locale)
+  mappers := contentmapper.NewHost(context.Background(), contentmapper.SpawnerFunc(spawnContentMapper), diagnosticLocale)
+  return &ProjectHosts{
+    mappers: mappers,
+    project: mappers.Project(contentmapper.ProjectSpec{
+      ConfigFileName:  config.ConfigName(),
+      Mappers:         config.ContentMappers(),
+      CompilerOptions: config.CompilerOptions(),
+    }),
+  }
+}
+
+// Host returns a compiler host over fs, like NewHost, that transforms
+// content-mapped files through this project's mappers.
+//
+// @evidence contracts/common.md#principled-implementation Calls NewCompilerHost with the shared mapper project, the argument tsc passes for the same project.
+// @evidence contracts/common.md#clear-and-simple-design A nil receiver reduces to NewHost, so callers need no separate plain-host branch.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Content-mapped file loading stays the compiler host's.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the relation to NewHost.
+// @evidence contracts/portability.md#os-neutral-implementation The supplied FS owns every native read the host makes.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Construction assigns fields.
+// @evidence contracts/performance.md#reuse-equivalent-work Every returned host shares one mapper project.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The host borrows the project; Close on the ProjectHosts releases it.
+func (h *ProjectHosts) Host(currentDirectory innertspath.RootedDirectoryPath, fs innervfs.FS, defaultLibraryPath innertspath.RootedDirectoryPath) innercompiler.CompilerHost {
+  if h == nil {
+    return NewHost(currentDirectory, fs, defaultLibraryPath)
+  }
+  return innercompiler.NewCompilerHost(fs, defaultLibraryPath, nil, nil, h.project)
+}
+
+// Close closes the mapper project and stops every mapper process. Later calls
+// return the first result.
+//
+// @evidence contracts/common.md#principled-implementation Closes the project before its host, the order tsc releases them in.
+// @evidence contracts/common.md#clear-and-simple-design sync.Once makes release idempotent for every owner that closes it.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Both close errors are returned rather than dropped.
+// @evidence contracts/common.md#meaningful-documentation Native prose states repeated-call behavior.
+// @evidence contracts/portability.md#os-neutral-implementation Stopping a mapper closes its pipes and kills its process through os/exec.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Release closes two handles.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Release coordinates no shared computation.
+// @evidence contracts/performance.md#bound-retention-and-release-resources After Close no mapper process of this project remains; hosts built from it can no longer transform mapped files.
+func (h *ProjectHosts) Close() error {
+  if h == nil {
+    return nil
+  }
+  h.closeOnce.Do(func() {
+    h.closeErr = errors.Join(h.project.Close(), h.mappers.Close())
+  })
+  return h.closeErr
 }
 
 // UpdateProgram returns a Program in which only the file keyed by changed was

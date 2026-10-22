@@ -109,6 +109,10 @@ func NewProgramOptions(p0 *tsctsoptions.ParsedCommandLine, p1 tsccompiler.Compil
   return tsccompiler.NewProgramOptions(p0, p1, p2)
 }
 
+func NewProjectHosts(p0 *tsctsoptions.ParsedCommandLine) *tsccompiler.ProjectHosts {
+  return tsccompiler.NewProjectHosts(p0)
+}
+
 type OutputPaths = tsccompiler.OutputPaths
 
 // OutputPathsFor holds the bridge function: its signature uses a type no bridge
@@ -152,6 +156,8 @@ type ProgramResolutionTask = tsccompiler.ProgramResolutionTask
 func ProgramResolutionTasks(p0 *tsccompiler.Program) []tsccompiler.ProgramResolutionTask {
   return tsccompiler.ProgramResolutionTasks(p0)
 }
+
+type ProjectHosts = tsccompiler.ProjectHosts
 
 func ReplayAutomaticTypeDirectiveDiscovery(p0 *tsccompiler.Program, p1 tscvfs.FS) {
   tsccompiler.ReplayAutomaticTypeDirectiveDiscovery(p0, p1)

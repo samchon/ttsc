@@ -48,9 +48,12 @@ type program struct {
   configInputs  []configDependencyFingerprint
   tsProgram     *shimcompiler.Program
   parsed        *tsoptions.ParsedCommandLine
-  checker       *shimchecker.Checker
-  identity      publicrule.ProjectIdentity
-  projectCycle  *projectCycle
+  // hosts builds every generation's compiler host and owns the content-mapper
+  // processes those hosts share on the TypeScript 7.1 target; close releases it.
+  hosts        *shimcompiler.ProjectHosts
+  checker      *shimchecker.Checker
+  identity     publicrule.ProjectIdentity
+  projectCycle *projectCycle
   // projectRoots memoizes projectSourceFileNames, which resolves every
   // selected file's path and therefore costs filesystem work. The tsconfig
   // selection cannot change while one program is loaded — a config edit or a
@@ -124,7 +127,6 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     reader = newProjectInputReader(observer)
     fs = observer
   }
-  host := shimcompiler.NewHost(cwdDir, fs, shimtspath.RootedDirectoryPath(bundled.LibPath()))
   // Forwarded flags convert relative values against their own argv base, so
   // only the parser's directory changes.
   argumentDir := cwdDir
@@ -182,6 +184,10 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     overrideOutDir(cwdDir, parsed, options.outDir)
   }
   applyThreading(parsed, options.singleThreaded, options.checkers)
+  // The parsed project decides whether its content mappers run, so the
+  // Program's host is built only now, over the same filesystem.
+  hosts := shimcompiler.NewProjectHosts(parsed)
+  host := hosts.Host(cwdDir, fs, shimtspath.RootedDirectoryPath(bundled.LibPath()))
 
   // Keep the user's checker pool intact for parallel semantic diagnostics.
   // Type-aware lint rules cannot borrow one member of that pool: they walk
@@ -205,6 +211,7 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     inputReader:   reader,
     tsProgram:     tsProgram,
     parsed:        parsed,
+    hosts:         hosts,
     checker:       checker,
     identity:      normalizeProjectIdentity(options.projectIdentity, cwd, resolved),
   }, nil, nil
@@ -435,13 +442,17 @@ func (p *program) runCycleOver(engine *Engine, files []*shimast.SourceFile) []*F
   return append(p.projectCycle.finalize(), fileFindings...)
 }
 
-// close drops the standalone lint checker. Safe to call on a nil receiver and
-// idempotent after the first call.
+// close drops the standalone lint checker and stops the project's
+// content-mapper processes. Safe to call on a nil receiver and idempotent after
+// the first call. A mapper that fails to stop has already been killed, and no
+// lint result depends on its exit, so the close error is not reported.
 func (p *program) close() {
   if p == nil {
     return
   }
   p.checker = nil
+  _ = p.hosts.Close()
+  p.hosts = nil
 }
 
 // sourceFileByPath returns the resident Program's source file whose name matches
@@ -484,7 +495,9 @@ func (p *program) applyChange(absPath string) bool {
     return false
   }
   fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
-  host := shimcompiler.NewHost(shimtspath.RootedDirectoryPath(p.cwd), fs, shimtspath.RootedDirectoryPath(bundled.LibPath()))
+  // The new host keeps the Program's content mappers, so a mapped file is
+  // still transformed by the processes the first generation started.
+  host := p.hosts.Host(shimtspath.RootedDirectoryPath(p.cwd), fs, shimtspath.RootedDirectoryPath(bundled.LibPath()))
   // The second result is the changed file as host parsed it, returned so a
   // host with a parse cache can release it; this host parses without one.
   newProg, _, reused := shimcompiler.UpdateProgram(p.tsProgram, shimcompiler.ProgramPathKey(p.tsProgram, name), host)

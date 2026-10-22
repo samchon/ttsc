@@ -23,7 +23,7 @@ import { parseTtsxCLI } from "../../../../../packages/ttsc/src/launcher/internal
  *
  * @evidence contracts/testing.md#behavioral-verification Actual occurrence reading, passthrough classification/removal and launcher parsing preserve native scalar operands, reset tokens and entry/tail ownership.
  * @evidence contracts/testing.md#independent-expectations Literal widths follow the pinned native commandlineparser.go parseOptionValue/ParseListTypeOption contract: scalars consume dash operands, configuration-only resets have separate rules, and list consumption depends on elements or diagnostics. Its IsWhiteSpaceLike enum trimming differs from Go TrimSpace. Authored retained argv arrays specify deletion fences independently of the generated metadata and TypeScript cursor.
- * @evidence contracts/testing.md#distinguishing-cases Scalar dash operands contrast with list lookahead, config-only false/null contrasts with rejected true, empty tokens contrast with FEFF and Unicode White_Space, and removal fences distinguish both list and implicit-boolean rebinding.
+ * @evidence contracts/testing.md#distinguishing-cases Scalar dash operands contrast with list lookahead, config-only false/null contrasts with rejected true, empty tokens contrast with FEFF and Unicode White_Space, the 7.1-only runExternalCode boolean keeps its explicit value unlike an unknown option, and removal fences distinguish both list and implicit-boolean rebinding.
  * @evidence contracts/testing.md#execution-ownership One discoverable source unit calls the maintained TypeScript operations directly with in-memory arguments. The expectation basis is the separately maintained pinned native parser contract; this body starts no native oracle, compiler, SDK build or program process.
  */
 export const test_compiler_option_cursor_preserves_native_operand_boundaries =
@@ -53,6 +53,10 @@ export const test_compiler_option_cursor_preserves_native_operand_boundaries =
       [["--diagnostics", "TRUE"], 1],
       [["--diagnostics=false", "entry.ts"], 1],
       [["--unknown", "entry.ts"], 1],
+      // TypeScript 7.1 declares runExternalCode; the launcher table is the
+      // union of both targets, so its explicit value stays with it.
+      [["--runExternalCode", "false"], 2],
+      [["--runExternalCode", "entry.ts"], 1],
     ];
     for (const [argv, width] of widths)
       assert.equal(
@@ -205,6 +209,7 @@ export const test_compiler_option_cursor_preserves_native_operand_boundaries =
       ["--rootDir", "--watch", "entry.ts", "--help"],
       ["--diagnostics", "null", "entry.ts", "arg"],
       ["--composite", "false", "entry.ts", "arg"],
+      ["--runExternalCode", "false", "entry.ts", "arg"],
       ["--types", "", "entry.ts", "arg"],
       ["--types", "\uFEFF", "entry.ts", "arg"],
     ]) {

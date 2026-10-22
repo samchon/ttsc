@@ -88,9 +88,11 @@ func (s *Session) Apply(absPath, content string) bool {
     name = string(file.FileName())
   }
   changed := shimcompiler.ProgramPathKey(s.prog.TSProgram, shimtspath.ToRootedFilePath(name, s.prog.TSProgram.GetCurrentDirectory()))
-  newHost := DefaultHost(s.cwd, s.prog.FS)
+  // The new host keeps the Program's content mappers, so a mapped file is
+  // still transformed by the processes the first generation started.
+  newHost := projectHost(s.prog.hosts, s.cwd, s.prog.FS)
   // The second result is the changed file as newHost parsed it, returned so a
-  // host with a parse cache can release it; DefaultHost parses without one.
+  // host with a parse cache can release it; this host parses without one.
   newProg, _, reused := shimcompiler.UpdateProgram(s.prog.TSProgram, changed, newHost)
   if newProg != nil {
     e2etrace.Program("program-construction", "driver-update", "constructor-returned", reused, newProg)
@@ -145,8 +147,9 @@ func (s *Session) SourceText(absPath string) (string, bool) {
   return file.Text(), true
 }
 
-// Close releases the current Program's checker lease. It does not clear the
-// resident Program or overlay, dispose all native data, or forbid later calls.
+// Close releases the current Program's checker lease and content-mapper
+// processes. It does not clear the resident Program or overlay, dispose all
+// native data, or forbid later calls.
 //
 // @evidence contracts/common.md#principled-implementation Closing the current Program releases its checker lease; an absent Program has no lease to release.
 // @evidence contracts/common.md#clear-and-simple-design Session cleanup delegates lease ownership to Program.Close without a second release ledger.
