@@ -58,6 +58,9 @@ jobs:
           --go=experimental/typia/packages/typia/native --go=experimental/typia/packages/typia/test
       - run: pnpm install --no-frozen-lockfile
         working-directory: experimental/typia
+      - name: Build typia packages with the candidate toolchain
+        run: pnpm run build
+        working-directory: experimental/typia
       - run: pnpm --filter "./tests/test-*" --fail-if-no-match --no-bail -r start
         working-directory: experimental/typia
       - run: pnpm run test:go:public && pnpm run test:go:native
