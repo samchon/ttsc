@@ -110,6 +110,8 @@ for _, file := range prog.SourceFiles() {
 
 Keys use `TransformOutputKey(cwd, fileName)`, following the envelope's `typescript` map: project-relative slash paths, or absolute slash paths outside the project root. Consumers can join the sections by key. The embedded `bundled:///` standard library is excluded because it is not a filesystem input.
 
+On TypeScript 7.1, a module name declared locally in its containing source resolves without a filesystem query. `ProgramResolutionTasks` excludes these ambient-module cache sentinels; the declaration remains covered by its source content proof and reference edges. Imports of the same name from another source, external-module augmentations, unresolved filesystem lookups and automatic type directives retain their replay and strict result comparison. An unchanged same-named package on disk therefore cannot cause a local ambient declaration's `resolution-changed` failure.
+
 Stamp the returned struct into your `transform` stdout envelope. The built-in native host (`ttsc api-transform`) and the linked-plugin generic host already do, so linked transform packages inherit graph emission for free; an executable sidecar that encodes its own envelope adds the one field above. `@ttsc/unplugin` consumes the section to register bundler watch files, which is what keeps webpack filesystem caches and watch graphs from serving stale generated code when a type-only input changes.
 
 ## Diagnostics

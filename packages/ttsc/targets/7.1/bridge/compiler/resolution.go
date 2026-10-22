@@ -3,6 +3,7 @@
 package compiler
 
 import (
+  "slices"
   "time"
 
   "github.com/microsoft/TypeScript/tsc/internal/ast"
@@ -84,8 +85,11 @@ type ProgramResolutionTask struct {
   redirectedReference module.ResolvedProjectReference
 }
 
-// ProgramResolutionTasks returns every cached module and type-reference
-// resolution, including unresolved entries and automatic type directives.
+// ProgramResolutionTasks returns cached filesystem module and type-reference
+// resolutions, including unresolved entries and automatic type directives.
+// Source-local ambient module sentinels are excluded because the compiler
+// resolves them from source content without a filesystem query. Imports of
+// the same name from other sources and external-module augmentations remain.
 // A nil Program returns nil. Returned tasks retain Program option and redirect
 // pointers; the caller owns their storage and must preserve that context.
 // Enumeration order follows compiler maps and is not sorted. TargetFile is
@@ -93,12 +97,12 @@ type ProgramResolutionTask struct {
 // initialize referenced configs' input/output maps and query a native realpath
 // for a preserved symlink redirect; it does not replay module resolution.
 //
-// @evidence contracts/common.md#principled-implementation Enumerating the resident compiler's module and type-directive caches retains both successes and failures; containing paths recover loaded-source or semantic-config spelling, and expected results include package, target and link identity.
+// @evidence contracts/common.md#principled-implementation Enumerating the resident compiler's module and type-directive caches retains filesystem successes and failures while excluding names in the containing source's AmbientModuleNames, matching fileLoader's local-ambient branch. Their declarations remain source-content inputs; other sources and external-module augmentations retain their filesystem tasks. Containing paths recover loaded-source or semantic-config spelling, and expected results include package, target and link identity.
 // @evidence contracts/common.md#clear-and-simple-design One append closure shares task construction across both compiler cache traversals, while private helpers own source-redirect and project-reference context reconstruction.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts The inferred-types filename is the compiler's automatic-directive context, and recovering its lexical directory addresses actual case-canonical cache keys without relaxing result comparison.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Source-local AmbientModuleNames membership mirrors the compiler's skipped lookup, not a consumer name or an empty-result filter; genuine unresolved tasks remain. The inferred-types filename is the compiler's automatic-directive context, and recovering its lexical directory addresses actual case-canonical cache keys without relaxing result comparison.
 // @evidence contracts/common.md#meaningful-documentation Native prose states cache coverage, nil behavior and retained Program-pointer lifetime; task fields document the lexical-versus-loaded path distinctions.
 // @evidence contracts/portability.md#os-neutral-implementation Compiler canonical cache keys are not replayed as lexical filenames: source/config context restores spelling, and redirects use actual filesystem Realpath plus Program case policy rather than OS guesses.
-// @evidence contracts/performance.md#efficient-algorithms Two cache traversals append one task per resolution and share one reference-context snapshot. Additional work includes reference-graph traversal, source/output map scans and first-use output-path construction, path hashing/canonicalization and selected native Realpath queries for symlink context. Map/string backing and referenced config/source population matter beyond just the returned task count; extraction does not independently replay imports.
+// @evidence contracts/performance.md#efficient-algorithms Two cache traversals append one task per filesystem resolution and share one reference-context snapshot. Each module entry looks up its containing source and scans that source's ambient names, matching upstream's membership procedure without another retained index. Additional work includes reference-graph traversal, source/output map scans and first-use output-path construction, path hashing/canonicalization and selected native Realpath queries for symlink context. Map/string backing and referenced config/source population matter beyond just the returned task count; extraction does not independently replay imports.
 // @evidence contracts/performance.md#reuse-equivalent-work Cached resident resolutions and one shared project-reference context are reused across tasks from the same Program, preserving their option and redirect identity rather than sharing across changed programs.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The returned task slice retains option, expected-result strings and redirect metadata, plus a shared context's directory set and output-to-reference map when present. These pointers can keep parsed project/config/source graphs reachable beyond the shallow map size. First-use input/output maps remain owned by referenced configs; invocation-local traversal/snapshot containers add no independent historical registry or running task, and callers bound how long they retain the result.
 func ProgramResolutionTasks(program *Program) []ProgramResolutionTask {
@@ -154,6 +158,11 @@ func ProgramResolutionTasks(program *Program) []ProgramResolutionTask {
     })
   }
   program.ForEachResolvedModule(func(resolution *module.ResolvedModule, name string, mode core.ResolutionMode, filePath tspath.PathKey) {
+    // fileLoader records local ambient names as empty cache sentinels without
+    // asking the filesystem resolver. Their source content owns the proof.
+    if source := program.GetSourceFileByPath(filePath); source != nil && slices.Contains(source.AmbientModuleNames, name) {
+      return
+    }
     appendTask(ProgramResolutionKindModule, name, mode, filePath, moduleResolutionResult(resolution), resolution)
   }, nil)
   program.ForEachResolvedTypeReferenceDirective(func(resolution *module.ResolvedTypeReferenceDirective, name string, mode core.ResolutionMode, filePath tspath.PathKey) {
