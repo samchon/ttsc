@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="430" viewBox="0 0 1240 430" version="1.1" role="img" aria-label="Excalidraw — cold time to a first answer (lower is better)">
+ <defs><style type="text/css">text{font-family:DejaVu Sans, Arial, sans-serif}</style></defs>
+ <rect width="1240" height="430" style="fill:#ffffff"/>
+ <text x="36" y="48" style="fill:#102a43;font-size:27px;font-weight:700">Excalidraw — cold time to a first answer (lower is better)</text>
+ <rect x="36" y="70" width="62" height="24" rx="4" style="fill:#3178c6;fill-opacity:0.35"/>
+ <text x="67" y="87" style="fill:#102a43;font-size:13px;font-weight:700;text-anchor:middle">index</text>
+ <rect x="98" y="70" width="52" height="24" rx="4" style="fill:#3178c6"/>
+ <text x="124" y="87" style="fill:#ffffff;font-size:13px;font-weight:700;text-anchor:middle">LLM</text>
+ <text x="164" y="88" style="fill:#64748b;font-size:15px">faded = index build, solid = LLM answering — each bar is labelled index / LLM</text>
+ <rect x="28" y="132.0" width="1184.0" height="262.0" rx="10" style="fill:#e8f2fb;fill-opacity:0.8"/>
+   <text x="60" y="162.0" style="fill:#102a43;font-size:22px;font-weight:700">Excalidraw</text>
+   <text x="1204" y="161.0" style="fill:#94a3b8;font-size:15px;text-anchor:end">172,012 lines</text>
+   <rect x="270" y="178.0" width="758.0" height="28" rx="2" style="fill:#e7f0f8;stroke:#c7dff4;stroke-width:1"/><rect x="270.0" y="178.0" width="533.2" height="28" style="fill:#94a3b8"/>
+    <text x="60" y="198.0" style="fill:#64748b;font-size:18px">baseline</text>
+    <text x="1204" y="198.0" style="fill:#526b82;font-size:18px;font-weight:500;text-anchor:end">0s / 211s</text>
+    <rect x="268.0" y="216.0" width="762.0" height="32.0" rx="4" style="fill:none;stroke:#72afe6;stroke-opacity:0.18;stroke-width:3.5"/>
+    <rect x="270" y="218.0" width="758.0" height="28" rx="2" style="fill:#e7f0f8;stroke:#72afe6;stroke-width:1.6"/><rect x="270" y="218.0" width="4.7" height="28" style="fill:#3178c6;fill-opacity:0.5"/><rect x="274.7" y="218.0" width="143.9" height="28" style="fill:#3178c6"/><g transform="translate(38.00 223.00) scale(1.125)" style="fill:none;stroke:#3178c6;stroke-width:1.5">
+    <path d="M2.5 5.5 5.4 8l2.6-4 2.6 4 2.9-2.5-.8 6H3.3l-.8-6Z" style="stroke-linejoin:round"/>
+    <path d="M3.5 12.5 h9" style="stroke-linecap:round"/>
+   </g>
+    <text x="60" y="238.0" style="fill:#3178c6;font-size:18px;font-weight:700">@ttsc/graph</text>
+    <text x="1204" y="238.0" style="fill:#526b82;font-size:18px;font-weight:700;text-anchor:end">1.9s / 57s</text>
+    <rect x="270" y="258.0" width="758.0" height="28" rx="2" style="fill:#e7f0f8;stroke:#c7dff4;stroke-width:1"/><rect x="270" y="258.0" width="44.9" height="28" style="fill:#d97706;fill-opacity:0.5"/><rect x="314.9" y="258.0" width="187.7" height="28" style="fill:#d97706"/>
+    <text x="60" y="278.0" style="fill:#d97706;font-size:18px">codegraph</text>
+    <text x="1204" y="278.0" style="fill:#526b82;font-size:18px;font-weight:500;text-anchor:end">18s / 74s</text>
+    <rect x="270" y="298.0" width="758.0" height="28" rx="2" style="fill:#e7f0f8;stroke:#c7dff4;stroke-width:1"/><rect x="270" y="298.0" width="4.9" height="28" style="fill:#15803d;fill-opacity:0.5"/><rect x="274.9" y="298.0" width="436.5" height="28" style="fill:#15803d"/>
+    <text x="60" y="318.0" style="fill:#15803d;font-size:18px">codebase-memory</text>
+    <text x="1204" y="318.0" style="fill:#526b82;font-size:18px;font-weight:500;text-anchor:end">1.9s / 173s</text>
+    <rect x="270" y="338.0" width="758.0" height="28" rx="2" style="fill:#e7f0f8;stroke:#c7dff4;stroke-width:1"/><rect x="270" y="338.0" width="37.1" height="28" style="fill:#7e22ce;fill-opacity:0.5"/><rect x="307.1" y="338.0" width="520.0" height="28" style="fill:#7e22ce"/>
+    <text x="60" y="358.0" style="fill:#7e22ce;font-size:18px">serena</text>
+    <text x="1204" y="358.0" style="fill:#526b82;font-size:18px;font-weight:500;text-anchor:end">15s / 206s</text>
+</svg>
