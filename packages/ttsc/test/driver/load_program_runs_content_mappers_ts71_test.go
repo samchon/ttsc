@@ -20,11 +20,11 @@ import (
 // The mapper is a real Node process speaking the compiler's mapper protocol,
 // so the test crosses the same process boundary a project's mapper does.
 //
-// 1. Load the project with `--runExternalCode` and require the mapped module's
-//    `query.name` to type-check.
-// 2. Edit query.sql in a session and require the remapped column to replace
-//    `name`, which index.ts then fails to read.
-// 3. Close the session and require the mapper to have received closeProject.
+//  1. Load the project with `--runExternalCode` and require the mapped module's
+//     `query.name` to type-check.
+//  2. Edit query.sql in a session and require the remapped column to replace
+//     `name`, which index.ts then fails to read.
+//  3. Close the session and require the mapper to have received closeProject.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls LoadProgram and NewSession with forwarded `--runExternalCode`, requiring zero diagnostics and `name: string` in the mapped text, then TS2339 and `label: string` after Session.Apply of query.sql, then a closeProject request in the mapper's log after Close.
 // @evidence contracts/testing.md#independent-expectations The mapper's output is a fixed function of the fixture's column name, so `name: string`, `label: string` and the TS2339 read of `name` follow from the fixture rather than from compiler output.
