@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { ITtscCompilerTransformation } from "ttsc";
 
 import type { ResolvedTtscUnpluginOptions } from "../../options/ResolvedTtscUnpluginOptions";
 import { traceInvocation } from "../../tracing/traceInvocation";
@@ -91,6 +92,14 @@ export async function transformProject(props: {
   /** Compiler-option overlay, preserving the underlying config semantics. */
   compilerOptions: Record<string, unknown>;
 
+  /** Detached environment selected before this generation's cache lookup. */
+  compilerEnvironment?: NodeJS.ProcessEnv;
+  /** Explicit override retained with persisted invocation proof. */
+  runExternalCode?: boolean;
+
+  /** Previous native root policy; the new compiler report can refute it. */
+  compilerMembership?: ITtscCompilerTransformation.IReferenceGraph["membership"];
+
   /** Native path of the module whose delivery initiated this capture. */
   currentFile: string;
 
@@ -160,9 +169,11 @@ export async function transformProject(props: {
   let moved = 0;
   let witnessed = new Set(props.witnessedDependencies);
   let useCaseSensitiveFileNames = props.useCaseSensitiveFileNames;
+  let compilerMembership = props.compilerMembership;
   for (let attempt = 0; ; attempt += 1) {
     const cached = await captureTransformGeneration({
       ...props,
+      compilerMembership,
       rejected,
       useCaseSensitiveFileNames,
       witnessedDependencies: [...witnessed],
@@ -222,6 +233,9 @@ export async function transformProject(props: {
     );
     witnessed = nextInputs.witnessed;
     useCaseSensitiveFileNames = nextInputs.useCaseSensitiveFileNames;
+    if (cached.result.type !== "exception")
+      compilerMembership =
+        cached.result.graph?.membership ?? compilerMembership;
     // A publication refuted here would be found again by a retry for the same
     // state, which therefore compiles and replaces it. A retry whose project
     // moved to another state claims that state's publication, and adopts it:

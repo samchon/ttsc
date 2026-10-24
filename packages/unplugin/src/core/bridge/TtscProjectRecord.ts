@@ -1,3 +1,4 @@
+import type { TtscCompilerArgumentsWitness } from "../transform/tsconfig/TtscCompilerArgumentsWitness";
 import type { TtscWatchInputEvidence } from "../transform/watch/TtscWatchInputEvidence";
 import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembershipPolicy";
 
@@ -20,7 +21,7 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  * (`refreshProjectRecordFiles`).
  *
  * @evidence contracts/common.md#principled-implementation
- *   Input evidence and separate membership policy express the generation's
+ *   The optional captured invocation, input evidence and separate membership policy express the generation's
  *   file/predicate and root-population dependencies; signal changes record bytes
  *   without claiming that an observer already owns a new generation.
  * @evidence contracts/common.md#clear-and-simple-design
@@ -49,6 +50,8 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  *   and independently imposes no population or byte bound.
  */
 export interface TtscProjectRecord {
+  /** Captured invocation; older records without it require a fresh delivery. */
+  compilerArguments?: TtscCompilerArgumentsWitness;
   /**
    * The paths the generation's plugins reported as dependencies outside the
    * project walk (`TtscCachedProjectTransform.externalDependencyInputs`),

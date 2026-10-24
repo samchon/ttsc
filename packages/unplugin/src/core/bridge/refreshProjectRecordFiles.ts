@@ -58,6 +58,7 @@ export function refreshProjectRecordFiles(
   toolDirectory: string,
   bridge?: HostWatchBridge,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  compilerArgumentsIdentity?: string,
 ): void {
   const directory = path.join(toolDirectory, PROJECT_RECORD_DIRECTORY);
   let names: string[];
@@ -68,6 +69,11 @@ export function refreshProjectRecordFiles(
   }
   for (const name of names) {
     if (name.endsWith(".json"))
-      refreshProjectRecordFile(path.join(directory, name), bridge, filesystem);
+      refreshProjectRecordFile(
+        path.join(directory, name),
+        bridge,
+        filesystem,
+        compilerArgumentsIdentity,
+      );
   }
 }

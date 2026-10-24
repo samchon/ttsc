@@ -150,6 +150,7 @@ import { test_watch_topology_reports_deleted_config_and_recreation } from "./tts
 import { test_watch_topology_tracks_external_inputs_across_project_references } from "./ttsc/watch/test_watch_topology_tracks_external_inputs_across_project_references";
 import { test_watch_topology_watches_reload_symlink_targets } from "./ttsc/watch/test_watch_topology_watches_reload_symlink_targets";
 import { test_bun_adapter_forwards_bundler_build_start } from "./unplugin/native-plugins/adapters/test_bun_adapter_forwards_bundler_build_start";
+import { test_bun_content_mapper_permissions_and_dependencies } from "./unplugin/native-plugins/adapters/test_bun_content_mapper_permissions_and_dependencies";
 import { test_bun_native_host_owns_build_and_runtime_sessions } from "./unplugin/native-plugins/adapters/test_bun_native_host_owns_build_and_runtime_sessions";
 import { test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order } from "./unplugin/native-plugins/adapters/test_bun_register_explicit_options_are_not_shadowed_in_same_runtime_order";
 import { test_bun_register_preload_only_registers_a_single_default_plugin } from "./unplugin/native-plugins/adapters/test_bun_register_preload_only_registers_a_single_default_plugin";
@@ -298,6 +299,10 @@ export async function test_e2e_scenarios_batch(): Promise<void> {
 
 /** The scenarios this batch owns, by exported name. */
 const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
+  [
+    "test_bun_content_mapper_permissions_and_dependencies",
+    test_bun_content_mapper_permissions_and_dependencies,
+  ],
   [
     "case_watch_topology_worker_owns_responsive_ordered_lifetimes",
     case_watch_topology_worker_owns_responsive_ordered_lifetimes,

@@ -348,6 +348,8 @@ export function parseReferenceGraph(
     inputProofFailures?: unknown;
     inputRealpaths?: unknown;
     resolutionInputs?: unknown;
+    contentMapperInputs?: unknown;
+    membership?: unknown;
     useCaseSensitiveFileNames?: unknown;
   };
   const candidates = parseDependencyLists(section.candidates) ?? {};
@@ -355,6 +357,44 @@ export function parseReferenceGraph(
   const globals = parseFileList(section.globals) ?? [];
   const configs = parseFileList(section.configs) ?? [];
   const resolutionInputs = parseFileList(section.resolutionInputs) ?? [];
+  if (
+    section.contentMapperInputs !== undefined &&
+    (!Array.isArray(section.contentMapperInputs) ||
+      section.contentMapperInputs.some(
+        (input) => typeof input !== "string" || input.length === 0,
+      ))
+  )
+    throw new Error("ttsc: invalid native content mapper inputs");
+  const contentMapperInputs = parseFileList(section.contentMapperInputs) ?? [];
+  let membership: ITtscCompilerTransformation.IReferenceGraph["membership"];
+  if (section.membership !== undefined) {
+    const value = section.membership as Record<string, unknown> | null;
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      Array.isArray(value) ||
+      !Array.isArray(value.inputExtensions) ||
+      value.inputExtensions.length === 0 ||
+      value.inputExtensions.some(
+        (item) =>
+          typeof item !== "string" ||
+          item.length <= 1 ||
+          !item.startsWith(".") ||
+          item.includes("/") ||
+          item.includes("\\"),
+      ) ||
+      ![value.outDir, value.declarationDir].every(
+        (item) =>
+          item === null || (typeof item === "string" && path.isAbsolute(item)),
+      )
+    )
+      throw new Error("ttsc: invalid native compiler membership policy");
+    membership = {
+      inputExtensions: [...value.inputExtensions] as string[],
+      outDir: value.outDir as string | null,
+      declarationDir: value.declarationDir as string | null,
+    };
+  }
   const inputHashes = parseGraphInputHashes(section.inputHashes);
   const parsedInputObservations = parseGraphInputObservations(
     section.inputObservations,
@@ -372,7 +412,9 @@ export function parseReferenceGraph(
     Object.keys(edges).length === 0 &&
     globals.length === 0 &&
     configs.length === 0 &&
-    resolutionInputs.length === 0
+    resolutionInputs.length === 0 &&
+    contentMapperInputs.length === 0 &&
+    membership === undefined
   ) {
     return undefined;
   }
@@ -382,6 +424,8 @@ export function parseReferenceGraph(
     edges,
     globals,
     ...(resolutionInputs.length === 0 ? {} : { resolutionInputs }),
+    ...(contentMapperInputs.length === 0 ? {} : { contentMapperInputs }),
+    ...(membership === undefined ? {} : { membership }),
     ...(inputHashes === undefined ? {} : { inputHashes }),
     ...(parsedInputObservations.observations === undefined
       ? {}

@@ -13,6 +13,8 @@ import { createHostPathIdentityContext } from "../../../../../packages/unplugin/
 import { pathIdentityKey } from "../../../../../packages/unplugin/src/core/transform/filesystem/pathIdentityKey";
 import { hostInputStateHash } from "../../../../../packages/unplugin/src/core/transform/inputs/hostInputStateHash";
 import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
+import { captureCompilerArguments } from "../../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../../../../../packages/unplugin/src/core/transform/tsconfig/resolveCompilerEnvironment";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -79,6 +81,7 @@ export async function test_watch_bridge_takes_every_record_at_its_first_pass(): 
     const walked = walkProjectInputs(directory, undefined, policy);
     const record = projectRecordFile(tool, tsconfig);
     writeProjectRecordFile(record, {
+      compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
       inputs: {
         [declaration]: evidenced(declaration),
         [tsconfig]: evidenced(tsconfig),

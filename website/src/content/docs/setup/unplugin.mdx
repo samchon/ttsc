@@ -214,6 +214,20 @@ import { defineConfig } from "@farmfe/core";
 export default defineConfig({ plugins: [ttsc()] });
 ```
 
+## Content mappers
+
+Content mappers require TypeScript 7.1 and an explicit permission on the adapter:
+
+```ts
+import ttsc from "@ttsc/unplugin/bun";
+
+const plugin = ttsc({ project: "tsconfig.json", runExternalCode: true });
+```
+
+Declare `contentMappers` in that project's tsconfig. The same `runExternalCode` option works with every adapter, Bun runtime `register`, Next.js's `withTtsc` second argument, Turbopack loader options and Metro. It forwards the compiler's `--runExternalCode` permission only to that invocation. An explicit `false` overrides inherited permission; omission retains inherited compiler arguments. TypeScript 7.0 rejects the flag. Without permission, TypeScript 7.1 reports `TS18068`.
+
+Mapper package manifests and dynamic configuration's `watchedFiles` invalidate cached transformations. A mapper that reads additional schema or configuration files must declare them through TypeScript's `dynamicConfig` and `watchedFiles` contract. Runtime loading of `.sql`, `.vue` or another mapped format still belongs to the bundler's loader for that format; a type-only import needs no runtime loader.
+
 ## Bun
 
 ```ts
@@ -302,7 +316,7 @@ One project compilation supplies every module's transformed output. The adapters
 
 Watching Vite servers track compiler inputs separately from Vite's runtime import graph. Type-only dependencies can trigger HMR without becoming runtime imports. Vite decides whether to preserve component state or reload the page; with `hmr: false`, the adapter requests a full reload.
 
-Other bundlers watch a project record below the host root's `.ttsc/records` directory. It changes when compiler inputs change, including files created or removed while the bundler is stopped. The adapter validates these records before a persistent cache is reused.
+Other bundlers watch a project record below the host root's `.ttsc/records` directory. It changes when compiler inputs change, including files created or removed while the bundler is stopped. The adapter validates these records before a persistent cache is reused. Each record also identifies the effective compiler arguments and their working directory. Changing inherited arguments or `runExternalCode` invalidates cached modules even when every project file stays unchanged. Records created by older versions require a fresh delivery.
 
 For webpack and Rspack, include the bundler configuration in cache build dependencies so changing adapter options invalidates cached modules: `cache.buildDependencies.config` for webpack and `cache.buildDependencies` for Rspack.
 

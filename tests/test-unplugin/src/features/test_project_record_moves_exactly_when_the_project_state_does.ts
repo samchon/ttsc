@@ -9,6 +9,8 @@ import { refreshProjectRecordFiles } from "../../../../packages/unplugin/src/cor
 import { writeProjectRecordFile } from "../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
 import { hostInputStateHash } from "../../../../packages/unplugin/src/core/transform/inputs/hostInputStateHash";
 import { walkProjectInputs } from "../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
+import { captureCompilerArguments } from "../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../../../../packages/unplugin/src/core/transform/tsconfig/resolveCompilerEnvironment";
 import { MISSING_INPUT_STATE } from "../../../../packages/unplugin/src/core/transform/validation/MISSING_INPUT_STATE";
 import { readProjectMembershipPolicy } from "../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { TestProject } from "../../../utils/src/TestProject";
@@ -79,6 +81,7 @@ export async function test_project_record_moves_exactly_when_the_project_state_d
   const walked = walkProjectInputs(root, undefined, policy);
   assert.ok(
     writeProjectRecordFile(file, {
+      compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
       inputs: {
         [absent]: {
           identity: absent,
@@ -122,6 +125,7 @@ export async function test_project_record_moves_exactly_when_the_project_state_d
   assert.equal(signal(), 2, "and keeps moving it until a delivery writes it");
 
   writeProjectRecordFile(file, {
+    compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
     ...readProjectRecordFile(file)!,
     inputs: {
       ...readProjectRecordFile(file)!.inputs,

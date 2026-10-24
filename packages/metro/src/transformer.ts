@@ -21,9 +21,11 @@
  * core refuses fresh-only output unless the host states it is not watching.
  */
 import {
+  compilerEnvironmentIdentity,
   createTtscTransformCache,
   isTransformTarget,
   readTtscTransformSession,
+  resolveCompilerEnvironment,
   resolveOptions,
   shareTtscTransformCache,
   transformTtsc,
@@ -365,6 +367,9 @@ export function getCacheKey(...args: unknown[]): string {
   hash.update(
     stableStringify({
       ttsc: JSON.stringify(opts.ttsc),
+      compilerArguments: compilerEnvironmentIdentity(
+        resolveCompilerEnvironment(opts.ttsc.runExternalCode),
+      ),
       include: opts.include,
       exclude: opts.exclude,
       upstreamTransformer: opts.upstreamTransformer ?? null,

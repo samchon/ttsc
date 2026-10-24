@@ -6,6 +6,8 @@ import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/b
 import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { captureCompilerArguments } from "../../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../../../../../packages/unplugin/src/core/transform/tsconfig/resolveCompilerEnvironment";
 import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
 import { captureWatchInputBaseline } from "../../../../../packages/unplugin/src/core/transform/watch/captureWatchInputBaseline";
 import { TestProject } from "../../../../utils/src/TestProject";
@@ -36,6 +38,7 @@ export async function test_watch_bridge_polls_without_native_events_when_declare
   fs.writeFileSync(tsconfig, "{}");
   const record = projectRecordFile(path.join(root, ".ttsc"), tsconfig);
   writeProjectRecordFile(record, {
+    compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
     inputs: {},
     membership: null,
     root,

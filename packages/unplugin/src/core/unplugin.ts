@@ -36,6 +36,9 @@ import { resetTtscTransformCache } from "./transform/cache/resetTtscTransformCac
 import { sharedBuildTransformCache } from "./transform/cache/sharedBuildTransformCache";
 import { hostDeclaresPolling } from "./transform/tracker/hostDeclaresPolling";
 import { transformTtsc } from "./transform/transformTtsc";
+import { captureCompilerArguments } from "./transform/tsconfig/captureCompilerArguments";
+import { compilerEnvironmentIdentity } from "./transform/tsconfig/compilerEnvironmentIdentity";
+import { resolveCompilerEnvironment } from "./transform/tsconfig/resolveCompilerEnvironment";
 import { isHostWrapperQuery } from "./transform/utils/isHostWrapperQuery";
 import { stripQuery } from "./transform/utils/stripQuery";
 import type { TtscProjectRegistration } from "./transform/watch/TtscProjectRegistration";
@@ -96,6 +99,7 @@ const unpluginFactory: UnpluginFactory<
   // channel cannot observe, opened by the session's first watching delivery
   // and closed where the session ends (samchon/ttsc#1388).
   let bridge: HostWatchBridge | undefined;
+  let recordArgumentsIdentity: string | undefined;
   // The bridge's change sequence when the current pass opened. A pass proves
   // the generation once, at its first delivery, and serves every later module
   // of the pass from it, so a delivery may carry a state a change since the
@@ -176,13 +180,28 @@ const unpluginFactory: UnpluginFactory<
     (context.getNativeBuildContext?.() !== undefined ||
       context.meta?.rollupVersion === undefined);
   // The options a delivery to Rollup is compiled under, read again once the
-  // aliases Vite resolves change.
-  let deliveryOptions: { aliases: unknown; identity: string } | undefined;
+  // aliases Vite resolves or the effective compiler argument transport change.
+  let deliveryOptions:
+    | { aliases: unknown; environment: string; identity: string }
+    | undefined;
   const currentDeliveryOptions = (): string => {
-    if (deliveryOptions === undefined || deliveryOptions.aliases !== aliases)
+    const compilerEnvironment = resolveCompilerEnvironment(
+      options.runExternalCode,
+    );
+    const environment = compilerEnvironmentIdentity(compilerEnvironment);
+    if (
+      deliveryOptions === undefined ||
+      deliveryOptions.aliases !== aliases ||
+      deliveryOptions.environment !== environment
+    )
       deliveryOptions = {
         aliases,
-        identity: rollupDeliveryOptions(options, createAliasPaths(aliases)),
+        environment,
+        identity: rollupDeliveryOptions(
+          options,
+          createAliasPaths(aliases),
+          compilerEnvironment,
+        ),
       };
     return deliveryOptions.identity;
   };
@@ -494,7 +513,8 @@ const unpluginFactory: UnpluginFactory<
         // opens for its first pass and takes every record, so a project the
         // host restores whole from its cache, with no delivery in this
         // process, is observed from then on; a later pass of that session
-        // has the bridge observing already, and a one-shot host proves the
+        // has the bridge observing already; changed compiler arguments require
+        // a new inventory too. A one-shot host proves the
         // records at each start. A host whose cache the adapter answers module
         // by module, or that keeps none, has nothing for either to cover.
         const opening = bridge === undefined;
@@ -506,12 +526,17 @@ const unpluginFactory: UnpluginFactory<
           );
         }
         passStartedAt = bridge?.begin();
-        if (opening && restoresUnanswered(this)) {
+        if (restoresUnanswered(this)) {
+          const identity = captureCompilerArguments(
+            resolveCompilerEnvironment(options.runExternalCode),
+          ).identity;
+          const argumentsChanged = recordArgumentsIdentity !== identity;
+          recordArgumentsIdentity = identity;
           // Below the root, and in the fallback a host that cannot write there
           // keeps its records in (samchon/ttsc#1480).
-          for (const directory of recordDirectories()) {
-            refreshProjectRecordFiles(directory, bridge);
-          }
+          if (opening || argumentsChanged)
+            for (const directory of recordDirectories())
+              refreshProjectRecordFiles(directory, bridge, undefined, identity);
         }
       }
     },

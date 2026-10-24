@@ -14,6 +14,8 @@ import { createHostPathIdentityContext } from "../../../../packages/unplugin/src
 import { pathIdentityKey } from "../../../../packages/unplugin/src/core/transform/filesystem/pathIdentityKey";
 import { hostInputStateHash } from "../../../../packages/unplugin/src/core/transform/inputs/hostInputStateHash";
 import { walkProjectInputs } from "../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
+import { captureCompilerArguments } from "../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../../../../packages/unplugin/src/core/transform/tsconfig/resolveCompilerEnvironment";
 import { readProjectMembershipPolicy } from "../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { unplugin } from "../../../../packages/unplugin/src/core/unplugin";
 import { TestProject } from "../../../utils/src/TestProject";
@@ -75,6 +77,9 @@ export async function test_build_start_proves_records_only_for_a_cache_it_cannot
       const policy = readProjectMembershipPolicy(tsconfig);
       const walked = walkProjectInputs(directory, undefined, policy);
       writeProjectRecordFile(record, {
+        compilerArguments: captureCompilerArguments(
+          resolveCompilerEnvironment(),
+        ),
         inputs: {
           [declaration]: evidenced(declaration),
           [tsconfig]: evidenced(tsconfig),

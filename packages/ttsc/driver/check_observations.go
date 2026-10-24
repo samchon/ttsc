@@ -11,8 +11,10 @@ import (
 // caller must keep the Program open until this snapshot is written. Command
 // status and diagnostics remain independent of these observation facts.
 //
-// A nil Program publishes empty observation collections and an explicit incomplete
-// marker, because no generation supplied input authority. For a loaded Program,
+// A nil Program publishes empty hook observation collections and an explicit
+// incomplete marker. WriteCheckRecoveryObservationsJSON additionally accepts
+// actual failed-load CLI/config predicates without completed Program authority.
+// For a loaded Program,
 // only an explicit hook limitation adds that marker. Its absence does not prove
 // the population complete or repair missing or conflicting individual proofs.
 // The caller owns a fresh result path, its parent directory and eventual artifact
@@ -27,6 +29,23 @@ import (
 // @evidence contracts/performance.md#reuse-equivalent-work The same check generation's recorded observations supply the result without reparsing sources or reexecuting configuration hooks.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Scope snapshots and encoding buffers are call-local without a payload cap. The shared publisher closes its temporary descriptor before rename and attempts removal on failure, returning cleanup errors; the caller owns the Program, fresh destination, parent directory and final artifact removal.
 func WriteCheckObservationsJSON(fileName string, program *Program) error {
+  return WriteCheckRecoveryObservationsJSON(fileName, program, nil)
+}
+
+// WriteCheckRecoveryObservationsJSON publishes check observations with an
+// optional failed-load recovery graph. A loaded Program always supplies its own
+// graph instead; nil Program remains explicitly incomplete. The recovery graph
+// comes from that invocation's OnFailureInputs sink, not a later filesystem read.
+//
+// @evidence contracts/common.md#principled-implementation Loaded Program observations retain their generation; only a nil Program admits supplied failed-load predicates, with explicit incomplete hook authority.
+// @evidence contracts/common.md#clear-and-simple-design One publisher serves the original two-argument API and native callers retaining failed-load recovery inputs.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No fake Program, reconstructed resolver or later read supplies recovery metadata; status remains separate.
+// @evidence contracts/common.md#meaningful-documentation Native prose states recovery provenance, Program precedence and incomplete authority.
+// @evidence contracts/portability.md#os-neutral-implementation Native absolute path validation and the existing same-directory private publisher retain observation spellings unchanged.
+// @evidence contracts/performance.md#efficient-algorithms Program accessors snapshot current ledgers and graph; JSON encoding and publication visit retained predicate/path bytes and allocate the serialized payload without a population cap.
+// @evidence contracts/performance.md#reuse-equivalent-work The invocation's existing observations supply metadata without another compiler load or filesystem proof read.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns Program/recovery lifetimes and the final artifact; call-local snapshots and encoding buffers add no historical registry, and the shared publisher closes temporary handles.
+func WriteCheckRecoveryObservationsJSON(fileName string, program *Program, recovery *TransformGraph) error {
   if !filepath.IsAbs(fileName) {
     return fmt.Errorf("driver: check observations path must be absolute: %q", fileName)
   }
@@ -35,6 +54,9 @@ func WriteCheckObservationsJSON(fileName string, program *Program) error {
   realpaths := map[string]*string{}
   var complete *bool
   var graph *TransformGraph
+  if program == nil {
+    graph = recovery
+  }
   if program == nil || program.PluginObservationsIncomplete() {
     unavailable := false
     complete = &unavailable

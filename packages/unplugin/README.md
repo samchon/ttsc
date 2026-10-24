@@ -346,6 +346,7 @@ const options: TtscUnpluginOptions = {
 
 - `project`: path to the `tsconfig.json` used by the bundler. When omitted, each file starts from its nearest `tsconfig.json`. A solution config that admits no files itself, one with `"files": []` and `references` such as the create-vite `react-ts` template's, is followed to the first referenced project that admits the file.
 - `compilerOptions`: temporary override layered on the selected project config.
+- `runExternalCode`: invocation-scoped permission for TypeScript 7.1 content mappers; see the [bundler guide](https://ttsc.dev/docs/setup/unplugin/).
 - `plugins`: direct `ttsc` plugin list override, or `false` to disable plugins.
 
 #### Path Aliases

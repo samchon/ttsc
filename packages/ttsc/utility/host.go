@@ -48,6 +48,9 @@ type hostOptions struct {
   // host sets it (to an OverlayFS), so build/check/transform leave it nil and
   // LoadProgram falls back to the default filesystem.
   fs vfs.FS
+
+  // failureInputs receives the loader's actual pre-Program recovery graph.
+  failureInputs func(*driver.TransformGraph)
 }
 
 // transformResult is the JSON envelope written to stdout by RunTransform.
@@ -115,8 +118,8 @@ func RunCheck(args []string) int {
 //
 // After successful flag admission, requested metadata is attempted on both
 // successful and failed checks and belongs to that check generation. A missing
-// generation is explicitly incomplete; rejected flag admission installs no
-// publication defer. Input authority does not erase status or diagnostics.
+// generation is explicitly incomplete but retains observed load-recovery paths.
+// Rejected flag admission installs no publication defer. Input authority does not erase status or diagnostics.
 // Callers own the metadata artifact's removal and supplied-stream lifetime.
 // Diagnostic/report writes are best-effort and are not delivery receipts.
 //
@@ -135,9 +138,13 @@ func RunCheckWithIO(args []string, stdout, stderr io.Writer) (status int) {
   }
   opts.noEmit = true
   var prog *driver.Program
+  var recovery *driver.TransformGraph
+  if opts.checkObservationsJSON != "" {
+    opts.failureInputs = func(graph *driver.TransformGraph) { recovery = graph }
+  }
   defer func() {
     if opts.checkObservationsJSON != "" {
-      if err := driver.WriteCheckObservationsJSON(opts.checkObservationsJSON, prog); err != nil {
+      if err := driver.WriteCheckRecoveryObservationsJSON(opts.checkObservationsJSON, prog, recovery); err != nil {
         fmt.Fprintf(opts.stderr, "ttsc utility: check observations write failed: %v\n", err)
         if status == 0 {
           status = 3
@@ -307,8 +314,9 @@ func RunTransform(args []string) int {
 // Failed projects retain diagnostics and recovery inputs but publish no partial
 // TypeScript. Encoding or response-write failure returns 3; project failure
 // returns 2.
-// Recovery envelopes require a loaded generation; flag admission or load failure
-// returns before response construction. A loaded generation's graph is captured
+// Rejected flag admission or a loader error returns before response construction.
+// Config/argument diagnostics can retain observed recovery predicates without a
+// Program. A loaded generation's graph is captured
 // before linked program hooks mutate its ASTs. Diagnostic stream reporting is
 // best-effort; response encoding and returned write errors determine delivery
 // status. Callers own the supplied stream lifetimes.
@@ -326,16 +334,20 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
   if !ok {
     return 2
   }
+  out := transformResult{TypeScript: map[string]string{}}
+  opts.failureInputs = func(graph *driver.TransformGraph) { out.Graph = graph }
   prog, _, diags, ok := loadUtilityProgramWithDiagnostics(opts)
   if !ok {
     return 2
   }
-  out := transformResult{TypeScript: map[string]string{}}
   if prog != nil {
     defer prog.Close()
     // The same failed Program owns the missing resolution candidates needed
     // for recovery. Capture them before closing it or applying mutations.
     out.Graph = driver.NewTransformGraph(prog, opts.cwd)
+  } else {
+    unavailable := false
+    out.ObservationsComplete = &unavailable
   }
   if len(diags) != 0 {
     driver.WritePrettyDiagnostics(opts.stderr, diags, opts.cwd)
@@ -605,6 +617,7 @@ func loadUtilityProgramWithDiagnostics(opts hostOptions) (*driver.Program, []dri
     Checkers:           opts.checkers,
     TsgoArgs:           opts.tsgoArgs,
     FS:                 opts.fs,
+    OnFailureInputs:    opts.failureInputs,
   })
   if err != nil {
     fmt.Fprintf(opts.stderr, "ttsc utility: %v\n", err)

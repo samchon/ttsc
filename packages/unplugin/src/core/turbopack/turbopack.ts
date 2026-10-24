@@ -10,6 +10,8 @@ import { TtscCompileFailureError } from "../transform/errors/TtscCompileFailureE
 import { readTtscTransformSession } from "../transform/session/readTtscTransformSession";
 import { shareTtscTransformCache } from "../transform/session/shareTtscTransformCache";
 import { transformTtsc } from "../transform/transformTtsc";
+import { captureCompilerArguments } from "../transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../transform/tsconfig/resolveCompilerEnvironment";
 import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegistration";
 import type { TtscTransformHooks } from "../transform/watch/TtscTransformHooks";
 import type { TtscTurbopackLoaderContext } from "./TtscTurbopackLoaderContext";
@@ -39,7 +41,9 @@ let bridge: HostWatchBridge | undefined;
  * The tool directories whose record inventory this worker has attempted for a
  * one-shot build, for a loader wired by hand, without `withTtsc`.
  */
-const refreshed = new Set<string>();
+const refreshed = new Map<string, string>();
+/** Last invocation admitted to the watching worker's record inventory. */
+let bridgeArgumentsIdentity: string | undefined;
 
 /**
  * Standalone webpack-loader entrypoint for Turbopack.
@@ -93,7 +97,7 @@ const refreshed = new Set<string>();
  *   Inclusion and shallow option/hook adaptation retain path/own-key text work.
  *   Shared transform validation pays current native identity, byte/list/graph
  *   proofs and compiler misses/map delivery; it is not one constant lookup.
- *   First inventory per tool root adds record parse/replay/IO, while watching
+ *   First inventory per tool root and changed invocation adds record parse/replay/IO, while watching
  *   registration adds qualified observer work and error modules serialize errors.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   A worker cache shares validated project generations across loader calls;
@@ -101,7 +105,7 @@ const refreshed = new Set<string>();
  *   boundary every hit qualifies current producer proofs before selecting output;
  *   native observer authority may avoid rereading proven unchanged populations.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   The worker owns its cache, bridge and refreshed-root set for its lifetime.
+ *   The worker owns its cache, bridge and refreshed-root identity map for its lifetime.
  *   Turbopack exposes no loader teardown hook, so native live resources rely on
  *   worker lifetime rather than this function's explicit join/close. Persistent
  *   session storage has its own pruning owner; no count/byte cap or descendant
@@ -149,6 +153,9 @@ export function turbopack(
   const projectRoot = this.rootContext ?? process.cwd();
   const toolDirectory = hostToolDirectory(projectRoot);
   const loaderOptions = bindings.readOptions();
+  const compilerArguments = captureCompilerArguments(
+    resolveCompilerEnvironment(loaderOptions.runExternalCode),
+  ).identity;
   // Turbopack gives a loader no build start, so the records are proven at the
   // process's first delivery. A watching worker's bridge takes every record as
   // it opens, proving them as it does, and observes the projects the worker
@@ -162,12 +169,25 @@ export function turbopack(
   if (watching && addDependency !== undefined) {
     if (bridge === undefined) {
       bridge = openHostWatchBridge(projectRoot);
-      refreshProjectRecordFiles(toolDirectory, bridge);
+    }
+    if (bridgeArgumentsIdentity !== compilerArguments) {
+      bridgeArgumentsIdentity = compilerArguments;
+      refreshProjectRecordFiles(
+        toolDirectory,
+        bridge,
+        undefined,
+        compilerArguments,
+      );
     }
     bridgeStartedAt = bridge.begin();
-  } else if (!refreshed.has(toolDirectory)) {
-    refreshed.add(toolDirectory);
-    refreshProjectRecordFiles(toolDirectory);
+  } else if (refreshed.get(toolDirectory) !== compilerArguments) {
+    refreshed.set(toolDirectory, compilerArguments);
+    refreshProjectRecordFiles(
+      toolDirectory,
+      undefined,
+      undefined,
+      compilerArguments,
+    );
   }
   const hooks: TtscTransformHooks = {
     exactPath: true,

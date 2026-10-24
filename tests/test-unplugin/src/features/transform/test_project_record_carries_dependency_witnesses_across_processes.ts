@@ -6,6 +6,8 @@ import type { TtscProjectRecord } from "../../../../../packages/unplugin/src/cor
 import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { captureCompilerArguments } from "../../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../../../../../packages/unplugin/src/core/transform/tsconfig/resolveCompilerEnvironment";
 import { recordedDependencyWitnesses } from "../../../../../packages/unplugin/src/core/transform/watch/recordedDependencyWitnesses";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -32,6 +34,7 @@ export function test_project_record_carries_dependency_witnesses_across_processe
   const tool = path.join(root, "tool");
   const fallback = path.join(root, "fallback");
   const record = (dependencies?: readonly string[]): TtscProjectRecord => ({
+    compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
     ...(dependencies === undefined ? {} : { dependencies }),
     inputs: {},
     membership: null,

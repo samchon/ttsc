@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { pluginBuildVersions } from "ttsc/plugin-source";
 
 import type { ResolvedTtscUnpluginOptions } from "../../options/ResolvedTtscUnpluginOptions";
+import { compilerEnvironmentIdentity } from "../tsconfig/compilerEnvironmentIdentity";
 import { unpluginVersion } from "./unpluginVersion";
 
 /**
@@ -10,11 +11,12 @@ import { unpluginVersion } from "./unpluginVersion";
  *
  * The ordered JSON tuple groups sharing candidates by spelled config and source
  * root, serialized compiler-option/alias/plugin payloads, reported versions and
- * binary platform. Supported option values must preserve their meaning through
- * JSON; omitted or unsupported JavaScript values are not independent key
- * dimensions. This is a truncated digest, not a complete filesystem or output
- * equivalence proof. Claim publication and adoption separately establish the
- * recorded input/stability premises for a reused compile.
+ * binary platform and effective compiler argument transport. Supported option
+ * values must preserve their meaning through JSON; omitted or unsupported
+ * JavaScript values are not independent key dimensions. This is a truncated
+ * digest, not a complete filesystem or output equivalence proof. Claim
+ * publication and adoption separately establish the recorded input/stability
+ * premises for a reused compile.
  *
  * A compile is kept beyond the process that published it, so a dev server
  * started again adopts what the last one compiled (samchon/ttsc#1483). The
@@ -41,6 +43,8 @@ import { unpluginVersion } from "./unpluginVersion";
 export function sharedCompileIdentity(props: {
   aliasPaths: Record<string, string[]>;
   compilerOptions: Record<string, unknown>;
+  /** Effective compiler arguments and their original working directory. */
+  compilerEnvironment?: NodeJS.ProcessEnv;
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
   projectRoot: string;
   tsconfig: string;
@@ -52,6 +56,7 @@ export function sharedCompileIdentity(props: {
         props.tsconfig,
         props.projectRoot,
         props.compilerOptions,
+        compilerEnvironmentIdentity(props.compilerEnvironment),
         props.aliasPaths,
         props.plugins ?? null,
         pluginBuildVersions(props.projectRoot),

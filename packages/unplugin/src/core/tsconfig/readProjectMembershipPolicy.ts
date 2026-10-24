@@ -28,8 +28,9 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  * root matcher still applies extension, package and hidden-path admission; this
  * policy does not enumerate every dependency in the compiler program.
  *
- * `allowJs` and `resolveJsonModule` extend root-discovery suffixes, not the
- * complete set of imported or externally observed program inputs. `outDir`,
+ * `allowJs` (implicitly enabled by `checkJs`), `resolveJsonModule` and declared
+ * content mapper extensions prime root-discovery suffixes, not the complete set
+ * of imported or externally observed program inputs. `outDir`,
  * `declarationDir`, and plain `exclude` entries supply conservative directory
  * exclusions for that discovery walk. TypeScript supplies the two output
  * directories as implicit exclusions only when no top-level `exclude` replaces
@@ -117,7 +118,7 @@ export function readProjectMembershipPolicy(
             nativepath: resolveNativeRootPath(configDir),
           },
         };
-  const flag = (key: string): boolean =>
+  const flag = (key: string): boolean | undefined =>
     findDeclaredValue(
       resolved,
       (parsed) => {
@@ -128,14 +129,43 @@ export function readProjectMembershipPolicy(
       new Set(),
       sources,
       configs,
-    )?.value === true;
+    )?.value;
 
-  const inputExtensions = [...TYPESCRIPT_TRANSFORM_EXTENSIONS];
-  if (flag("allowJs")) {
-    inputExtensions.push(...JAVASCRIPT_INPUT_EXTENSIONS);
+  const extensions = new Set(TYPESCRIPT_TRANSFORM_EXTENSIONS);
+  if (flag("allowJs") ?? flag("checkJs")) {
+    for (const extension of JAVASCRIPT_INPUT_EXTENSIONS)
+      extensions.add(extension);
   }
   if (flag("resolveJsonModule")) {
-    inputExtensions.push(".json");
+    extensions.add(".json");
+  }
+  const mappers =
+    findDeclaredValue(
+      resolved,
+      (parsed) => {
+        if (!Object.prototype.hasOwnProperty.call(parsed, "contentMappers"))
+          return undefined;
+        const value = (parsed as { contentMappers?: unknown }).contentMappers;
+        return Array.isArray(value) ? value : [];
+      },
+      new Set(),
+      sources,
+      configs,
+    )?.value ?? [];
+  for (const mapper of mappers) {
+    const declaredExtensions =
+      mapper !== null && typeof mapper === "object"
+        ? (mapper as { extensions?: unknown }).extensions
+        : undefined;
+    if (!Array.isArray(declaredExtensions)) continue;
+    for (const extension of declaredExtensions)
+      if (
+        typeof extension === "string" &&
+        extension.length > 1 &&
+        extension.startsWith(".") &&
+        !/[\\/]/.test(extension)
+      )
+        extensions.add(extension.toLowerCase());
   }
 
   const directoryExclusionOrigins: {
@@ -227,7 +257,7 @@ export function readProjectMembershipPolicy(
     excludedDirectories: flattenDirectoryExclusionOrigins(
       directoryExclusionOrigins,
     ),
-    inputExtensions,
+    inputExtensions: [...extensions],
     sources: [...sources],
   };
 }

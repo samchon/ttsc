@@ -17,7 +17,7 @@ import { resolveOptions } from "../../../../packages/unplugin/src/core/options/r
  *    meaning.
  *
  * @evidence contracts/testing.md#behavioral-verification resolveOptions preserves precompile/compilerOptions/plugins/project/projectRoot, retains omission versus false, and detaches the startup entry array and compiler option overlay from their caller.
- * @evidence contracts/testing.md#independent-expectations Literal five-key and option objects independently specify the public result; mutating the resolved strict flag must leave the authored overlay unchanged, and mutating the caller's entry array must leave the resolved startup list unchanged.
+ * @evidence contracts/testing.md#independent-expectations Literal six-key and option objects independently specify the public result; mutating the resolved strict flag must leave the authored overlay unchanged, and mutating the caller's entry array must leave the resolved startup list unchanged.
  * @evidence contracts/testing.md#distinguishing-cases Explicit relative startup entries and source root, their omitted defaults, populated options, omitted options, plugins false versus undefined and array/overlay mutation distinguish value preservation from aliasing.
  * @evidence contracts/testing.md#execution-ownership This exported entry calls resolveOptions directly with in-memory values; its assertions own both normalized object and caller immutability, without a consumer.
  */
@@ -39,6 +39,7 @@ export async function test_resolveoptions_keeps_only_the_public_ttsc_adapter_con
     "precompile",
     "project",
     "projectRoot",
+    "runExternalCode",
   ]);
   assert.deepEqual(options.compilerOptions, {
     module: "commonjs",
@@ -60,6 +61,7 @@ export async function test_resolveoptions_keeps_only_the_public_ttsc_adapter_con
     precompile: undefined,
     project: undefined,
     projectRoot: undefined,
+    runExternalCode: undefined,
   });
   assert.equal(resolveOptions({ plugins: false }).plugins, false);
   assert.equal(resolveOptions({ plugins: undefined }).plugins, undefined);

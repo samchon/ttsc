@@ -44,7 +44,7 @@ export function test_reported_case_policy_and_retry_inputs_preserve_capture_fact
     for (const result of noReports) {
       const selected = selectReportedMembershipPolicy(primed, result);
       assert.equal(selected.membershipPolicy, primed);
-      assert.equal(selected.casePolicyLearned, false);
+      assert.equal(selected.membershipPolicyLearned, false);
     }
     for (const [report, expectedLearned] of primer
       ? ([
@@ -68,7 +68,7 @@ export function test_reported_case_policy_and_retry_inputs_preserve_capture_fact
           },
         };
         const selected = selectReportedMembershipPolicy(primed, result);
-        assert.equal(selected.casePolicyLearned, expectedLearned);
+        assert.equal(selected.membershipPolicyLearned, expectedLearned);
         assert.deepEqual(selected.membershipPolicy, {
           excludedDirectories: [output],
           inputExtensions: [".ts", ".tsx"],

@@ -11,6 +11,8 @@ import { createTransformCacheKey } from "../../../../../packages/unplugin/src/co
 import { createTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/createTtscTransformCache";
 import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/resetTtscTransformCache";
 import { transformTtsc } from "../../../../../packages/unplugin/src/core/transform/transformTtsc";
+import { captureCompilerArguments } from "../../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../../../../../packages/unplugin/src/core/transform/tsconfig/resolveCompilerEnvironment";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -48,6 +50,7 @@ export function createCachedDeliveryUnitFixture(): {
   const good: TtscCachedProjectTransform & {
     result: ITtscCompilerTransformation.ISuccess;
   } = {
+    compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
     deliveryEpoch: 1,
     inputHashes: {
       "src/main.ts": createHash("sha256").update(source).digest("hex"),

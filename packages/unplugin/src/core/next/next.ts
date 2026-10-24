@@ -8,6 +8,8 @@ import { refreshProjectRecordFiles } from "../bridge/refreshProjectRecordFiles";
 import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
 import { TYPESCRIPT_TURBOPACK_RULE_GLOBS } from "../source/TYPESCRIPT_TURBOPACK_RULE_GLOBS";
 import { openTtscTransformSession } from "../transform/session/openTtscTransformSession";
+import { captureCompilerArguments } from "../transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../transform/tsconfig/resolveCompilerEnvironment";
 import type { TtscTurbopackLoaderOptions } from "../turbopack/TtscTurbopackLoaderOptions";
 import { unplugin } from "../unplugin";
 import type { NextLikeConfig } from "./NextLikeConfig";
@@ -99,11 +101,25 @@ export function next(
   // Before either compiler validates a module against the cache below
   // `.next`: a project whose state moved while nothing ran is heard through
   // its record, which only a proof here can move.
-  refreshProjectRecordFiles(hostToolDirectory(process.cwd()));
+  const compilerArguments = captureCompilerArguments(
+    resolveCompilerEnvironment(options?.runExternalCode),
+  ).identity;
+  refreshProjectRecordFiles(
+    hostToolDirectory(process.cwd()),
+    undefined,
+    undefined,
+    compilerArguments,
+  );
   // And where webpack's records live when that directory cannot be written
   // (samchon/ttsc#1480); Turbopack's loader proves its own.
   const fallback = fallbackToolDirectory(process.cwd());
-  if (fallback !== undefined) refreshProjectRecordFiles(fallback);
+  if (fallback !== undefined)
+    refreshProjectRecordFiles(
+      fallback,
+      undefined,
+      undefined,
+      compilerArguments,
+    );
   return {
     ...nextConfig,
     turbopack: withTtscTurbopackRules(nextConfig.turbopack, options),

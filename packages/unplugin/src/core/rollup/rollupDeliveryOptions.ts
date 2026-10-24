@@ -1,6 +1,8 @@
 import path from "node:path";
 
 import type { ResolvedTtscUnpluginOptions } from "../options/ResolvedTtscUnpluginOptions";
+import { compilerEnvironmentIdentity } from "../transform/tsconfig/compilerEnvironmentIdentity";
+import { resolveCompilerEnvironment } from "../transform/tsconfig/resolveCompilerEnvironment";
 import { hashText } from "../transform/utils/hashText";
 import { stableStringify } from "../transform/utils/stableStringify";
 
@@ -9,11 +11,11 @@ import { stableStringify } from "../transform/utils/stableStringify";
  * the module carries into Rollup's cache (`TtscRollupDelivery`).
  *
  * The identity records alias mappings, compiler overlay, plugin payloads and
- * configured project and source-root selection. Tsconfig input state is
- * represented separately by the delivery's project record. A configured project
- * resolves under the same native cwd rule as explicit selection; it is not
- * canonicalized to a physical alias or made process-independent across
- * different cwd spellings.
+ * configured project/source-root selection and effective compiler argument
+ * transport. Tsconfig input state is represented separately by the delivery's
+ * project record. A configured project resolves under the same native cwd rule
+ * as explicit selection; it is not canonicalized to a physical alias or made
+ * process-independent across different cwd spellings.
  *
  * Compiler options, plugin payloads and alias mappings preserve their actual
  * JSON order. Their consumers can observe declaration order; the host cannot
@@ -41,11 +43,13 @@ import { stableStringify } from "../transform/utils/stableStringify";
 export function rollupDeliveryOptions(
   options: ResolvedTtscUnpluginOptions,
   aliasPaths: Record<string, string[]>,
+  compilerEnvironment = resolveCompilerEnvironment(options.runExternalCode),
 ): string {
   return hashText(
     stableStringify({
       aliasPaths: JSON.stringify(aliasPaths),
       compilerOptions: JSON.stringify(options.compilerOptions),
+      compilerEnvironment: compilerEnvironmentIdentity(compilerEnvironment),
       plugins: JSON.stringify(options.plugins),
       project:
         options.project === undefined ? null : path.resolve(options.project),

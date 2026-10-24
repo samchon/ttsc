@@ -1,8 +1,8 @@
 /**
- * The environment a compile runs under: the host's own, with `TEMP`, `TMP`, and
- * `TMPDIR` naming the compile's scratch directory. Consumers honoring these
- * variables use that temporary root; explicit paths or overridden child
- * environments are not confined by these settings.
+ * The environment a compile runs under: its captured snapshot, with `TEMP`,
+ * `TMP`, and `TMPDIR` naming the compile's scratch directory. Consumers
+ * honoring these variables use that temporary root; explicit paths or
+ * overridden child environments are not confined by these settings.
  *
  * Capture hands this copy to the compiler as `env` (samchon/ttsc#1488);
  * applying it to workers and inherited child environments belongs to the
@@ -15,7 +15,7 @@
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs identify the child-process propagation boundary and explicitly distinguish it from changing the host environment.
  * @evidence contracts/portability.md#os-neutral-implementation All three native temporary-directory variables receive the same owned directory, covering Windows and Unix child consumers without constructing shell syntax or mutating the host environment.
  * @evidence contracts/performance.md#efficient-algorithms
- *   The spread enumerates K process environment keys/values into a fresh object
+ *   The spread enumerates K supplied environment keys/values into a fresh object
  *   before three assignments. Key/value text and native environment retrieval
  *   contribute costs; absence of an explicit loop is not constant work.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
@@ -26,9 +26,10 @@
  */
 export function transformScratchEnvironment(
   directory: string,
+  inherited: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
   return {
-    ...process.env,
+    ...inherited,
     TEMP: directory,
     TMP: directory,
     TMPDIR: directory,

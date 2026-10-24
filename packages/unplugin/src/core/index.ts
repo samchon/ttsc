@@ -27,6 +27,8 @@ export { collectProjectInputHashSnapshot } from "./transform/project/collectProj
 export { isProjectWalkPath } from "./transform/project/isProjectWalkPath";
 export type { TtscProjectInputHashSnapshot } from "./transform/project/TtscProjectInputHashSnapshot";
 export { transformTtsc } from "./transform/transformTtsc";
+export { compilerEnvironmentIdentity } from "./transform/tsconfig/compilerEnvironmentIdentity";
+export { resolveCompilerEnvironment } from "./transform/tsconfig/resolveCompilerEnvironment";
 export { captureWatchInputBaseline } from "./transform/watch/captureWatchInputBaseline";
 export { captureWatchInputFileBaseline } from "./transform/watch/captureWatchInputFileBaseline";
 export { isWatchInputKeyBaseline } from "./transform/watch/isWatchInputKeyBaseline";

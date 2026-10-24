@@ -9,8 +9,20 @@ import (
   ast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtsoptions "github.com/microsoft/typescript-go/shim/tsoptions"
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
+
+// programRootMembership uses the 7.0 supported-extension APIs and effective
+// parsed options. A facade constructed without parsed config has no report.
+func programRootMembership(prog *Program) *TransformMembership {
+  if prog.ParsedConfig == nil || prog.ParsedConfig.CompilerOptions() == nil {
+    return nil
+  }
+  options := prog.ParsedConfig.CompilerOptions()
+  groups := shimtsoptions.GetSupportedExtensions(options, nil)
+  return transformMembership(prog, shimtsoptions.GetSupportedExtensionsWithJsonIfResolveJsonModule(options, groups))
+}
 
 // TypeScript 7.0 compiler target.
 //

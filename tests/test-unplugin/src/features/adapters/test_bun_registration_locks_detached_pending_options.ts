@@ -70,6 +70,7 @@ export async function test_bun_registration_locks_detached_pending_options(): Pr
       });
       assert.ok(loader);
       const supplied = {
+        runExternalCode: true,
         projectRoot: "../selected-workspace",
         plugins: [{ transform: "./plugin.cjs", name: "prefix", prefix: "B:" }],
       };
@@ -77,6 +78,7 @@ export async function test_bun_registration_locks_detached_pending_options(): Pr
         register(supplied);
         supplied.plugins[0]!.prefix = "MUTATED:";
         supplied.projectRoot = "../mutated-workspace";
+        supplied.runExternalCode = false;
       }
       assert.equal(captured.length, 1);
       const missing = path.join(
@@ -93,6 +95,7 @@ export async function test_bun_registration_locks_detached_pending_options(): Pr
       try {
         assert.doesNotThrow(() =>
           register({
+            ...(replacePending ? { runExternalCode: true } : {}),
             projectRoot: replacePending
               ? "../selected-workspace"
               : "../workspace",

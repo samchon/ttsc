@@ -323,7 +323,10 @@ type Program struct {
   Host shimcompiler.CompilerHost
   // hosts builds every generation's Host and owns the content-mapper processes
   // those hosts share; Close releases it.
-  hosts *shimcompiler.ProjectHosts
+  hosts                  *shimcompiler.ProjectHosts
+  mapperDependencies     []string
+  mapperDependencyError  error
+  compilerArgumentInputs []string
 
   // FS is the input-observing filesystem, including any source preamble layer.
   FS            vfs.FS
@@ -340,10 +343,10 @@ type Program struct {
 // the program. `ForceEmit` is used by `ttsc --emit` and runtime compilation
 // so execution still works when the project defaults to `noEmit`.
 //
-// @evidence contracts/common.md#principled-implementation Explicit overrides and an optional FS represent caller-owned load choices separately from resolved tsconfig values.
+// @evidence contracts/common.md#principled-implementation Explicit overrides, an optional FS and a failure-observation sink represent caller-owned load choices separately from resolved tsconfig values.
 // @evidence contracts/common.md#clear-and-simple-design One options value carries load-time choices; compiler option merging stays with LoadProgram and the native parser.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Dedicated fields express supported overrides without deriving policy from a fixture or consumer name.
-// @evidence contracts/common.md#meaningful-documentation Native member prose explains force emit, semantic config ownership, threading and optional FS under documentation-skill guidance.
+// @evidence contracts/common.md#meaningful-documentation Native member prose explains force emit, semantic config ownership, threading, optional FS and failed-load observation ownership under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation FS supplies native capabilities and path fields retain caller spellings for the loader's supported normalization boundary.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Options encode choices but perform no compilation algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This input value does not establish whether loaded work can be shared.
@@ -394,6 +397,12 @@ type LoadProgramOptions struct {
   // is used. A resident Session passes an overlay FS so in-memory edits stay
   // visible to the program and to incremental UpdateProgram calls.
   FS vfs.FS
+
+  // OnFailureInputs receives the actual CLI/config input observations if this
+  // load exits after observation starts but before a Program is acquired. It
+  // runs synchronously once; it does not report a completed source population.
+  // Successful loads expose their graph through NewTransformGraph instead.
+  OnFailureInputs func(*TransformGraph)
 }
 
 // Close releases the checker pool lease acquired by LoadProgram and, on the
@@ -582,13 +591,13 @@ func forceSingleChecker(parsed *tsoptions.ParsedCommandLine) {
 // callers should provide an absolute anchor. tsconfigPath may be relative to it.
 //
 // @evidence contracts/common.md#principled-implementation Plugin preambles enter before parsing, native CLI/config merging resolves options before Program creation, and the facade associates the observing VFS and borrowed checker with that generation; this is not a certificate of every filesystem access by plugins or their host.
-// @evidence contracts/common.md#clear-and-simple-design One loader orders plugin config, filesystem layers, config overrides and checker acquisition; private helpers each own one policy.
+// @evidence contracts/common.md#clear-and-simple-design One loader orders plugin config, filesystem layers, config overrides and checker acquisition; an optional failure sink transfers only the rejected load's observed recovery inputs.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid configuration or CLI input returns before construction; an explicitly empty argument list does not fall through to an ancestor's flags.
 // @evidence contracts/common.md#meaningful-documentation Native prose and options document one-shot load, path anchoring, force overrides and checker ownership under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation Native cwd resolution uses filepath/tspath and the chosen VFS provides actual case and path capabilities; semantic wrapper ownership uses an explicit config path.
-// @evidence contracts/performance.md#efficient-algorithms One load composes plugin/preamble work, config/CLI parsing, native Program processing and checker acquisition with VFS observation. Read-text hashing runs on each observed read, including repeated reads; config/source bytes, native resolution and directory work, plugin callbacks and retained observation maps govern cost rather than only facade construction.
+// @evidence contracts/performance.md#efficient-algorithms One load composes plugin/preamble work, config/CLI parsing, native Program processing and checker acquisition with VFS observation. A requested failed-load graph additionally snapshots, projects and sorts the observed predicate population and invokes the caller's sink. Read-text hashing runs on each observed read, including repeated reads; config/source bytes, native resolution and directory work, plugin callbacks and retained observation maps govern cost rather than only facade construction.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This one-shot factory does not coordinate callers; Session and resident hosts own cross-request compiler reuse.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Errors before checker acquisition return no lease. Success transfers the lease, generation trees and input/plugin ledgers to Program without a byte cap; Close releases only the checker callback, while caller reachability controls facade state and separately retained plugin callbacks.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Errors before checker acquisition return no lease; an optional synchronous sink receives call-owned recovery metadata once after observation starts. Successful loading transfers checker and mapper ownership plus input/plugin ledgers to Program; Close releases owned native resources, while caller reachability controls remaining facade state.
 func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program, []Diagnostic, error) {
   if !filepath.IsAbs(cwd) {
     if abs, err := filepath.Abs(cwd); err == nil {
@@ -616,6 +625,14 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
     fs = DefaultFS()
   }
   inputObserver := newInputObservationFS(fs)
+  loaded := false
+  if options.OnFailureInputs != nil {
+    defer func() {
+      if !loaded {
+        options.OnFailureInputs(inputObserver.recoveryGraph(cwd))
+      }
+    }()
+  }
   fs = inputObserver
   if options.SourcePreamble != "" {
     fs = sourcePreambleFS{
@@ -646,6 +663,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   if len(cliDiags) > 0 {
     return nil, cliDiags, nil
   }
+  compilerArgumentInputs := inputObserver.readPaths()
 
   // Config identity is explicit; argument conversion uses the original argv
   // base, while the Program and linked plugin state retain their selected cwd.
@@ -684,21 +702,26 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   hosts := shimcompiler.NewProjectHosts(parsed)
   host = projectHost(hosts, cwd, fs)
   tsProgram, _, _ := CreateProgramFromConfig(parsed, host)
+  mapperDependencies, mapperDependencyError := hosts.Dependencies()
 
   checker, done := tsProgram.GetTypeChecker(context.Background())
   prog := &Program{
-    TSProgram:      tsProgram,
-    ParsedConfig:   parsed,
-    Checker:        checker,
-    checkerRelease: done,
-    Host:           host,
-    hosts:          hosts,
-    FS:             fs,
-    inputObserver:  inputObserver,
-    SourcePreamble: options.SourcePreamble,
+    TSProgram:              tsProgram,
+    ParsedConfig:           parsed,
+    Checker:                checker,
+    checkerRelease:         done,
+    Host:                   host,
+    hosts:                  hosts,
+    mapperDependencies:     mapperDependencies,
+    mapperDependencyError:  mapperDependencyError,
+    compilerArgumentInputs: compilerArgumentInputs,
+    FS:                     fs,
+    inputObserver:          inputObserver,
+    SourcePreamble:         options.SourcePreamble,
   }
   prog.plugins = pluginState
   e2etrace.Program("program-load-outcome", "driver-create", "facade-installed", false, tsProgram)
+  loaded = true
   return prog, nil, nil
 }
 
@@ -1101,6 +1124,9 @@ func (p *Program) diagnostics(files []*ast.SourceFile) []Diagnostic {
   // `driver: nil program` above is the precedent for a driver-level entry with
   // no file or code.
   var out []Diagnostic
+  if p.mapperDependencyError != nil {
+    out = append(out, Diagnostic{Severity: SeverityError, Message: "driver: content mapper dependencies: " + p.mapperDependencyError.Error()})
+  }
   if p.pluginsApplied && p.pluginsApplyErr != nil {
     out = append(out, Diagnostic{
       Severity: SeverityError,

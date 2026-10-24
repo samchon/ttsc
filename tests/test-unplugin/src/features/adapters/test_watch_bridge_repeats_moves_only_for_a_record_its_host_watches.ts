@@ -6,6 +6,8 @@ import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/b
 import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { captureCompilerArguments } from "../../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../../../../../packages/unplugin/src/core/transform/tsconfig/resolveCompilerEnvironment";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -76,6 +78,7 @@ export async function test_watch_bridge_repeats_moves_only_for_a_record_its_host
     const tsconfig = path.join(root, name, "tsconfig.json");
     const file = projectRecordFile(tool, tsconfig);
     writeProjectRecordFile(file, {
+      compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
       inputs: {},
       membership: null,
       root: path.join(root, name),

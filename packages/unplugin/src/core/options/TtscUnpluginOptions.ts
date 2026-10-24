@@ -70,6 +70,15 @@ export interface TtscUnpluginOptions {
   compilerOptions?: TtscUnpluginCompilerOptionsJson;
 
   /**
+   * Allow the selected TypeScript 7.1 compiler to execute content mappers.
+   *
+   * This invocation's explicit value overrides inherited `TTSC_TSGO_ARGS`
+   * permission without changing `process.env`. Omission retains inherited
+   * arguments. TypeScript 7.0 rejects this option's compiler flag.
+   */
+  runExternalCode?: boolean;
+
+  /**
    * `ttsc` plugin entries.
    *
    * `undefined` reads project plugins from `compilerOptions.plugins` and

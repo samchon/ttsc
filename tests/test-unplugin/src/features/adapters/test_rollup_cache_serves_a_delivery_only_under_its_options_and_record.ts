@@ -7,6 +7,8 @@ import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/b
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
 import { createRollupCachedModuleProof } from "../../../../../packages/unplugin/src/core/rollup/createRollupCachedModuleProof";
 import { selectRollupCachedModuleTransform } from "../../../../../packages/unplugin/src/core/rollup/selectRollupCachedModuleTransform";
+import { captureCompilerArguments } from "../../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../../../../../packages/unplugin/src/core/transform/tsconfig/resolveCompilerEnvironment";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -163,6 +165,7 @@ export async function test_rollup_cache_serves_a_delivery_only_under_its_options
     );
     const bridgeRecord = path.join(root, "bridge.json");
     writeProjectRecordFile(bridgeRecord, {
+      compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
       inputs: {},
       membership: null,
       root,

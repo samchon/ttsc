@@ -125,6 +125,7 @@ export function resolveOptionsFromEnv(): ResolvedTtscMetroOptions {
       project: parsed.project,
       projectRoot: parsed.projectRoot,
       compilerOptions: parsed.compilerOptions,
+      runExternalCode: parsed.runExternalCode,
       ...("plugins" in parsed ? { plugins: parsed.plugins } : {}),
     },
     upstreamTransformer:

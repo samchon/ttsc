@@ -110,6 +110,8 @@ On a project that configures a ttsc plugin, the mapped TypeScript joins the prog
 
 Without the flag, the build fails with `TS18068`, as `tsc` does. A TypeScript 7.0 project has no content mappers, so 7.0 rejects `--runExternalCode` as an unknown option (`TS5023`).
 
+Bundler adapters accept `runExternalCode: true`; see [Unplugin](/docs/setup/unplugin). Mapper package manifests and upstream-declared dynamic `watchedFiles` are project dependencies in transform metadata, so schema and mapper configuration edits invalidate cached output without pretending those declarations are compiler-read observations.
+
 ## Build information
 
 `incremental` and `composite` make `tsc` write a `.tsbuildinfo` next to the tsconfig, or wherever `tsBuildInfoFile` points. `ttsc` writes the same file, in the same format and at the same path, on both lanes: a plain build, and a build a ttsc plugin owns.

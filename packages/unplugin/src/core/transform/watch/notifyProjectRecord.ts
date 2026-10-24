@@ -227,6 +227,9 @@ function recordOf(
 ): TtscProjectRecord {
   const dependencies = cached.externalDependencyInputs ?? [];
   const record: TtscProjectRecord = {
+    ...(cached.compilerArguments === undefined
+      ? {}
+      : { compilerArguments: cached.compilerArguments }),
     ...(dependencies.length === 0 ? {} : { dependencies }),
     inputs: {},
     membership:

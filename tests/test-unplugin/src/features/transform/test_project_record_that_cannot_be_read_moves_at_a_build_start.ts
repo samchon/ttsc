@@ -8,6 +8,8 @@ import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core
 import { refreshProjectRecordFiles } from "../../../../../packages/unplugin/src/core/bridge/refreshProjectRecordFiles";
 import { signalProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/signalProjectRecordFile";
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { captureCompilerArguments } from "../../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../../../../../packages/unplugin/src/core/transform/tsconfig/resolveCompilerEnvironment";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -53,6 +55,7 @@ export async function test_project_record_that_cannot_be_read_moves_at_a_build_s
   const record = projectRecordFile(tool, tsconfig);
   for (const signal of [0, 9007199254740992, Number.MAX_VALUE]) {
     writeProjectRecordFile(record, {
+      compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
       inputs: {},
       membership: null,
       root,
@@ -82,6 +85,7 @@ export async function test_project_record_that_cannot_be_read_moves_at_a_build_s
     }
   }
   writeProjectRecordFile(record, {
+    compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
     inputs: {},
     membership: null,
     root,

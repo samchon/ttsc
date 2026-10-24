@@ -40,6 +40,7 @@ export async function assertOptionsRoundTripThroughEnv(): Promise<void> {
     project: "tsconfig.json",
     projectRoot: "../compiler-output-root",
     compilerOptions: { strict: true },
+    runExternalCode: true,
     plugins: [{ transform: "typia/lib/transform" }],
     include: ["src"],
     exclude: ["test"],
@@ -52,6 +53,7 @@ export async function assertOptionsRoundTripThroughEnv(): Promise<void> {
     assert.equal(resolved.ttsc.project, source.project);
     assert.equal(resolved.ttsc.projectRoot, source.projectRoot);
     assert.deepEqual(resolved.ttsc.compilerOptions, source.compilerOptions);
+    assert.equal(resolved.ttsc.runExternalCode, source.runExternalCode);
     assert.deepEqual(resolved.ttsc.plugins, source.plugins);
     assert.deepEqual(resolved.include, source.include);
     assert.deepEqual(resolved.exclude, source.exclude);
@@ -85,10 +87,14 @@ export async function assertOptionsDefaultWhenEnvAbsent(): Promise<void> {
  */
 export async function assertOptionsPreservePluginsFalse(): Promise<void> {
   const mod = options;
-  await withEnv(mod.serializeOptions({ plugins: false }), async (m) => {
-    const resolved = m.resolveOptionsFromEnv();
-    assert.equal(resolved.ttsc.plugins, false);
-  });
+  await withEnv(
+    mod.serializeOptions({ plugins: false, runExternalCode: false }),
+    async (m) => {
+      const resolved = m.resolveOptionsFromEnv();
+      assert.equal(resolved.ttsc.plugins, false);
+      assert.equal(resolved.ttsc.runExternalCode, false);
+    },
+  );
 }
 
 /**

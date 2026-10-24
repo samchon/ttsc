@@ -4,6 +4,8 @@ import path from "node:path";
 import type { TtscProjectRecord } from "../../../../../packages/unplugin/src/core/bridge/TtscProjectRecord";
 import { projectRecordMoved } from "../../../../../packages/unplugin/src/core/bridge/projectRecordMoved";
 import { pluginSourceState } from "../../../../../packages/unplugin/src/core/transform/inputs/pluginSourceState";
+import { captureCompilerArguments } from "../../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../../../../../packages/unplugin/src/core/transform/tsconfig/resolveCompilerEnvironment";
 import { createClockRollbackUnitFixture } from "../../internal/transform-project-cache/createClockRollbackUnitFixture";
 
 /**
@@ -33,6 +35,7 @@ export function test_project_record_proof_reads_a_plugin_source_after_a_clock_ro
     "actual source and native environment must be readable",
   );
   const record: TtscProjectRecord = {
+    compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
     inputs: {
       [fixture.source]: {
         identity: fixture.source,

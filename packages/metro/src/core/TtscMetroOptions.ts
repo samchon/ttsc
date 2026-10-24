@@ -3,10 +3,10 @@ import type { TtscUnpluginOptions } from "@ttsc/unplugin/api";
 /**
  * Options accepted by {@link withTtsc} and the Metro transformer.
  *
- * The `precompile` / `project` / `compilerOptions` / `plugins` fields are
- * inherited from `@ttsc/unplugin` so the Metro adapter speaks the exact same
- * configuration language as every other bundler integration. The remaining
- * fields are Metro-specific.
+ * The `precompile`, `project`, `projectRoot`, `compilerOptions`, `plugins` and
+ * `runExternalCode` fields are inherited from `@ttsc/unplugin` so the Metro
+ * adapter speaks the exact same configuration language as every other bundler
+ * integration. The remaining fields are Metro-specific.
  *
  * Callers must supply JSON-compatible values: `withTtsc` runs in the Metro
  * config process and the transformer receives serialized options in worker

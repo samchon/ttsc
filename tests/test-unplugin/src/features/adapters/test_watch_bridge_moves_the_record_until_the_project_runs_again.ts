@@ -6,6 +6,8 @@ import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/b
 import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { captureCompilerArguments } from "../../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../../../../../packages/unplugin/src/core/transform/tsconfig/resolveCompilerEnvironment";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -76,6 +78,7 @@ export async function test_watch_bridge_moves_the_record_until_the_project_runs_
   const wait = (milliseconds: number) =>
     new Promise((resolve) => setTimeout(resolve, milliseconds));
   writeProjectRecordFile(record, {
+    compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
     inputs: {},
     membership: null,
     root,
@@ -144,6 +147,7 @@ export async function test_watch_bridge_moves_the_record_until_the_project_runs_
       path.join(root, "tsconfig.other.json"),
     );
     writeProjectRecordFile(other, {
+      compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
       inputs: {},
       membership: null,
       root,

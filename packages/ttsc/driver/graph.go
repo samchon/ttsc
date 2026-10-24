@@ -37,7 +37,7 @@ const bundledScheme = "bundled:///"
 //     results. They are a separate class from resolved edges: a predicate or
 //     package manifest changing can change an unchanged reference's meaning.
 //   - ResolutionInputs lists automatic type discovery and resolution inputs
-//     whose state can affect every source file, including type-root directory
+//     whose state can affect every source file, including compiler response files and type-root directory
 //     membership.
 //   - InputObservations preserves the independent filesystem predicates the
 //     compiler actually asked. InputHashes and InputRealpaths retain the legacy
@@ -48,6 +48,14 @@ const bundledScheme = "bundled:///"
 //     project's root specs and compared paths with, so a host deciding the
 //     same membership uses the compiler's policy rather than a guess from the
 //     platform.
+//   - ContentMapperInputs lists mapper manifests and upstream-declared dynamic
+//     dependencies for every output. They are declarations, not observed reads,
+//     and require independent before/after dependency witnesses.
+//
+// A failed-load recovery graph contains only the CLI/config predicates observed
+// before Program construction failed. Empty source/config lists and absent
+// membership settings supply no completed Program authority. Failure status and
+// explicit observation limitations remain in the containing response.
 //
 // Keys and values use the same convention as the envelope's `typescript`
 // map: project-relative slash paths, falling back to slash-normalized
@@ -62,6 +70,11 @@ const bundledScheme = "bundled:///"
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This schema carries proof without coordinating artifact reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller-owned value owns no resident cache or resource.
 type TransformGraph struct {
+  // Membership is the effective native root-admission and output-exclusion policy.
+  Membership *TransformMembership `json:"membership,omitempty"`
+  // ContentMapperInputs are declared project dependencies, not observed reads.
+  // Consumers witness them before compilation independently of graph proof.
+  ContentMapperInputs       []string                             `json:"contentMapperInputs,omitempty"`
   Edges                     map[string][]string                  `json:"edges"`
   Globals                   []string                             `json:"globals"`
   Configs                   []string                             `json:"configs"`
@@ -94,6 +107,7 @@ func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
   }
   resolution := ObserveProgramResolutions(prog, cwd)
   graph := &TransformGraph{
+    Membership:                programRootMembership(prog),
     Edges:                     map[string][]string{},
     Globals:                   []string{},
     Configs:                   []string{},
@@ -101,6 +115,22 @@ func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
     ResolutionInputs:          resolution.Universal,
     UseCaseSensitiveFileNames: prog.TSProgram.UseCaseSensitiveFileNames(),
   }
+  for _, input := range prog.mapperDependencies {
+    graph.ContentMapperInputs = append(graph.ContentMapperInputs, TransformOutputKey(cwd, input))
+  }
+  sort.Strings(graph.ContentMapperInputs)
+  argumentInputs := map[string]struct{}{}
+  for _, input := range graph.ResolutionInputs {
+    argumentInputs[input] = struct{}{}
+  }
+  for _, input := range prog.compilerArgumentInputs {
+    key := TransformOutputKey(cwd, input)
+    if _, found := argumentInputs[key]; !found {
+      graph.ResolutionInputs = append(graph.ResolutionInputs, key)
+      argumentInputs[key] = struct{}{}
+    }
+  }
+  sort.Strings(graph.ResolutionInputs)
   for _, file := range prog.TSProgram.SourceFiles() {
     fileName := file.FileName()
     if strings.HasPrefix(string(fileName), bundledScheme) {
@@ -135,6 +165,13 @@ func (graph *TransformGraph) attachInputProof(prog *Program, cwd string) {
   if prog == nil || prog.inputObserver == nil {
     return
   }
+  graph.attachObservedInputProof(prog.inputObserver, cwd)
+}
+
+// attachObservedInputProof projects only this observer's existing predicates.
+// Failed CLI/config loads use it without constructing a compiler Program;
+// successful graph construction retains the same realized-source requirements.
+func (graph *TransformGraph) attachObservedInputProof(observer *inputObservationFS, cwd string) {
   inputs := map[string]struct{}{}
   realized := map[string]struct{}{}
   addRealized := func(input string) {
@@ -174,14 +211,14 @@ func (graph *TransformGraph) attachInputProof(prog *Program, cwd string) {
     if !filepath.IsAbs(file) {
       file = filepath.Join(cwd, file)
     }
-    observation, predicateFailure := prog.inputObserver.predicateProof(file)
+    observation, predicateFailure := observer.predicateProof(file)
     if predicateFailure == "" {
       observations[input] = observation
     }
     var hash, realpath *string
     legacyFailure := predicateFailure
     if predicateFailure == "" {
-      hash, realpath, legacyFailure = prog.inputObserver.proof(file)
+      hash, realpath, legacyFailure = observer.proof(file)
     }
     if legacyFailure != "" {
       // A resolver input can have a complete predicate proof that the legacy

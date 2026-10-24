@@ -37,6 +37,7 @@ export async function test_next_adapter_wires_both_bundlers(): Promise<void> {
   const next = await loadNext();
   const options = {
     project: "tsconfig.build.json",
+    runExternalCode: true,
     precompile: ["src/main.ts", "../shared/src/index.ts"],
   };
   const config = next({}, options);

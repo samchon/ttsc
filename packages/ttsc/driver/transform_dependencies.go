@@ -15,6 +15,9 @@ import (
 // no contributor declarations to require, so every transformed file is listed.
 // This side channel does not independently certify resolver, host or plugin
 // source inputs reported through other envelope fields.
+// Content mapper manifests and upstream-declared dynamic project inputs are
+// added for every file independently of plugin completeness. These declarations
+// carry no compiler-read proof; consumers witness them before a compilation.
 //
 // @evidence contracts/common.md#principled-implementation Reported dependencies and explicit completeness are distinct; an empty contributor set is complete without pretending silent contributors proved anything.
 // @evidence contracts/common.md#clear-and-simple-design One per-file adjacency map and one complete-file list carry separate facts.
@@ -95,7 +98,25 @@ func (p *Program) TransformDependenciesFor(cwd string) TransformDependencies {
   for _, file := range files {
     keys = append(keys, TransformOutputKey(cwd, string(file.FileName())))
   }
-  return p.plugins.transformDependencies(keys)
+  out := p.plugins.transformDependencies(keys)
+  if len(p.mapperDependencies) != 0 {
+    for _, key := range keys {
+      inputs := map[string]struct{}{}
+      for _, input := range out.Dependencies[key] {
+        inputs[input] = struct{}{}
+      }
+      for _, input := range p.mapperDependencies {
+        name := TransformOutputKey(cwd, input)
+        if name != key {
+          inputs[name] = struct{}{}
+        }
+      }
+      if len(inputs) != 0 {
+        out.Dependencies = appendDependencyEntry(out.Dependencies, key, inputs)
+      }
+    }
+  }
+  return out
 }
 
 // transformDependencies aggregates every contributing plugin's declarations

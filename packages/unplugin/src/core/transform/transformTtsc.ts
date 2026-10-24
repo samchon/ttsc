@@ -7,6 +7,7 @@ import { createAliasPaths } from "./alias/createAliasPaths";
 import { TERMINAL_TRANSFORM_GENERATIONS } from "./cache/TERMINAL_TRANSFORM_GENERATIONS";
 import { TRANSFORM_CACHE_CASE_POLICIES } from "./cache/TRANSFORM_CACHE_CASE_POLICIES";
 import { TRANSFORM_CACHE_DEPENDENCY_WITNESSES } from "./cache/TRANSFORM_CACHE_DEPENDENCY_WITNESSES";
+import { TRANSFORM_CACHE_MEMBERSHIP_POLICIES } from "./cache/TRANSFORM_CACHE_MEMBERSHIP_POLICIES";
 import { TRANSFORM_RESULT_FILESYSTEM } from "./cache/TRANSFORM_RESULT_FILESYSTEM";
 import type { TtscTransformCache } from "./cache/TtscTransformCache";
 import { awaitOrEvict } from "./cache/awaitOrEvict";
@@ -24,6 +25,7 @@ import { transformProject } from "./generation/transformProject";
 import { preparePluginBuildEnvironments } from "./inputs/preparePluginBuildEnvironments";
 import { TRANSFORM_CACHE_SESSIONS } from "./session/TRANSFORM_CACHE_SESSIONS";
 import { settleProjectMutationEvents } from "./tracker/settleProjectMutationEvents";
+import { resolveCompilerEnvironment } from "./tsconfig/resolveCompilerEnvironment";
 import { resolveProjectSelection } from "./tsconfig/resolveProjectSelection";
 import { isDeclarationFile } from "./utils/isDeclarationFile";
 import { isHostWrapperQuery } from "./utils/isHostWrapperQuery";
@@ -162,8 +164,12 @@ async function runTransformTtsc(
       ),
     );
   }
+  const compilerEnvironment = resolveCompilerEnvironment(
+    options.runExternalCode,
+  );
   const key = createTransformCacheKey({
     aliasPaths,
+    compilerEnvironment,
     compilerOptions: options.compilerOptions,
     plugins: options.plugins,
     projectRoot: selectedProjectRoot,
@@ -294,6 +300,12 @@ async function runTransformTtsc(
       transformed = transformProject({
         aliasPaths,
         compilerOptions: options.compilerOptions,
+        compilerEnvironment,
+        runExternalCode: options.runExternalCode,
+        compilerMembership:
+          cache === undefined
+            ? undefined
+            : TRANSFORM_CACHE_MEMBERSHIP_POLICIES.get(cache)?.get(key),
         projectRoot: selectedProjectRoot,
         currentFile: file,
         currentSource: source,
@@ -354,6 +366,18 @@ async function runTransformTtsc(
         TRANSFORM_CACHE_DEPENDENCY_WITNESSES.set(cache, witnesses);
       }
       witnesses.set(key, cached.externalDependencyInputs ?? []);
+      const membership =
+        cached.result.type === "exception"
+          ? undefined
+          : cached.result.graph?.membership;
+      if (membership !== undefined) {
+        let policies = TRANSFORM_CACHE_MEMBERSHIP_POLICIES.get(cache);
+        if (policies === undefined) {
+          policies = new Map();
+          TRANSFORM_CACHE_MEMBERSHIP_POLICIES.set(cache, policies);
+        }
+        policies.set(key, membership);
+      }
       const reported = cached.membershipPolicy.useCaseSensitiveFileNames;
       if (reported !== undefined) {
         let policies = TRANSFORM_CACHE_CASE_POLICIES.get(cache);

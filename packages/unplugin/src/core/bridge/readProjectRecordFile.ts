@@ -10,9 +10,10 @@ import type { TtscProjectRecord } from "./TtscProjectRecord";
  * run over it (`refreshProjectRecordFiles`), and the next generation's delivery
  * writes it whole.
  *
- * Validate consumed input codecs and membership policy before exposing the
- * parsed record. A JSON object header alone does not establish that observers
- * can safely interpret its nested evidence.
+ * Validate the optional invocation witness, consumed input codecs and
+ * membership policy before exposing the parsed record. A JSON object header
+ * alone does not establish that observers can safely interpret its nested
+ * evidence.
  *
  * @evidence contracts/common.md#principled-implementation Structural guards validate the record, every consumed input codec and membership policy; predicate proof uses the existing producer-schema normalizer rather than inventing missing observations.
  * @evidence contracts/common.md#clear-and-simple-design This disk boundary owns untrusted JSON parsing and small schema predicates; filesystem replay and state-change decisions remain with the existing record consumers.
@@ -48,11 +49,16 @@ export function readProjectRecordFile(
     !Number.isFinite(candidate.signal) ||
     !isInputEvidenceMap(candidate.inputs) ||
     !isMembership(candidate.membership) ||
+    (candidate.compilerArguments !== undefined &&
+      !isCompilerArguments(candidate.compilerArguments)) ||
     (candidate.dependencies !== undefined && !isStrings(candidate.dependencies))
   ) {
     return undefined;
   }
   return {
+    ...(candidate.compilerArguments === undefined
+      ? {}
+      : { compilerArguments: candidate.compilerArguments }),
     ...(candidate.dependencies === undefined
       ? {}
       : { dependencies: candidate.dependencies }),
@@ -173,4 +179,17 @@ function isInputEvidenceMap(
   value: unknown,
 ): value is TtscProjectRecord["inputs"] {
   return isRecord(value) && Object.values(value).every(isInputEvidence);
+}
+
+/** Argument transport identity and the explicit policy needed for replay. */
+function isCompilerArguments(
+  value: unknown,
+): value is NonNullable<TtscProjectRecord["compilerArguments"]> {
+  return (
+    isRecord(value) &&
+    typeof value.identity === "string" &&
+    /^[0-9a-f]{64}$/.test(value.identity) &&
+    (value.runExternalCode === undefined ||
+      typeof value.runExternalCode === "boolean")
+  );
 }

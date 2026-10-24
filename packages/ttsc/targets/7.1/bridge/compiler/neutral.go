@@ -3,6 +3,8 @@ package compiler
 import (
   "context"
   "errors"
+  "path/filepath"
+  "sort"
   "sync"
 
   innerast "github.com/microsoft/TypeScript/tsc/internal/ast"
@@ -52,7 +54,7 @@ func NewHost(currentDirectory innertspath.RootedDirectoryPath, fs innervfs.FS, d
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The compiler's own runExternalCode gate and mapper resolution decide whether mappers run; no ttsc authorization or mapping policy is added.
 // @evidence contracts/common.md#meaningful-documentation Native prose states when mappers run, the nil meaning and the 7.0 difference.
 // @evidence contracts/portability.md#os-neutral-implementation Mapper processes start through spawnContentMapper's os/exec boundary in each mapper package's directory; the supplied FS owns every file read.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The type stores two handles and chooses no algorithm.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This declaration chooses no algorithm; its fields retain shared mapper state and resolved manifest names.
 // @evidence contracts/performance.md#reuse-equivalent-work Every host built from one ProjectHosts shares one mapper project, so an incremental generation reuses the processes the first generation started.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The mapper project and host, and with them every spawned mapper process, live until Close; Close releases them once.
 type ProjectHosts struct {
@@ -60,6 +62,7 @@ type ProjectHosts struct {
   project   contentmapper.Project
   closeOnce sync.Once
   closeErr  error
+  manifests []string
 }
 
 // NewProjectHosts returns the hosts of Programs built from config. It starts
@@ -69,8 +72,8 @@ type ProjectHosts struct {
 // @evidence contracts/common.md#clear-and-simple-design One gate returns either a nil value or a value holding the mapper project.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Mapper resolution and its diagnostics stay with the config parser; this function adds none.
 // @evidence contracts/common.md#meaningful-documentation Native prose states that construction starts no process.
-// @evidence contracts/portability.md#os-neutral-implementation Construction performs no native operation; mapper processes start later through spawnContentMapper.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Construction checks one option and one slice length.
+// @evidence contracts/portability.md#os-neutral-implementation Native filepath.Join constructs manifest paths in resolved package directories; mapper processes start later through spawnContentMapper.
+// @evidence contracts/performance.md#efficient-algorithms Construction checks the gate and copies each configured mapper package directory into a manifest path. Cost and returned path storage follow mapper count and path text.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call opens its own mapper state; callers share it by holding the value.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The returned value owns the mapper host and project until Close.
 func NewProjectHosts(config *innertsoptions.ParsedCommandLine) *ProjectHosts {
@@ -79,14 +82,46 @@ func NewProjectHosts(config *innertsoptions.ParsedCommandLine) *ProjectHosts {
   }
   diagnosticLocale, _ := innerlocale.Parse(config.CompilerOptions().Locale)
   mappers := contentmapper.NewHost(context.Background(), contentmapper.SpawnerFunc(spawnContentMapper), diagnosticLocale)
+  manifests := make([]string, 0, len(config.ContentMappers()))
+  for _, mapper := range config.ContentMappers() {
+    if mapper.PackageDirectory != "" {
+      manifests = append(manifests, filepath.Join(string(mapper.PackageDirectory), "package.json"))
+    }
+  }
   return &ProjectHosts{
-    mappers: mappers,
+    manifests: manifests,
+    mappers:   mappers,
     project: mappers.Project(contentmapper.ProjectSpec{
       ConfigFileName:  config.ConfigName(),
       Mappers:         config.ContentMappers(),
       CompilerOptions: config.CompilerOptions(),
     }),
   }
+}
+
+// Dependencies returns mapper manifests and upstream-declared dynamic inputs.
+// WatchedFiles can open dynamic project configuration; its error is returned
+// alongside manifests so callers keep recovery inputs without claiming success.
+//
+// @evidence contracts/common.md#principled-implementation Uses the pinned upstream Project.WatchedFiles declaration and resolved mapper package directories; it does not infer reads from mapper code.
+// @evidence contracts/common.md#clear-and-simple-design One projection transfers the project-owned dependency population without changing the mapper protocol.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Upstream errors remain errors and manifests remain available for recovery; no post-compile hash is invented.
+// @evidence contracts/common.md#meaningful-documentation Native prose documents lazy opening, declaration scope and partial error results.
+// @evidence contracts/portability.md#os-neutral-implementation Native filepath.Join anchors manifests in resolved package directories; upstream watched paths retain their absolute native spelling.
+// @evidence contracts/performance.md#efficient-algorithms Copies declared input names and sorts them; upstream WatchedFiles can open dynamic mapper projects and perform protocol IO.
+// @evidence contracts/performance.md#reuse-equivalent-work Upstream project state shares opened configuration; each returned slice is independently owned.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned names escape to the caller; ProjectHosts still owns mapper lifetime through Close.
+func (h *ProjectHosts) Dependencies() ([]string, error) {
+  if h == nil {
+    return nil, nil
+  }
+  inputs := append([]string(nil), h.manifests...)
+  watched, err := h.project.WatchedFiles()
+  for _, file := range watched {
+    inputs = append(inputs, string(file))
+  }
+  sort.Strings(inputs)
+  return inputs, err
 }
 
 // Host returns a compiler host over fs, like NewHost, that transforms

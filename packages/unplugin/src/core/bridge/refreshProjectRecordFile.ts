@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../transform/filesystem/TtscTransformFilesystemOperations";
 import type { HostWatchBridge } from "./HostWatchBridge";
+import { projectRecordArgumentsMatch } from "./projectRecordArgumentsMatch";
 import { projectRecordMoved } from "./projectRecordMoved";
 import { projectRecordWatchInputs } from "./projectRecordWatchInputs";
 import { readProjectRecordFile } from "./readProjectRecordFile";
@@ -16,7 +17,8 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * A host restoring a module from its cache never runs the adapter for it, so
  * the adapter cannot learn at delivery that an input moved, a root file
  * appeared, or a tsconfig vanished while the host was stopped. It learns here:
- * each recorded input is proven against the disk the way a delivery proves it
+ * the captured compiler invocation must match the active context, then each
+ * recorded input is proven against the disk the way a delivery proves it
  * (`watchInputEvidenceMatchesDisk`), and the walk is run again under the
  * recorded policy and its digest compared. One mismatch moves the record
  * (`signalProjectRecordFile`); the host, which recorded the file as a
@@ -69,6 +71,7 @@ export function refreshProjectRecordFile(
   file: string,
   bridge?: HostWatchBridge,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  compilerArgumentsIdentity?: string,
 ): void {
   const record = readProjectRecordFile(file);
   // A record that cannot be read proves nothing, and is moved as a proof that
@@ -98,6 +101,10 @@ export function refreshProjectRecordFile(
     return;
   }
   if (bridge !== undefined) {
+    if (!projectRecordArgumentsMatch(record, compilerArgumentsIdentity)) {
+      signalProjectRecordFile(file);
+      return;
+    }
     bridge.register(file, projectRecordWatchInputs(record));
     return;
   }
@@ -106,7 +113,7 @@ export function refreshProjectRecordFile(
   // a record the next proof can run over.
   let moved: string | undefined;
   try {
-    moved = projectRecordMoved(record, filesystem);
+    moved = projectRecordMoved(record, filesystem, compilerArgumentsIdentity);
   } catch {
     moved = record.root;
   }

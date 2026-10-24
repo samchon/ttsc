@@ -43,6 +43,9 @@ export interface ResolvedTtscUnpluginOptions {
   /** Compiler-options overlay applied on top of the discovered tsconfig. */
   compilerOptions: TtscUnpluginCompilerOptionsJson;
 
+  /** Explicit invocation permission; omission retains inherited arguments. */
+  runExternalCode?: boolean;
+
   /**
    * Resolved plugin list; mirrors the semantics of
    * `TtscUnpluginOptions.plugins`.

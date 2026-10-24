@@ -271,6 +271,22 @@ func boolPointer(value bool) *bool {
   return &value
 }
 
+// readPaths snapshots the lexical reads already made through this observer.
+// LoadProgram calls it immediately after upstream argument parsing, before
+// configuration or source reads can enter the population. It performs no new
+// filesystem query and keeps failed/conflicting observations for graph proof.
+func (fs *inputObservationFS) readPaths() []string {
+  fs.mu.Lock()
+  defer fs.mu.Unlock()
+  paths := make([]string, 0, len(fs.observationOrder))
+  for _, key := range fs.observationOrder {
+    if fs.observations[key].proof.ReadFile != nil {
+      paths = append(paths, fs.observationSpellings[key])
+    }
+  }
+  return paths
+}
+
 func (fs *inputObservationFS) observationKey(path string) string {
   if !filepath.IsAbs(path) {
     return ""

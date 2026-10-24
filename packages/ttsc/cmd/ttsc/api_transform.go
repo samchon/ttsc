@@ -69,13 +69,16 @@ type apiTransformResult struct {
 // The actual preparation supplies ForceNoEmit and resolved argv/cwd. This
 // wrapper owns its one LoadProgram call and closes a nonnil acquired Program
 // after the borrowed source-response operation returns. That response owner
-// constructs the graph before linked source hooks and never emits files.
+// constructs the graph before linked source hooks and never emits files. Failed
+// config/argument parsing retains its actual recovery graph without a Program.
 func runAPITransform(args []string) int {
   request, code := prepareAPITransformInvocation(args)
   if code != 0 {
     return code
   }
   cwd := request.cwd
+  var recovery *driver.TransformGraph
+  request.options.OnFailureInputs = func(graph *driver.TransformGraph) { recovery = graph }
   prog, diags, err := driver.LoadProgram(cwd, request.tsconfigPath, request.options)
   if err != nil {
     fmt.Fprintf(stderr, "ttsc api-transform: %v\n", err)
@@ -84,7 +87,7 @@ func runAPITransform(args []string) int {
   if prog != nil {
     defer prog.Close()
   }
-  return writeTransformedProgramResponse(prog, diags, cwd)
+  return writeTransformedProgramResponse(prog, diags, cwd, recovery)
 }
 
 // writeTransformedProgramResponse borrows the loaded generation for the actual
@@ -102,14 +105,21 @@ func runAPITransform(args []string) int {
 // Performance: Efficient algorithms: The original graph, resident-file enumeration and one JSON encoding remain; work scales with actual graph/source/envelope bytes.
 // Performance: Reuse equivalent work: An immutable no-plugin generation already emitted to memory can supply its original source text and graph without a second load. This is operation-level reuse, not a claim of equal compile/transform loader policies.
 // Performance: Bound retention and release resources: The caller retains the checker lease across borrowing and closes it once after the final consumer; this operation creates invocation-local envelope collections and does not own the lease or a retained cache.
-func writeTransformedProgramResponse(prog *driver.Program, diags []driver.Diagnostic, cwd string) int {
+func writeTransformedProgramResponse(prog *driver.Program, diags []driver.Diagnostic, cwd string, recovery ...*driver.TransformGraph) int {
   typescript := map[string]string{}
   var dependencies driver.TransformDependencies
   var graph *driver.TransformGraph
+  if len(recovery) != 0 {
+    graph = recovery[0]
+  }
   var hostInputs []string
   var hostInputHashes map[string]*string
   var hostInputRealpaths map[string]*string
   var observationsComplete *bool
+  if prog == nil {
+    unavailable := false
+    observationsComplete = &unavailable
+  }
   if prog != nil {
     // Compute the reference graph before SourceFiles() runs linked plugin
     // hooks: those mutate parsed ASTs in place, and the graph must describe

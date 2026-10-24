@@ -11,9 +11,10 @@ const defaultOptions: ResolvedTtscUnpluginOptions = {
 /**
  * Normalise raw user-supplied options into {@link ResolvedTtscUnpluginOptions}.
  *
- * Merges provided values with defaults. The `plugins` field uses an explicit
- * `"plugins" in options` presence check rather than a falsy guard so that
- * `plugins: false` (disable all plugins) is preserved as-is.
+ * Merges provided values with defaults, preserving an explicit false mapper
+ * permission. The `plugins` field uses an explicit `"plugins" in options`
+ * presence check rather than a falsy guard so that `plugins: false` (disable
+ * all plugins) is preserved as-is.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Nullish defaults normalize the overlay and project; a presence check
@@ -48,6 +49,7 @@ export function resolveOptions(
     precompile:
       options.precompile === undefined ? undefined : [...options.precompile],
     compilerOptions: { ...(options.compilerOptions ?? {}) },
+    runExternalCode: options.runExternalCode,
     plugins: "plugins" in options ? options.plugins : defaultOptions.plugins,
     project: options.project ?? defaultOptions.project,
     projectRoot: options.projectRoot ?? defaultOptions.projectRoot,

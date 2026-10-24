@@ -7,6 +7,8 @@ import { membershipRecordDigest } from "../../../../packages/unplugin/src/core/b
 import { projectRecordMoved } from "../../../../packages/unplugin/src/core/bridge/projectRecordMoved";
 import { hostInputStateHash } from "../../../../packages/unplugin/src/core/transform/inputs/hostInputStateHash";
 import { walkProjectInputs } from "../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
+import { captureCompilerArguments } from "../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../../../../packages/unplugin/src/core/transform/tsconfig/resolveCompilerEnvironment";
 import { MISSING_INPUT_STATE } from "../../../../packages/unplugin/src/core/transform/validation/MISSING_INPUT_STATE";
 import { readProjectMembershipPolicy } from "../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { TestProject } from "../../../utils/src/TestProject";
@@ -75,6 +77,7 @@ export function test_project_record_proofs_cover_offline_restart_edits(): void {
     }),
   );
   const record: TtscProjectRecord = {
+    compilerArguments: captureCompilerArguments(resolveCompilerEnvironment()),
     inputs,
     membership: {
       digest: membershipRecordDigest(policy, walked.directories),

@@ -64,6 +64,20 @@ func NewProjectHosts(config *innertsoptions.ParsedCommandLine) *ProjectHosts {
   return nil
 }
 
+// Dependencies returns no mapper inputs on TypeScript 7.0.
+//
+// @evidence contracts/common.md#principled-implementation TypeScript 7.0 has no mapper project, so there are no mapper dependency declarations.
+// @evidence contracts/common.md#clear-and-simple-design The method keeps the version-neutral ownership interface.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No mapper behavior is emulated on 7.0.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the empty result and compiler target.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation No native operation is performed.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The method returns constants.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work There is no work to share.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No resource is acquired or retained.
+func (h *ProjectHosts) Dependencies() ([]string, error) {
+  return nil, nil
+}
+
 // Host returns NewHost's compiler host over fs.
 //
 // @evidence contracts/common.md#principled-implementation Delegates to NewHost, the only 7.0 host.

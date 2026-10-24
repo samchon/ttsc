@@ -7,6 +7,8 @@ import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core
 import { refreshProjectRecordFiles } from "../../../../../packages/unplugin/src/core/bridge/refreshProjectRecordFiles";
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
 import { pluginSourceState } from "../../../../../packages/unplugin/src/core/transform/inputs/pluginSourceState";
+import { captureCompilerArguments } from "../../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
+import { resolveCompilerEnvironment } from "../../../../../packages/unplugin/src/core/transform/tsconfig/resolveCompilerEnvironment";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -55,6 +57,9 @@ export async function test_project_record_tracks_plugin_source_and_environment()
         "actual source and native build environment must be readable",
       );
       writeProjectRecordFile(file, {
+        compilerArguments: captureCompilerArguments(
+          resolveCompilerEnvironment(),
+        ),
         inputs: {
           [source]: {
             identity: source,

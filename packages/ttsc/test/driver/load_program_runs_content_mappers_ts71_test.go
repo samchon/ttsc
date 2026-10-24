@@ -41,6 +41,33 @@ func TestLoadProgramRunsContentMappersUnderRunExternalCode(t *testing.T) {
   if len(diags) != 0 {
     t.Fatalf("unexpected config diagnostics: %#v", diags)
   }
+  t.Cleanup(func() {
+    if err := program.Close(); err != nil {
+      t.Error(err)
+    }
+  })
+  dependencies := program.TransformDependenciesFor(root)
+  for _, file := range []string{"index.ts", "query.sql"} {
+    inputs := dependencies.Dependencies[file]
+    if len(inputs) != 1 {
+      t.Fatalf("static mapper manifest missing from %s: %#v", file, inputs)
+    }
+    input := filepath.FromSlash(inputs[0])
+    if !filepath.IsAbs(input) {
+      input = filepath.Join(root, input)
+    }
+    actual, err := os.Stat(input)
+    if err != nil {
+      t.Fatal(err)
+    }
+    expected, err := os.Stat(filepath.Join(root, "node_modules", "sql-mapper", "package.json"))
+    if err != nil {
+      t.Fatal(err)
+    }
+    if !os.SameFile(actual, expected) {
+      t.Fatalf("wrong mapper manifest: %s", input)
+    }
+  }
   if diagnostics := program.Diagnostics(); driver.CountErrors(diagnostics) != 0 {
     t.Fatalf("the mapped module did not type-check: %#v", diagnostics)
   }
@@ -55,6 +82,11 @@ func TestLoadProgramRunsContentMappersUnderRunExternalCode(t *testing.T) {
   if err != nil {
     t.Fatal(err)
   }
+  t.Cleanup(func() {
+    if err := session.Close(); err != nil {
+      t.Error(err)
+    }
+  })
   if len(diags) != 0 {
     t.Fatalf("unexpected session diagnostics: %#v", diags)
   }

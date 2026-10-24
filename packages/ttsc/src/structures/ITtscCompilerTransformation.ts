@@ -52,6 +52,23 @@ export namespace ITtscCompilerTransformation {
    */
   export interface IReferenceGraph {
     /**
+     * Effective native possible-root suffixes and output-directory exclusions.
+     * A report that differs from a host's provisional policy requires a new
+     * membership walk. Directory paths are absolute; null clears an option.
+     * Authored files/include and explicit excludes remain configuration
+     * inputs.
+     */
+    membership?: {
+      /** Normalized suffixes admitted by the selected compiler and its mappers. */
+      inputExtensions: string[];
+
+      /** Effective absolute output directory, or null when unset. */
+      outDir: string | null;
+
+      /** Effective absolute declaration directory, or null when unset. */
+      declarationDir: string | null;
+    };
+    /**
      * Direct resolved references per file: imports, re-exports, `///
      * <reference>` targets, and type reference directives — type-only edges
      * included. Direct edges only; consumers compute transitive reachability
@@ -82,9 +99,19 @@ export namespace ITtscCompilerTransformation {
 
     /**
      * Automatic type discovery and resolution inputs that affect every source,
-     * including effective type-root directory membership.
+     * including compiler response files and effective type-root directory
+     * membership. Failed loads can retain their observed CLI/config recovery
+     * paths here without a completed Program or source population.
      */
     resolutionInputs?: string[];
+
+    /**
+     * Mapper package manifests and dynamic project watchedFiles. These are
+     * declared dependencies for every output, including files whose plugin
+     * dependencies are complete. They carry no compiler-read proof: consumers
+     * must witness them before compilation and compare afterward.
+     */
+    contentMapperInputs?: string[];
 
     /**
      * Filesystem predicates recorded during construction and resolver replay

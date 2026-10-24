@@ -5,26 +5,29 @@ import { walkProjectInputs } from "../transform/project/walkProjectInputs";
 import { watchInputEvidenceMatchesDisk } from "../transform/watch/watchInputEvidenceMatchesDisk";
 import type { TtscProjectRecord } from "./TtscProjectRecord";
 import { membershipRecordDigest } from "./membershipRecordDigest";
+import { projectRecordArgumentsMatch } from "./projectRecordArgumentsMatch";
 
 /**
- * The first recorded input or membership state that current replay cannot
- * establish as unchanged, or nothing when all recorded checks hold. This is the
- * proof a build start makes of a record (`refreshProjectRecordFiles`),
+ * The first invocation, recorded input or membership state that current replay
+ * cannot establish as unchanged, or nothing when all recorded checks hold. This
+ * is the proof a build start makes of a record (`refreshProjectRecordFiles`),
  * separable from the move it follows with, so a harness or a maintainer can ask
  * the same question of a record without moving it.
  *
- * Each recorded input is proven against the disk the way a delivery proves a
- * generation (`watchInputEvidenceMatchesDisk`), and the walk is run again under
- * the recorded policy and its digest compared (`membershipRecordDigest`). A
- * plugin source is proven by the metadata of its files where that metadata
- * holds (`pluginSourceFilesDigest`), which stands for their bytes only against
- * a clock reference minted since any rollback, so the proof mints one first, as
- * a delivery does. It holds no generation, so the reference is minted in the
+ * The captured invocation must match the active context before each recorded
+ * input is proven against the disk the way a delivery proves a generation
+ * (`watchInputEvidenceMatchesDisk`), and the walk is run again under the
+ * recorded policy and its digest compared (`membershipRecordDigest`). A plugin
+ * source is proven by the metadata of its files where that metadata holds
+ * (`pluginSourceFilesDigest`), which stands for their bytes only against a
+ * clock reference minted since any rollback, so the proof mints one first, as a
+ * delivery does. It holds no generation, so the reference is minted in the
  * probe directory this process keeps (`refreshProcessClockReference`).
  *
  * @returns The tsconfig when it is gone, which a build start answers by
  *   removing the record rather than moving it, the first input whose state
- *   moved, the project root when the root files did, or `undefined`.
+ *   moved, the project root when invocation or root membership differs, or
+ *   `undefined`.
  * @evidence contracts/common.md#principled-implementation
  *   Each codec is re-proved against the same filesystem view and membership is
  *   re-walked under the stored policy. A fresh process clock reference prevents
@@ -56,8 +59,11 @@ import { membershipRecordDigest } from "./membershipRecordDigest";
 export function projectRecordMoved(
   record: TtscProjectRecord,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  compilerArgumentsIdentity?: string,
 ): string | undefined {
   if (!filesystem.exists(record.tsconfig)) return record.tsconfig;
+  if (!projectRecordArgumentsMatch(record, compilerArgumentsIdentity))
+    return record.root;
   refreshProcessClockReference(record.root, filesystem);
   for (const [input, evidence] of Object.entries(record.inputs)) {
     if (evidence === null || typeof evidence !== "object") return input;

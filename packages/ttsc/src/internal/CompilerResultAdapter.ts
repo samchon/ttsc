@@ -217,15 +217,17 @@ function toCompilerResult(project: ProjectResult): ITtscCompilerResult {
 }
 
 /**
- * Adapt source/build outcome and copy optional advisory references only when
- * present.
+ * Adapt source/build outcome and preserve optional advisory values. Mapper
+ * project inputs join each source's declared dependencies on success and
+ * failure; they do not become compiler-read observations or completeness
+ * certificates.
  *
- * @evidence contracts/common.md#principled-implementation Undefined advisory fields are omitted; present empty/false values and references survive both success and failure, alongside the existing diagnostic decision.
+ * @evidence contracts/common.md#principled-implementation Undefined advisory fields are omitted and present empty/false values survive both success and failure. Universal mapper declarations join source dependencies with own-key safety; compiler completeness and read witnesses retain their independent meaning.
  * @evidence contracts/common.md#clear-and-simple-design One optional-field projection is shared by the two result branches.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The adapter does not manufacture graph, host-read or completeness proof and does not discard it solely because the build failed.
- * @evidence contracts/common.md#meaningful-documentation The native sentence states omission policy and reference ownership.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes mapper declarations from read proof and completeness on both result branches.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Advisory values are passed through without native path normalization or capability inference.
- * @evidence contracts/performance.md#efficient-algorithms Fixed optional-field checks retain references without scanning map text; diagnostic classification and empty-failure formatting have their delegated data costs.
+ * @evidence contracts/performance.md#efficient-algorithms Optional fields retain references unless mapper inputs require a per-source Set union. Work and copied storage follow source keys plus each source's dependency/input text; diagnostic classification and failure formatting keep their delegated costs.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This adaptation coordinates no reusable compiler/worker or outcome cache.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned source/advisory objects remain reachable under caller ownership; this operation owns no process, lease or historical registry.
  */
@@ -233,7 +235,7 @@ export function toCompilerTransformation(
   project: ProjectTransformation,
 ): ITtscCompilerTransformation {
   const {
-    dependencies,
+    dependencies: reportedDependencies,
     dependenciesComplete,
     graph,
     hostInputHashes,
@@ -247,6 +249,27 @@ export function toCompilerTransformation(
     typescript,
     volatile,
   } = project;
+  let dependencies = reportedDependencies;
+  if (graph?.contentMapperInputs?.length) {
+    const keys = new Set([
+      ...Object.keys(typescript),
+      ...Object.keys(graph.edges),
+    ]);
+    dependencies = Object.fromEntries([
+      ...Object.entries(dependencies ?? {}).filter(([key]) => !keys.has(key)),
+      ...Array.from(keys, (key) => [
+        key,
+        [
+          ...new Set([
+            ...(Object.hasOwn(dependencies ?? {}, key)
+              ? dependencies![key]!
+              : []),
+            ...graph.contentMapperInputs!,
+          ]),
+        ].filter((input) => input !== key),
+      ]),
+    ]);
+  }
   const advisoryFields = {
     ...(dependencies === undefined ? {} : { dependencies }),
     ...(dependenciesComplete === undefined ? {} : { dependenciesComplete }),

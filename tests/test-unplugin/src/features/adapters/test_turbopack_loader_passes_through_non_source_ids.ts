@@ -165,6 +165,7 @@ export async function test_turbopack_loader_passes_through_non_source_ids(): Pro
     projectRoot: "../workspace",
     plugins: false,
     compilerOptions: { strict: true },
+    runExternalCode: undefined,
   });
   options = {
     project: "./replacement-tsconfig.json",

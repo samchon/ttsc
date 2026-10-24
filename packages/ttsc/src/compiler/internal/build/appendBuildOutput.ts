@@ -87,7 +87,21 @@ export function mergeCheckGraphs(
 ): TtscBuildResult["graph"] {
   if (left === undefined) return right;
   if (right === undefined) return left;
-  const failures = { ...left.inputProofFailures, ...right.inputProofFailures };
+  const failures: Record<string, string> = Object.assign(
+    Object.create(null),
+    left.inputProofFailures,
+    right.inputProofFailures,
+  );
+  const membershipConflict =
+    left.membership !== undefined &&
+    right.membership !== undefined &&
+    JSON.stringify(left.membership) !== JSON.stringify(right.membership);
+  if (membershipConflict)
+    for (const key of new Set([
+      ...Object.keys(left.edges),
+      ...Object.keys(right.edges),
+    ]))
+      failures[key] = "conflicting-check-membership-policy";
   if (
     left.useCaseSensitiveFileNames !== undefined &&
     right.useCaseSensitiveFileNames !== undefined &&
@@ -166,9 +180,25 @@ export function mergeCheckGraphs(
   }
   return {
     edges: mergeLists(left.edges, right.edges),
+    ...(membershipConflict ||
+    (left.membership ?? right.membership) === undefined
+      ? {}
+      : { membership: left.membership ?? right.membership }),
     globals: [...new Set([...left.globals, ...right.globals])],
     configs: [...new Set([...left.configs, ...right.configs])],
     candidates: mergeLists(left.candidates, right.candidates),
+    ...((left.contentMapperInputs?.length ?? 0) +
+      (right.contentMapperInputs?.length ?? 0) ===
+    0
+      ? {}
+      : {
+          contentMapperInputs: [
+            ...new Set([
+              ...(left.contentMapperInputs ?? []),
+              ...(right.contentMapperInputs ?? []),
+            ]),
+          ],
+        }),
     resolutionInputs: [
       ...new Set([
         ...(left.resolutionInputs ?? []),
