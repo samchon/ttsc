@@ -3,27 +3,40 @@ import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMe
 /**
  * Whether a bare filename has an extension admitted by the project policy.
  *
- * @evidence contracts/common.md#principled-implementation Case-normalized suffix matching applies the policy's admitted extension list; this is an eligibility approximation, not filesystem path identity.
- * @evidence contracts/common.md#clear-and-simple-design One lowercased name and an early-terminating suffix scan represent the extension rule without performing filesystem work.
+ * Literal expressions preserve Unicode simple case folding without expanding or
+ * contextually lowercasing either operand. This remains conservative root
+ * eligibility, independently of filesystem identity or compiler enumeration.
+ *
+ * @evidence contracts/common.md#principled-implementation Escaped literal suffixes use Unicode simple folding and a strict end boundary; this preserves dotted I and contextual sigma without treating mapper punctuation as regex grammar.
+ * @evidence contracts/common.md#clear-and-simple-design One weakly owned expression list per immutable policy serves an early-terminating suffix scan without filesystem work.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The predicate uses compiler-derived extension policy rather than selected test filenames or bundler output-directory exceptions.
  * @evidence contracts/common.md#meaningful-documentation The native comment states the bare-name input and policy boundary, avoiding an ambiguous reference to another helper's question.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares a lowercased basename suffix with the policy's extensions; it reads no filesystem.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares basename text using literal Unicode suffixes; it reads no filesystem or OS-name policy.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Lowercasing scans the filename and allocates its normalized text once.
- *   The early-terminating scan checks the supplied extension population, with
- *   suffix comparison cost following the extension text. No filename or
- *   extension index is rebuilt inside the scan.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   Acquires no handle, timer or retained state of its own.
+ *   A cold policy compiles its suffix text once. Queries scan the supplied
+ *   expressions until a match, with literal search work following filename
+ *   length and suffix text; no authored wildcard or repeated pattern activates
+ *   backtracking partitions. Retained expression text follows the suffix list.
+ * @evidence contracts/performance.md#reuse-equivalent-work Compiled literal expressions are shared only by the same immutable policy identity; changing its suffix list requires a new policy, as other membership matchers require.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The WeakMap retains expressions while their policy remains reachable and does not pin discarded policies; there are no filename histories, handles or timers.
  */
 export function isPossibleProgramFileName(
   name: string,
   policy: ITtscProjectMembershipPolicy,
 ): boolean {
-  const lowered = name.toLowerCase();
-  return policy.inputExtensions.some((extension) =>
-    lowered.endsWith(extension),
-  );
+  let patterns = compiled.get(policy);
+  if (patterns === undefined) {
+    patterns = policy.inputExtensions.map(
+      (extension) =>
+        new RegExp(
+          `${extension.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}(?![\\s\\S])`,
+          "iu",
+        ),
+    );
+    compiled.set(policy, patterns);
+  }
+  return patterns.some((pattern) => pattern.test(name));
 }
+
+/** Literal suffix expressions owned weakly by immutable membership policy. */
+const compiled = new WeakMap<ITtscProjectMembershipPolicy, readonly RegExp[]>();

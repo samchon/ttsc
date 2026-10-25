@@ -78,7 +78,7 @@ export interface ITtscProjectMembershipPolicy {
   /** Absolute directory exclusions represented for project-root discovery. */
   readonly excludedDirectories: readonly string[];
 
-  /** Lowercased extensions a file needs to be a possible program input. */
+  /** Literal suffix spellings a file needs to be a possible program input. */
   readonly inputExtensions: readonly string[];
 
   /**

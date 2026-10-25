@@ -78,6 +78,13 @@ try {
   await assert.rejects(deliver(true), /1131|Property or signature expected/);
   fs.unlinkSync("other.sql");
   await deliver(true);
+  const unicodeBaseline = events().length;
+  await deliver(true);
+  assert.equal(events().length, unicodeBaseline, "unchanged invocation reuses before the Unicode root is added");
+  fs.writeFileSync("other.İ", "@");
+  await assert.rejects(deliver(true), /1131|Property or signature expected/);
+  fs.unlinkSync("other.İ");
+  await deliver(true);
   fs.writeFileSync("extra.js", "export const value = ;");
   await deliver(true);
   fs.writeFileSync("flags.rsp", "--strict false --allowJs");

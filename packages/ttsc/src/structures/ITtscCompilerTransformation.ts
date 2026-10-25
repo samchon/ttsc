@@ -59,7 +59,7 @@ export namespace ITtscCompilerTransformation {
      * inputs.
      */
     membership?: {
-      /** Normalized suffixes admitted by the selected compiler and its mappers. */
+      /** Original suffix spellings admitted by the compiler and its mappers. */
       inputExtensions: string[];
 
       /** Effective absolute output directory, or null when unset. */

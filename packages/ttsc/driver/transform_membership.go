@@ -19,7 +19,7 @@ import (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This metadata owns no cache or reuse verdict.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller-owned report acquires no handle or historical state.
 type TransformMembership struct {
-  // InputExtensions are normalized possible-root suffixes from upstream APIs.
+  // InputExtensions preserve possible-root suffix spellings from upstream APIs.
   InputExtensions []string `json:"inputExtensions"`
   // OutDir is the parsed absolute output directory, or nil when unset.
   OutDir *string `json:"outDir"`
@@ -35,7 +35,7 @@ func transformMembership(prog *Program, groups [][]string) *TransformMembership 
   extensions := map[string]struct{}{}
   for _, group := range groups {
     for _, extension := range group {
-      extensions[strings.ToLower(extension)] = struct{}{}
+      extensions[extension] = struct{}{}
     }
   }
   for extension := range extensions {

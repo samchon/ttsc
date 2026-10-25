@@ -16,8 +16,8 @@ import { applyCompilerMembership } from "./applyCompilerMembership";
  * @evidence contracts/common.md#clear-and-simple-design One report-selection operation returns the policy and changed-rule fact; capture retains ownership of enumeration authority and proof refusal.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No OS label or filesystem probe substitutes for a compiler report, and no report supplies missing walk evidence.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the explicit primer requirement, missing-report identity and changed-policy refusal boundary.
- * @evidence contracts/portability.md#os-neutral-implementation Node native path comparison maps only observed project root aliases to a shared anchor. Child lexical names remain distinct; case folding uses the compiler report, never an OS-name guess.
- * @evidence contracts/performance.md#efficient-algorithms Missing reports borrow the policy. Available settings copy extension/exclusion populations; Set comparisons visit their names and path text, with Node relative/normalize work for each exclusion under at most three observed anchors. Temporary storage follows those populations.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path grammar resolves directory spelling; component-boundary prefixes map only observed project root aliases to a shared anchor. Insensitive reports permit ASCII case equivalence, while non-ASCII spellings stay conservatively distinct instead of colliding through full lowercasing or Windows path.relative.
+ * @evidence contracts/performance.md#efficient-algorithms Available settings copy extension/exclusion populations; Set comparisons visit their text. At most three observed anchors are resolved once and each exclusion compares their component-boundary prefixes. Temporary storage follows those populations and path lengths; no filesystem query runs here.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Selects this envelope's reported rule without retaining a memo or certifying reuse of the primed walk.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Borrows the primer or returns a shallow policy object; capture owns retained policy and observer lifetimes, with no handle or historical state acquired here.
  */
@@ -43,23 +43,28 @@ export function selectReportedMembershipPolicy(
       : { ...primed, useCaseSensitiveFileNames: reported },
     rootReport,
   );
+  // ASCII equivalence cannot introduce Unicode expansion collisions. Other
+  // spelling changes conservatively require a fresh walk under the report.
+  const asciiFold = (value: string): string =>
+    value.replace(/[A-Z]/g, (character) => character.toLowerCase());
   const canonical = (value: string): string =>
-    policy.useCaseSensitiveFileNames === false ? value.toLowerCase() : value;
+    policy.useCaseSensitiveFileNames === false ? asciiFold(value) : value;
+  const root = primed.rootFileSpecs?.root;
+  const anchors =
+    root === undefined
+      ? []
+      : [root.path, root.realpath, root.nativepath]
+          .filter((anchor): anchor is string => anchor !== undefined)
+          .map((anchor) => canonical(path.resolve(anchor)));
   const directoryKey = (directory: string): string => {
-    const root = primed.rootFileSpecs?.root;
-    if (root !== undefined)
-      for (const anchor of [root.path, root.realpath, root.nativepath]) {
-        if (anchor === undefined) continue;
-        const relative = path.relative(anchor, directory);
-        if (
-          relative === "" ||
-          (!path.isAbsolute(relative) &&
-            relative !== ".." &&
-            !relative.startsWith(".." + path.sep))
-        )
-          return "root:" + canonical(relative);
-      }
-    return "absolute:" + canonical(path.normalize(directory));
+    const target = canonical(path.resolve(directory));
+    for (const anchor of anchors) {
+      if (target === anchor) return "root:";
+      const prefix = anchor.endsWith(path.sep) ? anchor : anchor + path.sep;
+      if (target.startsWith(prefix))
+        return "root:" + target.slice(prefix.length);
+    }
+    return "absolute:" + target;
   };
   const sameSet = (
     left: readonly string[],
@@ -75,9 +80,7 @@ export function selectReportedMembershipPolicy(
     membershipPolicyLearned:
       (reported !== undefined &&
         reported !== primed.useCaseSensitiveFileNames) ||
-      !sameSet(primed.inputExtensions, policy.inputExtensions, (value) =>
-        value.toLowerCase(),
-      ) ||
+      !sameSet(primed.inputExtensions, policy.inputExtensions, asciiFold) ||
       !sameSet(
         primed.excludedDirectories,
         policy.excludedDirectories,

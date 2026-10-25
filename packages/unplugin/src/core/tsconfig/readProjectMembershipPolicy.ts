@@ -28,7 +28,7 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  * policy does not enumerate every dependency in the compiler program.
  *
  * `allowJs` (implicitly enabled by `checkJs`), effective `resolveJsonModule`
- * and declared content mapper extensions prime root-discovery suffixes, not the
+ * and literal content mapper extensions prime root-discovery suffixes, not the
  * complete set of imported or externally observed program inputs. `outDir`,
  * `declarationDir`, and plain `exclude` entries supply conservative directory
  * exclusions for that discovery walk. TypeScript supplies the two output
@@ -170,7 +170,7 @@ export function readProjectMembershipPolicy(
         extension.startsWith(".") &&
         !/[\\/]/.test(extension)
       )
-        extensions.add(extension.toLowerCase());
+        extensions.add(extension);
   }
 
   const directoryExclusionOrigins: {
