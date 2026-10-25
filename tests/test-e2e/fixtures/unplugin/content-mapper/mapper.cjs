@@ -1,9 +1,10 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const processWitness = require("./process-witness.cjs");
 const schema = path.join(__dirname, "schema.txt");
 const log = path.join(__dirname, "mapper.log");
 let buffer = Buffer.alloc(0);
-process.stdin.on("data", (chunk) => {
+processWitness.capture().then((witness) => process.stdin.on("data", (chunk) => {
   buffer = Buffer.concat([buffer, chunk]);
   for (;;) {
     const end = buffer.indexOf("\r\n\r\n");
@@ -13,7 +14,7 @@ process.stdin.on("data", (chunk) => {
     const request = JSON.parse(buffer.subarray(end + 4, end + 4 + length).toString("utf8"));
     buffer = buffer.subarray(end + 4 + length);
     if (request.id == null) continue;
-    fs.appendFileSync(log, JSON.stringify({ method: request.method, pid: process.pid }) + "\n");
+    fs.appendFileSync(log, JSON.stringify({ method: request.method, ...witness }) + "\n");
     let result = null;
     if (request.method === "initialize")
       result = { positionEncoding: "utf-16", diagnosticSource: "sql" };
@@ -25,4 +26,4 @@ process.stdin.on("data", (chunk) => {
     process.stdout.write("Content-Length: " + body.length + "\r\n\r\n");
     process.stdout.write(body);
   }
-});
+}));

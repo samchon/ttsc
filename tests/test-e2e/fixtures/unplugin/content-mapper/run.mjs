@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import processWitness from "./process-witness.cjs";
 import { createTtscTransformCache, resetTtscTransformCache, resolveOptions, shareTtscTransformCache, transformTtsc } from "@ttsc/unplugin/api";
 
 const root = process.cwd();
@@ -12,6 +13,7 @@ const log = path.join(root, "node_modules/sql-mapper/mapper.log");
 const originalArguments = process.env.TTSC_TSGO_ARGS;
 const originalArgumentCwd = process.env.TTSC_TSGO_ARGS_CWD;
 const options = { project: "tsconfig.json", runExternalCode: true };
+const graphPlugins = JSON.parse(fs.readFileSync("graph-plugins.json", "utf8"));
 // Bun owns its actual adapter build. Node owns the cache epochs because its
 // supported module hooks can establish complete plugin descriptor observations.
 const bundle = spawnSync(process.env.TTSC_BUN_BINARY ?? "bun", ["bundle.mjs"], { cwd: root, env: process.env, encoding: "utf8", windowsHide: true });
@@ -23,7 +25,7 @@ const caches = [createTtscTransformCache(), createTtscTransformCache()];
 const store = path.join(root, "shared-store");
 fs.mkdirSync(store);
 for (const cache of caches) shareTtscTransformCache(cache, store);
-const deliver = (permission, cache = caches[0], recoveryInput) => transformTtsc(source, fs.readFileSync(source, "utf8"), resolveOptions({ ...options, runExternalCode: permission }), undefined, cache, { exactPath: true, watching: false, markVolatile() {}, addWatchFile(file) { recoveryInput?.(file); } });
+const deliver = (permission, cache = caches[0], recoveryInput, plugins) => transformTtsc(source, fs.readFileSync(source, "utf8"), resolveOptions({ ...options, ...(plugins === undefined ? {} : { plugins }), runExternalCode: permission }), undefined, cache, { exactPath: true, watching: false, markVolatile() {}, addWatchFile(file) { recoveryInput?.(file); } });
 const events = () => fs.readFileSync(log, "utf8").trim().split("\n").map((line) => JSON.parse(line));
 try {
   const [allowed, denied] = await Promise.allSettled([deliver(true), deliver(false, caches[1])]);
@@ -42,9 +44,17 @@ try {
   await assert.rejects(deliver(true), /2322|not assignable/);
   fs.writeFileSync(source, 'import type { query } from "./query.sql"; export const value: typeof query = { name: 1 };\n');
   await deliver(true);
+  // A complete syntactic banner may exclude unconsulted type-only edges.
+  // Establish the unmarked program contributor's generation before editing SQL.
+  const deliverGraph = () => deliver(true, caches[0], undefined, graphPlugins);
+  await deliverGraph();
+  const graphBaseline = events().length;
+  await deliverGraph();
+  assert.equal(events().length, graphBaseline, "unchanged graph-dependent invocation reuses its resident generation");
   fs.writeFileSync("query.sql", "label");
-  await assert.rejects(deliver(true), /2353|does not exist/);
+  await assert.rejects(deliverGraph(), /2353|does not exist/);
   fs.writeFileSync(source, 'import type { query } from "./query.sql"; export const value: typeof query = { label: 1 };\n');
+  await deliverGraph();
   await deliver(true);
   fs.unlinkSync(schema);
   await assert.rejects(deliver(true), /2322|not assignable/);
@@ -108,6 +118,6 @@ try {
 }
 const recorded = events();
 assert.equal(recorded.filter((event) => event.method === "openProject").length, recorded.filter((event) => event.method === "closeProject").length);
-for (const pid of new Set(recorded.map((event) => event.pid)))
-  assert.throws(() => process.kill(pid, 0), (error) => error.code === "ESRCH");
+for (const witness of new Map(recorded.map((event) => [event.pid + ":" + (event.endpoint ?? event.identity), event])).values())
+  assert.equal(await processWitness.departed(witness), true, "the original mapper process must have been reaped");
 console.log("content-mappers:passed");
