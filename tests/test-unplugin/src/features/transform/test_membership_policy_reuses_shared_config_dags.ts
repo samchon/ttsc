@@ -217,6 +217,7 @@ export async function test_membership_policy_reuses_shared_config_dags(): Promis
               ".mts",
               ".cts",
               ...(depth < 0 ? [] : [".js", ".jsx", ".mjs", ".cjs"]),
+              ".json",
             ]);
           },
         );

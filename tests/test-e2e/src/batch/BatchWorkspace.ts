@@ -388,7 +388,9 @@ export namespace BatchWorkspace {
    * Actual toolchain epochs distinguish a one-time transition, persistent
    * motion and stable recovery from terminal source, native and cleanup
    * failures. The copied main module's assembly input guarantees a real SDK
-   * assembler execution while preserving reuse of unrelated Go objects.
+   * assembler execution while preserving reuse of unrelated Go objects. The
+   * fresh Go image is an owned writable copy even when the selected SDK is
+   * read-only; changing the copy leaves the selected toolchain unchanged.
    *
    * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. A private archive directory stays opaque to runtime ancestor mirroring, which hard-links regular file entries and changes their native version metadata; the archive identity and content guards remain intact. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts. The Go adapter returns Node's actual exit immediately on Windows and uses exec on POSIX. Unsupported-help status 2 and version status 0 under absent/0/999 inherited status shadows before and after byte rewrites independently distinguishes failed tool execution from successful publication. Runtime package-star inputs are linked from their authored package root. The installed-boundary island uses native realpath equality to prove that its lowercase package spelling reaches its physical uppercase store, and links a workspace to its actual outside-store source; no runtime resolution method is replaced.
    * @evidence contracts/common.md#clear-and-simple-design One preparation owns the installation and fixture population, while consumers own operations and assertions. The existing five output coordinates remain Workspace fields so their native writers and runtime readers keep one identity.
@@ -1403,6 +1405,9 @@ export namespace BatchWorkspace {
       // already executed compiler would never distinguish #1596.
       const freshGo = path.join(tools, path.basename(actualGo.binary));
       fs.copyFileSync(actualGo.binary, freshGo);
+      // This owned copy is mutated below; Windows copies the SDK's read-only
+      // attribute too. Keep the selected SDK unchanged and make only the copy writable.
+      fs.chmodSync(freshGo, 0o755);
       const freshGoEnv = {
         ...process.env,
         TTSC_GO_BINARY: freshGo,

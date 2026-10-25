@@ -44,6 +44,7 @@ export async function test_bun_content_mapper_permissions_and_dependencies(): Pr
     "tests/test-e2e/fixtures/unplugin/content-mapper",
   );
   TestProject.writeFiles(root, {
+    "package.json": JSON.stringify({ private: true, type: "module" }),
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
         strict: true,

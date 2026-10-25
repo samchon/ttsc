@@ -48,11 +48,12 @@ import { walkSnapshotComplete } from "../validation/walkSnapshotComplete";
 import { witnessExternalDependencies } from "../validation/witnessExternalDependencies";
 import { TRANSFORM_FAILED_GENERATION_VALIDATIONS } from "./TRANSFORM_FAILED_GENERATION_VALIDATIONS";
 import { TRANSFORM_GENERATION_FAILURES } from "./TRANSFORM_GENERATION_FAILURES";
-import { applyCompilerMembership } from "./applyCompilerMembership";
+import type { TtscCompilerMembershipHint } from "./TtscCompilerMembershipHint";
 import { captureFailedGenerationInputStates } from "./captureFailedGenerationInputStates";
 import { captureTransformSourceHashes } from "./captureTransformSourceHashes";
 import { createGenerationProofFailures } from "./createGenerationProofFailures";
 import { mergeGenerationProofFailures } from "./mergeGenerationProofFailures";
+import { primeCompilerMembership } from "./primeCompilerMembership";
 import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
 import { projectWalkStable } from "./projectWalkStable";
 import { recordGenerationProofFailure } from "./recordGenerationProofFailure";
@@ -129,7 +130,7 @@ export async function captureTransformGeneration(props: {
   runExternalCode?: boolean;
 
   /** Learned native root settings used only to prime this attempt's walk. */
-  compilerMembership?: ITtscCompilerTransformation.IReferenceGraph["membership"];
+  compilerMembership?: TtscCompilerMembershipHint;
 
   /** Native source path whose host delivery initiated the attempt. */
   currentFile: string;
@@ -268,7 +269,7 @@ export async function captureTransformGeneration(props: {
     // relative `outDir` is anchored at the config that declares it, and the
     // generated config lives in a system temp directory. The caller's
     // compiler-options overlay still wins, since it wins for the compile too.
-    const mergedPolicy = applyCompilerMembership(
+    const membershipPrimer = primeCompilerMembership(
       mergeMembershipPolicyOverlay(
         tsconfigState.membershipPolicy,
         props.compilerOptions,
@@ -276,6 +277,7 @@ export async function captureTransformGeneration(props: {
       ),
       props.compilerMembership,
     );
+    const mergedPolicy = membershipPrimer.policy;
     // The walk before the compile matches root specs under the case policy an
     // earlier compile reported, or a provisional cache-root approximation
     // under this attempt's environment. The approximation does not observe
@@ -808,6 +810,17 @@ export async function captureTransformGeneration(props: {
     mergeGenerationProofFailures(failures, universalInputCapture.failures);
     const graphProofs =
       graphFailures.entries.length === 0 && graphFailures.omitted === 0;
+    if (
+      configStable &&
+      graphProofs &&
+      adoptionFailure === undefined &&
+      result.type !== "exception" &&
+      result.graph?.membership !== undefined
+    )
+      cached.compilerMembership = {
+        basis: membershipPrimer.basis,
+        report: result.graph.membership,
+      };
     const universalInputs = universalInputCapture.validation !== undefined;
     const stableProjectSnapshot =
       walkStable &&

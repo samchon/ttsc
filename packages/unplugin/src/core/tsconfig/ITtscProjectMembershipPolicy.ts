@@ -82,6 +82,20 @@ export interface ITtscProjectMembershipPolicy {
   readonly inputExtensions: readonly string[];
 
   /**
+   * Explicit extension options before compiler defaults, plus declared mapper
+   * suffixes. Missing options use the pinned compiler's defaults. Optional for
+   * older policy producers, whose extension lists remain their own authority.
+   */
+  readonly extensionOptionOrigins?: Readonly<{
+    allowJs?: boolean;
+    checkJs?: boolean;
+    resolveJsonModule?: boolean;
+    module?: string;
+    moduleResolution?: string;
+    mapperExtensions: readonly string[];
+  }>;
+
+  /**
    * Every config file consulted to produce this policy, including inherited
    * declarations and unresolved file candidates. A query can stop at its own
    * declaration, so this is not necessarily the complete `extends` graph.

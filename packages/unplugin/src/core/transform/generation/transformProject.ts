@@ -1,5 +1,4 @@
 import path from "node:path";
-import type { ITtscCompilerTransformation } from "ttsc";
 
 import type { ResolvedTtscUnpluginOptions } from "../../options/ResolvedTtscUnpluginOptions";
 import { traceInvocation } from "../../tracing/traceInvocation";
@@ -9,6 +8,7 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 import { TRANSFORM_ADOPTED_RESULTS } from "../session/TRANSFORM_ADOPTED_RESULTS";
 import { TRANSFORM_FAILED_GENERATION_VALIDATIONS } from "./TRANSFORM_FAILED_GENERATION_VALIDATIONS";
 import { TRANSFORM_GENERATION_FAILURES } from "./TRANSFORM_GENERATION_FAILURES";
+import type { TtscCompilerMembershipHint } from "./TtscCompilerMembershipHint";
 import type { TtscGenerationProofFailures } from "./TtscGenerationProofFailures";
 import { captureTransformGeneration } from "./captureTransformGeneration";
 import { carryTransformAttemptInputs } from "./carryTransformAttemptInputs";
@@ -98,7 +98,7 @@ export async function transformProject(props: {
   runExternalCode?: boolean;
 
   /** Previous native root policy; the new compiler report can refute it. */
-  compilerMembership?: ITtscCompilerTransformation.IReferenceGraph["membership"];
+  compilerMembership?: TtscCompilerMembershipHint;
 
   /** Native path of the module whose delivery initiated this capture. */
   currentFile: string;
@@ -233,9 +233,7 @@ export async function transformProject(props: {
     );
     witnessed = nextInputs.witnessed;
     useCaseSensitiveFileNames = nextInputs.useCaseSensitiveFileNames;
-    if (cached.result.type !== "exception")
-      compilerMembership =
-        cached.result.graph?.membership ?? compilerMembership;
+    compilerMembership = cached.compilerMembership;
     // A publication refuted here would be found again by a retry for the same
     // state, which therefore compiles and replaces it. A retry whose project
     // moved to another state claims that state's publication, and adopts it:

@@ -3,6 +3,7 @@ import { JAVASCRIPT_INPUT_EXTENSIONS } from "./JAVASCRIPT_INPUT_EXTENSIONS";
 import { OUTPUT_DIRECTORY_OPTIONS } from "./OUTPUT_DIRECTORY_OPTIONS";
 import { flattenDirectoryExclusionOrigins } from "./flattenDirectoryExclusionOrigins";
 import { resolveConfigDirTemplatePath } from "./resolveConfigDirTemplatePath";
+import { resolveMembershipInputExtensions } from "./resolveMembershipInputExtensions";
 
 /**
  * Apply the caller's compiler-options overlay on top of a policy read from the
@@ -14,9 +15,10 @@ import { resolveConfigDirTemplatePath } from "./resolveConfigDirTemplatePath";
  * turns it off gets the narrower rule for the same reason.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Explicit boolean overlays update extension admission and output path
- *   overlays update their own exclusion provenance. Null removes an output
- *   directory; missing legacy provenance preserves explicit exclusions.
+ *   Extension option provenance preserves explicit false and null clearing
+ *   while recomputing implicit JavaScript and JSON defaults. Mapper suffixes
+ *   remain independent. Output paths update their own exclusion provenance;
+ *   missing legacy provenance preserves authored extension/exclusion lists.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   The operation clones extension and exclusion state rather than mutating
@@ -65,8 +67,27 @@ export function mergeMembershipPolicyOverlay(
       }
     }
   };
-  applyFlag("allowJs", JAVASCRIPT_INPUT_EXTENSIONS);
-  applyFlag("resolveJsonModule", [".json"]);
+  const extensionOptionOrigins =
+    policy.extensionOptionOrigins === undefined
+      ? undefined
+      : { ...policy.extensionOptionOrigins };
+  if (extensionOptionOrigins === undefined) {
+    applyFlag("allowJs", JAVASCRIPT_INPUT_EXTENSIONS);
+    applyFlag("resolveJsonModule", [".json"]);
+  } else {
+    for (const key of ["allowJs", "checkJs", "resolveJsonModule"] as const) {
+      if (!Object.hasOwn(compilerOptions, key)) continue;
+      const value = compilerOptions[key];
+      if (value === null) delete extensionOptionOrigins[key];
+      else if (typeof value === "boolean") extensionOptionOrigins[key] = value;
+    }
+    for (const key of ["module", "moduleResolution"] as const) {
+      if (!Object.hasOwn(compilerOptions, key)) continue;
+      const value = compilerOptions[key];
+      if (value === null) delete extensionOptionOrigins[key];
+      else if (typeof value === "string") extensionOptionOrigins[key] = value;
+    }
+  }
 
   const inheritedOrigins = policy.directoryExclusionOrigins;
   const directoryExclusionOrigins: {
@@ -98,7 +119,11 @@ export function mergeMembershipPolicyOverlay(
     excludedDirectories: flattenDirectoryExclusionOrigins(
       directoryExclusionOrigins,
     ),
-    inputExtensions: [...inputExtensions],
+    extensionOptionOrigins,
+    inputExtensions:
+      extensionOptionOrigins === undefined
+        ? [...inputExtensions]
+        : resolveMembershipInputExtensions(extensionOptionOrigins),
     sources: policy.sources,
     useCaseSensitiveFileNames: policy.useCaseSensitiveFileNames,
   };

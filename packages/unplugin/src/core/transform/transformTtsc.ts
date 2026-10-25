@@ -366,10 +366,7 @@ async function runTransformTtsc(
         TRANSFORM_CACHE_DEPENDENCY_WITNESSES.set(cache, witnesses);
       }
       witnesses.set(key, cached.externalDependencyInputs ?? []);
-      const membership =
-        cached.result.type === "exception"
-          ? undefined
-          : cached.result.graph?.membership;
+      const membership = cached.compilerMembership;
       if (membership !== undefined) {
         let policies = TRANSFORM_CACHE_MEMBERSHIP_POLICIES.get(cache);
         if (policies === undefined) {

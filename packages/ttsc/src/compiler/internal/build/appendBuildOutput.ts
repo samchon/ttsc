@@ -72,7 +72,7 @@ export function appendBuildOutput(
 /**
  * Preserve each phase's source closure and refuse contradictory witnesses.
  *
- * @evidence contracts/common.md#principled-implementation Unioned memberships retain every producer's source authority; conflicting content, physical and predicate observations leave an explicit proof failure instead of selecting a later witness.
+ * @evidence contracts/common.md#principled-implementation Own dictionary entries union every producer's source authority without admitting inherited properties; conflicting content, physical and predicate observations leave an explicit proof failure instead of selecting a later witness. A private null-prototype failure accumulator preserves reserved keys and projects to the established ordinary public object.
  * @evidence contracts/common.md#clear-and-simple-design One graph combiner serves check composition and the later transform phase without reading inputs or creating a Program.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Reported omissions remain omissions; incompatible witnesses cannot be replaced by current filesystem observations.
  * @evidence contracts/common.md#meaningful-documentation The native description states phase composition and the unresolved-witness behavior without claiming execution acceptance.
@@ -119,7 +119,12 @@ export function mergeCheckGraphs(
     Object.fromEntries(
       [...new Set([...Object.keys(a), ...Object.keys(b)])].map((key) => [
         key,
-        [...new Set([...(a[key] ?? []), ...(b[key] ?? [])])],
+        [
+          ...new Set([
+            ...(Object.hasOwn(a, key) ? a[key]! : []),
+            ...(Object.hasOwn(b, key) ? b[key]! : []),
+          ]),
+        ],
       ]),
     );
   const mergeProofs = <T>(
@@ -143,7 +148,9 @@ export function mergeCheckGraphs(
   };
   for (const key of Object.keys(left.inputObservations ?? {})) {
     const a = left.inputObservations![key]!;
-    const b = right.inputObservations?.[key];
+    const b = Object.hasOwn(right.inputObservations ?? {}, key)
+      ? right.inputObservations![key]
+      : undefined;
     if (b === undefined) continue;
     const merged = { ...a, ...b };
     for (const field of Object.keys(a) as (keyof typeof a)[]) {
@@ -208,7 +215,7 @@ export function mergeCheckGraphs(
     inputHashes: mergeProofs(left.inputHashes, right.inputHashes),
     inputRealpaths: mergeProofs(left.inputRealpaths, right.inputRealpaths),
     inputObservations: observations,
-    inputProofFailures: failures,
+    inputProofFailures: { ...failures },
     ...(left.useCaseSensitiveFileNames === right.useCaseSensitiveFileNames
       ? { useCaseSensitiveFileNames: left.useCaseSensitiveFileNames }
       : {}),

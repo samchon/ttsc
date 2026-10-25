@@ -1,17 +1,14 @@
-import type { ITtscCompilerTransformation } from "ttsc";
-
+import type { TtscCompilerMembershipHint } from "../generation/TtscCompilerMembershipHint";
 import type { TtscTransformCache } from "./TtscTransformCache";
 
 /**
- * Last native root report per invocation key, retained like learned case policy
- * and dependency names across generation disposal. Reports supply a primer,
- * never current filesystem proof. Entries live until the cache is collected;
- * distinct invocation keys and their path bytes have no independent cap.
+ * Qualified native root hint per invocation key, retained across generation
+ * disposal. Its config-policy basis must match before priming a new walk;
+ * neither the match nor report proves current filesystem state. Entries live
+ * until the cache is collected; distinct invocation keys and their path bytes
+ * have no independent cap.
  */
 export const TRANSFORM_CACHE_MEMBERSHIP_POLICIES = new WeakMap<
   TtscTransformCache,
-  Map<
-    string,
-    NonNullable<ITtscCompilerTransformation.IReferenceGraph["membership"]>
-  >
+  Map<string, TtscCompilerMembershipHint>
 >();

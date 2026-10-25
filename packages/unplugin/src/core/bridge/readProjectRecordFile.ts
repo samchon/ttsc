@@ -111,6 +111,23 @@ function isPolicy(value: unknown): boolean {
     )
       return false;
   }
+  const extensionOrigins = value.extensionOptionOrigins;
+  if (
+    extensionOrigins !== undefined &&
+    (!isRecord(extensionOrigins) ||
+      !isStrings(extensionOrigins.mapperExtensions) ||
+      ["allowJs", "checkJs", "resolveJsonModule"].some(
+        (key) =>
+          extensionOrigins[key] !== undefined &&
+          typeof extensionOrigins[key] !== "boolean",
+      ) ||
+      ["module", "moduleResolution"].some(
+        (key) =>
+          extensionOrigins[key] !== undefined &&
+          typeof extensionOrigins[key] !== "string",
+      ))
+  )
+    return false;
   const origins = value.directoryExclusionOrigins;
   return (
     origins === undefined ||

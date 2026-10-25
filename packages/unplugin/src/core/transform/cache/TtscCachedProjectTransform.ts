@@ -1,6 +1,7 @@
 import type { ITtscCompilerTransformation } from "ttsc";
 
 import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMembershipPolicy";
+import type { TtscCompilerMembershipHint } from "../generation/TtscCompilerMembershipHint";
 import type { TtscProjectDirectorySnapshot } from "../project/TtscProjectDirectorySnapshot";
 import type { TtscProjectMutationTracker } from "../tracker/TtscProjectMutationTracker";
 import type { TtscCompilerArgumentsWitness } from "../tsconfig/TtscCompilerArgumentsWitness";
@@ -43,6 +44,9 @@ import type { TtscHostInputValidation } from "../validation/TtscHostInputValidat
  *   retained state at runtime.
  */
 export interface TtscCachedProjectTransform {
+  /** Native settings learned under this capture's validated config-policy basis. */
+  compilerMembership?: TtscCompilerMembershipHint;
+
   /** Actual captured invocation, retained for persisted host-cache proofs. */
   compilerArguments?: TtscCompilerArgumentsWitness;
   /** Predicate-preserving compiler proofs for external candidate spellings. */

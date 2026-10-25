@@ -1,8 +1,6 @@
 import path from "node:path";
 
-import { TYPESCRIPT_TRANSFORM_EXTENSIONS } from "../source/TYPESCRIPT_TRANSFORM_EXTENSIONS";
 import type { ITtscProjectMembershipPolicy } from "./ITtscProjectMembershipPolicy";
-import { JAVASCRIPT_INPUT_EXTENSIONS } from "./JAVASCRIPT_INPUT_EXTENSIONS";
 import { OUTPUT_DIRECTORY_OPTIONS } from "./OUTPUT_DIRECTORY_OPTIONS";
 import { TsconfigReadTransaction } from "./TsconfigReadTransaction";
 import { absolutizePathsTarget } from "./absolutizePathsTarget";
@@ -11,6 +9,7 @@ import { findDeclaredValue } from "./findDeclaredValue";
 import { flattenDirectoryExclusionOrigins } from "./flattenDirectoryExclusionOrigins";
 import { normalizeTypeScriptPathSeparators } from "./normalizeTypeScriptPathSeparators";
 import { resolveConfigDirTemplatePath } from "./resolveConfigDirTemplatePath";
+import { resolveMembershipInputExtensions } from "./resolveMembershipInputExtensions";
 import { resolveNativeRootPath } from "./resolveNativeRootPath";
 import { resolveRealPath } from "./resolveRealPath";
 
@@ -28,9 +27,9 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  * root matcher still applies extension, package and hidden-path admission; this
  * policy does not enumerate every dependency in the compiler program.
  *
- * `allowJs` (implicitly enabled by `checkJs`), `resolveJsonModule` and declared
- * content mapper extensions prime root-discovery suffixes, not the complete set
- * of imported or externally observed program inputs. `outDir`,
+ * `allowJs` (implicitly enabled by `checkJs`), effective `resolveJsonModule`
+ * and declared content mapper extensions prime root-discovery suffixes, not the
+ * complete set of imported or externally observed program inputs. `outDir`,
  * `declarationDir`, and plain `exclude` entries supply conservative directory
  * exclusions for that discovery walk. TypeScript supplies the two output
  * directories as implicit exclusions only when no top-level `exclude` replaces
@@ -52,7 +51,7 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   Shared declaration readers own inheritance; this operation assembles one
- *   policy and keeps exclusion provenance so overlays can change output defaults.
+ *   policy and keeps extension and exclusion provenance so overlays can recompute defaults. Own null options clear inherited declarations before default resolution.
  *
  * @evidence contracts/portability.md#os-neutral-implementation
  *   Node native paths anchor config-derived patterns; regular and native
@@ -118,27 +117,33 @@ export function readProjectMembershipPolicy(
             nativepath: resolveNativeRootPath(configDir),
           },
         };
-  const flag = (key: string): boolean | undefined =>
+  const option = (key: string): unknown =>
     findDeclaredValue(
       resolved,
       (parsed) => {
-        const value = (parsed as { compilerOptions?: Record<string, unknown> })
-          .compilerOptions?.[key];
-        return typeof value === "boolean" ? value : undefined;
+        const options = (
+          parsed as { compilerOptions?: Record<string, unknown> }
+        ).compilerOptions;
+        // Boxing null stops inheritance: upstream clears the inherited value.
+        return options !== null &&
+          typeof options === "object" &&
+          Object.hasOwn(options, key)
+          ? { value: options[key] }
+          : undefined;
       },
       new Set(),
       sources,
       configs,
-    )?.value;
-
-  const extensions = new Set(TYPESCRIPT_TRANSFORM_EXTENSIONS);
-  if (flag("allowJs") ?? flag("checkJs")) {
-    for (const extension of JAVASCRIPT_INPUT_EXTENSIONS)
-      extensions.add(extension);
-  }
-  if (flag("resolveJsonModule")) {
-    extensions.add(".json");
-  }
+    )?.value.value;
+  const booleanOption = (key: string): boolean | undefined => {
+    const value = option(key);
+    return typeof value === "boolean" ? value : undefined;
+  };
+  const stringOption = (key: string): string | undefined => {
+    const value = option(key);
+    return typeof value === "string" ? value : undefined;
+  };
+  const extensions = new Set<string>();
   const mappers =
     findDeclaredValue(
       resolved,
@@ -251,13 +256,22 @@ export function readProjectMembershipPolicy(
       );
     }
   }
+  const extensionOptionOrigins = {
+    allowJs: booleanOption("allowJs"),
+    checkJs: booleanOption("checkJs"),
+    resolveJsonModule: booleanOption("resolveJsonModule"),
+    module: stringOption("module"),
+    moduleResolution: stringOption("moduleResolution"),
+    mapperExtensions: [...extensions],
+  };
   return {
     rootFileSpecs,
     directoryExclusionOrigins,
     excludedDirectories: flattenDirectoryExclusionOrigins(
       directoryExclusionOrigins,
     ),
-    inputExtensions: [...extensions],
+    extensionOptionOrigins,
+    inputExtensions: resolveMembershipInputExtensions(extensionOptionOrigins),
     sources: [...sources],
   };
 }
