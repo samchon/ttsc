@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import { resolveNativeTypeScriptPackage } from "./resolveNativeTypeScriptPackage";
 import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 
 /**
@@ -12,13 +13,14 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * 1. Select `opts.binary`, or consult `TTSC_TSGO_BINARY` only when it is absent. A
  *    nonempty override must be an existing absolute path; returns `{ binary,
  *    packageJson: "", packageRoot, version: "custom" }`.
- * 2. `typescript` resolved from the project `cwd`.
- * 3. `typescript` resolved from `opts.resolveFrom` (for test harnesses and
- *    embedders that anchor to a different directory).
+ * 2. Declared npm aliases targeting TypeScript, then native `typescript`, from
+ *    `cwd`.
+ * 3. The same discovery from `opts.resolveFrom` (for test harnesses and embedders
+ *    that anchor to a different directory).
  *
  * Throws a descriptive error when the package or platform path is missing.
  * Manifest read/parse failures can propagate directly. Existence does not
- * certify a regular executable, native ABI or compiler version compatibility;
+ * certify a regular executable, native ABI or compiler-target compatibility;
  * this operation selects paths and metadata without executing them. Platform
  * package resolution is anchored at the chosen TypeScript manifest and can
  * follow Node's ancestor search, rather than proving both packages occupy one
@@ -29,7 +31,7 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Package names and lib/tsc suffixes follow the native TypeScript distribution contract. Missing dependencies remain descriptive errors rather than invented compiler paths or fixture-specific substitutes.
  * @evidence contracts/common.md#meaningful-documentation Ordered precedence, custom metadata and failures are documented separately, and the fallback anchor member explains its filename semantics following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path APIs validate absolute overrides and select the Windows executable suffix; createRequire anchors resolution to actual package files without shell quoting or OS-derived case policy.
- * @evidence contracts/performance.md#efficient-algorithms A precedence sequence makes at most two TypeScript resolution attempts, one platform resolution and one manifest parse of M bytes. Node ancestor/package lookup, native existence checks and path text work have delegated costs; Windows environment override selection scans environment keys through SidecarEnvironment. Returned metadata does not retain the full parsed manifest.
+ * @evidence contracts/performance.md#efficient-algorithms Up to two anchors delegate ancestor manifest and alias discovery before one platform lookup. Dependency declaration counts, alias lookups, manifest bytes and path work determine cost; Windows environment selection scans environment keys through SidecarEnvironment. Returned metadata does not retain parsed manifests.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Overrides and consumer installations are mutable filesystem authority; this resolver owns no dependency invalidation source that could justify retaining a custom result across calls.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous package reads retain no handles or tasks; returned path and version strings transfer to the caller without a historical metadata table.
@@ -39,7 +41,7 @@ export function resolveTsgo(
     /** Explicit path to a native `tsc` binary; bypasses package resolution. */
     binary?: string;
 
-    /** Directory from which to discover `typescript`. */
+    /** Directory from which to discover native TypeScript. */
     cwd?: string;
 
     /**
@@ -75,26 +77,23 @@ export function resolveTsgo(
   }
 
   const cwd = path.resolve(opts.cwd ?? process.cwd());
-  // Resolve the package.json of typescript.
-  // Try cwd first, then the optional resolveFrom anchor.
-  let packageJson: string;
-  packageJson =
-    resolveTypeScriptPackageJson(path.join(cwd, "package.json")) ??
+  const selected =
+    resolveNativeTypeScriptPackage(path.join(cwd, "package.json")) ??
     (opts.resolveFrom
-      ? resolveTypeScriptPackageJson(opts.resolveFrom)
-      : undefined) ??
-    "";
-  if (!packageJson) {
+      ? resolveNativeTypeScriptPackage(opts.resolveFrom)
+      : undefined);
+  if (!selected) {
     throw new Error(
       [
-        "ttsc: typescript is required.",
+        "ttsc: native TypeScript 7 or newer is required.",
         "Install the native TypeScript compiler in the consuming project:",
         "  npm i -D typescript",
+        "For legacy tooling, declare an npm:typescript@^7 alias in package.json.",
       ].join("\n"),
     );
   }
 
-  const manifest = readPackageJson(packageJson);
+  const { packageJson, manifest } = selected;
   const packageRoot = path.dirname(packageJson);
   const platformPackage = `@typescript/typescript-${process.platform}-${process.arch}`;
   const platformResolver = createRequire(packageJson);
@@ -107,7 +106,7 @@ export function resolveTsgo(
     throw new Error(
       [
         `ttsc: platform-specific TypeScript binary not found (${platformPackage}).`,
-        "Reinstall typescript with optional dependencies enabled.",
+        "Reinstall the selected native TypeScript package with optional dependencies enabled.",
       ].join("\n"),
     );
   }
@@ -131,22 +130,4 @@ export function resolveTsgo(
     version:
       typeof manifest.version === "string" ? manifest.version : "unknown",
   };
-}
-
-/**
- * Resolve TypeScript relative to an absolute filename accepted by
- * createRequire. Returns undefined when the anchor or package cannot be
- * resolved.
- */
-function resolveTypeScriptPackageJson(from: string): string | undefined {
-  try {
-    return createRequire(from).resolve("typescript/package.json");
-  } catch {
-    return undefined;
-  }
-}
-
-/** Parse a JSON file and return the result as a plain object. */
-function readPackageJson(file: string): Record<string, unknown> {
-  return JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>;
 }

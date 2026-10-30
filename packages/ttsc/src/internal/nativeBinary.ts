@@ -7,5 +7,9 @@
  * `@ttsc/unplugin` runs its native watch helpers, imports them from here, so
  * the helper always comes from the binary ttsc itself uses and no consumer
  * carries a copy of the rules.
+ *
+ * `resolveTsgo` selects the consumer's native TypeScript compiler, including
+ * npm aliases targeting TypeScript used alongside legacy tooling.
  */
 export { resolveBinary } from "../compiler/internal/resolveBinary";
+export { resolveTsgo } from "../compiler/internal/resolveTsgo";

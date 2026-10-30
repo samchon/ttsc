@@ -6,6 +6,7 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { resolveTsgo } from "ttsc/binary";
 
 import {
   configEvaluatorFailureReason,
@@ -3018,22 +3019,12 @@ function resolveConfigTsgo(
 }
 
 /**
- * The platform compiler binary of the `typescript` install `anchor` can see, or
- * `undefined` when this anchor reaches neither the package nor its platform
- * dependency. Mirrors ttsc's own resolution order so both name one file.
+ * The native compiler visible to a filename anchor, including the native alias.
+ * ttsc owns selection; an unresolved anchor leaves the caller to try the next.
  */
 function tsgoBinaryFrom(anchor: string): string | undefined {
   try {
-    const manifest = createRequire(anchor).resolve("typescript/package.json");
-    const platform = createRequire(manifest).resolve(
-      `@typescript/typescript-${process.platform}-${process.arch}/package.json`,
-    );
-    const binary = path.join(
-      path.dirname(platform),
-      "lib",
-      process.platform === "win32" ? "tsc.exe" : "tsc",
-    );
-    return fs.existsSync(binary) ? binary : undefined;
+    return resolveTsgo({ cwd: path.dirname(anchor), env: {} }).binary;
   } catch {
     // This anchor cannot see the compiler; the caller tries the next one.
     return undefined;

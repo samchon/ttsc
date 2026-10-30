@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { resolveTsgo } from "ttsc/binary";
 import {
   type FilesystemPathIdentityContext,
   type FilesystemPathIdentityOperations,
@@ -1175,7 +1176,9 @@ function quoteWindowsArg(arg: string): string {
 
 /**
  * Resolve the project TypeScript installation's platform package and return its
- * existing native tsc binary, or undefined.
+ * existing native tsc binary, or undefined. Declared native aliases take
+ * precedence over the ordinary package, and a reported pre-7 version is
+ * skipped.
  *
  * The language server needs the project-owned TypeScript-Go build, and the
  * server has no PATH fallback: it refuses to start without an absolute binary.
@@ -1183,8 +1186,8 @@ function quoteWindowsArg(arg: string): string {
  * the ttsc launcher to resolve the binary itself and report a missing package.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Node createRequire resolves the exported TypeScript package anchor and its
- *   supported platform package.
+ *   The shared ttsc resolver selects declared npm aliases before the ordinary
+ *   package and anchors its platform dependency at that selected manifest.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   Package-anchor resolution and native-binary selection are one lookup;
@@ -1207,8 +1210,9 @@ function quoteWindowsArg(arg: string): string {
  *   under the documentation skill; member comments remain beside their
  *   fields.
  *
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   It does a fixed number of module resolutions and one existence check.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   The delegated resolver walks ancestor manifest declarations, resolves the
+ *   discovered aliases and one platform package, then checks existence.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   This adapter retains no override result across requests. Node owns
@@ -1220,24 +1224,7 @@ function quoteWindowsArg(arg: string): string {
  */
 export function resolveTsgoBinary(base: string): string | undefined {
   try {
-    const requireFromBase = createRequire(
-      path.join(base, "__ttsc_vscode_resolve__.cjs"),
-    );
-    const packageJson = requireFromBase.resolve("typescript/package.json");
-    const packageRoot = path.dirname(packageJson);
-    const requireFromTsgo = createRequire(
-      path.join(packageRoot, "__ttsc_vscode_resolve__.cjs"),
-    );
-    const platformPackage = `@typescript/typescript-${process.platform}-${process.arch}`;
-    const platformPackageJson = requireFromTsgo.resolve(
-      `${platformPackage}/package.json`,
-    );
-    const binary = path.join(
-      path.dirname(platformPackageJson),
-      "lib",
-      process.platform === "win32" ? "tsc.exe" : "tsc",
-    );
-    return fs.existsSync(binary) ? binary : undefined;
+    return resolveTsgo({ cwd: base, env: {} }).binary;
   } catch {
     return undefined;
   }

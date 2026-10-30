@@ -15,11 +15,13 @@ import (
   "path/filepath"
   "runtime"
   "sort"
+  "strconv"
   "strings"
   "sync"
   "syscall"
   "time"
 
+  "github.com/samchon/ttsc/packages/ttsc/driver/compileraliases"
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
@@ -5573,7 +5575,39 @@ func resolveConfigTsgo(anchors []string) string {
 // package. NTFS junctions defeat filepath.EvalSymlinks, so the link component
 // is chased by hand first, the same order loaderTempBase uses.
 func tsgoBinaryFrom(anchor string) string {
-  manifest := nodePackageManifestFrom(anchor, "typescript")
+  names, err := compileraliases.Names(anchor)
+  if err != nil {
+    return ""
+  }
+  manifest := ""
+  for _, name := range names {
+    if name == "typescript" && manifest != "" {
+      break
+    }
+    candidate := nodePackageManifestFrom(anchor, name)
+    if candidate == "" {
+      continue
+    }
+    body, err := os.ReadFile(candidate)
+    var metadata struct {
+      Name    string `json:"name"`
+      Version string `json:"version"`
+    }
+    if err != nil || json.Unmarshal(body, &metadata) != nil {
+      return ""
+    }
+    major, err := strconv.Atoi(strings.SplitN(metadata.Version, ".", 2)[0])
+    if err == nil && major < 7 {
+      continue
+    }
+    if name != "typescript" && (metadata.Name != "typescript" || err != nil) {
+      continue
+    }
+    if manifest != "" && realpathIfPossible(resolveDirLink(filepath.Dir(manifest))) != realpathIfPossible(resolveDirLink(filepath.Dir(candidate))) {
+      return ""
+    }
+    manifest = candidate
+  }
   if manifest == "" {
     return ""
   }

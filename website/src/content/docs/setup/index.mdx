@@ -33,6 +33,18 @@ Every surface starts from the same two packages:
 
 `ttsc` reads the `tsconfig.json` you already have, and `npx ttsc` builds where `npx tsc` did. Each page below adds its own package on top of this base.
 
+### Keep TypeScript 6 for ESLint
+
+If your tooling needs the JavaScript TypeScript 6 compiler API, keep it under `typescript` and install native TypeScript 7 under `@typescript/native`:
+
+```bash
+npm install -D ttsc typescript@npm:@typescript/typescript6@6.0.2 @typescript/native@npm:typescript@7.0.2
+```
+
+`ttsc`, its plugin builders, and its VS Code extension use the nearest ancestor `package.json` declaring TypeScript or its aliases. They discover npm aliases by their `npm:typescript@...` declaration and verify the installed package's name and native version. The alias name is yours to choose; `@typescript/native` above is an example. Declared native aliases take precedence over `typescript`. If that manifest exposes multiple distinct native alias installations, select one with `--binary` or `TTSC_TSGO_BINARY`.
+
+ESLint continues to resolve TypeScript 6. A TypeScript 6 installation alone cannot run `ttsc`; a native compiler is still required. Install optional dependencies so the native platform executable is available.
+
 ## Pick your surface
 
 - [CLI & Scripts](/docs/setup/ttsc): package.json scripts, watch mode, and CI with plugin-binary caching.
