@@ -1,7 +1,6 @@
-import fs from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 
+import { resolveNativeTypeScriptPackage } from "../../../compiler/internal/resolveNativeTypeScriptPackage";
 import { ttscPackageVersion } from "./ttscPackageVersion";
 
 /**
@@ -14,14 +13,15 @@ import { ttscPackageVersion } from "./ttscPackageVersion";
  * consumer that keeps a transform's output beyond the process that produced it,
  * as a persisted shared compile of `@ttsc/unplugin` is, names it by these
  * versions with the rule the build applies instead of a copy of it: ttsc's own
- * package version, and the version of the `typescript` package the project
- * resolves, or `"unknown"` when resolution/read/parse fails or its version is
- * absent. The host label falls back to `"0.0.0"` and is cached even after an
- * unsuccessful first read. The host installation is assumed stable for the
- * process lifetime; changing its manifest does not refresh that label.
+ * package version, and the version of the native TypeScript package the project
+ * selects (declared npm aliases before `typescript`), or `"unknown"` when
+ * resolution/read/parse fails or its version is absent. The host label falls
+ * back to `"0.0.0"` and is cached even after an unsuccessful first read. The
+ * host installation is assumed stable for the process lifetime; changing its
+ * manifest does not refresh that label.
  *
- * @param projectRoot The project base used to resolve
- *   `typescript/package.json`.
+ * @param projectRoot The project base used to resolve the native TypeScript
+ *   manifest.
  * @evidence contracts/common.md#principled-implementation Package-version labels supply the same metadata tuple used by plugin keys; absent/unreadable metadata receives the documented unknown/default label rather than an executable identity certificate.
  * @evidence contracts/common.md#clear-and-simple-design The host label comes from its own owner (`ttscPackageVersion`), which a reader needing only that label calls without this function's project resolution; the project-version reader is separate because project resolution varies per call.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Node package resolution determines the actual project dependency; no particular project or fixture version is embedded.
@@ -40,14 +40,12 @@ export function pluginBuildVersions(projectRoot: string): {
 
 function readTsgoVersion(projectRoot: string): string {
   try {
-    const projectRequire = createRequire(
+    const selected = resolveNativeTypeScriptPackage(
       path.join(projectRoot, "package.json"),
     );
-    const pkgPath = projectRequire.resolve("typescript/package.json");
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as {
-      version?: string;
-    };
-    return pkg.version ?? "unknown";
+    return typeof selected?.manifest.version === "string"
+      ? selected.manifest.version
+      : "unknown";
   } catch {
     return "unknown";
   }

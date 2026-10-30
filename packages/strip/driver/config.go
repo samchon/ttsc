@@ -11,10 +11,12 @@ import (
   "os/exec"
   "path/filepath"
   "runtime"
+  "strconv"
   "strings"
   "syscall"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver/compileraliases"
   "github.com/samchon/ttsc/packages/ttsc/driver/configloaderscratch"
   "github.com/samchon/ttsc/packages/ttsc/driver/resolutioninputs"
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
@@ -850,7 +852,7 @@ func stripResolveConfigTsgo(anchors []string) string {
 // the package nor its platform dependency.
 //
 // Mirrors resolveTsgo.ts so the Go plugin and the JS launcher name one file:
-// the `typescript` manifest, then `@typescript/typescript-<platform>-<arch>`
+// declared npm aliases before `typescript`, then the native platform package
 // resolved from that manifest, then `lib/tsc` inside it.
 //
 // The install is chased to its real directory before the second hop, because
@@ -861,7 +863,39 @@ func stripResolveConfigTsgo(anchors []string) string {
 // package. NTFS junctions defeat filepath.EvalSymlinks, so the link component
 // is chased by hand first, the same order stripLoaderTempBase uses.
 func stripTsgoBinaryFrom(anchor string) string {
-  manifest := stripNodePackageManifestFrom(anchor, "typescript")
+  names, err := compileraliases.Names(anchor)
+  if err != nil {
+    return ""
+  }
+  manifest := ""
+  for _, name := range names {
+    if name == "typescript" && manifest != "" {
+      break
+    }
+    candidate := stripNodePackageManifestFrom(anchor, name)
+    if candidate == "" {
+      continue
+    }
+    body, err := os.ReadFile(candidate)
+    var metadata struct {
+      Name    string `json:"name"`
+      Version string `json:"version"`
+    }
+    if err != nil || json.Unmarshal(body, &metadata) != nil {
+      return ""
+    }
+    major, err := strconv.Atoi(strings.SplitN(metadata.Version, ".", 2)[0])
+    if err == nil && major < 7 {
+      continue
+    }
+    if name != "typescript" && (metadata.Name != "typescript" || err != nil) {
+      continue
+    }
+    if manifest != "" && stripRealpathIfPossible(stripResolveDirLink(filepath.Dir(manifest))) != stripRealpathIfPossible(stripResolveDirLink(filepath.Dir(candidate))) {
+      return ""
+    }
+    manifest = candidate
+  }
   if manifest == "" {
     return ""
   }

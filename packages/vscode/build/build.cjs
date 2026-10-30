@@ -12,6 +12,10 @@ async function bundle() {
     entryPoints: [path.join(root, "src/extension.ts")],
     outfile: path.join(root, "lib/extension.js"),
     alias: {
+      "ttsc/binary": path.resolve(
+        root,
+        "../ttsc/src/internal/nativeBinary.ts",
+      ),
       "ttsc/path-identity": path.resolve(
         root,
         "../ttsc/src/internal/projectInputPathIdentity.ts",

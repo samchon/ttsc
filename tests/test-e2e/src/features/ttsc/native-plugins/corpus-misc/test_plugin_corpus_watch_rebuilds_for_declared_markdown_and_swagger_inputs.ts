@@ -15,7 +15,9 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * The sidecar publishes one exact Markdown file plus initially empty JSON and
  * emitted-JavaScript globs. Its check command reads the data sources, so each
  * legitimate filesystem wake-up has an observable fresh diagnostic while the
- * compiler's adjacent JavaScript stays quiet.
+ * compiler's adjacent JavaScript stays quiet. Each phase waits for the actual
+ * idle receipt before its first mutation: build completion alone precedes
+ * asynchronous topology reconciliation.
  *
  * 1. Start a real emitting watch with the exact file present and globs empty.
  * 2. Break and repair Markdown, then create a broken Swagger JSON match.
@@ -33,8 +35,8 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * @evidence contracts/testing.md#distinguishing-cases Broken/repaired file, initially empty glob creation, relative snapshot rejection, Windows extended paths, positional JSX modes, and removed plugin all remain asserted.
  * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary Real watch consumes the compiled sidecar project-inputs protocol and connects exact files/globs to subsequent filesystem wakeups and emitted-output suppression. One sidecar fixture supplies all transitions; unit glob/state calculations alone cannot prove producer membership reaches actual watcher registration and retirement.
- * @evidence contracts/e2e.md#shared-execution The original phases share one authored check sidecar source, consumer and suite producer cache. Each owned watch closes successfully before the original input reset and next phase; cache-hit/build/process totals and minimum preparation are not measured. Phase failures are collected, while uncertain close stops reset and preserves prior failures.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns consumer/sidecar source; shared cache remains suite-owned and valid reuse requires equivalent source/host/toolchain inputs. Child-specific environment does not mutate ambient state. Every phase joins supported WatchSession.close before reset; body and close failures remain together, unknown join retains inputs. Transcript completed-cycle counts and bounded quiet waits are not kernel notification/Program/process totals or arbitrary-descendant/image certification.
+ * @evidence contracts/e2e.md#shared-execution The original phases share one authored check sidecar source, consumer and suite producer cache. Every phase waits for the launcher's idle receipt and still requires exactly one initial cycle before mutation; no extra host or preparation is added. Each owned watch closes before reset; phase failures remain separate and uncertain close stops reset.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns consumer/sidecar source; shared cache remains suite-owned and valid reuse requires equivalent source/host/toolchain inputs. Child-specific environment does not mutate ambient state. Nonce/count-correlated idle receipts separate initial topology reconciliation from later edits without replacing the unchanged quiet windows or exact cycle assertions. Every phase joins supported WatchSession.close before reset; body and close failures remain together, unknown join retains inputs. These observations do not certify kernel notification/Program/process totals or arbitrary descendant/image equality.
  * @evidence contracts/e2e.md#preserved-coverage Real watch reacts to declared Markdown edits and Swagger creation, reports fixture diagnostics, and remains quiet for unrelated README, emitted JS/JSX, and retired plugin sources. These assertions stay in test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs =
@@ -72,7 +74,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         },
       });
       try {
-        await session.waitForBuilds(1);
+        await awaitDeclaredInputWatchReady(session);
 
         fs.writeFileSync(
           path.join(root, "docs", "spec.md"),
@@ -128,7 +130,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         },
       });
       try {
-        await positional.waitForBuilds(1);
+        await awaitDeclaredInputWatchReady(positional);
         fs.writeFileSync(
           path.join(root, "docs", "spec.md"),
           "positional broken\n",
@@ -163,7 +165,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         },
       });
       try {
-        await emittingPositional.waitForBuilds(1);
+        await awaitDeclaredInputWatchReady(emittingPositional);
         await emittingPositional.waitForQuiet();
         assertDeclaredInputBuildCount(emittingPositional, 1);
         assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), true);
@@ -185,7 +187,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         },
       });
       try {
-        await invalid.waitForBuilds(1);
+        await awaitDeclaredInputWatchReady(invalid);
         assert.match(
           invalid.transcript(),
           /invalid snapshot.*not an absolute local path/s,
@@ -207,7 +209,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
           },
         });
         try {
-          await extended.waitForBuilds(1);
+          await awaitDeclaredInputWatchReady(extended);
           await extended.waitForQuiet();
           assertDeclaredInputBuildCount(extended, 1);
           assert.equal(
@@ -252,7 +254,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         },
       });
       try {
-        await reactNative.waitForBuilds(1);
+        await awaitDeclaredInputWatchReady(reactNative);
         assert.equal(
           fs.existsSync(path.join(root, "src", "view.js")),
           true,
@@ -297,7 +299,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         },
       });
       try {
-        await preserve.waitForBuilds(1);
+        await awaitDeclaredInputWatchReady(preserve);
         assert.equal(
           fs.existsSync(path.join(root, "src", "view.jsx")),
           true,
@@ -339,7 +341,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         },
       });
       try {
-        await removal.waitForBuilds(1);
+        await awaitDeclaredInputWatchReady(removal);
         fs.writeFileSync(
           path.join(root, "tsconfig.json"),
           JSON.stringify({
@@ -410,6 +412,15 @@ function assertDeclaredInputBuildCount(
     expected,
     transcript,
   );
+}
+
+/** Keep initial topology work before the next mutation and count every cycle. */
+async function awaitDeclaredInputWatchReady(
+  session: WatchSession,
+): Promise<void> {
+  await session.waitForBuilds(1);
+  await session.waitForIdle();
+  assertDeclaredInputBuildCount(session, 1);
 }
 
 function goSource(): string {

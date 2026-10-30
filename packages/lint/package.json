@@ -37,6 +37,9 @@
     "rule",
     "src"
   ],
+  "peerDependencies": {
+    "ttsc": "workspace:^"
+  },
   "devDependencies": {
     "@wrtnlabs/evidence": "catalog:samchon",
     "@types/node": "catalog:utils",

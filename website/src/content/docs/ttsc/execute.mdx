@@ -65,6 +65,8 @@ Positional `ttsc <file.ts>` resolves the same source root but accepts only a fil
 
 Every build `ttsx` starts writes all of its output into the run's private directory: JavaScript, source maps, declarations, and build information alike. A `declarationDir`, `tsBuildInfoFile`, or `outFile` in your config, and an output location forwarded on the command line such as `ttsx --outDir dist src/index.ts`, still take part in the type-check, but they never write into your tree. This holds for the entry project, an out-of-`include` entry, dependencies built through their own `tsconfig.json`, and `ttsc/register`.
 
+The runtime links source neighbors and dependencies beside that output. Its ancestor walk stops before a filesystem root, the active temporary directory, or any parent containing that temporary directory, so a project-local `TEMP`, `TMP`, or `TMPDIR` cannot cause shared system files to be copied into the runtime layout.
+
 Module format follows the compiler's emit rule. An explicit `.cts`/`.mts` extension wins. A package under `node_modules` that declares `"type"` determines the format of its own files. Otherwise the project's `module` option decides. The `node16`/`node18`/`node20`/`nodenext` modes, and files no project compiles, consult the nearest `package.json` `"type"`. With no `module` option, format is derived from `target`.
 
 Projects that enable `allowImportingTsExtensions` are supported. During the runtime emit, `ttsx` rewrites relative `.ts`, `.tsx`, `.mts`, and `.cts` import specifiers to the matching JavaScript extensions so Node can execute the output. The emitted JavaScript lives in a per-run cache directory and is removed after the script exits.
