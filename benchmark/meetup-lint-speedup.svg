@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="850" height="470" viewBox="0 0 850 470" role="img" aria-label="@ttsc/lint isolated lint speedup by project">
+  <title>@ttsc/lint isolated lint speedup by project</title>
+  <defs>
+    <linearGradient id="lint-bar" x1="0" x2="1">
+      <stop offset="0%" stop-color="#16a34a" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="848" height="468" rx="8" fill="#fff" stroke="#cbd5e1" />
+  <text x="36" y="50" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="30" font-weight="900">Isolated lint speedup</text>
+  <text x="36" y="82" fill="#64748b" font-family="Inter, Segoe UI, sans-serif" font-size="16">Legacy TypeScript + ESLint baseline versus @ttsc/lint.</text>
+  <text x="46" y="129" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">vscode</text>
+  <rect x="180" y="108" width="500" height="26" rx="13" fill="#e2e8f0" />
+  <rect x="180" y="108" width="244" height="26" rx="13" fill="url(#lint-bar)" />
+  <text x="795" y="130" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="27" font-weight="900">901x</text>
+  <text x="46" y="181" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">nestjs</text>
+  <rect x="180" y="160" width="500" height="26" rx="13" fill="#e2e8f0" />
+  <rect x="180" y="160" width="500" height="26" rx="13" fill="url(#lint-bar)" />
+  <text x="795" y="182" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="27" font-weight="900">1848x</text>
+  <text x="46" y="233" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">vue</text>
+  <rect x="180" y="212" width="500" height="26" rx="13" fill="#e2e8f0" />
+  <rect x="180" y="212" width="205" height="26" rx="13" fill="url(#lint-bar)" />
+  <text x="795" y="234" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="27" font-weight="900">757x</text>
+  <text x="46" y="285" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">zod</text>
+  <rect x="180" y="264" width="500" height="26" rx="13" fill="#e2e8f0" />
+  <rect x="180" y="264" width="311" height="26" rx="13" fill="url(#lint-bar)" />
+  <text x="795" y="286" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="27" font-weight="900">1150x</text>
+  <text x="46" y="337" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">rxjs</text>
+  <rect x="180" y="316" width="500" height="26" rx="13" fill="#e2e8f0" />
+  <rect x="180" y="316" width="177" height="26" rx="13" fill="url(#lint-bar)" />
+  <text x="795" y="338" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="27" font-weight="900">653x</text>
+  <text x="46" y="389" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">shopping</text>
+  <rect x="180" y="368" width="500" height="26" rx="13" fill="#e2e8f0" />
+  <rect x="180" y="368" width="158" height="26" rx="13" fill="url(#lint-bar)" />
+  <text x="795" y="390" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="27" font-weight="900">583x</text>
+</svg>
