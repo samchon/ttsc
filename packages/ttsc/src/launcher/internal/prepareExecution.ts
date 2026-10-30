@@ -743,7 +743,9 @@ function collectLinkDirectories(projectRoot: string): string[] {
 }
 
 /**
- * Whether mirroring `directory` would reach a filesystem or temporary root.
+ * Whether mirroring `directory` would reach a filesystem root, the temporary
+ * root or any of its ancestors. A caller can place its temporary root inside
+ * its project; its parents still contain shared entries outside that project.
  * Identity comparison is required on Windows, where `os.tmpdir()` can carry an
  * 8.3 component while a project created below it is returned in long spelling.
  */
@@ -754,7 +756,10 @@ function isUnsafeVirtualParent(
   const resolved = identities.resolve(directory);
   const root = identities.resolve(path.parse(resolved.path).root);
   const temporaryRoot = identities.resolve(os.tmpdir());
-  return resolved.key === root.key || resolved.key === temporaryRoot.key;
+  return (
+    resolved.key === root.key ||
+    identities.isWithin(resolved.path, temporaryRoot.path)
+  );
 }
 
 /**
