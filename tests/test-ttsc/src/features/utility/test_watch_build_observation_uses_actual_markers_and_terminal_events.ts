@@ -21,6 +21,7 @@ import { WatchBuildObservation } from "../../../../utils/src/WatchBuildObservati
 export async function test_watch_build_observation_uses_actual_markers_and_terminal_events(): Promise<void> {
   const watch = new WatchBuildObservation("authored watch");
   assert.equal(watch.completed(), 0);
+  assert.equal(watch.hasPendingBuild(), false);
   assert.doesNotThrow(() => watch.assertRunning());
   let completed = false;
   const first = watch.waitForBuilds(1).then(() => {
@@ -34,15 +35,18 @@ export async function test_watch_build_observation_uses_actual_markers_and_termi
   await Promise.resolve();
   assert.equal(completed, false);
   assert.equal(watch.completed(), 0);
+  assert.equal(watch.hasPendingBuild(), true);
   watch.append(
     "ild complete\n[ttsc] rebuilding at second\n[ttsc] watch build fai",
     "stdout",
   );
   await first;
   assert.equal(watch.completed(), 1);
+  assert.equal(watch.hasPendingBuild(), true);
   watch.append("led\n", "stdout");
   await watch.waitForBuilds(2);
   assert.equal(watch.completed(), 2);
+  assert.equal(watch.hasPendingBuild(), false);
   assert.match(watch.transcript(), /noise watch build complete/);
   watch.close();
   await watch.waitForBuilds(2);
@@ -68,6 +72,7 @@ export async function test_watch_build_observation_uses_actual_markers_and_termi
 
   const pending = new WatchBuildObservation("queued watch");
   pending.append("[ttsc] rebuilding at first\n", "stderr");
+  assert.equal(pending.hasPendingBuild(), true);
   let settled = false;
   const settlement = pending.waitForSettled(0).then(() => {
     settled = true;
@@ -82,6 +87,7 @@ export async function test_watch_build_observation_uses_actual_markers_and_termi
   assert.equal(settled, false);
   pending.append("[ttsc] watch build failed\n", "stderr");
   await settlement;
+  assert.equal(pending.hasPendingBuild(), false);
   await pending.waitForSettled(1);
   await pending.waitForQuiet(1);
 

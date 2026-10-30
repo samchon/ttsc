@@ -126,6 +126,22 @@ export class WatchBuildObservation {
   }
 
   /**
+   * Whether an observed start still lacks its completion marker.
+   *
+   * @evidence contracts/common.md#principled-implementation The original per-stream marker counters distinguish outstanding starts from completed cycles without inferring native process state.
+   * @evidence contracts/common.md#clear-and-simple-design The observation owner exposes its existing counters rather than making each protocol adapter parse a second transcript.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Only delivered markers determine the result; elapsed silence does not certify completion.
+   * @evidence contracts/common.md#meaningful-documentation The headline defines the observation and its missing-marker meaning.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This query reads JavaScript counters; the containing session owns native streams and processes.
+   * @evidence contracts/performance.md#efficient-algorithms One comparison reads the already maintained counters in constant time and space.
+   * @evidence contracts/performance.md#reuse-equivalent-work The query reuses the original per-stream parse without another transcript scan.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This query acquires no handle, task or retained state.
+   */
+  public hasPendingBuild(): boolean {
+    return this.starts > this.builds;
+  }
+
+  /**
    * Await a real completion marker or an actual terminal failure.
    *
    * @evidence contracts/common.md#principled-implementation A qualified actual completion count wins; an unmet count remains pending until actual owner error or close.

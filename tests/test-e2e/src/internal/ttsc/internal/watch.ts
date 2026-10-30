@@ -2,6 +2,8 @@ import { TestProject } from "@ttsc/testing";
 import { randomUUID } from "node:crypto";
 
 import { WatchBuildObservation } from "../../../../../utils/src/WatchBuildObservation";
+import { WatchSettleReceipt } from "../../../../../utils/src/WatchSettleReceipt";
+import { waitFor } from "../../../../../utils/src/internal/waitFor";
 import {
   assert,
   child_process,
@@ -19,6 +21,10 @@ import {
  * Callers supplying a nested project name its tracked workspace as
  * ownershipRoot and list separately tracked external inputs through
  * ownedInputRoots.
+ *
+ * A completed build marker precedes the launcher's final topology refresh.
+ * Before another mutation, waitForIdle correlates its actual IPC idle receipt
+ * with every stdout marker already observed, including a newer pending start.
  *
  * @evidence contracts/common.md#principled-implementation Native build markers distinguish completed cycles from starts. Shutdown requires the supported launcher nonce receipt plus actual close and matching exit status, rather than assuming signal termination joined native descendants.
  * @evidence contracts/common.md#clear-and-simple-design One live child forwards original output/error/close events to its concrete observation owner; one memoized close operation supplies all callers with the same join result, and exitResult exposes only the real close event.
@@ -122,6 +128,54 @@ export class WatchSession {
   /** Await completed cycles and a finite interval with no additional start. */
   public waitForSettled(quiet = 2_000): Promise<void> {
     return this.observation.waitForSettled(quiet);
+  }
+
+  /**
+   * Await the launcher's idle receipt and all acknowledged build markers. A
+   * newer observed start or completion requires a fresh receipt. Process, send
+   * and malformed-receipt failures reject; every path removes this request's
+   * message listener, without imposing a build-duration deadline.
+   */
+  public async waitForIdle(): Promise<void> {
+    const receipt = new WatchSettleReceipt();
+    let failure: unknown;
+    const onMessage = (value: unknown): void => {
+      try {
+        receipt.accept(value);
+      } catch (error) {
+        failure = error;
+      }
+    };
+    const request = (): void => {
+      this.observation.assertRunning();
+      if (!this.child.connected)
+        throw new Error(`${this.label} has no idle receipt channel`);
+      this.child.send(
+        receipt.request(this.observation.completed()),
+        (error) => {
+          if (error !== null) failure = error;
+        },
+      );
+    };
+    this.child.on("message", onMessage);
+    try {
+      request();
+      await waitFor(
+        () => {
+          if (failure !== undefined) throw failure;
+          const state = receipt.evaluate(
+            this.observation.completed(),
+            this.observation.hasPendingBuild(),
+          );
+          if (state === "renew") request();
+          return state === "idle";
+        },
+        `${this.label} did not acknowledge idle work`,
+        { check: () => this.observation.assertRunning() },
+      );
+    } finally {
+      this.child.removeListener("message", onMessage);
+    }
   }
 
   /** Assert no build starts or completes during a deliberate idle interval. */
