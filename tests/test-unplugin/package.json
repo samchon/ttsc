@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-unplugin",
-  "version": "0.34.2",
+  "version": "0.34.3",
   "description": "Unit tests for @ttsc/unplugin.",
   "type": "module",
   "scripts": {
