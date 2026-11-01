@@ -41,12 +41,12 @@ export function test_ttsx_dependency_cache_reads_a_marker_root_in_its_physical_s
     "exports.value = 'built';\n",
   );
   fs.mkdirSync(realRoot, { recursive: true });
+  const physicalRoot = fs.realpathSync.native(realRoot);
   fs.symlinkSync(
-    realRoot,
+    physicalRoot,
     linkedRoot,
     process.platform === "win32" ? "junction" : "dir",
   );
-  const physicalRoot = fs.realpathSync.native(realRoot);
   assert.equal(fs.lstatSync(linkedRoot).isSymbolicLink(), true);
   assert.equal(fs.realpathSync.native(linkedRoot), physicalRoot);
   assert.notEqual(linkedRoot, physicalRoot);

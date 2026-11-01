@@ -120,6 +120,7 @@ export function parseTtsxCLI(argv: readonly string[]) {
     checkers: getNumber(result, "--checkers"),
     cwd: getString(result, "--cwd"),
     entry,
+    noCache: getBoolean(result, "--no-cache") === true,
     noPlugins: getBoolean(result, "--no-plugins") === true,
     passthrough: postEntryArgs,
     preload,

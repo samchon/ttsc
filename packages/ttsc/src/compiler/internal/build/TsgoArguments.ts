@@ -195,11 +195,12 @@ export namespace TsgoArguments {
   /**
    * The forwarded-tsgo payload for a native `build`/`check` emit invocation.
    *
-   * The sidecar builds its Program in-process, so the pinned `rootDir` has to
-   * travel the same channel every other tsgo option takes to it — the host flag
-   * set does not declare `--rootDir`, and `filterHostArgs` would strip it.
+   * The sidecar builds its Program in-process, so runtime source-map defaults
+   * and the pinned `rootDir` travel the same channel as other tsgo options —
+   * the host flag set does not declare `--rootDir`, and `filterHostArgs` would
+   * strip it.
    *
-   * @evidence contracts/common.md#principled-implementation The same private layout root used by direct builds is placed in the sidecar compiler-option channel, preserving declared/composite containment while avoiding a new ordinary config-directory restriction without a new host flag.
+   * @evidence contracts/common.md#principled-implementation The same private layout root and forced runtime source-map default used by direct builds precede user arguments in the sidecar compiler-option channel, preserving explicit overrides and declared/composite containment without a new host flag.
    * @evidence contracts/common.md#clear-and-simple-design Root pinning stays in one helper and general payload ordering/serialization stays in createNativeTsgoArgs.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The supported environment payload carries compiler options instead of injecting unknown flags into strict foreign host parsers.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains why rootDir travels with compiler options rather than through the host flag set.
@@ -215,7 +216,12 @@ export namespace TsgoArguments {
   ): string | undefined {
     return createNativeTsgoArgs(
       options,
-      pinnedRootDirArgs(execution, options),
+      [
+        ...(options.forceRuntimeSourceMap === true
+          ? ["--sourceMap", "true"]
+          : []),
+        ...pinnedRootDirArgs(execution, options),
+      ],
       false,
     );
   }

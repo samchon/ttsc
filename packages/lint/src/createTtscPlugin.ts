@@ -2095,12 +2095,15 @@ function evaluateTtsxConfigPlugins(
     // (`@nestia/core`, `typia`, …) would run their project checks
     // against this deliberately lenient loader tsconfig and fail the
     // build — e.g. `@nestia/core` rejects the loader's `strict: false`.
+    // The bootstrap is unique to this evaluation and is removed afterward.
+    // It has no reusable project generation or persistent-cache lifetime.
     const args = [
       "--project",
       tsconfigPath,
       "--cwd",
       tempDir,
       "--no-plugins",
+      "--no-cache",
       loaderPath,
     ];
     const tsgoBinary = resolveConfigTsgo(configPath, context);

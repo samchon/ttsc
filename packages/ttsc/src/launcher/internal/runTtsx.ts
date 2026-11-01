@@ -110,6 +110,7 @@ async function run(
     cacheDir: resolveCacheDir(cwd, parsed.cacheDir),
     checkers: parsed.checkers,
     cwd,
+    env: parsed.noCache ? { TTSX_DISABLE_CACHE: "1" } : undefined,
     passthrough: parsed.tsgoFlags,
     // `--no-plugins` builds the entry's owning project with plugin
     // discovery and loading disabled. ttsc's own config loaders use it
@@ -121,6 +122,7 @@ async function run(
     // tsconfig deliberately does not satisfy.
     plugins: parsed.noPlugins ? false : undefined,
     project: parsed.project,
+    runtimeCache: !parsed.noCache,
     singleThreaded: parsed.singleThreaded,
   });
   await settleSignals();
@@ -159,6 +161,7 @@ function printHelp(): void {
       "  -P, --project <file>   Use an explicit tsconfig.json",
       "  --cwd <dir>            Resolve entry/project relative to this directory",
       "  --cache-dir <dir>      Override the runner and source-plugin cache root",
+      "  --no-cache             Disable persistent runtime project emit reuse",
       "  --binary <path>        Use an explicit tsgo binary",
       "  --no-plugins           Build the project without ttsc plugins",
       "  -r, --require <module> Preload a module before the entrypoint",
@@ -244,6 +247,7 @@ async function runJavaScriptEntry(
   ];
   const env: NodeJS.ProcessEnv = {
     ...process.env,
+    ...(parsed.noCache ? { TTSX_DISABLE_CACHE: "1" } : {}),
     // ttsc's own helpers run with what the user passed (#1740).
     ...TtsxNodeOptions.give(
       process.env,
@@ -329,6 +333,7 @@ async function runPreparedEntry(
     ];
     const runtimeEnv: NodeJS.ProcessEnv = {
       ...process.env,
+      ...(parsed.noCache ? { TTSX_DISABLE_CACHE: "1" } : {}),
       // ttsc's own helpers run with what the user passed (#1740).
       ...TtsxNodeOptions.give(
         process.env,

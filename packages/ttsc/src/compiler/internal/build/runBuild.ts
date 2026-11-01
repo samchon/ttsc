@@ -2,6 +2,8 @@ import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResu
 import { BuildExecution } from "./BuildExecution";
 import { BuildTiming } from "./BuildTiming";
 import type { RunBuildOptions } from "./RunBuildOptions";
+import { RuntimeBuildCache } from "./RuntimeBuildCache";
+import { RuntimeBuildInputs } from "./RuntimeBuildInputs";
 import { WatchInputPublication } from "./WatchInputPublication";
 
 /**
@@ -21,7 +23,7 @@ import { WatchInputPublication } from "./WatchInputPublication";
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes returned exit failures from thrown setup/launch errors and explains the project-free branch.
  * @evidence contracts/portability.md#os-neutral-implementation Execution selection and spawning use the shared native path/process boundaries with cwd and separate argv, rather than constructing a shell command here.
  * @evidence contracts/performance.md#efficient-algorithms Timing creation and terminal selection make their own flag projections before the selected preparation/execution path. Delegated configuration, plugin, native/provenance and diagnostic work follows its actual input/report sizes; timing formatting scans ledger labels and output. No measured dominance or duration/output ceiling is established by this wrapper.
- * @evidence contracts/performance.md#reuse-equivalent-work A resolved execution context is carried through preparation and execution, so this build does not reload its plugin selection between phases.
+ * @evidence contracts/performance.md#reuse-equivalent-work A resolved execution context is carried through preparation and execution without another plugin load; private runtime requests delegate verified completed-emission reuse to RuntimeBuildCache with current input and producer proofs.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The ledger and execution state are build-owned, while returned output/proof/diagnostic records transfer to the caller; no resident handle or historical build is stored here. Delegated native/probe/artifact acquisition and cleanup may be best effort, and thrown setup can precede some cleanup boundaries. This wrapper supplies no duration/output bound or descendant-release certification.
  */
 export function runBuild(options: RunBuildOptions = {}): TtscBuildResult {
@@ -36,8 +38,8 @@ export function runBuild(options: RunBuildOptions = {}): TtscBuildResult {
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Awaiting changes only publication completion, preserves compiler/plugin selection and project-free terminal behavior, and sends publication failure through existing setup and cleanup rather than bypassing a pending baseline.
  * @evidence contracts/common.md#meaningful-documentation Entry prose states the publication barrier, order before compilation and internal callers' obligation to complete the sequence and deliver rejection.
  * @evidence contracts/portability.md#os-neutral-implementation BuildExecution retains native cwd, path identity and argument-array ownership across suspension; the namespace adds no independent native boundary.
- * @evidence contracts/performance.md#efficient-algorithms Each selected terminal, context, discovery, preparation and compile phase runs once; each publication adds one await and constant sequence state.
- * @evidence contracts/performance.md#reuse-equivalent-work One resolved execution context serves preparation and compilation without reloading plugins; the namespace retains no completed build or in-flight cache.
+ * @evidence contracts/performance.md#efficient-algorithms Each selected terminal, context, discovery and preparation phase runs once; eligible runtime requests add native source/configuration queries and content proofs before restoring or compiling. Each publication adds one await and constant sequence state.
+ * @evidence contracts/performance.md#reuse-equivalent-work One resolved execution context serves preparation and compilation without reloading plugins; the delegated runtime store reuses completed bytes only under current equal input snapshots and valid producer witnesses, with ordinary compilation on any miss.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The invocation owns its sequence, ledger, context and current handoff while callbacks settle. Selected results transfer to the caller, delegated resource ownership and cleanup stay unchanged, and no resident history is retained.
  */
 export namespace runBuild {
@@ -72,14 +74,27 @@ export namespace runBuild {
       execution,
       setupStartedAt,
     );
-    const result =
-      prepared.result ??
+    const build = () =>
       BuildExecution.runPreparedBuild(
         options,
         timing,
         execution,
         prepared.buildOptions,
       );
+    const proof =
+      prepared.result === undefined
+        ? RuntimeBuildInputs.create(prepared.buildOptions, execution)
+        : undefined;
+    const result =
+      prepared.result ??
+      (proof === undefined
+        ? build()
+        : RuntimeBuildCache.run({
+            directory: options.runtimeCacheDir,
+            emitDir: options.isolateOutputsTo!,
+            ...proof,
+            build,
+          }));
     return BuildTiming.appendTimingOutput(result, timing);
   }
 }

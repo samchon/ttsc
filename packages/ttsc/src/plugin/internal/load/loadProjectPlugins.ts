@@ -824,6 +824,7 @@ export namespace loadProjectPlugins {
                 ...record.capabilities,
                 compilerArgsCwd: true,
                 emitProvenance: true,
+                emitObservations: true,
               }
             : record.capabilities,
         config: record.config,

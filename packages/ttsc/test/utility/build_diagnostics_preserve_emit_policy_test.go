@@ -2,12 +2,15 @@ package ttsc_test
 
 import (
   "bytes"
+  "crypto/sha256"
+  "encoding/hex"
   "encoding/json"
   "os"
   "path/filepath"
   "strings"
   "testing"
 
+  "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/utility"
 )
 
@@ -16,7 +19,7 @@ import (
 // root, remain subject to the same native emission policy and provenance.
 // Check and transform still reject the erroneous project without output.
 //
-// @evidence contracts/testing.md#behavioral-verification Real utility build calls load and emit authored two-root projects across semantic and syntax diagnostics, default/true/false policy, an explicit forwarded override, analysis-only and invalid-option admission. Written JavaScript, declarations, maps and source provenance distinguish permitted emission from withholding; the same erroneous project remains rejected by check and transform.
+// @evidence contracts/testing.md#behavioral-verification Real utility build calls load and emit authored two-root projects across semantic and syntax diagnostics, default/true/false policy, an explicit forwarded override, analysis-only and invalid-option admission. Written JavaScript, declarations, maps and source provenance distinguish permitted emission from withholding; negotiated emit observations retain SHA-256 of the authored source from the same loaded generation even on failure. The same erroneous project remains rejected by check and transform.
 // @evidence contracts/testing.md#independent-expectations TS2322, TS1109 and TS6046, status two, the authored unused-root export and exact artifact/source names determine expectations independently of returned output or the compiler option composer.
 // @evidence contracts/testing.md#distinguishing-cases Default and false allow output while true withholds it; a forwarded false overrides configured true. An unimported root must emit alongside the entry, while noEmit, invalid compiler options, check and transform remain negative neighbors.
 // @evidence contracts/testing.md#execution-ownership This Go owning unit invokes utility entrypoints in-process with captured streams and temporary projects. Each build owns and closes its actual Program; two additional check/transform calls use the semantic fixture. It launches no Node/compiler subprocess and its temporary owner removes artifacts after each case.
@@ -25,6 +28,7 @@ func TestUtilityBuildDiagnosticsPreserveEmitPolicy(t *testing.T) {
     name, source, policy, forwarded, diagnostic string
     writes, noEmit                              bool
   }{
+    {name: "valid", source: `export const value: number = 1;`, writes: true},
     {name: "semantic-default", source: `export const value: number = "bad";`, diagnostic: "TS2322", writes: true},
     {name: "semantic-false", source: `export const value: number = "bad";`, policy: `,"noEmitOnError":false`, diagnostic: "TS2322", writes: true},
     {name: "semantic-true", source: `export const value: number = "bad";`, policy: `,"noEmitOnError":true`, diagnostic: "TS2322"},
@@ -41,7 +45,8 @@ func TestUtilityBuildDiagnosticsPreserveEmitPolicy(t *testing.T) {
       writeProjectFile(t, root, "entry.ts", row.source)
       writeProjectFile(t, root, "unused.ts", `export const unused = "independent-unused-root";`)
       proof := filepath.Join(root, "provenance.json")
-      args := []string{"--cwd", root, "--emit-provenance-json", proof}
+      observations := filepath.Join(root, "emit-inputs.json")
+      args := []string{"--cwd", root, "--emit-provenance-json", proof, "--emit-observations-json", observations}
       if row.noEmit {
         args = append(args, "--noEmit")
       } else {
@@ -52,8 +57,28 @@ func TestUtilityBuildDiagnosticsPreserveEmitPolicy(t *testing.T) {
       }
       var out, stderr bytes.Buffer
       code := utility.RunBuildWithIO(args, &out, &stderr)
-      if code != 2 || !strings.Contains(stderr.String(), row.diagnostic) {
+      expectedStatus := 2
+      if row.diagnostic == "" {
+        expectedStatus = 0
+      }
+      if code != expectedStatus || !strings.Contains(stderr.String(), row.diagnostic) {
         t.Fatalf("diagnostic/status: code=%d stdout=%q stderr=%q", code, out.String(), stderr.String())
+      }
+      if row.name != "invalid-option" {
+        body, err := os.ReadFile(observations)
+        if err != nil {
+          t.Fatal(err)
+        }
+        var recorded struct {
+          Graph *driver.TransformGraph `json:"graph"`
+        }
+        if err := json.Unmarshal(body, &recorded); err != nil {
+          t.Fatal(err)
+        }
+        expected := sha256.Sum256([]byte(row.source))
+        if recorded.Graph == nil || recorded.Graph.InputObservations["entry.ts"].ReadFile == nil || recorded.Graph.InputObservations["entry.ts"].ReadFile.Hash != hex.EncodeToString(expected[:]) {
+          t.Fatalf("emit did not retain its actual generation input: %s", body)
+        }
       }
       for _, name := range []string{"entry.js", "unused.js", "entry.d.ts", "unused.d.ts", "entry.js.map", "unused.js.map", "entry.d.ts.map", "unused.d.ts.map"} {
         body, err := os.ReadFile(filepath.Join(root, "lib", name))
@@ -107,6 +132,21 @@ func TestUtilityBuildDiagnosticsPreserveEmitPolicy(t *testing.T) {
       body, err := os.ReadFile(filepath.Join(root, "entry.ts"))
       if err != nil || string(body) != row.source {
         t.Fatalf("authored source changed: %q/%v", body, err)
+      }
+      if row.name == "valid" {
+        out.Reset()
+        stderr.Reset()
+        if err := os.Remove(filepath.Join(root, "lib", "entry.js")); err != nil {
+          t.Fatal(err)
+        }
+        status := utility.RunBuildWithIO([]string{"--cwd", root, "--emit", "--emit-observations-json", root}, &out, &stderr)
+        if status != 0 || !strings.Contains(stderr.String(), "emit observations write failed") {
+          t.Fatalf("optional metadata replaced a successful build: %d/%s", status, &stderr)
+        }
+        emitted, err := os.ReadFile(filepath.Join(root, "lib", "entry.js"))
+        if err != nil || !strings.Contains(string(emitted), "exports.value = 1") {
+          t.Fatalf("fresh output lost: %s/%v", emitted, err)
+        }
       }
     })
   }

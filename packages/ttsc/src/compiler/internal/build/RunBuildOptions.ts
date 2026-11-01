@@ -20,6 +20,9 @@ import type {
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type RunBuildOptions = TtscBuildOptions & {
+  /** Persistent private-runtime emit documents; absence keeps ordinary builds. */
+  runtimeCacheDir?: string;
+
   /**
    * Skip the independent direct-compiler type-check gate and the added
    * `--noEmitOnError` guard. Configured plugin checks and native hosts still

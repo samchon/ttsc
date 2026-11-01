@@ -7,6 +7,7 @@ import type createLint from "../../../../../packages/lint/src/createTtscPlugin";
 import { BuildExecution } from "../../../../../packages/ttsc/src/compiler/internal/build/BuildExecution";
 import { NativePluginArguments } from "../../../../../packages/ttsc/src/compiler/internal/build/NativePluginArguments";
 import type { RunBuildOptions } from "../../../../../packages/ttsc/src/compiler/internal/build/RunBuildOptions";
+import { TsgoArguments } from "../../../../../packages/ttsc/src/compiler/internal/build/TsgoArguments";
 import { runNativeCheckWithObservations } from "../../../../../packages/ttsc/src/compiler/internal/runNativeCheckWithObservations";
 import { PluginDescriptorAdmission } from "../../../../../packages/ttsc/src/plugin/internal/load/PluginDescriptorAdmission";
 import type { ITtscLoadedNativePlugin } from "../../../../../packages/ttsc/src/structures/internal/ITtscLoadedNativePlugin";
@@ -24,8 +25,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 1. Resolve an actual config without loading plugins or invoking a compiler.
  * 2. Compose check/fix/format argv under true, false and absent capabilities.
  * 3. Check full core payload, optional knobs, command precedence and immutability.
- * 4. Compose transform-host build/check commands, including build-only verbosity,
- *    output coordinates, selected-host context and provenance admission.
+ * 4. Compose transform-host build/check commands, including source-map defaults,
+ *    output coordinates and provenance, and replay optional build metadata IO.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls actual createNativeCheckArgs and createNativeBuildArgs with the owned execution context. Exact argv assertions distinguish check-stage threading from transform-host command/modifier policies and selected-host context/provenance gates, while preserving full projected configs and input records. The actual shallow descriptor admission preserves a raw JavaScript false capability before the composer rejects provenance; no invalid typed DTO is constructed. Actual composed verbs also drive the observation adapter: fix/format and undeclared check transport preserve the original callback result without flags, while opted-in checks retain same-invocation metadata and reject absent or malformed successful publications.
  * @evidence contracts/testing.md#independent-expectations The native protocol gates check-stage threading, gives format precedence over fix, and omits transform check-lane emit/verbosity modifiers. Authored complete plugin JSON, output/context coordinates, build/check arrays and provenance error literals specify the contract independently of the composers. Literal original write-result identity, check streams/status and independently authored complete/incomplete/malformed metadata prescribe adapter negotiation and rejection without an actual native producer.
@@ -226,6 +227,70 @@ export function test_native_check_arguments_gate_threading_without_name_shortcut
     checkArgs[0],
   );
   assert.equal(disabled, originalResult);
+  assert.deepEqual(
+    JSON.parse(
+      TsgoArguments.createNativeBuildTsgoArgs(selected, {
+        forceRuntimeSourceMap: true,
+      })!,
+    ),
+    ["--sourceMap", "true"],
+  );
+  assert.deepEqual(
+    JSON.parse(
+      TsgoArguments.createNativeBuildTsgoArgs(selected, {
+        forceRuntimeSourceMap: true,
+        passthrough: ["--sourceMap", "false"],
+      })!,
+    ),
+    ["--sourceMap", "true", "--sourceMap", "false"],
+  );
+  for (const [text, complete] of [
+    [undefined, false],
+    ["{", false],
+    [
+      JSON.stringify({
+        hostInputs: [],
+        hostInputHashes: {},
+        hostInputRealpaths: {},
+        graph: { edges: {}, inputObservations: {} },
+      }),
+      false,
+    ],
+    [
+      JSON.stringify({
+        hostInputs: [],
+        hostInputHashes: {},
+        hostInputRealpaths: {},
+        graph: {
+          edges: { "src/main.ts": [] },
+          inputObservations: { "src/main.ts": { fileExists: true } },
+        },
+      }),
+      true,
+    ],
+  ] as const) {
+    let builds = 0;
+    const result = runNativeCheckWithObservations(
+      { capabilities: { emitObservations: true } },
+      (extra) => {
+        builds++;
+        assert.equal(extra.length, 1);
+        assert.ok(extra[0]!.startsWith("--emit-observations-json="));
+        if (text !== undefined)
+          fs.writeFileSync(
+            extra[0]!.slice("--emit-observations-json=".length),
+            text,
+          );
+        return originalResult;
+      },
+      "build",
+    );
+    assert.equal(builds, 1);
+    assert.equal(result.status, originalResult.status);
+    assert.equal(result.stdout, originalResult.stdout);
+    assert.equal(result.stderr, originalResult.stderr);
+    assert.equal(result.observationsComplete, complete ? undefined : false);
+  }
   const checkResult = (status: number, malformed = false, complete = false) =>
     runNativeCheckWithObservations(
       plugin,
