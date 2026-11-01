@@ -22,7 +22,7 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * @evidence contracts/testing.md#execution-ownership The Runtime batch invokes this helper using its existing installed SDK and cache owner. Independent launcher lifetimes prove persistence and input transitions; one linked banner composition borrows the installed contributor, with no extra installation.
  * @evidence contracts/e2e.md#necessary-boundary Cross-process persistence, native compiler invocation, source-linked package resolution and actual Node source identity cannot be established by a document-store unit.
  * @evidence contracts/e2e.md#shared-execution One upfront graph shares two workspace package owners and all identity/map assertions across the necessary state transitions. The installed banner contributor adds one linked-host composition, prepared by its native bypass run before the completed-result cold/warm pair and config edit. A separate ESM request supplies native module URL/main/resource evidence across cold/warm/bypass. Native source-selection probes remain real work even on a hit.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every ordinary synchronous launcher is joined and its PID checked before input mutation. Unresolved ownership retains the batch graph and stops transitions. The batch owns cleanup; package junctions remain within its authored graph. One precreated trace sink stays unchanged across runs so instrumentation cannot alter the cache identity.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Child environments clear the harness compiler override so package discovery selects the installed consumer's compiler. Every ordinary synchronous launcher is joined and its PID checked before input mutation. Unresolved ownership retains the batch graph and stops transitions. The batch owns cleanup; package junctions remain within its authored graph. One precreated trace sink stays unchanged across runs so instrumentation cannot alter the cache identity.
  * @evidence contracts/e2e.md#preserved-coverage Adds a real warm-generation neighbor to existing fresh runtime coverage without deleting or retargeting previous cases. All state assertions collect before the final verdict; CI owns the full Runtime batch.
  */
 export async function runtimePersistentCacheCorpus(
@@ -115,6 +115,9 @@ export async function runtimePersistentCacheCorpus(
     ...process.env,
     TTSC_CACHE_DIR: cache,
     TTSC_E2E_TRACE: trace,
+    // The harness seeds its workspace compiler for in-process unplugin tests.
+    // This experiment exercises the consumer's own installed compiler instead.
+    TTSC_TSGO_BINARY: undefined,
   };
   for (const key of Object.keys(env))
     if (/^TTSX_RUNTIME_/i.test(key) || key === "TTSX_DISABLE_CACHE")
