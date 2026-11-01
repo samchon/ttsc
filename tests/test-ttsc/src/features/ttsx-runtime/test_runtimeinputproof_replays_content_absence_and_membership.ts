@@ -55,12 +55,13 @@ export function test_runtimeinputproof_replays_content_absence_and_membership():
       },
     },
   };
+  const sourceObservation = result.graph!.inputObservations!["source.ts"]!;
   const holds = (): boolean =>
     RuntimeInputProof.holds(result, root, path.join(root, "emit"));
   try {
     assert.equal(holds(), true);
     const raw = fs.readFileSync(source);
-    result.graph!.inputObservations!["source.ts"].nativePredicates = [
+    sourceObservation.nativePredicates = [
       {
         version: 1,
         kind: "file",
@@ -74,7 +75,7 @@ export function test_runtimeinputproof_replays_content_absence_and_membership():
     fs.writeFileSync(source, Buffer.from(text));
     assert.equal(holds(), false);
     fs.writeFileSync(source, raw);
-    delete result.graph!.inputObservations!["source.ts"].nativePredicates;
+    delete sourceObservation.nativePredicates;
     fs.writeFileSync(
       source,
       Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(text, "utf16le")]),
@@ -116,7 +117,7 @@ export function test_runtimeinputproof_replays_content_absence_and_membership():
     result.graph!.inputProofFailures = { "source.ts": "content-changed" };
     assert.equal(holds(), false);
     delete result.graph!.inputProofFailures;
-    result.graph!.inputObservations!["source.ts"].nativePredicates = [
+    sourceObservation.nativePredicates = [
       {
         version: 2,
         kind: "file",

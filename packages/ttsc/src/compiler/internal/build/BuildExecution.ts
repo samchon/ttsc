@@ -1430,7 +1430,7 @@ export namespace BuildExecution {
       cwd,
       ...(identities === undefined ? {} : { identities }),
       nativePlugins,
-      pluginLoad,
+      ...(pluginLoad === undefined ? {} : { pluginLoad }),
       pluginConfigDir: resolvePluginConfigDir({
         cwd,
         pluginConfigDir: options.pluginConfigDir,
