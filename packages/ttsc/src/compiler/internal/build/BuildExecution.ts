@@ -728,20 +728,33 @@ export namespace BuildExecution {
   ): TtscBuildResult {
     const host = selectSharedHostPlugin(plugins);
     const run = (provenancePath?: string): TtscBuildResult =>
-      runNativePluginCommand(
-        host,
-        NativePluginArguments.createNativeBuildArgs(
-          execution,
-          options,
-          plugins,
-          provenancePath,
-        ),
-        options,
-        execution,
-        "ttsc.build",
-        timing,
-        NativePluginArguments.transformHostTimingLabel(plugins),
-        TsgoArguments.createNativeBuildTsgoArgs(execution, options),
+      runNativeCheckWithObservations(
+        {
+          capabilities:
+            options.runtimeCacheDir === undefined
+              ? undefined
+              : host.capabilities,
+        },
+        (observationArgs) =>
+          runNativePluginCommand(
+            host,
+            [
+              ...NativePluginArguments.createNativeBuildArgs(
+                execution,
+                options,
+                plugins,
+                provenancePath,
+              ),
+              ...observationArgs,
+            ],
+            options,
+            execution,
+            "ttsc.build",
+            timing,
+            NativePluginArguments.transformHostTimingLabel(plugins),
+            TsgoArguments.createNativeBuildTsgoArgs(execution, options),
+          ),
+        "build",
       );
     if (options.forceEmitProvenance !== true) return run();
     if (host.capabilities?.emitProvenance === true)
@@ -1365,6 +1378,7 @@ export namespace BuildExecution {
     });
     let pluginSetupFailure: TtscBuildResult | undefined;
     let nativePlugins: ITtscLoadedNativePlugin[] = [];
+    let pluginLoad: ReturnType<typeof loadProjectPlugins> | undefined;
     // Opened only for an invocation that loads plugins, so a project without
     // any never gains a cache directory; the load and every later native spawn
     // of this invocation prove their unchanged inputs through it (#1722, #1723).
@@ -1387,7 +1401,7 @@ export namespace BuildExecution {
           cacheDir,
           env,
         });
-        nativePlugins = (yield* loadProjectPlugins.steps({
+        pluginLoad = yield* loadProjectPlugins.steps({
           binary: resolveBinary({ env }) ?? "",
           cacheDir,
           cwd,
@@ -1398,7 +1412,8 @@ export namespace BuildExecution {
           pluginConfigDir: options.pluginConfigDir,
           projectRoot,
           tsconfig,
-        })).nativePlugins;
+        });
+        nativePlugins = pluginLoad.nativePlugins;
       } else {
         yield options.onWatchInputs?.([]);
       }
@@ -1415,6 +1430,7 @@ export namespace BuildExecution {
       cwd,
       ...(identities === undefined ? {} : { identities }),
       nativePlugins,
+      pluginLoad,
       pluginConfigDir: resolvePluginConfigDir({
         cwd,
         pluginConfigDir: options.pluginConfigDir,

@@ -22,7 +22,9 @@ import { createCanonicalTempDirectory } from "../../../internal/createCanonicalT
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
 import { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
+import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBuildCacheLayout";
 import { recordCacheFileUse } from "../../../plugin/internal/source/recordCacheFileUse";
+import { resolveSourceBuildCachePaths } from "../../../plugin/internal/source/resolveSourceBuildCachePaths";
 import { buildSingleRootProject } from "../buildSingleRootProject";
 import { inlineServedSourceMap } from "../inlineServedSourceMap";
 import { runtimeCompilerArgs } from "../runtimeCompilerArgs";
@@ -2192,6 +2194,15 @@ function buildDependency(
     fs.mkdirSync(emitDir, { recursive: true });
     const result = runBuild({
       cwd: project.root,
+      runtimeCacheDir:
+        process.env.TTSX_DISABLE_CACHE === "1" ||
+        process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
+          ? undefined
+          : path.join(
+              runtimeRecordStore()?.root ??
+                resolveSourceBuildCachePaths(project.root).root,
+              SourceBuildCacheLayout.RUNTIME_BUILD_CACHE_DIRNAME,
+            ),
       forceEmitProvenance: true,
       // Emit-only means diagnostics never withhold the emit, so a dependency's
       // own `noEmitOnError` is switched off: honoured, it would turn any

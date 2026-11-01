@@ -40,6 +40,9 @@ type hostOptions struct {
   // checkObservationsJSON is the caller-owned absolute check input result path.
   checkObservationsJSON string
 
+  // emitObservationsJSON is the caller-owned absolute build input result path.
+  emitObservationsJSON string
+
   // observationsIncomplete points to the resident host's committed generation
   // state. It is nil for non-resident calls and updated only after success.
   observationsIncomplete *bool
@@ -201,6 +204,10 @@ func RunBuild(args []string) int {
 // diagnostics. Analysis-only success writes an empty map. The original build
 // status remains authoritative; absent or invalid metadata supplies no ownership
 // proof. Callers own the artifact's removal.
+// A separately negotiated absolute emit-observations path receives this same
+// Program's compiler and native input witnesses before its checker lease closes,
+// including failing loaded builds. Unavailable optional observations withhold
+// reuse without changing the build status. They supply no authority by themselves.
 // Program.Close returns its checker lease; it does not remove emitted files or
 // private metadata. Summary and diagnostic stream writes are best-effort here,
 // so a zero status does not certify delivery to the supplied io.Writer values.
@@ -211,7 +218,7 @@ func RunBuild(args []string) int {
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs identify stream ownership, failure statuses, private metadata admission and caller artifact removal following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Driver loading and DefaultWriteFile own native paths and filesystem APIs; output streams are not replaced globally.
 // @evidence contracts/performance.md#efficient-algorithms Admission and loading include argument/plugin-manifest parsing, native project and diagnostic work. Emission dispatches linked AST transforms through the driver, which owns native generation and one authored-coordinate correction. The final writer indexes compiler carrier/map paths and shifts generated map coordinates only when it inserts missing preamble text, including JSON/base64/VLQ and output-byte work. Optional provenance adds output-path candidate collection, successful-write bookkeeping, source-proof checks, owner sorting and JSON/file publication; costs depend on source/graph, output and metadata bytes rather than only the number of emit calls.
-// @evidence contracts/performance.md#reuse-equivalent-work The same loaded compiler generation validates and emits; linked program hooks remain latched rather than independently reexecuted for output files.
+// @evidence contracts/performance.md#reuse-equivalent-work The same loaded compiler generation validates, emits and optionally publishes its input witnesses; linked program hooks remain latched rather than independently reexecuted for output files. Completed-generation reuse belongs to the caller.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Successful loading transfers one Program checker lease to a deferred Close on analysis-only, normal and failure returns. The final writer retains output-path decisions and maps awaiting their carrier without a byte cap, releases pending map entries as their carrier arrives, and reports unfinished pairs at emit completion. Facade graphs, provenance maps, writer closures and serialization buffers lose local ownership when the invocation ends; Close does not destroy all program memory, supplied-stream state or emitted disk artifacts. Callers own stream lifetime and metadata/output removal, with no invocation-enforced byte cap.
 func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   opts, ok := parseHostOptions("build", args, stdout, stderr)
@@ -224,6 +231,13 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
     return 2
   }
   defer prog.Close()
+  defer func() {
+    if opts.emitObservationsJSON != "" {
+      if err := driver.WriteCheckObservationsJSON(opts.emitObservationsJSON, prog); err != nil {
+        fmt.Fprintf(opts.stderr, "ttsc utility: emit observations write failed: %v\n", err)
+      }
+    }
+  }()
   driver.WritePrettyDiagnostics(opts.stderr, diags, opts.cwd)
   if opts.noEmit {
     if len(diags) != 0 {
@@ -446,8 +460,10 @@ func parseHostOptions(command string, args []string, stdout, stderr io.Writer) (
   tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
   provenanceJSON := ""
   checkObservationsJSON := ""
+  emitObservationsJSON := ""
   if command == "build" {
     fs.StringVar(&provenanceJSON, "emit-provenance-json", "", "private absolute emit provenance result path")
+    fs.StringVar(&emitObservationsJSON, "emit-observations-json", "", "private absolute build input result path")
   }
   if command == "check" {
     fs.StringVar(&checkObservationsJSON, "check-observations-json", "", "private absolute check input result path")
@@ -461,6 +477,10 @@ func parseHostOptions(command string, args []string, stdout, stderr io.Writer) (
   }
   if checkObservationsJSON != "" && !filepath.IsAbs(checkObservationsJSON) {
     fmt.Fprintln(stderr, "ttsc utility: check observations path must be absolute")
+    return hostOptions{}, false
+  }
+  if emitObservationsJSON != "" && !filepath.IsAbs(emitObservationsJSON) {
+    fmt.Fprintln(stderr, "ttsc utility: emit observations path must be absolute")
     return hostOptions{}, false
   }
   var tsgoArgs []string
@@ -507,6 +527,7 @@ func parseHostOptions(command string, args []string, stdout, stderr io.Writer) (
     stderr:                stderr,
     provenanceJSON:        provenanceJSON,
     checkObservationsJSON: checkObservationsJSON,
+    emitObservationsJSON:  emitObservationsJSON,
   }, true
 }
 

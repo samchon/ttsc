@@ -353,6 +353,13 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
   // ttsx-specific options.
   // -------------------------------------------------------------------------
   {
+    name: "--no-cache",
+    kind: "boolean",
+    subcommands: ["ttsx"],
+    consumedBy: ["launcher"],
+    description: "Disable persistent runtime project emit reuse.",
+  },
+  {
     name: "--require",
     aliases: ["-r"],
     kind: "value",

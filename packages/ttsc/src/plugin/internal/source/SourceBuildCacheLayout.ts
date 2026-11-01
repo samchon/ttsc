@@ -80,6 +80,9 @@ export namespace SourceBuildCacheLayout {
   /** Directory of the lowered orphan sources inside the cache root. */
   export const ORPHAN_CACHE_DIRNAME = "ttsx-orphan";
 
+  /** Checksummed completed runtime project emits, independent of run lifetime. */
+  export const RUNTIME_BUILD_CACHE_DIRNAME = "runtime-builds";
+
   /**
    * The parts of the cache root whose entries are single files, each collected
    * by `pruneCacheFileRoot` and removed by `ttsc clean`.
@@ -90,6 +93,7 @@ export namespace SourceBuildCacheLayout {
     IDENTITY_CACHE_DIRNAME,
     ANSWER_CACHE_DIRNAME,
     ORPHAN_CACHE_DIRNAME,
+    RUNTIME_BUILD_CACHE_DIRNAME,
   ];
 
   /**

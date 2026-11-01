@@ -21,6 +21,7 @@ import { runtimeFrontdoorsCorpus } from "../batch/runtimeFrontdoorsCorpus";
 import { runtimeMapsCorpus } from "../batch/runtimeMapsCorpus";
 import { assertRuntimeNodeCorpus } from "../batch/runtimeNodeCorpus";
 import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation";
+import { runtimePersistentCacheCorpus } from "../batch/runtimePersistentCacheCorpus";
 import { readE2eTracePayload } from "../internal/readE2eTracePayload";
 import {
   denyWrites,
@@ -2111,6 +2112,14 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     try {
       await BatchWorkspace.open();
       runtimeMapsCorpus(workspace);
+    } catch (error) {
+      combinedFailures.push(error);
+    }
+  }
+  if (!workspace.installationOnly) {
+    try {
+      await BatchWorkspace.open();
+      await runtimePersistentCacheCorpus(workspace);
     } catch (error) {
       combinedFailures.push(error);
     }

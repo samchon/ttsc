@@ -65,6 +65,9 @@ export function prepareExecution(
 
     /** Internal cache key for more than one checked entry in this process. */
     runtimeCacheKey?: string;
+
+    /** False bypasses persistent project emits while keeping normal execution. */
+    runtimeCache?: boolean;
   } = {},
 ): {
   /** Claimed runtime generation whose cleanup ownership transfers to the caller. */
@@ -383,6 +386,15 @@ function createProjectContext(
     runtimeCacheKey,
     processDir,
     pluginCacheDir: explicitCacheDir === undefined ? undefined : cacheDir,
+    runtimeBuildCacheDir:
+      options.runtimeCache === false ||
+      env.TTSX_DISABLE_CACHE === "1" ||
+      env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
+        ? undefined
+        : path.join(
+            cacheRoot,
+            SourceBuildCacheLayout.RUNTIME_BUILD_CACHE_DIRNAME,
+          ),
     orphanCacheDir: path.join(
       cacheRoot,
       SourceBuildCacheLayout.ORPHAN_CACHE_DIRNAME,
@@ -527,6 +539,7 @@ function buildProject(
     emit: true,
     env: options.env,
     cacheDir: context.pluginCacheDir,
+    runtimeCacheDir: context.runtimeBuildCacheDir,
     outDir: context.emitDir,
     // Every output this build writes stays in ttsx's private directory: a
     // declared `declarationDir`, `tsBuildInfoFile`, or `outFile`, and any

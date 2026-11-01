@@ -48,6 +48,7 @@ one layer and silently disappears at the next boundary.
 | `--json` | - | boolean | cache | launcher | consumed-not-forwarded | Print cache paths as JSON. |
 | `--singleThreaded` | - | boolean | ttsc, ttsx, build, check, fix, format | launcher, runBuild, tsgo, host, lint | capability: threadingArgs | Run TypeScript-Go single-threaded (one checker). |
 | `--checkers` | - | value | ttsc, ttsx, build, check, fix, format | launcher, runBuild, tsgo, host, lint | capability: threadingArgs | Type-checker pool size (default: TypeScript-Go's). |
+| `--no-cache` | - | boolean | ttsx | launcher | consumed-not-forwarded | Disable persistent runtime project emit reuse. |
 | `--require` | `-r` | value | ttsx | launcher | repeatable, consumed-not-forwarded | Preload a module before the entrypoint (ttsx; repeatable). |
 | `--no-plugins` | - | boolean | ttsx | launcher | consumed-not-forwarded | Build the project without ttsc plugins (ttsx). |
 | `--listEmittedFiles` | - | boolean | ttsc, build, check | runBuild, tsgo | shadow | Print the list of emitted files (forwarded to tsgo; ttsc keeps the lines when forwarded). |

@@ -83,12 +83,24 @@ export interface ITtscPluginCapabilities {
    * from an output filename or configuration prediction.
    *
    * When omitted, ttsc does not pass the option to a strict third-party host. A
-   * runtime operation requiring verified emit provenance must then report that
-   * the selected host does not support it.
+   * runtime operation then uses the existing externally observed provenance
+   * adapter, whose incomplete proof remains visible to the runtime consumer.
    *
    * @default false
    */
   emitProvenance?: true;
+
+  /**
+   * Whether build accepts `--emit-observations-json=<absolute private path>`
+   * and publishes its generation's compiler and native input observations.
+   * Missing support keeps runtime emits fresh rather than assuming reusable
+   * input completeness. This protocol is independent of output ownership. Hosts
+   * publish the same observation envelope as checkObservations, including
+   * failures, before releasing their Program.
+   *
+   * @default false
+   */
+  emitObservations?: true;
 
   /**
    * Whether the sidecar accepts ttsc's `--project-context-json` identity
