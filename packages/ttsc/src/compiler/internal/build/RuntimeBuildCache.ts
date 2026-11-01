@@ -12,14 +12,14 @@ import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResu
  * collection and concurrent publications cannot remove an executing run's emit.
  * Input discovery and producer-proof admission belong to the supplied owners.
  *
- * @evidence contracts/common.md#principled-implementation Content-addressed input snapshots select a complete checksummed result and output document; copies retain per-run ownership and atomic rename publishes only completed documents.
- * @evidence contracts/common.md#clear-and-simple-design One operation coordinates lookup, proof, restore and publication; input capture and producer validation remain separate callbacks.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Misses execute the original build exactly once; missing or failed input proofs never manufacture successful output.
- * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes persistent storage, run-owned copies and the input/proof owners, and run documents callback stability and failure behavior.
- * @evidence contracts/portability.md#os-neutral-implementation Native paths and rename own storage; output names are checked relative coordinates and symlinks are refused rather than followed into another tree.
- * @evidence contracts/performance.md#efficient-algorithms A lookup hashes snapshot text and reads/hashes the bounded document; restoring and publication scale with output bytes and file count, without traversing unrelated source trees.
- * @evidence contracts/performance.md#reuse-equivalent-work Equal snapshots reuse completed emits only after independent producer admission and a second current snapshot; concurrent publishers may duplicate compilation but cannot expose partial documents.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Documents are capped at 128 MiB and stored in the existing collected single-file cache population; snapshots and decoded bytes are invocation-owned, staging files are removed on failure and run owners release restored output.
+ * @evidence contracts/common.md#principled-implementation Content-addressed snapshots select complete checksummed result and output documents. SHA-256 consumes exact UTF-8 text; native normalization rejects absolute, dot, parent and Windows drive-relative output coordinates. Relocation changes producer output coordinates and private-root stream text while retaining source paths.
+ * @evidence contracts/common.md#clear-and-simple-design One operation coordinates lookup, proof, restore and publication, with private hashing, containment and relocation helpers. Input capture and producer validation remain separate callbacks.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Misses execute the original build exactly once; failed or absent proofs never manufacture successful output. Every transported output must be a normalized private descendant, without filename or consumer-name exceptions.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes persistent storage, run-owned copies and proof ownership; run states callback stability and failure behavior, and private helper comments identify byte, path and relocation domains.
+ * @evidence contracts/portability.md#os-neutral-implementation Native paths, lstat, relative/join and rename own storage and containment, including Windows drive-relative rejection. Source coordinates remain unchanged; transported symlinks are refused rather than followed.
+ * @evidence contracts/performance.md#efficient-algorithms Lookup hashes snapshot text and reads/hashes the bounded document. Restore and publication scale with output bytes and file count, without unrelated source traversal; normalization scans path bytes and relocation scans output paths and stream text.
+ * @evidence contracts/performance.md#reuse-equivalent-work Equal snapshots reuse completed emits only after independent producer admission and unchanged recapture. A restored run owns its copied bytes and rebased output ledger; concurrent publishers may duplicate compilation but cannot expose partial documents.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Documents are capped at 128 MiB, with fresh output collection limited to a 0.7 raw-byte budget before encoding, and join the existing collected single-file cache population. Snapshots and decoded bytes are invocation-owned; staging removal is attempted in finally and run owners release output. Cleanup or collector failures can retain files; helpers retain no handles or history.
  */
 export namespace RuntimeBuildCache {
   const FORMAT = "ttsx-runtime-build-v1";
@@ -189,34 +189,12 @@ export namespace RuntimeBuildCache {
     return result;
   }
 
-  /**
-   * Hash encoded input or document bytes with SHA-256.
-   *
-   * @evidence contracts/common.md#principled-implementation SHA-256 identifies exact UTF-8 text bytes, with caller-owned semantic completeness.
-   * @evidence contracts/common.md#clear-and-simple-design One codec supplies keys and payload checksums.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts The digest consumes supplied bytes without expected-value substitutions.
-   * @evidence contracts/common.md#meaningful-documentation The headline identifies the byte codec and algorithm.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation Text hashing has no native boundary.
-   * @evidence contracts/performance.md#efficient-algorithms Hashing scans the encoded text bytes once.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure codec owns no result cache.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the returned digest escapes.
-   */
+  /** Hash encoded input or document bytes with SHA-256. */
   function digest(text: string): string {
     return crypto.createHash("sha256").update(text).digest("hex");
   }
 
-  /**
-   * Admit only a nonempty relative descendant coordinate.
-   *
-   * @evidence contracts/common.md#principled-implementation Native normalization and component comparison reject absolute, dot and parent traversal coordinates.
-   * @evidence contracts/common.md#clear-and-simple-design One predicate gates every transported output name.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts No filename suffix or consumer name grants containment.
-   * @evidence contracts/common.md#meaningful-documentation The headline states the accepted coordinate domain.
-   * @evidence contracts/portability.md#os-neutral-implementation Native path parsing preserves host separators and rejects Windows drive-relative roots.
-   * @evidence contracts/performance.md#efficient-algorithms Normalization and component tests scale with path bytes.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each transported name is independently checked.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No retained resource is acquired.
-   */
+  /** Admit only a nonempty relative descendant coordinate. */
   function safeRelative(name: string): boolean {
     return (
       name.length !== 0 &&
@@ -230,18 +208,7 @@ export namespace RuntimeBuildCache {
     );
   }
 
-  /**
-   * Move producer-owned output coordinates to the current private run.
-   *
-   * @evidence contracts/common.md#principled-implementation Each rebased provenance/file coordinate must be a relative descendant of the original producer root; source paths remain unchanged.
-   * @evidence contracts/common.md#clear-and-simple-design One result adapter owns output relocation without changing source identity or loader behavior.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual producer ownership is retained rather than inferred from output stems.
-   * @evidence contracts/common.md#meaningful-documentation Native prose identifies output-only relocation.
-   * @evidence contracts/portability.md#os-neutral-implementation Native relative/join operations preserve filesystem coordinate semantics.
-   * @evidence contracts/performance.md#efficient-algorithms Result projection scans reported output paths and stream bytes.
-   * @evidence contracts/performance.md#reuse-equivalent-work The completed producer's source ledger is shared with the new run's private byte copy.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Returned metadata belongs to the run; the adapter owns no file handle or history.
-   */
+  /** Move producer-owned output coordinates to the current private run. */
   function relocate(
     result: TtscBuildResult,
     previous: string,

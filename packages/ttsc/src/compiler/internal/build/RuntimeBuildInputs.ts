@@ -8,6 +8,7 @@ import { PluginContentIdentities } from "../../../plugin/internal/source/PluginC
 import { pluginSourceStateHolds } from "../../../plugin/internal/source/pluginSourceStateHolds";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import { CompilerArgumentsInspection } from "../CompilerArgumentsInspection";
+import { resolveTsgo } from "../resolveTsgo";
 import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
 import { spawnNative } from "../spawnNative";
 import type { BuildExecution } from "./BuildExecution";
@@ -22,10 +23,12 @@ import { TsgoArguments } from "./TsgoArguments";
  * discovers added roots and changed resolution candidates without guessing a
  * project boundary or treating workspace links as immutable dependencies.
  * Native plugin observations add their independently replayed input closure.
+ * Custom compiler overrides require the physical identity of the installed
+ * package compiler; wrappers with undisclosed external inputs stay fresh.
  *
  * @evidence contracts/common.md#principled-implementation The actual selected compiler defines effective options and source membership; content and physical identities cover that closure and package scopes, with separate native producer proof for checks.
  * @evidence contracts/common.md#clear-and-simple-design One factory supplies input capture and result admission to the runtime document store without changing normal build dispatch.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Incomplete descriptors, unsupported effectful compiler modes and unproved native producers use the existing fresh build rather than weakening diagnostics or substituting a compiler.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Incomplete descriptors, unsupported effectful compiler modes and unproved native producers and custom compilers without package authority use the existing fresh build rather than weakening diagnostics or substituting a compiler.
  * @evidence contracts/common.md#meaningful-documentation Native prose describes compiler-owned membership, workspace scope and independent plugin observations.
  * @evidence contracts/portability.md#os-neutral-implementation The selected executable receives native argv and cwd; source and package scopes use native physical paths and preserve lexical spellings without OS-wide case folding.
  * @evidence contracts/performance.md#efficient-algorithms Each snapshot runs two read-only native queries and hashes selected source, package, executable and declared host input bytes; shared ancestor sets avoid repeated package-scope walks.
@@ -38,11 +41,12 @@ export namespace RuntimeBuildInputs {
    * Program-mutating transform hosts need their declared emit-input sidecar.
    * Check hosts need their declared observation protocol and complete
    * descriptor discovery; no-plugin builds use the actual compiler's
-   * source/configuration selection directly.
+   * source/configuration selection directly. Custom selections are reusable
+   * only when they name that same package-backed compiler.
    *
    * @evidence contracts/common.md#principled-implementation Eligibility requires a private emitting request, complete descriptor selection and supported check witnesses; captures bracket content identities and native source selection, and result admission requires complete emitted-source ownership.
    * @evidence contracts/common.md#clear-and-simple-design Two closures share the resolved request while capture owns current selection and admission owns retained generation proof.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Native transforms without complete emit observations and arbitrary external-code or profiling modes decline reuse rather than inventing input completeness. Original build remains the fallback.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Native transforms without complete emit observations and arbitrary external-code or profiling modes decline reuse rather than inventing input completeness. Custom compiler overrides need matching installed package identity, including inherited dependency hints; the original build remains the fallback.
    * @evidence contracts/common.md#meaningful-documentation Native prose states current producer support and private-runtime scope, including why fresh transformation remains necessary.
    * @evidence contracts/portability.md#os-neutral-implementation Source and package observations use native paths and bracketed byte reads, and upstream probes use the original compiler working directory and argv without shell composition.
    * @evidence contracts/performance.md#efficient-algorithms Capture performs two upstream selection/config queries, actual executable proofs and O(selected bytes) hashes; unique ancestor and path sets bound duplicate reads within one snapshot. Admission replays only recorded native inputs.
@@ -86,6 +90,23 @@ export namespace RuntimeBuildInputs {
       listEmittedFiles: false,
     });
     const env = SidecarEnvironment.merge(process.env, options.env);
+    // A custom executable can be a wrapper with undisclosed external inputs.
+    // Inherited hints to the installed compiler still have package authority.
+    if (execution.tsgo.packageJson === "") {
+      try {
+        const packaged = resolveTsgo({
+          cwd: execution.projectRoot,
+          env: SidecarEnvironment.merge(env, { TTSC_TSGO_BINARY: undefined }),
+        });
+        if (
+          fs.realpathSync.native(packaged.binary) !==
+          fs.realpathSync.native(execution.tsgo.binary)
+        )
+          return undefined;
+      } catch {
+        return undefined;
+      }
+    }
     const identities =
       execution.identities ??
       PluginContentIdentities.open({

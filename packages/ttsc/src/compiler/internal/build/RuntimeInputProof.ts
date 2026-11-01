@@ -11,14 +11,14 @@ import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResu
  * kind, physical target and directory membership remain independent predicates.
  * Failed or unsupported observations withhold reuse.
  *
- * @evidence contracts/common.md#principled-implementation Predicate replay compares actual current native observations with generation-captured values instead of treating current hashes as proof of what an earlier producer read.
- * @evidence contracts/common.md#clear-and-simple-design One namespace separates result admission, compiler predicates and the native version-one byte codec.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown codecs, failed reads and producer proof failures decline cache admission without fabricating successful observations.
- * @evidence contracts/common.md#meaningful-documentation Native prose describes codec ownership and fail-closed proof behavior.
- * @evidence contracts/portability.md#os-neutral-implementation Native filesystem calls retain physical paths, raw POSIX directory names and link bytes; Windows string names follow the producer's UTF-8 codec.
- * @evidence contracts/performance.md#efficient-algorithms Replay visits only recorded predicates and their bytes or immediate directory entries; it does not scan unrelated trees.
- * @evidence contracts/performance.md#reuse-equivalent-work Proof authorizes a completed result only while every retained predicate still holds; this namespace retains no historical truth cache.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Read buffers and directory records are call-local; synchronous operations retain no handle, watcher or native process.
+ * @evidence contracts/common.md#principled-implementation Replay compares generation witnesses with current existence, stat, decoded text, physical identity and directory membership. Native version-one file, optional-file, entry and directory codecs use explicit tags, raw file/link bytes and sorted nul-delimited records. Compiler text strips UTF-8 BOM or decodes even UTF-16LE/BE bytes before SHA-256; host directory presence uses its separate domain marker.
+ * @evidence contracts/common.md#clear-and-simple-design One namespace separates result admission, declared host inputs, compiler predicates and the native version-one codec. Private physical/absence and SHA-256 helpers serve the codecs without merging their meanings.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown codecs, failed reads and producer proof failures decline admission. Only ENOENT/ENOTDIR prove absence; other physical-resolution errors remain unavailable. Following stat classifies compiler views while lstat retains native link kinds; only the producer private output subtree is excluded.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies generation proof, codec ownership and refusal semantics; private helper comments identify query, byte, decoded-text and null/error boundaries.
+ * @evidence contracts/portability.md#os-neutral-implementation Native stat, lstat and realpath retain actual kinds, targets and spellings without case assumptions. POSIX directory names/link targets stay raw bytes, Windows names follow the producer UTF-8 codec, and compiler directory entries sort by UTF-8 bytes.
+ * @evidence contracts/performance.md#efficient-algorithms Replay visits recorded predicates and their bytes or immediate directory entries rather than unrelated trees. Hashing and BOM decoding cost O(bytes), including a big-endian copy; directory codecs cost O(N log N) sorting plus encoded bytes and link queries. Physical resolution follows native path/link traversal.
+ * @evidence contracts/performance.md#reuse-equivalent-work Every retained predicate is observed anew to authorize completed-result reuse. Host capture and admission share the producer codec; no path memo, watcher silence or historical hash independently grants authority.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Read buffers, decoded text, paths and sorted directory members are call-local and have no proof-reader byte or entry cap. Synchronous calls retain no handle, watcher, process or historical population; only returned proof values escape.
  */
 export namespace RuntimeInputProof {
   /**
@@ -135,18 +135,7 @@ export namespace RuntimeInputProof {
     return [beforePhysical, hash];
   }
 
-  /**
-   * Compare one compiler query record with the corresponding current queries.
-   *
-   * @evidence contracts/common.md#principled-implementation Existence, stat, read, directory enumeration and physical identity are compared independently, matching the compiler's query grammar.
-   * @evidence contracts/common.md#clear-and-simple-design A fixed predicate projection delegates native byte encodings and text hashing.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed compiler reads remain failures; enumeration follows symlink targets for the compiler view without treating them as native entry predicates.
-   * @evidence contracts/common.md#meaningful-documentation The headline identifies the compiler-query comparison boundary.
-   * @evidence contracts/portability.md#os-neutral-implementation Native following stat and realpath provide actual kinds and targets; directory names use UTF-8 byte ordering, independently of OS case assumptions.
-   * @evidence contracts/performance.md#efficient-algorithms Fixed predicate checks add native queries, content hashing and immediate-entry sorting according to the fields actually recorded.
-   * @evidence contracts/performance.md#reuse-equivalent-work Each supplied producer record is revalidated; no watcher silence or path memo supplies authority.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Temporary buffers, entries and sorted name arrays are call-local.
-   */
+  /** Compare one compiler query record with the corresponding current queries. */
   function observationHolds(
     file: string,
     observed: ITtscCompilerTransformation.IInputObservation,
@@ -234,15 +223,6 @@ export namespace RuntimeInputProof {
   /**
    * Reproduce native version-one file, optional-file, entry and directory
    * bytes.
-   *
-   * @evidence contracts/common.md#principled-implementation Explicit kind tags, raw file/link bytes and sorted nul-delimited member records match the producer's version-one native predicate codec.
-   * @evidence contracts/common.md#clear-and-simple-design One kind dispatcher owns native encoding independently of decoded compiler text.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing entries require native absence errors and unsupported query failures propagate to refuse admission.
-   * @evidence contracts/common.md#meaningful-documentation The headline states version, supported kinds and byte-level replay.
-   * @evidence contracts/portability.md#os-neutral-implementation POSIX names/link targets stay Buffer values and Windows names/link text use the native UTF-8 producer codec; lstat preserves link entry kinds.
-   * @evidence contracts/performance.md#efficient-algorithms File kinds hash content bytes; directory kinds enumerate and sort immediate member records in O(N log N) comparisons plus encoded bytes and native link queries.
-   * @evidence contracts/performance.md#reuse-equivalent-work Each digest describes a current observation, with producer comparison owned by admission.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Buffers and sorted member records end with the call; synchronous queries retain no open handle.
    */
   function nativeDigest(file: string, kind: string): string {
     if (kind === "file") return digest(fs.readFileSync(file));
@@ -316,18 +296,7 @@ export namespace RuntimeInputProof {
     );
   }
 
-  /**
-   * Hash compiler-decoded text, retaining the BOM and UTF-16 producer policy.
-   *
-   * @evidence contracts/common.md#principled-implementation UTF-8 BOM removal and even UTF-16 BOM decoding precede SHA-256, matching compiler text rather than raw native bytes.
-   * @evidence contracts/common.md#clear-and-simple-design One pure codec distinguishes compiler reads from native raw-byte predicates.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Encoding discriminants come from supplied bytes; big-endian conversion copies before swapping.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states the codec boundary.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation BOM decoding has no native filesystem boundary.
-   * @evidence contracts/performance.md#efficient-algorithms Decoding/hashing scan input bytes, with proportional UTF-16 text and big-endian copy allocation.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The pure codec stores no historical result.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the digest escapes.
-   */
+  /** Hash compiler-decoded text, retaining the BOM and UTF-16 producer policy. */
   function textHash(bytes: Buffer): string {
     if (
       bytes.length >= 2 &&
@@ -350,18 +319,7 @@ export namespace RuntimeInputProof {
     );
   }
 
-  /**
-   * Obtain a current physical coordinate, with null only for native absence.
-   *
-   * @evidence contracts/common.md#principled-implementation Native realpath distinguishes missing paths from unavailable observations.
-   * @evidence contracts/common.md#clear-and-simple-design One physical observer serves every predicate family.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Permission and IO errors never become proved absence.
-   * @evidence contracts/common.md#meaningful-documentation The headline specifies null semantics.
-   * @evidence contracts/portability.md#os-neutral-implementation Native realpath resolves actual host links and spelling without OS-derived case folding.
-   * @evidence contracts/performance.md#efficient-algorithms Resolution costs follow native path and link traversal.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Every query is current.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No handle is retained.
-   */
+  /** Obtain a current physical coordinate, with null only for native absence. */
   function physical(file: string): string | null {
     try {
       return fs.realpathSync.native(file);
@@ -371,18 +329,7 @@ export namespace RuntimeInputProof {
     }
   }
 
-  /**
-   * Classify only native absent-path errors.
-   *
-   * @evidence contracts/common.md#principled-implementation ENOENT and ENOTDIR express absent native paths; other failures remain unavailable.
-   * @evidence contracts/common.md#clear-and-simple-design One error predicate centralizes absence semantics.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts A caught error does not imply absence.
-   * @evidence contracts/common.md#meaningful-documentation The headline identifies its narrow domain.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation Error-code classification performs no native query.
-   * @evidence contracts/performance.md#efficient-algorithms A fixed pair of code comparisons uses bounded work.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work No result cache is owned.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No resource is acquired.
-   */
+  /** Classify only native absent-path errors. */
   function missing(error: unknown): boolean {
     return (
       typeof error === "object" &&
@@ -392,18 +339,7 @@ export namespace RuntimeInputProof {
     );
   }
 
-  /**
-   * SHA-256 of supplied text or raw bytes.
-   *
-   * @evidence contracts/common.md#principled-implementation Standard SHA-256 consumes the actual supplied byte sequence.
-   * @evidence contracts/common.md#clear-and-simple-design One digest codec serves the distinct input encodings.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts No expected hash substitutes for current bytes.
-   * @evidence contracts/common.md#meaningful-documentation The headline states the codec.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation Hashing performs no native query.
-   * @evidence contracts/performance.md#efficient-algorithms Hashing scans the supplied bytes once.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work No history is retained.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the digest escapes.
-   */
+  /** SHA-256 of supplied text or raw bytes. */
   function digest(bytes: string | Buffer): string {
     return crypto.createHash("sha256").update(bytes).digest("hex");
   }
