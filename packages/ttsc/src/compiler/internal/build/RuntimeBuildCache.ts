@@ -121,7 +121,12 @@ export namespace RuntimeBuildCache {
       });
       return relocate(entry.result, entry.emitDir, props.emitDir);
     } catch {
-      for (const output of restored) fs.unlinkSync(output);
+      for (const output of restored)
+        try {
+          fs.unlinkSync(output);
+        } catch {
+          /* Rejected cache output cannot prevent the ordinary producer. */
+        }
     }
     const result = props.build();
     if (result.status !== 0) return result;
