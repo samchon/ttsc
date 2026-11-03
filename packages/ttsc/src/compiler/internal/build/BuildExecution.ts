@@ -13,6 +13,8 @@ import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOpt
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonOptions";
 import type { TtscPluginSourceInputsHandler } from "../../../structures/internal/TtscSingleFileEmitOptions";
+import { CompilationSnapshot } from "../CompilationSnapshot";
+import { compileProjectInMemory } from "../compileProjectInMemory";
 import { outputText } from "../outputText";
 import { CompilerProjectSelection } from "../project/CompilerProjectSelection";
 import { readProjectConfig } from "../project/readProjectConfig";
@@ -226,6 +228,11 @@ export namespace BuildExecution {
       clearInheritedTsgoArgs(env, extra);
     }
     clearInheritedSemanticConfigPath(env, extra);
+    SidecarEnvironment.write(
+      env,
+      CompilationSnapshot.ENV,
+      SidecarEnvironment.read(extra, CompilationSnapshot.ENV),
+    );
     // The anchor is per-invocation state owned by this host: when this run
     // declared none (and the caller's env does not name one), drop any value
     // inherited from an ancestor ttsc process so a nested build never
@@ -380,6 +387,26 @@ export namespace BuildExecution {
     execution: ReturnType<typeof resolveExecutionContext>,
     buildOptions: RunBuildOptions,
   ): TtscBuildResult {
+    if (
+      buildOptions.forceEmitProvenance === true &&
+      execution.nativePlugins.length !== 0
+    )
+      return CompilationSnapshot.run(buildOptions.env, (env) =>
+        runPreparedSnapshotBuild(options, timing, execution, {
+          ...buildOptions,
+          env,
+        }),
+      );
+    return runPreparedSnapshotBuild(options, timing, execution, buildOptions);
+  }
+
+  /** Execute one already selected build without replacing compiler authority. */
+  function runPreparedSnapshotBuild(
+    options: RunBuildOptions,
+    timing: BuildTiming.BuildTiming,
+    execution: ReturnType<typeof resolveExecutionContext>,
+    buildOptions: RunBuildOptions,
+  ): TtscBuildResult {
     if (execution.compilerSelection.inspectionError !== undefined) {
       const diagnosed = runTsgo(execution, [], buildOptions);
       if (diagnosed.status !== 0) return diagnosed;
@@ -463,6 +490,14 @@ export namespace BuildExecution {
             execution,
           );
         }
+      } else if (
+        buildOptions.forceEmitProvenance === true &&
+        isProjectCompiler(execution, buildOptions)
+      ) {
+        result = appendBuildOutput(
+          checked,
+          runSnapshotCompilerBuild(execution, buildOptions),
+        );
       } else {
         if (
           buildOptions.skipDiagnosticsCheck !== true &&
@@ -977,6 +1012,60 @@ export namespace BuildExecution {
       },
       execution.projectRoot,
     );
+  }
+
+  /**
+   * Preserve custom compiler executables while recognizing the project's exact
+   * compiler.
+   */
+  function isProjectCompiler(
+    execution: ReturnType<typeof resolveExecutionContext>,
+    options: RunBuildOptions,
+  ): boolean {
+    if (execution.tsgo.version !== "custom") return true;
+    try {
+      const env = SidecarEnvironment.merge(process.env, options.env, {
+        TTSC_TSGO_BINARY: undefined,
+      });
+      const installed = resolveTsgo({ cwd: execution.projectRoot, env });
+      return (
+        fs.realpathSync.native(installed.binary) ===
+        fs.realpathSync.native(execution.tsgo.binary)
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /** Emit through the selected upstream target's native VFS after native checks. */
+  function runSnapshotCompilerBuild(
+    execution: ReturnType<typeof resolveExecutionContext>,
+    options: RunBuildOptions,
+  ): TtscBuildResult {
+    const forwarded = TsgoArguments.createNativeBuildTsgoArgs(
+      execution,
+      options,
+    );
+    const env = SidecarEnvironment.merge(options.env, {
+      [TSGO_ARGS_ENV]: JSON.stringify(forwarded),
+      [TSGO_ARGS_CWD_ENV]: execution.compilerSelection.compilerArgsCwd,
+    });
+    const compiled = compileProjectInMemory({
+      cwd: execution.projectRoot,
+      projectRoot: execution.projectRoot,
+      tsconfig: execution.tsconfig,
+      env,
+      plugins: [],
+      cacheDir: options.cacheDir,
+    });
+    const emittedFiles: string[] = [];
+    for (const [name, text] of Object.entries(compiled.output)) {
+      const output = path.resolve(execution.projectRoot, name);
+      fs.mkdirSync(path.dirname(output), { recursive: true });
+      fs.writeFileSync(output, text);
+      emittedFiles.push(output);
+    }
+    return { ...compiled.result, emittedFiles };
   }
 
   /**

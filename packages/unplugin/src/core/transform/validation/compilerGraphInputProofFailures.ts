@@ -34,7 +34,9 @@ import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 export function compilerGraphInputProofFailures(
   cached: TtscCachedProjectTransform,
 ): TtscGenerationProofFailures {
-  const failures = createGenerationProofFailures();
+  const failures = createGenerationProofFailures(
+    cached.snapshotFailureClassifier,
+  );
   if (
     cached.result.type === "exception" ||
     cached.result.graph === undefined ||

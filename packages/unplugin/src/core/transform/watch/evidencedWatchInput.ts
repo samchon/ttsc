@@ -3,6 +3,7 @@ import path from "node:path";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import type { TtscEnvelopeDerivation } from "../envelope/TtscEnvelopeDerivation";
 import { derivationIdentity } from "../envelope/derivationIdentity";
+import { envelopeGraphIndexes } from "../envelope/envelopeGraphIndexes";
 import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
 import { toProjectKey } from "../project/toProjectKey";
 import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
@@ -31,7 +32,7 @@ import type { TtscWatchInputState } from "./TtscWatchInputState";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown codec state stays absent; the missing marker is a supported observation value rather than a guessed content hash.
  * @evidence contracts/common.md#meaningful-documentation Native prose describes generation evidence and spelling ownership, followed by separated acknowledgment tags under documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve and the generation's identity context preserve actual filesystem identity separately from caller-selected lexical spelling.
- * @evidence contracts/performance.md#efficient-algorithms Each call allocates one carrier and performs lexical/identity queries plus a plugin-source lookup; a first plugin lookup may parse the full declared source record. Non-tree inputs also compute the project key before selecting the recorded codec. Cost includes key/path text, any cold native path/ancestor/case observations and one caller spelling callback, while recorded byte hashes are not reread. Shared context/plugin populations remain owner costs beyond this fixed carrier allocation.
+ * @evidence contracts/performance.md#efficient-algorithms Each call allocates one carrier and performs lexical/identity queries plus a plugin-source lookup; a first plugin lookup may parse the full declared source record. Non-tree inputs also compute the project key before selecting the recorded codec. Snapshot-only delivery initializes the shared graph index on first use. Cost includes key/path text, any cold native path/ancestor/case observations and one caller spelling callback, while recorded byte hashes are not reread. Shared context/plugin populations remain owner costs beyond this fixed carrier allocation.
  * @evidence contracts/performance.md#reuse-equivalent-work Recorded hashes/predicates and plugin state come from one immutable generation. Identity and project-key queries share its context under a still-valid native view and fixed root; this operation creates a fresh carrier rather than memoizing it, and cannot certify those premises independently.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This mapping stores no new persistent cache or handle; retained generation facts belong to the generation owner.
  */
@@ -57,7 +58,11 @@ export function evidencedWatchInput(
       },
     };
   }
-  const observation = cached.externalInputObservations?.[spelling];
+  const observation =
+    cached.snapshotDeliveryOnly === true
+      ? (envelopeGraphIndexes(state, cached).inputObservations.get(spelling) ??
+        cached.externalInputObservations?.[spelling])
+      : cached.externalInputObservations?.[spelling];
   const missing =
     observation?.fileExists === false ||
     state.graph?.inputProofs.get(spelling)?.hash === null ||

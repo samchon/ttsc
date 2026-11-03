@@ -4,7 +4,7 @@ This page is for maintainers of `@ttsc/unplugin`. It maps the adapter's invalida
 
 ## The one rule
 
-Only the compiler's verdict on the project as it is on disk may be served. Everything below exists to answer one question per module delivery, `transform/transformTtsc.ts`: is the generation the cache holds still that verdict, and if not, which inputs must the host hear about so it asks again.
+A coherent compiler verdict describes the source snapshot its Program read. Current delivery and permission to reuse that verdict are separate: a disk edit invalidates reuse without invalidating captured compiler text. Everything below exists to answer one question per module delivery, `transform/transformTtsc.ts`: is the generation the cache holds still that verdict, and if not, which inputs must the host hear about so it asks again.
 
 Five principles decide every case, and each names its owner:
 
@@ -271,3 +271,9 @@ A host with a persistent cache restores a module by the dependencies it recorded
 - Turbopack re-runs every webpack loader that starts a child process on every start, whatever its dependencies: measured with a counting loader that Turbopack restores across restarts until it calls `execFile` or `spawnSync`. ttsc's loader starts the compiler, so Turbopack runs it after every restart, in fresh workers with nothing in memory. The session's store outlives the process (`session/openTtscTransformSession.ts`), and the first delivery of a fresh worker adopts what the last process compiled after proving it against its own disk, as any adopter does, so a restart over an unchanged project compiles nothing (samchon/ttsc#1483).
 
 - The tool directory holds the records alone, and nothing in it is named after a process. The broker's macOS probes, which may not outlive their process, live below the probed project's `node_modules/.cache/ttsc` in a directory named after it (`tracker/broker/WATCH_PROBE_DIRECTORY_PREFIX.ts`), which the process removes when it exits and a later one sweeps once its owner is gone. Only the FSEvents backend names a probe, and a location whose probe directory cannot be prepared is left unproven rather than failing its watch (`tracker/broker/openBrokeredWatch.ts`).
+
+## Compilation snapshots
+
+The synchronous compiler coordinator owns one private `TTSC_COMPILATION_SNAPSHOT` document across sequential native stages. The driver layers its first-read compiler text, missing paths, directory entries and physical-name answers over the supported upstream VFS; it serializes actual answers for the next stage. This read-once view is not an atomic filesystem snapshot. Graphs retain the invocation identity only across matching native stages, and conflicting producer observations remain errors.
+
+A locally captured success whose only failed premises are freshness changes to recorded compiler inputs can complete the current delivery. It cannot be adopted by another worker, become a shared publication or acquire future-pass reuse. Build-pass siblings share that compiler generation; persistent hosts and later passes capture again. Watch handoff uses the compiler's recorded predicates rather than postcompile bytes, preserving changes that landed while compilation ran. Unobserved plugin inputs and incomplete producer proof retain stabilization and failure handling.

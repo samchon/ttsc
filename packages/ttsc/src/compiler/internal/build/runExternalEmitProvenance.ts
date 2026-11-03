@@ -17,17 +17,16 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * diagnostics and user-requested file-list display remain owned by that run.
  *
  * Admission requires stable effective options, identical source selection and
- * stable physical paths, file identities and bytes before and after emission,
- * including response files and the selected executable itself. Response
- * inspection preserves native argument-frame boundaries and operand positions;
- * the producer and its probes receive the original argv. The executable's
- * change time is excluded from cross-command equality because that metadata
- * changed in real executions without changing the executable object or bytes;
- * source change times remain proof premises and each read brackets its full
- * metadata. This is an external observation, not an atomic compiler-generation
- * ledger; a concurrent change restored between observations can remain
- * invisible. Unsupported layouts and ambiguous outputs carry an empty ownership
- * list.
+ * stable physical source paths before and after emission, plus unchanged
+ * response files and selected executable bytes. Response inspection preserves
+ * native argument-frame boundaries and operand positions; the producer and its
+ * probes receive the original argv. The executable's change time is excluded
+ * from cross-command equality because that metadata changed in real executions
+ * without changing the executable object or bytes; source contents belong to
+ * the compiler's own Program. Each executable read brackets its full metadata.
+ * This is an external observation, not an atomic compiler-generation ledger; a
+ * concurrent change restored between observations can remain invisible.
+ * Unsupported layouts and ambiguous outputs carry an empty ownership list.
  *
  * A nonzero compiler status can still carry proved writes for an unchecked
  * consumer. Ownership metadata never changes that status or its diagnostics.
@@ -47,12 +46,12 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * in emittedSourceProofFailures. These explanations preserve compiler streams
  * and status; they do not replace missing ownership with a successful claim.
  *
- * @evidence contracts/common.md#principled-implementation Actual TSFILE writes are matched against the supported upstream per-source extension and explicit-root layout under matching compiler-selected inputs and stable physical/content observations. No emitted filename alone establishes ownership; observation gaps remain documented.
+ * @evidence contracts/common.md#principled-implementation Actual TSFILE writes are matched against the supported upstream per-source extension and explicit-root layout under matching compiler-selected inputs and stable physical source identities and response/executable content observations. No emitted filename alone establishes ownership; observation gaps remain documented.
  * @evidence contracts/common.md#clear-and-simple-design One adapter owns read-only compiler probes, the single delegated emission and admission; private helpers isolate option parsing, physical observation and path prediction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The selected executable and original arguments remain authoritative. Unknown layouts are reported unknown instead of switching compilers, guessing same-stem ownership or consulting source maps.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain producer preservation, unknown states and the non-atomic observation limitation; the investigation record documents the supported upstream naming subset.
  * @evidence contracts/portability.md#os-neutral-implementation Native node:path and filesystem realpath/stat separate writer spelling from physical source identity. Executables receive separate argv entries through spawnNative, without a shell or OS-based case folding.
- * @evidence contracts/performance.md#efficient-algorithms Source and output indexes avoid cross-product matching. Response inspection uses an iterative frame stack and active physical-path set. Repeated response/source/executable observations read and hash complete files; showConfig text, source/output lists, signature JSON, candidate path components and byte buffers are processed at their actual sizes alongside native probes/path operations. No native duration or report-size ceiling follows from using one index.
+ * @evidence contracts/performance.md#efficient-algorithms Source and output indexes avoid cross-product matching. Response inspection uses an iterative frame stack and active physical-path set. Response/executable observations read and hash complete files; source identity checks resolve paths without comparing mutable text; showConfig text, source/output lists, signature JSON, candidate path components and byte buffers are processed at their actual sizes alongside native probes/path operations. No native duration or report-size ceiling follows from using one index.
  * @evidence contracts/performance.md#reuse-equivalent-work Each source observation and predicted output index is shared by all outputs in this invocation. Cross-build reuse is unavailable because arbitrary external producer and filesystem dependencies have no invalidation contract.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Response/config/source tokens and predicted owner sets live for this invocation; returned provenance/refusal records transfer to the caller. Retained bytes grow with complete reports, expanded arguments, paths and observations, while individual file reads allocate full file buffers. Probe capture cleanup is delegated and may be best effort; no timeout, output ceiling or descendant-release certification is provided here.
  */
@@ -144,7 +143,7 @@ export function runExternalEmitProvenance(options: {
   }
 
   // An observed host lists nothing; it compiles the same selected tsconfig, and
-  // the source observations below still prove that selection held still.
+  // the source identity observations below still prove that selection retained its physical owners.
   const listed = observed
     ? probe.files
     : compilerSourceList(lines, options.cwd);
@@ -185,10 +184,10 @@ export function runExternalEmitProvenance(options: {
     for (const [source, before] of probe.observations) {
       if (!stable) break;
       stage = `source observation of ${JSON.stringify(source)}`;
-      const after = CompilerArgumentsInspection.observeInputFile(source);
+      const after = observeSourceIdentity(source);
       stable = after === before;
       if (!stable)
-        failure = `Selected source changed across emission: ${JSON.stringify(source)} (${observationDifference(before, after)}).`;
+        failure = `Selected source identity changed across emission: ${JSON.stringify(source)}.`;
     }
     for (const [file, before] of probe.responseObservations) {
       if (!stable) break;
@@ -207,9 +206,7 @@ export function runExternalEmitProvenance(options: {
         if (outputs.length === 0) continue;
         predictedSources++;
         sourceExample ??= source;
-        const physicalSource: string = JSON.parse(
-          probe.observations.get(source)!,
-        )[0];
+        const physicalSource = probe.observations.get(source)!;
         for (const output of outputs) {
           const sources = owners.get(output) ?? new Set<string>();
           sources.add(physicalSource);
@@ -368,10 +365,7 @@ function prepareProbe(
     const observations = new Map<string, string>();
     for (const source of files) {
       stage = `initial source observation of ${JSON.stringify(source)}`;
-      observations.set(
-        source,
-        CompilerArgumentsInspection.observeInputFile(source),
-      );
+      observations.set(source, observeSourceIdentity(source));
     }
     for (const [file, before] of inspected.observations)
       if (CompilerArgumentsInspection.observeInputFile(file) !== before)
@@ -643,4 +637,12 @@ function writtenJavaScript(stdout: string, cwd: string): string[] {
       outputs.add(path.resolve(cwd, match[1]!));
   }
   return [...outputs];
+}
+
+/**
+ * Source ownership is a physical path; text freshness belongs to cache
+ * admission.
+ */
+function observeSourceIdentity(source: string): string {
+  return fs.realpathSync.native(source);
 }

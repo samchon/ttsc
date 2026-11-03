@@ -2,6 +2,7 @@ import type { ITtscCompilerTransformation } from "ttsc";
 
 import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMembershipPolicy";
 import type { TtscCompilerMembershipHint } from "../generation/TtscCompilerMembershipHint";
+import type { TtscGenerationProofFailure } from "../generation/TtscGenerationProofFailure";
 import type { TtscProjectDirectorySnapshot } from "../project/TtscProjectDirectorySnapshot";
 import type { TtscProjectMutationTracker } from "../tracker/TtscProjectMutationTracker";
 import type { TtscCompilerArgumentsWitness } from "../tsconfig/TtscCompilerArgumentsWitness";
@@ -44,6 +45,27 @@ import type { TtscHostInputValidation } from "../validation/TtscHostInputValidat
  *   retained state at runtime.
  */
 export interface TtscCachedProjectTransform {
+  /**
+   * Coherent captured output whose disk freshness was lost; never shared or
+   * persisted.
+   */
+  snapshotDeliveryOnly?: boolean;
+
+  /**
+   * Borrowed generation-owned classifier, absent without a captured native
+   * view.
+   *
+   * @evidence contracts/common.md#principled-implementation The callback classifies every occurrence before diagnostic truncation so a bounded witness list cannot decide delivery authority.
+   * @evidence contracts/common.md#clear-and-simple-design Collectors borrow one generation classifier rather than rebuilding its recorded-input index.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The callback records compatibility only; callers still require complete producer proof and never infer cache freshness from it.
+   * @evidence contracts/common.md#meaningful-documentation The member states optionality and ownership, while the generation classifier documents actual path and kind admission.
+   * @evidence contracts/portability.md#os-neutral-implementation The callback receives native lexical witness paths and delegates their interpretation to the generation's classifier.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This signature declares no runtime computation; the classifier implementation owns its index and lookup costs.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This signature declares no memo; generation capture owns sharing the callback.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This signature acquires no resource; generation capture owns the borrowed closure's lifetime.
+   */
+  snapshotFailureClassifier?: (failure: TtscGenerationProofFailure) => boolean;
+
   /** Native settings learned under this capture's validated config-policy basis. */
   compilerMembership?: TtscCompilerMembershipHint;
 

@@ -66,6 +66,7 @@ export function deliverCachedTransform(props: {
       epoch,
       hooks,
     );
+    if (cached.snapshotDeliveryOnly === true) hooks?.markVolatile?.();
     reportSuccessDiagnostics(cached, epoch);
     let output;
     try {

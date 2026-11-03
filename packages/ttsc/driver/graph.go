@@ -70,6 +70,9 @@ const bundledScheme = "bundled:///"
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This schema carries proof without coordinating artifact reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller-owned value owns no resident cache or resource.
 type TransformGraph struct {
+  // CompilationSnapshot identifies the shared read-once view of every native stage.
+  // It authorizes fresh delivery, not reuse after the disk changes.
+  CompilationSnapshot string `json:"compilationSnapshot,omitempty"`
   // Membership is the effective native root-admission and output-exclusion policy.
   Membership *TransformMembership `json:"membership,omitempty"`
   // ContentMapperInputs are declared project dependencies, not observed reads.
@@ -130,6 +133,18 @@ func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
       argumentInputs[key] = struct{}{}
     }
   }
+  if prog.compilationSnapshot != nil {
+    for _, input := range prog.inputObserver.observedPaths() {
+      if !prog.inputObserver.observedAccessibleEntries(input) {
+        continue
+      }
+      key := TransformOutputKey(cwd, input)
+      if _, found := argumentInputs[key]; !found {
+        graph.ResolutionInputs = append(graph.ResolutionInputs, key)
+        argumentInputs[key] = struct{}{}
+      }
+    }
+  }
   sort.Strings(graph.ResolutionInputs)
   for _, file := range prog.TSProgram.SourceFiles() {
     fileName := file.FileName()
@@ -154,6 +169,9 @@ func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
     graph.InputProofFailures = resolution.Failures
   }
   graph.attachInputProof(prog, cwd)
+  if snapshot := prog.compilationSnapshot; snapshot != nil && snapshot.save() == nil {
+    graph.CompilationSnapshot = snapshot.data.ID
+  }
   return graph
 }
 

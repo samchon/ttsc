@@ -186,6 +186,10 @@ export function mergeCheckGraphs(
     observations[key] = merged;
   }
   return {
+    ...(left.compilationSnapshot !== undefined &&
+    left.compilationSnapshot === right.compilationSnapshot
+      ? { compilationSnapshot: left.compilationSnapshot }
+      : {}),
     edges: mergeLists(left.edges, right.edges),
     ...(membershipConflict ||
     (left.membership ?? right.membership) === undefined

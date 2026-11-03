@@ -181,6 +181,7 @@ export async function transformProject(props: {
     const disposition = selectTransformAttemptDisposition({
       resultType: cached.result.type,
       configStateComplete: cached.configStateComplete,
+      snapshotDeliveryOnly: cached.snapshotDeliveryOnly,
       projectSnapshotComplete: cached.projectSnapshotComplete,
       projectHeldStill: cached.projectHeldStill,
       observationsComplete:

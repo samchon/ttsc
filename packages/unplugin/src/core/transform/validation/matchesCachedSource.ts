@@ -81,6 +81,9 @@ export function matchesCachedSource(
    */
   reportDivergence = true,
 ): boolean {
+  if (cached.snapshotDeliveryOnly === true)
+    return TtscGenerationProof.sharesPass(cached, file, epoch);
+
   if (!nativeInputPredicatesHold(cached, proof)) return false;
   const pass = TtscGenerationProof.sharesPass(cached, file, epoch);
   if (cached.freshDeliveryOnly === true && !pass) return false;

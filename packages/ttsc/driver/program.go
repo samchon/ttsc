@@ -2,6 +2,7 @@ package driver
 
 import (
   "context"
+  "errors"
   "fmt"
   "io"
   "os"
@@ -329,8 +330,9 @@ type Program struct {
   compilerArgumentInputs []string
 
   // FS is the input-observing filesystem, including any source preamble layer.
-  FS            vfs.FS
-  inputObserver *inputObservationFS
+  FS                  vfs.FS
+  compilationSnapshot *compilationSnapshotFS
+  inputObserver       *inputObservationFS
 
   // SourcePreamble is the injected text used when correcting authored positions.
   SourcePreamble  string
@@ -407,7 +409,7 @@ type LoadProgramOptions struct {
 
 // Close releases the checker pool lease acquired by LoadProgram and, on the
 // TypeScript 7.1 target, stops the project's content-mapper processes. Its
-// error is the content mappers' close error.
+// error joins content-mapper shutdown and compilation-snapshot publication errors.
 //
 // @evidence contracts/common.md#principled-implementation The recorded release callback returns the checker lease once and is cleared after release; the project hosts then close the mapper project and processes the Program's hosts shared.
 // @evidence contracts/common.md#clear-and-simple-design Checker and content-mapper ownership share one cleanup operation instead of independent releases by each consumer.
@@ -424,7 +426,12 @@ func (p *Program) Close() error {
   }
   hosts := p.hosts
   p.hosts = nil
-  return hosts.Close()
+  var snapshotError error
+  if snapshot := p.compilationSnapshot; snapshot != nil {
+    p.compilationSnapshot = nil
+    snapshotError = snapshot.save()
+  }
+  return errors.Join(hosts.Close(), snapshotError)
 }
 
 // ParseTSConfig parses a tsconfig.json file via tsgo's native JSONC parser.
@@ -598,7 +605,7 @@ func forceSingleChecker(parsed *tsoptions.ParsedCommandLine) {
 // @evidence contracts/performance.md#efficient-algorithms One load composes plugin/preamble work, config/CLI parsing, native Program processing and checker acquisition with VFS observation. A requested failed-load graph additionally snapshots, projects and sorts the observed predicate population and invokes the caller's sink. Read-text hashing runs on each observed read, including repeated reads; config/source bytes, native resolution and directory work, plugin callbacks and retained observation maps govern cost rather than only facade construction.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This one-shot factory does not coordinate callers; Session and resident hosts own cross-request compiler reuse.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Errors before checker acquisition return no lease; an optional synchronous sink receives call-owned recovery metadata once after observation starts. Successful loading transfers checker and mapper ownership plus input/plugin ledgers to Program; Close releases owned native resources, while caller reachability controls remaining facade state.
-func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program, []Diagnostic, error) {
+func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (program *Program, diagnostics []Diagnostic, loadError error) {
   if !filepath.IsAbs(cwd) {
     if abs, err := filepath.Abs(cwd); err == nil {
       cwd = abs
@@ -623,6 +630,24 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   fs := options.FS
   if fs == nil {
     fs = DefaultFS()
+  }
+  var snapshot *compilationSnapshotFS
+  if filename := os.Getenv("TTSC_COMPILATION_SNAPSHOT"); filename != "" {
+    var err error
+    snapshot, err = openCompilationSnapshot(fs, filename)
+    if err != nil {
+      return nil, nil, fmt.Errorf("compilation snapshot: %w", err)
+    }
+    fs = snapshot
+    defer func() {
+      if err := snapshot.save(); err != nil {
+        if program != nil {
+          program.Close()
+          program = nil
+        }
+        loadError = errors.Join(loadError, fmt.Errorf("compilation snapshot publication: %w", err))
+      }
+    }()
   }
   inputObserver := newInputObservationFS(fs)
   loaded := false
@@ -716,6 +741,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
     mapperDependencyError:  mapperDependencyError,
     compilerArgumentInputs: compilerArgumentInputs,
     FS:                     fs,
+    compilationSnapshot:    snapshot,
     inputObserver:          inputObserver,
     SourcePreamble:         options.SourcePreamble,
   }

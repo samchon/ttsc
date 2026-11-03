@@ -10,19 +10,23 @@ const MAX_GENERATION_PROOF_FAILURES = 8;
  * full, new occurrences increment a saturated omitted count; dropped identities
  * are not retained, so later repetitions of a dropped witness count again.
  *
- * @evidence contracts/common.md#principled-implementation A JSON tuple of domain, kind, path and detail defines witness identity, seen deduplicates retained entries and the entry bound plus saturated omitted counter represent evidence loss explicitly.
+ * @evidence contracts/common.md#principled-implementation A JSON tuple of domain, kind, path and detail defines witness identity, seen deduplicates retained entries and the entry bound plus saturated omitted counter represent evidence loss explicitly. The optional generation classifier records complete freshness compatibility before diagnostic truncation.
  * @evidence contracts/common.md#clear-and-simple-design One recorder owns identity, retained bounds and omission accounting so merge and capture callers share the same aggregate policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The eight-entry bound limits diagnostic storage rather than changing the proof verdict; omitted remains visible and no discarded witness is certified irrelevant.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state retained duplicate handling and the dropped-occurrence limitation, while the internal comment explains why seen shares the storage bound.
- * @evidence contracts/performance.md#efficient-algorithms Identity encoding costs the witness text length and Set membership is direct; insertion touches one entry without rescanning the aggregate.
+ * @evidence contracts/performance.md#efficient-algorithms Identity encoding costs the witness text length and Set membership is direct; insertion touches one entry without rescanning the aggregate. Optional classification adds the generation classifier's lexical path lookup for each occurrence.
  * @evidence contracts/performance.md#reuse-equivalent-work Retained seen keys prevent repeated insertion of the same printable witness; dropped identities intentionally are not shared because doing so would require unbounded storage.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Entries and seen retain at most eight witnesses/keys per attempt, and omitted saturates at MAX_SAFE_INTEGER; text bytes depend on producer witness lengths rather than a claimed byte-size bound.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Stores the path strings it is given inside a JSON identity key without parsing or comparing them as paths.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Entries and seen retain at most eight witnesses/keys per attempt, and omitted saturates at MAX_SAFE_INTEGER; text bytes depend on producer witness lengths rather than a claimed byte-size bound. The optional borrowed classifier keeps its generation input indexes reachable while either the generation or aggregate retains it; those indexes are not subject to the diagnostic witness bound.
+ * @evidence contracts/portability.md#os-neutral-implementation Witness identity preserves supplied strings; optional freshness classification delegates native lexical path resolution to the generation classifier.
  */
 export function recordGenerationProofFailure(
   failures: TtscGenerationProofFailures,
   failure: TtscGenerationProofFailure,
 ): void {
+  if (failures.snapshotFailureClassifier !== undefined)
+    failures.snapshotCompatible =
+      failures.snapshotCompatible === true &&
+      failures.snapshotFailureClassifier(failure);
   const key = JSON.stringify([
     failure.domain,
     failure.kind,

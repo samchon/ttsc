@@ -56,6 +56,9 @@ export function selectTransformAttemptDisposition(props: {
   /** Explicit config coherence; undefined retains the existing admission rule. */
   configStateComplete?: boolean;
 
+  /** Current compiler snapshot authority, independent of disk/cache freshness. */
+  snapshotDeliveryOnly?: boolean;
+
   /** Reusable project success proof, required explicitly for success acceptance. */
   projectSnapshotComplete?: boolean;
 
@@ -101,6 +104,8 @@ export function selectTransformAttemptDisposition(props: {
       moved: number;
       rejected: string | undefined;
     } {
+  if (props.resultType === "success" && props.snapshotDeliveryOnly === true)
+    return { kind: "accepted", freshDeliveryOnly: false };
   const freshDeliveryOnly =
     props.resultType === "failure" &&
     (props.observationsComplete === false ||

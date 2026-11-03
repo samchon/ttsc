@@ -49,8 +49,10 @@ import { witnessExternalDependencies } from "../validation/witnessExternalDepend
 import { TRANSFORM_FAILED_GENERATION_VALIDATIONS } from "./TRANSFORM_FAILED_GENERATION_VALIDATIONS";
 import { TRANSFORM_GENERATION_FAILURES } from "./TRANSFORM_GENERATION_FAILURES";
 import type { TtscCompilerMembershipHint } from "./TtscCompilerMembershipHint";
+import { canDeliverCompilerSnapshot } from "./canDeliverCompilerSnapshot";
 import { captureFailedGenerationInputStates } from "./captureFailedGenerationInputStates";
 import { captureTransformSourceHashes } from "./captureTransformSourceHashes";
+import { compilerSnapshotFailureClassifier } from "./compilerSnapshotFailureClassifier";
 import { createGenerationProofFailures } from "./createGenerationProofFailures";
 import { mergeGenerationProofFailures } from "./mergeGenerationProofFailures";
 import { primeCompilerMembership } from "./primeCompilerMembership";
@@ -711,6 +713,10 @@ export async function captureTransformGeneration(props: {
         ? {}
         : { temporaryTsconfig: envelopeTemporaryTsconfig }),
     };
+    cached.snapshotFailureClassifier = compilerSnapshotFailureClassifier(
+      result,
+      projectRoot,
+    );
     cached.sourceHashes = captureTransformSourceHashes(
       cached,
       props.currentFile,
@@ -764,7 +770,9 @@ export async function captureTransformGeneration(props: {
     // Evaluate every proof family rather than short-circuiting after the first
     // failed one, so a rejected generation reports every missing premise. The
     // same checks establish a successful generation's reuse authority.
-    const failures = createGenerationProofFailures();
+    const failures = createGenerationProofFailures(
+      cached.snapshotFailureClassifier,
+    );
     if (!configStable) {
       recordGenerationProofFailure(failures, {
         domain: "project",
@@ -977,6 +985,22 @@ export async function captureTransformGeneration(props: {
       });
     }
     cached.projectSnapshotComplete = stableProjectSnapshot;
+    cached.snapshotDeliveryOnly =
+      !stableProjectSnapshot &&
+      canDeliverCompilerSnapshot({
+        result,
+        projectRoot,
+        failures,
+        adopted: adopted !== undefined,
+      });
+    if (cached.snapshotDeliveryOnly && props.deliveryEpoch !== undefined)
+      cached.passDeliveryOnly = true;
+    if (cached.snapshotDeliveryOnly)
+      cached.sourceHashes = captureTransformSourceHashes(
+        cached,
+        props.currentFile,
+        diskHash ?? deliveredHash,
+      );
     // Attach notifications only while they can actually prove membership. A
     // generation that could not open its watchers keeps its recorded snapshot
     // and validates through it, rather than losing the cache entirely.

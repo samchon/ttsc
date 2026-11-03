@@ -11,6 +11,7 @@ import type { ITtscCompilerTransformation } from "../../structures/ITtscCompiler
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
+import { CompilationSnapshot } from "./CompilationSnapshot";
 import { appendBuildOutput, mergeCheckGraphs } from "./build/appendBuildOutput";
 import { normalizeBuildOutput } from "./build/normalizeBuildOutput";
 import { buildNativeCompiler } from "./buildNativeCompiler";
@@ -107,6 +108,15 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
   /** Sources the producer identifies as unsuitable for stable reuse. */
   volatile?: string[];
 } {
+  return CompilationSnapshot.run(options.env, (env) =>
+    transformWithSnapshot({ ...options, env }),
+  );
+}
+
+/** Run discovery, checks and transformation under the invocation-owned view. */
+function transformWithSnapshot(
+  options: ITtscCompilerContext,
+): ReturnType<typeof transformProjectInMemory> {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const loaded = loadProjectPlugins({
     binary:
@@ -393,7 +403,11 @@ function transformProjectWithPlugins(
     );
     return {
       ...envelopeSideChannels(transformed),
-      graph: mergeCheckGraphs(checked.graph, transformed.graph),
+      graph: mergeTransformGraphs(
+        checked.graph,
+        transformed.graph,
+        checks.length,
+      ),
       ...observationLimitations(
         [loaded, checked, transformed],
         hostInputHashes,
@@ -476,7 +490,7 @@ function transformProjectWithPlugins(
   );
   return {
     ...envelopeSideChannels(output),
-    graph: mergeCheckGraphs(checked.graph, output.graph),
+    graph: mergeTransformGraphs(checked.graph, output.graph, checks.length),
     ...observationLimitations(
       [loaded, checked, output],
       hostInputHashes,
@@ -708,6 +722,7 @@ function runNativeChecks(
     stdout: "",
     stderr: "",
   };
+  let snapshotsComplete = true;
   for (const plugin of checks) {
     const checked = runNativeCheckWithObservations(plugin, (extraArgs) => {
       const res = spawnNative(
@@ -748,7 +763,12 @@ function runNativeChecks(
         project.root,
       );
     });
+    snapshotsComplete &&= checked.graph?.compilationSnapshot !== undefined;
     result = appendBuildOutput(result, checked);
+    if (!snapshotsComplete && result.graph?.compilationSnapshot !== undefined) {
+      const { compilationSnapshot: _snapshot, ...unqualified } = result.graph;
+      result.graph = unqualified;
+    }
     if (result.status !== 0) {
       return result;
     }
@@ -876,4 +896,24 @@ function nativePluginEnv(
       : [],
   );
   return env;
+}
+
+/**
+ * A legacy check with no graph cannot certify the transform's shared input
+ * view.
+ */
+function mergeTransformGraphs(
+  checked: TtscBuildResult["graph"],
+  transformed: TtscBuildResult["graph"],
+  checks: number,
+): TtscBuildResult["graph"] {
+  const graph = mergeCheckGraphs(checked, transformed);
+  if (
+    graph === undefined ||
+    checks === 0 ||
+    checked?.compilationSnapshot !== undefined
+  )
+    return graph;
+  const { compilationSnapshot: _snapshot, ...unqualified } = graph;
+  return unqualified;
 }

@@ -126,7 +126,9 @@ export function captureExternalInputSnapshot(
   > = {};
   const realpaths: Record<string, string | null> = {};
   const signatures: Record<string, string> = {};
-  const failures = createGenerationProofFailures();
+  const failures = createGenerationProofFailures(
+    cached.snapshotFailureClassifier,
+  );
   const dependencies: string[] = [];
   const reported = new Set<string>();
   if (cached.result.type !== "exception") {
