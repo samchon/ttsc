@@ -16,7 +16,7 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The driver consumes real captured text; no filesystem methods or compiler internals are replaced.
  * @evidence contracts/common.md#meaningful-documentation Prose states read-once semantics, sequential stage ownership, absence and independent freshness admission.
  * @evidence contracts/portability.md#os-neutral-implementation Native temporary-directory creation and path APIs own transport; environment merging preserves Windows key semantics.
- * @evidence contracts/performance.md#efficient-algorithms Construction writes an empty document; native stages serialize their reached input bytes and predicate populations rather than rereading source bytes for compilation.
+ * @evidence contracts/performance.md#efficient-algorithms Construction writes an empty document; each native stage parses prior captured text/predicates and dirty flushes encode and write the complete reached population. Normal UTF-8 remains plain text, while invalid UTF-8 is encoded losslessly and decoded once per stage.
  * @evidence contracts/performance.md#reuse-equivalent-work Only stages of this invocation share captured answers; unrelated invocations have fresh IDs and documents.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous owner attempts identity-checked cleanup after success or failure; native captured bytes have no population cap. A failed initial identity read or cleanup can leave storage behind; cleanup failure retains the original thrown error or completed result.
  */
@@ -33,7 +33,7 @@ export namespace CompilationSnapshot {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The driver consumes real captured text; no filesystem methods or compiler internals are replaced.
    * @evidence contracts/common.md#meaningful-documentation Prose states read-once semantics, sequential stage ownership, absence and independent freshness admission.
    * @evidence contracts/portability.md#os-neutral-implementation Native temporary-directory creation and path APIs own transport; environment merging preserves Windows key semantics.
-   * @evidence contracts/performance.md#efficient-algorithms Construction writes an empty document; native stages serialize their reached input bytes and predicate populations rather than rereading source bytes for compilation.
+   * @evidence contracts/performance.md#efficient-algorithms Construction writes an empty document; each native stage parses prior captured text/predicates and dirty flushes encode and write the complete reached population. Normal UTF-8 remains plain text, while invalid UTF-8 is encoded losslessly and decoded once per stage.
    * @evidence contracts/performance.md#reuse-equivalent-work Only stages of this invocation share captured answers; unrelated invocations have fresh IDs and documents.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous owner attempts identity-checked cleanup after success or failure; native captured bytes have no population cap. A failed initial identity read or cleanup can leave storage behind; cleanup failure retains the original thrown error or completed result.
    */

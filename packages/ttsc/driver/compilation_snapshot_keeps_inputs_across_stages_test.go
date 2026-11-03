@@ -19,13 +19,15 @@ import (
 // 3. Open a new invocation and require it to observe the edited inputs.
 //
 // @evidence contracts/testing.md#behavioral-verification The actual snapshot VFS serves old text and absence after disk mutation, persists those answers to another stage and admits new bytes only in a new invocation.
-// @evidence contracts/testing.md#independent-expectations Literal BEFORE, AFTER, empty and missing states and the original directory listing define the oracle independently of snapshot serialization.
-// @evidence contracts/testing.md#distinguishing-cases Existing, empty, failed reads, missing existence, returned slice mutation, concurrent readers, sequential stage handoff and a new invocation exercise distinct read-once boundaries; malformed transport must fail.
+// @evidence contracts/testing.md#independent-expectations Literal BEFORE, AFTER, empty and missing states, authored Unicode/invalid byte text and the original directory listing define the oracle independently of snapshot serialization.
+// @evidence contracts/testing.md#distinguishing-cases Existing, empty, Unicode plus invalid UTF-8 text, failed reads, missing existence, returned slice mutation, concurrent readers, sequential stage handoff and a new invocation exercise distinct read-once boundaries; malformed transport must fail.
 // @evidence contracts/testing.md#execution-ownership This in-process driver Go unit calls its maintained VFS directly over a private temporary tree; it starts no compiler, installation or product host.
 func TestCompilationSnapshotKeepsInputsAcrossStages(t *testing.T) {
   root := t.TempDir()
   source := filepath.Join(root, "source.ts")
   empty := filepath.Join(root, "empty.ts")
+  encoded := filepath.Join(root, "encoded.ts")
+  encodedText := "// \xff\x80\nexport const value = \"한글😀\";\n"
   missing := filepath.Join(root, "missing.ts")
   write := func(file, text string) {
     t.Helper()
@@ -35,6 +37,7 @@ func TestCompilationSnapshotKeepsInputsAcrossStages(t *testing.T) {
   }
   write(source, "BEFORE")
   write(empty, "")
+  write(encoded, encodedText)
   newDocument := func(id string) string {
     t.Helper()
     file := filepath.Join(t.TempDir(), "snapshot.json")
@@ -61,12 +64,16 @@ func TestCompilationSnapshotKeepsInputsAcrossStages(t *testing.T) {
   if !first.DirectoryExists(directory) {
     t.Fatal("source directory missing")
   }
+  if text, ok := first.ReadFile(shimtspath.RootedFilePathFromAbsolute(encoded)); !ok || text != encodedText {
+    t.Fatalf("encoded first read: %q %v", text, ok)
+  }
   physical := first.Realpath(shimtspath.RootedPath(shimtspath.RootedFilePathFromAbsolute(source)))
   original := first.GetAccessibleEntries(directory)
   expected := append([]string{}, original.Files...)
   original.Files[0] = "caller mutation"
   write(source, "AFTER")
   write(empty, "FILLED")
+  write(encoded, "AFTER")
   write(missing, "CREATED")
   var readers sync.WaitGroup
   for range 8 {
@@ -89,6 +96,9 @@ func TestCompilationSnapshotKeepsInputsAcrossStages(t *testing.T) {
   }
   if text, ok := second.ReadFile(shimtspath.RootedFilePathFromAbsolute(empty)); !ok || text != "" {
     t.Fatalf("empty next stage: %q %v", text, ok)
+  }
+  if text, ok := second.ReadFile(shimtspath.RootedFilePathFromAbsolute(encoded)); !ok || text != encodedText {
+    t.Fatalf("encoded next stage: %q %v", text, ok)
   }
   if _, ok := second.ReadFile(absent); ok || second.FileExists(absent) {
     t.Fatal("next stage admitted a created input")

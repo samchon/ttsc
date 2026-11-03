@@ -12,9 +12,10 @@ import { isOrdinarilyClosedReadonlyLauncher } from "../../../../../utils/src/isO
  * Verifies installed runtime ownership and native bundler delivery survive
  * actual source edits across emission, then observe the next generation.
  *
- * The existing native contributor edits a source from ApplyProgram, after the
- * Program read it. A real selected-compiler wrapper edits a runtime source
- * after successful emission and before the external ownership adapter resumes.
+ * The existing native contributor rewrites a real source sentinel and edits a
+ * source from ApplyProgram, after the Program read it. A real selected-compiler
+ * wrapper edits a runtime source after successful emission and before the
+ * external ownership adapter resumes.
  *
  * 1. Deliver the raced native generation and its sibling in one build pass.
  * 2. Rebuild, introduce a type error and repair it through the same cache.
@@ -25,7 +26,7 @@ import { isOrdinarilyClosedReadonlyLauncher } from "../../../../../utils/src/isO
  * @evidence contracts/testing.md#distinguishing-cases Current-pass sibling reuse, next-pass invalidation, real diagnostics and recovery contrast delivery authority with cache freshness. The external wrapper delegates every command to the selected real compiler and changes only the post-emission source.
  * @evidence contracts/testing.md#execution-ownership The runtime batch calls this scenario explicitly; it exercises installed ttsx, built unplugin API and the shared native contributor rather than portable policy alone.
  * @evidence contracts/e2e.md#necessary-boundary Driver snapshot transport, wire decoding, adapter admission, host pass handoff and runtime ownership must agree across actual native commands; direct policy units cannot establish that connection.
- * @evidence contracts/e2e.md#shared-execution The scenario borrows the batch installation, native contributor and object cache. Only the source transitions under test cause additional compiles; no contributor profile or consumer installation is added.
+ * @evidence contracts/e2e.md#shared-execution The scenario borrows the batch installation, existing single-contributor source-pipeline profile and object cache, with the direct API's cache selector scoped and restored around its requests. Only the source transitions under test cause additional compiles; no contributor profile or consumer installation is added.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All edited files and receipts belong to the batch's otherwise unused tools/compilation-snapshot island; cache observers are reset in finally, synchronous runtime actors are checked for ordinary closure and the batch owns final directory cleanup.
  * @evidence contracts/e2e.md#preserved-coverage This adds snapshot boundaries without moving or weakening existing runtime, source-map, cache or bundler cases.
  */
@@ -45,12 +46,16 @@ export async function case_compilation_snapshots_survive_source_edits(inputs: {
   write("runs.bin", "");
   write(
     "descriptor.cjs",
-    "module.exports = context => ({ source: context.plugin.fixtureSource });\n",
+    'module.exports = context => { if (process.env.TTSC_COMPILATION_SNAPSHOT !== undefined) throw new Error("private compiler snapshot leaked into descriptor"); return { source: context.plugin.fixtureSource }; };\n',
   );
-  write("entry.ts", 'export const value: string = "BEFORE";\n');
+  const pipeline = 'export const transformed = "__TTSC_NATIVE_PIPELINE__";\n';
+  const beforeSource = 'export const value: string = "BEFORE";\n' + pipeline;
+  const afterSource = 'export const value: string = "AFTER";\n' + pipeline;
+  write("entry.ts", beforeSource);
   write(
     "sibling.ts",
-    'import { value } from "./entry"; export const sibling = "SIBLING:" + value;\n',
+    'import { value } from "./entry"; export const sibling = "SIBLING:" + value;\n' +
+      pipeline,
   );
   write(
     "tsconfig.json",
@@ -64,11 +69,13 @@ export async function case_compilation_snapshots_survive_source_edits(inputs: {
           {
             transform: "./descriptor.cjs",
             fixtureSource: inputs.source,
-            operation: "identity",
+            operation: "source-pipeline",
+            prefix: "snapshot:",
+            suffix: ":retained",
             runLog: log,
             raceAttempt: 0,
             raceFile: source,
-            raceContent: 'export const value: string = "AFTER";\n',
+            raceContent: afterSource,
           },
         ],
       },
@@ -104,11 +111,14 @@ export async function case_compilation_snapshots_survive_source_edits(inputs: {
       cache,
       hooks,
     );
+  const savedCache = process.env.TTSC_CACHE_DIR;
+  process.env.TTSC_CACHE_DIR = inputs.cacheDir;
   try {
     api.beginTtscTransformBuild(cache);
     const first = await deliver();
     assert.ok(first);
     assert.match(first.code, /BEFORE/);
+    assert.match(first.code, /SNAPSHOT:PLUGIN:retained/);
     assert.match(fs.readFileSync(source, "utf8"), /AFTER/);
     assert.equal(
       fs.readFileSync(log).length,
@@ -130,22 +140,24 @@ export async function case_compilation_snapshots_survive_source_edits(inputs: {
     );
     assert.equal(
       sourceWatchHash,
-      crypto
-        .createHash("sha256")
-        .update('export const value: string = "BEFORE";\n')
-        .digest("hex"),
+      crypto.createHash("sha256").update(beforeSource).digest("hex"),
       "watch handoff must preserve the compiler's input, not the edited disk",
     );
     api.beginTtscTransformBuild(cache);
     assert.match((await deliver())!.code, /AFTER/);
-    write("entry.ts", "export const value: string = 123;\n");
+    write("entry.ts", "export const value: string = 123;\n" + pipeline);
     api.beginTtscTransformBuild(cache);
     await assert.rejects(deliver(), /not assignable|2322/);
-    write("entry.ts", 'export const value: string = "REPAIRED";\n');
+    write("entry.ts", 'export const value: string = "REPAIRED";\n' + pipeline);
     api.beginTtscTransformBuild(cache);
     assert.match((await deliver())!.code, /REPAIRED/);
   } finally {
-    api.resetTtscTransformCache(cache);
+    try {
+      api.resetTtscTransformCache(cache);
+    } finally {
+      if (savedCache === undefined) delete process.env.TTSC_CACHE_DIR;
+      else process.env.TTSC_CACHE_DIR = savedCache;
+    }
   }
 
   const runtime = path.join(root, "runtime.ts");

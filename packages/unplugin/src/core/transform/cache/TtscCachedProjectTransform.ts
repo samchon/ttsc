@@ -20,6 +20,8 @@ import type { TtscHostInputValidation } from "../validation/TtscHostInputValidat
  * generation before later first deliveries may share that proof. Deliveries
  * reaching source-baseline comparison still cost a text hash and may require
  * disk comparison when they diverge; unrelated modules can return before it.
+ * Captured native snapshots may instead retain original-pass delivery only,
+ * without claiming the edited disk still matches or granting future reuse.
  * Persistent graph-bearing requests may use derived-input validation only with
  * qualified membership and universal authority; unavailable narrow proof uses
  * the complete recorded snapshot.
@@ -55,7 +57,7 @@ export interface TtscCachedProjectTransform {
    * Borrowed generation-owned classifier, absent without a captured native
    * view.
    *
-   * @evidence contracts/common.md#principled-implementation The callback classifies every occurrence before diagnostic truncation so a bounded witness list cannot decide delivery authority.
+   * @evidence contracts/common.md#principled-implementation The sticky compatibility verdict accounts for every occurrence before diagnostic truncation; after its first refusal no later occurrence can restore delivery authority.
    * @evidence contracts/common.md#clear-and-simple-design Collectors borrow one generation classifier rather than rebuilding its recorded-input index.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The callback records compatibility only; callers still require complete producer proof and never infer cache freshness from it.
    * @evidence contracts/common.md#meaningful-documentation The member states optionality and ownership, while the generation classifier documents actual path and kind admission.

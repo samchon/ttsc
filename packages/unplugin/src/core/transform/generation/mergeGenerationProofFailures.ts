@@ -10,7 +10,7 @@ import { recordGenerationProofFailure } from "./recordGenerationProofFailure";
  * unchanged. Retained witnesses are shared references, so producers must treat
  * their classifications as fixed after recording.
  *
- * @evidence contracts/common.md#principled-implementation Retained source entries use the target recorder's identity policy, while saturated addition preserves already omitted occurrence counts that cannot be recovered from source entries. The optional generation classifier records complete freshness compatibility before diagnostic truncation.
+ * @evidence contracts/common.md#principled-implementation Retained source entries use the target recorder's identity policy, while saturated addition preserves already omitted occurrence counts that cannot be recovered from source entries. A positive omitted-witness summary transfers only under the same generation classifier; refusal remains sticky before diagnostic truncation.
  * @evidence contracts/common.md#clear-and-simple-design This operation coordinates aggregation without duplicating recorder limits or witness identity encoding.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing witnesses remain omitted rather than being silently converted into proof success or guessed unique identities.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain shared recorder ownership and the reason lost source identities cannot be deduplicated.
@@ -34,7 +34,10 @@ export function mergeGenerationProofFailures(
   if (
     target.snapshotFailureClassifier !== undefined &&
     (source.snapshotCompatible === false ||
-      (source.omitted !== 0 && source.snapshotCompatible !== true))
+      (source.omitted !== 0 &&
+        (source.snapshotCompatible !== true ||
+          source.snapshotFailureClassifier !==
+            target.snapshotFailureClassifier)))
   )
     target.snapshotCompatible = false;
   target.omitted = Math.min(

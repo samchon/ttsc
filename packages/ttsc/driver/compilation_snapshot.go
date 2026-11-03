@@ -1,12 +1,14 @@
 package driver
 
 import (
+  "encoding/base64"
   "encoding/json"
   "fmt"
   "os"
   "path/filepath"
   "sync"
   "time"
+  "unicode/utf8"
 
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/microsoft/typescript-go/shim/vfs"
@@ -56,6 +58,44 @@ func (i *compilationSnapshotInfo) Sys() any           { return nil }
 type compilationSnapshotRead struct {
   Text string `json:"text"`
   OK   bool   `json:"ok"`
+}
+
+// compilationSnapshotReadWire keeps normal UTF-8 readable and encodes only
+// text JSON cannot represent losslessly. Decoding happens once when opening a
+// stage, not on each cached compiler read.
+type compilationSnapshotReadWire struct {
+  Text     string `json:"text"`
+  OK       bool   `json:"ok"`
+  Encoding string `json:"encoding,omitempty"`
+}
+
+func (r compilationSnapshotRead) MarshalJSON() ([]byte, error) {
+  value := compilationSnapshotReadWire{Text: r.Text, OK: r.OK}
+  if !utf8.ValidString(value.Text) {
+    value.Text = base64.StdEncoding.EncodeToString([]byte(value.Text))
+    value.Encoding = "base64"
+  }
+  return json.Marshal(value)
+}
+
+func (r *compilationSnapshotRead) UnmarshalJSON(bytes []byte) error {
+  var value compilationSnapshotReadWire
+  if err := json.Unmarshal(bytes, &value); err != nil {
+    return err
+  }
+  switch value.Encoding {
+  case "":
+  case "base64":
+    decoded, err := base64.StdEncoding.DecodeString(value.Text)
+    if err != nil {
+      return fmt.Errorf("invalid compilation snapshot text: %w", err)
+    }
+    value.Text = string(decoded)
+  default:
+    return fmt.Errorf("unknown compilation snapshot text encoding %q", value.Encoding)
+  }
+  r.Text, r.OK = value.Text, value.OK
+  return nil
 }
 
 // openCompilationSnapshot accepts only an invocation-owned versioned document.

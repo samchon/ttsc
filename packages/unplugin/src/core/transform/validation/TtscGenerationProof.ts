@@ -24,10 +24,13 @@ import type { TtscTransformHooks } from "../watch/TtscTransformHooks";
  * persistent/repeated deliveries require new current observations. Incomplete
  * observations can share a coherent local result only inside an explicitly
  * nonwatching pass with actual host-cache withdrawal, never a record or pool.
+ * Captured native snapshots separately permit first deliveries in their
+ * original pass, including watching, without claiming disk freshness or future
+ * reuse.
  *
  * @evidence contracts/common.md#principled-implementation Explicit pass identity, source baseline and first-delivery membership delimit sharing; synchronous transactions independently qualify current native inputs and incomplete local outputs retain stricter lifecycle admission.
  * @evidence contracts/common.md#clear-and-simple-design One core owner supplies the same preparation, pass and fresh-only policies to every adapter instead of separate host-specific caches.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing observation never becomes complete snapshot authority; watching, persistent, repeated and unknown boundaries cannot borrow an incomplete pass result.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing observation never becomes complete snapshot authority; watching cannot borrow an observer-unavailable pass result, and persistent, repeated and unknown boundaries cannot borrow either kind of pass-only result.
  * @evidence contracts/common.md#meaningful-documentation Native context names the four lifetimes and warns against the specific performance and stale-cache regressions they prevent.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Members delegate native observations to the generation's filesystem and the native environment owner.
  * @evidenceExclude contracts/performance.md#efficient-algorithms Members own baseline lookup, batch qualification and admission.

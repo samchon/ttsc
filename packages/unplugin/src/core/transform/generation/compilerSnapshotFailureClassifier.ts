@@ -6,7 +6,8 @@ import type { TtscGenerationProofFailure } from "./TtscGenerationProofFailure";
 /**
  * Index one native snapshot's recorded inputs for streaming freshness
  * classification. The diagnostic witness limit must not decide whether a
- * compilation is coherent, so every failure is classified before truncation.
+ * compilation is coherent, so compatibility is decided before diagnostic
+ * truncation and remains refused after the first incompatible occurrence.
  *
  * @evidence contracts/common.md#principled-implementation Only explicit freshness changes to recorded compiler inputs or project discovery qualify; changed configuration selection and conflicting host/compiler reads do not; missing and contradictory producer evidence stays outside this class.
  * @evidence contracts/common.md#clear-and-simple-design One generation-owned classifier is shared by its proof collectors and final delivery admission.

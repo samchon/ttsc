@@ -18,7 +18,9 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
 
 /**
  * Validate a cached project transform against the current on-disk project
- * state.
+ * state. A captured native snapshot instead permits only an unserved module in
+ * its original explicit pass, including a watching pass; it grants no later or
+ * persistent reuse.
  *
  * A module with a recorded source compares its delivered text with the
  * generation snapshot. An unrelated module outside an unchanged program needs
@@ -47,7 +49,7 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  *
  * @evidence contracts/common.md#principled-implementation Delivered source, generation completeness, pass identity and notification authority choose between first-delivery proof, derived-input validation and complete snapshots; divergent editor text never substitutes for compiler disk inputs.
  * @evidence contracts/common.md#clear-and-simple-design This admission boundary chooses the required proof while dedicated validators own membership, universal inputs and content comparisons.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts An incomplete generation cannot claim complete snapshot authority; only separately admitted coherent local success can share first deliveries of its exact nonwatching pass; inherited object members cannot invent a project baseline, and losing watcher proof falls back to recorded-state validation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts An incomplete generation cannot claim complete snapshot authority; a captured native snapshot can share first deliveries only in its original pass, while observer-unavailable local success separately requires an exact nonwatching pass; inherited object members cannot invent a project baseline, and losing watcher proof falls back to recorded-state validation.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain disk-versus-delivered authority, epoch qualification, fallback and related maintainer guidance before tags.
  * @evidence contracts/portability.md#os-neutral-implementation Project membership and path identity use recorded compiler case policy and injected native operations; OS names do not certify case sensitivity or watcher capabilities.
  * @evidence contracts/performance.md#bound-retention-and-release-resources

@@ -34,7 +34,7 @@ export interface TtscGenerationProofFailures {
    * Borrowed generation-owned classifier, absent without a captured native
    * view.
    *
-   * @evidence contracts/common.md#principled-implementation The callback classifies every occurrence before diagnostic truncation so a bounded witness list cannot decide delivery authority.
+   * @evidence contracts/common.md#principled-implementation The sticky compatibility verdict accounts for every occurrence before diagnostic truncation; after its first refusal no later occurrence can restore delivery authority.
    * @evidence contracts/common.md#clear-and-simple-design Collectors borrow one generation classifier rather than rebuilding its recorded-input index.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The callback records compatibility only; callers still require complete producer proof and never infer cache freshness from it.
    * @evidence contracts/common.md#meaningful-documentation The member states optionality and ownership, while the generation classifier documents actual path and kind admission.

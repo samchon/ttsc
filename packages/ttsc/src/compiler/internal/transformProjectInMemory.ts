@@ -61,10 +61,10 @@ import { spawnNative } from "./spawnNative";
  * @evidence contracts/common.md#clear-and-simple-design One router composes built-in and plugin-backed transforms; envelope parsers, environment construction, proof merging and negative-only observation limits have separate shared helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing input proof cannot be repaired by a postcompile baseline; conventional deferred config reads accept only the actual native consumer's proof, while malformed required TypeScript output is a protocol error.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe transform lanes and stage ordering; separated result members distinguish output, advisory graph/dependency data, evaluation witnesses and unstable source markers under documentation guidance.
- * @evidence contracts/performance.md#efficient-algorithms Stage filtering, declared-input Sets and proof maps scale with plugin/input counts; merged paths are sorted with path-text comparison costs. Each stage can rehash/re-realpath declared inputs, serialize plugin/config records and parse complete output; discovery, native capability probes, source builds and child execution remain delegated costs of this call. No byte/work ceiling or measured dominant-cost ranking is asserted.
- * @evidence contracts/performance.md#reuse-equivalent-work Source-plugin artifacts are shared by their owning loader; this transform intentionally produces a current generation and gives downstream consumers the graph, source states and host witnesses required to qualify reuse.
+ * @evidence contracts/performance.md#efficient-algorithms Stage filtering, declared-input Sets and proof maps scale with plugin/input counts; merged paths are sorted with path-text comparison costs. Each stage can rehash/re-realpath declared inputs, serialize plugin/config records and parse complete output; discovery, native capability probes, source builds and child execution remain delegated costs of this call. The invocation snapshot adds full captured-population parsing and dirty document encoding/writes per native stage. No byte/work ceiling or measured dominant-cost ranking is asserted.
+ * @evidence contracts/performance.md#reuse-equivalent-work Descriptor/source discovery precedes snapshot allocation so invocation-private paths do not vary its environment cache identity. Source-plugin artifacts are shared by their owning loader; this transform intentionally produces a current generation and gives downstream consumers the graph, source states and host witnesses required to qualify reuse.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources This router retains discovery records, per-stage proof maps and accumulated diagnostics/output until synchronous stage completion, then transfers the returned envelope. Native capture/observation owners attempt their own cleanup; suppressed cleanup failures and descendant release remain unconfirmed where those owners do not join them. Artifact-cache retention belongs to the builder, and no stage timeout or input/output byte ceiling is supplied here.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This router retains discovery records, per-stage proof maps and accumulated diagnostics/output until synchronous stage completion, then transfers the returned envelope. The invocation coordinator attempts identity-checked snapshot removal and propagates or aggregates removal failure. Other native capture/observation owners attempt their own cleanup; suppressed cleanup failures and descendant release remain unconfirmed where those owners do not join them. Artifact-cache retention belongs to the builder, and no stage timeout or input/output byte ceiling is supplied here.
  *
  * @evidence contracts/portability.md#os-neutral-implementation Native paths remain filesystem coordinates, child argv are arrays, and environment helpers preserve Windows key equivalence and explicit Node/tsgo/config anchors without shell parsing or native method patching.
  */
@@ -108,15 +108,6 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
   /** Sources the producer identifies as unsuitable for stable reuse. */
   volatile?: string[];
 } {
-  return CompilationSnapshot.run(options.env, (env) =>
-    transformWithSnapshot({ ...options, env }),
-  );
-}
-
-/** Run discovery, checks and transformation under the invocation-owned view. */
-function transformWithSnapshot(
-  options: ITtscCompilerContext,
-): ReturnType<typeof transformProjectInMemory> {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const loaded = loadProjectPlugins({
     binary:
@@ -133,6 +124,16 @@ function transformWithSnapshot(
     projectRoot: options.projectRoot,
     tsconfig: options.tsconfig,
   });
+  return CompilationSnapshot.run(options.env, (env) =>
+    transformWithSnapshot({ ...options, env }, loaded),
+  );
+}
+
+/** Run native checks and transformation after descriptor/source discovery. */
+function transformWithSnapshot(
+  options: ITtscCompilerContext,
+  loaded: ReturnType<typeof loadProjectPlugins>,
+): ReturnType<typeof transformProjectInMemory> {
   if (loaded.nativePlugins.length !== 0) {
     // Every step below runs binaries built from these sources, so the output
     // is a function of their state, which the envelope carries for a consumer

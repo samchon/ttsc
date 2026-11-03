@@ -96,14 +96,14 @@ type TransformGraph struct {
 // `cmd/ttsc api-transform` and the linked-plugin utility host both do.
 // Returns nil only for a nil or unloaded program.
 //
-// @evidence contracts/common.md#principled-implementation Compiler references, global scope, config ancestry, and replayed predicates form one generation's dependency proof.
+// @evidence contracts/common.md#principled-implementation Compiler references, global scope, config ancestry and replayed predicates form one generation's dependency proof; a shared snapshot identity is attached only after its captured answers are published.
 // @evidence contracts/common.md#clear-and-simple-design Reference collection, resolution replay, and proof attachment share one output-key owner.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Unobserved or contradictory inputs remain failures rather than later filesystem snapshots substituted for compiler reads.
 // @evidence contracts/common.md#meaningful-documentation Native prose specifies envelope integration and unloaded-program behavior following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Keys use native filepath conversion and compiler case policy; identity metadata comes from reported adapter realpaths, whose native VFS error fallback can retain lexical spelling rather than certifying physical resolution.
-// @evidence contracts/performance.md#efficient-algorithms Direct adjacency avoids computing every transitive closure. Construction scans resident sources/references, converts path text and sorts per-source targets, globals and resolver inputs; a distinct-input set selects proof attachment, whose rich and legacy projections can perform two observer lookups. Resolver task sorting, native replay reads/metadata/enumeration and observation merging remain part of this call's delegated cost; no work or byte ceiling is imposed here.
+// @evidence contracts/performance.md#efficient-algorithms Direct adjacency avoids computing every transitive closure. Construction scans resident sources/references, converts path text and sorts per-source targets, globals and resolver inputs; a distinct-input set selects proof attachment, whose rich and legacy projections can perform two observer lookups. Resolver task sorting, native replay reads/metadata/enumeration and observation merging remain part of this call's delegated cost; dirty snapshot publication additionally encodes and writes the complete captured text, paths and predicate population. No work or byte ceiling is imposed here.
 // @evidence contracts/performance.md#reuse-equivalent-work Final proof projection reuses the current Program observer, including its exact physical-target read for a lexical alias; it does not replace missing compiler evidence with a new read. Resolver replay separately performs native queries and merges contradictions into that generation. No prior graph or later filesystem generation is reused by this constructor.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Temporary adjacency/input/proof maps grow with resident references, distinct paths and reported predicate bytes. Graph arrays/maps transfer to the caller, while replay observations merge into the caller-owned current Program observer. This call owns no resident historical graph cache or native handle, and supplies no population/byte ceiling or caller-lifetime disposal policy.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Temporary adjacency/input/proof maps grow with resident references, distinct paths and reported predicate bytes. Graph arrays/maps transfer to the caller, while replay observations merge into the caller-owned current Program observer. Snapshot encoding adds a temporary complete document buffer, and a failed rename can leave invocation-owned staging for coordinator cleanup. This call owns no resident historical graph cache or persistent native handle, and supplies no population/byte ceiling or caller-lifetime disposal policy.
 func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
   if prog == nil || prog.TSProgram == nil {
     return nil
@@ -131,18 +131,6 @@ func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
     if _, found := argumentInputs[key]; !found {
       graph.ResolutionInputs = append(graph.ResolutionInputs, key)
       argumentInputs[key] = struct{}{}
-    }
-  }
-  if prog.compilationSnapshot != nil {
-    for _, input := range prog.inputObserver.observedPaths() {
-      if !prog.inputObserver.observedAccessibleEntries(input) {
-        continue
-      }
-      key := TransformOutputKey(cwd, input)
-      if _, found := argumentInputs[key]; !found {
-        graph.ResolutionInputs = append(graph.ResolutionInputs, key)
-        argumentInputs[key] = struct{}{}
-      }
     }
   }
   sort.Strings(graph.ResolutionInputs)

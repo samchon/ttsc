@@ -7,13 +7,15 @@ import { onlyLearnedCompileFacts } from "./onlyLearnedCompileFacts";
  * Select how one completed capture spends the retry owner's budgets. Supplied
  * facts describe the capture; this policy performs no capture or native proof.
  *
- * Coherent results return first. A local, lossless host-observation refusal can
- * transfer an incomplete local success. TtscGenerationProof owns any sharing of
- * its first module deliveries inside an explicit nonwatching pass; this policy
- * grants no independent native or persistent proof. Rejected attempts spend
- * movement only when they neither refute a publication nor solely learn facts.
- * Two movements or four captures stop retrying, retaining a current diagnostic
- * rather than a terminal instability verdict when its config is not refuted.
+ * Coherent results, including admitted current compiler snapshots, return
+ * first. Snapshot delivery does not spend disk-stabilization retries or grant
+ * future reuse. A local, lossless host-observation refusal can transfer an
+ * incomplete local success. TtscGenerationProof owns any sharing of its first
+ * module deliveries inside an explicit nonwatching pass; this policy grants no
+ * independent native or persistent proof. Rejected attempts spend movement only
+ * when they neither refute a publication nor solely learn facts. Two movements
+ * or four captures stop retrying, retaining a current diagnostic rather than a
+ * terminal instability verdict when its config is not refuted.
  *
  * The caller owns learned dependency/case carry, terminal validation, capture
  * disposal and result transfer. Selecting terminal does not certify a baseline
