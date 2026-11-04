@@ -27,13 +27,14 @@ import {
  *
  * 1. Copy the native Go-source plugin fixture with a descriptor that declares no
  *    capability.
- * 2. Run its entry through the ttsx CLI and assert the transformed value runs.
+ * 2. Run its entry through the ttsx CLI and sequentially import two feature
+ *    modules by a computed path, asserting each transformed function runs.
  * 3. Load an excluded root through real Mocha with `--require ttsc/register` and
  *    assert the same.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual ttsx CLI and the real Mocha preload execute TypeScript transformed by the actual Go host, requiring zero exit and uppercase PLUGIN output with no provenance rejection.
- * @evidence contracts/testing.md#independent-expectations Each entry calls goUpper on lowercase plugin; literal uppercase stdout independently establishes native transformation, and the absent capability is authored in the descriptor.
- * @evidence contracts/testing.md#distinguishing-cases A host without the capability, contrasted with the declaring descriptor of test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_to_end, on both the CLI and the register path.
+ * @evidence contracts/testing.md#behavioral-verification The actual ttsx CLI sequentially imports two feature modules through computed paths and executes their native-transformed functions, preserving the entry's PLUGIN output. The real Mocha preload separately executes an excluded TypeScript root through the same Go host. Both require zero exit and no provenance rejection.
+ * @evidence contracts/testing.md#independent-expectations Literal PLUGIN, first=FIRST and second=SECOND lines establish transformation and import/execution order independently of emitted filenames. The absent capability is authored in the descriptor; each goUpper argument is a literal lowercase input.
+ * @evidence contracts/testing.md#distinguishing-cases A host without the capability, contrasted with the declaring descriptor of test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_to_end, on both CLI and register paths. Computed sequential imports reach distinct included files, while Mocha reaches an excluded root.
  * @evidence contracts/testing.md#execution-ownership This named native export owns one consumer project, one ttsx process and one Mocha process, selected once by the native boundary runner.
  * @evidence contracts/e2e.md#necessary-boundary The rejection lived in build execution between the descriptor's capabilities and the runtime's provenance requirement; only a real descriptor, Go host and ttsx run cross all three.
  * @evidence contracts/e2e.md#shared-execution The canonical Go producer and the suite TTSC_CACHE_DIR are shared with other runtime consumers; build counts and executable-byte reuse are not measured.
@@ -51,12 +52,35 @@ export function test_plugin_corpus_ttsx_runs_a_host_that_declares_no_emit_proven
     TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
   };
 
+  fs.mkdirSync(path.join(root, "src/features"));
+  for (const name of ["first", "second"])
+    fs.writeFileSync(
+      path.join(root, "src/features", name + ".ts"),
+      `export function run(): string { return goUpper(${JSON.stringify(name)}); }\n`,
+    );
+  fs.appendFileSync(
+    path.join(root, "src/main.ts"),
+    [
+      "void (async () => {",
+      '  for (const name of ["first", "second"]) {',
+      '    const feature = await import("./features/" + name);',
+      '    console.log(name + "=" + feature.run());',
+      "  }",
+      "})();",
+      "",
+    ].join("\n"),
+  );
+
   const executed = spawn(ttsxBin, ["src/main.ts"], { cwd: root, env });
   assert.ifError(executed.error);
   assert.equal(executed.signal, null);
   assert.equal(executed.status, 0, executed.stderr);
   assert.doesNotMatch(executed.stderr, /emit provenance/);
-  assert.equal(executed.stdout.trim(), "PLUGIN");
+  assert.deepEqual(executed.stdout.trim().split(/\r?\n/), [
+    "PLUGIN",
+    "first=FIRST",
+    "second=SECOND",
+  ]);
 
   linkTtscPackage(root);
   const testDir = path.join(root, "test");

@@ -13,11 +13,11 @@ import { FixtureFiles } from "../../../internal/FixtureFiles";
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the actual provenance adapter with the installed pinned tsgo executable and a callback that really emits once. Supported nested, encoded and operand responses require exact physical source ownership; mutation and unsupported controls preserve the original producer result while refusing unproved ownership.
  * @evidence contracts/testing.md#independent-expectations The authored source and independent native realpath define ownership. Recorded callback argv and native process status/streams define the transport facts; expected options follow native last-occurrence and response-frame grammar rather than the inspector's returned tokens.
- * @evidence contracts/testing.md#distinguishing-cases Nested space-containing names, direct option order, literal @ operands, UTF8/UTF16 BOMs, changed response bytes, malformed/missing responses, unknown options, the native parser's EOF-token result and profiling artifacts have separate labels; the EOF response panics TypeScript 7.0's parser and compiles on 7.1, so its expected status and ownership proof follow the installed line. Errors are collected so unrelated controls still execute. Native parsing has no cycle guard; test_external_response_refusal_preserves_the_supplied_operation_failure separately owns bounded public refusal and supplied-operation failure propagation, without claiming native cyclic compilation succeeds.
+ * @evidence contracts/testing.md#distinguishing-cases Nested space-containing names, direct option order, literal @ operands, UTF8/UTF16 BOMs, changed responses, post-emission roots in reported/observed mode, an explicitly selected conflicting TSX root, malformed/missing responses, unknown options, native EOF parsing and profiling artifacts have separate labels. The EOF response panics TypeScript 7.0 and compiles on 7.1, so expected status and ownership follow the installed line. Explicit files keep both colliding roots selected despite native extension priority. Errors are collected before reporting. The bounded refusal unit separately owns cyclic responses; native parsing has no cycle guard.
  * @evidence contracts/testing.md#execution-ownership This named E2E entry owns all compiler request labels; it calls authored adapter source but genuinely starts the external native producer and its read-only probes, so it is not a portable source unit.
  * @evidence contracts/e2e.md#necessary-boundary Native response decoding, argument grammar, actual compiler output and ownership admission must agree; a fabricated callback cannot establish those connections or the profiling artifact effect.
  * @evidence contracts/e2e.md#shared-execution All profiles share one installed immutable native compiler, one root project and authored source. Each option/response mutation requires its own actual emission and admission probes; no native artifact is rebuilt and no Node runtime host is started.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each label has its own output directory and response files; only the mutation label changes its response immediately before its emitting callback. Native children complete synchronously and TestProject owns all artifacts including the profiling output.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each label has its own output directory and response files; only the mutation label changes its response immediately before its emitting callback. Post-emission roots are removed and the explicit-files configuration is restored in finally before another label. Native children complete synchronously and TestProject owns all artifacts including the profiling output.
  * @evidence contracts/e2e.md#preserved-coverage Existing runtime response option and status assertions remain in their runtime owner. This adapter batch adds explicit producer-preservation, BOM, operand, freshness and artifact controls without replacing those Node effect assertions.
  */
 export function test_external_response_provenance_preserves_the_actual_producer(): void {
@@ -27,6 +27,7 @@ export function test_external_response_provenance_preserves_the_actual_producer(
     ),
   );
   const source = fs.realpathSync.native(path.join(root, "src/main.ts"));
+  const configText = fs.readFileSync(path.join(root, "tsconfig.json"), "utf8");
   // TypeScript 7.0's response-file parser panics on an option that ends at
   // EOF; 7.1 parses it and compiles, so its emission is owned like any other.
   // Either way ttsc must relay the producer's own result.
@@ -53,7 +54,34 @@ export function test_external_response_provenance_preserves_the_actual_producer(
     mutate?: string;
     artifact?: string;
     optional?: boolean;
+    addRootAfterEmit?: string;
+    writes?: "observed";
+    explicitConflictingRoot?: boolean;
   }[] = [
+    {
+      name: "root-added-after-emit",
+      args: [],
+      proof: true,
+      status: 0,
+      addRootAfterEmit: "added.ts",
+    },
+    {
+      name: "observed-root-added-after-emit",
+      args: [],
+      proof: true,
+      status: 0,
+      addRootAfterEmit: "added.ts",
+      writes: "observed",
+    },
+    {
+      name: "observed-conflicting-root-after-emit",
+      args: [],
+      proof: false,
+      status: 0,
+      addRootAfterEmit: "main.tsx",
+      writes: "observed",
+      explicitConflictingRoot: true,
+    },
     {
       name: "nested-space",
       args: ['@"outer args.txt"'],
@@ -179,6 +207,7 @@ export function test_external_response_provenance_preserves_the_actual_producer(
         cwd: root,
         binary: TestProject.TSGO_BINARY,
         env: process.env,
+        writes: scenario.writes,
         run: (args) => {
           calls++;
           assert.deepEqual(
@@ -198,6 +227,19 @@ export function test_external_response_provenance_preserves_the_actual_producer(
           native = TestProject.spawn(TestProject.TSGO_BINARY, [...args], {
             cwd: root,
           });
+          if (scenario.addRootAfterEmit)
+            fs.writeFileSync(
+              path.join(root, "src", scenario.addRootAfterEmit),
+              "export const added = 1;\n",
+            );
+          if (scenario.explicitConflictingRoot)
+            fs.writeFileSync(
+              path.join(root, "tsconfig.json"),
+              JSON.stringify({
+                ...JSON.parse(configText),
+                files: ["src/main.ts", "src/main.tsx"],
+              }),
+            );
           return {
             result: {
               status: native.status ?? 1,
@@ -244,6 +286,15 @@ export function test_external_response_provenance_preserves_the_actual_producer(
           [source],
           scenario.name,
         );
+        if (scenario.addRootAfterEmit) {
+          assert.equal(
+            result.emittedSources?.[
+              path.join(root, "output-" + scenario.name, "added.js")
+            ],
+            undefined,
+            "a root created after emission owns no output in that build",
+          );
+        }
         assert.equal(
           fs.readFileSync(output, "utf8").includes("?.answer"),
           scenario.optional ?? true,
@@ -261,6 +312,11 @@ export function test_external_response_provenance_preserves_the_actual_producer(
           /response file changed/i,
         );
       }
+      if (scenario.addRootAfterEmit && !scenario.proof)
+        assert.match(
+          result.emittedSourceProofFailures?.[output] ?? "",
+          /distinct physical source candidates/,
+        );
       if (scenario.artifact) {
         const directory = path.join(root, scenario.artifact);
         assert.ok(fs.statSync(directory).isDirectory(), scenario.name);
@@ -274,6 +330,14 @@ export function test_external_response_provenance_preserves_the_actual_producer(
       }
     } catch (error) {
       failures.push(new Error(scenario.name, { cause: error }));
+    } finally {
+      if (
+        scenario.addRootAfterEmit &&
+        fs.existsSync(path.join(root, "src", scenario.addRootAfterEmit))
+      )
+        fs.unlinkSync(path.join(root, "src", scenario.addRootAfterEmit));
+      if (scenario.explicitConflictingRoot)
+        fs.writeFileSync(path.join(root, "tsconfig.json"), configText);
     }
   }
   if (failures.length)

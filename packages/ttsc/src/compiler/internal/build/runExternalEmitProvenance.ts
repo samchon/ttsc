@@ -16,12 +16,16 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * when its read-only option and source probes succeeded. Compiler status,
  * diagnostics and user-requested file-list display remain owned by that run.
  *
- * Admission requires stable effective options, identical source selection and
- * stable physical source paths before and after emission, plus unchanged
- * response files and selected executable bytes. Response inspection preserves
- * native argument-frame boundaries and operand positions; the producer and its
- * probes receive the original argv. The executable's change time is excluded
- * from cross-command equality because that metadata changed in real executions
+ * Admission requires stable effective options and physical source paths before
+ * and after emission, plus unchanged response files and selected executable
+ * bytes. A reported source list proves the emitting selection independently of
+ * roots rediscovered by showConfig after emission. When an unreported host's
+ * shown roots change, the union of inspected source populations must still
+ * predict a unique physical owner for each previously predicted write; new
+ * sources can only introduce ambiguity. Response inspection preserves native
+ * argument-frame boundaries and operand positions; the producer and its probes
+ * receive the original argv. The executable's change time is excluded from
+ * cross-command equality because that metadata changed in real executions
  * without changing the executable object or bytes; source contents belong to
  * the compiler's own Program. Each executable read brackets its full metadata.
  * This is an external observation, not an atomic compiler-generation ledger; a
@@ -46,12 +50,12 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * in emittedSourceProofFailures. These explanations preserve compiler streams
  * and status; they do not replace missing ownership with a successful claim.
  *
- * @evidence contracts/common.md#principled-implementation Actual TSFILE writes are matched against the supported upstream per-source extension and explicit-root layout under matching compiler-selected inputs and stable physical source identities and response/executable content observations. No emitted filename alone establishes ownership; observation gaps remain documented.
+ * @evidence contracts/common.md#principled-implementation Actual TSFILE writes are matched against the supported upstream per-source extension and explicit-root layout under matching compiler-selected inputs and stable physical source identities and response/executable content observations. Parsed settings exclude rediscovered showConfig.files. A reporting producer proves its emitting selection; an observed host with changed roots rechecks source selection and includes additional candidates only to reject conflicting physical owners of previously predicted writes. No emitted filename alone establishes ownership; observation gaps remain documented.
  * @evidence contracts/common.md#clear-and-simple-design One adapter owns read-only compiler probes, the single delegated emission and admission; private helpers isolate option parsing, physical observation and path prediction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The selected executable and original arguments remain authoritative. Unknown layouts are reported unknown instead of switching compilers, guessing same-stem ownership or consulting source maps.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain producer preservation, unknown states and the non-atomic observation limitation; the investigation record documents the supported upstream naming subset.
  * @evidence contracts/portability.md#os-neutral-implementation Native node:path and filesystem realpath/stat separate writer spelling from physical source identity. Executables receive separate argv entries through spawnNative, without a shell or OS-based case folding.
- * @evidence contracts/performance.md#efficient-algorithms Source and output indexes avoid cross-product matching. Response inspection uses an iterative frame stack and active physical-path set. Response/executable observations read and hash complete files; source identity checks resolve paths without comparing mutable text; showConfig text, source/output lists, signature JSON, candidate path components and byte buffers are processed at their actual sizes alongside native probes/path operations. No native duration or report-size ceiling follows from using one index.
+ * @evidence contracts/performance.md#efficient-algorithms Source and output indexes avoid cross-product matching; changed observed roots add one native source probe and a deduplicated union of the two populations. Response inspection uses an iterative frame stack and active physical-path set. Response/executable observations read and hash complete files; source identity checks resolve paths without comparing mutable text; showConfig text, source/output lists, signature JSON, candidate path components and byte buffers are processed at their actual sizes alongside native probes/path operations. No native duration or report-size ceiling follows from using one index.
  * @evidence contracts/performance.md#reuse-equivalent-work Each source observation and predicted output index is shared by all outputs in this invocation. Cross-build reuse is unavailable because arbitrary external producer and filesystem dependencies have no invalidation contract.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Response/config/source tokens and predicted owner sets live for this invocation; returned provenance/refusal records transfer to the caller. Retained bytes grow with complete reports, expanded arguments, paths and observations, while individual file reads allocate full file buffers. Probe capture cleanup is delegated and may be best effort; no timeout, output ceiling or descendant-release certification is provided here.
  */
@@ -158,6 +162,7 @@ export function runExternalEmitProvenance(options: {
     : `Emitting source selection differs from its inspection (${probe.files.length} inspected, ${listed.length} reported); first differing inspected path ${JSON.stringify(probe.files[firstDifference])}, reported path ${JSON.stringify(listed[firstDifference === -1 ? probe.files.length : firstDifference])}.`;
   let stage = "response-file reinspection";
   try {
+    let sources = probe.files;
     for (const [file, before] of probe.responseObservations) {
       if (!stable) break;
       stable = CompilerArgumentsInspection.observeInputFile(file) === before;
@@ -165,10 +170,22 @@ export function runExternalEmitProvenance(options: {
         failure = `Compiler response file changed across emission: ${JSON.stringify(file)}.`;
     }
     stage = "effective configuration reinspection";
-    if (stable && readConfig(options)?.text !== probe.text) {
-      stable = false;
-      failure =
-        "Effective configuration changed or could not be reinspected after emission.";
+    if (stable) {
+      const after = readConfig(options);
+      if (after?.signature !== probe.signature) {
+        stable = false;
+        failure =
+          "Effective configuration changed or could not be reinspected after emission.";
+      } else if (
+        observed &&
+        JSON.stringify(after.config.files) !==
+          JSON.stringify(probe.config.files)
+      ) {
+        stage = "post-emission source-list inspection";
+        // An added root can import an output-colliding source, so inspect its
+        // full dependency selection rather than only predicting that root.
+        sources = [...new Set([...sources, ...readSourceList(options)])];
+      }
     }
     stage = `executable observation of ${JSON.stringify(probe.binaryPath)}`;
     if (stable) {
@@ -201,12 +218,15 @@ export function runExternalEmitProvenance(options: {
       const predictOutputs = createOutputPrediction(probe.config, probe.base);
       let predictedSources = 0;
       let sourceExample: string | undefined;
-      for (const source of probe.files) {
+      for (const source of sources) {
         const outputs = predictOutputs(source);
         if (outputs.length === 0) continue;
         predictedSources++;
         sourceExample ??= source;
-        const physicalSource = probe.observations.get(source)!;
+        // Observed writes were predicted before the host ran. A newly selected
+        // source can make their ownership ambiguous, never establish a new write.
+        const physicalSource =
+          probe.observations.get(source) ?? observeSourceIdentity(source);
         for (const output of outputs) {
           const sources = owners.get(output) ?? new Set<string>();
           sources.add(physicalSource);
@@ -332,36 +352,7 @@ function prepareProbe(
         "Original argv does not establish a supported selected configuration directory.",
       );
     stage = "compiler source-list inspection";
-    const listed = spawnNative(
-      options.binary,
-      [
-        ...options.args,
-        "--listFilesOnly",
-        "true",
-        "--listEmittedFiles",
-        "false",
-      ],
-      options,
-    );
-    if (listed.error || listed.status === null || listed.signal !== null)
-      return unavailable(
-        `Selected producer source-list inspection did not complete normally (status ${listed.status}, signal ${listed.signal}, error ${listed.error?.message ?? "none"}).`,
-      );
-    const files = compilerSourceList(
-      String(listed.stdout).split(/\r?\n/),
-      options.cwd,
-    );
-    if (
-      files.length === 0 ||
-      !files.every(
-        (file) =>
-          path.isAbsolute(file) &&
-          /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs|json)$/.test(file),
-      )
-    )
-      return unavailable(
-        `Source-list inspection returned ${files.length} paths and no complete supported source population; first unsupported candidate: ${JSON.stringify(files.find((file) => !path.isAbsolute(file) || !/\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs|json)$/.test(file)))}.`,
-      );
+    const files = readSourceList(options);
     const observations = new Map<string, string>();
     for (const source of files) {
       stage = `initial source observation of ${JSON.stringify(source)}`;
@@ -388,6 +379,37 @@ function prepareProbe(
   }
 }
 
+/** Both source inspections use the same native reporting and admission rules. */
+function readSourceList(
+  options: Parameters<typeof runExternalEmitProvenance>[0],
+): string[] {
+  const listed = spawnNative(
+    options.binary,
+    [...options.args, "--listFilesOnly", "true", "--listEmittedFiles", "false"],
+    options,
+  );
+  if (listed.error || listed.status === null || listed.signal !== null)
+    throw new Error(
+      `Selected producer source-list inspection did not complete normally (status ${listed.status}, signal ${listed.signal}, error ${listed.error?.message ?? "none"}).`,
+    );
+  const files = compilerSourceList(
+    String(listed.stdout).split(/\r?\n/),
+    options.cwd,
+  );
+  if (
+    files.length === 0 ||
+    !files.every(
+      (file) =>
+        path.isAbsolute(file) &&
+        /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs|json)$/.test(file),
+    )
+  )
+    throw new Error(
+      `Source-list inspection returned ${files.length} paths and no complete supported source population; first unsupported candidate: ${JSON.stringify(files.find((file) => !path.isAbsolute(file) || !/\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs|json)$/.test(file)))}.`,
+    );
+  return files;
+}
+
 /**
  * Compiler diagnostics may start with an absolute filename too. Exclude only
  * recognized diagnostic renderings, preserving every other absolute candidate
@@ -405,14 +427,20 @@ function compilerSourceList(lines: readonly string[], cwd: string): string[] {
   );
 }
 
-/** ShowConfig resolves inherited settings and argv overrides in the producer. */
+/**
+ * ShowConfig resolves inherited settings and argv overrides in the producer.
+ * Its expanded files describe the current directory, not the completed emit.
+ * Root changes are handled separately from settings: reporting producers name
+ * their emitting sources, while observed hosts recheck possible contributors.
+ */
 function readConfig(options: Parameters<typeof runExternalEmitProvenance>[0]):
   | {
       config: {
         compilerOptions: Record<string, unknown>;
         references?: unknown[];
+        files?: string[];
       };
-      text: string;
+      signature: string;
     }
   | undefined {
   const result = spawnNative(
@@ -421,8 +449,7 @@ function readConfig(options: Parameters<typeof runExternalEmitProvenance>[0]):
     options,
   );
   if (result.error || result.status !== 0) return undefined;
-  const text = String(result.stdout);
-  const config = JSON.parse(text);
+  const config = JSON.parse(String(result.stdout));
   if (
     !config ||
     typeof config !== "object" ||
@@ -432,7 +459,9 @@ function readConfig(options: Parameters<typeof runExternalEmitProvenance>[0]):
     (config.references !== undefined && !Array.isArray(config.references))
   )
     return undefined;
-  return { config, text };
+  const settings = { ...config };
+  delete settings.files;
+  return { config, signature: JSON.stringify(settings) };
 }
 
 /** ShowConfig path options are relative to the selected config's directory. */
