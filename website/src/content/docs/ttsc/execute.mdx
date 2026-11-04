@@ -45,6 +45,8 @@ Registration is a one-shot load contract, not watch mode. Editing a source after
 
 A run keeps the source text its compiler loaded. Saving a source while that generation is being checked or emitted does not invalidate a coherent result; later runs read the new source. Native check and transform stages share that invocation's captured reads. Cache admission separately checks whether the disk still matches, so an edit can prevent cache publication without failing execution. Compiler diagnostics, changed project selection and unavailable source ownership retain their ordinary errors.
 
+When only check plugins are configured, the default compiler emits from that same captured view and receives forwarded compiler options through the native argument channel.
+
 ## Scripts your tsconfig does not include
 
 `ttsc` and `ttsx` select different things from the same `tsconfig.json`. `ttsc` selects a **file set**: a project whose `include` is `["src"]` compiles only `src` into `outDir`, and a `clear.ts`, a `build/release.ts`, or a `lint.config.ts` sitting beside the tsconfig stays out of the output. `ttsx` selects an **entry**: it needs that project's compiler options, not its file list.

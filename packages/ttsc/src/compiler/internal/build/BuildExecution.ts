@@ -1050,7 +1050,10 @@ export namespace BuildExecution {
       options,
     );
     const env = SidecarEnvironment.merge(options.env, {
-      [TSGO_ARGS_ENV]: JSON.stringify(forwarded),
+      // createNativeBuildTsgoArgs already returns JSON-encoded argv. Forward
+      // it unchanged: encoding it again sends a JSON string to the Go driver's
+      // []string decoder and prevents every nonempty snapshot emit payload.
+      [TSGO_ARGS_ENV]: forwarded,
       [TSGO_ARGS_CWD_ENV]: execution.compilerSelection.compilerArgsCwd,
     });
     const compiled = compileProjectInMemory({

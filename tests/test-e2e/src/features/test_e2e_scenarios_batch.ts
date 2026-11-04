@@ -74,6 +74,7 @@ import { test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies } from "
 import { test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp } from "./ttsc/project/test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp";
 import { test_resolution_recorder_observes_require_resolve_through_the_supported_hooks } from "./ttsc/project/test_resolution_recorder_observes_require_resolve_through_the_supported_hooks";
 import { test_spawn_sync_resilient_broker_preserves_process_contract } from "./ttsc/project/test_spawn_sync_resilient_broker_preserves_process_contract";
+import { case_snapshot_compiler_preserves_forwarded_arguments } from "./ttsc/scenes/case_snapshot_compiler_preserves_forwarded_arguments";
 import { case_watch_topology_worker_owns_responsive_ordered_lifetimes } from "./ttsc/scenes/case_watch_topology_worker_owns_responsive_ordered_lifetimes";
 import { test_ttscserver_exits_on_exit_while_stdin_stays_open } from "./ttsc/ttscserver/test_ttscserver_exits_on_exit_while_stdin_stays_open";
 import { test_ttscserver_exits_on_stdin_close } from "./ttsc/ttscserver/test_ttscserver_exits_on_stdin_close";
@@ -299,6 +300,10 @@ export async function test_e2e_scenarios_batch(): Promise<void> {
 
 /** The scenarios this batch owns, by exported name. */
 const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
+  [
+    "case_snapshot_compiler_preserves_forwarded_arguments",
+    case_snapshot_compiler_preserves_forwarded_arguments,
+  ],
   [
     "test_bun_content_mapper_permissions_and_dependencies",
     test_bun_content_mapper_permissions_and_dependencies,
