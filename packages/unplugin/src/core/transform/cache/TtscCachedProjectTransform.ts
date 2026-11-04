@@ -2,6 +2,7 @@ import type { ITtscCompilerTransformation } from "ttsc";
 
 import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMembershipPolicy";
 import type { TtscCompilerMembershipHint } from "../generation/TtscCompilerMembershipHint";
+import type { TtscGenerationProofFailure } from "../generation/TtscGenerationProofFailure";
 import type { TtscProjectDirectorySnapshot } from "../project/TtscProjectDirectorySnapshot";
 import type { TtscProjectMutationTracker } from "../tracker/TtscProjectMutationTracker";
 import type { TtscCompilerArgumentsWitness } from "../tsconfig/TtscCompilerArgumentsWitness";
@@ -19,6 +20,8 @@ import type { TtscHostInputValidation } from "../validation/TtscHostInputValidat
  * generation before later first deliveries may share that proof. Deliveries
  * reaching source-baseline comparison still cost a text hash and may require
  * disk comparison when they diverge; unrelated modules can return before it.
+ * Captured native snapshots may instead retain original-pass delivery only,
+ * without claiming the edited disk still matches or granting future reuse.
  * Persistent graph-bearing requests may use derived-input validation only with
  * qualified membership and universal authority; unavailable narrow proof uses
  * the complete recorded snapshot.
@@ -44,6 +47,27 @@ import type { TtscHostInputValidation } from "../validation/TtscHostInputValidat
  *   retained state at runtime.
  */
 export interface TtscCachedProjectTransform {
+  /**
+   * Coherent captured output whose disk freshness was lost; never shared or
+   * persisted.
+   */
+  snapshotDeliveryOnly?: boolean;
+
+  /**
+   * Borrowed generation-owned classifier, absent without a captured native
+   * view.
+   *
+   * @evidence contracts/common.md#principled-implementation The sticky compatibility verdict accounts for every occurrence before diagnostic truncation; after its first refusal no later occurrence can restore delivery authority.
+   * @evidence contracts/common.md#clear-and-simple-design Collectors borrow one generation classifier rather than rebuilding its recorded-input index.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The callback records compatibility only; callers still require complete producer proof and never infer cache freshness from it.
+   * @evidence contracts/common.md#meaningful-documentation The member states optionality and ownership, while the generation classifier documents actual path and kind admission.
+   * @evidence contracts/portability.md#os-neutral-implementation The callback receives native lexical witness paths and delegates their interpretation to the generation's classifier.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This signature declares no runtime computation; the classifier implementation owns its index and lookup costs.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This signature declares no memo; generation capture owns sharing the callback.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This signature acquires no resource; generation capture owns the borrowed closure's lifetime.
+   */
+  snapshotFailureClassifier?: (failure: TtscGenerationProofFailure) => boolean;
+
   /** Native settings learned under this capture's validated config-policy basis. */
   compilerMembership?: TtscCompilerMembershipHint;
 

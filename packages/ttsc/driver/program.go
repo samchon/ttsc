@@ -2,6 +2,7 @@ package driver
 
 import (
   "context"
+  "errors"
   "fmt"
   "io"
   "os"
@@ -329,8 +330,9 @@ type Program struct {
   compilerArgumentInputs []string
 
   // FS is the input-observing filesystem, including any source preamble layer.
-  FS            vfs.FS
-  inputObserver *inputObservationFS
+  FS                  vfs.FS
+  compilationSnapshot *compilationSnapshotFS
+  inputObserver       *inputObservationFS
 
   // SourcePreamble is the injected text used when correcting authored positions.
   SourcePreamble  string
@@ -407,16 +409,16 @@ type LoadProgramOptions struct {
 
 // Close releases the checker pool lease acquired by LoadProgram and, on the
 // TypeScript 7.1 target, stops the project's content-mapper processes. Its
-// error is the content mappers' close error.
+// error joins content-mapper shutdown and compilation-snapshot publication errors.
 //
-// @evidence contracts/common.md#principled-implementation The recorded release callback returns the checker lease once and is cleared after release; the project hosts then close the mapper project and processes the Program's hosts shared.
+// @evidence contracts/common.md#principled-implementation The checker lease and project hosts are detached once; dirty snapshot answers are published through their detached invocation owner, and mapper and publication errors are joined without skipping mapper shutdown.
 // @evidence contracts/common.md#clear-and-simple-design Checker and content-mapper ownership share one cleanup operation instead of independent releases by each consumer.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Cleanup invokes the owned callbacks rather than patching the checker pool, and returns the mapper close error instead of fabricating success.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Cleanup invokes the owned callbacks rather than patching the checker pool, and returns joined mapper/publication errors instead of fabricating success.
 // @evidence contracts/common.md#meaningful-documentation Native prose names the lease and the mapper processes released and the error returned, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Checker release is in-process; stopping a mapper process goes through the shim's os/exec boundary.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Releasing two recorded owners involves no input-processing algorithm.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Cleanup does not determine whether compiler outputs may be reused.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Program owns one checker lease and its project hosts; Close clears both, so repeated Close releases neither twice, and leaves facade memory lifetime to the caller.
+// @evidence contracts/portability.md#os-neutral-implementation Checker release is in-process; mapper shutdown uses the shim's os/exec boundary, while dirty snapshot publication uses native file writes and same-directory rename.
+// @evidence contracts/performance.md#efficient-algorithms Release bookkeeping is fixed work; a dirty snapshot additionally serializes and writes its complete captured text, paths and predicates, with temporary encoded bytes proportional to that population.
+// @evidence contracts/performance.md#reuse-equivalent-work Detaching publication ownership prevents repeated Close from overwriting a later stage; a clean snapshot avoids repeated serialization. This does not establish output-cache freshness.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Program owns the checker lease, project hosts and one snapshot publication owner; Close detaches them once. The FS stack and caller aliases can still retain captured text and predicate maps until released; invocation storage cleanup belongs to the coordinator, and publication failure can leave staging for that cleanup.
 func (p *Program) Close() error {
   if p.checkerRelease != nil {
     p.checkerRelease()
@@ -424,7 +426,12 @@ func (p *Program) Close() error {
   }
   hosts := p.hosts
   p.hosts = nil
-  return hosts.Close()
+  var snapshotError error
+  if snapshot := p.compilationSnapshot; snapshot != nil {
+    p.compilationSnapshot = nil
+    snapshotError = snapshot.save()
+  }
+  return errors.Join(hosts.Close(), snapshotError)
 }
 
 // ParseTSConfig parses a tsconfig.json file via tsgo's native JSONC parser.
@@ -590,15 +597,20 @@ func forceSingleChecker(parsed *tsoptions.ParsedCommandLine) {
 // Relative cwd is resolved against the process cwd when filepath.Abs succeeds;
 // callers should provide an absolute anchor. tsconfigPath may be relative to it.
 //
+// An enabled private compilation-snapshot document shares first-read text and
+// lookup answers across sequential native stages. This is not an atomic volume
+// snapshot. Program owns dirty publication through Close; the invocation
+// coordinator owns removal of the private transport storage.
+//
 // @evidence contracts/common.md#principled-implementation Plugin preambles enter before parsing, native CLI/config merging resolves options before Program creation, and the facade associates the observing VFS and borrowed checker with that generation; this is not a certificate of every filesystem access by plugins or their host.
 // @evidence contracts/common.md#clear-and-simple-design One loader orders plugin config, filesystem layers, config overrides and checker acquisition; an optional failure sink transfers only the rejected load's observed recovery inputs.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid configuration or CLI input returns before construction; an explicitly empty argument list does not fall through to an ancestor's flags.
 // @evidence contracts/common.md#meaningful-documentation Native prose and options document one-shot load, path anchoring, force overrides and checker ownership under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation Native cwd resolution uses filepath/tspath and the chosen VFS provides actual case and path capabilities; semantic wrapper ownership uses an explicit config path.
-// @evidence contracts/performance.md#efficient-algorithms One load composes plugin/preamble work, config/CLI parsing, native Program processing and checker acquisition with VFS observation. A requested failed-load graph additionally snapshots, projects and sorts the observed predicate population and invokes the caller's sink. Read-text hashing runs on each observed read, including repeated reads; config/source bytes, native resolution and directory work, plugin callbacks and retained observation maps govern cost rather than only facade construction.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This one-shot factory does not coordinate callers; Session and resident hosts own cross-request compiler reuse.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Errors before checker acquisition return no lease; an optional synchronous sink receives call-owned recovery metadata once after observation starts. Successful loading transfers checker and mapper ownership plus input/plugin ledgers to Program; Close releases owned native resources, while caller reachability controls remaining facade state.
-func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program, []Diagnostic, error) {
+// @evidence contracts/performance.md#efficient-algorithms One load composes plugin/preamble work, config/CLI parsing, native Program processing and checker acquisition with VFS observation. A requested failed-load graph additionally snapshots, projects and sorts the observed predicate population and invokes the caller's sink. An enabled snapshot also parses the preceding full document and publishes its dirty complete captured population. Read-text hashing runs on each observed read, including repeated reads; config/source bytes, native resolution and directory work, plugin callbacks and retained observation maps govern cost rather than only facade construction.
+// @evidence contracts/performance.md#reuse-equivalent-work An enabled private document shares first-read answers only across sequential stages of its invocation; fresh invocations start empty. Session and resident hosts retain ownership of cross-request Program reuse.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Errors before checker acquisition return no lease; an optional synchronous sink receives call-owned recovery metadata once after observation starts. Successful loading transfers checker and mapper ownership plus input/plugin ledgers to Program; Close releases owned native resources and detaches snapshot publication; FS/caller reachability controls captured-memory lifetime, and the invocation coordinator removes transport storage.
+func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (program *Program, diagnostics []Diagnostic, loadError error) {
   if !filepath.IsAbs(cwd) {
     if abs, err := filepath.Abs(cwd); err == nil {
       cwd = abs
@@ -623,6 +635,24 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   fs := options.FS
   if fs == nil {
     fs = DefaultFS()
+  }
+  var snapshot *compilationSnapshotFS
+  if filename := os.Getenv("TTSC_COMPILATION_SNAPSHOT"); filename != "" {
+    var err error
+    snapshot, err = openCompilationSnapshot(fs, filename)
+    if err != nil {
+      return nil, nil, fmt.Errorf("compilation snapshot: %w", err)
+    }
+    fs = snapshot
+    defer func() {
+      if err := snapshot.save(); err != nil {
+        if program != nil {
+          program.Close()
+          program = nil
+        }
+        loadError = errors.Join(loadError, fmt.Errorf("compilation snapshot publication: %w", err))
+      }
+    }()
   }
   inputObserver := newInputObservationFS(fs)
   loaded := false
@@ -716,6 +746,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
     mapperDependencyError:  mapperDependencyError,
     compilerArgumentInputs: compilerArgumentInputs,
     FS:                     fs,
+    compilationSnapshot:    snapshot,
     inputObserver:          inputObserver,
     SourcePreamble:         options.SourcePreamble,
   }

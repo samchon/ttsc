@@ -52,6 +52,12 @@ export namespace ITtscCompilerTransformation {
    */
   export interface IReferenceGraph {
     /**
+     * Shared native read-once input view; current delivery authority, never
+     * disk freshness.
+     */
+    compilationSnapshot?: string;
+
+    /**
      * Effective native possible-root suffixes and output-directory exclusions.
      * A report that differs from a host's provisional policy requires a new
      * membership walk. Directory paths are absolute; null clears an option.

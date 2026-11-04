@@ -367,7 +367,9 @@ This also narrows when type diagnostics refresh. An error introduced outside the
 
 Plugins whose output depends on non-file inputs declare those files [`volatile`](/docs/development/concepts/protocol#transform) to exclude them from caching.
 
-Changed inputs during compilation cause a bounded stabilization retry. Incomplete output is not retained for reuse.
+Native compiler stages share captured source text and lookup answers for each compilation. If a source changes after the compiler reads it, a coherent local result can complete its current delivery pass. Its recorded compiler inputs still notify the host, so a watching build can request the edited generation. That result is not published to shared or persistent caches, and later passes validate or compile the new inputs.
+
+A producer without captured-input authority, or one with missing, contradictory or unobserved dependencies, still uses bounded stabilization retries. Incomplete output is not retained for reuse.
 
 Failed transforms retain known recovery inputs so repairing an internal or external dependency can trigger another compile, including after a failed first build. Unchanged failures are shared within a build pass. Closing the host releases its observers and sessions.
 

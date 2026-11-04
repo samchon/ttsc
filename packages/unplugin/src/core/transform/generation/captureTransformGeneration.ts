@@ -12,6 +12,8 @@ import { TRANSFORM_RESULT_MEMBERSHIP } from "../cache/TRANSFORM_RESULT_MEMBERSHI
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { refreshFilesystemClockReference } from "../clock/refreshFilesystemClockReference";
 import { reportDivergentDelivery } from "../diagnostics/reportDivergentDelivery";
+import { envelopeDerivation } from "../envelope/envelopeDerivation";
+import { envelopeGraphIndexes } from "../envelope/envelopeGraphIndexes";
 import { generationCaseSensitivity } from "../envelope/generationCaseSensitivity";
 import { selectDeclaredProjectInputKeys } from "../envelope/selectDeclaredProjectInputKeys";
 import { selectExternalInputPaths } from "../envelope/selectExternalInputPaths";
@@ -49,8 +51,10 @@ import { witnessExternalDependencies } from "../validation/witnessExternalDepend
 import { TRANSFORM_FAILED_GENERATION_VALIDATIONS } from "./TRANSFORM_FAILED_GENERATION_VALIDATIONS";
 import { TRANSFORM_GENERATION_FAILURES } from "./TRANSFORM_GENERATION_FAILURES";
 import type { TtscCompilerMembershipHint } from "./TtscCompilerMembershipHint";
+import { canDeliverCompilerSnapshot } from "./canDeliverCompilerSnapshot";
 import { captureFailedGenerationInputStates } from "./captureFailedGenerationInputStates";
 import { captureTransformSourceHashes } from "./captureTransformSourceHashes";
+import { compilerSnapshotFailureClassifier } from "./compilerSnapshotFailureClassifier";
 import { createGenerationProofFailures } from "./createGenerationProofFailures";
 import { mergeGenerationProofFailures } from "./mergeGenerationProofFailures";
 import { primeCompilerMembership } from "./primeCompilerMembership";
@@ -655,8 +659,9 @@ export async function captureTransformGeneration(props: {
       hostInputTracker,
       candidateTracker,
     );
-    // The compile read this file from disk, so the disk's bytes are its state in
-    // this generation. A delivered text that differs, because a plugin ordered
+    // Ordinary stable captures use the disk baseline below; snapshot-only
+    // delivery later replaces it with the compiler's captured source hash.
+    // Delivered text that differs, because a plugin ordered
     // before ttsc rewrote the module or the file changed after the host read
     // it, must not replace them: every sibling delivery compares the disk and
     // would recompile the project (samchon/ttsc#1394). An actual delivery is reported once
@@ -711,21 +716,15 @@ export async function captureTransformGeneration(props: {
         ? {}
         : { temporaryTsconfig: envelopeTemporaryTsconfig }),
     };
+    cached.snapshotFailureClassifier = compilerSnapshotFailureClassifier(
+      result,
+      projectRoot,
+    );
     cached.sourceHashes = captureTransformSourceHashes(
       cached,
       props.currentFile,
       diskHash ?? deliveredHash,
     );
-    // Preparation reads native source only to seed the ordinary capture. A
-    // later edit is handled by generation proof, not a warning about a host
-    // rewrite: no host delivered that speculative module (#1764).
-    if (
-      props.reportDivergence !== false &&
-      diskHash !== undefined &&
-      diskHash !== deliveredHash
-    ) {
-      reportDivergentDelivery(cached, props.currentFile);
-    }
     // An adopted compile was certified by its publisher, and is matched below
     // against the state that publisher recorded.
     const externalInputSnapshot = captureExternalInputSnapshot(
@@ -764,7 +763,9 @@ export async function captureTransformGeneration(props: {
     // Evaluate every proof family rather than short-circuiting after the first
     // failed one, so a rejected generation reports every missing premise. The
     // same checks establish a successful generation's reuse authority.
-    const failures = createGenerationProofFailures();
+    const failures = createGenerationProofFailures(
+      cached.snapshotFailureClassifier,
+    );
     if (!configStable) {
       recordGenerationProofFailure(failures, {
         domain: "project",
@@ -828,6 +829,33 @@ export async function captureTransformGeneration(props: {
       externalInputSnapshot.complete &&
       adoptionFailure === undefined &&
       universalInputs;
+    const snapshotDeliveryOnly =
+      !stableProjectSnapshot &&
+      canDeliverCompilerSnapshot({
+        result,
+        projectRoot,
+        failures,
+        adopted: adopted !== undefined,
+      });
+    const capturedSource = snapshotDeliveryOnly
+      ? envelopeGraphIndexes(
+          envelopeDerivation(cached),
+          cached,
+        ).inputObservations.get(path.resolve(props.currentFile))?.readFile
+      : undefined;
+    // A source save between the compiler read and the postcompile walk is not
+    // proof of an earlier host rewrite. For a raced snapshot, report one only
+    // when the compiler and disk still agree on this module's source content.
+    if (
+      props.reportDivergence !== false &&
+      diskHash !== undefined &&
+      diskHash !== deliveredHash &&
+      (!snapshotDeliveryOnly ||
+        (before.hashes[currentFileKey] === diskHash &&
+          capturedSource?.ok === true &&
+          capturedSource.hash === diskHash))
+    )
+      reportDivergentDelivery(cached, props.currentFile);
     // An adopted envelope failed either because the publication does not hold
     // on this disk or because this worker's own window moved around it, and
     // only the first speaks against the publication (samchon/ttsc#1479). The
@@ -977,6 +1005,15 @@ export async function captureTransformGeneration(props: {
       });
     }
     cached.projectSnapshotComplete = stableProjectSnapshot;
+    cached.snapshotDeliveryOnly = snapshotDeliveryOnly;
+    if (cached.snapshotDeliveryOnly && props.deliveryEpoch !== undefined)
+      cached.passDeliveryOnly = true;
+    if (cached.snapshotDeliveryOnly)
+      cached.sourceHashes = captureTransformSourceHashes(
+        cached,
+        props.currentFile,
+        diskHash ?? deliveredHash,
+      );
     // Attach notifications only while they can actually prove membership. A
     // generation that could not open its watchers keeps its recorded snapshot
     // and validates through it, rather than losing the cache entirely.

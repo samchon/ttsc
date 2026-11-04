@@ -339,6 +339,7 @@ export function parseReferenceGraph(
     return undefined;
   }
   const section = value as {
+    compilationSnapshot?: unknown;
     candidates?: unknown;
     configs?: unknown;
     edges?: unknown;
@@ -420,6 +421,10 @@ export function parseReferenceGraph(
   }
   return {
     ...(Object.keys(candidates).length === 0 ? {} : { candidates }),
+    ...(typeof section.compilationSnapshot === "string" &&
+    section.compilationSnapshot.length !== 0
+      ? { compilationSnapshot: section.compilationSnapshot }
+      : {}),
     configs,
     edges,
     globals,

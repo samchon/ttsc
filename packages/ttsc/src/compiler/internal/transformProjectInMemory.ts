@@ -11,6 +11,7 @@ import type { ITtscCompilerTransformation } from "../../structures/ITtscCompiler
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
+import { CompilationSnapshot } from "./CompilationSnapshot";
 import { appendBuildOutput, mergeCheckGraphs } from "./build/appendBuildOutput";
 import { normalizeBuildOutput } from "./build/normalizeBuildOutput";
 import { buildNativeCompiler } from "./buildNativeCompiler";
@@ -60,10 +61,10 @@ import { spawnNative } from "./spawnNative";
  * @evidence contracts/common.md#clear-and-simple-design One router composes built-in and plugin-backed transforms; envelope parsers, environment construction, proof merging and negative-only observation limits have separate shared helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing input proof cannot be repaired by a postcompile baseline; conventional deferred config reads accept only the actual native consumer's proof, while malformed required TypeScript output is a protocol error.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe transform lanes and stage ordering; separated result members distinguish output, advisory graph/dependency data, evaluation witnesses and unstable source markers under documentation guidance.
- * @evidence contracts/performance.md#efficient-algorithms Stage filtering, declared-input Sets and proof maps scale with plugin/input counts; merged paths are sorted with path-text comparison costs. Each stage can rehash/re-realpath declared inputs, serialize plugin/config records and parse complete output; discovery, native capability probes, source builds and child execution remain delegated costs of this call. No byte/work ceiling or measured dominant-cost ranking is asserted.
- * @evidence contracts/performance.md#reuse-equivalent-work Source-plugin artifacts are shared by their owning loader; this transform intentionally produces a current generation and gives downstream consumers the graph, source states and host witnesses required to qualify reuse.
+ * @evidence contracts/performance.md#efficient-algorithms Stage filtering, declared-input Sets and proof maps scale with plugin/input counts; merged paths are sorted with path-text comparison costs. Each stage can rehash/re-realpath declared inputs, serialize plugin/config records and parse complete output; discovery, native capability probes, source builds and child execution remain delegated costs of this call. The invocation snapshot adds full captured-population parsing and dirty document encoding/writes per native stage. No byte/work ceiling or measured dominant-cost ranking is asserted.
+ * @evidence contracts/performance.md#reuse-equivalent-work Descriptor/source discovery precedes snapshot allocation so invocation-private paths do not vary its environment cache identity. Source-plugin artifacts are shared by their owning loader; this transform intentionally produces a current generation and gives downstream consumers the graph, source states and host witnesses required to qualify reuse.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources This router retains discovery records, per-stage proof maps and accumulated diagnostics/output until synchronous stage completion, then transfers the returned envelope. Native capture/observation owners attempt their own cleanup; suppressed cleanup failures and descendant release remain unconfirmed where those owners do not join them. Artifact-cache retention belongs to the builder, and no stage timeout or input/output byte ceiling is supplied here.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This router retains discovery records, per-stage proof maps and accumulated diagnostics/output until synchronous stage completion, then transfers the returned envelope. The invocation coordinator attempts identity-checked snapshot removal and propagates or aggregates removal failure. Other native capture/observation owners attempt their own cleanup; suppressed cleanup failures and descendant release remain unconfirmed where those owners do not join them. Artifact-cache retention belongs to the builder, and no stage timeout or input/output byte ceiling is supplied here.
  *
  * @evidence contracts/portability.md#os-neutral-implementation Native paths remain filesystem coordinates, child argv are arrays, and environment helpers preserve Windows key equivalence and explicit Node/tsgo/config anchors without shell parsing or native method patching.
  */
@@ -123,6 +124,16 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
     projectRoot: options.projectRoot,
     tsconfig: options.tsconfig,
   });
+  return CompilationSnapshot.run(options.env, (env) =>
+    transformWithSnapshot({ ...options, env }, loaded),
+  );
+}
+
+/** Run native checks and transformation after descriptor/source discovery. */
+function transformWithSnapshot(
+  options: ITtscCompilerContext,
+  loaded: ReturnType<typeof loadProjectPlugins>,
+): ReturnType<typeof transformProjectInMemory> {
   if (loaded.nativePlugins.length !== 0) {
     // Every step below runs binaries built from these sources, so the output
     // is a function of their state, which the envelope carries for a consumer
@@ -393,7 +404,11 @@ function transformProjectWithPlugins(
     );
     return {
       ...envelopeSideChannels(transformed),
-      graph: mergeCheckGraphs(checked.graph, transformed.graph),
+      graph: mergeTransformGraphs(
+        checked.graph,
+        transformed.graph,
+        checks.length,
+      ),
       ...observationLimitations(
         [loaded, checked, transformed],
         hostInputHashes,
@@ -476,7 +491,7 @@ function transformProjectWithPlugins(
   );
   return {
     ...envelopeSideChannels(output),
-    graph: mergeCheckGraphs(checked.graph, output.graph),
+    graph: mergeTransformGraphs(checked.graph, output.graph, checks.length),
     ...observationLimitations(
       [loaded, checked, output],
       hostInputHashes,
@@ -708,6 +723,7 @@ function runNativeChecks(
     stdout: "",
     stderr: "",
   };
+  let snapshotsComplete = true;
   for (const plugin of checks) {
     const checked = runNativeCheckWithObservations(plugin, (extraArgs) => {
       const res = spawnNative(
@@ -748,7 +764,12 @@ function runNativeChecks(
         project.root,
       );
     });
+    snapshotsComplete &&= checked.graph?.compilationSnapshot !== undefined;
     result = appendBuildOutput(result, checked);
+    if (!snapshotsComplete && result.graph?.compilationSnapshot !== undefined) {
+      const { compilationSnapshot: _snapshot, ...unqualified } = result.graph;
+      result.graph = unqualified;
+    }
     if (result.status !== 0) {
       return result;
     }
@@ -876,4 +897,24 @@ function nativePluginEnv(
       : [],
   );
   return env;
+}
+
+/**
+ * A legacy check with no graph cannot certify the transform's shared input
+ * view.
+ */
+function mergeTransformGraphs(
+  checked: TtscBuildResult["graph"],
+  transformed: TtscBuildResult["graph"],
+  checks: number,
+): TtscBuildResult["graph"] {
+  const graph = mergeCheckGraphs(checked, transformed);
+  if (
+    graph === undefined ||
+    checks === 0 ||
+    checked?.compilationSnapshot !== undefined
+  )
+    return graph;
+  const { compilationSnapshot: _snapshot, ...unqualified } = graph;
+  return unqualified;
 }

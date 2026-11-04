@@ -66,6 +66,7 @@ export function deliverCachedTransform(props: {
       epoch,
       hooks,
     );
+    if (cached.snapshotDeliveryOnly === true) hooks?.markVolatile?.();
     reportSuccessDiagnostics(cached, epoch);
     let output;
     try {
@@ -90,7 +91,10 @@ export function deliverCachedTransform(props: {
     notifyVolatileDelivery(hooks, cached, file);
     return createTransformResult(file, source, output);
   } catch (error) {
-    if (cached.freshDeliveryOnly === true)
+    if (
+      cached.freshDeliveryOnly === true ||
+      cached.snapshotDeliveryOnly === true
+    )
       evictGeneration(cache, key, generation);
     throw error;
   }

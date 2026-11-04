@@ -34,6 +34,7 @@ import {
 import { test_plain_launch_proves_its_runtime_and_compiler_without_streaming } from "./ttsc/compiler/test_plain_launch_proves_its_runtime_and_compiler_without_streaming";
 import { test_plugin_corpus_source_plugin_warm_load_proves_inputs_without_go_selection } from "./ttsc/native-plugins/corpus-source/test_plugin_corpus_source_plugin_warm_load_proves_inputs_without_go_selection";
 import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/project/test_owned_native_process_joins_cancelled_command_trees";
+import { case_compilation_snapshots_survive_source_edits } from "./ttsc/scenes/case_compilation_snapshots_survive_source_edits";
 import { case_project_root_keeps_isolated_plugin_resolution_anchored_at_config } from "./ttsc/scenes/case_project_root_keeps_isolated_plugin_resolution_anchored_at_config";
 import { case_worker_modules_preserve_inherited_node_execution_options } from "./ttsc/scenes/case_worker_modules_preserve_inherited_node_execution_options";
 
@@ -193,6 +194,10 @@ import { case_worker_modules_preserve_inherited_node_execution_options } from ".
  * every owner is locally absent; a valid short-circuit preserves the
  * independently attributed main generation and its actual owner/source bytes.
  * Original EXIT/CLOSE records do not imply immediate numeric PID absence.
+ *
+ * The compilation-snapshot scene borrows the installed SDK and native source
+ * producer to exercise source edits during ApplyProgram and external emission,
+ * current-pass sibling reuse, later-pass invalidation and diagnostic recovery.
  *
  * @evidence contracts/testing.md#behavioral-verification Native static ESM linking must expose all six literal package-star bindings while default/require values and one-evaluation counters agree. Installed-boundary plugin effects must match the authored JSON oracle in both public runtime and retained register output; authored fixture bytes and the complete non-cache population remain unchanged; only the independently expected default plugin cache is omitted before traversal, and orphan maps identify all three authored sources by native physical paths. Opt-in compiler rewrite events retain the actual primitive attempt/return/throw with the existing identity and caller thread; these observations do not certify the OS lock owner. The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects. The original binding-only main.mjs and independent b/a modules also execute inside this same Node graph, requiring exactly one b,a stdout line and unchanged authored bytes.
  * @evidence contracts/testing.md#independent-expectations Authored require/import targets have distinct literal values, and consumerEffect versus ownEffect independently distinguishes isolated, consumer-owned and package-owned compilation. The static expected.json is authored before execution, never derived from emitted code or runtime results. The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation. Windows native environment-name identity requires the constructor's literal missing Go executable to reach one actual failed primitive, independently of its documented diagnostic envelope; POSIX distinct names require no attempt of that missing path while the three positive API operations retain their existing descriptor and output assertions.
@@ -2150,6 +2155,19 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       await BatchWorkspace.open();
       case_worker_modules_preserve_inherited_node_execution_options({
         cacheDir: workspace.cache,
+      });
+    } catch (error) {
+      combinedFailures.push(error);
+    }
+  }
+  if (!workspace.installationOnly) {
+    try {
+      await BatchWorkspace.open();
+      await case_compilation_snapshots_survive_source_edits({
+        root: workspace.root,
+        source: path.join(workspace.root, "native-source/compile-probe"),
+        cacheDir: workspace.cache,
+        installedTtsx: workspace.installedTtsx,
       });
     } catch (error) {
       combinedFailures.push(error);

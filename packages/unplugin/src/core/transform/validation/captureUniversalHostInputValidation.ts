@@ -57,7 +57,9 @@ export function captureUniversalHostInputValidation(
 } {
   const filesystem = resultFilesystem(cached.result);
   const state = envelopeDerivation(cached);
-  const failures = createGenerationProofFailures();
+  const failures = createGenerationProofFailures(
+    cached.snapshotFailureClassifier,
+  );
   const validation: TtscHostInputValidation = {
     entries: new Map(),
     covered: new Set(),

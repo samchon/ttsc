@@ -1,3 +1,4 @@
+import { CompilationSnapshot } from "../CompilationSnapshot";
 import { SidecarEnvironment } from "./SidecarEnvironment";
 import { clearInheritedSemanticConfigPath } from "./clearInheritedSemanticConfigPath";
 import { clearInheritedTsgoArgs } from "./clearInheritedTsgoArgs";
@@ -6,7 +7,8 @@ import { publishLinkedTransformPlugins } from "./publishLinkedTransformPlugins";
 /**
  * Merge inherited and caller environments with native variable-name identity,
  * then clear per-invocation payloads this lane never published: forwarded tsgo
- * arguments, semantic config ownership and the linked-plugin manifest.
+ * arguments, compilation snapshot, semantic config ownership and the
+ * linked-plugin manifest.
  *
  * Use it at every spawn whose child can reach `driver.LoadProgram` — the
  * `api-compile` / `api-transform` hosts, and the plugin loader, whose `ttsx`
@@ -40,6 +42,11 @@ export function inheritedSidecarEnv(
   );
   clearInheritedTsgoArgs(env, callerEnv);
   clearInheritedSemanticConfigPath(env, callerEnv);
+  SidecarEnvironment.write(
+    env,
+    CompilationSnapshot.ENV,
+    SidecarEnvironment.read(callerEnv, CompilationSnapshot.ENV),
+  );
   publishLinkedTransformPlugins(env, callerEnv, []);
   return env;
 }

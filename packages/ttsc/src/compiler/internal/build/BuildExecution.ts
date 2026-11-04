@@ -13,6 +13,8 @@ import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOpt
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonOptions";
 import type { TtscPluginSourceInputsHandler } from "../../../structures/internal/TtscSingleFileEmitOptions";
+import { CompilationSnapshot } from "../CompilationSnapshot";
+import { compileProjectInMemory } from "../compileProjectInMemory";
 import { outputText } from "../outputText";
 import { CompilerProjectSelection } from "../project/CompilerProjectSelection";
 import { readProjectConfig } from "../project/readProjectConfig";
@@ -226,6 +228,11 @@ export namespace BuildExecution {
       clearInheritedTsgoArgs(env, extra);
     }
     clearInheritedSemanticConfigPath(env, extra);
+    SidecarEnvironment.write(
+      env,
+      CompilationSnapshot.ENV,
+      SidecarEnvironment.read(extra, CompilationSnapshot.ENV),
+    );
     // The anchor is per-invocation state owned by this host: when this run
     // declared none (and the caller's env does not name one), drop any value
     // inherited from an ancestor ttsc process so a nested build never
@@ -363,18 +370,41 @@ export namespace BuildExecution {
    * opted-in native host reports its captured generation, while the direct
    * compiler adapter admits only a stable observed selection and supported
    * output layout. Unknown ownership remains explicit for consumers rather than
-   * guessed.
+   * guessed. Native runtime stages share one invocation-owned read-once view;
+   * configured checks followed by the exact installed compiler emit through its
+   * matching native target, while custom compiler executables remain
+   * delegated.
    *
    * @evidence contracts/common.md#principled-implementation Ordered checks block emit on failure and retain negotiated same-generation input observations for the actual check verb; effectful fix/format results keep their distinct command contract without fabricated reusable check metadata; transforms use one compatible host. Normally completed native partial emission and supported stable external emission can retain actual-write provenance alongside unchanged nonzero status, while interrupted or unknown generations establish no proof.
    * @evidence contracts/common.md#clear-and-simple-design This dispatcher owns phase policy while argv, spawning, normalization and fallback comparison remain shared helpers used by one-shot and watch lanes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Format bypass follows its write-only contract; capability-based diagnostics/provenance and failure fallback preserve supported producer semantics without plugin-name shortcuts, foreign mutation or filename-based ownership guesses.
    * @evidence contracts/common.md#meaningful-documentation Native prose states ordering, format effects and thrown boundary failures; branch comments explain nonobvious emission and display policies.
    * @evidence contracts/portability.md#os-neutral-implementation Commands preserve native executable/argv/cwd boundaries; provenance uses a canonical unique temporary directory and absolute native wire paths without post-compile realpath reconstruction or OS-derived case folding.
-   * @evidence contracts/performance.md#efficient-algorithms Plugin/stage selection scans the configured population; each command includes argv/env publication and native runtime probes under its helpers. Required proof adds artifact or external inspection/JSON/source-executable observation work, plus association/path processing. Accumulating phase reports can recopy earlier bytes; there is no supplied bound on total reports, proof bytes or child duration.
-   * @evidence contracts/performance.md#reuse-equivalent-work A check host declaring TypeScript diagnostics avoids an equivalent extra successful check, while compatible transform plugins share one host; effectful configured checks still execute in order.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Phase results and command/proof records stay build-local and returned data transfer to the caller, with uncapped report/association bytes. Native proof setup observes ownership before finally, so setup failure can leave allocation unclaimed; accepted artifacts reach identity-checked cleanup attempts. Replaced parents remain untouched. Cleanup aggregates an earlier throw or nonzero result; other cleanup errors propagate without certifying release. Delegated capture/descendant release remains with its owner; no resident history is retained here.
+   * @evidence contracts/performance.md#efficient-algorithms Plugin/stage selection scans the configured population; each command includes argv/env publication and native runtime probes under its helpers. Required proof adds artifact or external inspection/JSON/source-executable observation work, plus association/path processing. Native runtime snapshot stages parse the preceding full document and dirty stages serialize/write its complete captured population. Accumulating phase reports can recopy earlier bytes; there is no supplied bound on total reports, proof bytes or child duration.
+   * @evidence contracts/performance.md#reuse-equivalent-work A check host declaring TypeScript diagnostics avoids an equivalent extra successful check, while compatible transform plugins share one host; effectful configured checks still execute in order. Captured answers are shared only across the sequential native stages of this invocation, independently of later cache admission.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Phase results and command/proof records stay build-local and returned data transfer to the caller, with uncapped report/association bytes. Native proof setup observes ownership before finally, so setup failure can leave allocation unclaimed; accepted artifacts reach identity-checked cleanup attempts. Replaced parents remain untouched. Cleanup aggregates an earlier throw or nonzero result; other cleanup errors propagate without certifying release. The snapshot coordinator attempts identity-checked transport cleanup and retains an original error or completed result when cleanup fails. Captured text and full document buffers follow reached input bytes without a cap. Delegated capture/descendant release remains with its owner; no resident history is retained here.
    */
   export function runPreparedBuild(
+    options: RunBuildOptions,
+    timing: BuildTiming.BuildTiming,
+    execution: ReturnType<typeof resolveExecutionContext>,
+    buildOptions: RunBuildOptions,
+  ): TtscBuildResult {
+    if (
+      buildOptions.forceEmitProvenance === true &&
+      execution.nativePlugins.length !== 0
+    )
+      return CompilationSnapshot.run(buildOptions.env, (env) =>
+        runPreparedSnapshotBuild(options, timing, execution, {
+          ...buildOptions,
+          env,
+        }),
+      );
+    return runPreparedSnapshotBuild(options, timing, execution, buildOptions);
+  }
+
+  /** Execute one already selected build without replacing compiler authority. */
+  function runPreparedSnapshotBuild(
     options: RunBuildOptions,
     timing: BuildTiming.BuildTiming,
     execution: ReturnType<typeof resolveExecutionContext>,
@@ -463,6 +493,14 @@ export namespace BuildExecution {
             execution,
           );
         }
+      } else if (
+        buildOptions.forceEmitProvenance === true &&
+        isProjectCompiler(execution, buildOptions)
+      ) {
+        result = appendBuildOutput(
+          checked,
+          runSnapshotCompilerBuild(execution, buildOptions),
+        );
       } else {
         if (
           buildOptions.skipDiagnosticsCheck !== true &&
@@ -977,6 +1015,60 @@ export namespace BuildExecution {
       },
       execution.projectRoot,
     );
+  }
+
+  /**
+   * Preserve custom compiler executables while recognizing the project's exact
+   * compiler.
+   */
+  function isProjectCompiler(
+    execution: ReturnType<typeof resolveExecutionContext>,
+    options: RunBuildOptions,
+  ): boolean {
+    if (execution.tsgo.version !== "custom") return true;
+    try {
+      const env = SidecarEnvironment.merge(process.env, options.env, {
+        TTSC_TSGO_BINARY: undefined,
+      });
+      const installed = resolveTsgo({ cwd: execution.projectRoot, env });
+      return (
+        fs.realpathSync.native(installed.binary) ===
+        fs.realpathSync.native(execution.tsgo.binary)
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /** Emit through the selected upstream target's native VFS after native checks. */
+  function runSnapshotCompilerBuild(
+    execution: ReturnType<typeof resolveExecutionContext>,
+    options: RunBuildOptions,
+  ): TtscBuildResult {
+    const forwarded = TsgoArguments.createNativeBuildTsgoArgs(
+      execution,
+      options,
+    );
+    const env = SidecarEnvironment.merge(options.env, {
+      [TSGO_ARGS_ENV]: JSON.stringify(forwarded),
+      [TSGO_ARGS_CWD_ENV]: execution.compilerSelection.compilerArgsCwd,
+    });
+    const compiled = compileProjectInMemory({
+      cwd: execution.projectRoot,
+      projectRoot: execution.projectRoot,
+      tsconfig: execution.tsconfig,
+      env,
+      plugins: [],
+      cacheDir: options.cacheDir,
+    });
+    const emittedFiles: string[] = [];
+    for (const [name, text] of Object.entries(compiled.output)) {
+      const output = path.resolve(execution.projectRoot, name);
+      fs.mkdirSync(path.dirname(output), { recursive: true });
+      fs.writeFileSync(output, text);
+      emittedFiles.push(output);
+    }
+    return { ...compiled.result, emittedFiles };
   }
 
   /**
