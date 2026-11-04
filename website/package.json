@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/website",
-  "version": "0.36.1",
+  "version": "0.36.2",
   "description": "ttsc.dev website.",
   "private": true,
   "scripts": {
