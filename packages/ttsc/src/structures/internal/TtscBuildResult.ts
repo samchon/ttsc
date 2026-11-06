@@ -19,8 +19,11 @@ export interface TtscBuildResult {
   /** Structured compiler/plugin diagnostics, supplied or parsed from output. */
   diagnostics: ITtscCompilerDiagnostic[];
 
-  /** Files written by the build when emitted-file listing was requested. */
+  /** Compiler-reported output coordinates, relocated for cached runtime runs. */
   emittedFiles?: string[];
+
+  /** This admitted runtime generation owns a private output bundle, not files. */
+  bundledOutputs?: true;
 
   /**
    * Emitter provenance for actual written JavaScript outputs. Keys are absolute

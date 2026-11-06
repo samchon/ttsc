@@ -32,8 +32,8 @@ import { pathToFileURL } from "node:url";
  * @evidence contracts/common.md#clear-and-simple-design The serve boundary coordinates input-equivalent reuse, while helpers separate URL decoding, file reading and source anchoring; external map validity is checked before returning cached JavaScript.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Canonical sibling-map fallback follows compiler emit layout and missing-map removal addresses a dangling reference; no cached filename alone substitutes for current source or map contents.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain source-URL execution, idempotence, cache equivalence and retention limits; parameters distinguish emitted and original-source paths.
- * @evidence contracts/portability.md#os-neutral-implementation Node path resolution reads native emitted files and pathToFileURL encodes source paths; already-qualified map URLs remain protocol identifiers rather than being case-folded as filesystem paths.
- * @evidence contracts/performance.md#efficient-algorithms Work includes regex matching, optional full-source Acorn lexing, native map reads, JSON/base64 conversion and recursive section/source normalization with path-text costs. No universal linear-time or depth bound is asserted. An equal-source entry at the same emitted key reuses lexical recognition; a fully matching entry avoids rewrite processing after current map-data validation.
+ * @evidence contracts/portability.md#os-neutral-implementation Node path resolution supplies native emitted coordinates to the selected physical or bundled reader, and pathToFileURL encodes source paths; qualified map URLs retain protocol identity without filesystem case rewriting.
+ * @evidence contracts/performance.md#efficient-algorithms Work includes regex matching, optional full-source Acorn lexing, delegated map reads, JSON/base64 conversion and recursive section/source normalization with path-text costs. No universal linear-time or depth bound is asserted. Equal-source entries reuse lexical recognition; matching entries avoid rewriting after current map-data validation.
  * @evidence contracts/performance.md#reuse-equivalent-work Absolute native locations capture cwd-sensitive emitted/source anchors, while exact source text shares lexical recognition and freshly read map JSON validates the rewrite; changed bytes or anchors rebuild rather than serving an old generation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The module owns a 128-entry insertion-ordered LRU and evicts its oldest entry after a miss; retained bytes still depend on individual source/map sizes, and process exit releases the remaining cache.
  */
@@ -41,6 +41,7 @@ export function inlineServedSourceMap(
   source: string,
   emittedFile: string | undefined,
   sourceFile: string | undefined,
+  readFile: (file: string) => string | null = readFileOrNull,
 ): string {
   if (emittedFile === undefined) {
     return source;
@@ -52,7 +53,7 @@ export function inlineServedSourceMap(
   const match =
     cached?.source === source ? cached.match : trailingSourceMapComment(source);
   const url = match?.[1]?.trim();
-  const json = url ? readMapJson(url, emittedPath) : null;
+  const json = url ? readMapJson(url, emittedPath, readFile) : null;
   if (
     cached !== undefined &&
     cached.source === source &&
@@ -154,18 +155,22 @@ function rewrite(
 }
 
 /** Read the raw map JSON from a `data:` URI or a sibling map file. */
-function readMapJson(url: string, emittedFile: string): string | null {
+function readMapJson(
+  url: string,
+  emittedFile: string,
+  readFile: (file: string) => string | null,
+): string | null {
   if (url.startsWith("data:")) {
     return decodeDataUri(url);
   }
   const direct = path.resolve(path.dirname(emittedFile), url);
-  const fromRef = readFileOrNull(direct);
+  const fromRef = readFile(direct);
   if (fromRef !== null) {
     return fromRef;
   }
   // tsgo names the comment after the emit basename; fall back to the canonical
   // sibling path when the comment's relative form does not resolve on disk.
-  return readFileOrNull(`${emittedFile}.map`);
+  return readFile(`${emittedFile}.map`);
 }
 
 /** Decode a `data:application/json[;base64],...` source-map URI to its JSON. */

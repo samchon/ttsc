@@ -246,6 +246,8 @@ interface ServedSource {
   moduleOptions: OwningModuleOptions | null;
   emittedFile?: string;
   sourceFile?: string;
+  /** Reader retained by the immutable emit owner, including bundled maps. */
+  readOutput?: (file: string) => string | null;
   /** Private observation of actual owning-config/build selection only. */
   selectedTsconfig?: string;
   buildScope?: string;
@@ -1281,6 +1283,7 @@ function withInlineSourceMap(served: ServedSource): ServedSource {
     served.source,
     served.emittedFile,
     served.sourceFile,
+    served.readOutput,
   );
   return source === served.source ? served : { ...served, source };
 }
@@ -1771,7 +1774,8 @@ function entryEmitSource(
   return {
     emittedFile: owner.emittedFile,
     moduleOptions: owner.manifest.moduleOptions ?? {},
-    source: readOwnedEmit(owner.emittedFile, real),
+    source: readOwnedEmit(owner.emittedFile, real, owner.readFile),
+    readOutput: owner.readFile,
     sourceFile: real,
   };
 }
@@ -1839,7 +1843,10 @@ function serveBuiltDependency(
   return {
     emittedFile: emitted,
     moduleOptions: built.moduleOptions,
-    source: readOwnedEmit(emitted, real),
+    source: readOwnedEmit(emitted, real, (file) =>
+      builtProjectIndex(built).readOutput(file),
+    ),
+    readOutput: (file) => builtProjectIndex(built).readOutput(file),
     sourceFile: real,
   };
 }
@@ -1852,6 +1859,7 @@ function builtProjectIndex(
   if (index === undefined) {
     index = new EmitOwnershipIndex({
       emitDir: built.emitDir,
+      bundledOutputs: built.bundledOutputs,
       outputs: built.outputs,
       emittedSources: built.emittedSources,
       emittedSourceProofFailures: built.emittedSourceProofFailures,
@@ -1868,8 +1876,12 @@ const builtProjectIndexes = new WeakMap<
 >();
 
 /** Read an output a build is proven to have emitted from `source`. */
-function readOwnedEmit(emittedFile: string, source: string): string {
-  const text = readFileOrNull(emittedFile);
+function readOwnedEmit(
+  emittedFile: string,
+  source: string,
+  read: (file: string) => string | null = readFileOrNull,
+): string {
+  const text = read(emittedFile);
   if (text === null) {
     throw new Error(
       `ttsx: the JavaScript emitted for ${source} is missing: ${emittedFile}`,
@@ -2194,6 +2206,7 @@ function buildDependency(
     fs.mkdirSync(emitDir, { recursive: true });
     const result = runBuild({
       cwd: project.root,
+      bundleRuntimeOutputs: true,
       runtimeCacheDir:
         process.env.TTSX_DISABLE_CACHE === "1" ||
         process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
@@ -2266,7 +2279,12 @@ function buildDependency(
     // (typia, @ttsc/banner, …) writes its output on its own. A genuinely empty
     // output directory is the real failure; the caller then falls back to
     // isolated emit of the one file.
-    if (!DependencyBuildGeneration.emittedAnything(emitDir)) {
+    if (
+      !DependencyBuildGeneration.emittedAnything(
+        emitDir,
+        result.bundledOutputs === true,
+      )
+    ) {
       E2ETrace.runtimePreparation(
         "",
         tsconfig,
@@ -2304,10 +2322,14 @@ function buildDependency(
     }
     const rootDir = resolveDependencySourceRoot(project);
     const moduleOptions = projectModuleOptions(project.compilerOptions);
-    const outputs = EmitOwnershipIndex.listOutputs(emitDir);
+    const outputs = EmitOwnershipIndex.listOutputs(
+      emitDir,
+      result.bundledOutputs === true,
+    );
     assertCompilerStillCurrent(tsconfig, compilerProof);
     publishDependencyMeta(metaPath, {
       generation,
+      bundledOutputs: result.bundledOutputs,
       moduleOptions,
       outputs,
       rootDir,
@@ -2316,6 +2338,7 @@ function buildDependency(
     });
     return {
       emitDir,
+      bundledOutputs: result.bundledOutputs,
       moduleOptions,
       outputs,
       rootDir,

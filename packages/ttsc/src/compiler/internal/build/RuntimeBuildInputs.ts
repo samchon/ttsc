@@ -14,6 +14,8 @@ import { spawnNative } from "../spawnNative";
 import type { BuildExecution } from "./BuildExecution";
 import { PassthroughFlags } from "./PassthroughFlags";
 import type { RunBuildOptions } from "./RunBuildOptions";
+import { RuntimeBuildExplanation } from "./RuntimeBuildExplanation";
+import { RuntimeInputContents } from "./RuntimeInputContents";
 import { RuntimeInputProof } from "./RuntimeInputProof";
 import { TsgoArguments } from "./TsgoArguments";
 
@@ -31,7 +33,7 @@ import { TsgoArguments } from "./TsgoArguments";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Incomplete descriptors, unsupported effectful compiler modes and unproved native producers and custom compilers without package authority use the existing fresh build rather than weakening diagnostics or substituting a compiler.
  * @evidence contracts/common.md#meaningful-documentation Native prose describes compiler-owned membership, workspace scope and independent plugin observations.
  * @evidence contracts/portability.md#os-neutral-implementation The selected executable receives native argv and cwd; source and package scopes use native physical paths and preserve lexical spellings without OS-wide case folding.
- * @evidence contracts/performance.md#efficient-algorithms Each snapshot runs two read-only native queries and hashes selected source, package, executable and declared host input bytes; shared ancestor sets avoid repeated package-scope walks.
+ * @evidence contracts/performance.md#efficient-algorithms Each snapshot runs two native membership/configuration queries and observes selected source/package metadata. The aggregate content owner reuses hashes under separable unchanged witnesses or reads actual bytes; executable and declared host proofs retain their independent owners, and shared ancestor sets avoid repeated package-scope walks.
  * @evidence contracts/performance.md#reuse-equivalent-work A completed emit may be reused only for equal selected input snapshots and currently valid native witnesses; unsupported proof falls back to compilation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Query buffers and path/hash records are call-local, with source/report bytes unbounded by this factory; the document store owns persistent byte limits and retention.
  */
@@ -49,7 +51,7 @@ export namespace RuntimeBuildInputs {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Native transforms without complete emit observations and arbitrary external-code or profiling modes decline reuse rather than inventing input completeness. Custom compiler overrides need matching installed package identity, including inherited dependency hints; the original build remains the fallback.
    * @evidence contracts/common.md#meaningful-documentation Native prose states current producer support and private-runtime scope, including why fresh transformation remains necessary.
    * @evidence contracts/portability.md#os-neutral-implementation Source and package observations use native paths and bracketed byte reads, and upstream probes use the original compiler working directory and argv without shell composition.
-   * @evidence contracts/performance.md#efficient-algorithms Capture performs two upstream selection/config queries, actual executable proofs and O(selected bytes) hashes; unique ancestor and path sets bound duplicate reads within one snapshot. Admission replays only recorded native inputs.
+   * @evidence contracts/performance.md#efficient-algorithms Capture performs two upstream queries, executable proofs and a selected-population metadata scan; unproved content adds actual byte hashing. Unique ancestor/path sets bound duplicate scope work, and admission replays recorded native inputs.
    * @evidence contracts/performance.md#reuse-equivalent-work Equal deterministic snapshots retain compiler arguments, versions, content, scope manifests, plugin binaries/configuration and environment; graph and host witnesses separately gate cached check reuse.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The resolved context and closures belong to one build; each capture releases local source and native-output buffers on return, with no resident process or historical map retained.
    */
@@ -62,6 +64,18 @@ export namespace RuntimeBuildInputs {
         admit: (result: TtscBuildResult, emitDir: string) => boolean;
       }
     | undefined {
+    const refuse = (reason: string): undefined => {
+      if (
+        options.runtimeCacheDir !== undefined ||
+        options.bundleRuntimeOutputs === true
+      )
+        RuntimeBuildExplanation.report({
+          outcome: "ineligible",
+          project: execution.tsconfig,
+          reason,
+        });
+      return undefined;
+    };
     if (
       options.runtimeCacheDir === undefined ||
       typeof options.isolateOutputsTo !== "string" ||
@@ -71,20 +85,51 @@ export namespace RuntimeBuildInputs {
       execution.compilerSelection.inspectionError !== undefined ||
       PassthroughFlags.forwardsTerminalTsgoFlag(options)
     )
-      return undefined;
+      return refuse(
+        options.runtimeCacheDir === undefined
+          ? "persistence-disabled"
+          : execution.pluginSetupFailure !== undefined
+            ? "plugin-setup-failed"
+            : execution.compilerSelection.inspectionError !== undefined
+              ? "compiler-selection-unavailable"
+              : "unsupported-runtime-request",
+      );
     const loaded = execution.pluginLoad;
-    if (
-      execution.nativePlugins.some((plugin) =>
-        plugin.stage === "check"
-          ? plugin.capabilities?.checkObservations !== true
-          : plugin.capabilities?.emitObservations !== true,
-      ) ||
-      (loaded !== undefined &&
-        (!loaded.discoveryInputsComplete ||
-          !loaded.descriptorReadsDeclared ||
-          loaded.observationsComplete === false))
-    )
+    const unsupported = execution.nativePlugins.find((plugin) =>
+      plugin.stage === "check"
+        ? plugin.capabilities?.checkObservations !== true
+        : plugin.capabilities?.emitObservations !== true,
+    );
+    if (unsupported !== undefined) {
+      RuntimeBuildExplanation.report({
+        outcome: "ineligible",
+        project: execution.tsconfig,
+        plugin: unsupported.name ?? unsupported.binary,
+        stage: unsupported.stage,
+        reason:
+          unsupported.stage === "check"
+            ? "missing-check-observations"
+            : "missing-emit-observations",
+      });
       return undefined;
+    }
+    if (
+      loaded !== undefined &&
+      (!loaded.discoveryInputsComplete ||
+        !loaded.descriptorReadsDeclared ||
+        loaded.observationsComplete === false)
+    ) {
+      RuntimeBuildExplanation.report({
+        outcome: "ineligible",
+        project: execution.tsconfig,
+        reason: !loaded.discoveryInputsComplete
+          ? "incomplete-plugin-discovery"
+          : !loaded.descriptorReadsDeclared
+            ? "undeclared-descriptor-inputs"
+            : "incomplete-descriptor-observations",
+      });
+      return undefined;
+    }
     const emitDir = options.isolateOutputsTo;
     const args = TsgoArguments.createTsgoBuildArgs(execution, options, {
       listEmittedFiles: false,
@@ -102,9 +147,9 @@ export namespace RuntimeBuildInputs {
           fs.realpathSync.native(packaged.binary) !==
           fs.realpathSync.native(execution.tsgo.binary)
         )
-          return undefined;
+          return refuse("custom-compiler-without-package-authority");
       } catch {
-        return undefined;
+        return refuse("compiler-package-authority-unavailable");
       }
     }
     const identities =
@@ -114,7 +159,8 @@ export namespace RuntimeBuildInputs {
         cacheDir: path.dirname(options.runtimeCacheDir),
         env,
       });
-    if (identities === undefined) return undefined;
+    if (identities === undefined)
+      return refuse("content-identity-store-unavailable");
     let inspected: ReturnType<typeof CompilerArgumentsInspection.inspect>;
     try {
       inspected = CompilerArgumentsInspection.inspect(
@@ -122,7 +168,7 @@ export namespace RuntimeBuildInputs {
         execution.compilerSelection.compilerArgsCwd,
       );
     } catch {
-      return undefined;
+      return refuse("compiler-arguments-unavailable");
     }
     if (
       inspected.args.some((arg) =>
@@ -131,17 +177,18 @@ export namespace RuntimeBuildInputs {
         ),
       )
     )
-      return undefined;
+      return refuse("effectful-compiler-options");
     return {
       capture: () => {
         try {
-          if (process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1") return undefined;
+          if (process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1")
+            return refuse("descriptor-bootstrap");
           const node =
             execution.nativePlugins.length === 0
               ? undefined
               : resolveNodeBinary(env, execution.projectRoot, identities);
           if (execution.nativePlugins.length !== 0 && node === undefined)
-            return undefined;
+            return refuse("node-executable-proof-unavailable");
           const binaries = [
             ...new Set([
               execution.tsgo.binary,
@@ -153,7 +200,7 @@ export namespace RuntimeBuildInputs {
             runtimeExecutableIdentity(binary, identities),
           );
           if (compilerIdentities.some((identity) => identity === undefined))
-            return undefined;
+            return refuse("compiler-or-plugin-executable-proof-unavailable");
           for (const [directory, state] of Object.entries(
             loaded?.pluginSources ?? {},
           ))
@@ -162,7 +209,7 @@ export namespace RuntimeBuildInputs {
                 projectRoot: execution.projectRoot,
               })
             )
-              return undefined;
+              return refuse("plugin-source-proof-changed");
           const query = (flags: string[]) => {
             const result = spawnNative(
               execution.tsgo.binary,
@@ -192,7 +239,7 @@ export namespace RuntimeBuildInputs {
               "listEmittedFiles",
             ].some((name) => config.compilerOptions[name])
           )
-            return undefined;
+            return refuse("unsupported-effective-configuration");
           const listed = query([
             "--listFilesOnly",
             "true",
@@ -208,7 +255,7 @@ export namespace RuntimeBuildInputs {
                 path.isAbsolute(file) && /\.(?:[cm]?[jt]sx?|json)$/i.test(file),
             )
           )
-            return undefined;
+            return refuse("source-selection-unavailable");
           const inputs = new Set([
             ...listed,
             ...execution.project.configPaths,
@@ -227,21 +274,11 @@ export namespace RuntimeBuildInputs {
               }
             }
           }
-          const hashes = [...inputs].sort().map((file) => {
-            try {
-              const observed = JSON.parse(
-                CompilerArgumentsInspection.observeInputFile(file),
-              );
-              return [file, observed[0], observed[2]];
-            } catch (error) {
-              if (
-                (error as NodeJS.ErrnoException).code !== "ENOENT" &&
-                (error as NodeJS.ErrnoException).code !== "ENOTDIR"
-              )
-                throw error;
-              return [file, null, null];
-            }
-          });
+          const hashes = RuntimeInputContents.capture(
+            [...inputs].sort(),
+            execution.tsconfig,
+            identities,
+          );
           const hostInputs: [string, string | null, string | null][] = [];
           for (const [file, expected] of Object.entries(
             loaded?.hostInputHashes ?? {},
@@ -251,12 +288,12 @@ export namespace RuntimeBuildInputs {
               hash !== expected ||
               physical !== loaded?.hostInputRealpaths[file]
             )
-              return undefined;
+              return refuse("descriptor-host-input-changed");
             hostInputs.push([file, physical, hash]);
           }
           for (const [file, before] of inspected.observations)
             if (CompilerArgumentsInspection.observeInputFile(file) !== before)
-              return undefined;
+              return refuse("compiler-argument-input-changed");
           // Only private destination values are normalized. The relative layout
           // remains in the identity because source maps are output-relative.
           for (const key of [
@@ -318,7 +355,7 @@ export namespace RuntimeBuildInputs {
             descriptor: loaded?.hostInputHashes,
           });
         } catch {
-          return undefined;
+          return refuse("input-snapshot-failed");
         }
       },
       admit: (result, emitDir) => {
@@ -335,14 +372,43 @@ export namespace RuntimeBuildInputs {
                   typeof source === "string" && path.isAbsolute(source),
               ),
           )
-        )
+        ) {
+          RuntimeBuildExplanation.report({
+            outcome: "rejected",
+            project: execution.tsconfig,
+            reason: "emit-ownership-unavailable",
+          });
           return false;
+        }
         if (
           execution.nativePlugins.length !== 0 &&
           result.graph?.inputObservations === undefined
-        )
+        ) {
+          RuntimeBuildExplanation.report({
+            outcome: "rejected",
+            project: execution.tsconfig,
+            reason: "native-input-graph-unavailable",
+          });
           return false;
-        return RuntimeInputProof.holds(result, execution.projectRoot, emitDir);
+        }
+        const accepted = RuntimeInputProof.holds(
+          result,
+          execution.projectRoot,
+          emitDir,
+        );
+        if (!accepted)
+          RuntimeBuildExplanation.report({
+            outcome: "rejected",
+            project: execution.tsconfig,
+            reason:
+              result.observationsComplete === false
+                ? "producer-observations-incomplete"
+                : Object.keys(result.graph?.inputProofFailures ?? {}).length !==
+                    0
+                  ? "producer-input-proof-failure"
+                  : "producer-input-observations-changed",
+          });
+        return accepted;
       },
     };
   }

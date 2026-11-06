@@ -127,6 +127,7 @@ interface ITtscPlugin {
     compilerArgsCwd?: true;
     diagnosticsTiming?: boolean;
     emitProvenance?: true;
+    emitObservations?: true;
     lsp?: boolean;
     projectContextArgs?: boolean;
     projectDiagnostics?: boolean;
@@ -160,6 +161,8 @@ Field rules:
 `ttsc` accepts Go source only. It builds the source with the pinned Go toolchain and TypeScript-Go shim overlay, then caches the resulting executable.
 
 `checkObservations: true` opts into the private observation channel described under [`check`](#check). `emitProvenance: true` independently opts into the output ownership channel under [`build`](#build). Declare each only when the selected executable implements it. Importing a linked driver library does not declare an executable's capabilities. Omitted capabilities keep those flags out of strict hosts' argv and establish no claim about complete observations or output ownership.
+
+`emitObservations: true` additionally supports `--emit-observations-json=<absolute private path>` during `build`, publishing the same input-witness schema as check observations from the actual transform/emit generation. Record compiler resolution and configuration predicates and the transform's external input reads, preserving explicit incomplete or conflicting proof. Combined with authoritative emit provenance, this lets completed-runtime cache hits skip lint, transform and emit together. A descriptor flag without the native implementation cannot establish reusable output. Older hosts remain executable and select fresh compilation; `TTSC_EXPLAIN_CACHE=1` identifies the unsupported host.
 
 `compilerArgsCwd: true` declares that the selected host consumes `TTSC_TSGO_ARGS_CWD` with its forwarded compiler argv. That directory anchors upstream response-file and relative command-line option parsing; `--cwd` and the explicit config still own the Program, plugin and rule context. Declare it only for an executable that implements both contexts. Linked imports and unrelated capabilities do not establish support. The launcher requires it only for a nonempty payload whose argument directory differs from the Program root; legacy same-directory and empty-payload paths retain their existing protocol.
 

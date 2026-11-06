@@ -23,6 +23,9 @@ export type RunBuildOptions = TtscBuildOptions & {
   /** Persistent private-runtime emit documents; absence keeps ordinary builds. */
   runtimeCacheDir?: string;
 
+  /** Serve admitted runtime outputs from a run-owned bundle rather than files. */
+  bundleRuntimeOutputs?: boolean;
+
   /**
    * Skip the independent direct-compiler type-check gate and the added
    * `--noEmitOnError` guard. Configured plugin checks and native hosts still

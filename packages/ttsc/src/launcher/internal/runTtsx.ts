@@ -303,6 +303,7 @@ async function runPreparedEntry(
       JSON.stringify({
         depCacheDir,
         emitDir: execution.emitDir,
+        bundledOutputs: execution.bundledOutputs,
         emittedSources: execution.emittedSources,
         emittedSourceProofFailures: execution.emittedSourceProofFailures,
         entryFile: execution.entryFile,

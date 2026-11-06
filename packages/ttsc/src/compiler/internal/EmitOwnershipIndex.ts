@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
+import { RuntimeEmitBundle } from "./build/RuntimeEmitBundle";
 import { isOutsideRelativePath } from "./isOutsideRelativePath";
 
 /**
@@ -18,19 +19,21 @@ import { isOutsideRelativePath } from "./isOutsideRelativePath";
  *
  * Source-content freshness belongs to the generation owner. An owned output
  * that disappears remains owned, so its reader reports that failure by name.
- * Output coordinates use one native identity transaction to compare actual
- * writer aliases; captured source coordinates are never resolved again.
+ * Physical output coordinates use one native identity transaction to compare
+ * actual writer aliases. Explicitly bundled generations use their admitted
+ * normalized coordinates under the physical private root; their logical files
+ * have no disk alias to resolve. Captured sources are never resolved again.
  *
  * @evidence contracts/common.md#principled-implementation The producer owner associates its eligible sources with actual writes under its documented observation premises; captured physical coordinates establish ownership independently of filename precedence or source-map settings.
- * @evidence contracts/common.md#clear-and-simple-design One source index replaces forward layout, inverse filename buckets and map parsing with the actual producing build's associations.
+ * @evidence contracts/common.md#clear-and-simple-design One source index owns producer associations and the optional explicit bundle reader; ordinary callers retain physical output behavior and never infer bundle authority from a neighboring filename.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing, incomplete or ambiguous provenance cannot be converted to ownership by extension order, matching names or newer source-map content.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs define writer/source coordinates, empty and missing states, and freshness ownership; properties carry only native documentation.
  *
- * @evidence contracts/performance.md#efficient-algorithms Construction processes recorded output/source associations, normalizes source coordinate text, resolves output identities and builds source/output Sets. Native identity capability observations and proof-gap formatting remain costs of construction; queries reuse those maps instead of rescanning output trees.
+ * @evidence contracts/performance.md#efficient-algorithms Construction indexes output/source associations. Physical outputs retain native alias resolution; normalized bundled outputs use their admitted physical root and lexical relative names without per-output filesystem probes. Queries reuse the maps and observe the requested source identity.
  * @evidence contracts/performance.md#reuse-equivalent-work One constructed index shares captured associations across queries, while each query resolves its current source target. Continued source-content/generation validity remains the producing build owner's responsibility, and a new build needs a new index.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The instance retains source/output Sets, root strings and proof-gap reasons until its caller discards it. Population and bytes grow with captured associations and path/reason text without a configured byte ceiling; construction-local identity memo state is not stored on the instance, and no query history or independently held native descriptor is acquired.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The instance retains source/output Sets, root strings, proof-gap reasons and an optional bounded runtime bundle until its caller discards it. Association/path bytes have no separate ceiling; bundle storage is capped at 128 MiB. No query history, global generation map or independently held descriptor is acquired.
  *
- * @evidence contracts/portability.md#os-neutral-implementation Output writer aliases use the shared native filesystem identity resolver, preserving sensitive or unknown missing names; captured physical source coordinates remain distinct from later lexical aliases and normalize only Windows volume-root spelling.
+ * @evidence contracts/portability.md#os-neutral-implementation Physical writer aliases use native identity resolution. Explicit bundles bind validated native relative names to their physically resolved private root without guessing missing-file case policy. Captured source coordinates normalize only Windows volume-root spelling.
  */
 export class EmitOwnershipIndex {
   /** Absolute native directory containing this build's isolated outputs. */
@@ -40,6 +43,8 @@ export class EmitOwnershipIndex {
   public readonly rootDir: string;
 
   private readonly bySource = new Map<string, Set<string>>();
+  /** Encoded bytes retained only by this immutable runtime generation's index. */
+  private readonly bundle: RuntimeEmitBundle | undefined;
   /** Concrete proof gaps retained for actionable lookup failures. */
   private readonly unavailableReasons: string[];
 
@@ -57,6 +62,9 @@ export class EmitOwnershipIndex {
     /** Native source-root context of the completed invocation. */
     rootDir: string;
 
+    /** Only an admitted runtime result authorizes reading a private bundle. */
+    bundledOutputs?: true;
+
     /** Complete relative JavaScript output record, captured before layout links. */
     outputs?: readonly string[];
 
@@ -71,7 +79,24 @@ export class EmitOwnershipIndex {
     // output coordinates here; captured source coordinates stay untouched.
     const outputIdentity = createFilesystemPathIdentityContext();
     this.emitDir = outputIdentity.resolve(path.resolve(props.emitDir)).path;
+    this.bundle =
+      props.bundledOutputs === true
+        ? RuntimeEmitBundle.open(this.emitDir)
+        : undefined;
+    if (props.bundledOutputs === true && this.bundle === undefined)
+      throw new Error("ttsc: admitted runtime output bundle is missing");
     this.rootDir = path.resolve(props.rootDir);
+    const inputRoot = path.resolve(props.emitDir);
+    const resolveOutput = (output: string): { path: string; key: string } => {
+      if (this.bundle === undefined) return outputIdentity.resolve(output);
+      // Cached names were normalized and checked against the producer ledger.
+      // Their private coordinates have no physical output alias to resolve.
+      const relative = path.relative(inputRoot, path.resolve(output));
+      if (relative === "" || isOutsideRelativePath(relative))
+        throw new Error("ttsc: bundled output escapes its admitted root");
+      const location = path.join(this.emitDir, relative);
+      return { path: location, key: physicalSourceKey(location) };
+    };
     if (
       props.emittedSources !== undefined &&
       (typeof props.emittedSources !== "object" ||
@@ -84,13 +109,13 @@ export class EmitOwnershipIndex {
       props.emittedSources === undefined
         ? ["the emitting producer supplied no provenance record"]
         : [];
+    const outputNames = props.outputs ?? this.bundle?.outputs();
     const recorded =
-      props.outputs === undefined
+      outputNames === undefined
         ? undefined
         : new Set(
-            props.outputs.map(
-              (file) =>
-                outputIdentity.resolve(path.resolve(this.emitDir, file)).key,
+            outputNames.map(
+              (file) => resolveOutput(path.resolve(inputRoot, file)).key,
             ),
           );
     const accounted = new Set<string>();
@@ -101,7 +126,7 @@ export class EmitOwnershipIndex {
       if (!path.isAbsolute(output) || !Array.isArray(sources)) {
         throw new Error("ttsc: invalid emitted-source provenance record");
       }
-      const identity = outputIdentity.resolve(path.resolve(output));
+      const identity = resolveOutput(path.resolve(output));
       const location = identity.path;
       if (!isJavaScriptOutput(location)) continue;
       const relative = path.relative(this.emitDir, location);
@@ -166,23 +191,29 @@ export class EmitOwnershipIndex {
   }
 
   /**
-   * List ordinary JavaScript outputs before virtual-layout user files are
-   * added. Paths are relative to emitDir with slash-separated protocol
-   * spelling. Links are not followed and enumeration failure propagates; this
-   * list checks coverage but cannot independently establish source ownership.
+   * List JavaScript outputs before virtual-layout user files are added. The
+   * default enumerates physical files; an explicit bundled generation validates
+   * its stored inventory. Paths are relative to emitDir with protocol slashes.
+   * This list checks coverage but cannot establish source ownership.
    *
-   * @evidence contracts/common.md#principled-implementation Nonfollowing enumeration records ordinary JavaScript outputs and propagates failure rather than certifying an incomplete record as absence.
-   * @evidence contracts/common.md#clear-and-simple-design An explicit stack supplies one sorted path list without content parsing or source inference.
+   * @evidence contracts/common.md#principled-implementation Nonfollowing physical enumeration or an explicitly selected validated bundle records JavaScript outputs and propagates incomplete-storage failures.
+   * @evidence contracts/common.md#clear-and-simple-design Both representations supply the same sorted relative path list without inferring source ownership.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable subtrees are not silently omitted and later linked user files cannot become compiler output through a late snapshot.
    * @evidence contracts/common.md#meaningful-documentation Native prose states capture timing, returned spelling, link handling and the coverage-versus-ownership distinction before tags.
-   * @evidence contracts/performance.md#efficient-algorithms One traversal visits E entries, performs native directory reads and converts relative path text; J output paths are sorted with path-text comparison costs. It reads no output content, but entry/path storage grows with the enumeration.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This enumeration owns no cross-call sharing or validity protocol; every call observes the current tree. A build owner may retain the returned record for consumers under its capture-timing premise.
+   * @evidence contracts/performance.md#efficient-algorithms Physical traversal visits E entries without reading content; an explicit bundle reads, hashes and validates its bounded encoded population. Both convert relative path text and sort J selected names.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call observes its selected storage representation; the build owner may retain the returned inventory under its immutable-generation premise.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The path list transfers to the build owner; no retained handle or cache is acquired.
    *
    * @evidence contracts/portability.md#os-neutral-implementation Node directory kinds and relative-path grammar own native behavior; only returned protocol paths normalize separators.
    */
-  public static listOutputs(emitDir: string): string[] {
+  public static listOutputs(emitDir: string, bundledOutputs = false): string[] {
+    if (bundledOutputs) {
+      const bundle = RuntimeEmitBundle.open(emitDir);
+      if (bundle === undefined)
+        throw new Error("ttsc: admitted runtime output bundle is missing");
+      return bundle.outputs();
+    }
     const root = path.resolve(emitDir);
     const outputs: string[] = [];
     const stack = [root];
@@ -197,6 +228,28 @@ export class EmitOwnershipIndex {
       }
     }
     return outputs.sort();
+  }
+
+  /**
+   * Read an owned generation's logical output or source map. Bundled outputs
+   * never fall through to authored files mirrored beside the private layout.
+   *
+   * @evidence contracts/common.md#principled-implementation A retained immutable bundle supplies exact output bytes; ordinary physical generations keep their native read and missing-file behavior.
+   * @evidence contracts/common.md#clear-and-simple-design The generation index owns its byte reader beside its immutable output associations, without a global generation registry.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing bundled names return null instead of adopting a mirrored authored file as compiler output.
+   * @evidence contracts/common.md#meaningful-documentation The prose states logical output/map scope and no-fallback behavior.
+   * @evidence contracts/portability.md#os-neutral-implementation Bundle lookup uses private native relative coordinates and ordinary reads retain Node filesystem semantics.
+   * @evidence contracts/performance.md#efficient-algorithms Bundle reads index one name and decode only its encoded bytes; ordinary reads load that one physical file.
+   * @evidence contracts/performance.md#reuse-equivalent-work The index's immutable build identity owns the same bundle for all module loads; another generation gets a new index.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Returned text belongs to the caller, encoded bytes follow the index lifetime, and no handle or per-query history is retained.
+   */
+  public readOutput(file: string): string | null {
+    if (this.bundle !== undefined) return this.bundle.read(file);
+    try {
+      return fs.readFileSync(file, "utf8");
+    } catch {
+      return null;
+    }
   }
 
   /**

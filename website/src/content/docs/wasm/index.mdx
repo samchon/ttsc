@@ -182,6 +182,8 @@ cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" public/compiler/wasm_exec.js
 
 Keep `wasm_exec.js` from the same Go toolchain that built the wasm. The prebuilt `dist/ttsc.wasm` and `dist/wasm_exec.js` pair already match each other; custom binaries should copy the loader from their own toolchain. Older Go installs may keep the loader under `$(go env GOROOT)/misc/wasm/wasm_exec.js` instead of `lib/wasm`.
 
+When rebuilding `@ttsc/wasm`, its build script makes only the generated `dist/wasm_exec.js` writable before replacing it. This permits repeat builds on Windows when the toolchain's loader is read-only, preserves the toolchain source permissions, and refuses a linked or non-file destination.
+
 Boot the custom binary with the same API name:
 
 ```ts
