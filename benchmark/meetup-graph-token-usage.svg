@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="850" height="450" viewBox="0 0 850 450" role="img" aria-label="@ttsc/graph TypeORM agent token usage">
+  <title>@ttsc/graph TypeORM agent token usage</title>
+  <rect x="1" y="1" width="848" height="448" rx="8" fill="#fff" stroke="#cbd5e1" />
+  <text x="36" y="50" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="30" font-weight="900">TypeORM agent token usage</text>
+  <text x="36" y="80" fill="#64748b" font-family="Inter, Segoe UI, sans-serif" font-size="16">Common token axis. Graph stays near 145k, baseline changes by model.</text>
+  <line x1="232" y1="111" x2="704" y2="111" stroke="#cbd5e1" />
+  <line x1="232" y1="106" x2="232" y2="116" stroke="#cbd5e1" />
+  <line x1="392" y1="106" x2="392" y2="116" stroke="#cbd5e1" />
+  <line x1="552" y1="106" x2="552" y2="116" stroke="#cbd5e1" />
+  <line x1="704" y1="106" x2="704" y2="116" stroke="#cbd5e1" />
+  <text x="232" y="101" text-anchor="middle" fill="#64748b" font-family="Inter, Segoe UI, sans-serif" font-size="12">0</text>
+  <text x="392" y="101" text-anchor="middle" fill="#64748b" font-family="Inter, Segoe UI, sans-serif" font-size="12">500k</text>
+  <text x="552" y="101" text-anchor="middle" fill="#64748b" font-family="Inter, Segoe UI, sans-serif" font-size="12">1.0M</text>
+  <text x="704" y="101" text-anchor="middle" fill="#64748b" font-family="Inter, Segoe UI, sans-serif" font-size="12">1.47M</text>
+  <text x="44" y="145" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">Anthropic Opus</text>
+  <text x="800" y="145" text-anchor="end" fill="#2563eb" font-family="Inter, Segoe UI, sans-serif" font-size="24" font-weight="900">9.9x fewer</text>
+  <text x="62" y="185" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="19" font-weight="800">Baseline</text>
+  <rect x="232" y="166" width="472" height="24" rx="12" fill="#e2e8f0" />
+  <rect x="232" y="166" width="472" height="24" rx="12" fill="#ef4444" />
+  <text x="800" y="187" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">1,471,202</text>
+  <text x="62" y="228" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="19" font-weight="800">Graph</text>
+  <rect x="232" y="209" width="472" height="24" rx="12" fill="#e2e8f0" />
+  <rect x="232" y="209" width="48" height="24" rx="12" fill="#2563eb" />
+  <text x="800" y="230" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">148,231</text>
+  <line x1="36" y1="262" x2="814" y2="262" stroke="#e2e8f0" />
+  <text x="44" y="299" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">OpenAI GPT</text>
+  <text x="800" y="299" text-anchor="end" fill="#2563eb" font-family="Inter, Segoe UI, sans-serif" font-size="24" font-weight="900">4.0x fewer</text>
+  <text x="62" y="339" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="19" font-weight="800">Baseline</text>
+  <rect x="232" y="320" width="472" height="24" rx="12" fill="#e2e8f0" />
+  <rect x="232" y="320" width="188" height="24" rx="12" fill="#ef4444" />
+  <text x="800" y="341" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">586,338</text>
+  <text x="62" y="382" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="19" font-weight="800">Graph</text>
+  <rect x="232" y="363" width="472" height="24" rx="12" fill="#e2e8f0" />
+  <rect x="232" y="363" width="47" height="24" rx="12" fill="#2563eb" />
+  <text x="800" y="384" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">145,493</text>
+</svg>
