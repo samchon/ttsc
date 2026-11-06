@@ -1,3 +1,5 @@
+import fs from "node:fs";
+
 import { E2ETrace } from "../../../internal/E2ETrace";
 
 /**
@@ -17,14 +19,14 @@ export namespace RuntimeBuildExplanation {
   /**
    * Record one owner-computed decision, retaining ordinary quiet execution.
    *
-   * @evidence contracts/common.md#principled-implementation Structured fields preserve project, plugin and reason identity, and only the explicit environment switch enables human output.
+   * @evidence contracts/common.md#principled-implementation Structured fields preserve project, plugin and reason identity; opt-in output writes the existing stderr descriptor synchronously so a closed reader fails inside this owner's catch instead of emitting an unhandled asynchronous stream error.
    * @evidence contracts/common.md#clear-and-simple-design Trace and presentation consume the same immutable call-local decision.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Reporting catches its own sink failures and never retries or overrides a build.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Reporting catches its own sink failures without adding error listeners to the process stream, retrying or overriding a build.
    * @evidence contracts/common.md#meaningful-documentation The prose describes opt-in behavior and the parameter fields name actual outcomes.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation Writing existing stderr and forwarding native path strings requires no platform policy.
-   * @evidence contracts/performance.md#efficient-algorithms Serialization scales with the supplied fields and performs no proof work.
+   * @evidence contracts/portability.md#os-neutral-implementation Node's synchronous descriptor write owns native pipe/terminal/file behavior and propagates failures within the call; descriptor 2 is the existing stderr channel on every supported host.
+   * @evidence contracts/performance.md#efficient-algorithms Serialization and opt-in synchronous output scale with supplied metadata; disabled reporting performs no sink IO and no proof work is repeated.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A decision event is not reusable proof.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The call retains no event history or handle.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The call borrows descriptor 2 without closing it, retaining a stream listener or queueing an asynchronous write; the caller owns its supplied metadata.
    */
   export function report(decision: {
     /** Actual eligibility, lookup, reuse or publication outcome. */
@@ -49,7 +51,7 @@ export namespace RuntimeBuildExplanation {
     E2ETrace.capabilityResolution("runtime-build-cache", decision);
     if (process.env.TTSC_EXPLAIN_CACHE !== "1") return;
     try {
-      process.stderr.write(`ttsx cache: ${JSON.stringify(decision)}\n`);
+      fs.writeFileSync(2, `ttsx cache: ${JSON.stringify(decision)}\n`);
     } catch {
       /* Explanation cannot change execution. */
     }
