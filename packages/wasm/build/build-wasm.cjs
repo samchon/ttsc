@@ -237,12 +237,18 @@ function main() {
 
 // Stage the matching runtime into build-owned regular output. Windows can
 // preserve a Go module file's read-only attribute on copy; only the generated
-// destination is made writable, and a link is never chmod'ed or followed.
+// destination is made writable. Reject links and SDK aliases before chmod.
 function stageWasmExec(source, destination) {
   try {
-    const previous = fs.lstatSync(destination);
+    const previous = fs.lstatSync(destination, { bigint: true });
     if (!previous.isFile() || previous.isSymbolicLink())
       throw new Error("WASM runtime destination is not an ordinary generated file");
+    const sdk = fs.statSync(source, { bigint: true });
+    if (
+      previous.nlink !== 1n ||
+      (previous.dev === sdk.dev && previous.ino === sdk.ino)
+    )
+      throw new Error("WASM runtime destination shares native file identity");
     fs.chmodSync(destination, 0o644);
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
