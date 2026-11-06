@@ -243,31 +243,56 @@ export class RuntimeEmitBundle {
   }
 
   /**
+   * Resolve a private output coordinate through its native parent when needed.
+   * This establishes containment only; inventory and provenance remain
+   * separate.
+   *
+   * @evidence contracts/common.md#principled-implementation A normalized descendant must reconstruct the exact absolute spelling; otherwise native parent realpath supplies a second containment check without following the virtual output leaf.
+   * @evidence contracts/common.md#clear-and-simple-design One coordinate owner serves reads and provenance validation with the same native alias rules.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A case-folded relative path alone cannot establish containment, and a contained coordinate supplies no output membership or source ownership.
+   * @evidence contracts/common.md#meaningful-documentation The prose distinguishes private containment, native parent resolution and independent ownership.
+   * @evidence contracts/portability.md#os-neutral-implementation Exact path reconstruction rejects distinct native siblings even when Node relative-path comparison folds case; parent realpath admits actual directory aliases without OS-name dispatch.
+   * @evidence contracts/performance.md#efficient-algorithms Canonical descendants require only path operations; other spellings attempt one parent realpath and repeat the bounded path check.
+   * @evidence contracts/performance.md#reuse-equivalent-work The immutable physical root serves all coordinates without caching mutable alias observations.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Each call returns its coordinate and retains no native handle or alias history.
+   */
+  public resolve(file: string): string | null {
+    const absolute = path.resolve(file);
+    const contained = (candidate: string): boolean => {
+      const relative = path.relative(this.root, candidate);
+      return (
+        RuntimeEmitBundle.safeRelative(relative) &&
+        path.join(this.root, relative) === candidate
+      );
+    };
+    if (contained(absolute)) return absolute;
+    try {
+      const physical = path.join(
+        fs.realpathSync.native(path.dirname(absolute)),
+        path.basename(absolute),
+      );
+      return contained(physical) ? physical : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Read one exact recorded output; absence grants no filesystem fallback.
    *
    * @evidence contracts/common.md#principled-implementation Exact native relative coordinates select one admitted range; current size and its content hash must still match before UTF-8 text is returned.
    * @evidence contracts/common.md#clear-and-simple-design The index owns lookup and bounded range reading together without retaining decoded bodies.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown or outside names return null and cannot adopt authored bytes through the virtual layout.
    * @evidence contracts/common.md#meaningful-documentation The prose states exact membership and no filesystem fallback.
-   * @evidence contracts/portability.md#os-neutral-implementation A direct miss may resolve the real parent to preserve directory aliases; no filename case policy is guessed.
+   * @evidence contracts/portability.md#os-neutral-implementation Shared coordinate resolution preserves native directory aliases and rejects distinct siblings; no filename case policy is guessed.
    * @evidence contracts/performance.md#efficient-algorithms One map lookup and optional parent realpath precede reading and hashing only the requested B bytes.
    * @evidence contracts/performance.md#reuse-equivalent-work One admitted immutable range index serves all reads while Node owns loaded-module caching.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Finally attempts descriptor closure and a close failure propagates without certifying release. Successful reads transfer text to the caller without retaining a buffer or per-module history.
    */
   public read(file: string): string | null {
-    const resolved = path.resolve(file);
-    let range = this.ranges.get(path.relative(this.root, resolved));
-    if (range === undefined) {
-      try {
-        const physical = path.join(
-          fs.realpathSync.native(path.dirname(resolved)),
-          path.basename(resolved),
-        );
-        range = this.ranges.get(path.relative(this.root, physical));
-      } catch {
-        /* An unobservable parent supplies no output. */
-      }
-    }
+    const resolved = this.resolve(file);
+    if (resolved === null) return null;
+    const range = this.ranges.get(path.relative(this.root, resolved));
     if (range === undefined) return null;
     const fd = fs.openSync(
       path.join(this.root, RuntimeEmitBundle.filename),

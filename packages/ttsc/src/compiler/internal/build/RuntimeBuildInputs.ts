@@ -134,6 +134,18 @@ export namespace RuntimeBuildInputs {
       });
       return undefined;
     }
+    if (loaded !== undefined) {
+      const deferred = new Set(loaded.deferredHostInputs);
+      if (
+        loaded.hostInputs.some(
+          (file) =>
+            !deferred.has(file) &&
+            (!Object.hasOwn(loaded.hostInputHashes, file) ||
+              !Object.hasOwn(loaded.hostInputRealpaths, file)),
+        )
+      )
+        return refuse("descriptor-input-proof-unavailable");
+    }
     const emitDir = options.isolateOutputsTo;
     const args = TsgoArguments.createTsgoBuildArgs(execution, options, {
       listEmittedFiles: false,

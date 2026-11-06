@@ -18,7 +18,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 2. Edit only the retained descriptor input while keeping the execution key.
  * 3. Refuse missing content, missing physical proof and conflicting claims.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual generation recording, cache restoration and admission replay native file bytes and physical paths. Producer counts prove discovery-only differences reuse while an input edit rebuilds; missing and contradictory proof must fail admission.
+ * @evidence contracts/testing.md#behavioral-verification Actual generation recording, cache restoration and admission replay native file bytes and physical paths. Producer counts prove discovery-only differences reuse while an input edit rebuilds; incomplete current descriptor proof must prevent lookup eligibility and contradictory retained proof must fail admission.
  * @evidence contracts/testing.md#independent-expectations Literal authored 7/8 values, direct native SHA-256/realpath and expected producer counts define the oracle. The fixed execution snapshot models equivalent resolved native execution independently of cache metadata.
  * @evidence contracts/testing.md#distinguishing-cases Cold extra reads versus warm empty discovery, changed retained input, unavailable content, unavailable physical identity and conflicting claims distinguish population variability from lost proof. A forwarded configuration takes its valid proof from the consuming native result; missing native proof still refuses reuse. The Runtime E2E separately exercises actual typed lint discovery and native execution.
  * @evidence contracts/testing.md#execution-ownership The named source unit calls actual proof/cache owners over an existing dependency installation and owned TestProject files. Context resolution launches no compiler, installer or host; the supplied producer writes literal output, and TestProject owns root cleanup.
@@ -123,8 +123,7 @@ export function test_runtime_descriptor_proof_survives_discovery_cache_changes()
   assert.equal(run("changed", factory(true)), "exports.value = 8;");
   assert.equal(builds, 2);
   for (const missing of ["hash", "physical"] as const) {
-    const proof = factory(true, missing);
-    assert.equal(proof.admit(proof.record(result), emitDir), false, missing);
+    assert.equal(factory(true, missing), undefined, missing);
   }
   const current = factory(true);
   const conflicting = current.record({

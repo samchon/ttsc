@@ -21,15 +21,16 @@ import { isOutsideRelativePath } from "./isOutsideRelativePath";
  * that disappears remains owned, so its reader reports that failure by name.
  * Physical output coordinates use one native identity transaction to compare
  * actual writer aliases. Explicitly bundled generations use their admitted
- * normalized coordinates under the physical private root; their logical files
- * have no disk alias to resolve. Captured sources are never resolved again.
+ * normalized coordinates under the physical private root; only their parent
+ * directories resolve native aliases, leaving virtual leaves untouched.
+ * Captured sources are never resolved again.
  *
  * @evidence contracts/common.md#principled-implementation The producer owner associates its eligible sources with actual writes under its documented observation premises; captured physical coordinates establish ownership independently of filename precedence or source-map settings.
  * @evidence contracts/common.md#clear-and-simple-design One source index owns producer associations and the optional explicit bundle reader; ordinary callers retain physical output behavior and never infer bundle authority from a neighboring filename.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing, incomplete or ambiguous provenance cannot be converted to ownership by extension order, matching names or newer source-map content.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs define writer/source coordinates, empty and missing states, and freshness ownership; properties carry only native documentation.
  *
- * @evidence contracts/performance.md#efficient-algorithms Construction indexes output/source associations. Physical outputs retain native alias resolution; normalized bundled outputs use their admitted physical root and lexical relative names without per-output filesystem probes. Queries reuse the maps and observe the requested source identity.
+ * @evidence contracts/performance.md#efficient-algorithms Construction indexes output/source associations. Physical outputs retain native alias resolution; canonical bundled coordinates use path operations, while other parent spellings attempt native realpath. Queries reuse the maps and observe the requested source identity.
  * @evidence contracts/performance.md#reuse-equivalent-work One constructed index shares captured associations across queries, while each query resolves its current source target. Continued source-content/generation validity remains the producing build owner's responsibility, and a new build needs a new index.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The instance retains source/output Sets, root strings, proof-gap reasons and an optional bounded runtime bundle until its caller discards it. Association/path bytes have no separate ceiling; bundle storage is capped at 128 MiB. No query history, global generation map or independently held descriptor is acquired.
  *
@@ -89,12 +90,11 @@ export class EmitOwnershipIndex {
     const inputRoot = path.resolve(props.emitDir);
     const resolveOutput = (output: string): { path: string; key: string } => {
       if (this.bundle === undefined) return outputIdentity.resolve(output);
-      // Cached names were normalized and checked against the producer ledger.
-      // Their private coordinates have no physical output alias to resolve.
-      const relative = path.relative(inputRoot, path.resolve(output));
-      if (relative === "" || isOutsideRelativePath(relative))
+      // Resolve native parent aliases without following the virtual output leaf.
+      // Containment alone grants neither inventory membership nor provenance.
+      const location = this.bundle.resolve(output);
+      if (location === null)
         throw new Error("ttsc: bundled output escapes its admitted root");
-      const location = path.join(this.emitDir, relative);
       return { path: location, key: physicalSourceKey(location) };
     };
     if (
