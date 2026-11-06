@@ -81,13 +81,19 @@ export function runtimeExecutableIdentity(
               PluginContentIdentities.fileObservation(references, physicalPath),
             read,
           );
-    return [
-      physicalPath,
-      ...(includeMetadata
-        ? [fileIdentity(lexical), fileIdentity(physical)]
-        : [String(lexical.mode), String(physical.mode)]),
-      digest,
-    ].join("\0");
+    return includeMetadata
+      ? [
+          physicalPath,
+          fileIdentity(lexical),
+          fileIdentity(physical),
+          digest,
+        ].join("\0")
+      : [
+          physicalPath,
+          String(lexical.mode),
+          String(physical.mode),
+          digest,
+        ].join("\0");
   } catch (error) {
     return unavailable(
       runtime,

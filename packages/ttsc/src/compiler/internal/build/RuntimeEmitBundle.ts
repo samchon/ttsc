@@ -15,7 +15,7 @@ import path from "node:path";
  * @evidence contracts/portability.md#os-neutral-implementation Native path grammar and file identity reject escapes and artifact aliases without inferring case policy from OS names.
  * @evidence contracts/performance.md#efficient-algorithms Writing and full validation visit B body bytes and N names; retained state scales with the index, and a read allocates only its requested output.
  * @evidence contracts/performance.md#reuse-equivalent-work One immutable run artifact supplies its complete admitted generation; independent run storage survives persistent cache collection.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Artifacts are capped at 128 MiB; readers retain only coordinates, sizes and hashes, close every descriptor in finally, and use a 64 KiB validation buffer.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Artifacts are capped at 128 MiB; readers retain only coordinates, sizes and hashes and use a 64 KiB validation buffer. Finally attempts descriptor closure; native close failure propagates without certifying release.
  */
 export class RuntimeEmitBundle {
   /** Private runtime artifact; native aliases require physical restoration. */
@@ -52,7 +52,7 @@ export class RuntimeEmitBundle {
    * @evidence contracts/portability.md#os-neutral-implementation Native lstat compares artifact device/inode against each first component; native directory and exclusive file operations preserve actual alias policy.
    * @evidence contracts/performance.md#efficient-algorithms Validation, hashing and writing scale with input bytes and names; one directory operation per distinct parent precedes sequential body writes, and only one decoded output buffer is needed at a time.
    * @evidence contracts/performance.md#reuse-equivalent-work Representation refusal still permits the caller to reuse the admitted complete emit as ordinary files.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns run storage; exclusive creation is closed in finally and partial artifacts are removed on failure or refusal. Total file bytes are capped before creation.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns run storage. Finally attempts closure and removes incomplete owned artifacts, including after a failed close; close/removal errors propagate and may retain resources. Total file bytes are capped before creation.
    */
   public static write(root: string, outputs: [string, string][]): boolean {
     const names = new Set<string>();
@@ -124,6 +124,9 @@ export class RuntimeEmitBundle {
     } finally {
       try {
         fs.closeSync(fd);
+      } catch (error) {
+        completed = false;
+        throw error;
       } finally {
         if (!completed) fs.unlinkSync(file);
       }
@@ -140,7 +143,7 @@ export class RuntimeEmitBundle {
    * @evidence contracts/portability.md#os-neutral-implementation Native lstat rejects links and path grammar rejects absolute, parent, dot, null and drive-relative coordinates.
    * @evidence contracts/performance.md#efficient-algorithms Opening reads all B body bytes through one reusable 64 KiB buffer and parses N index entries; it retains no decoded body population.
    * @evidence contracts/performance.md#reuse-equivalent-work The returned index serves the same immutable run-owned artifact across module requests without retaining their text.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The descriptor closes in finally; bounded metadata and validation buffers are temporary, while only the range index belongs to the returned owner.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Finally attempts descriptor closure; a close failure propagates without certifying release. Bounded metadata and validation buffers are temporary, while only the range index belongs to the returned owner.
    */
   public static open(root: string): RuntimeEmitBundle | undefined {
     const file = path.join(root, this.filename);
@@ -249,7 +252,7 @@ export class RuntimeEmitBundle {
    * @evidence contracts/portability.md#os-neutral-implementation A direct miss may resolve the real parent to preserve directory aliases; no filename case policy is guessed.
    * @evidence contracts/performance.md#efficient-algorithms One map lookup and optional parent realpath precede reading and hashing only the requested B bytes.
    * @evidence contracts/performance.md#reuse-equivalent-work One admitted immutable range index serves all reads while Node owns loaded-module caching.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Each read closes its descriptor in finally and transfers text to its caller without retaining a buffer or per-module history.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Finally attempts descriptor closure and a close failure propagates without certifying release. Successful reads transfer text to the caller without retaining a buffer or per-module history.
    */
   public read(file: string): string | null {
     const resolved = path.resolve(file);
