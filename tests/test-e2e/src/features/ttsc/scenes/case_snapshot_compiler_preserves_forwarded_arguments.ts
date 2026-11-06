@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { BuildExecution } from "../../../../../../packages/ttsc/src/compiler/internal/build/BuildExecution";
-import { BuildTiming } from "../../../../../../packages/ttsc/src/compiler/internal/build/BuildTiming";
+import { BuildExecution } from "../../../../../../packages/ttsc/lib/compiler/internal/build/BuildExecution.js";
+import { BuildTiming } from "../../../../../../packages/ttsc/lib/compiler/internal/build/BuildTiming.js";
 import { TestProject } from "../../../../../utils/src/TestProject";
 
 /**

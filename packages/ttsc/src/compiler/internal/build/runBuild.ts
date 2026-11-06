@@ -74,17 +74,19 @@ export namespace runBuild {
       execution,
       setupStartedAt,
     );
-    const build = () =>
-      BuildExecution.runPreparedBuild(
+    const proof =
+      prepared.result === undefined
+        ? RuntimeBuildInputs.create(prepared.buildOptions, execution)
+        : undefined;
+    const build = () => {
+      const fresh = BuildExecution.runPreparedBuild(
         options,
         timing,
         execution,
         prepared.buildOptions,
       );
-    const proof =
-      prepared.result === undefined
-        ? RuntimeBuildInputs.create(prepared.buildOptions, execution)
-        : undefined;
+      return proof === undefined ? fresh : proof.record(fresh);
+    };
     const result =
       prepared.result ??
       (proof === undefined
@@ -92,6 +94,8 @@ export namespace runBuild {
         : RuntimeBuildCache.run({
             directory: options.runtimeCacheDir,
             emitDir: options.isolateOutputsTo!,
+            bundle: options.bundleRuntimeOutputs,
+            project: execution.tsconfig,
             ...proof,
             build,
           }));

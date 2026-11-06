@@ -158,6 +158,8 @@ export namespace RuntimeManifestRegistry {
 
     /** Checked build whose recorded associations established this ownership. */
     manifest: RuntimeManifest;
+    /** Generation-owned byte reader for emitted JavaScript and source maps. */
+    readFile: (file: string) => string | null;
   } | null {
     const manifests = runtimeManifests();
     for (const candidate of manifests) {
@@ -168,14 +170,22 @@ export namespace RuntimeManifestRegistry {
       ) {
         const emitted = ownershipIndex(candidate).find(real);
         if (emitted !== null) {
-          return { emittedFile: emitted, manifest: candidate };
+          return {
+            emittedFile: emitted,
+            manifest: candidate,
+            readFile: (file) => ownershipIndex(candidate).readOutput(file),
+          };
         }
       }
     }
     for (const candidate of manifests) {
       const emitted = ownershipIndex(candidate).find(real);
       if (emitted !== null) {
-        return { emittedFile: emitted, manifest: candidate };
+        return {
+          emittedFile: emitted,
+          manifest: candidate,
+          readFile: (file) => ownershipIndex(candidate).readOutput(file),
+        };
       }
     }
     return null;
@@ -193,6 +203,7 @@ export namespace RuntimeManifestRegistry {
     if (index === undefined) {
       index = new EmitOwnershipIndex({
         emitDir: manifest.emitDir,
+        bundledOutputs: manifest.bundledOutputs,
         outputs: manifest.outputs,
         emittedSources: manifest.emittedSources,
         emittedSourceProofFailures: manifest.emittedSourceProofFailures,
@@ -274,6 +285,11 @@ export namespace RuntimeManifestRegistry {
       return false;
     }
     const manifest = value as Record<string, unknown>;
+    if (
+      manifest.bundledOutputs !== undefined &&
+      manifest.bundledOutputs !== true
+    )
+      return false;
     for (const key of ["projectRoot", "rootDir", "emitDir", "depCacheDir"]) {
       if (typeof manifest[key] !== "string") return false;
     }

@@ -87,8 +87,10 @@ try {
   assert.equal(warm.value, "lowered");
   assert.equal(warm.cachedMarker, true, "the unchanged executable must deliver the actual marked artifact");
   const before = fs.statSync(compiler, { bigint: true });
-  // Observe this actual primitive once; trace failure never changes its result.
-  // The existing stat is reused, and no probe opens the executable on failure.
+  // Native process exit does not guarantee immediate executable write access.
+  // Acquire that prerequisite within a deadline, then perform one same-inode
+  // byte rewrite. Busy acquisition remains visible; a persistent denial or a
+  // failed write still fails this case without rerunning the program.
   let rewriteTrace;
   let rewriteInvocation;
   if (process.env.TTSC_E2E_TRACE) {
@@ -105,8 +107,26 @@ try {
       });
     } catch {}
   }
+  let rewriteDescriptor;
   try {
-    fs.writeFileSync(compiler, compilerBytes);
+    const deadline = process.hrtime.bigint() + 5_000_000_000n;
+    const pause = new Int32Array(new SharedArrayBuffer(4));
+    for (;;) {
+      try {
+        rewriteDescriptor = fs.openSync(compiler, "r+");
+        break;
+      } catch (error) {
+        try {
+          rewriteTrace?.record("runtime-compiler-rewrite-access-denied", rewriteInvocation, {
+            data: { compiler, code: error.code, message: error.message },
+          });
+        } catch {}
+        if (!["EBUSY", "ETXTBSY"].includes(error.code) || process.hrtime.bigint() >= deadline)
+          throw error;
+        Atomics.wait(pause, 0, 0, 10);
+      }
+    }
+    fs.writeFileSync(rewriteDescriptor, compilerBytes);
   } catch (error) {
     try {
       rewriteTrace?.record("runtime-compiler-rewrite-threw", rewriteInvocation, {
@@ -116,6 +136,8 @@ try {
       });
     } catch {}
     throw error;
+  } finally {
+    if (rewriteDescriptor !== undefined) fs.closeSync(rewriteDescriptor);
   }
   try {
     rewriteTrace?.record("runtime-compiler-rewrite-returned", rewriteInvocation,
@@ -123,6 +145,8 @@ try {
   } catch {}
   fs.utimesSync(compiler, stamp, stamp);
   const after = fs.statSync(compiler, { bigint: true });
+  assert.equal(after.dev, before.dev);
+  assert.equal(after.ino, before.ino);
   assert.equal(after.mtimeNs, before.mtimeNs);
   assert.equal(after.size, before.size);
   assert.deepEqual(fs.readFileSync(compiler), compilerBytes);

@@ -88,6 +88,9 @@ export function prepareExecution(
   /** The build's record of its outputs, relative to `emitDir`. */
   outputs: readonly string[];
 
+  /** True only for an admitted run-owned bundle rather than physical outputs. */
+  bundledOutputs?: true;
+
   /** Compiler-observed absolute output paths and their contributing sources. */
   emittedSources: Readonly<Record<string, readonly string[]>>;
 
@@ -144,6 +147,7 @@ export function prepareExecution(
       runtimeRunsDir: path.dirname(context.processDir),
       entrySource: entry,
       outputs: context.outputs,
+      bundledOutputs: context.bundledOutputs,
       emittedSources: executionProvenance(context),
       emittedSourceProofFailures: context.emittedSourceProofFailures,
       moduleOptions: context.moduleOptions,
@@ -191,6 +195,7 @@ function emittedEntryOf(
   if (context.outputs.length === 0) return null;
   return new EmitOwnershipIndex({
     emitDir: context.emitDir,
+    bundledOutputs: context.bundledOutputs,
     emittedSources: executionProvenance(context),
     emittedSourceProofFailures: context.emittedSourceProofFailures,
     outputs: context.outputs,
@@ -221,6 +226,7 @@ function buildEntryProject(
       tsconfig: context.tsconfig,
     });
   context.emitDir = emitDir;
+  context.bundledOutputs = undefined;
   context.emittedSourceProofFailures = emittedSourceProofFailures;
   context.outputs = EmitOwnershipIndex.listOutputs(emitDir);
   context.emittedSources = requireEmitProvenance(
@@ -421,6 +427,7 @@ function createProjectContext(
     // map, so no override is needed.
     forceRuntimeSourceMap: emitProfile.forceRuntimeSourceMap,
     built: false,
+    bundledOutputs: undefined as true | undefined,
     outputs: [] as readonly string[],
     emittedSourceProofFailures: undefined as
       | Readonly<Record<string, string>>
@@ -540,6 +547,7 @@ function buildProject(
     env: options.env,
     cacheDir: context.pluginCacheDir,
     runtimeCacheDir: context.runtimeBuildCacheDir,
+    bundleRuntimeOutputs: true,
     outDir: context.emitDir,
     // Every output this build writes stays in ttsx's private directory: a
     // declared `declarationDir`, `tsBuildInfoFile`, or `outFile`, and any
@@ -572,7 +580,11 @@ function buildProject(
     // own files in beside them. Without an `outDir` the emit directory is the
     // mirror of the project root, and a `tool.js` linked there from the user's
     // tree would otherwise be recorded as the output of `tool.ts`.
-    context.outputs = EmitOwnershipIndex.listOutputs(context.emitDir);
+    context.bundledOutputs = result.bundledOutputs;
+    context.outputs = EmitOwnershipIndex.listOutputs(
+      context.emitDir,
+      result.bundledOutputs === true,
+    );
     // An empty solution may not run an emitting producer. Its observed empty
     // inventory selects the entry-only build, which must prove its own writes.
     context.emittedSources =

@@ -224,7 +224,7 @@ function main() {
   vendorShim();
   rewritePublishedGoMod();
   buildWasm();
-  fs.copyFileSync(wasmExecSrc, wasmExecOut);
+  stageWasmExec(wasmExecSrc, wasmExecOut);
   cache.write();
   console.log(
     `build/build-wasm.cjs: done. ttsc.wasm = ${(
@@ -235,6 +235,22 @@ function main() {
   );
 }
 
+// Stage the matching runtime into build-owned regular output. Windows can
+// preserve a Go module file's read-only attribute on copy; only the generated
+// destination is made writable, and a link is never chmod'ed or followed.
+function stageWasmExec(source, destination) {
+  try {
+    const previous = fs.lstatSync(destination);
+    if (!previous.isFile() || previous.isSymbolicLink())
+      throw new Error("WASM runtime destination is not an ordinary generated file");
+    fs.chmodSync(destination, 0o644);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  fs.copyFileSync(source, destination);
+  fs.chmodSync(destination, 0o644);
+}
+
 if (require.main === module) main();
 
 module.exports = {
@@ -243,4 +259,5 @@ module.exports = {
   createCacheOptions,
   hostPackage,
   locateWasmExec,
+  stageWasmExec,
 };

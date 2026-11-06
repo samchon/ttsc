@@ -28,6 +28,9 @@ export interface RuntimeManifest {
   /** Directory holding the entry project's emitted JavaScript. */
   readonly emitDir: string;
 
+  /** True only when the checked producer admitted a run-owned output bundle. */
+  readonly bundledOutputs?: true;
+
   /**
    * Selected TypeScript entry coordinate whose preparation created this
    * manifest.

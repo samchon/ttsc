@@ -16,10 +16,10 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * 3. Edit a cross-package const enum, reject a type error, repair it, and damage
  *    persisted documents before another successful execution.
  *
- * @evidence contracts/testing.md#behavioral-verification Real installed ttsx processes print actual package values, cwd, filenames, entry/main identity, adjacent asset bytes and a caught source-mapped stack in CommonJS and ESM. Product trace events distinguish recorded/reused generations; warm execution has no native emitting command, whereas bypass still emits. Changing only model.ts produces TS2322 in unchanged consumer.ts and blocks execution; dependency, membership, package-export and native config changes are separately exercised. Concurrent cold publishers both execute the correct program.
+ * @evidence contracts/testing.md#behavioral-verification Real installed ttsx processes print actual package values, cwd, filenames, entry/main identity, adjacent asset bytes and a caught source-mapped stack in CommonJS and ESM. Product trace events distinguish recorded/reused generations, one materialized bundle and zero source-content reads for an unchanged proof. Warm execution has no native emit, lint check or transform command, including combined lint/evidence/banner execution; bypass still emits. Changing only model.ts produces TS2322 in unchanged consumer.ts and blocks execution; dependency, membership, package-export and native config changes are separately exercised. Concurrent cold publishers both execute the correct program.
  * @evidence contracts/testing.md#independent-expectations Authored enum literals 7/11, adjacent asset text, actual filesystem source paths and the authored throw line determine expected behavior independently of stored documents or compiler output. Producer argv and trace outcomes are actual observations.
  * @evidence contracts/testing.md#distinguishing-cases Cold/warm/bypass, dependency-only edits, type failure/repair, corrupt storage and dynamic excluded roots contrast success reuse with required recompilation. Both linked packages export src and a non-imported root remains checked.
- * @evidence contracts/testing.md#execution-ownership The Runtime batch invokes this helper using its existing installed SDK and cache owner. Independent launcher lifetimes prove persistence and input transitions; one linked banner composition borrows the installed contributor, with no extra installation.
+ * @evidence contracts/testing.md#execution-ownership The Runtime batch invokes this helper using its existing installed SDK and cache owner. Independent launcher lifetimes prove persistence and input transitions; linked banner and combined lint/evidence/banner compositions borrow the installed contributors, with no extra installation.
  * @evidence contracts/e2e.md#necessary-boundary Cross-process persistence, native compiler invocation, source-linked package resolution and actual Node source identity cannot be established by a document-store unit.
  * @evidence contracts/e2e.md#shared-execution One upfront graph shares two workspace package owners and all identity/map assertions across the necessary state transitions. The installed banner contributor adds one linked-host composition, prepared by its native bypass run before the completed-result cold/warm pair and config edit. A separate ESM request supplies native module URL/main/resource evidence across cold/warm/bypass. Native source-selection probes remain real work even on a hit.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Child environments clear the harness compiler override so package discovery selects the installed consumer's compiler. Every ordinary synchronous launcher is joined and its PID checked before input mutation. Unresolved ownership retains the batch graph and stops transitions. The batch owns cleanup; package junctions remain within its authored graph. One precreated trace sink stays unchanged across runs so instrumentation cannot alter the cache identity.
@@ -108,13 +108,17 @@ export async function runtimePersistentCacheCorpus(
       path.join(modules, "runtime-persistent-" + name),
       "junction",
     );
-  const trace = path.join(workspace.cache, "runtime-persistent-trace");
+  const trace = path.join(
+    process.env.TTSC_E2E_TRACE ?? workspace.cache,
+    "runtime-persistent-trace",
+  );
   fs.mkdirSync(trace, { recursive: true });
   const cache = path.join(workspace.cache, "runtime-persistent-store");
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     TTSC_CACHE_DIR: cache,
     TTSC_E2E_TRACE: trace,
+    TTSC_EXPLAIN_CACHE: "1",
     // The harness seeds its workspace compiler for in-process unplugin tests.
     // This experiment exercises the consumer's own installed compiler instead.
     TTSC_TSGO_BINARY: undefined,
@@ -149,6 +153,7 @@ export async function runtimePersistentCacheCorpus(
     succeeds = true,
     errorFile?: string,
     entry = "src/main.ts",
+    errorPattern = /TS2322/,
   ): any[] => {
     if (unresolved)
       throw new Error("preceding cache actor ownership unresolved");
@@ -187,6 +192,7 @@ export async function runtimePersistentCacheCorpus(
     );
     if (succeeds && result.status === 0)
       check(() => {
+        assert.match(result.stderr, /ttsx cache: /);
         const observed = JSON.parse(result.stdout.trim());
         const file = fs.realpathSync.native(path.join(root, "test", entry));
         assert.deepEqual(
@@ -210,7 +216,7 @@ export async function runtimePersistentCacheCorpus(
     if (!succeeds)
       check(() => {
         assert.equal(result.stdout.includes('"result"'), false);
-        assert.match(result.stderr, /TS2322/);
+        assert.match(result.stderr, errorPattern);
         if (errorFile !== undefined)
           assert.ok(result.stderr.includes(errorFile), result.stderr);
       });
@@ -249,6 +255,18 @@ export async function runtimePersistentCacheCorpus(
   check(() => {
     assert.ok(outcomes(cold, "recorded").length > 0);
     assert.ok(outcomes(warm, "reused").length > 0);
+    assert.ok(outcomes(warm, "reused", true).length > 0);
+    assert.ok(
+      outcomes(warm, "reused").every((event) => event.data.materialized === 1),
+    );
+    assert.ok(
+      warm.some(
+        (event) =>
+          event.data?.phase === "runtime-input-content" &&
+          event.data.contentReads === 0 &&
+          event.data.inputs > 0,
+      ),
+    );
     assert.equal(emitting(warm).length, 0);
     assert.equal(outcomes(bypass, "reused").length, 0);
     assert.ok(emitting(bypass).length > 0);
@@ -413,6 +431,79 @@ export async function runtimePersistentCacheCorpus(
   const nativeChanged = run([], 12);
   check(() => assert.ok(outcomes(nativeChanged, "recorded", true).length > 0));
   check(() => assert.match(served(nativeChanged), /changed-native-transform/));
+  // Keep a real check contributor and transform in the same cached pipeline.
+  // The existing installation already owns lint/evidence and the banner host.
+  write(
+    "test/lint.config.ts",
+    "import { evidence } from '@ttsc/evidence'; export default { plugins: { evidence }, rules: { 'evidence/todo': 'error' } };\n",
+  );
+  write(
+    "test/tsconfig.json",
+    JSON.stringify({
+      compilerOptions: {
+        ...common,
+        rootDir: "..",
+        noEmit: true,
+        plugins: [
+          { transform: "@ttsc/lint", configFile: "./lint.config.ts" },
+          { transform: "@ttsc/banner", configFile: "./banner.config.json" },
+        ],
+      },
+      include: ["src"],
+    }),
+  );
+  const checkedCold = run([], 12);
+  const checkedWarm = run([], 12);
+  const cacheDecisions = (records: any[]): string =>
+    JSON.stringify(
+      records
+        .filter((event) => event.data?.phase === "runtime-build-cache")
+        .map((event) => event.data),
+    );
+  check(() =>
+    assert.ok(
+      outcomes(checkedCold, "recorded", true).length > 0,
+      cacheDecisions(checkedCold),
+    ),
+  );
+  check(() =>
+    assert.ok(
+      outcomes(checkedWarm, "reused", true).length > 0,
+      cacheDecisions(checkedWarm),
+    ),
+  );
+  check(() => assert.equal(emitting(checkedWarm).length, 0));
+  check(() =>
+    assert.equal(
+      checkedWarm.filter(
+        (event) =>
+          event.event === "process-attempt" && event.argv?.includes("check"),
+      ).length,
+      0,
+    ),
+  );
+  check(() => assert.match(served(checkedWarm), /changed-native-transform/));
+  write(
+    "test/src/lint-sentinel.ts",
+    "/** @todo authored pending work */ export const lintSentinel = 1;\n",
+  );
+  run([], 12, false, "lint-sentinel.ts", "src/main.ts", /evidence\/todo/);
+  // Keep source membership and native contributor selection unchanged while
+  // only the descriptor's declared configuration changes.
+  const lintConfig = fs.readFileSync(
+    path.join(root, "test/lint.config.ts"),
+    "utf8",
+  );
+  write("test/lint.config.ts", lintConfig.replace("'error'", "'off'"));
+  run([], 12);
+  write("test/lint.config.ts", lintConfig);
+  run([], 12, false, "lint-sentinel.ts", "src/main.ts", /evidence\/todo/);
+  fs.unlinkSync(path.join(root, "test/src/lint-sentinel.ts"));
+  run([], 12);
+  write("test/src/model.ts", "export interface Shape { value: string }\n");
+  run([], 12, false, "consumer.ts");
+  write("test/src/model.ts", "export interface Shape { value: number }\n");
+  run([], 12);
   write(
     "test/esm/tsconfig.json",
     JSON.stringify({

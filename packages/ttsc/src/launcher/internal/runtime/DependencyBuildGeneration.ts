@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { RuntimeEmitBundle } from "../../../compiler/internal/build/RuntimeEmitBundle";
 import { resolvePhysicalPath as resolvePhysicalPathIdentity } from "../../../internal/pathIdentity/resolvePhysicalPath";
 import type { OwningModuleOptions } from "./OwningModuleOptions";
 
@@ -42,6 +43,9 @@ export namespace DependencyBuildGeneration {
   export interface BuiltProject {
     /** The generation directory holding the project's emitted JavaScript. */
     emitDir: string;
+
+    /** True only for an admitted private runtime output bundle. */
+    bundledOutputs?: true;
 
     /**
      * Source-root context, physically resolved when observable, with
@@ -86,6 +90,9 @@ export namespace DependencyBuildGeneration {
   export interface DependencyCacheMeta {
     /** The 128-bit hex id of the published generation directory. */
     generation: string;
+
+    /** True only for an admitted private runtime output bundle. */
+    bundledOutputs?: true;
 
     /**
      * Source-root context with physical resolution when observable and
@@ -201,20 +208,29 @@ export namespace DependencyBuildGeneration {
   }
 
   /**
-   * True when `directory` holds at least one emitted JavaScript file (any
-   * depth).
+   * True when a physical tree or explicitly selected valid bundle holds emitted
+   * JavaScript. Presence does not establish source ownership.
    *
-   * @evidence contracts/common.md#principled-implementation Directory traversal accepts only real regular-file JavaScript extensions and descends directory entries without following symlink leaves; failed reads cannot establish a completed emit.
-   * @evidence contracts/common.md#clear-and-simple-design One existential tree predicate stops on the first qualifying file and leaves output ownership indexing to the separate build record.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts The predicate observes actual emit presence rather than a marker's claim or a known filename, without treating a partial generation as published.
+   * @evidence contracts/common.md#principled-implementation Physical traversal accepts real regular-file JavaScript and does not follow symlink leaves; explicit bundles validate their stored population before testing JavaScript names.
+   * @evidence contracts/common.md#clear-and-simple-design One presence predicate selects physical traversal or explicit bundle inventory; the separate build record owns source associations.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts An unmarked generation never interprets a reserved filename as a bundle; marked missing or damaged storage cannot establish output presence.
    * @evidence contracts/common.md#meaningful-documentation Native prose defines JavaScript presence at any depth; the completion reader separately documents why presence alone does not establish ownership.
    * @evidence contracts/portability.md#os-neutral-implementation Native Dirent classification and path joins preserve host filesystem semantics; suffix grammar describes JavaScript outputs rather than host case policy.
-   * @evidence contracts/performance.md#efficient-algorithms An early-exit depth-first walk visits at most E entries, with path joins and suffix tests also processing directory/name text and native listing costs. Temporary space includes all listings retained along the active recursion path, constructed path strings and depth D; it does not allocate a flattened tree.
+   * @evidence contracts/performance.md#efficient-algorithms Physical storage uses an early-exit depth-first walk with active listings and recursion depth; a bundle validates its range index and streams the bounded body through a fixed buffer before projecting output names.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The caller determines immutable generation publication; this predicate does not cache a result while a build may still be writing.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous directory reads retain no handle or history; generation storage belongs to its cache container.
    */
-  export function emittedAnything(directory: string): boolean {
+  export function emittedAnything(
+    directory: string,
+    bundledOutputs = false,
+  ): boolean {
+    if (bundledOutputs)
+      return (
+        RuntimeEmitBundle.open(directory)
+          ?.outputs()
+          .some((name) => /\.(?:[cm]?js)$/i.test(name)) ?? false
+      );
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(directory, { withFileTypes: true });

@@ -22,9 +22,17 @@ import { E2ETrace } from "./E2ETrace";
  * time cost about 0.9 s per launch. Without a store, or when that proof is
  * unavailable, the file is streamed as before.
  *
+ * A completed plugin emit can request content identity without metadata in the
+ * returned key. Native metadata still brackets or authorizes the content read;
+ * physical target, lexical/target modes and actual bytes remain in that key.
+ * This allows harmless link-count or timestamp changes without equating changed
+ * executable content. Other consumers retain the full metadata identity.
+ *
  * @param runtime The executable, absolute.
  * @param identities Optional record store of the caller's plugin cache.
- * @evidence contracts/common.md#principled-implementation The identity joins lexical-link metadata, the selected physical file metadata and the SHA-256 of that file's bytes, streamed under metadata brackets or proven by a record whose separable signature still matches; descriptor and pathname observations must still agree after a read.
+ * @param includeMetadata Whether the returned identity also includes observed
+ *   file identity and timestamps; defaults to the existing strict identity.
+ * @evidence contracts/common.md#principled-implementation The default identity joins lexical-link metadata, physical file metadata and SHA-256; the explicit content projection retains physical target, both modes and SHA-256 while omitting metadata from the returned key. Both projections stream under full metadata brackets or use a record whose separable signature still matches; descriptor and pathname observations must agree after a read.
  * @evidence contracts/common.md#clear-and-simple-design This one native owner supplies the same identity to runtime capability and plugin caches; the record store owns metadata reuse and a private helper owns the bracketed stream.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Metadata alone never stands for bytes: reuse needs a record written under unchanged separable metadata around an actual read, which a same-tick rewrite or restored timestamps cannot satisfy because change time and the minted reference move.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains absolute-path scope, failure meaning, the record proof and the remaining concurrent-mutation limitation, with separate prose and tags.
@@ -36,6 +44,7 @@ import { E2ETrace } from "./E2ETrace";
 export function runtimeExecutableIdentity(
   runtime: string,
   identities?: PluginContentIdentities.Store,
+  includeMetadata = true,
 ): string | undefined {
   if (!path.isAbsolute(runtime)) return undefined;
   const startedAt = new Date().toISOString();
@@ -72,12 +81,19 @@ export function runtimeExecutableIdentity(
               PluginContentIdentities.fileObservation(references, physicalPath),
             read,
           );
-    return [
-      physicalPath,
-      fileIdentity(lexical),
-      fileIdentity(physical),
-      digest,
-    ].join("\0");
+    return includeMetadata
+      ? [
+          physicalPath,
+          fileIdentity(lexical),
+          fileIdentity(physical),
+          digest,
+        ].join("\0")
+      : [
+          physicalPath,
+          String(lexical.mode),
+          String(physical.mode),
+          digest,
+        ].join("\0");
   } catch (error) {
     return unavailable(
       runtime,
