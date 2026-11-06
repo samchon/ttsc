@@ -13,6 +13,11 @@ import fs from "node:fs";
  * after a failed symlink attempt. Failure alone does not identify a privilege
  * error.
  *
+ * Enumeration does not retain a file: another owner can remove it before link
+ * or copy. A failed copy skips only ENOENT with freshly confirmed source-entry
+ * absence. A missing destination parent, inaccessible source or other copy
+ * failure still propagates; an existing destination stays untouched on skip.
+ *
  * The launcher enumerates source entries and avoids known existing virtual
  * entries before calling this operation. That is not an atomic destination
  * reservation: a racing or direct caller can reach the copy fallback with an
@@ -20,13 +25,13 @@ import fs from "node:fs";
  * generation owner controls destination lifetime and cleanup; this operation
  * retains no open descriptor or cleanup handle after returning.
  *
- * @evidence contracts/common.md#principled-implementation The entry kind selects a directory link, file hard-link/copy or symlink route; a missing target cannot be materialized by the file-copy fallback.
- * @evidence contracts/common.md#clear-and-simple-design One mirror operation owns link creation and its native fallback; the private target-kind helper only resolves directory symlinks.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Windows directory targets select junctions directly; hard-link and final symlink failures trigger the documented native fallbacks without errno attribution. No test identity changes production behavior, and copy/skip outcomes retain their documented ownership and failure limits.
+ * @evidence contracts/common.md#principled-implementation The entry kind selects a directory link, file hard-link/copy or symlink route. A stale enumerated entry is skipped only after copy ENOENT and fresh native lstat ENOENT agree that the source entry disappeared.
+ * @evidence contracts/common.md#clear-and-simple-design One mirror operation owns link creation; its shared copy helper owns fresh source-absence proof, and its target-kind helper resolves directory symlinks.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Windows directory targets select junctions directly; native link failures select the existing copy fallback. No filename exception or retry conceals the race, and copy failures other than confirmed source absence propagate.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain link-to-original-path representation, failure-driven copy/absence behavior, destination replacement and caller-owned lifetime, with acknowledgment tags separated from that explanation.
  * @evidence contracts/portability.md#os-neutral-implementation Node filesystem APIs represent actual link/copy capabilities; Windows junction selection is explicit, while failed hard-link/symlink operations determine the fallback rather than guessed volume policy.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous native operations leave no retained descriptor or in-memory entry history. Created links/files persist until the caller removes the virtual generation; copying can allocate the full target contents, with no byte quota at this boundary.
- * @evidence contracts/performance.md#efficient-algorithms One entry selects a fixed number of native link/stat/existence attempts, without recursive directory enumeration. Copy fallback performs content-sized native work; path/target lookup and payload sizes are not capped by the entry count.
+ * @evidence contracts/performance.md#efficient-algorithms One entry selects a fixed number of native link/stat/existence attempts, without recursive directory enumeration. Copy fallback performs content-sized native work; only copy ENOENT adds one source lstat. Path/target lookup and payload sizes are not capped by the entry count.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation establishes a caller-owned destination rather than coordinating an equivalent producer or caching native capability/target observations. Different destinations require their own materialization and current native failures select the fallback.
  */
 export function linkVirtualEntry(
@@ -49,7 +54,7 @@ export function linkVirtualEntry(
       fs.linkSync(realEntry, virtualEntry);
     } catch {
       // Cross-device or unsupported filesystem: fall back to a full copy.
-      fs.copyFileSync(realEntry, virtualEntry);
+      copyPresentEntry(realEntry, virtualEntry);
     }
     return;
   }
@@ -74,8 +79,27 @@ export function linkVirtualEntry(
     try {
       fs.linkSync(realEntry, virtualEntry);
     } catch {
-      fs.copyFileSync(realEntry, virtualEntry);
+      copyPresentEntry(realEntry, virtualEntry);
     }
+  }
+}
+
+/**
+ * Copy a link fallback, preserving errors unless its source entry vanished.
+ * Nonfollowing lstat distinguishes a retired entry from an unavailable target.
+ */
+function copyPresentEntry(realEntry: string, virtualEntry: string): void {
+  try {
+    fs.copyFileSync(realEntry, virtualEntry);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      try {
+        fs.lstatSync(realEntry);
+      } catch (observation) {
+        if ((observation as NodeJS.ErrnoException).code === "ENOENT") return;
+      }
+    }
+    throw error;
   }
 }
 
