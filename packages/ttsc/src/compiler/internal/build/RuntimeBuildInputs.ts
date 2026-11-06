@@ -24,12 +24,15 @@ import { TsgoArguments } from "./TsgoArguments";
  * effective configuration and source-selection commands. Repeating selection
  * discovers added roots and changed resolution candidates without guessing a
  * project boundary or treating workspace links as immutable dependencies.
- * Native plugin observations add their independently replayed input closure.
- * Custom compiler overrides require the physical identity of the installed
- * package compiler; wrappers with undisclosed external inputs stay fresh.
+ * Native plugin and descriptor observations add their independently replayed
+ * input closure. Descriptor discovery can take different cold and warm paths;
+ * its captured reads belong to result admission, while the resolved native
+ * execution determines snapshot equivalence. Custom compiler overrides require
+ * the physical identity of the installed package compiler; wrappers with
+ * undisclosed external inputs stay fresh.
  *
  * @evidence contracts/common.md#principled-implementation The actual selected compiler defines effective options and source membership; content and physical identities cover that closure and package scopes, with separate native producer proof for checks.
- * @evidence contracts/common.md#clear-and-simple-design One factory supplies input capture and result admission to the runtime document store without changing normal build dispatch.
+ * @evidence contracts/common.md#clear-and-simple-design One factory supplies input capture, generation-owned descriptor proof and result admission to the runtime document store without changing normal build dispatch.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Incomplete descriptors, unsupported effectful compiler modes and unproved native producers and custom compilers without package authority use the existing fresh build rather than weakening diagnostics or substituting a compiler.
  * @evidence contracts/common.md#meaningful-documentation Native prose describes compiler-owned membership, workspace scope and independent plugin observations.
  * @evidence contracts/portability.md#os-neutral-implementation The selected executable receives native argv and cwd; source and package scopes use native physical paths and preserve lexical spellings without OS-wide case folding.
@@ -47,12 +50,12 @@ export namespace RuntimeBuildInputs {
    * only when they name that same package-backed compiler.
    *
    * @evidence contracts/common.md#principled-implementation Eligibility requires a private emitting request, complete descriptor selection and supported check witnesses; captures bracket content identities and native source selection, and result admission requires complete emitted-source ownership.
-   * @evidence contracts/common.md#clear-and-simple-design Two closures share the resolved request while capture owns current selection and admission owns retained generation proof.
+   * @evidence contracts/common.md#clear-and-simple-design Capture owns current selection, record conservatively merges original descriptor observations into the fresh generation, and admission replays its complete proof. Missing or conflicting declarations stay unavailable.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Native transforms without complete emit observations and arbitrary external-code or profiling modes decline reuse rather than inventing input completeness. Custom compiler overrides need matching installed package identity, including inherited dependency hints; the original build remains the fallback.
    * @evidence contracts/common.md#meaningful-documentation Native prose states current producer support and private-runtime scope, including why fresh transformation remains necessary.
    * @evidence contracts/portability.md#os-neutral-implementation Source and package observations use native paths and bracketed byte reads, and upstream probes use the original compiler working directory and argv without shell composition.
    * @evidence contracts/performance.md#efficient-algorithms Capture performs two upstream queries, executable proofs and a selected-population metadata scan; unproved content adds actual byte hashing. Unique ancestor/path sets bound duplicate scope work, and admission replays recorded native inputs.
-   * @evidence contracts/performance.md#reuse-equivalent-work Equal deterministic snapshots retain compiler arguments, versions, content, scope manifests, plugin binaries/configuration and environment; graph and host witnesses separately gate cached check reuse.
+   * @evidence contracts/performance.md#reuse-equivalent-work Equal deterministic snapshots retain compiler arguments, versions, content, scope manifests, resolved native plugins and environment. Descriptor reads are validated currently and captured with the fresh result for later admission, so discovery-cache temperature changes no execution key; graph and host witnesses separately gate reuse.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The resolved context and closures belong to one build; each capture releases local source and native-output buffers on return, with no resident process or historical map retained.
    */
   export function create(
@@ -62,6 +65,7 @@ export namespace RuntimeBuildInputs {
     | {
         capture: () => string | undefined;
         admit: (result: TtscBuildResult, emitDir: string) => boolean;
+        record: (result: TtscBuildResult) => TtscBuildResult;
       }
     | undefined {
     const refuse = (reason: string): undefined => {
@@ -179,6 +183,55 @@ export namespace RuntimeBuildInputs {
     )
       return refuse("effectful-compiler-options");
     return {
+      record: (result) => {
+        if (loaded === undefined) return result;
+        // Evaluation-time reads differ between a cold typed configuration and
+        // its validated cached answer. Preserve their original proof with the
+        // result instead of making discovery-cache temperature a program key.
+        const deferred = new Set(loaded.deferredHostInputs);
+        const populations = [
+          result,
+          {
+            ...loaded,
+            // Forwarded config paths have not been read by the descriptor.
+            // Their consuming native generation supplies any required proof.
+            hostInputs: loaded.hostInputs.filter((file) => !deferred.has(file)),
+          },
+        ];
+        const hostInputs = [
+          ...new Set(
+            populations.flatMap((owner) => [
+              ...(owner.hostInputs ?? []),
+              ...Object.keys(owner.hostInputHashes ?? {}),
+              ...Object.keys(owner.hostInputRealpaths ?? {}),
+            ]),
+          ),
+        ].sort();
+        const merge = (key: "hostInputHashes" | "hostInputRealpaths") => {
+          const witnesses: Record<string, string | null> = {};
+          const unavailable = new Set<string>();
+          for (const owner of populations) {
+            for (const file of owner.hostInputs ?? [])
+              if (!Object.hasOwn(owner[key] ?? {}, file)) unavailable.add(file);
+            for (const [file, value] of Object.entries(owner[key] ?? {})) {
+              if (Object.hasOwn(witnesses, file) && witnesses[file] !== value)
+                unavailable.add(file);
+              witnesses[file] = value;
+            }
+          }
+          for (const file of unavailable) delete witnesses[file];
+          return witnesses;
+        };
+        return {
+          ...result,
+          hostInputs,
+          hostInputHashes: merge("hostInputHashes"),
+          hostInputRealpaths: merge("hostInputRealpaths"),
+          ...(loaded.observationsComplete === false
+            ? { observationsComplete: false as const }
+            : {}),
+        };
+      },
       capture: () => {
         try {
           if (process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1")
@@ -197,7 +250,15 @@ export namespace RuntimeBuildInputs {
             ]),
           ];
           const compilerIdentities = binaries.map((binary) =>
-            runtimeExecutableIdentity(binary, identities),
+            // Native plugin bytes are deterministic inputs of the completed
+            // pipeline; harmless timestamp/link changes can force a new hash
+            // without changing that execution. Compiler/Node authority retains
+            // its existing strict physical/metadata identity.
+            runtimeExecutableIdentity(
+              binary,
+              identities,
+              binary === execution.tsgo.binary || binary === node,
+            ),
           );
           if (compilerIdentities.some((identity) => identity === undefined))
             return refuse("compiler-or-plugin-executable-proof-unavailable");
@@ -279,7 +340,6 @@ export namespace RuntimeBuildInputs {
             execution.tsconfig,
             identities,
           );
-          const hostInputs: [string, string | null, string | null][] = [];
           for (const [file, expected] of Object.entries(
             loaded?.hostInputHashes ?? {},
           ).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
@@ -289,7 +349,6 @@ export namespace RuntimeBuildInputs {
               physical !== loaded?.hostInputRealpaths[file]
             )
               return refuse("descriptor-host-input-changed");
-            hostInputs.push([file, physical, hash]);
           }
           for (const [file, before] of inspected.observations)
             if (CompilerArgumentsInspection.observeInputFile(file) !== before)
@@ -336,12 +395,11 @@ export namespace RuntimeBuildInputs {
             .filter(([key]) => !/^TTSX_RUNTIME_/i.test(key))
             .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
           return JSON.stringify({
-            format: 1,
+            format: 2,
             version: identities.version,
             compilerIdentities,
             config,
             hashes,
-            hostInputs,
             environment: crypto
               .createHash("sha256")
               .update(JSON.stringify(environment))
@@ -352,7 +410,6 @@ export namespace RuntimeBuildInputs {
             unchecked: options.skipDiagnosticsCheck === true,
             plugins: execution.nativePlugins,
             pluginSources: loaded?.pluginSources,
-            descriptor: loaded?.hostInputHashes,
           });
         } catch {
           return refuse("input-snapshot-failed");

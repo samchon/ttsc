@@ -324,7 +324,9 @@ export namespace PluginContentIdentities {
    *
    * @param references The store's device references.
    * @param file The file, normally already resolved to its physical path.
-   * @evidence contracts/common.md#principled-implementation Device, inode, mode, size and both stamps move on replacement or write; separability requires a same-device reference strictly newer than the modification stamp.
+   * @param separateChangeTime Also require the change stamp to precede the
+   *   reference for selected runtime source-content reuse.
+   * @evidence contracts/common.md#principled-implementation Device, inode, mode, size and both stamps move on replacement or write; separability requires a same-device reference strictly newer than the modification stamp and, when requested, the change stamp.
    * @evidence contracts/common.md#clear-and-simple-design One stat produces both fields used by digest.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A non-regular or unreadable file yields no observation, so the content reader decides.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the following-link semantics and undefined meaning.
@@ -336,12 +338,13 @@ export namespace PluginContentIdentities {
   export function fileObservation(
     references: ReadonlyMap<bigint, bigint>,
     file: string,
+    separateChangeTime = false,
   ): Observation | undefined {
     try {
       const stats = fs.statSync(file, { bigint: true });
       if (!stats.isFile()) return undefined;
       return {
-        separable: separable(references, stats),
+        separable: separable(references, stats, separateChangeTime),
         signature: [
           stats.dev,
           stats.ino,
@@ -361,21 +364,28 @@ export namespace PluginContentIdentities {
    *
    * @param references The store's device references.
    * @param stats Observed metadata.
-   * @evidence contracts/common.md#principled-implementation Only a strictly newer same-device reference separates the recorded modification tick.
-   * @evidence contracts/common.md#clear-and-simple-design One lookup and one comparison.
+   * @param separateChangeTime Whether both modification and change ticks must
+   *   have ended.
+   * @evidence contracts/common.md#principled-implementation A strictly newer same-device reference separates the modification tick and, when requested, the change tick; restoring an old mtime cannot separate a fresh ctime.
+   * @evidence contracts/common.md#clear-and-simple-design One lookup supplies the reference for the requested stamp comparisons.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing reference is never replaced by wall time.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the strict ordering.
    * @evidence contracts/portability.md#os-neutral-implementation References are matched by native device identifier.
-   * @evidence contracts/performance.md#efficient-algorithms One map lookup and one bigint comparison.
+   * @evidence contracts/performance.md#efficient-algorithms One map lookup and at most two bigint comparisons.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A scalar predicate.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Nothing is retained.
    */
   export function separable(
     references: ReadonlyMap<bigint, bigint>,
     stats: fs.BigIntStats,
+    separateChangeTime = false,
   ): boolean {
     const minted = references.get(stats.dev);
-    return minted !== undefined && stats.mtimeNs < minted;
+    return (
+      minted !== undefined &&
+      stats.mtimeNs < minted &&
+      (!separateChangeTime || stats.ctimeNs < minted)
+    );
   }
 
   /**

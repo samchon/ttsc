@@ -12,7 +12,7 @@ import { CompilerArgumentsInspection } from "../CompilerArgumentsInspection";
  *
  * @evidence contracts/common.md#principled-implementation A complete selected-path vector and each current physical target, device, inode, mode, size, modification and change stamp qualify a record bracketed around actual byte reads; current absence is observed separately.
  * @evidence contracts/common.md#clear-and-simple-design One aggregate record shares content witnesses without adding a cache file or retained buffer per source.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The existing separable-reference policy gates metadata reuse; unavailable observations read real content, and compiler selection is never inferred from historical paths.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Both modification and change stamps must precede the store's same-device reference before metadata reuse; unavailable observations read real content, and compiler selection is never inferred from historical paths.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes content reuse from source selection and explains metadata authority and fallback.
  * @evidence contracts/portability.md#os-neutral-implementation Native realpath and bigint stat retain physical targets and device-specific stamp authority, without platform case guesses.
  * @evidence contracts/performance.md#efficient-algorithms Each proof observes N selected paths and serializes their metadata; an unchanged record avoids reading B source bytes and uses one aggregate record rather than N cache files.
@@ -56,7 +56,7 @@ export namespace RuntimeInputContents {
       );
     const value = PluginContentIdentities.digest(
       store,
-      "runtime-input-content:" +
+      "runtime-input-content-v2:" +
         crypto
           .createHash("sha256")
           .update(JSON.stringify(inputs))
@@ -71,6 +71,7 @@ export namespace RuntimeInputContents {
             const observation = PluginContentIdentities.fileObservation(
               references,
               file,
+              true,
             );
             if (observation === undefined) return undefined;
             separable &&= observation.separable;

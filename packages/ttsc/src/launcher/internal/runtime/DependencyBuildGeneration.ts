@@ -216,7 +216,7 @@ export namespace DependencyBuildGeneration {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts An unmarked generation never interprets a reserved filename as a bundle; marked missing or damaged storage cannot establish output presence.
    * @evidence contracts/common.md#meaningful-documentation Native prose defines JavaScript presence at any depth; the completion reader separately documents why presence alone does not establish ownership.
    * @evidence contracts/portability.md#os-neutral-implementation Native Dirent classification and path joins preserve host filesystem semantics; suffix grammar describes JavaScript outputs rather than host case policy.
-   * @evidence contracts/performance.md#efficient-algorithms Physical storage uses an early-exit depth-first walk with active listings and recursion depth; a bundle reads, hashes and validates one bounded encoded population before projecting output names.
+   * @evidence contracts/performance.md#efficient-algorithms Physical storage uses an early-exit depth-first walk with active listings and recursion depth; a bundle validates its range index and streams the bounded body through a fixed buffer before projecting output names.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The caller determines immutable generation publication; this predicate does not cache a result while a build may still be writing.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous directory reads retain no handle or history; generation storage belongs to its cache container.

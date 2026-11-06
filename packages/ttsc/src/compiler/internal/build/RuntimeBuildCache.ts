@@ -134,12 +134,14 @@ export namespace RuntimeBuildCache {
         if (!names.has(path.relative(entry.emitDir, output)))
           throw new Error("missing runtime cache provenance output");
       operation = "output-restoration";
-      if (props.bundle === true) {
+      const bundled =
+        props.bundle === true &&
+        RuntimeEmitBundle.write(props.emitDir, entry.outputs);
+      if (bundled) {
         // The run owns one complete file, so collection of the persistent
         // document cannot remove an active child's bytes.
         const bundleFile = path.join(props.emitDir, RuntimeEmitBundle.filename);
         restored.push(bundleFile);
-        RuntimeEmitBundle.write(props.emitDir, entry.outputs);
       } else
         for (const [name, bytes] of entry.outputs) {
           const target = path.join(props.emitDir, name);
@@ -161,11 +163,11 @@ export namespace RuntimeBuildCache {
         undefined,
         key,
         entry.outputs.length,
-        props.bundle === true ? 1 : entry.outputs.length,
+        bundled ? 1 : entry.outputs.length,
       );
       return {
         ...relocate(entry.result, entry.emitDir, props.emitDir),
-        ...(props.bundle === true ? { bundledOutputs: true as const } : {}),
+        ...(bundled ? { bundledOutputs: true as const } : {}),
       };
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;

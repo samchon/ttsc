@@ -43,7 +43,7 @@ export class EmitOwnershipIndex {
   public readonly rootDir: string;
 
   private readonly bySource = new Map<string, Set<string>>();
-  /** Encoded bytes retained only by this immutable runtime generation's index. */
+  /** Output ranges retained only by this immutable runtime generation's index. */
   private readonly bundle: RuntimeEmitBundle | undefined;
   /** Concrete proof gaps retained for actionable lookup failures. */
   private readonly unavailableReasons: string[];
@@ -200,7 +200,7 @@ export class EmitOwnershipIndex {
    * @evidence contracts/common.md#clear-and-simple-design Both representations supply the same sorted relative path list without inferring source ownership.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable subtrees are not silently omitted and later linked user files cannot become compiler output through a late snapshot.
    * @evidence contracts/common.md#meaningful-documentation Native prose states capture timing, returned spelling, link handling and the coverage-versus-ownership distinction before tags.
-   * @evidence contracts/performance.md#efficient-algorithms Physical traversal visits E entries without reading content; an explicit bundle reads, hashes and validates its bounded encoded population. Both convert relative path text and sort J selected names.
+   * @evidence contracts/performance.md#efficient-algorithms Physical traversal visits E entries without reading content; an explicit bundle validates its range index and streams the bounded body through a fixed buffer. Both convert relative path text and sort J selected names.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call observes its selected storage representation; the build owner may retain the returned inventory under its immutable-generation premise.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The path list transfers to the build owner; no retained handle or cache is acquired.
@@ -239,9 +239,9 @@ export class EmitOwnershipIndex {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing bundled names return null instead of adopting a mirrored authored file as compiler output.
    * @evidence contracts/common.md#meaningful-documentation The prose states logical output/map scope and no-fallback behavior.
    * @evidence contracts/portability.md#os-neutral-implementation Bundle lookup uses private native relative coordinates and ordinary reads retain Node filesystem semantics.
-   * @evidence contracts/performance.md#efficient-algorithms Bundle reads index one name and decode only its encoded bytes; ordinary reads load that one physical file.
+   * @evidence contracts/performance.md#efficient-algorithms Bundle reads index one name and read/hash only its byte range; ordinary reads load that one physical file.
    * @evidence contracts/performance.md#reuse-equivalent-work The index's immutable build identity owns the same bundle for all module loads; another generation gets a new index.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Returned text belongs to the caller, encoded bytes follow the index lifetime, and no handle or per-query history is retained.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Returned text belongs to the caller, range metadata follows the index lifetime, and no body population, handle or per-query history is retained.
    */
   public readOutput(file: string): string | null {
     if (this.bundle !== undefined) return this.bundle.read(file);

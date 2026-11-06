@@ -118,6 +118,24 @@ export function test_runtimebuildcache_bundles_outputs_with_run_owned_bytes_and_
       "invalid bundle",
     );
     assert.throws(() => RuntimeEmitBundle.open(warm.emitDir));
+    const mutable = path.join(root, "mutable");
+    fs.mkdirSync(mutable);
+    assert.equal(
+      RuntimeEmitBundle.write(mutable, [
+        ["main.js", Buffer.from("exports.value = 7;").toString("base64")],
+      ]),
+      true,
+    );
+    const reader = RuntimeEmitBundle.open(mutable)!;
+    const artifact = path.join(mutable, RuntimeEmitBundle.filename);
+    const bytes = fs.readFileSync(artifact);
+    bytes[bytes.length - 1] = bytes[bytes.length - 1]! ^ 1;
+    fs.writeFileSync(artifact, bytes);
+    assert.throws(() => reader.read(path.join(mutable, "main.js")));
+    assert.throws(() => RuntimeEmitBundle.open(mutable));
+    fs.truncateSync(artifact, bytes.length - 1);
+    assert.throws(() => reader.read(path.join(mutable, "main.js")));
+    assert.throws(() => RuntimeEmitBundle.open(mutable));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

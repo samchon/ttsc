@@ -23,7 +23,7 @@ export type RunBuildOptions = TtscBuildOptions & {
   /** Persistent private-runtime emit documents; absence keeps ordinary builds. */
   runtimeCacheDir?: string;
 
-  /** Serve admitted runtime outputs from a run-owned bundle rather than files. */
+  /** Prefer a run-owned bundle for admitted runtime outputs. */
   bundleRuntimeOutputs?: boolean;
 
   /**

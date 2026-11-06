@@ -108,7 +108,10 @@ export async function runtimePersistentCacheCorpus(
       path.join(modules, "runtime-persistent-" + name),
       "junction",
     );
-  const trace = path.join(workspace.cache, "runtime-persistent-trace");
+  const trace = path.join(
+    process.env.TTSC_E2E_TRACE ?? workspace.cache,
+    "runtime-persistent-trace",
+  );
   fs.mkdirSync(trace, { recursive: true });
   const cache = path.join(workspace.cache, "runtime-persistent-store");
   const env: NodeJS.ProcessEnv = {
@@ -451,8 +454,24 @@ export async function runtimePersistentCacheCorpus(
   );
   const checkedCold = run([], 12);
   const checkedWarm = run([], 12);
-  check(() => assert.ok(outcomes(checkedCold, "recorded", true).length > 0));
-  check(() => assert.ok(outcomes(checkedWarm, "reused", true).length > 0));
+  const cacheDecisions = (records: any[]): string =>
+    JSON.stringify(
+      records
+        .filter((event) => event.data?.phase === "runtime-build-cache")
+        .map((event) => event.data),
+    );
+  check(() =>
+    assert.ok(
+      outcomes(checkedCold, "recorded", true).length > 0,
+      cacheDecisions(checkedCold),
+    ),
+  );
+  check(() =>
+    assert.ok(
+      outcomes(checkedWarm, "reused", true).length > 0,
+      cacheDecisions(checkedWarm),
+    ),
+  );
   check(() => assert.equal(emitting(checkedWarm).length, 0));
   check(() =>
     assert.equal(
@@ -468,6 +487,16 @@ export async function runtimePersistentCacheCorpus(
     "test/src/lint-sentinel.ts",
     "/** @todo authored pending work */ export const lintSentinel = 1;\n",
   );
+  run([], 12, false, "lint-sentinel.ts", "src/main.ts", /evidence\/todo/);
+  // Keep source membership and native contributor selection unchanged while
+  // only the descriptor's declared configuration changes.
+  const lintConfig = fs.readFileSync(
+    path.join(root, "test/lint.config.ts"),
+    "utf8",
+  );
+  write("test/lint.config.ts", lintConfig.replace("'error'", "'off'"));
+  run([], 12);
+  write("test/lint.config.ts", lintConfig);
   run([], 12, false, "lint-sentinel.ts", "src/main.ts", /evidence\/todo/);
   fs.unlinkSync(path.join(root, "test/src/lint-sentinel.ts"));
   run([], 12);
