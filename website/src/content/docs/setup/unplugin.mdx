@@ -259,6 +259,29 @@ register({ project: "tsconfig.build.json" });
 
 Importing `@ttsc/unplugin/bun-register` registers exactly one runtime loader, shared by CommonJS and ESM loads in the same Bun process. Calls made before the first transformable TypeScript load use last-call-wins and capture their options by value, so an immediate explicit call can replace the preload defaults. Entering the first such load locks the options synchronously for the immutable module-loading session. A later call with the same structural value is idempotent, while a different value throws. Restart the Bun process after changing registration options, source, tsconfig, or plugin inputs.
 
+### Select modules with `filter`
+
+By default, `ttsc` transforms every TypeScript module that Bun loads, except those in `node_modules`. To transform only some of them, pass `filter`, a `RegExp` or an array of `RegExp`. A module is transformed when any pattern matches its absolute path. Every other module is skipped: Bun loads it as it would without `ttsc`, so no `ttsc` plugin runs on it.
+
+```ts
+import { register } from "@ttsc/unplugin/bun-register";
+
+// Transform the modules in a src/validators directory and the *.schema.ts files.
+register({ filter: [/\/src\/validators\//, /\.schema\.ts$/] });
+```
+
+`ttsc({ filter })` takes the same option under `Bun.build`, where a skipped module goes to the next loader. No other adapter has this option.
+
+Each pattern is tested against the module's absolute path, such as `/home/me/app/src/validators/email.ts`, and not against an import specifier or a path relative to the project. When you write a pattern:
+
+- Use `/` between path segments. The path is tested with each `\` written as `/`, so one pattern matches the same module on every host.
+- Match part of the path rather than anchoring on a leading `/`. A Windows path starts with a drive letter, as in `C:/Users/me/app/src/validators/email.ts`, so a pattern that begins with `^\/` never matches it.
+- Add the `i` flag when the casing of a path can vary, because matching is case-sensitive. The `g` and `y` flags carry no state from one module to the next.
+
+An omitted `filter` and an empty array apply no restriction. A pattern only narrows what `ttsc` already transforms: declarations, `node_modules` and in-memory entries supplied through `Bun.build({ files })` stay with Bun whether or not a pattern matches them. A value that is not a `RegExp` or an array of them throws a `TypeError` when `register` is called.
+
+Like the other options, `filter` is locked when the first TypeScript module outside `node_modules` loads, even if the filter skips that module. A later `register` call with a different `filter` then throws, as it does for any changed option.
+
 ## Options
 
 Most projects need none: the adapter finds `tsconfig.json` on its own, and your plugins and `lint.config.ts` apply unchanged.
