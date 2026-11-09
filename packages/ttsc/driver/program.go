@@ -1069,6 +1069,28 @@ func (p *Program) PluginHostInputRealpaths() map[string]*string {
   return p.plugins.hostInputRealpaths()
 }
 
+// PluginEnvironmentInputs returns every environment variable a linked hook
+// read through PluginContext.Env while this Program was loaded or transformed,
+// keyed by the name the hook passed, with the value the generation recorded
+// for it. A nil value records that the variable was unset. The result is nil
+// when no hook read one, so a plugin that reads no environment leaves every
+// envelope unchanged. It does not run a pending ProgramPlugin hook.
+//
+// @evidence contracts/common.md#principled-implementation The ledger keeps the first value each name returned, so the reported value is the one every hook's output was computed from.
+// @evidence contracts/common.md#clear-and-simple-design One generation ledger owns the reads; this accessor copies it beside the host-input accessors.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Nothing is read from the process environment here; an unrecorded variable is never added after the fact.
+// @evidence contracts/common.md#meaningful-documentation Native prose defines keys, values, nil absence, the empty result and hook timing following the documentation skill.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Recorded names and values are returned without native environment access or name normalization.
+// @evidence contracts/performance.md#efficient-algorithms One lock and one copy of the recorded names and values; cost is linear in distinct names read.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This accessor exposes recorded inputs without deciding reuse.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned copy is caller-owned and no additional state is retained.
+func (p *Program) PluginEnvironmentInputs() map[string]*string {
+  if p == nil {
+    return nil
+  }
+  return p.plugins.environmentInputs()
+}
+
 // PluginObservationsIncomplete reports whether any linked hook explicitly
 // declared that its supported public API could not observe the input population
 // for this generation. False means no such declaration, not completeness proof.

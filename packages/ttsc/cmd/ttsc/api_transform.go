@@ -55,6 +55,12 @@ type apiTransformResult struct {
   // Null means absence; omitted keys leave symlink or junction identity unknown.
   HostInputRealpaths map[string]*string `json:"hostInputRealpaths,omitempty"`
 
+  // EnvironmentInputs maps each environment variable a linked hook read
+  // through PluginContext.Env to the value it read; null means unset.
+  // Omitted when no hook read one. Names only identify inputs; values can be
+  // secrets and belong to the consumer's reuse check, not to logs.
+  EnvironmentInputs map[string]*string `json:"environmentInputs,omitempty"`
+
   // ObservationsComplete is false only for an explicit unsupported observation
   // boundary reported by a linked hook. Absence does not prove completeness.
   ObservationsComplete *bool `json:"observationsComplete,omitempty"`
@@ -115,6 +121,7 @@ func writeTransformedProgramResponse(prog *driver.Program, diags []driver.Diagno
   var hostInputs []string
   var hostInputHashes map[string]*string
   var hostInputRealpaths map[string]*string
+  var environmentInputs map[string]*string
   var observationsComplete *bool
   if prog == nil {
     unavailable := false
@@ -134,6 +141,7 @@ func writeTransformedProgramResponse(prog *driver.Program, diags []driver.Diagno
     hostInputs = prog.PluginHostInputs()
     hostInputHashes = prog.PluginHostInputHashes()
     hostInputRealpaths = prog.PluginHostInputRealpaths()
+    environmentInputs = prog.PluginEnvironmentInputs()
     if prog.PluginObservationsIncomplete() {
       incomplete := false
       observationsComplete = &incomplete
@@ -148,6 +156,7 @@ func writeTransformedProgramResponse(prog *driver.Program, diags []driver.Diagno
     HostInputs:           hostInputs,
     HostInputHashes:      hostInputHashes,
     HostInputRealpaths:   hostInputRealpaths,
+    EnvironmentInputs:    environmentInputs,
     ObservationsComplete: observationsComplete,
     TypeScript:           typescript,
   }

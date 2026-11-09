@@ -169,6 +169,7 @@ type PluginContext struct {
   reportFileDependencyRejected   func(string)
   reportFileComplete             func(string)
   reportEveryFileComplete        func()
+  readEnvironment                func(string) (string, bool)
 }
 
 // ReportObservationIncomplete declares that this hook's input population could
@@ -193,6 +194,42 @@ func (ctx PluginContext) ReportObservationIncomplete() {
   if ctx.reportObservationIncomplete != nil {
     ctx.reportObservationIncomplete()
   }
+}
+
+// Env returns the value of the environment variable name, like os.LookupEnv,
+// and records the read as an input of this compiler generation. A plugin whose
+// output depends on a variable reads it here instead of calling os.Getenv, so
+// the envelope's environmentInputs names it and persistent hosts withdraw
+// output compiled under another value. The first read of a name fixes its
+// value for the whole generation: a later read returns the recorded value even
+// if the process environment changed in between, so the output never depends
+// on a value the record does not carry. ok is false for an unset variable, and
+// that absence is recorded too.
+//
+// A name that cannot name a variable (empty, or containing '=' or NUL) reads
+// as unset and is not recorded. A context without a driver callback reads the
+// process environment without recording it.
+//
+// The precedents are Rust's proc_macro::tracked_env::var, Cargo's
+// rerun-if-env-changed, and Racket's register-external-file: the read site
+// itself declares the dependency, so no tool keeps a list of variables.
+//
+// @evidence contracts/common.md#principled-implementation The read site records the exact name and value or absence it returned, and the generation ledger returns the first recorded value for every later read, so output and record cannot disagree.
+// @evidence contracts/common.md#clear-and-simple-design One callback delegates to the generation ledger; name validation precedes it and the uncallbacked context falls back to os.LookupEnv.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No static variable list, prefix rule or intercepted os.Getenv replaces the explicit read; values are not hashed or redacted, so equality checks compare what the plugin saw.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs state the lookup semantics, first-read fixing, absence recording, invalid names and the precedents following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation os.LookupEnv supplies the platform's own name matching, including Windows case-insensitivity; the recorded name keeps the caller's spelling and consumers compare it under their platform's environment rule.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The ledger retains one name and value copy per distinct name read for the generation's lifetime; repeated reads add nothing. No handle is acquired and no cap is imposed.
+// @evidence contracts/performance.md#efficient-algorithms Name validation scans the name once; the ledger takes one lock and one map lookup, plus one os.LookupEnv on the first read of a name.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Recording an input coordinates no completed or in-flight computation; consumers decide reuse from the record.
+func (ctx PluginContext) Env(name string) (string, bool) {
+  if name == "" || strings.ContainsAny(name, "=\x00") {
+    return "", false
+  }
+  if ctx.readEnvironment == nil {
+    return os.LookupEnv(name)
+  }
+  return ctx.readEnvironment(name)
 }
 
 // ReportHostInputHash declares the exact file state consumed by a native
@@ -518,9 +555,57 @@ type linkedPluginState struct {
 // one hook cannot prove another hook's same-file dependency when that hook only
 // reported the path, while ReportHostInput followed by ReportHostInputHash in
 // one hook remains one complete observation.
+//
+// Environment reads are kept once per generation instead: a value is a
+// complete observation by itself, and every hook must see the value the
+// generation records, so the first read of a name fixes it for all of them.
 type pluginHostInputScopes struct {
-  mu     sync.Mutex
-  scopes []*pluginHostInputs
+  mu          sync.Mutex
+  scopes      []*pluginHostInputs
+  environment map[string]*string
+}
+
+// readEnvironment returns the generation's recorded value of name, reading and
+// recording the process environment on the first read. A nil ledger records
+// nothing.
+func (inputs *pluginHostInputScopes) readEnvironment(name string) (string, bool) {
+  if inputs == nil {
+    return os.LookupEnv(name)
+  }
+  inputs.mu.Lock()
+  defer inputs.mu.Unlock()
+  recorded, exists := inputs.environment[name]
+  if !exists {
+    if value, ok := os.LookupEnv(name); ok {
+      recorded = &value
+    }
+    if inputs.environment == nil {
+      inputs.environment = map[string]*string{}
+    }
+    inputs.environment[name] = recorded
+  }
+  if recorded == nil {
+    return "", false
+  }
+  return *recorded, true
+}
+
+// environmentList copies the recorded environment reads, or returns nil when
+// no hook read one.
+func (inputs *pluginHostInputScopes) environmentList() map[string]*string {
+  if inputs == nil {
+    return nil
+  }
+  inputs.mu.Lock()
+  defer inputs.mu.Unlock()
+  if len(inputs.environment) == 0 {
+    return nil
+  }
+  environment := make(map[string]*string, len(inputs.environment))
+  for name, value := range inputs.environment {
+    environment[name] = cloneStringPointer(value)
+  }
+  return environment
 }
 
 type pluginHostInputs struct {
@@ -913,7 +998,8 @@ func registeredPlugin(index int) (any, bool) {
 // declarations are scoped per plugin instead: completeness is a claim about
 // everything one plugin contributes to a file, so the claims of its preamble
 // and program hooks are the same plugin's claim and must not be attributed
-// separately.
+// separately. Environment reads go to the generation ledger, which fixes one
+// value per name for every hook.
 func (state linkedPluginState) contextAt(index int, entry PluginEntry) PluginContext {
   inputs := state.inputs.newScope()
   declaration := state.declarations.forPlugin(index)
@@ -931,6 +1017,7 @@ func (state linkedPluginState) contextAt(index int, entry PluginEntry) PluginCon
     reportFileDependencyRejected:   declaration.rejectDependency,
     reportFileComplete:             declaration.addComplete,
     reportEveryFileComplete:        declaration.completeEveryFile,
+    readEnvironment:                state.inputs.readEnvironment,
   }
 }
 
@@ -946,4 +1033,8 @@ func (state linkedPluginState) hostInputHashes() map[string]*string {
 
 func (state linkedPluginState) hostInputRealpaths() map[string]*string {
   return state.inputs.realpathList()
+}
+
+func (state linkedPluginState) environmentInputs() map[string]*string {
+  return state.inputs.environmentList()
 }
