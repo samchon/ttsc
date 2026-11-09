@@ -157,6 +157,8 @@ The tick is proven against a probe the proof itself rewrites before it reads, so
 
 Such a proof runs at any moment, beside compiles that read the metadata of the directories around them, so after that directory exists a mint only rewrites its probe: creating and removing a directory per proof would change the shared temporary directory, whose metadata proves a `package.json` absent there while a plugin descriptor is evaluated. Proofs share one reference per filesystem and may interleave, which is sound because separability is decided when an input's metadata is taken before its read.
 
+An environment variable a plugin read through `ctx.Env` is universal too, and no key can name it because only the compile discovers the read. The envelope records each with the value read (`environmentInputs`), and every reuse compares the record with a compiler environment snapshot (`validation/environmentInputMismatch.ts`): each cached delivery with its own snapshot, on every path including a pass's first delivery (`cache/selectCachedGenerationAction.ts`), the capture's and an adopter's admission with the environment it compiled under (`validation/captureUniversalHostInputValidation.ts`, failure kind `environment-changed`), a claim before it adopts a publication (`session/claimSharedCompile.ts`), and a record's at a build start (`bridge/projectRecordArgumentsMatch.ts`). A generation whose plugins read nothing is unaffected.
+
 ## Registration
 
 Every delivery hands the host what it depends on, and a host takes one of two shapes (`watch/TtscTransformHooks.ts`).
@@ -191,7 +193,7 @@ The bound on attempts counts the failures that say the project moved: every comp
 
 The store is one directory per user below the system temporary directory, owned by the user and writable by no one else, and it outlives every process that uses it, so a restarted dev server's workers adopt what the last one compiled (samchon/ttsc#1483).
 
-A publication is named by what the compile is down to the compiler that ran it (`session/sharedCompileIdentity.ts`: the tsconfig, the overlays, the plugin list, the ttsc and TypeScript-Go versions by ttsc's own rule, this adapter's version, and the platform); the plugins' Go sources and build environment are proven by their state at adoption instead.
+A publication is named by what the compile is down to the compiler that ran it (`session/sharedCompileIdentity.ts`: the tsconfig, the overlays, the plugin list, the ttsc and TypeScript-Go versions by ttsc's own rule, this adapter's version, and the platform); the plugins' Go sources and build environment are proven by their state at adoption instead, and the environment variables the plugins read by their recorded values, which a claim checks before it adopts.
 
 The store bounds itself in `session/claimSharedCompile.ts`: an adoption marks its publication used, and each publish keeps up to four publications per identity and 32 across the store within a 256 MiB byte budget. A publication larger than that budget stays in the compiling worker, so later workers cannot adopt that new result. Pruning also removes locks and partial writes whose writer is gone; concurrent publication and failed removal can temporarily leave more than the budgets allow.
 

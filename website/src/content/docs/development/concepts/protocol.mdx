@@ -505,7 +505,7 @@ my-plugin check \
 
 Run diagnostics only. Write diagnostics to stderr. Exit non-zero for errors.
 
-With `capabilities.checkObservations: true`, the host also passes `--check-observations-json=<absolute private path>`. Write a JSON object containing `hostInputs`, `hostInputHashes`, `hostInputRealpaths` and optional `observationsComplete: false`, all from that same check Program. Publish it for checks that return diagnostics as well as successful checks. Preserve the ordinary text streams and exit status.
+With `capabilities.checkObservations: true`, the host also passes `--check-observations-json=<absolute private path>`. Write a JSON object containing `hostInputs`, `hostInputHashes`, `hostInputRealpaths`, optional `environmentInputs` and optional `observationsComplete: false`, all from that same check Program. Publish it for checks that return diagnostics as well as successful checks. Preserve the ordinary text streams and exit status.
 
 `driver.WriteCheckObservationsJSON` supplies this channel for utility-based check hosts. The executable descriptor must opt in explicitly; the loader does not infer support from a Go import or package name. A standalone checker with its own input contract retains that contract when it omits this capability.
 
@@ -585,7 +585,8 @@ Project-wide source transform used by `TtscCompiler.transform()` and in-memory c
     "inputRealpaths": { "src/generated.ts": null },
     "useCaseSensitiveFileNames": false
   },
-  "volatile": ["src/generated-from-env.ts"]
+  "environmentInputs": { "NODE_ENV": "production", "MY_PLUGIN_TRACE": null },
+  "volatile": ["src/stamped-with-build-time.ts"]
 }
 ```
 
@@ -594,6 +595,8 @@ Each value in `typescript` is written to disk **verbatim**. The host does not re
 An envelope can carry `observationsComplete: false` when its input observer could not establish complete observation, and `hostInputProofFailures` can map absolute native paths to the reason `"observation-unavailable"`. Preserve any known `hostInputHashes` and `hostInputRealpaths`. A changed hash, retargeted path or conflicting proof cannot be excused by an unavailable observation elsewhere.
 
 These negative markers describe input observation, independently of the per-file `dependenciesComplete` declaration below. Omitting a marker establishes no completeness. `@ttsc/unplugin` withholds persistent reuse and shared publications for incomplete results. A coherent locally compiled result whose only missing proof is explicitly unavailable host observation can serve distinct modules for the first time within the same explicitly nonwatching pass, after known input proofs and build stability hold and the host effectively withdraws each module from its cache. Repeated modules and later passes recapture. See [Validation paths](/docs/development/reference/unplugin-invalidation#validation-paths) for the common admission contract.
+
+`environmentInputs` maps each environment variable the plugins read while producing the envelope to the value they read, or `null` for an unset variable. A linked plugin records it by reading through `PluginContext.Env` ([Driver API](/docs/development/reference/driver-api#linked-plugins)), and `utility.RunTransform` and `driver.WriteCheckObservationsJSON` stamp the record. Like `hostInputs`, every entry affects every transformed file, and no cache key can name it in advance because only the compile discovers the read. `@ttsc/unplugin` therefore reuses a cached, adopted or persisted generation only while each recorded variable has its recorded value in the compiler environment of the delivery; otherwise it recompiles. A malformed record is a protocol error rather than a dropped entry. Omit the field when nothing was read.
 
 `sourceMaps` is optional: per file keyed like `typescript`, a version 3 source map from that text back to the text the file was transformed from. `sources` are relative to the file's directory, and `sourcesContent` must carry the text each source was transformed from. `@ttsc/unplugin` hands a module's map to the bundler only when that entry equals the text the bundler delivered, because a map of any other text would point at the wrong lines. Without an entry, a bundler reports positions in the transformed text, and Rollup warns `SOURCEMAP_BROKEN`.
 
@@ -623,7 +626,7 @@ For each transformed file, `@ttsc/unplugin` also registers the `candidates` of e
 
 `@ttsc/unplugin` registers, per transformed file `F`, the union of `reach(edges, F)`, globals, configs, reachable importer candidates, universal resolution inputs, and `dependencies[F]` as watch files. A plugin's `dependencies` can only widen the host-owned bound unless the same envelope declares that file's list [complete](#dependency-completeness). This is what makes webpack filesystem caches, including what Next.js persists under `.next/cache`, watch graphs, and Turbopack `fileDependencies` invalidate soundly by default when a type-only or resolver input changes. Malformed sections degrade to fewer registrations, never a failed build.
 
-`volatile` is the hermeticity declaration: the transformed files (same keys as `typescript`) whose output depends on non-file inputs such as environment variables, time, or network. No file-dependency scheme can represent such inputs, so consumers exclude these files from caching instead of watching more paths: `@ttsc/unplugin` bypasses its project transform cache for them and marks the module uncacheable where the bundler exposes that control (webpack/rspack loader `cacheable(false)`).
+`volatile` is the hermeticity declaration: the transformed files (same keys as `typescript`) whose output depends on non-file inputs such as time or network. No file-dependency scheme can represent such inputs, so consumers exclude these files from caching instead of watching more paths: `@ttsc/unplugin` bypasses its project transform cache for them and marks the module uncacheable where the bundler exposes that control (webpack/rspack loader `cacheable(false)`). An environment variable is not such an input: read it through `PluginContext.Env` so `environmentInputs` records it and the output stays cacheable while the value holds.
 
 Declare volatility only when the output is non-hermetic; a spurious declaration disables caching for that file on every build. Malformed entries are dropped, never fatal.
 
