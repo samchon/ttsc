@@ -264,6 +264,7 @@ export async function test_persistent_validation_reuses_only_qualified_input_wit
     membershipCache.set("output-membership", owner);
     const action = () =>
       selectCachedGenerationAction({
+        environment: {},
         cache: membershipCache,
         cached,
         epoch: undefined,
@@ -338,6 +339,7 @@ export async function test_persistent_validation_reuses_only_qualified_input_wit
     );
     const explicitAction = () =>
       selectCachedGenerationAction({
+        environment: {},
         cache: membershipCache,
         cached: explicit,
         epoch: undefined,
@@ -445,6 +447,7 @@ export async function test_persistent_validation_reuses_only_qualified_input_wit
     const universal = captureUniversalHostInputValidation(
       directoryCached,
       membershipFile,
+      {},
     );
     assert.ok(universal.validation);
     assert.equal(
@@ -482,6 +485,7 @@ export async function test_persistent_validation_reuses_only_qualified_input_wit
     assert.equal(fs.statSync(directoryCandidate).isFile(), true);
     assert.equal(
       selectCachedGenerationAction({
+        environment: {},
         cache: directoryCache,
         cached: directoryCached,
         epoch: undefined,
@@ -641,6 +645,7 @@ export async function test_persistent_validation_reuses_only_qualified_input_wit
       const universal = captureUniversalHostInputValidation(
         cached,
         modules[0]!,
+        {},
       );
       assert.ok(universal.validation);
       cached.hostInputValidation = universal.validation;
@@ -794,6 +799,7 @@ export async function test_persistent_validation_reuses_only_qualified_input_wit
       } else {
         assert.equal(
           selectCachedGenerationAction({
+            environment: {},
             cache,
             cached,
             epoch: undefined,

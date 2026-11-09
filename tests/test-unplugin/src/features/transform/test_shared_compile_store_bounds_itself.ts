@@ -78,6 +78,7 @@ export async function test_shared_compile_store_bounds_itself(): Promise<void> {
   for (const state of states.slice(0, 4)) await publish(identity, state);
   const adopted = await claimSharedCompile(store, identity, states[0]!, {
     adopt: true,
+    environment: {},
   });
   try {
     assert.equal(adopted?.kind, "adopt", "the oldest state is adopted");
@@ -194,6 +195,7 @@ export async function test_shared_compile_store_bounds_itself(): Promise<void> {
   }
   const otherState = await claimSharedCompile(store, identity, states[1]!, {
     adopt: true,
+    environment: {},
   });
   if (otherState?.kind === "compile") otherState.release();
   assert.ok(otherState?.kind === "adopt");

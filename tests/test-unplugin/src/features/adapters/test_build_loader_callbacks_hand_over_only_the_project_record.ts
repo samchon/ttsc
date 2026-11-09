@@ -145,6 +145,7 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
     const universal = captureUniversalHostInputValidation(
       observed,
       fixture.file,
+      {},
     );
     assert.ok(universal.validation);
     observed.hostInputValidation = universal.validation;

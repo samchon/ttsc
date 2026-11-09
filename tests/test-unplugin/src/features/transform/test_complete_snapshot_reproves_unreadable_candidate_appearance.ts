@@ -120,7 +120,7 @@ export function test_complete_snapshot_reproves_unreadable_candidate_appearance(
     cached.externalInputObservations = external.observations;
     cached.externalInputRealpaths = external.realpaths;
     cached.externalInputSignatures = external.signatures;
-    const universal = captureUniversalHostInputValidation(cached, file);
+    const universal = captureUniversalHostInputValidation(cached, file, {});
     assert.deepEqual(universal.failures.entries, []);
     assert.ok(universal.validation);
     assert.equal(universal.validation.entries.has(candidate), false);
@@ -220,7 +220,11 @@ export function test_complete_snapshot_reproves_unreadable_candidate_appearance(
         present.externalInputObservations = recorded.observations;
         present.externalInputRealpaths = recorded.realpaths;
         present.externalInputSignatures = recorded.signatures;
-        const admission = captureUniversalHostInputValidation(present, file);
+        const admission = captureUniversalHostInputValidation(
+          present,
+          file,
+          {},
+        );
         assert.equal(
           admission.validation?.missing
             .get(path.dirname(candidate))
@@ -377,7 +381,7 @@ export function test_complete_snapshot_reproves_unreadable_candidate_appearance(
     observed.externalInputRealpaths = external.realpaths;
     observed.externalInputObservations = external.observations;
     observed.externalInputSignatures = external.signatures;
-    const universal = captureUniversalHostInputValidation(observed, main);
+    const universal = captureUniversalHostInputValidation(observed, main, {});
     assert.ok(universal.validation);
     assert.deepEqual(universal.failures.entries, []);
     observed.hostInputValidation = universal.validation;

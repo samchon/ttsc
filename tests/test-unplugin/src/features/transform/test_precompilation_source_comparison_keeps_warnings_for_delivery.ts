@@ -39,6 +39,7 @@ export function test_precompilation_source_comparison_keeps_warnings_for_deliver
       file,
       source: divergent,
       epoch: 1,
+      environment: {},
     };
     assert.equal(
       selectCachedGenerationAction({ ...props, reportDivergence: false }),

@@ -66,6 +66,7 @@ export function observeValidationUnitGeneration(
   const universal = captureUniversalHostInputValidation(
     cached,
     path.join(root, "src", "mod0.ts"),
+    {},
   );
   if (universal.validation === undefined) {
     throw new Error(

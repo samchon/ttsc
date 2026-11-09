@@ -157,6 +157,7 @@ export function test_snapshot_delivery_actions_preserve_each_change_without_watc
       }
       const act = (file: string): string => {
         return selectCachedGenerationAction({
+          environment: {},
           cache,
           cached: observed,
           epoch: undefined,

@@ -1,6 +1,7 @@
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { isVolatileFile } from "../envelope/isVolatileFile";
 import type { TtscGenerationProof } from "../validation/TtscGenerationProof";
+import { environmentInputMismatch } from "../validation/environmentInputMismatch";
 import { matchesCachedSource } from "../validation/matchesCachedSource";
 import type { TtscCachedProjectTransform } from "./TtscCachedProjectTransform";
 import type { TtscTransformCache } from "./TtscTransformCache";
@@ -12,11 +13,14 @@ import { evictGeneration } from "./evictGeneration";
  * The caller owns awaiting, Promise-ownership checks and required native
  * notification settling. A volatile or mismatching generation is evicted by
  * identity; if eviction exposed a sibling replacement, the caller retries it.
- * Otherwise the caller must capture a new generation. A serving decision does
- * not perform output selection or host notification, which remain with
- * delivery.
+ * Otherwise the caller must capture a new generation. A generation whose
+ * plugins read an environment variable that `environment`, the delivery's
+ * compiler environment snapshot, no longer gives the recorded value is
+ * mismatching on every path, the pass-shared first delivery included: no file
+ * proof can stand in for it. A serving decision does not perform output
+ * selection or host notification, which remain with delivery.
  *
- * @evidence contracts/common.md#principled-implementation The actual generation's volatility and recorded source proof decide serving; identity-guarded eviction then distinguishes a sibling's current replacement from an empty capture slot.
+ * @evidence contracts/common.md#principled-implementation The actual generation's volatility, recorded environment reads and recorded source proof decide serving; identity-guarded eviction then distinguishes a sibling's current replacement from an empty capture slot.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous operation selects serve/retry/capture and owns mismatch eviction, while its production caller owns awaiting, notification settling, native capture and output delivery.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Decisions inspect the supplied actual generation and validators without fabricating a producer result, capability or success; no injectable compiler callback or test-only branch is introduced.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the caller's awaited-Promise and settled-notification responsibilities and separates the decision from producer and delivery effects.
@@ -43,11 +47,22 @@ export function selectCachedGenerationAction(props: {
   generation: Promise<TtscCachedProjectTransform>;
   key: string;
   source: string;
+  /**
+   * The delivery's compiler environment snapshot, the one a recompile would run
+   * under, against which recorded environment reads are compared.
+   */
+  environment: NodeJS.ProcessEnv;
   /** False only for speculative source reads before an actual module delivery. */
   reportDivergence?: boolean;
   proof?: TtscGenerationProof.Transaction;
 }): "serve" | "retry" | "capture" {
   if (
+    environmentInputMismatch(
+      props.cached.result.type === "exception"
+        ? undefined
+        : props.cached.result.environmentInputs,
+      props.environment,
+    ) === undefined &&
     !isVolatileFile(envelopeDerivation(props.cached), {
       file: props.file,
       projectRoot: props.cached.projectRoot,

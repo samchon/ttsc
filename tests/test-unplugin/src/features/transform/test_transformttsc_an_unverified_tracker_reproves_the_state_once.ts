@@ -91,6 +91,7 @@ export async function test_transformttsc_an_unverified_tracker_reproves_the_stat
     );
     const decide = () =>
       selectCachedGenerationAction({
+        environment: {},
         cache,
         cached,
         epoch: undefined,
@@ -121,6 +122,7 @@ export async function test_transformttsc_an_unverified_tracker_reproves_the_stat
     listings = 0;
     assert.equal(
       selectCachedGenerationAction({
+        environment: {},
         cache,
         cached,
         epoch: undefined,
@@ -139,6 +141,7 @@ export async function test_transformttsc_an_unverified_tracker_reproves_the_stat
     for (let delivery = 0; delivery < 20; delivery += 1) {
       assert.equal(
         selectCachedGenerationAction({
+          environment: {},
           cache,
           cached: qualified,
           epoch: undefined,
@@ -300,6 +303,7 @@ export async function test_transformttsc_an_unverified_tracker_reproves_the_stat
       }
       const action = () =>
         selectCachedGenerationAction({
+          environment: {},
           cache: owner,
           cached: observed,
           epoch: undefined,

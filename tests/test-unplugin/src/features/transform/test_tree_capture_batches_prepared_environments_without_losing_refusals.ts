@@ -73,7 +73,11 @@ export async function test_tree_capture_batches_prepared_environments_without_lo
     );
     const cached = { projectRoot: root, result } as TtscCachedProjectTransform;
     const capture = () =>
-      captureUniversalHostInputValidation(cached, path.join(root, "entry.ts"));
+      captureUniversalHostInputValidation(
+        cached,
+        path.join(root, "entry.ts"),
+        {},
+      );
     const accepted = capture();
     assert.equal(accepted.failures.entries.length, 0);
     assert.deepEqual([...accepted.validation!.trees.keys()], [first, second]);

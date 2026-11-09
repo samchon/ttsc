@@ -62,7 +62,7 @@ export function test_universal_host_input_probes_record_exact_missing_candidates
     envelopeDerivation(cached).identityContext.resolve(candidate).key;
   cached.externalInputHashes[identity] = MISSING_INPUT_STATE;
   const capture = () =>
-    captureUniversalHostInputValidation(cached, fixture.file);
+    captureUniversalHostInputValidation(cached, fixture.file, {});
   try {
     const admitted = capture();
     assert.deepEqual(admitted.failures.entries, []);

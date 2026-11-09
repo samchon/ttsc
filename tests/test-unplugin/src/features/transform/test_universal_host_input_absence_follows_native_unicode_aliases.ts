@@ -94,7 +94,11 @@ function assertNativeAliasAbsence(
     envelopeDerivation(cached).identityContext.resolve(candidate).key;
   cached.externalInputHashes[identity] = MISSING_INPUT_STATE;
   try {
-    const admitted = captureUniversalHostInputValidation(cached, fixture.file);
+    const admitted = captureUniversalHostInputValidation(
+      cached,
+      fixture.file,
+      {},
+    );
     assert.deepEqual(admitted.failures.entries, []);
     assert.ok(
       admitted.validation,

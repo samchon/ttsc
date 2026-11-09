@@ -54,6 +54,7 @@ export async function test_shared_compile_refutation_excludes_only_the_read_payl
   };
   const original = await claimSharedCompile(store, identity, state, {
     adopt: true,
+    environment: {},
   });
   assert.ok(original?.kind === "compile");
   try {
@@ -63,6 +64,7 @@ export async function test_shared_compile_refutation_excludes_only_the_read_payl
   }
   const read = await claimSharedCompile(store, identity, state, {
     adopt: true,
+    environment: {},
   });
   assert.ok(read?.kind === "adopt");
   assert.deepEqual(read.publication, healthy);
@@ -72,6 +74,7 @@ export async function test_shared_compile_refutation_excludes_only_the_read_payl
   );
   const replacement = await claimSharedCompile(store, identity, state, {
     adopt: true,
+    environment: {},
     rejectedPublication: read.fingerprint,
   });
   assert.ok(
@@ -80,6 +83,7 @@ export async function test_shared_compile_refutation_excludes_only_the_read_payl
   );
   const waiting = claimSharedCompile(store, identity, state, {
     adopt: true,
+    environment: {},
     rejectedPublication: read.fingerprint,
   });
   let adopted: Awaited<typeof waiting>;
@@ -101,6 +105,7 @@ export async function test_shared_compile_refutation_excludes_only_the_read_payl
   );
   const independent = await claimSharedCompile(store, identity, state, {
     adopt: true,
+    environment: {},
   });
   assert.ok(independent?.kind === "adopt");
   assert.equal(
@@ -110,6 +115,7 @@ export async function test_shared_compile_refutation_excludes_only_the_read_payl
   );
   const identical = await claimSharedCompile(store, identity, state, {
     adopt: true,
+    environment: {},
     rejectedPublication: adopted.fingerprint,
   });
   assert.ok(identical?.kind === "compile");
@@ -120,6 +126,7 @@ export async function test_shared_compile_refutation_excludes_only_the_read_payl
   }
   const sameBytes = await claimSharedCompile(store, identity, state, {
     adopt: true,
+    environment: {},
     rejectedPublication: adopted.fingerprint,
   });
   assert.ok(
@@ -129,6 +136,7 @@ export async function test_shared_compile_refutation_excludes_only_the_read_payl
   sameBytes.release();
   const separate = await claimSharedCompile(store, identity, otherState, {
     adopt: true,
+    environment: {},
     rejectedPublication: read.fingerprint,
   });
   assert.ok(separate?.kind === "compile");
@@ -139,6 +147,7 @@ export async function test_shared_compile_refutation_excludes_only_the_read_payl
   }
   const separateRead = await claimSharedCompile(store, identity, otherState, {
     adopt: true,
+    environment: {},
     rejectedPublication: read.fingerprint,
   });
   assert.ok(separateRead?.kind === "adopt");
@@ -151,6 +160,7 @@ export async function test_shared_compile_refutation_excludes_only_the_read_payl
   fs.writeFileSync(file, "{malformed");
   const malformed = await claimSharedCompile(store, identity, state, {
     adopt: true,
+    environment: {},
   });
   assert.ok(malformed?.kind === "compile");
   malformed.release();
