@@ -117,6 +117,7 @@ export function test_compiler_result_adapter_preserves_outcomes_and_observation_
   const advisory = {
     dependencies: {},
     dependenciesComplete: [],
+    environmentInputs: {},
     graph: { configs: [], edges: {}, globals: [] },
     hostInputHashes: {},
     hostInputProofFailures: {},
@@ -141,6 +142,7 @@ export function test_compiler_result_adapter_preserves_outcomes_and_observation_
       for (const key of [
         "dependencies",
         "dependenciesComplete",
+        "environmentInputs",
         "graph",
         "hostInputHashes",
         "hostInputProofFailures",

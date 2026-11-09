@@ -67,6 +67,13 @@ export interface TtscBuildResult {
    */
   hostInputRealpaths?: Record<string, string | null>;
 
+  /**
+   * Environment variables native plugins read through `ctx.Env` in a
+   * contributing generation, with the value read or null when unset. A
+   * completed result stays valid only while each still has that value.
+   */
+  environmentInputs?: Record<string, string | null>;
+
   /** A contributing producer explicitly reported incomplete observations. */
   observationsComplete?: false;
 

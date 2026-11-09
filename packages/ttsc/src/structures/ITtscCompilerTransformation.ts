@@ -406,6 +406,19 @@ export namespace ITtscCompilerTransformation {
     hostInputRealpaths?: Record<string, string | null>;
 
     /**
+     * Environment variables the native plugins read through `ctx.Env` while
+     * producing this generation, each with the value it read, or `null` when
+     * the variable was unset.
+     *
+     * Like {@link hostInputs}, these affect every transformed file, so a
+     * consumer may reuse the output only while each name still has its recorded
+     * value in the environment the compiler would run under. Reads are recorded
+     * where they happen, so no list of variables is configured anywhere. Absent
+     * when no plugin read one.
+     */
+    environmentInputs?: Record<string, string | null>;
+
+    /**
      * Host-input paths for which the producer could not complete observation,
      * keyed by absolute native path.
      *
@@ -523,6 +536,12 @@ export namespace ITtscCompilerTransformation {
 
     /** Generation-time physical host-input identities. */
     hostInputRealpaths?: Record<string, string | null>;
+
+    /**
+     * Environment variables read during the generation; same contract as
+     * {@link ISuccess.environmentInputs}.
+     */
+    environmentInputs?: Record<string, string | null>;
 
     /**
      * Unavailable host-input observations; same contract as

@@ -33,6 +33,7 @@ interface ProjectResult {
 interface ProjectTransformation {
   dependencies?: Record<string, string[]>;
   dependenciesComplete?: string[];
+  environmentInputs?: Record<string, string | null>;
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   hostInputHashes?: Record<string, string | null>;
   hostInputProofFailures?: Record<string, "observation-unavailable">;
@@ -237,6 +238,7 @@ export function toCompilerTransformation(
   const {
     dependencies: reportedDependencies,
     dependenciesComplete,
+    environmentInputs,
     graph,
     hostInputHashes,
     hostInputProofFailures,
@@ -273,6 +275,7 @@ export function toCompilerTransformation(
   const advisoryFields = {
     ...(dependencies === undefined ? {} : { dependencies }),
     ...(dependenciesComplete === undefined ? {} : { dependenciesComplete }),
+    ...(environmentInputs === undefined ? {} : { environmentInputs }),
     ...(graph === undefined ? {} : { graph }),
     ...(hostInputHashes === undefined ? {} : { hostInputHashes }),
     ...(hostInputProofFailures === undefined ? {} : { hostInputProofFailures }),
