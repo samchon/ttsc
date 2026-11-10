@@ -367,7 +367,11 @@ export async function captureTransformGeneration(props: {
             props.session,
             sharedCompileIdentity({ ...props, projectRoot }),
             state,
-            { adopt: true, rejectedPublication: props.rejected },
+            {
+              adopt: true,
+              environment: compilerEnvironment,
+              rejectedPublication: props.rejected,
+            },
           )
         : undefined;
     if (claim?.kind === "compile") {
@@ -799,9 +803,12 @@ export async function captureTransformGeneration(props: {
     const graphFailures = compilerGraphInputProofFailures(cached);
     mergeGenerationProofFailures(failures, graphFailures);
     mergeGenerationProofFailures(failures, externalInputSnapshot.failures);
+    // Recorded environment reads must hold under the environment this worker
+    // compiles under; a publication recorded under another value is refuted.
     const universalInputCapture = captureUniversalHostInputValidation(
       cached,
       props.currentFile,
+      compilerEnvironment,
     );
     restrictNotificationCoverageToProvenInputs(
       hostInputTracker,

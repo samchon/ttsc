@@ -112,6 +112,7 @@ export function test_transformttsc_same_tick_rewrite_replaces_the_snapshot_gener
     let observed = checkpoint();
     const decide = (file: string) => {
       const action = selectCachedGenerationAction({
+        environment: {},
         cache,
         cached: observed,
         epoch: undefined,

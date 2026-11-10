@@ -19,6 +19,8 @@ import (
 // the population complete or repair missing or conflicting individual proofs.
 // The caller owns a fresh result path, its parent directory and eventual artifact
 // removal. Publication occurs only after a temporary write and close succeed.
+// Environment variables the hooks read through PluginContext.Env travel in
+// environmentInputs with their recorded values, omitted when none was read.
 //
 // @evidence contracts/common.md#principled-implementation The same loaded Program supplies recorded input names and consistent supplied content and physical-path reports; missing generation authority is explicitly incomplete, while diagnostics and individual conflicts retain their independent meanings.
 // @evidence contracts/common.md#clear-and-simple-design One typed wire object keeps hook observations separate from human diagnostic streams and never reloads a second compiler generation to reconstruct them.
@@ -52,6 +54,7 @@ func WriteCheckRecoveryObservationsJSON(fileName string, program *Program, recov
   inputs := []string{}
   hashes := map[string]*string{}
   realpaths := map[string]*string{}
+  var environment map[string]*string
   var complete *bool
   var graph *TransformGraph
   if program == nil {
@@ -74,14 +77,16 @@ func WriteCheckRecoveryObservationsJSON(fileName string, program *Program, recov
     if recorded := program.PluginHostInputRealpaths(); recorded != nil {
       realpaths = recorded
     }
+    environment = program.PluginEnvironmentInputs()
   }
   data, err := json.Marshal(struct {
     Graph                *TransformGraph    `json:"graph,omitempty"`
     HostInputs           []string           `json:"hostInputs"`
     HostInputHashes      map[string]*string `json:"hostInputHashes"`
     HostInputRealpaths   map[string]*string `json:"hostInputRealpaths"`
+    EnvironmentInputs    map[string]*string `json:"environmentInputs,omitempty"`
     ObservationsComplete *bool              `json:"observationsComplete,omitempty"`
-  }{graph, inputs, hashes, realpaths, complete})
+  }{graph, inputs, hashes, realpaths, environment, complete})
   if err != nil {
     return err
   }

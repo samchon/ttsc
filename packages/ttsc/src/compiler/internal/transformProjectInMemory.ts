@@ -13,6 +13,7 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import { CompilationSnapshot } from "./CompilationSnapshot";
 import { appendBuildOutput, mergeCheckGraphs } from "./build/appendBuildOutput";
+import { mergeEnvironmentInputs } from "./build/mergeEnvironmentInputs";
 import { normalizeBuildOutput } from "./build/normalizeBuildOutput";
 import { buildNativeCompiler } from "./buildNativeCompiler";
 import { outputText } from "./outputText";
@@ -48,11 +49,13 @@ import { spawnNative } from "./spawnNative";
  * Explicit unavailable-observation reports survive every lane so consumers can
  * use a fresh successful result while withholding reuse. They cannot excuse a
  * content or physical witness that changed or conflicted across stages.
- * Opted-in checks supply their same-generation observations through a private
- * sidecar on failure as well as success. A later transform cannot restore a
- * check's rejected proof or replace it with an unavailable-input exemption.
- * Other check hosts retain their existing descriptor and declared-input
- * observation contract rather than inheriting the driver's protocol.
+ * Environment variables read by the check and transform stages are unioned into
+ * `environmentInputs`. Opted-in checks supply their same-generation
+ * observations through a private sidecar on failure as well as success. A later
+ * transform cannot restore a check's rejected proof or replace it with an
+ * unavailable-input exemption. Other check hosts retain their existing
+ * descriptor and declared-input observation contract rather than inheriting the
+ * driver's protocol.
  *
  * @returns A `{ result, typescript }` pair where `typescript` maps output paths
  *   to their transformed TypeScript source text, and `pluginSources` the state
@@ -74,6 +77,9 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
 
   /** Files for which the producer declares dependency reporting complete. */
   dependenciesComplete?: string[];
+
+  /** Environment variables the native plugins read, with the value or null. */
+  environmentInputs?: Record<string, string | null>;
 
   /** Compiler reference graph with its independently recorded input proof. */
   graph?: ITtscCompilerTransformation.IReferenceGraph;
@@ -166,6 +172,7 @@ function transformProjectWithNativeHost(
 ): {
   dependencies?: Record<string, string[]>;
   dependenciesComplete?: string[];
+  environmentInputs?: Record<string, string | null>;
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   hostInputHashes?: Record<string, string | null>;
   hostInputRealpaths?: Record<string, string | null>;
@@ -259,6 +266,7 @@ function transformProjectWithNativeHost(
   );
   return {
     ...envelopeSideChannels(output),
+    ...mergeEnvironmentInputs(output.environmentInputs),
     ...observationLimitations(
       [
         baseline,
@@ -290,6 +298,7 @@ function transformProjectWithPlugins(
 ): {
   dependencies?: Record<string, string[]>;
   dependenciesComplete?: string[];
+  environmentInputs?: Record<string, string | null>;
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   hostInputHashes?: Record<string, string | null>;
   hostInputRealpaths?: Record<string, string | null>;
@@ -364,6 +373,7 @@ function transformProjectWithPlugins(
   if (checked.status !== 0) {
     return {
       ...(checked.graph === undefined ? {} : { graph: checked.graph }),
+      ...mergeEnvironmentInputs(checked.environmentInputs),
       ...observationLimitations(
         [loaded, checked],
         checkedHostInputHashes,
@@ -404,6 +414,10 @@ function transformProjectWithPlugins(
     );
     return {
       ...envelopeSideChannels(transformed),
+      ...mergeEnvironmentInputs(
+        checked.environmentInputs,
+        transformed.environmentInputs,
+      ),
       graph: mergeTransformGraphs(
         checked.graph,
         transformed.graph,
@@ -491,6 +505,10 @@ function transformProjectWithPlugins(
   );
   return {
     ...envelopeSideChannels(output),
+    ...mergeEnvironmentInputs(
+      checked.environmentInputs,
+      output.environmentInputs,
+    ),
     graph: mergeTransformGraphs(checked.graph, output.graph, checks.length),
     ...observationLimitations(
       [loaded, checked, output],

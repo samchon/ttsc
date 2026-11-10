@@ -1,4 +1,5 @@
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
+import { mergeEnvironmentInputs } from "./mergeEnvironmentInputs";
 import { normalizeBuildOutput } from "./normalizeBuildOutput";
 
 /**
@@ -13,6 +14,8 @@ import { normalizeBuildOutput } from "./normalizeBuildOutput";
  * - Check inputs are unioned; independently compatible content and physical
  *   witnesses survive. A lost witness cannot be restored by a later phase.
  *   Explicit observation incompleteness is sticky.
+ * - `environmentInputs`: unioned; two phases that recorded different values for
+ *   one name withdraw reuse through `observationsComplete: false`.
  *
  * The shared normalizer moves combined stdout to stderr when the merged result
  * failed and stderr is blank, preserving visibility for stderr-only consumers.
@@ -59,6 +62,7 @@ export function appendBuildOutput(
             hostInputs,
           ),
         }),
+    ...mergeEnvironmentInputs(left.environmentInputs, right.environmentInputs),
     ...(left.observationsComplete === false ||
     right.observationsComplete === false
       ? { observationsComplete: false as const }

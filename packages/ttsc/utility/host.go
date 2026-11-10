@@ -79,6 +79,11 @@ type transformResult struct {
   HostInputHashes      map[string]*string     `json:"hostInputHashes,omitempty"`
   HostInputRealpaths   map[string]*string     `json:"hostInputRealpaths,omitempty"`
 
+  // EnvironmentInputs maps each environment variable a linked hook read
+  // through PluginContext.Env to the value it read; null means unset.
+  // Omitted when no hook read one.
+  EnvironmentInputs map[string]*string `json:"environmentInputs,omitempty"`
+
   // ObservationsComplete is present only as false when a linked hook explicitly
   // could not observe its input population. Absence is not completeness proof.
   ObservationsComplete *bool `json:"observationsComplete,omitempty"`
@@ -305,6 +310,7 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   }
   if !opts.quiet {
     fmt.Fprintf(opts.stdout, "// ttsc utility: emitted=%d files\n", len(emittedFiles))
+    driver.WriteEnvironmentInputsSummary(opts.stdout, "// ttsc utility: ", prog)
   }
   return 0
 }
@@ -398,6 +404,7 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
     out.HostInputs = prog.PluginHostInputs()
     out.HostInputHashes = prog.PluginHostInputHashes()
     out.HostInputRealpaths = prog.PluginHostInputRealpaths()
+    out.EnvironmentInputs = prog.PluginEnvironmentInputs()
     if prog.PluginObservationsIncomplete() {
       incomplete := false
       out.ObservationsComplete = &incomplete

@@ -460,10 +460,13 @@ export namespace RuntimeBuildInputs {
           });
           return false;
         }
+        // The plugins of this build would run under env, so a recorded
+        // environment read must still hold there.
         const accepted = RuntimeInputProof.holds(
           result,
           execution.projectRoot,
           emitDir,
+          env,
         );
         if (!accepted)
           RuntimeBuildExplanation.report({

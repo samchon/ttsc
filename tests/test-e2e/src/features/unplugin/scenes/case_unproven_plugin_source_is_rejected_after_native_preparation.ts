@@ -58,6 +58,7 @@ export async function case_unproven_plugin_source_is_rejected_after_native_prepa
     const refused = captureUniversalHostInputValidation(
       { projectRoot: root, result } as TtscCachedProjectTransform,
       path.join(root, "entry.ts"),
+      {},
     );
     assert.equal(refused.validation, undefined);
     assert.ok(

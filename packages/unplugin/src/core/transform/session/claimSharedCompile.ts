@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { isZombieProcess } from "../utils/isZombieProcess";
+import { environmentInputMismatch } from "../validation/environmentInputMismatch";
 import type { TtscSharedCompileClaim } from "./TtscSharedCompileClaim";
 import type { TtscSharedCompilePublication } from "./TtscSharedCompilePublication";
 
@@ -66,6 +67,12 @@ const KEPT_STORE_BYTES = 256 * 1024 * 1024;
  * for independent adoption proof. The digest is computed from the already read
  * UTF-8 publication, without another filesystem query.
  *
+ * Neither key names the environment variables the plugins read: only the
+ * compile discovers them. A publication is therefore adoptable only while each
+ * variable its envelope recorded has the recorded value, or stays unset, in the
+ * adopter's `environment`. An ineligible publication is treated like a rejected
+ * one: the worker takes the lock and its compile replaces it.
+ *
  * Its place in the adapter's invalidation model, and the units beside it, are
  * mapped in the maintainer page
  * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
@@ -74,6 +81,8 @@ const KEPT_STORE_BYTES = 256 * 1024 * 1024;
  * @param identity Caller-provided hex configuration digest used in store names.
  * @param state Caller-provided hex project-state digest used in store names.
  * @param options.adopt Whether an existing publication may be adopted.
+ * @param options.environment The adopter's compiler environment, which every
+ *   recorded environment read of an adopted publication must still match.
  * @param options.rejectedPublication Digest of the exact previously refuted
  *   payload; a replacement still requires the caller's full proof.
  * @evidence contracts/common.md#principled-implementation
@@ -142,7 +151,13 @@ export async function claimSharedCompile(
   store: string,
   identity: string,
   state: string,
-  options: { adopt: boolean; rejectedPublication?: string },
+  options:
+    | { adopt: false }
+    | {
+        adopt: true;
+        environment: NodeJS.ProcessEnv;
+        rejectedPublication?: string;
+      },
 ): Promise<TtscSharedCompileClaim | undefined> {
   const name = `${identity}-${state}`;
   const publication = path.join(store, `${name}.json`);
@@ -154,7 +169,13 @@ export async function claimSharedCompile(
         const published = await readPublication(publication);
         if (
           published !== undefined &&
-          published.fingerprint !== options.rejectedPublication
+          published.fingerprint !== options.rejectedPublication &&
+          environmentInputMismatch(
+            published.value.result.type === "exception"
+              ? undefined
+              : published.value.result.environmentInputs,
+            options.environment,
+          ) === undefined
         ) {
           await markUsed(publication);
           return {
@@ -173,7 +194,13 @@ export async function claimSharedCompile(
           const published = await readPublication(publication);
           if (
             published !== undefined &&
-            published.fingerprint !== options.rejectedPublication
+            published.fingerprint !== options.rejectedPublication &&
+            environmentInputMismatch(
+              published.value.result.type === "exception"
+                ? undefined
+                : published.value.result.environmentInputs,
+              options.environment,
+            ) === undefined
           ) {
             claim.release();
             await markUsed(publication);

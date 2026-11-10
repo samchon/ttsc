@@ -13,11 +13,12 @@ import type { TtscBuildResult } from "../../../../../packages/ttsc/src/structure
  *
  * 1. Admit a BOM-decoded source, raw host input and an absent candidate.
  * 2. Contrast directory membership, content changes and missing proof.
- * 3. Refuse producer-declared incompleteness and unsupported native codecs.
+ * 3. Refuse a changed, newly set or newly unset recorded environment read.
+ * 4. Refuse producer-declared incompleteness and unsupported native codecs.
  *
- * @evidence contracts/testing.md#behavioral-verification Production admission reads real files and compares authored witnesses; equivalent compiler text with different BOM bytes stays valid until the independent raw host witness is supplied, while source changes, candidate creation and directory members invalidate reuse.
- * @evidence contracts/testing.md#independent-expectations Standard SHA-256 of authored text and raw bytes supplies the two distinct witness codecs. Literal existence, sorted members and failure markers define expectations without calling a product hash helper.
- * @evidence contracts/testing.md#distinguishing-cases UTF-8/UTF-16 BOM equivalence contrasts raw-byte inequality; absent/present candidates, empty/nonempty directories, complete/incomplete producers and supported/unknown codecs distinguish admission from fallback.
+ * @evidence contracts/testing.md#behavioral-verification Production admission reads real files and compares authored witnesses; equivalent compiler text with different BOM bytes stays valid until the independent raw host witness is supplied, while source changes, candidate creation and directory members invalidate reuse. A recorded environment read admits only the build environment that still has its value or absence.
+ * @evidence contracts/testing.md#independent-expectations Standard SHA-256 of authored text and raw bytes supplies the two distinct witness codecs. Literal existence, sorted members and failure markers define expectations without calling a product hash helper. Environment expectations are the literal recorded values and authored environments.
+ * @evidence contracts/testing.md#distinguishing-cases UTF-8/UTF-16 BOM equivalence contrasts raw-byte inequality; absent/present candidates, empty/nonempty directories, complete/incomplete producers and supported/unknown codecs distinguish admission from fallback. Environment cases contrast an equal value with a changed value, a recorded absence that became set, a recorded value that became unset, and an unrelated variable that changed without being recorded.
  * @evidence contracts/testing.md#execution-ownership The unit runner discovers this named export and calls portable production predicate semantics; no native compiler, artifact build or installed consumer is involved.
  */
 export function test_runtimeinputproof_replays_content_absence_and_membership(): void {
@@ -56,8 +57,9 @@ export function test_runtimeinputproof_replays_content_absence_and_membership():
     },
   };
   const sourceObservation = result.graph!.inputObservations!["source.ts"]!;
+  let environment: NodeJS.ProcessEnv = {};
   const holds = (): boolean =>
-    RuntimeInputProof.holds(result, root, path.join(root, "emit"));
+    RuntimeInputProof.holds(result, root, path.join(root, "emit"), environment);
   try {
     assert.equal(holds(), true);
     const raw = fs.readFileSync(source);
@@ -107,6 +109,31 @@ export function test_runtimeinputproof_replays_content_absence_and_membership():
     fs.writeFileSync(path.join(directory, "added.ts"), "export {};\n");
     assert.equal(holds(), false);
     fs.unlinkSync(path.join(directory, "added.ts"));
+    assert.equal(holds(), true);
+    result.environmentInputs = {
+      TTSC_TEST_TRACKED_ENV_MODE: "test",
+      TTSC_TEST_TRACKED_ENV_UNSET: null,
+    };
+    environment = {
+      TTSC_TEST_TRACKED_ENV_MODE: "test",
+      TTSC_TEST_UNRECORDED: "a",
+    };
+    assert.equal(holds(), true, "the recorded environment still holds");
+    environment = {
+      TTSC_TEST_TRACKED_ENV_MODE: "test",
+      TTSC_TEST_UNRECORDED: "b",
+    };
+    assert.equal(holds(), true, "an unrecorded variable is not an input");
+    environment = { TTSC_TEST_TRACKED_ENV_MODE: "production" };
+    assert.equal(holds(), false, "a changed value is a changed input");
+    environment = {
+      TTSC_TEST_TRACKED_ENV_MODE: "test",
+      TTSC_TEST_TRACKED_ENV_UNSET: "",
+    };
+    assert.equal(holds(), false, "a recorded absence must stay absent");
+    environment = {};
+    assert.equal(holds(), false, "a recorded value must stay set");
+    environment = { TTSC_TEST_TRACKED_ENV_MODE: "test" };
     assert.equal(holds(), true);
     result.observationsComplete = false;
     assert.equal(holds(), false);

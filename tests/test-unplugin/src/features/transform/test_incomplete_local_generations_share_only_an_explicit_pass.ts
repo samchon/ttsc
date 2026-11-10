@@ -59,6 +59,7 @@ export async function test_incomplete_local_generations_share_only_an_explicit_p
     const generation = Promise.resolve(candidate);
     fixture.cache.set(fixture.key, generation);
     return selectCachedGenerationAction({
+      environment: {},
       cache: fixture.cache,
       cached: candidate,
       generation,
@@ -137,6 +138,7 @@ export async function test_incomplete_local_generations_share_only_an_explicit_p
     fs.writeFileSync(sibling, "changed");
     assert.equal(
       selectCachedGenerationAction({
+        environment: {},
         cache: fixture.cache,
         cached: moved,
         generation: owner,

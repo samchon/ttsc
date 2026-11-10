@@ -287,10 +287,14 @@ async function exerciseSharedClaims(
 
   const holder = await claimSharedCompile(store, identity, state, {
     adopt: true,
+    environment: {},
   });
   assert.equal(holder?.kind, "compile", "the first worker compiles");
   assert.equal(fs.existsSync(lock), true);
-  const waiter = claimSharedCompile(store, identity, state, { adopt: true });
+  const waiter = claimSharedCompile(store, identity, state, {
+    adopt: true,
+    environment: {},
+  });
   if (holder?.kind !== "compile") return;
   await holder.publish(publication);
   holder.release();
@@ -330,6 +334,7 @@ async function exerciseSharedClaims(
   );
   const unusable = await claimSharedCompile(store, identity, malformed, {
     adopt: true,
+    environment: {},
   });
   assert.equal(unusable?.kind, "compile", "a failed envelope is never adopted");
   if (unusable?.kind === "compile") unusable.release();
@@ -367,7 +372,10 @@ async function exerciseSharedClaims(
   const file = path.join(store, "not-a-directory");
   fs.writeFileSync(file, "");
   assert.equal(
-    await claimSharedCompile(file, identity, state, { adopt: true }),
+    await claimSharedCompile(file, identity, state, {
+      adopt: true,
+      environment: {},
+    }),
     undefined,
     "a store that cannot be used leaves the worker to compile for itself",
   );

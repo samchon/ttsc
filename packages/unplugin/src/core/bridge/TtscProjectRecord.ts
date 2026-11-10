@@ -62,6 +62,14 @@ export interface TtscProjectRecord {
   dependencies?: readonly string[];
 
   /**
+   * The environment variables the generation's plugins read through `ctx.Env`
+   * (the envelope's `environmentInputs`), with the value read or null when
+   * unset; absent when they read none. A later process proves each against its
+   * own compiler environment before the record may stand for the output.
+   */
+  environmentInputs?: Record<string, string | null>;
+
+  /**
    * Evidenced delivery inputs, keyed by absolute path, with the state the
    * generation recorded for them. An input whose generation recorded no state,
    * a failed compile's recovery input among them, carries the state the adapter

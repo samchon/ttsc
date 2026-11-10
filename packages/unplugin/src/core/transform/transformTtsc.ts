@@ -274,6 +274,7 @@ async function runTransformTtsc(
         generation: transformed,
         key,
         source,
+        environment: compilerEnvironment,
         reportDivergence: !preparing,
       });
       if (action === "retry") {

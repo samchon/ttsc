@@ -4,6 +4,7 @@ import path from "node:path";
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
+import { parseEnvironmentInputs } from "./parseEnvironmentInputs";
 import { parseReferenceGraph } from "./parseNativeTransformOutput";
 
 /**
@@ -158,6 +159,7 @@ function parseObservations(
   value: unknown,
 ): Pick<
   TtscBuildResult,
+  | "environmentInputs"
   | "hostInputs"
   | "hostInputHashes"
   | "hostInputRealpaths"
@@ -184,7 +186,9 @@ function parseObservations(
       graph.inputObservations === undefined &&
       graph.inputRealpaths === undefined &&
       graph.inputProofFailures === undefined);
+  const environmentInputs = parseEnvironmentInputs(value.environmentInputs);
   return {
+    ...(environmentInputs === undefined ? {} : { environmentInputs }),
     ...(graph === undefined ? {} : { graph }),
     ...(graphUnavailable ? { observationsComplete: false as const } : {}),
     hostInputs: [...inputs],

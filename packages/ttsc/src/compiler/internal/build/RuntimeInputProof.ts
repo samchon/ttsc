@@ -4,6 +4,7 @@ import path from "node:path";
 
 import type { ITtscCompilerTransformation } from "../../../structures/ITtscCompilerTransformation";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
+import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
 
 /**
  * Replay the compiler and native input witnesses of a completed runtime build.
@@ -24,13 +25,15 @@ export namespace RuntimeInputProof {
   /**
    * Validate result-level host witnesses and every reported compiler predicate.
    * The caller independently proves the selected compiler, project membership
-   * and plugin selection; an absent graph alone grants no completeness.
+   * and plugin selection; an absent graph alone grants no completeness. Every
+   * recorded environment read must still have its value, or remain unset, in
+   * `environment`, the environment the build would spawn its plugins under.
    *
-   * @evidence contracts/common.md#principled-implementation Explicit incomplete observations and any graph failure reject reuse; host paths require both content and physical witnesses, and rich compiler predicates are replayed under their own codec.
+   * @evidence contracts/common.md#principled-implementation Explicit incomplete observations and any graph failure reject reuse; host paths require both content and physical witnesses, recorded environment reads require their exact value or absence, and rich compiler predicates are replayed under their own codec.
    * @evidence contracts/common.md#clear-and-simple-design One admission pass delegates individual compiler observations and native codecs.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing witness fields never become an empty successful observation, and only the caller-owned private output subtree is excluded.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing witness fields never become an empty successful observation, a changed environment value is a changed input, and only the caller-owned private output subtree is excluded.
    * @evidence contracts/common.md#meaningful-documentation Native prose identifies result admission and the caller's separate completeness obligations.
-   * @evidence contracts/portability.md#os-neutral-implementation Native path resolution anchors producer-relative graph keys, and current physical paths come from native realpath.
+   * @evidence contracts/portability.md#os-neutral-implementation Native path resolution anchors producer-relative graph keys, current physical paths come from native realpath, and SidecarEnvironment.read applies Windows' case-insensitive variable names.
    * @evidence contracts/performance.md#efficient-algorithms Input and predicate populations drive replay; each read hashes its actual bytes and directories sort immediate entry records.
    * @evidence contracts/performance.md#reuse-equivalent-work Generation witnesses, rather than an identity-key match, decide whether a completed build remains reusable.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Temporary path and predicate records are invocation-owned without retained handles or history.
@@ -39,12 +42,18 @@ export namespace RuntimeInputProof {
     result: TtscBuildResult,
     projectRoot: string,
     emitDir: string,
+    environment: NodeJS.ProcessEnv,
   ): boolean {
     if (
       result.observationsComplete === false ||
       Object.keys(result.graph?.inputProofFailures ?? {}).length !== 0
     )
       return false;
+    for (const [name, recorded] of Object.entries(
+      result.environmentInputs ?? {},
+    ))
+      if ((SidecarEnvironment.read(environment, name) ?? null) !== recorded)
+        return false;
     try {
       for (const file of result.hostInputs ?? []) {
         const [currentPhysical, hash] = observeHostInput(file);

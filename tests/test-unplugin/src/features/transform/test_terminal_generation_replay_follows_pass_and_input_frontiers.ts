@@ -325,6 +325,7 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
           const universal = captureUniversalHostInputValidation(
             cached,
             moduleFiles[0]!,
+            {},
           );
           assert.ok(universal.validation);
           cached.hostInputValidation = universal.validation;
@@ -506,6 +507,7 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
       const admitted = captureUniversalHostInputValidation(
         hostCached,
         moduleFiles[0]!,
+        {},
       );
       assert.deepEqual(admitted.failures.entries, []);
       assert.ok(admitted.validation);
@@ -536,6 +538,7 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
         const missing = captureUniversalHostInputValidation(
           { ...hostCached, result: missingConfigResult },
           moduleFiles[0]!,
+          {},
         );
         assert.equal(missing.validation, undefined);
         assert.deepEqual(missing.failures.entries, [
@@ -577,9 +580,9 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
         "unchanged dangling-link metadata cannot replace the host content comparison",
       );
       const attempts = [
-        captureUniversalHostInputValidation(hostCached, moduleFiles[0]!)
+        captureUniversalHostInputValidation(hostCached, moduleFiles[0]!, {})
           .failures,
-        captureUniversalHostInputValidation(hostCached, moduleFiles[0]!)
+        captureUniversalHostInputValidation(hostCached, moduleFiles[0]!, {})
           .failures,
       ];
       for (const attempt of attempts) {

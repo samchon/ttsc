@@ -2,6 +2,7 @@ import path from "node:path";
 
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
 import type { ITtscCompilerTransformation } from "../../structures/ITtscCompilerTransformation";
+import { parseEnvironmentInputs } from "./parseEnvironmentInputs";
 
 /**
  * Parse the JSON envelope written by the native transform host to stdout.
@@ -26,7 +27,9 @@ import type { ITtscCompilerTransformation } from "../../structures/ITtscCompiler
  * Observation limits have a stricter protocol: completeness is only explicit
  * false, and per-input reasons require absolute native paths and the supported
  * unavailable reason. Invalid limit metadata fails instead of becoming an
- * exemption; omission asserts no completeness.
+ * exemption; omission asserts no completeness. Recorded environment reads are
+ * strict too: dropping a malformed entry would hide an input, so a malformed
+ * `environmentInputs` section fails the response.
  *
  * @evidence contracts/common.md#principled-implementation Required source output is decoded as an object of strings; advisory members are retained only by their declared shape with literal source keys stored as own data properties, while malformed observation exemptions fail rather than authorize reuse.
  * @evidence contracts/common.md#clear-and-simple-design This decoder owns the wire shape independently of process execution and proof revalidation; private helpers validate the distinct optional sections.
@@ -49,6 +52,8 @@ export function parseNativeTransformOutput(
   dependenciesComplete?: string[];
   /** Diagnostic entries reported by the native response. */
   diagnostics: ITtscCompilerDiagnostic[];
+  /** Environment variables the plugins read, with the value or null. */
+  environmentInputs?: Record<string, string | null>;
   /** Advisory compiler graph and its recorded witnesses. */
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   /** Raw-content or unavailable-state host witnesses. */
@@ -73,6 +78,7 @@ export function parseNativeTransformOutput(
       dependencies?: Record<string, string[]>;
       dependenciesComplete?: string[];
       diagnostics?: ITtscCompilerDiagnostic[];
+      environmentInputs?: unknown;
       graph?: ITtscCompilerTransformation.IReferenceGraph;
       hostInputHashes?: Record<string, string | null>;
       hostInputRealpaths?: Record<string, string | null>;
@@ -105,6 +111,7 @@ export function parseNativeTransformOutput(
     const dependencies = parseDependencyLists(parsed.dependencies);
     const dependenciesComplete = parseFileList(parsed.dependenciesComplete);
     const graph = parseReferenceGraph(parsed.graph);
+    const environmentInputs = parseEnvironmentInputs(parsed.environmentInputs);
     const hostInputHashes = parseHostInputHashes(parsed.hostInputHashes);
     const hostInputRealpaths = parseHostInputRealpaths(
       parsed.hostInputRealpaths,
@@ -115,6 +122,7 @@ export function parseNativeTransformOutput(
     return {
       ...(dependencies === undefined ? {} : { dependencies }),
       ...(dependenciesComplete === undefined ? {} : { dependenciesComplete }),
+      ...(environmentInputs === undefined ? {} : { environmentInputs }),
       ...(graph === undefined ? {} : { graph }),
       ...(hostInputHashes === undefined ? {} : { hostInputHashes }),
       ...(hostInputRealpaths === undefined ? {} : { hostInputRealpaths }),

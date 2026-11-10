@@ -58,6 +58,7 @@ export function test_tree_capture_records_the_environment_its_proof_started_from
     const { validation } = captureUniversalHostInputValidation(
       cached,
       path.join(fixture.project, "src", "index.ts"),
+      {},
     );
     assert.ok(validation, "the capture refused a tree that holds");
     assert.equal(

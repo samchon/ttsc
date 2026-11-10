@@ -50,6 +50,7 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
       }
       if (variant === "replaced") cache.set(key, replacement);
       const action = selectCachedGenerationAction({
+        environment: {},
         cache,
         cached: good,
         epoch: variant === "no-pass" ? undefined : 1,

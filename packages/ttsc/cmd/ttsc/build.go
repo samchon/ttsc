@@ -137,6 +137,7 @@ func writeBuildProgramResponse(prog *driver.Program, diags []driver.Diagnostic, 
         }
         fmt.Fprintln(stdout, "  +", rel)
       }
+      driver.WriteEnvironmentInputsSummary(stdout, "// ttsc: ", prog)
     }
     if request.manifestPath != "" {
       // The manifest is intentionally just the emitted file list. Higher

@@ -67,6 +67,7 @@ export function test_universal_host_input_probes_reuse_the_admission_directory_i
   const validation = captureUniversalHostInputValidation(
     cached,
     fixture.file,
+    {},
   ).validation;
   assert.ok(validation, "both absences are reusable");
   assert.equal(validation.missing.size, 1, "the absences share one group");

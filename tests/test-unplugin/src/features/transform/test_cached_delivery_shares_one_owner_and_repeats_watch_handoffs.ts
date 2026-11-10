@@ -297,6 +297,7 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
       const universal = captureUniversalHostInputValidation(
         candidateOwner,
         modules[0]!,
+        {},
       );
       assert.ok(universal.validation);
       candidateOwner.hostInputValidation = universal.validation;
@@ -342,6 +343,7 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
       fs.writeFileSync(candidates[0]!, "export {};\n");
       assert.equal(
         selectCachedGenerationAction({
+          environment: {},
           cache: unavailableCache,
           cached: candidateOwner,
           epoch: undefined,
@@ -526,6 +528,7 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
         );
         assert.equal(
           selectCachedGenerationAction({
+            environment: {},
             cache: fixture.cache,
             cached: outObserved,
             epoch: undefined,
@@ -911,6 +914,7 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
     }
     assert.equal(
       selectCachedGenerationAction({
+        environment: {},
         cache: fixture.cache,
         cached: passObserved,
         epoch: passObserved.deliveryEpoch,

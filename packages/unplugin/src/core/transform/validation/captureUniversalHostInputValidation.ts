@@ -21,6 +21,7 @@ import { pluginSourceHolds } from "../inputs/pluginSourceHolds";
 import { usesPreparedPluginBuildEnvironments } from "../inputs/preparePluginBuildEnvironments";
 import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
+import { environmentInputMismatch } from "./environmentInputMismatch";
 import { matchesRecordedInput } from "./matchesRecordedInput";
 
 /**
@@ -36,7 +37,13 @@ import { matchesRecordedInput } from "./matchesRecordedInput";
  * callers retain the original native observation API; result identity records
  * async execution ownership even when preparation fails.
  *
- * @evidence contracts/common.md#principled-implementation Evaluation-time content and physical-target witnesses must agree with the generation snapshot before reuse; explicit producer observation unavailability remains distinct from changed, contradictory or unexplained missing proof, and every input is checked before classifying the attempt.
+ * Recorded environment reads are universal inputs too. Each must still have its
+ * recorded value, or stay unset, in `environment`, the compiler environment the
+ * generation is admitted under; an adopted publication recorded under another
+ * value fails here like a changed host input. They need no manifest entry:
+ * delivery compares them against its own snapshot.
+ *
+ * @evidence contracts/common.md#principled-implementation Evaluation-time content and physical-target witnesses and recorded environment values must agree with the generation snapshot before reuse; explicit producer observation unavailability remains distinct from changed, contradictory or unexplained missing proof, and every input is checked before classifying the attempt.
  * @evidence contracts/common.md#clear-and-simple-design One admission operation builds the manifest; per-entry, grouped or exact-native absence and tree validators own its subsequent checks.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing publication witness declines narrow reuse instead of certifying an input from a convenient newer read.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains failed admission and successful generation attachment; inline comments justify readable-state, blocker and tree distinctions.
@@ -48,6 +55,8 @@ import { matchesRecordedInput } from "./matchesRecordedInput";
 export function captureUniversalHostInputValidation(
   cached: TtscCachedProjectTransform,
   currentFile: string,
+  /** Compiler environment the generation is admitted under. */
+  environment: NodeJS.ProcessEnv,
 ): {
   /** Classified reasons why universal input authority could not be admitted. */
   failures: TtscGenerationProofFailures;
@@ -79,6 +88,17 @@ export function captureUniversalHostInputValidation(
       domain: "host",
       kind: "observation-unavailable",
       detail: "observer-incomplete",
+    });
+  }
+  const environmentChanged = environmentInputMismatch(
+    result.type === "exception" ? undefined : result.environmentInputs,
+    environment,
+  );
+  if (environmentChanged !== undefined) {
+    recordGenerationProofFailure(failures, {
+      domain: "host",
+      kind: "environment-changed",
+      detail: environmentChanged,
     });
   }
   for (const [input, reason] of Object.entries(proofFailures ?? {})) {

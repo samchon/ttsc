@@ -58,6 +58,7 @@ export function test_failed_generation_replay_preserves_whole_program_repair(): 
     cache.set("failed", generation);
     const action = () =>
       selectCachedGenerationAction({
+        environment: {},
         cache,
         cached: observed,
         generation,

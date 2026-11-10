@@ -226,11 +226,16 @@ function recordOf(
   inputs: readonly TtscWatchInput[],
 ): TtscProjectRecord {
   const dependencies = cached.externalDependencyInputs ?? [];
+  const environmentInputs =
+    cached.result.type === "exception"
+      ? undefined
+      : cached.result.environmentInputs;
   const record: TtscProjectRecord = {
     ...(cached.compilerArguments === undefined
       ? {}
       : { compilerArguments: cached.compilerArguments }),
     ...(dependencies.length === 0 ? {} : { dependencies }),
+    ...(environmentInputs === undefined ? {} : { environmentInputs }),
     inputs: {},
     membership:
       cached.projectDirectories === undefined
