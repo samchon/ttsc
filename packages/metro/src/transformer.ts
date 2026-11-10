@@ -255,8 +255,9 @@ export async function transform(params: {
         // memo means stat-ing the whole `extends` chain, which is an answer
         // that cannot change between two inputs of one file
         // (samchon/ttsc#1316).
-        addWatchFiles: (inputs) =>
+        addWatchFiles: (inputs, _failed, environmentInputs) =>
           recorder().recordMany({
+            environmentInputs,
             inputs: [...project.discoveryInputs, ...inputs],
             project,
           }),
@@ -362,14 +363,13 @@ export async function transform(params: {
  */
 export function getCacheKey(...args: unknown[]): string {
   const opts = options();
+  const environment = resolveCompilerEnvironment(opts.ttsc.runExternalCode);
   const hash = createHash("sha256");
   hash.update(`@ttsc/metro:${packageVersion()}`);
   hash.update(
     stableStringify({
       ttsc: JSON.stringify(opts.ttsc),
-      compilerArguments: compilerEnvironmentIdentity(
-        resolveCompilerEnvironment(opts.ttsc.runExternalCode),
-      ),
+      compilerArguments: compilerEnvironmentIdentity(environment),
       include: opts.include,
       exclude: opts.exclude,
       upstreamTransformer: opts.upstreamTransformer ?? null,
@@ -379,6 +379,7 @@ export function getCacheKey(...args: unknown[]): string {
   hash.update(upstreamKey ?? `nonce:${randomBytes(32).toString("hex")}`);
   hash.update(
     computeProjectFingerprint({
+      environment,
       // The same overlay `transform` hands the recorder. Both read these
       // options from `options()`, so the walk and the recorder judge one
       // project by one program (samchon/ttsc#1316).

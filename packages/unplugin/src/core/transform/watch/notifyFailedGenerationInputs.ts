@@ -147,6 +147,9 @@ export function notifyFailedGenerationInputs(
     hooks,
     membership === undefined ? inputs : [...inputs, membership],
     true,
+    cached.result.type === "exception"
+      ? undefined
+      : cached.result.environmentInputs,
   );
 }
 
