@@ -159,6 +159,8 @@ Such a proof runs at any moment, beside compiles that read the metadata of the d
 
 An environment variable a plugin read through `ctx.Env` is universal too, and no key can name it because only the compile discovers the read. The envelope records each with the value read (`environmentInputs`), and every reuse compares the record with a compiler environment snapshot (`validation/environmentInputMismatch.ts`): each cached delivery with its own snapshot, on every path including a pass's first delivery (`cache/selectCachedGenerationAction.ts`), the capture's and an adopter's admission with the environment it compiled under (`validation/captureUniversalHostInputValidation.ts`, failure kind `environment-changed`), a claim before it adopts a publication (`session/claimSharedCompile.ts`), and a record's at a build start (`bridge/projectRecordArgumentsMatch.ts`). A generation whose plugins read nothing is unaffected.
 
+Both persisted readers validate a present `environmentInputs` through `validation/isEnvironmentInputs.ts` before comparing values: it must be a dictionary with nonempty names and string or null values. A malformed publication requires a fresh compile, and a malformed project record is unavailable to its observers. Omission and a valid empty dictionary retain the no-read case.
+
 ## Registration
 
 Batched module-input callbacks receive `environmentInputs` as their third argument, after the input paths and failure flag. Metro persists these names with its snapshot and hashes their current values at the next static-key boundary. Its workers compare recorded reads with the immutable main-process baseline, so discovering an unkeyed name or observing a different value taints that run and rotates the next epoch.

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 
 import { normalizeGraphInputObservation } from "../transform/envelope/normalizeGraphInputObservation";
+import { isEnvironmentInputs } from "../transform/validation/isEnvironmentInputs";
 import type { TtscProjectRecord } from "./TtscProjectRecord";
 
 /**
@@ -74,18 +75,6 @@ export function readProjectRecordFile(
     signal: candidate.signal,
     tsconfig: candidate.tsconfig,
   };
-}
-
-/** Recorded environment reads: names to the value read, or null when unset. */
-function isEnvironmentInputs(
-  value: unknown,
-): value is NonNullable<TtscProjectRecord["environmentInputs"]> {
-  return (
-    isRecord(value) &&
-    Object.values(value).every(
-      (recorded) => recorded === null || typeof recorded === "string",
-    )
-  );
 }
 
 /** A JSON dictionary, excluding arrays and null. */

@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { isZombieProcess } from "../utils/isZombieProcess";
 import { environmentInputMismatch } from "../validation/environmentInputMismatch";
+import { isEnvironmentInputs } from "../validation/isEnvironmentInputs";
 import type { TtscSharedCompileClaim } from "./TtscSharedCompileClaim";
 import type { TtscSharedCompilePublication } from "./TtscSharedCompilePublication";
 
@@ -523,7 +524,7 @@ function isPublicationRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Check the envelope fields read directly before advisory index validation. */
+/** Check consumed envelope fields, including the complete environment witness. */
 function isPublicationResult(value: unknown): boolean {
   if (
     !isPublicationRecord(value) ||
@@ -531,7 +532,9 @@ function isPublicationResult(value: unknown): boolean {
     !isPublicationRecord(value.typescript) ||
     !Object.values(value.typescript).every(
       (source) => typeof source === "string",
-    )
+    ) ||
+    (value.environmentInputs !== undefined &&
+      !isEnvironmentInputs(value.environmentInputs))
   )
     return false;
   // Neither an explicit incomplete observer nor failed per-input authority can
