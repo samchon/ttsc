@@ -415,6 +415,15 @@ func (s *graphSession) nextChange(trackPublicShape bool) (*graphChange, error) {
     return &graphChange{mode: serveModeReload, full: true}, nil
   }
 
+  // Compare with the parser's captured answers: a later response baseline
+  // could otherwise label an older Program with newer argument bytes.
+  if !s.compiler.Program().CompilerArgumentsAreCurrent() {
+    if err := s.reload(); err != nil {
+      return nil, err
+    }
+    return &graphChange{mode: serveModeReload, full: true}, nil
+  }
+
   if diskStatesChanged(s.auxStates) {
     if err := s.reload(); err != nil {
       return nil, err

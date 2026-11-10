@@ -328,6 +328,7 @@ type Program struct {
   mapperDependencies     []string
   mapperDependencyError  error
   compilerArgumentInputs []string
+  compilerArguments      []compilerArgumentObservation
 
   // FS is the input-observing filesystem, including any source preamble layer.
   FS                  vfs.FS
@@ -686,6 +687,9 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (program 
   if argumentCwd != "" {
     argumentDirectory = tspath.ToRootedDirectoryPath(argumentCwd, directory)
   }
+  if len(tsgoArgs) != 0 {
+    fs.DirectoryExists(argumentDirectory)
+  }
   commandLine, cliDiags, err := parseTsgoArgs(tsgoArgs, host, argumentDirectory)
   if err != nil {
     return nil, nil, err
@@ -694,6 +698,10 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (program 
     return nil, cliDiags, nil
   }
   compilerArgumentInputs := inputObserver.readPaths()
+  if len(tsgoArgs) != 0 {
+    compilerArgumentInputs = append(compilerArgumentInputs, string(argumentDirectory))
+  }
+  compilerArguments := captureCompilerArgumentObservations(inputObserver, compilerArgumentInputs)
 
   // Config identity is explicit; argument conversion uses the original argv
   // base, while the Program and linked plugin state retain their selected cwd.
@@ -745,6 +753,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (program 
     mapperDependencies:     mapperDependencies,
     mapperDependencyError:  mapperDependencyError,
     compilerArgumentInputs: compilerArgumentInputs,
+    compilerArguments:      compilerArguments,
     FS:                     fs,
     compilationSnapshot:    snapshot,
     inputObserver:          inputObserver,
