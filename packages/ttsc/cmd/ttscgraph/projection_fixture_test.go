@@ -5,6 +5,7 @@ import (
   "strings"
   "time"
 
+  "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
@@ -88,9 +89,9 @@ func (sourceSnapshotPublisher) shards(session *graphSession) (*serveGraphSnapsho
 }
 
 func serveSourceSnapshots(input io.Reader, output io.Writer, cwd, tsconfig string) int {
-  return serveSnapshotRequests(input, output, cwd, tsconfig, nil, sourceSnapshotPublisher{})
+  return serveSnapshotRequests(input, output, cwd, tsconfig, nil, sourceSnapshotPublisher{}, driver.LoadProgramOptions{})
 }
 
 func serveSourceSnapshotsWithArtifacts(input io.Reader, output io.Writer, cwd, tsconfig string, artifacts []graph.Artifact) int {
-  return serveSnapshotRequests(input, output, cwd, tsconfig, artifacts, sourceSnapshotPublisher{})
+  return serveSnapshotRequests(input, output, cwd, tsconfig, artifacts, sourceSnapshotPublisher{}, driver.LoadProgramOptions{})
 }

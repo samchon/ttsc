@@ -6,6 +6,7 @@ import { captureProcessOutput, ensureExecutable } from "../nativeExecutable";
 import { resolveGraphBinary } from "../resolveGraphBinary";
 import { ITtscGraphDump } from "../structures/ITtscGraphDump";
 import { TtscGraphMemory } from "./TtscGraphMemory";
+import { TtscGraphNativeArguments } from "./TtscGraphNativeArguments";
 import { publishArtifacts } from "./publishedArtifacts";
 
 /**
@@ -48,6 +49,9 @@ export function loadGraph(
     /** Project tsconfig, relative to `cwd` (default: `tsconfig.json`). */
     tsconfig?: string;
 
+    /** Upstream mapper permission; explicit false overrides inherited flags. */
+    runExternalCode?: boolean;
+
     /**
      * Absolute path to the `ttscgraph` binary. Defaults to the per-platform
      * binary installed with `@ttsc/graph`; pass it explicitly to point at a
@@ -58,6 +62,9 @@ export function loadGraph(
 ): TtscGraphMemory {
   const cwd = options.cwd ?? process.cwd();
   const tsconfig = options.tsconfig ?? "tsconfig.json";
+  const permission = TtscGraphNativeArguments.permission(
+    options.runExternalCode,
+  );
   // The producer belongs to this package's installation; the selected project
   // becomes the native process's --cwd and, by its TypeScript line, picks
   // which of the installation's producers runs.
@@ -77,7 +84,11 @@ export function loadGraph(
     // before the dump runs, so the producer can resolve a documentation target
     // into a relation rather than leaving it a token. A project with no lint
     // install, or none that publishes, contributes no file and no claim.
-    const artifacts = publishArtifacts({ cwd, tsconfig });
+    const artifacts = publishArtifacts({
+      cwd,
+      tsconfig,
+      runExternalCode: options.runExternalCode,
+    });
     result = GraphProcessTrace.spawnSync(
       binary,
       [
@@ -87,6 +98,7 @@ export function loadGraph(
         "--tsconfig",
         tsconfig,
         ...(artifacts.file === null ? [] : ["--artifacts", artifacts.file]),
+        ...permission,
       ],
       {
         stdio: ["ignore", capture.stdoutFd, capture.stderrFd],

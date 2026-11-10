@@ -22,6 +22,8 @@ npx @ttsc/graph view
 
 It resolves the project from the working directory and `tsconfig.json`, and `--cwd`, `--tsconfig`, `--port`, `--max-nodes`, and `--no-open` override that. Like the MCP server, it runs the native `ttscgraph` binary from the platform package installed with `@ttsc/graph`.
 
+For TypeScript 7.1 projects using [content mappers](/docs/setup/graph#content-mappers), pass `--runExternalCode` to `view` or `dump` to grant the compiler permission to run them.
+
 ## Export the graph as JSON
 
 ```bash

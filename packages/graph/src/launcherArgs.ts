@@ -26,6 +26,7 @@ export class GraphArgumentError extends Error {
 export const PROJECT_OPTIONS: readonly ILauncherOption[] = [
   { key: "cwd", flags: ["--cwd"], kind: "value" },
   { key: "tsconfig", flags: ["--tsconfig"], kind: "value" },
+  { key: "runExternalCode", flags: ["--runExternalCode"], kind: "boolean" },
 ];
 
 /**
@@ -114,6 +115,9 @@ export function projectOptions(values: ParsedLauncherOptions): IProjectOptions {
   return {
     cwd: path.resolve(stringValue(values, "cwd") ?? process.cwd()),
     tsconfig: stringValue(values, "tsconfig") ?? "tsconfig.json",
+    ...(values.has("runExternalCode")
+      ? { runExternalCode: values.get("runExternalCode") as boolean }
+      : {}),
   };
 }
 

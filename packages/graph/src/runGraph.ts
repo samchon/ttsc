@@ -36,8 +36,9 @@ export function runGraph(
   if (argv[0] === "view") return runView(argv.slice(1));
   if (argv[0] === "dump") return runDump(argv.slice(1));
 
-  const { cwd, tsconfig } = TtscGraphLauncherArguments.project(argv);
-  void startServer({ cwd, tsconfig, version: VERSION }).catch(
+  const { cwd, tsconfig, runExternalCode } =
+    TtscGraphLauncherArguments.project(argv);
+  void startServer({ cwd, tsconfig, runExternalCode, version: VERSION }).catch(
     (error: unknown) => {
       process.stderr.write(
         `@ttsc/graph: ${error instanceof Error ? error.message : String(error)}\n`,
@@ -55,7 +56,7 @@ function runDump(argv: readonly string[]): number {
   // The producer belongs to this package's installation; `--cwd` selects the
   // project the native process graphs and, by its TypeScript line, which of
   // the installation's producers graphs it.
-  const { cwd, tsconfig, artifactsSpecified } =
+  const { cwd, tsconfig, artifactsSpecified, runExternalCode } =
     TtscGraphLauncherArguments.dump(argv);
   const binary = resolveGraphBinary(process.env, cwd);
   if (binary === null) {
@@ -75,7 +76,7 @@ function runDump(argv: readonly string[]): number {
   // named `--artifacts` itself owns the answer and is not overridden.
   const published = artifactsSpecified
     ? null
-    : publishArtifacts({ cwd, tsconfig });
+    : publishArtifacts({ cwd, tsconfig, runExternalCode });
   const result = GraphProcessTrace.spawnSync(
     binary,
     TtscGraphLauncherArguments.dumpVector(argv, published?.file ?? null),
