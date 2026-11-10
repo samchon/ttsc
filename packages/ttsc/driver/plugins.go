@@ -5,6 +5,7 @@ import (
   "fmt"
   "os"
   "path/filepath"
+  "runtime"
   "sort"
   "strings"
   "sync"
@@ -218,9 +219,9 @@ func (ctx PluginContext) ReportObservationIncomplete() {
 // @evidence contracts/common.md#clear-and-simple-design One callback delegates to the generation ledger; name validation precedes it and the uncallbacked context falls back to os.LookupEnv.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No static variable list, prefix rule or intercepted os.Getenv replaces the explicit read; values are not hashed or redacted, so equality checks compare what the plugin saw.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state the lookup semantics, first-read fixing, absence recording, invalid names and the precedents following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation os.LookupEnv supplies the platform's own name matching, including Windows case-insensitivity; the recorded name keeps the caller's spelling and consumers compare it under their platform's environment rule.
+// @evidence contracts/portability.md#os-neutral-implementation os.LookupEnv supplies native lookup; the ledger shares Windows case aliases while retaining the first spelling and keeps POSIX names distinct.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The ledger retains one name and value copy per distinct name read for the generation's lifetime; repeated reads add nothing. No handle is acquired and no cap is imposed.
-// @evidence contracts/performance.md#efficient-algorithms Name validation scans the name once; the ledger takes one lock and one map lookup, plus one os.LookupEnv on the first read of a name.
+// @evidence contracts/performance.md#efficient-algorithms Name validation scans the name once; the ledger takes one lock, scans recorded names for Windows aliases, and performs one map lookup, plus one os.LookupEnv on a first read. Windows lookup work scales with recorded name bytes.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Recording an input coordinates no completed or in-flight computation; consumers decide reuse from the record.
 func (ctx PluginContext) Env(name string) (string, bool) {
   if name == "" || strings.ContainsAny(name, "=\x00") {
@@ -574,6 +575,15 @@ func (inputs *pluginHostInputScopes) readEnvironment(name string) (string, bool)
   }
   inputs.mu.Lock()
   defer inputs.mu.Unlock()
+  if runtime.GOOS == "windows" {
+    identity := strings.ToUpper(name)
+    for recordedName := range inputs.environment {
+      if strings.ToUpper(recordedName) == identity {
+        name = recordedName
+        break
+      }
+    }
+  }
   recorded, exists := inputs.environment[name]
   if !exists {
     if value, ok := os.LookupEnv(name); ok {

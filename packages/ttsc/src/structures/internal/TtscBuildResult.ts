@@ -52,7 +52,10 @@ export interface TtscBuildResult {
    */
   emittedSourceProofFailures?: Readonly<Record<string, string>>;
 
-  /** Inputs captured by descriptor evaluation or contributing native generations. */
+  /**
+   * Inputs captured by descriptor evaluation or contributing native
+   * generations.
+   */
   hostInputs?: string[];
 
   /**

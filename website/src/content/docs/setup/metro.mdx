@@ -108,6 +108,8 @@ Compiler overlays and plugin options retain their transmitted JSON property orde
 
 The cache fingerprint includes project files, effective configs, resolution inputs, plugin dependencies, and plugin Go sources and build environment. Nested and linked projects are tracked under their own configs. Changes to those inputs invalidate the next run, including newly created resolution targets and retargeted symlinks or Windows junctions. Restarting a bundle or dev server picks up these changes without `--reset-cache`.
 
+Environment variables a native plugin reads through [`ctx.Env`](/docs/development/reference/driver-api#linked-plugins) also affect the next run's key. Workers retain the recorded names, and the main process hashes their current values, distinguishing an unset variable from an empty value. A new read or a value that differs from the run's baseline withdraws reuse until the next snapshot compaction. Snapshots store names and private baselines store digests; neither stores plaintext environment values. Older snapshots start a fresh cache epoch.
+
 The recorded input set follows what the transform core derives per file, so a plugin that declares its reported dependency list [complete](/docs/development/concepts/protocol#dependency-completeness) for a file narrows what that file contributes to the fingerprint. Files under the project root are walked regardless of any declaration.
 
 Metro uses one transformer key per run, so a fingerprint change re-transforms every file on the next run. During development and recovery:
