@@ -45,12 +45,18 @@ func prepareDumpCommand(args []string) (*preparedDumpCommand, int) {
   cwdFlag := fs.String("cwd", "", "project root (defaults to process cwd)")
   tsconfigFlag := fs.String("tsconfig", "tsconfig.json", "project tsconfig path")
   prettyFlag := fs.Bool("pretty", false, "indent the JSON output")
+  permissionFlag := fs.Bool("runExternalCode", false, "allow upstream content mappers (TypeScript 7.1)")
   artifactsFlag := fs.String(
     "artifacts",
     "",
     "path to the artifacts a plugin published (JSON); absent or missing means none",
   )
   if err := fs.Parse(args); err != nil {
+    return nil, 2
+  }
+  options, err := graphCompilerOptions(fs, *permissionFlag)
+  if err != nil {
+    fmt.Fprintf(stderr, "ttscgraph: %v\n", err)
     return nil, 2
   }
 
@@ -72,13 +78,13 @@ func prepareDumpCommand(args []string) (*preparedDumpCommand, int) {
   cwd = shimtspath.ResolvePath(cwd)
   tsconfig := strings.TrimSpace(*tsconfigFlag)
 
-  prog, _, err := driver.LoadProgram(cwd, tsconfig, driver.LoadProgramOptions{})
+  prog, diags, err := driver.LoadProgram(cwd, tsconfig, options)
   if err != nil {
     fmt.Fprintf(stderr, "ttscgraph: could not load %s/%s: %v\n", cwd, tsconfig, err)
     return nil, 1
   }
   if prog == nil {
-    fmt.Fprintf(stderr, "ttscgraph: could not load %s/%s\n", cwd, tsconfig)
+    fmt.Fprintf(stderr, "ttscgraph: could not load %s/%s: %v\n", cwd, tsconfig, invalidProjectError(diags))
     return nil, 1
   }
 

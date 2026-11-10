@@ -92,11 +92,15 @@ Dump:
   --cwd <dir>          Project root (defaults to the process working directory).
   --tsconfig <path>    Project tsconfig path (default: tsconfig.json).
   --pretty             Indent the JSON output.
+  --runExternalCode    Allow TypeScript 7.1 content mappers; an explicit
+                       =false overrides inherited compiler permission.
 
 Serve:
   serve                Internal newline-delimited snapshot protocol used by
                        @ttsc/graph. Keeps the compiler Program resident, applies
                        source edits incrementally, and reloads on structural
                        project changes.
+  --runExternalCode    Same invocation-scoped permission as dump; retained
+                       across every resident project reload.
 `))
 }

@@ -17,6 +17,9 @@ export interface TtscGraphSessionOptions {
   /** Project tsconfig passed to `ttscgraph serve`. */
   tsconfig: string;
 
+  /** Upstream mapper permission for this session and every reload. */
+  runExternalCode?: boolean;
+
   /**
    * Absolute native binary path; omitted, the installed
    * `@ttsc/graph-<platform>-<arch>` binary runs.

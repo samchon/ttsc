@@ -63,6 +63,19 @@ Any other MCP client works the same way, the command is always `npx -y @ttsc/gra
 
 The server supplies tool guidance in the MCP `initialize` response. It does not write to `CLAUDE.md`, `AGENTS.md`, or other repository files.
 
+## Content mappers
+
+TypeScript 7.1 projects declaring `contentMappers` need upstream's `runExternalCode` permission. Add `"--runExternalCode"` to the MCP launcher's `args`, or pass it to `dump` and `view`:
+
+```bash
+npx @ttsc/graph dump --runExternalCode
+npx @ttsc/graph view --runExternalCode
+```
+
+The programmatic `loadGraph` and `TtscGraphSession` options accept `runExternalCode: true`. Permission stays fixed across a resident session's reloads. The compiler remains responsible for mapper execution; the graph tracks the original mapped inputs and the mapper's declared configuration dependencies when refreshing its snapshots.
+
+Omitting the option preserves inherited compiler arguments, whose default leaves external code disabled. Use `--runExternalCode=false` or `runExternalCode: false` to override inherited permission. TypeScript 7.0 does not support this compiler option.
+
 ## What you get back
 
 The agent gains one tool, `inspect_typescript_graph`. The compiler resolves workspace dependencies, path aliases, and barrel re-exports.

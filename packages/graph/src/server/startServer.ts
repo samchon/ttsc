@@ -31,6 +31,9 @@ export async function startServer(options: {
    */
   tsconfig?: string;
 
+  /** Upstream mapper permission fixed for this server's resident session. */
+  runExternalCode?: boolean;
+
   /** Server version reported in the MCP handshake. */
   version: string;
 }): Promise<void> {
@@ -39,7 +42,11 @@ export async function startServer(options: {
   let session: TtscGraphSession | undefined;
   const server = createServer(async () => {
     if (closed) throw new Error("@ttsc/graph: server is closed");
-    session ??= new TtscGraphSession({ cwd, tsconfig });
+    session ??= new TtscGraphSession({
+      cwd,
+      tsconfig,
+      runExternalCode: options.runExternalCode,
+    });
     return session.graph();
   }, options.version);
   const transport = new StdioServerTransport();

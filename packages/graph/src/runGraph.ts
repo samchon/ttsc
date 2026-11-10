@@ -36,8 +36,9 @@ export function runGraph(
   if (argv[0] === "view") return runView(argv.slice(1));
   if (argv[0] === "dump") return runDump(argv.slice(1));
 
-  const { cwd, tsconfig } = TtscGraphLauncherArguments.project(argv);
-  void startServer({ cwd, tsconfig, version: VERSION }).catch(
+  const { cwd, tsconfig, runExternalCode } =
+    TtscGraphLauncherArguments.project(argv);
+  void startServer({ cwd, tsconfig, runExternalCode, version: VERSION }).catch(
     (error: unknown) => {
       process.stderr.write(
         `@ttsc/graph: ${error instanceof Error ? error.message : String(error)}\n`,

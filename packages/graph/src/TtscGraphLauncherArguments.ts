@@ -76,6 +76,7 @@ export namespace TtscGraphLauncherArguments {
     const values = parseLauncherOptions(argv, [
       { key: "cwd", flags: ["--cwd"], kind: "value" },
       { key: "tsconfig", flags: ["--tsconfig", "-p"], kind: "value" },
+      { key: "runExternalCode", flags: ["--runExternalCode"], kind: "boolean" },
       { key: "port", flags: ["--port"], kind: "value" },
       { key: "open", flags: ["--no-open"], kind: "flag" },
       { key: "max_nodes", flags: ["--max-nodes"], kind: "value" },
@@ -174,6 +175,11 @@ interface IViewOptions extends IProjectOptions {
 }
 
 const DUMP_OPTIONS = [
+  {
+    key: "runExternalCode",
+    flags: ["--runExternalCode", "-runExternalCode"],
+    kind: "boolean",
+  },
   { key: "artifacts", flags: ["--artifacts", "-artifacts"], kind: "string" },
   { key: "cwd", flags: ["--cwd", "-cwd"], kind: "value" },
   { key: "tsconfig", flags: ["--tsconfig", "-tsconfig"], kind: "value" },
@@ -195,6 +201,7 @@ const DUMP_HELP_SUMMARY = [
   "  --cwd <dir>        Project root (default: current directory).",
   "  --tsconfig <path>  Project tsconfig path (default: tsconfig.json).",
   "  --pretty           Indent the JSON output.",
+  "  --runExternalCode  Allow TypeScript 7.1 content mappers (default: disabled).",
   "",
   "The native `ttscgraph` binary owns these flags and is not installed here,",
   "so this summary may lag it. Install @ttsc/graph with its optional",

@@ -207,6 +207,7 @@ type graphSession struct {
   artifactsDigest [sha256.Size]byte
 
   compiler     *driver.Session
+  loadOptions  driver.LoadProgramOptions
   configHashes map[string][sha256.Size]byte
   auxStates    map[string]diskState
   sourceHashes map[string][sha256.Size]byte
@@ -239,7 +240,7 @@ type graphSession struct {
 }
 
 func newGraphSession(cwd, tsconfig string) (*graphSession, error) {
-  return newGraphSessionWithArtifacts(cwd, tsconfig, nil)
+  return newGraphSessionWithArtifacts(cwd, tsconfig, nil, driver.LoadProgramOptions{})
 }
 
 // newGraphSessionWithArtifacts loads one compiler session with the initial
@@ -248,8 +249,9 @@ func newGraphSession(cwd, tsconfig string) (*graphSession, error) {
 func newGraphSessionWithArtifacts(
   cwd, tsconfig string,
   artifacts []graph.Artifact,
+  options driver.LoadProgramOptions,
 ) (*graphSession, error) {
-  session := &graphSession{cwd: cwd, tsconfig: tsconfig, artifacts: artifacts}
+  session := &graphSession{cwd: cwd, tsconfig: tsconfig, artifacts: artifacts, loadOptions: options}
   if err := session.reload(); err != nil {
     return nil, err
   }
@@ -488,16 +490,9 @@ func (s *graphSession) nextChange(trackPublicShape bool) (*graphChange, error) {
       mode = serveModeRebuild
       full = true
     }
-    current, exists := s.compiler.SourceText(path)
-    expected := driver.ApplySourcePreambleToFile(path, changed[path], s.compiler.Program().SourcePreamble)
-    if !exists || current != expected {
-      if err := s.reload(); err != nil {
-        return nil, err
-      }
-      return &graphChange{mode: serveModeReload, full: true}, nil
-    }
     source := s.compiler.Program().SourceFile(path)
-    if source == nil {
+    expected := driver.ApplySourcePreambleToFile(path, changed[path], s.compiler.Program().SourcePreamble)
+    if source == nil || sourceInputText(source) != expected {
       if err := s.reload(); err != nil {
         return nil, err
       }
@@ -549,7 +544,7 @@ func (s *graphSession) nextChange(trackPublicShape bool) (*graphChange, error) {
 }
 
 func (s *graphSession) reload() error {
-  next, diags, err := driver.NewSession(s.cwd, s.tsconfig, driver.LoadProgramOptions{})
+  next, diags, err := driver.NewSession(s.cwd, s.tsconfig, s.loadOptions)
   if err != nil {
     return err
   }
@@ -587,6 +582,13 @@ func (s *graphSession) captureState() error {
     return err
   }
   inputs := auxiliaryInputs(program, s.cwd)
+  mapperInputs, err := program.ContentMapperDependencies()
+  if err != nil {
+    return fmt.Errorf("ttscgraph: content mapper dependencies: %w", err)
+  }
+  for _, input := range mapperInputs {
+    inputs = append(inputs, auxiliaryInput{path: input})
+  }
   for _, path := range missingRootInputs(configs, sourceHashes) {
     inputs = append(inputs, auxiliaryInput{path: path})
   }
@@ -810,14 +812,15 @@ func hashProgramSources(program *driver.Program) (map[string][sha256.Size]byte, 
     // match what the checker holds. When they do not, the manifest's text and
     // disk digests disagree, which is precisely what a consumer needs to see.
     digests[string(source.FileName())] = graph.Digest(rawHash)
-    // Disk identity and checker text come from the same captured bytes. The
-    // compiler filesystem strips BOMs and decodes UTF-16 before parsing.
+    // Compare disk identity with the compiler's original input. Mapped checker
+    // text can differ by design; upstream retains its pre-mapping text. The
+    // filesystem also strips BOMs and decodes UTF-16 before parsing.
     decoded, ok := shimvfs.DecodeBytes(string(content))
     if !ok {
       return nil, nil, fmt.Errorf("ttscgraph: decode %s", source.FileName())
     }
     expected := driver.ApplySourcePreambleToFile(string(source.FileName()), decoded, program.SourcePreamble)
-    if source.Text() == expected {
+    if sourceInputText(source) == expected {
       hashes[string(source.FileName())] = rawHash
     } else {
       // Force the next snapshot to revisit a file that changed while the
@@ -1071,12 +1074,18 @@ func runServe(args []string) int {
   fs.SetOutput(stderr)
   cwdFlag := fs.String("cwd", "", "project root (defaults to process cwd)")
   tsconfigFlag := fs.String("tsconfig", "tsconfig.json", "project tsconfig path")
+  permissionFlag := fs.Bool("runExternalCode", false, "allow upstream content mappers (TypeScript 7.1)")
   artifactsFlag := fs.String(
     "artifacts",
     "",
     "path to the artifacts a plugin published (JSON); absent or missing means none",
   )
   if err := fs.Parse(args); err != nil {
+    return 2
+  }
+  options, err := graphCompilerOptions(fs, *permissionFlag)
+  if err != nil {
+    fmt.Fprintf(stderr, "ttscgraph: %v\n", err)
     return 2
   }
   artifacts, artifactsErr := graph.LoadArtifacts(strings.TrimSpace(*artifactsFlag))
@@ -1104,7 +1113,7 @@ func runServe(args []string) int {
   cwd = shimtspath.ResolvePath(cwd)
   tsconfig := strings.TrimSpace(*tsconfigFlag)
 
-  return serveSnapshotsWithArtifacts(os.Stdin, stdout, cwd, tsconfig, artifacts)
+  return serveSnapshotRequests(os.Stdin, stdout, cwd, tsconfig, artifacts, nativeSnapshotPublisher{}, options)
 }
 
 func serveSnapshots(input io.Reader, output io.Writer, cwd, tsconfig string) int {
@@ -1120,12 +1129,12 @@ func serveSnapshotsWithArtifacts(
   cwd, tsconfig string,
   artifacts []graph.Artifact,
 ) int {
-  return serveSnapshotRequests(input, output, cwd, tsconfig, artifacts, nativeSnapshotPublisher{})
+  return serveSnapshotRequests(input, output, cwd, tsconfig, artifacts, nativeSnapshotPublisher{}, driver.LoadProgramOptions{})
 }
 
 // serveSnapshotRequests owns real NDJSON decoding, session lifetime and request
 // state. Publication uses its declared port; the default adapter acquires Git.
-func serveSnapshotRequests(input io.Reader, output io.Writer, cwd, tsconfig string, artifacts []graph.Artifact, publisher serveSnapshotPublisher) int {
+func serveSnapshotRequests(input io.Reader, output io.Writer, cwd, tsconfig string, artifacts []graph.Artifact, publisher serveSnapshotPublisher, options driver.LoadProgramOptions) int {
   scanner := bufio.NewScanner(input)
   scanner.Buffer(make([]byte, 64*1024), 1024*1024)
   encoder := json.NewEncoder(output)
@@ -1174,7 +1183,7 @@ func serveSnapshotRequests(input io.Reader, output io.Writer, cwd, tsconfig stri
     var loadDuration time.Duration
     if session == nil {
       loadStarted := time.Now()
-      created, err := newGraphSessionWithArtifacts(cwd, tsconfig, artifacts)
+      created, err := newGraphSessionWithArtifacts(cwd, tsconfig, artifacts, options)
       loadDuration = time.Since(loadStarted)
       if err != nil {
         if err := encodeServeResponseWithTrace(

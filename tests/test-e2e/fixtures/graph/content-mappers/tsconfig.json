@@ -1,0 +1,5 @@
+{
+  "compilerOptions": { "strict": true, "noEmit": true, "target": "ESNext", "module": "Preserve", "moduleResolution": "bundler" },
+  "contentMappers": [{ "package": "minimal-mapper", "extensions": [".data"] }],
+  "files": ["index.ts"]
+}

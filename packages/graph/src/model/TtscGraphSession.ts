@@ -43,6 +43,7 @@ export class TtscGraphSession {
   private readonly cwd: string;
   private readonly tsconfig: string;
   private readonly binary: string;
+  private readonly runExternalCode: boolean | undefined;
   /**
    * The artifact answer the resident child was last handed, and the state of
    * the inputs it came from.
@@ -71,6 +72,8 @@ export class TtscGraphSession {
   private readonly retiredDaemons = new Set<Promise<void>>();
 
   public constructor(options: TtscGraphSessionOptions) {
+    TtscGraphNativeArguments.permission(options.runExternalCode);
+    this.runExternalCode = options.runExternalCode;
     // The producer belongs to this package's installation, so an MCP server
     // started from any directory spawns a binary of its own release: the one
     // of the graphed project's TypeScript line.
@@ -285,7 +288,12 @@ export class TtscGraphSession {
       throw new Error("@ttsc/graph: artifact publication was not admitted");
     return TtscGraphLinePeer.open(
       this.binary,
-      TtscGraphNativeArguments.serve(this.cwd, this.tsconfig, artifacts.file),
+      TtscGraphNativeArguments.serve(
+        this.cwd,
+        this.tsconfig,
+        artifacts.file,
+        this.runExternalCode,
+      ),
       events,
       { stderr: "capture" },
     );

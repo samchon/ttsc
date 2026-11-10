@@ -5,6 +5,7 @@ import (
   "slices"
   "testing"
 
+  "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
@@ -50,7 +51,7 @@ export function priced(): void {}
       Kind:     "swagger_operation",
       Readable: "POST /orders",
     },
-  })
+  }, driver.LoadProgramOptions{})
   if err != nil {
     t.Fatalf("the session refused to start with artifacts: %v", err)
   }

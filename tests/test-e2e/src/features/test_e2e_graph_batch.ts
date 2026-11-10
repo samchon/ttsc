@@ -22,6 +22,7 @@ import { assertGraphTourInputCorpus } from "../batch/graphTourInputCorpus";
 import { installedTargetBoundary } from "../internal/graph/internal/installedTargetBoundary";
 import { TtsgraphClient } from "../internal/graph/internal/ttsgraph";
 import { case_capability_worker_environment_preserves_runtime_authority } from "./graph/scenes/case_capability_worker_environment_preserves_runtime_authority";
+import { case_graph_content_mappers_require_invocation_permission } from "./graph/scenes/case_graph_content_mappers_require_invocation_permission";
 import { case_ttscgraph_cold_artifact_preparation_owns_cancel_and_eof } from "./graph/scenes/case_ttscgraph_cold_artifact_preparation_owns_cancel_and_eof";
 import { case_ttscgraph_installed_consumers_resolve_their_own_native_binary } from "./graph/scenes/case_ttscgraph_installed_consumers_resolve_their_own_native_binary";
 import { case_ttscgraph_launcher_repairs_non_executable_dump_binary } from "./graph/scenes/case_ttscgraph_launcher_repairs_non_executable_dump_binary";
@@ -65,6 +66,7 @@ export async function test_e2e_graph_batch(): Promise<void> {
       retain: BatchWorkspace.retain,
     });
     for (const run of [
+      case_graph_content_mappers_require_invocation_permission,
       case_ttscgraph_installed_consumers_resolve_their_own_native_binary,
       case_ttscgraph_launcher_repairs_non_executable_dump_binary,
       case_ttscgraph_resident_projection_matches_fresh_full,

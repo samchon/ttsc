@@ -7,6 +7,7 @@ import { TtscGraphLauncherArguments } from "./TtscGraphLauncherArguments";
 import { TtscGraphViewSnapshot } from "./TtscGraphViewSnapshot";
 import { GraphProcessTrace } from "./internal/GraphProcessTrace";
 import { InstalledGraphBinary } from "./internal/InstalledGraphBinary";
+import { TtscGraphNativeArguments } from "./model/TtscGraphNativeArguments";
 import { publishArtifacts } from "./model/publishedArtifacts";
 import { captureProcessOutput, ensureExecutable } from "./nativeExecutable";
 import { reduce } from "./reduce";
@@ -233,6 +234,7 @@ function prepareView(
         "--tsconfig",
         opts.tsconfig,
         ...(artifacts.file === null ? [] : ["--artifacts", artifacts.file]),
+        ...TtscGraphNativeArguments.permission(opts.runExternalCode),
       ],
       {
         stdio: ["ignore", capture.stdoutFd, capture.stderrFd],
