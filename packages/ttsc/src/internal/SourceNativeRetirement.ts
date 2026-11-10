@@ -52,7 +52,7 @@ export namespace SourceNativeRetirement {
     deferred: Array<() => void>;
 
     /**
-     * Optional task-local publication primitives for an explicit filesystem
+     * Optional task-local metadata primitives for an explicit filesystem
      * boundary oracle. Omitted tasks use Node's original synchronous APIs.
      * Implementations must preserve exclusive-open and real descriptor
      * meaning.
@@ -60,7 +60,10 @@ export namespace SourceNativeRetirement {
     guardFileOperations?: Pick<
       typeof fs,
       "openSync" | "writeFileSync" | "closeSync" | "renameSync" | "rmSync"
-    >;
+    > & {
+      /** Read one guard's UTF-8 JSON at its actual observation boundary. */
+      readFileSync?: (file: fs.PathLike, encoding: "utf8") => string;
+    };
   }
 
   /**
@@ -1067,7 +1070,9 @@ class GuardPublicationError extends AggregateError {
  * Version, token-derived filename, states and field shapes validate the
  * cooperative JSON protocol. A single directory map serves admission,
  * collectors and clean. Unexpected entries or parse failures do not become
- * empty ownership. Native prose identifies conservative parsing and
+ * empty ownership. A listed guard removed before its read is absent: its owner
+ * can finish certified settlement concurrently with observation. Other read
+ * failures remain invalid protection. Native prose identifies parsing and
  * missing-directory behavior. Native directory validation rejects aliased
  * metadata roots; entry types and actual JSON bytes are observed. Reading costs
  * guard count and total metadata bytes, including validation hashing. Mutable
@@ -1079,12 +1084,13 @@ function readGuards(
 ): Array<{ file: string; record?: GuardRecord }> {
   const directory = guardDirectory(root, false);
   if (directory === undefined) return [];
-  return fs.readdirSync(directory, { withFileTypes: true }).map((entry) => {
+  const read = current?.guardFileOperations?.readFileSync ?? fs.readFileSync;
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(directory, entry.name);
     if (!entry.isFile() || entry.isSymbolicLink()) return { file };
     try {
       const record = JSON.parse(
-        fs.readFileSync(file, "utf8"),
+        read(file, "utf8"),
       ) as Partial<GuardRecord> | null;
       if (
         record === null ||
@@ -1106,7 +1112,8 @@ function readGuards(
       )
         return { file };
       return { file, record: record as GuardRecord };
-    } catch {
+    } catch (error) {
+      if (missing(error)) return [];
       return { file };
     }
   });
