@@ -98,5 +98,12 @@ export function notifyWatchInputs(
     file: spell(input.file),
   })))
     inputs.push(entryToAppend);
-  handWatchInputs(hooks, inputs);
+  handWatchInputs(
+    hooks,
+    inputs,
+    undefined,
+    cached.result.type === "exception"
+      ? undefined
+      : cached.result.environmentInputs,
+  );
 }

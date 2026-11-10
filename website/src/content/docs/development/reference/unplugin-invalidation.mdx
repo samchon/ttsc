@@ -161,6 +161,8 @@ An environment variable a plugin read through `ctx.Env` is universal too, and no
 
 ## Registration
 
+Batched module-input callbacks receive `environmentInputs` as their third argument, after the input paths and failure flag. Metro persists these names with its snapshot and hashes their current values at the next static-key boundary. Its workers compare recorded reads with the immutable main-process baseline, so discovering an unkeyed name or observing a different value taints that run and rotates the next epoch.
+
 Every delivery hands the host what it depends on, and a host takes one of two shapes (`watch/TtscTransformHooks.ts`).
 
 A host keyed on the module's own inputs, the Vite dev server's module graph and `@ttsc/metro`'s fingerprint, takes the inputs derived for the file (`addWatchFile`, `addWatchFiles`): `envelope/selectWatchInputs.ts` (`deriveWatchInputs.ts`), the plugin-reported dependencies, the reference closure, globals, configs, resolution inputs and candidates, each with its recorded evidence (`watch/evidencedWatchInput.ts`), plus the membership input (`watch/projectMembershipInput.ts`) when asked and the config selection (`watch/selectionInputs.ts`). Each plugin source directory is handed too, with its state as `tree` evidence. `watch/handWatchInputs.ts` hands each spelling once, keeping the registration that says most: membership over an evidenced input over a plain one.

@@ -61,7 +61,9 @@ export interface TtscTransformHooks {
    * once per delivered module and does not call `addWatchFile` for that module.
    * `failed` marks a recovery batch: a failed compiler can omit inputs from its
    * previous successful result, so replacing hosts should retain those
-   * spellings until the next successful delivery.
+   * spellings until the next successful delivery. The third argument carries
+   * the generation's environment reads for hosts that include non-file inputs
+   * in their persistent keys.
    */
   addWatchFiles?: TtscAddWatchFiles;
 
@@ -163,9 +165,9 @@ export type TtscAddWatchFile = (
 ) => void;
 
 /**
- * Receive a readonly input batch; failed batches retain recovery dependencies.
+ * Receive a readonly input batch and its recorded environment reads.
  *
- * @evidence contracts/common.md#principled-implementation The batch and optional failure flag express replacement versus recovery delivery without erasing per-input evidence.
+ * @evidence contracts/common.md#principled-implementation The batch and optional failure flag express replacement versus recovery delivery; optional environment reads retain non-file inputs for persistent keys.
  * @evidence contracts/common.md#clear-and-simple-design A single named function signature preserves the optional flag and original function-property assignability.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Recovery is an explicit host contract rather than successful evidence manufactured for a failed compile.
  * @evidence contracts/common.md#meaningful-documentation Native prose and the owning member explain readonly batching and failed retention; separated tags follow documentation guidance.
@@ -183,6 +185,7 @@ export type TtscAddWatchFile = (
 export type TtscAddWatchFiles = (
   inputs: readonly TtscWatchInput[],
   failed?: boolean,
+  environmentInputs?: Readonly<Record<string, string | null>>,
 ) => void;
 
 /**

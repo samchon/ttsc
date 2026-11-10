@@ -18,7 +18,7 @@
  * @evidence contracts/portability.md#os-neutral-implementation Windows variable names compare case-insensitively against the snapshot, choosing the lexically first spelling as ttsc's sidecar environment does; other platforms compare names exactly.
  * @evidence contracts/performance.md#efficient-algorithms One lookup per recorded name; on Windows each lookup scans the snapshot's names, O(recorded × environment) with both small.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The predicate decides reuse for its caller and retains no verdict.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Nothing is allocated beyond the returned name.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Entry and Windows key arrays are call-local; no environment, verdict or native handle is retained.
  */
 export function environmentInputMismatch(
   recorded: Readonly<Record<string, string | null>> | undefined,

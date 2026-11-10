@@ -26,7 +26,9 @@
  * Native contributor codecs retain separate per-path kind requests; their raw
  * byte, entry and directory facts are captured anew for the next key. Schema
  * four snapshots cannot establish those requests and restart with a fresh
- * epoch.
+ * epoch. Schema six also records environment names. The static key hashes their
+ * current values and its private baseline retains those digests; workers
+ * compare recorded reads against that baseline before authorizing reuse.
  *
  * Snapshot layout: one main file carrying a random epoch id plus per-worker
  * files with unique names, so concurrent workers never race a shared write.
@@ -91,7 +93,7 @@ import type { SnapshotReadOperations } from "./SnapshotReadOperations";
 import type { TtscMetroProjectView } from "./TtscMetroProjectView";
 
 /** Bumped when the snapshot JSON shape changes; mismatches read as corrupt. */
-const SNAPSHOT_VERSION = 5;
+const SNAPSHOT_VERSION = 6;
 
 /** Snapshot directory segments under the fingerprint base directory. */
 const SNAPSHOT_DIRECTORY = ["node_modules", ".cache", "ttsc-metro"];
@@ -141,6 +143,9 @@ type NativeInputKind = keyof NonNullable<
 
 /** Union of the snapshot state readable on disk. */
 interface SnapshotState {
+  /** Native environment names read by delivered generations. */
+  environment: string[];
+
   /** Native version-one kinds to observe again for each recorded path. */
   nativePredicates: Record<string, NativeInputKind[]>;
   /** Paths whose compiler-visible immediate entry listings affect output. */
@@ -167,6 +172,9 @@ interface SnapshotState {
 
 /** Serialized shape of the main and worker snapshot files. */
 interface SnapshotDocument {
+  /** Names only; secret environment values are never serialized here. */
+  environment: string[];
+
   /** Native kind requests, each path also retained in files. */
   nativePredicates: Record<string, NativeInputKind[]>;
   /** Recorded listing predicates, each also present in files. */
@@ -190,6 +198,9 @@ interface SnapshotDocument {
 
 /** Main-process input states that one Metro run's static key actually used. */
 interface KeyBaselineDocument {
+  /** Digests of the environment values the static key observed. */
+  environment: Record<string, string>;
+
   inputs: Record<string, TtscWatchInputKeyBaseline>;
   runId: string;
   staticInputs: string[];
@@ -790,6 +801,8 @@ function pathIsWithin(child: string, parent: string): boolean {
  *   compiler-accessible entry listings. Volatile, tainted
  *   or unstable observations take a fresh nonce; a run baseline must be
  *   immutable before workers can claim its coverage.
+ *   Recorded environment names contribute digests of their current values;
+ *   the first observation sorts the native environment keys when names exist.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Observation maps are local to key computation and are released on return.
@@ -816,6 +829,9 @@ function pathIsWithin(child: string, parent: string): boolean {
  *   facts.
  */
 export function computeProjectFingerprint(props: {
+  /** Compiler environment used by this run's workers; defaults to process.env. */
+  environment?: NodeJS.ProcessEnv;
+
   compilerOptions?: Record<string, unknown>;
   explicitProject?: string;
 
@@ -835,7 +851,13 @@ export function computeProjectFingerprint(props: {
       throw new Error("Metro's project fingerprint changed while observed.");
     }
     if (props.runId !== undefined) {
-      writeKeyBaseline(base, props.runId, after.inputs, after.staticInputs);
+      writeKeyBaseline(
+        base,
+        props.runId,
+        after.inputs,
+        after.staticInputs,
+        after.environment,
+      );
     }
     const hash = createHash("sha256");
     hash.update(stableStringify(after.fingerprint));
@@ -847,6 +869,7 @@ export function computeProjectFingerprint(props: {
 
 /** One coherent static-key observation and the paths it proves. */
 interface ProjectFingerprintObservation {
+  environment: Record<string, string>;
   fingerprint: unknown;
   inputs: Record<string, TtscWatchInputKeyBaseline>;
   staticInputs: string[];
@@ -854,6 +877,7 @@ interface ProjectFingerprintObservation {
 
 /** Build the complete value hashed by one static key. */
 function observeProjectFingerprint(props: {
+  environment?: NodeJS.ProcessEnv;
   compilerOptions?: Record<string, unknown>;
   explicitProject?: string;
   projectDiscoveryFilesystem?: TtscProjectTreeDiscoveryFilesystem;
@@ -922,6 +946,10 @@ function observeProjectFingerprint(props: {
   if (snapshot === undefined || snapshot.volatile || snapshot.tainted) {
     throw new Error("Metro's recorded transform snapshot is not reusable.");
   }
+  const environment = captureEnvironmentDigests(
+    snapshot.environment,
+    props.environment ?? process.env,
+  );
   // A plugin's Go source is a recorded input like any other, but no one
   // path's state stands for the files below it, so the key carries its state
   // (samchon/ttsc#1487).
@@ -967,11 +995,69 @@ function observeProjectFingerprint(props: {
         a < b ? -1 : a > b ? 1 : 0,
       ),
       projects: projectFingerprints,
-      snapshot: { id: snapshot.id, inputs: recorded },
+      snapshot: { id: snapshot.id, inputs: recorded, environment },
     },
+    environment,
     inputs,
     staticInputs: [...staticInputs].sort(),
   };
+}
+
+/** Native environment names are case-insensitive on Windows only. */
+function nativeEnvironmentName(name: string): string {
+  return process.platform === "win32" ? name.toUpperCase() : name;
+}
+
+/** Hash a value separately from absence without persisting its plaintext. */
+function environmentValueDigest(value: string | null): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+/** Capture only recorded names, using Node spawn's native alias selection. */
+function captureEnvironmentDigests(
+  names: readonly string[],
+  environment: NodeJS.ProcessEnv,
+): Record<string, string> {
+  if (names.length === 0) return {};
+  const native = new Map<string, string | undefined>();
+  for (const key of Object.keys(environment).sort()) {
+    const identity = nativeEnvironmentName(key);
+    if (!native.has(identity)) native.set(identity, environment[key]);
+  }
+  return Object.fromEntries(
+    names.map((name) => [
+      name,
+      environmentValueDigest(native.get(name) ?? null),
+    ]),
+  );
+}
+
+/** Serialized names are valid, unique, sorted native identities. */
+function isEnvironmentNames(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (name) =>
+        typeof name === "string" &&
+        name.length !== 0 &&
+        !/[=\x00]/u.test(name) &&
+        nativeEnvironmentName(name) === name,
+    ) &&
+    stableStringify(value) === stableStringify([...new Set(value)].sort())
+  );
+}
+
+/** A run baseline contains a digest for every recorded native name. */
+function isEnvironmentDigests(value: unknown): value is Record<string, string> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    isEnvironmentNames(Object.keys(value).sort()) &&
+    Object.values(value).every(
+      (digest) => typeof digest === "string" && /^[a-f0-9]{64}$/u.test(digest),
+    )
+  );
 }
 
 /**
@@ -1162,6 +1248,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
   const runId = randomBytes(16).toString("hex");
   let reusable = true;
   let pending: SnapshotDocument = {
+    environment: [],
     nativePredicates: {},
     accessibleEntries: [],
     files: [],
@@ -1197,6 +1284,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
       throw new Error("Unable to enumerate Metro snapshot state.");
     }
     const main = readMainDocument(directory);
+    const environment = new Set(main?.environment ?? []);
     const files = new Set(main?.files ?? []);
     const trees = new Set(main?.trees ?? []);
     const accessibleEntries = new Set(main?.accessibleEntries ?? []);
@@ -1224,6 +1312,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
           // able to clear the sticky flag.
           observations.some((entry) => entry.volatile);
     for (const entry of observations) {
+      for (const name of entry.environment) environment.add(name);
       mergeNativePredicateRequests(nativePredicates, entry.nativePredicates);
       for (const file of entry.files) {
         files.add(file);
@@ -1240,6 +1329,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
       recovery.paths.length !== 0 ||
       recovery.corruptPaths.length !== 0;
     pending = {
+      environment: [...environment].sort(),
       nativePredicates,
       accessibleEntries: [...accessibleEntries].sort(),
       ...(compacted.length !== 0 ? { compacted } : {}),
@@ -1622,6 +1712,7 @@ function readSnapshotStateOnce(
     return undefined;
   }
   const files = new Set(main.files);
+  const environment = new Set(main.environment);
   const trees = new Set(main.trees);
   const accessibleEntries = new Set(main.accessibleEntries);
   const nativePredicates = mergeNativePredicateRequests(
@@ -1631,6 +1722,7 @@ function readSnapshotStateOnce(
   let volatile = main.volatile;
   let tainted = main.tainted;
   for (const entry of uncompactedWorkerEntries(workers, main)) {
+    for (const name of entry.environment) environment.add(name);
     mergeNativePredicateRequests(nativePredicates, entry.nativePredicates);
     for (const file of entry.files) {
       files.add(file);
@@ -1645,6 +1737,7 @@ function readSnapshotStateOnce(
     tainted ||= entry.tainted;
   }
   return {
+    environment: [...environment].sort(),
     nativePredicates,
     accessibleEntries: [...accessibleEntries].sort(),
     files: [...files].sort(),
@@ -1666,15 +1759,19 @@ function readSnapshotStateOnce(
  * compacts the files on the next run.
  *
  * `record` accepts one lexical path without generation evidence; `recordMany`
- * accepts a module's generation evidence; `recordVolatile` withdraws the file
- * proof for non-file inputs. Without a run identity every input is retained;
- * production passes the identity whose immutable baseline was keyed in the main
- * process. An unknown or mismatching baseline marks the snapshot tainted, and
- * since `record` carries no evidence, a run identity always reads it as a
- * mismatch. Listing predicates retain their paths for the next run's key
- * observation; native kind requests survive the same persistence path without
- * becoming compiler listings or gaining watch scope. The worker never adds a
- * new disk read to its earlier immutable baseline.
+ * accepts a module's generation evidence and recorded environment reads;
+ * `recordVolatile` withdraws the file proof for non-file inputs. Without a run
+ * identity every input is retained; production passes the identity whose
+ * immutable baseline was keyed in the main process. An unknown or mismatching
+ * baseline marks the snapshot tainted, and since `record` carries no evidence,
+ * a run identity always reads it as a mismatch. Listing predicates retain their
+ * paths for the next run's key observation; native kind requests survive the
+ * same persistence path without becoming compiler listings or gaining watch
+ * scope. The worker never adds a new disk read to its earlier immutable
+ * baseline. Recorded environment names also survive compaction. Their value
+ * digests must match the run baseline; a new name or a changed value taints the
+ * run. Worker documents retain names only, and private baselines retain digests
+ * rather than plaintext values.
  *
  * Sets and baseline maps live for the recorder's worker lifetime and grow with
  * observed projects and distinct inputs. A flushing delivery serializes the
@@ -1686,8 +1783,8 @@ function readSnapshotStateOnce(
  *
  * @evidence contracts/common.md#principled-implementation
  *   One worker closure retains derived inputs and compares their
- *   compiler-generation evidence with its immutable run baseline through
- *   shared validation APIs. Static coverage is omitted only after a matching
+ *   compiler-generation evidence and environment-value digests with its
+ *   immutable run baseline. Static coverage is omitted only after a matching
  *   proof; unknown/volatile inputs persist taint.
  *   Listing and plugin-tree paths stay in the retained file universe even
  *   when a static proof already covers them, so optional payloads survive
@@ -1707,6 +1804,8 @@ function readSnapshotStateOnce(
  *   cumulative paths once, costing their count and encoded bytes rather than
  *   one cumulative serialization for every input. A tainted state flushes on
  *   every module, so that cost recurs per delivery until the worker ends.
+ *   Environment reads add one value hash and a baseline lookup per name;
+ *   recorded native names join the cumulative serialized population.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Each base loads its immutable run baseline once and shares it across
@@ -1761,6 +1860,9 @@ export function createSnapshotRecorder(runId?: string): {
 
   /** Record one module's input evidence and publish its cumulative snapshot. */
   recordMany: (props: {
+    /** Environment reads that influenced this delivered module. */
+    environmentInputs?: Readonly<Record<string, string | null>>;
+
     inputs: readonly TtscWatchInput[];
     project: TtscMetroProjectView;
   }) => void;
@@ -1770,6 +1872,7 @@ export function createSnapshotRecorder(runId?: string): {
 } {
   const suffix = `${process.pid.toString(36)}-${randomBytes(6).toString("hex")}`;
   interface BaseState {
+    environment: Set<string>;
     nativePredicates: Record<string, NativeInputKind[]>;
     accessibleEntries: Set<string>;
     dirty: boolean;
@@ -1783,6 +1886,19 @@ export function createSnapshotRecorder(runId?: string): {
   const baselines = new Map<string, KeyBaselineDocument | null>();
   const baselineStaticInputs = new Map<string, Set<string>>();
 
+  /** Load one immutable run baseline for this recorder's project. */
+  function baselineFor(base: string): KeyBaselineDocument | null {
+    let baseline = baselines.get(base);
+    if (baseline === undefined) {
+      baseline =
+        (runId === undefined ? undefined : readKeyBaseline(base, runId)) ??
+        null;
+      baselines.set(base, baseline);
+      baselineStaticInputs.set(base, new Set(baseline?.staticInputs ?? []));
+    }
+    return baseline;
+  }
+
   function keyBaselineCoverage(
     input: TtscWatchInput,
     base: string,
@@ -1795,12 +1911,7 @@ export function createSnapshotRecorder(runId?: string): {
     if (runId === undefined) {
       return { matches: true, static: false };
     }
-    let baseline = baselines.get(base);
-    if (baseline === undefined) {
-      baseline = readKeyBaseline(base, runId) ?? null;
-      baselines.set(base, baseline);
-      baselineStaticInputs.set(base, new Set(baseline?.staticInputs ?? []));
-    }
+    const baseline = baselineFor(base);
     const key = snapshotPathKey(input.file);
     const expected = baseline?.inputs[key];
     try {
@@ -1825,6 +1936,7 @@ export function createSnapshotRecorder(runId?: string): {
     let state = states.get(base);
     if (state === undefined) {
       state = {
+        environment: new Set(),
         nativePredicates: {},
         accessibleEntries: new Set(),
         dirty: false,
@@ -1844,6 +1956,7 @@ export function createSnapshotRecorder(runId?: string): {
       return;
     }
     const document: SnapshotDocument = {
+      environment: [...state.environment].sort(),
       nativePredicates: state.nativePredicates,
       accessibleEntries: [...state.accessibleEntries].sort(),
       files: [...state.files].sort(),
@@ -1883,6 +1996,7 @@ export function createSnapshotRecorder(runId?: string): {
   }
 
   function recordMany(props: {
+    environmentInputs?: Readonly<Record<string, string | null>>;
     inputs: readonly TtscWatchInput[];
     project: TtscMetroProjectView;
   }): void {
@@ -1890,6 +2004,20 @@ export function createSnapshotRecorder(runId?: string): {
     const state = stateFor(props.project);
     const firstObservation = !state.observed;
     state.observed = true;
+    for (const [name, value] of Object.entries(props.environmentInputs ?? {})) {
+      const identity = nativeEnvironmentName(name);
+      if (!state.environment.has(identity)) {
+        state.environment.add(identity);
+        state.dirty = true;
+      }
+      // An unknown read was absent from the main process's key. Refute that
+      // baseline as well as a read whose value changed before delivery.
+      if (
+        baselineFor(base)?.environment[identity] !==
+        environmentValueDigest(value)
+      )
+        state.tainted = true;
+    }
     for (const input of props.inputs) {
       const file = path.resolve(input.file);
       const coverage = keyBaselineCoverage({ ...input, file }, base);
@@ -1983,6 +2111,7 @@ function writeKeyBaseline(
   runId: string,
   inputs: Record<string, TtscWatchInputKeyBaseline>,
   staticInputs: string[],
+  environment: Record<string, string>,
 ): void {
   if (!isReusableSnapshotRunId(runId)) {
     throw new Error("Invalid Metro snapshot run identity.");
@@ -1995,6 +2124,7 @@ function writeKeyBaseline(
     const existing = readKeyBaseline(base, runId);
     if (
       existing === undefined ||
+      stableStringify(existing.environment) !== stableStringify(environment) ||
       stableStringify(existing.inputs) !== stableStringify(inputs) ||
       stableStringify(existing.staticInputs) !== stableStringify(staticInputs)
     ) {
@@ -2003,6 +2133,7 @@ function writeKeyBaseline(
     return;
   }
   writeSnapshotDocument(file, {
+    environment,
     inputs,
     runId,
     staticInputs,
@@ -2034,6 +2165,7 @@ function readKeyBaseline(
     const document = value as Record<string, unknown>;
     if (
       document.version !== SNAPSHOT_VERSION ||
+      !isEnvironmentDigests(document.environment) ||
       document.runId !== runId ||
       typeof document.inputs !== "object" ||
       document.inputs === null ||
@@ -2289,6 +2421,7 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
   const fileSet = new Set(Array.isArray(document.files) ? document.files : []);
   const keys = Object.keys(document).sort();
   const expectedKeys = [
+    "environment",
     "nativePredicates",
     "accessibleEntries",
     "files",
@@ -2306,6 +2439,7 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
   if (
     stableStringify(keys) !== stableStringify(expectedKeys) ||
     document.version !== SNAPSHOT_VERSION ||
+    !isEnvironmentNames(document.environment) ||
     !isNativePredicateRequests(document.nativePredicates, fileSet) ||
     !Array.isArray(document.files) ||
     document.files.some(
@@ -2350,6 +2484,7 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
     return undefined;
   }
   return {
+    environment: document.environment as string[],
     nativePredicates: document.nativePredicates as Record<
       string,
       NativeInputKind[]
