@@ -54,6 +54,9 @@ type program struct {
   checker      *shimchecker.Checker
   identity     publicrule.ProjectIdentity
   projectCycle *projectCycle
+  // Resident reuse also requires the exact compiler argument observation.
+  argumentIdentity  string
+  argumentsReusable bool
   // projectRoots memoizes projectSourceFileNames, which resolves every
   // selected file's path and therefore costs filesystem work. The tsconfig
   // selection cannot change while one program is loaded — a config edit or a
@@ -66,6 +69,8 @@ type program struct {
 }
 
 type loadProgramOptions struct {
+  // A resident caller transfers the argument parse it just validated.
+  arguments          *compilerArguments
   observeInputs      bool
   forceEmit          bool
   forceNoEmit        bool
@@ -83,10 +88,12 @@ type loadProgramOptions struct {
   // tsgoArgs carries tsgo CLI flags the `ttsc` launcher forwarded (`--strict`,
   // `--target es2020`, …). They are parsed through TypeScript-Go's own
   // command-line parser into a CompilerOptions overlay that wins over the
-  // tsconfig, exactly as tsgo's CLI merges them.
+  // tsconfig, exactly as tsgo's CLI merges them. Nil inherits the launcher
+  // transport; an explicit empty slice suppresses it.
   tsgoArgs []string
   // tsgoArgsCwd anchors response and CLI option parsing without changing the
-  // Program, rule-input or plugin project root. Empty retains cwd.
+  // Program, rule-input or plugin project root. Inherited argv keeps its paired
+  // transport base; an explicit array with no base retains cwd.
   tsgoArgsCwd     string
   projectIdentity publicrule.ProjectIdentity
 }
@@ -94,8 +101,9 @@ type loadProgramOptions struct {
 // loadProgram parses the given tsconfig and builds a Program. When
 // needsRuleChecker is set, it also creates a standalone checker for lint rules.
 // Mirrors the canonical bootstrap pattern documented in
-// website/src/content/docs/development/concepts/tsgo.mdx — the only ttsc-specific bit is that `forceEmit`/
-// `forceNoEmit`/`outDir` overrides are merged into the parsed config
+// website/src/content/docs/development/concepts/tsgo.mdx. Launcher argv keeps its
+// own cwd; nil inherits that transport and an empty array suppresses it.
+// The forceEmit, forceNoEmit and outDir overrides are merged into the parsed config
 // before the program is created so `--noEmit` and friends behave like
 // they do in `ttsc check`.
 func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program, []*shimast.Diagnostic, error) {
@@ -127,22 +135,19 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     reader = newProjectInputReader(observer)
     fs = observer
   }
-  // Forwarded flags convert relative values against their own argv base, so
-  // only the parser's directory changes.
-  argumentDir := cwdDir
-  if options.tsgoArgsCwd != "" {
-    argumentCwd := options.tsgoArgsCwd
-    if !filepath.IsAbs(argumentCwd) {
-      argumentCwd = filepath.Join(cwd, argumentCwd)
-    }
-    if argumentDir, ok = rootedDirectory(argumentCwd); !ok {
-      return nil, nil, fmt.Errorf("loadProgram: tsgo args cwd is not absolute: %s", argumentCwd)
+  arguments := options.arguments
+  if arguments == nil {
+    var err error
+    arguments, err = prepareCompilerArguments(cwd, fs, options.tsgoArgs, options.tsgoArgsCwd)
+    if err != nil {
+      return nil, nil, err
     }
   }
-  commandLine, cliDiags := parseTsgoArgs(options.tsgoArgs, fs, argumentDir)
-  if len(cliDiags) > 0 {
-    return nil, cliDiags, nil
+  if len(arguments.diagnostics) > 0 {
+    return nil, arguments.diagnostics, nil
   }
+  argumentDir := arguments.directory
+  commandLine := arguments.commandLine
 
   // The options the command line spelled out go beside the merged ones, as
   // TypeScript-Go's own command line passes them, so a forwarded reset such as
@@ -206,14 +211,16 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     checker, _ = shimchecker.NewChecker(tsProgram, nil)
   }
   return &program{
-    cwd:           cwd,
-    inputObserver: observer,
-    inputReader:   reader,
-    tsProgram:     tsProgram,
-    parsed:        parsed,
-    hosts:         hosts,
-    checker:       checker,
-    identity:      normalizeProjectIdentity(options.projectIdentity, cwd, resolved),
+    cwd:               cwd,
+    inputObserver:     observer,
+    inputReader:       reader,
+    tsProgram:         tsProgram,
+    parsed:            parsed,
+    hosts:             hosts,
+    checker:           checker,
+    identity:          normalizeProjectIdentity(options.projectIdentity, cwd, resolved),
+    argumentIdentity:  arguments.identity,
+    argumentsReusable: arguments.reusable,
   }, nil, nil
 }
 

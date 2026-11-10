@@ -10,6 +10,8 @@ import (
   "sync"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  "github.com/microsoft/typescript-go/shim/vfs/cachedvfs"
+  "github.com/microsoft/typescript-go/shim/vfs/osvfs"
 )
 
 // residentPrograms is the warm-Program cache the resident lsp-serve loop
@@ -21,7 +23,8 @@ import (
 var residentPrograms *residentProgramCache
 
 // residentProgramCache holds one loaded Program per (cwd, tsconfig, checker)
-// key. A resident daemon pays the cold NewProgram parse+bind and the standalone
+// slot, qualified by the current argument observation. A resident daemon pays
+// the cold NewProgram parse+bind and the standalone
 // checker build once, then reuses them across LSP verbs until a document change
 // invalidates the cache. The expensive work is the parse+bind+checker; the
 // per-verb rule walk is re-run each time (see acquire) because different verbs
@@ -56,13 +59,29 @@ func residentProgramKey(opts *lspCommandOptions, needsChecker bool) string {
 // needs no checker, and a verb that does need one releases the checker-free
 // entry it supersedes, so the daemon's memory does not depend on which verb the
 // editor happened to ask for first.
+// Argument and response-file observations are refreshed before a hit; a changed
+// or incomplete profile retires the old slot instead of accumulating versions.
 func (c *residentProgramCache) acquire(
   opts *lspCommandOptions,
   needsChecker bool,
 ) (*program, []*shimast.Diagnostic, func(), error) {
+  arguments, err := prepareCompilerArguments(opts.cwd, cachedvfs.From(osvfs.FS()), nil, "")
+  if err != nil {
+    return nil, nil, noopClose, err
+  }
+  if len(arguments.diagnostics) != 0 {
+    return nil, arguments.diagnostics, noopClose, nil
+  }
   key := residentProgramKey(opts, needsChecker)
   c.mu.Lock()
   defer c.mu.Unlock()
+  for _, candidate := range []string{residentProgramKey(opts, false), residentProgramKey(opts, true)} {
+    if previous := c.entries[candidate]; previous != nil &&
+      (!arguments.reusable || !previous.argumentsReusable || previous.argumentIdentity != arguments.identity) {
+      previous.close()
+      delete(c.entries, candidate)
+    }
+  }
   if prog, ok := c.entries[key]; ok {
     // Drop the prior verb's project-cycle memo so this verb's engine re-runs.
     prog.projectCycle = nil
@@ -80,6 +99,7 @@ func (c *residentProgramCache) acquire(
     }
   }
   prog, diags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
+    arguments:          arguments,
     forceNoEmit:        true,
     needsRuleChecker:   needsChecker,
     projectIdentity:    opts.projectIdentity,

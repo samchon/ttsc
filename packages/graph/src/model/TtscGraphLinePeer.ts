@@ -156,10 +156,15 @@ export namespace TtscGraphLinePeer {
     binary: string,
     args: string[],
     events: Events,
-    options: { cwd?: string; stderr: "capture" | "drain" },
+    options: {
+      cwd?: string;
+      env?: NodeJS.ProcessEnv;
+      stderr: "capture" | "drain";
+    },
   ): Connection {
     const child = GraphProcessTrace.spawn(binary, args, {
       ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+      ...(options.env === undefined ? {} : { env: options.env }),
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
     });

@@ -411,6 +411,11 @@ func decodeTsgoArgs(raw string) ([]string, error) {
   if err := json.Unmarshal([]byte(raw), &args); err != nil {
     return nil, fmt.Errorf("@ttsc/lint: invalid %s: %w", source, err)
   }
+  // An explicitly empty/null payload keeps its original suppression meaning
+  // when the shared bootstrap interprets nil as launcher inheritance.
+  if source == "--tsgo-args" && args == nil {
+    return []string{}, nil
+  }
   return args, nil
 }
 

@@ -224,6 +224,7 @@ function prepareView(
     const artifacts = publishArtifacts({
       cwd: opts.cwd,
       tsconfig: opts.tsconfig,
+      runExternalCode: opts.runExternalCode,
     });
     dump = GraphProcessTrace.spawnSync(
       binary,

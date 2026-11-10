@@ -196,10 +196,15 @@ export class TtscGraphSession {
     let failure: unknown;
     try {
       next = await publishArtifactsResident(
-        { cwd: this.cwd, tsconfig: this.tsconfig, signal: active },
-        (plugin) => {
+        {
+          cwd: this.cwd,
+          tsconfig: this.tsconfig,
+          runExternalCode: this.runExternalCode,
+          signal: active,
+        },
+        (plugin, environment) => {
           publishers.add(plugin.binary);
-          return this.daemon(plugin);
+          return this.daemon(plugin, environment);
         },
         this.resolver,
       );
@@ -246,14 +251,22 @@ export class TtscGraphSession {
   }
 
   /** The open sidecar for one plugin, opened on first use. */
-  private async daemon(plugin: {
-    binary: string;
-    manifest: string;
-    projectContext?: string;
-  }): Promise<TtscLintDaemon> {
+  private async daemon(
+    plugin: {
+      binary: string;
+      manifest: string;
+      projectContext?: string;
+    },
+    environment: NodeJS.ProcessEnv,
+  ): Promise<TtscLintDaemon> {
     this.shutdown.signal.throwIfAborted();
     const open = this.daemons.get(plugin.binary);
-    const identity = JSON.stringify([plugin.manifest, plugin.projectContext]);
+    const identity = JSON.stringify([
+      plugin.manifest,
+      plugin.projectContext,
+      environment.TTSC_TSGO_ARGS,
+      environment.TTSC_TSGO_ARGS_CWD,
+    ]);
     if (
       open !== undefined &&
       this.daemonIdentities.get(plugin.binary) === identity
@@ -264,7 +277,12 @@ export class TtscGraphSession {
       await closing;
     }
     this.shutdown.signal.throwIfAborted();
-    const created = new TtscLintDaemon(plugin, this.cwd, this.tsconfig);
+    const created = new TtscLintDaemon(
+      plugin,
+      this.cwd,
+      this.tsconfig,
+      environment,
+    );
     this.daemons.set(plugin.binary, created);
     this.daemonIdentities.set(plugin.binary, identity);
     return created;

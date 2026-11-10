@@ -11,7 +11,7 @@ import { TtscGraphNativeArguments } from "../../../../packages/graph/src/model/T
  * withdraw inherited permission.
  *
  * 1. Parse omitted, enabled, disabled and repeated options in every lane.
- * 2. Require exact native serve and dump argument vectors.
+ * 2. Require exact native vectors and detached publisher environment transport.
  * 3. Reject malformed boolean values before launching a producer.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls real launcher parsers and native argv builders, asserting optional-state preservation, true/false forwarding, last-option precedence and rejected input.
@@ -67,6 +67,31 @@ export function test_graph_entrypoints_forward_explicit_external_code_permission
         ...expected,
       ],
     );
+    const inherited = {
+      TTSC_TSGO_ARGS: '["--strict","@relative.rsp","--runExternalCode","true"]',
+      TTSC_TSGO_ARGS_CWD: "argument base",
+      UNRELATED: "retained",
+    };
+    const environment = TtscGraphNativeArguments.environment(
+      permission,
+      inherited,
+    );
+    assert.notEqual(environment, inherited);
+    assert.equal(environment.TTSC_TSGO_ARGS_CWD, "argument base");
+    assert.equal(environment.UNRELATED, "retained");
+    assert.deepEqual(JSON.parse(environment.TTSC_TSGO_ARGS!), [
+      "--strict",
+      "@relative.rsp",
+      "--runExternalCode",
+      "true",
+      ...(permission === undefined
+        ? []
+        : ["--runExternalCode", String(permission)]),
+    ]);
+    assert.equal(
+      inherited.TTSC_TSGO_ARGS,
+      '["--strict","@relative.rsp","--runExternalCode","true"]',
+    );
   }
   assert.deepEqual(
     TtscGraphLauncherArguments.dumpVector(["--runExternalCode=false"], null),
@@ -76,5 +101,9 @@ export function test_graph_entrypoints_forward_explicit_external_code_permission
     assert.throws(
       () => TtscGraphNativeArguments.permission(invalid as unknown as boolean),
       /runExternalCode must be a boolean/,
+    );
+  for (const raw of ["{}", "[1]", "{"])
+    assert.throws(() =>
+      TtscGraphNativeArguments.environment(false, { TTSC_TSGO_ARGS: raw }),
     );
 }

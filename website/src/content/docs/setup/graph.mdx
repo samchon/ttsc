@@ -74,6 +74,8 @@ npx @ttsc/graph view --runExternalCode
 
 The programmatic `loadGraph` and `TtscGraphSession` options accept `runExternalCode: true`. Permission stays fixed across a resident session's reloads. The compiler remains responsible for mapper execution; the graph tracks the original mapped inputs and the mapper's declared configuration dependencies when refreshing its snapshots.
 
+The same choice reaches configured artifact publishers, including their resident and fallback commands. Their compiler loads preserve inherited arguments and the paired argument directory; response-file changes invalidate both the resident compiler and the artifact publication.
+
 Omitting the option preserves inherited compiler arguments, whose default leaves external code disabled. Use `--runExternalCode=false` or `runExternalCode: false` to override inherited permission. TypeScript 7.0 does not support this compiler option.
 
 ## What you get back

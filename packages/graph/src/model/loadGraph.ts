@@ -84,7 +84,11 @@ export function loadGraph(
     // before the dump runs, so the producer can resolve a documentation target
     // into a relation rather than leaving it a token. A project with no lint
     // install, or none that publishes, contributes no file and no claim.
-    const artifacts = publishArtifacts({ cwd, tsconfig });
+    const artifacts = publishArtifacts({
+      cwd,
+      tsconfig,
+      runExternalCode: options.runExternalCode,
+    });
     result = GraphProcessTrace.spawnSync(
       binary,
       [

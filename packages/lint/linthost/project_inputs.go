@@ -10,6 +10,9 @@ import (
   "sort"
   "strings"
 
+  "github.com/microsoft/typescript-go/shim/vfs/cachedvfs"
+  "github.com/microsoft/typescript-go/shim/vfs/osvfs"
+
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
@@ -28,7 +31,7 @@ type ProjectInputSnapshot struct {
   // Root is the normalized physical dependency root with forward-slash spelling.
   Root string `json:"root"`
 
-  // Files contains exact dependencies, including currently missing paths.
+  // Files contains exact dependencies, including missing paths and argument-directory identity.
   Files []string `json:"files"`
 
   // Globs contains changing dependency populations, including empty matches.
@@ -83,6 +86,20 @@ func computeProjectInputs(opts *lspCommandOptions) (ProjectInputSnapshot, int) {
     fmt.Fprintln(os.Stderr, err)
     return ProjectInputSnapshot{}, 2
   }
+  arguments, err := prepareCompilerArguments(opts.cwd, cachedvfs.From(osvfs.FS()), nil, "")
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return ProjectInputSnapshot{}, 2
+  }
+  // Argument observations precede graph-nodes. Even a currently missing or
+  // malformed response file remains a reload input so repair can republish.
+  for _, input := range arguments.inputs {
+    normalized := filepath.ToSlash(realProjectPath(input))
+    snapshot.Files = append(snapshot.Files, normalized)
+    snapshot.ReloadFiles = append(snapshot.ReloadFiles, normalized)
+  }
+  snapshot.Files = uniqueProjectInputPatterns(snapshot.Files)
+  snapshot.ReloadFiles = uniqueProjectInputPatterns(snapshot.ReloadFiles)
   return snapshot, 0
 }
 

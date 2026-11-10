@@ -36,6 +36,7 @@ export class TtscLintDaemon {
     private readonly target: ITtscLintDaemonTarget,
     private readonly cwd: string,
     private readonly tsconfig: string,
+    private readonly environment: NodeJS.ProcessEnv = TtscGraphNativeArguments.environment(),
   ) {
     this.state = new TtscLintDaemonState((events) =>
       TtscGraphLinePeer.open(
@@ -47,7 +48,11 @@ export class TtscLintDaemon {
           this.target.projectContext,
         ),
         events,
-        { cwd: this.cwd, stderr: "drain" },
+        {
+          cwd: this.cwd,
+          stderr: "drain",
+          env: this.environment,
+        },
       ),
     );
   }

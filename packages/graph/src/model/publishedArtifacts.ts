@@ -14,12 +14,15 @@ import type { IArtifactDirectory } from "./IArtifactDirectory";
 import type { IArtifactInputs } from "./IArtifactInputs";
 import type { IPublishedArtifacts } from "./IPublishedArtifacts";
 import type { IPublishedArtifactsResident } from "./IPublishedArtifactsResident";
+import { TtscGraphNativeArguments } from "./TtscGraphNativeArguments";
 import { TtscLintDaemon } from "./TtscLintDaemon";
 
 /**
  * Discover configured publishers and synchronously publish their artifact set.
  * Input identity is captured before the graph-nodes verbs to avoid accepting a
- * concurrent document edit as already represented by an older answer.
+ * concurrent document edit as already represented by an older answer. Both
+ * verbs use one captured compiler environment; exchange paths distinguish
+ * compiler argument and permission contexts for the same project.
  *
  * @evidence contracts/common.md#principled-implementation Capability discovery and each sidecar's project-inputs/graph-nodes verbs remain the authorities for plugin selection and artifact meaning.
  * @evidence contracts/common.md#clear-and-simple-design The one-shot path composes discovery, input capture and publication through helpers also used by resident requests.
@@ -27,13 +30,18 @@ import { TtscLintDaemon } from "./TtscLintDaemon";
  * @evidence contracts/common.md#meaningful-documentation Native prose documents synchronous ownership and the freshness snapshot's required ordering.
  * @evidence contracts/performance.md#efficient-algorithms Discovery runs once per publication, distinct input paths are merged and fingerprinted once, and publisher JSON is concatenated in one pass.
  * @evidence contracts/performance.md#reuse-equivalent-work This one-shot caller has no resident sidecar owner; resident consumers use publishArtifactsResident and session freshness reuse instead of repeatedly spawning this path.
- * @evidence contracts/performance.md#bound-retention-and-release-resources SpawnSync owns each child through completion; the exchange file is overwritten per process/project, but historical project files have no explicit reclamation yet.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources SpawnSync owns each child through completion; the exchange file is overwritten per process/project/compiler context, but historical context files have no explicit reclamation yet.
  * @evidence contracts/portability.md#os-neutral-implementation Native paths and temporary storage use Node path/os APIs; sidecars receive argument arrays and hidden Windows child windows without shell composition.
  */
 export function publishArtifacts(options: {
   cwd: string;
   tsconfig: string;
+  runExternalCode?: boolean;
 }): IPublishedArtifacts {
+  const invocation = {
+    ...options,
+    environment: TtscGraphNativeArguments.environment(options.runExternalCode),
+  };
   const discovery = resolveCapabilityPluginResolution({
     capability: "graphNodes",
     cwd: options.cwd,
@@ -49,15 +57,15 @@ export function publishArtifacts(options: {
   // the set, and the edit that landed in the gap would read as already
   // accounted for — the exact staleness this exists to remove.
   const inputs = readInputs(
-    plugins.map((plugin) => runVerb(plugin, "project-inputs", options)),
+    plugins.map((plugin) => runVerb(plugin, "project-inputs", invocation)),
     options,
   );
   const fingerprint = fingerprintInputs(inputs);
   return assemble(
-    options,
+    invocation,
     inputs,
     fingerprint,
-    plugins.map((plugin) => runVerb(plugin, "graph-nodes", options)),
+    plugins.map((plugin) => runVerb(plugin, "graph-nodes", invocation)),
     discovery,
   );
 }
@@ -76,19 +84,30 @@ export function publishArtifacts(options: {
  * fallback matters more here than most: a daemon that quietly answered nothing
  * would be indistinguishable from a project that publishes nothing.
  *
+ * Compiler environment capture precedes asynchronous discovery. The optional
+ * environment supplies inherited invocation context; explicit permission is
+ * applied once, and the daemon and fallback receive that same captured value.
+ *
  * @evidence contracts/common.md#principled-implementation Both paths ask the same configured sidecar verbs; input identity is captured before publication and invalidation clears the daemon's stale Program first.
  * @evidence contracts/common.md#clear-and-simple-design The caller supplies daemon and asynchronous resolver ownership while this function owns ordered input and artifact phases and the shared result assembly.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed daemon falls back to the public direct verb, not an invented empty-success result or a reimplementation of its parser.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains resident reuse, direct-command fallback and the reason to invalidate the Program before input collection.
  * @evidence contracts/performance.md#efficient-algorithms Independent publishers run concurrently within each of two ordered phases; deduplication avoids repeatedly hashing the same declared file path.
- * @evidence contracts/performance.md#reuse-equivalent-work Session-owned daemons reuse process and plugin loading only while binary, manifest and project context match; changed inputs rebuild the publication.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The session owns the resolver and daemons. Failed publication joins every selected verb and releases its proof; successful publication transfers proof release to the session. Cancellation closes and joins an active daemon or supervised direct command. One exchange file per process/project still has no historical-file reclamation.
+ * @evidence contracts/performance.md#reuse-equivalent-work Session-owned daemons reuse process and plugin loading only while binary, manifest, project and compiler argument contexts match; changed inputs rebuild the publication.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The session owns the resolver and daemons. Failed publication joins every selected verb and releases its proof; successful publication transfers proof release to the session. Cancellation closes and joins an active daemon or supervised direct command. One exchange file per process/project/compiler context still has no historical-file reclamation.
  * @evidence contracts/portability.md#os-neutral-implementation The fallback preserves native argument-vector invocation and Node path resolution; daemon ownership uses the same cross-platform process boundary.
  */
 export async function publishArtifactsResident(
-  options: { cwd: string; tsconfig: string; signal?: AbortSignal },
+  options: {
+    cwd: string;
+    tsconfig: string;
+    runExternalCode?: boolean;
+    environment?: NodeJS.ProcessEnv;
+    signal?: AbortSignal;
+  },
   daemon: (
     plugin: ITtscCapabilityPlugin,
+    environment: NodeJS.ProcessEnv,
   ) =>
     | Pick<TtscLintDaemon, "ask" | "close">
     | undefined
@@ -96,6 +115,13 @@ export async function publishArtifactsResident(
   resolver: Pick<CapabilityPluginResolver, "resolve" | "runCommand">,
 ): Promise<IPublishedArtifactsResident> {
   options.signal?.throwIfAborted();
+  const invocation = {
+    ...options,
+    environment: TtscGraphNativeArguments.environment(
+      options.runExternalCode,
+      options.environment,
+    ),
+  };
   const discovery = await resolver.resolve(
     { capability: "graphNodes", cwd: options.cwd, tsconfig: options.tsconfig },
     { signal: options.signal },
@@ -118,8 +144,8 @@ export async function publishArtifactsResident(
           askVerb(
             plugin,
             "project-inputs",
-            options,
-            await daemon(plugin),
+            invocation,
+            await daemon(plugin, invocation.environment),
             true,
             resolver,
           ),
@@ -133,15 +159,15 @@ export async function publishArtifactsResident(
         askVerb(
           plugin,
           "graph-nodes",
-          options,
-          await daemon(plugin),
+          invocation,
+          await daemon(plugin, invocation.environment),
           false,
           resolver,
         ),
       ),
     );
     options.signal?.throwIfAborted();
-    return assemble(options, inputs, fingerprint, outputs, discovery);
+    return assemble(invocation, inputs, fingerprint, outputs, discovery);
   } catch (error) {
     try {
       await discovery.release();
@@ -177,7 +203,7 @@ async function joinedPublications(
 function runVerb(
   plugin: ITtscCapabilityPlugin,
   verb: string,
-  options: { cwd: string; tsconfig: string },
+  options: { cwd: string; tsconfig: string; environment: NodeJS.ProcessEnv },
 ): string | null {
   const result = GraphProcessTrace.spawnSync(
     plugin.binary,
@@ -199,6 +225,7 @@ function runVerb(
       // bounded by the project's own documentation, not by its source — so the
       // default pipe ceiling is raised rather than removed.
       maxBuffer: 256 * 1024 * 1024,
+      env: options.environment,
       encoding: "utf8",
       windowsHide: true,
     },
@@ -217,7 +244,12 @@ function runVerb(
 async function askVerb(
   plugin: ITtscCapabilityPlugin,
   verb: string,
-  options: { cwd: string; tsconfig: string; signal?: AbortSignal },
+  options: {
+    cwd: string;
+    tsconfig: string;
+    environment: NodeJS.ProcessEnv;
+    signal?: AbortSignal;
+  },
   daemon: Pick<TtscLintDaemon, "ask" | "close"> | undefined,
   invalidate: boolean,
   resolver: Pick<CapabilityPluginResolver, "runCommand">,
@@ -265,7 +297,12 @@ async function askVerb(
       `--plugins-json=${plugin.manifest}`,
       ...projectContextArgs(plugin),
     ],
-    { maxBuffer: 256 * 1024 * 1024, encoding: "utf8", windowsHide: true },
+    {
+      maxBuffer: 256 * 1024 * 1024,
+      encoding: "utf8",
+      windowsHide: true,
+      env: options.environment,
+    },
     { signal: options.signal },
   );
   options.signal?.throwIfAborted();
@@ -282,7 +319,7 @@ function assemble<
     | ITtscCapabilityPluginResolution
     | CapabilityPluginResolver.Resolution,
 >(
-  options: { cwd: string; tsconfig: string },
+  options: { cwd: string; tsconfig: string; environment: NodeJS.ProcessEnv },
   inputs: IArtifactInputs,
   fingerprint: string,
   outputs: readonly (string | null)[],
@@ -302,7 +339,7 @@ function assemble<
   if (published.length === 0)
     return { file: null, fingerprint, inputs, discovery };
 
-  // One file per process and project, overwritten, rather than a fresh temp
+  // One file per process, project and compiler context, overwritten, rather than a fresh temp
   // directory per call. A directory per call is a leak nothing here is
   // positioned to clean — the path outlives this function by design, since the
   // native producer reads it after we return — and `loadGraph` is a library
@@ -549,17 +586,27 @@ function projectContextArgs(plugin: {
 }
 
 /**
- * The project a published set belongs to, as a filename-safe tag.
+ * The project and compiler context a published set belongs to, as a
+ * filename-safe tag.
  *
  * Short rather than the whole digest: it distinguishes the projects one process
  * drives, which is a handful, and the process id beside it already separates
  * two runs.
  */
-function projectKey(options: { cwd: string; tsconfig: string }): string {
+function projectKey(options: {
+  cwd: string;
+  tsconfig: string;
+  environment: NodeJS.ProcessEnv;
+}): string {
   return createHash("sha256")
-    .update(path.resolve(options.cwd))
-    .update(SEPARATOR)
-    .update(options.tsconfig)
+    .update(
+      JSON.stringify([
+        path.resolve(options.cwd),
+        options.tsconfig,
+        options.environment.TTSC_TSGO_ARGS,
+        options.environment.TTSC_TSGO_ARGS_CWD,
+      ]),
+    )
     .digest("hex")
     .slice(0, 16);
 }
