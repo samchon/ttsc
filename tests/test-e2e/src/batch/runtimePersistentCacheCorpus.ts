@@ -290,7 +290,7 @@ export async function runtimePersistentCacheCorpus(
     args: ["--list", "--port=3000"],
     env: {
       npm_lifecycle_script: "ttsx src/main.ts --list --port=3000",
-      TTSX_E2E_UNREAD_VARIABLE: String(process.pid),
+      E2E_UNREAD_VARIABLE: String(process.pid),
     },
   });
   check(() => {
@@ -479,7 +479,7 @@ export async function runtimePersistentCacheCorpus(
   // variable directly, so its project stays keyed by the complete environment:
   // an unread variable builds it again rather than risking a stale emit.
   const nativeNoise = run([], 12, true, undefined, "src/main.ts", /TS2322/, {
-    env: { TTSX_E2E_UNREAD_VARIABLE: String(process.pid) },
+    env: { E2E_UNREAD_VARIABLE: String(process.pid) },
   });
   check(() => {
     assert.equal(outcomes(nativeNoise, "reused", true).length, 0);
