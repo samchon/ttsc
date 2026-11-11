@@ -9,9 +9,10 @@ import { RuntimeEmitBundle } from "./RuntimeEmitBundle";
 
 /**
  * Persist completed private runtime emits as checksummed, atomically published
- * documents. Readers copy admitted bytes into their own run directory as files
- * or one lazy runtime bundle, so collection cannot remove an executing emit.
- * Input discovery and producer-proof admission belong to the supplied owners.
+ * documents: a JSON record and, beside it, a raw bundle of the output bytes.
+ * Readers copy admitted bytes into their own run directory as files or one lazy
+ * runtime bundle, so collection cannot remove an executing emit. Input
+ * discovery and producer-proof admission belong to the supplied owners.
  *
  * A stored result is proven in one of two ways. A producer that reports every
  * input observation it made lets the request name its document by everything
@@ -20,14 +21,14 @@ import { RuntimeEmitBundle } from "./RuntimeEmitBundle";
  * configuration. Any other producer is named by a complete input snapshot,
  * which is then the proof.
  *
- * @evidence contracts/common.md#principled-implementation Content-addressed snapshots select complete checksummed result and output documents in the run bundle's own raw layout (RuntimeEmitBundle.archive). SHA-256 consumes exact UTF-8 text and exact output bytes; native normalization rejects absolute, dot, parent and Windows drive-relative output coordinates. Relocation changes producer output coordinates and private-root stream text while retaining source paths.
+ * @evidence contracts/common.md#principled-implementation Content-addressed snapshots select a checksummed JSON record of the proof and result, with its outputs beside it in the run bundle's own raw layout (RuntimeEmitBundle.archive) and bound to the record by its checksum. SHA-256 consumes exact UTF-8 text and exact output bytes; native normalization rejects absolute, dot, parent and Windows drive-relative output coordinates. Relocation changes producer output coordinates and private-root stream text while retaining source paths.
  * @evidence contracts/common.md#clear-and-simple-design One operation coordinates lookup, proof, restore and publication; RuntimeEmitBundle owns lazy byte representation, while input capture and producer validation remain separate callbacks.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Misses execute the original build exactly once; failed or absent proofs never manufacture successful output. Every transported output must be a normalized private descendant, without filename or consumer-name exceptions.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes persistent storage, run-owned copies and proof ownership; run states callback stability and failure behavior, and private helper comments identify byte, path and relocation domains.
  * @evidence contracts/portability.md#os-neutral-implementation Native paths, lstat, relative/join and rename own storage and containment, including Windows drive-relative rejection. Source coordinates remain unchanged; transported symlinks are refused rather than followed.
- * @evidence contracts/performance.md#efficient-algorithms Lookup hashes snapshot text and reads only the document's index and annex. Runtime restoration copies the document as the run's bundle, verifies its bodies once and reserves each distinct output directory; ordinary SDK restoration writes each verified output. Publication scales with output bytes and entries; relocation scans producer paths and streams.
+ * @evidence contracts/performance.md#efficient-algorithms Lookup hashes snapshot text, parses the record and reads only the bundle's index. Runtime restoration copies the bundle as the run's own, verifies its bodies once and reserves each distinct output directory; ordinary SDK restoration writes each verified output. Publication scales with output bytes and entries; relocation scans producer paths and streams.
  * @evidence contracts/performance.md#reuse-equivalent-work Equal snapshots reuse completed emits only after independent producer admission; a hit proves its inputs once, a publication brackets its build with a second capture. A restored run owns its copied bytes and rebased output ledger; concurrent publishers may duplicate compilation but cannot expose partial documents.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Documents are capped at 128 MiB of raw output bytes plus their index and annex, and join the existing collected single-file cache population. Snapshots and output buffers are invocation-owned; staging removal is attempted in finally and run owners release output. Cleanup or collector failures can retain files; helpers retain no handles or history.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources A record and its bundle are each capped at 128 MiB, and both join the existing collected single-file cache population; a collected half makes the pair a miss. Snapshots and output buffers are invocation-owned; staging removal is attempted in finally and run owners release output. Cleanup or collector failures can retain files; helpers retain no handles or history.
  */
 export namespace RuntimeBuildCache {
   const FORMAT = "ttsx-runtime-build-v2";
@@ -49,7 +50,7 @@ export namespace RuntimeBuildCache {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Only successful complete emits are published; malformed, oversized, damaged or unproved documents fall through to the caller's real producer without changing compiler selection.
    * @evidence contracts/common.md#meaningful-documentation Native prose states complete-snapshot meaning, producer-root coordinates, callback error policy and recoverable cache IO.
    * @evidence contracts/portability.md#os-neutral-implementation Native lstat refuses aliases, path.relative checks containment and native mkdir/write/rename preserve byte payloads and host path semantics.
-   * @evidence contracts/performance.md#efficient-algorithms Snapshot owners govern input work; a hit parses the index and annex, copies the document once and hashes its bodies once, with no text encoding of output bytes. Runtime hits place one bundle plus distinct directories instead of all output files; publication walks private fresh output and writes it once.
+   * @evidence contracts/performance.md#efficient-algorithms Snapshot owners govern input work; a hit parses the record and the bundle's index, copies the bundle once and hashes its bodies once, with no text encoding of output bytes. Runtime hits place one bundle plus distinct directories instead of all output files; publication walks private fresh output and writes it once.
    * @evidence contracts/performance.md#reuse-equivalent-work A format-and-snapshot digest, or a format-and-identity digest for a replayed proof, names one candidate; checksum, output grammar, producer admission and, where used, the replay of the result's own observations are independent reuse gates, and a restore reads no input that a second capture could protect. Every miss calls build once.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Call-local output buffers and the written document are bounded by the 128 MiB admission ceiling; partial restores are unlinked and staging removal is attempted in finally. Collector failures can retain files under the existing cache policy.
    */
@@ -163,10 +164,13 @@ export namespace RuntimeBuildCache {
       return props.build();
     }
     const key = digest(FORMAT + "\0" + proof.text);
-    // The name keeps the extension documents have always had, which tools
-    // that inspect or damage this directory select by; the content is the run
-    // bundle's raw layout, not JSON.
+    // A stored build is two files. The record is checksummed JSON carrying the
+    // proof and the producer's result, as it always was, so it stays readable
+    // to whoever inspects the directory. The output bytes live beside it in
+    // the run bundle's own raw layout, bound to the record by its checksum, so
+    // restoring them is one file copy instead of decoding text.
     const file = path.join(props.directory, key + ".json");
+    const bodies = path.join(props.directory, key + ".bundle");
     const restored: string[] = [];
     let operation = "lookup";
     try {
@@ -174,10 +178,20 @@ export namespace RuntimeBuildCache {
       operation = "document-validation";
       if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_BYTES)
         throw new Error("unusable runtime cache document");
-      const document = RuntimeEmitBundle.inspect(file);
-      const entry = JSON.parse(document.annex);
+      const record = JSON.parse(fs.readFileSync(file, "utf8"));
       if (
-        entry.format !== FORMAT ||
+        record.format !== FORMAT ||
+        typeof record.payload !== "string" ||
+        record.hash !== digest(record.payload)
+      )
+        throw new Error("invalid runtime cache checksum");
+      const entry = JSON.parse(record.payload);
+      const document = RuntimeEmitBundle.inspect(bodies);
+      // A bundle published for another record, or left by an interrupted
+      // publication, never supplies this record's outputs.
+      if (document.annex !== record.hash)
+        throw new Error("runtime cache outputs belong to another record");
+      if (
         entry[proof.field] !== proof.value ||
         typeof entry.emitDir !== "string" ||
         !path.isAbsolute(entry.emitDir) ||
@@ -198,7 +212,7 @@ export namespace RuntimeBuildCache {
       const bundled =
         props.bundle === true &&
         document.bundleable &&
-        RuntimeEmitBundle.restore(file, props.emitDir, document.names);
+        RuntimeEmitBundle.restore(bodies, props.emitDir, document.names);
       if (bundled) {
         // The run owns one complete file, so collection of the persistent
         // document cannot remove an active child's bytes. Opening it verifies
@@ -207,13 +221,14 @@ export namespace RuntimeBuildCache {
         restored.push(bundleFile);
         if (RuntimeEmitBundle.open(props.emitDir) === undefined)
           throw new Error("restored runtime bundle is missing");
-      } else RuntimeEmitBundle.extract(file, props.emitDir, restored);
+      } else RuntimeEmitBundle.extract(bodies, props.emitDir, restored);
       // The document's bytes are immutable and checksummed, and the proof
       // above held at one instant. Restoring reads no input, so a second proof
       // could only move that instant: the run would be as old as its sources
       // either way, at twice the proof's cost (samchon/ttsc#1852). Publication
       // below still brackets the build.
       recordCacheFileUse(file);
+      recordCacheFileUse(bodies);
       report(
         "reused",
         undefined,
@@ -279,21 +294,22 @@ export namespace RuntimeBuildCache {
         report("not-recorded", "no-emitted-outputs", key);
         return result;
       }
-      const annex = JSON.stringify({
-        format: FORMAT,
+      const payload = JSON.stringify({
         [proof.field]: proof.value,
         emitDir: props.emitDir,
         result,
       });
+      const hash = digest(payload);
+      const text = JSON.stringify({ format: FORMAT, hash, payload });
       // The index adds a path and a hash per output to the bodies.
       if (
+        Buffer.byteLength(text) > MAX_BYTES ||
         outputBytes +
-          Buffer.byteLength(annex) +
           outputs.reduce(
             (sum, [name]) => sum + Buffer.byteLength(name) + 128,
             0,
           ) >
-        MAX_BYTES
+          MAX_BYTES
       ) {
         report("not-recorded", "document-byte-limit", key);
         return result;
@@ -308,11 +324,15 @@ export namespace RuntimeBuildCache {
         report("not-recorded", "aliased-cache-directory", key);
         return result;
       }
-      temporary = path.join(
-        props.directory,
-        `${key}.${crypto.randomUUID()}.tmp`,
-      );
-      RuntimeEmitBundle.archive(temporary, outputs, annex);
+      // The outputs are published first and the record last, so a record is
+      // never visible before the bundle it names; a reader that meets a newer
+      // bundle under an older record sees the checksum differ and builds.
+      const staging = crypto.randomUUID();
+      temporary = path.join(props.directory, `${key}.${staging}.bundle.tmp`);
+      RuntimeEmitBundle.archive(temporary, outputs, hash);
+      fs.renameSync(temporary, bodies);
+      temporary = path.join(props.directory, `${key}.${staging}.tmp`);
+      fs.writeFileSync(temporary, text, { flag: "wx" });
       fs.renameSync(temporary, file);
       report("recorded", undefined, key, outputs.length, 0);
     } catch {
@@ -340,7 +360,7 @@ export namespace RuntimeBuildCache {
     /** Text hashed, with the format, into the document's name. */
     text: string;
 
-    /** Annex member that must equal `value` for the document to be this one. */
+    /** Record member that must equal `value` for the document to be this one. */
     field: "identity" | "snapshot";
 
     /** The identity or snapshot the document was stored under. */
