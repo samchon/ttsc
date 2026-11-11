@@ -32,8 +32,9 @@ import {
  * 2. Build again under a private `TTSC_E2E_TRACE` and assert the budget: no Go
  *    tool at all, neither `go list`, `go work`, `go env` nor `go version`, no
  *    runtime probe, the package selection answered from its record, and on
- *    every device the launch mints a clock reference on no executable streamed
- *    and every content identity reused.
+ *    every device the launch mints a clock reference on no executable streamed,
+ *    every content identity reused and the build environment answered from its
+ *    record.
  * 3. Edit the transformer's Go source and build again: the binary is rebuilt and
  *    Go selection observes the edited module.
  *
@@ -144,9 +145,15 @@ module.exports = (context) => ({
   const identities = phases.filter(
     (data) => data.phase === "plugin-content-identity",
   );
+  // The recorded reading's witness covers GOROOT, so a warm load walks none.
   assert.ok(
-    identities.some((data) => data.kind === "goroot"),
-    "the GOROOT identity is proven",
+    phases.some(
+      (data) =>
+        data.phase === "plugin-load-answer" &&
+        data.kind === "plugin-build-environment" &&
+        data.outcome === "reused",
+    ),
+    "the build environment is answered from its record",
   );
   assert.ok(
     identities.some((data) => data.kind === "plugin-source"),
