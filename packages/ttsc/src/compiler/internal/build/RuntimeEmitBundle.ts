@@ -84,8 +84,8 @@ export class RuntimeEmitBundle {
   }
 
   /**
-   * Write a completed emit and its owner's annex as one persistent document in
-   * this artifact's format, at `file`, which must not exist.
+   * Write a completed emit's outputs and its owner's annex as one persistent
+   * document in this artifact's format, at `file`, which must not exist.
    *
    * WARNING (samchon/ttsc#1852): a persistent document holds raw bytes in the
    * run artifact's own layout, never encoded text. The earlier document was
@@ -98,7 +98,7 @@ export class RuntimeEmitBundle {
    * @param file Absolute path of the document to create.
    * @param outputs Relative output coordinates and their exact bytes.
    * @param annex Owner text stored beside the index under its own checksum,
-   *   such as the input snapshot and producer result.
+   *   such as the checksum of the record these outputs belong to.
    * @evidence contracts/common.md#principled-implementation The document is the artifact itself: a checksummed range index, a checksummed annex and contiguous raw bodies whose hashes the index carries, so restoring it changes no byte.
    * @evidence contracts/common.md#clear-and-simple-design One layout serves persistent and run-owned storage; the cache owner keeps keying, admission and publication.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid or duplicate coordinates throw before anything is created, and an existing path is never replaced.
