@@ -272,12 +272,12 @@ export async function runtimePersistentCacheCorpus(
       }),
     );
   const untouched = metadata();
+  // Compiler queries by any process of the run: the launcher proves the
+  // entry project and the program's own process proves each dependency.
   const queries = (records: any[], flag: string): any[] =>
     records.filter(
       (event) =>
-        event.launcher &&
-        event.event === "process-attempt" &&
-        event.argv?.includes(flag),
+        event.event === "process-attempt" && event.argv?.includes(flag),
     );
   const cold = run();
   check(() => assert.equal(metadata(), untouched));
@@ -318,7 +318,10 @@ export async function runtimePersistentCacheCorpus(
       ),
       JSON.stringify(contents.map((event) => event.data)),
     );
+    // A warm run proves every project by replaying what tsc reported when it
+    // built them, so it starts no compiler at all.
     assert.equal(queries(warm, "--showConfig").length, 0);
+    assert.equal(queries(warm, "--listFilesOnly").length, 0);
     assert.equal(emitting(warm).length, 0);
     assert.equal(outcomes(bypass, "reused").length, 0);
     assert.ok(emitting(bypass).length > 0);

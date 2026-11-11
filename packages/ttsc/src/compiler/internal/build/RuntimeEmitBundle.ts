@@ -27,6 +27,9 @@ export class RuntimeEmitBundle {
   public readonly root: string;
   private readonly ranges: ReadonlyMap<string, [number, number, string]>;
 
+  /** Physical spellings of the parent directories reads have named. */
+  private readonly parents = new Map<string, string>();
+
   /** Descriptor serving reads, opened by the first one and kept for the rest. */
   private descriptor: number | undefined;
 
@@ -181,9 +184,9 @@ export class RuntimeEmitBundle {
 
   /**
    * Make a persistent document a run's own artifact in `root`: a hard link to
-   * the immutable document, or a copy where links are refused.
-   * Returns false, leaving nothing behind, when an output coordinate aliases
-   * the artifact's name there; the caller then restores ordinary files.
+   * the immutable document, or a copy where links are refused. Returns false,
+   * leaving nothing behind, when an output coordinate aliases the artifact's
+   * name there; the caller then restores ordinary files.
    *
    * @param file A document {@link inspect} reported as bundleable.
    * @param root The run's empty private output directory.
@@ -578,10 +581,15 @@ export class RuntimeEmitBundle {
     };
     if (contained(absolute)) return absolute;
     try {
-      const physical = path.join(
-        fs.realpathSync.native(path.dirname(absolute)),
-        path.basename(absolute),
-      );
+      // The run owns this private layout and never moves it, so each parent
+      // spelling is resolved once instead of once per module read.
+      const parent = path.dirname(absolute);
+      let resolved = this.parents.get(parent);
+      if (resolved === undefined) {
+        resolved = fs.realpathSync.native(parent);
+        this.parents.set(parent, resolved);
+      }
+      const physical = path.join(resolved, path.basename(absolute));
       return contained(physical) ? physical : null;
     } catch {
       return null;
