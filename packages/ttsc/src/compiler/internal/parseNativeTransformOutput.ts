@@ -455,10 +455,20 @@ export function parseReferenceGraph(
 }
 
 /**
- * Parse graph-keyed predicate observations and retain malformed entries as
- * failures.
+ * Parse path-keyed predicate observations and retain malformed entries as
+ * failures. The native compile envelope's complete observation population uses
+ * the same predicate grammar as a graph's, so it is parsed here too.
+ *
+ * @evidence contracts/common.md#principled-implementation Each entry is admitted only when every member it carries has the predicate grammar; a malformed or self-contradictory entry is reported as a failure under its key instead of being dropped, so a consumer cannot mistake a partial population for a complete one.
+ * @evidence contracts/common.md#clear-and-simple-design One parser serves the graph section and the complete population, which share one wire shape.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No member is defaulted or repaired; an empty key is skipped because it names no path.
+ * @evidence contracts/common.md#meaningful-documentation The prose states both producers and the retained-failure rule.
+ * @evidence contracts/portability.md#os-neutral-implementation Keys stay the producer's spellings; physical paths inside predicates must be absolute under the host's native grammar.
+ * @evidence contracts/performance.md#efficient-algorithms One pass over E entries with constant work per predicate member.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Decoding supplied data coordinates no shared work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned records belong to the caller; nothing is retained.
  */
-function parseGraphInputObservations(value: unknown): {
+export function parseGraphInputObservations(value: unknown): {
   failures?: Record<string, string>;
   observations?: Record<string, ITtscCompilerTransformation.IInputObservation>;
 } {

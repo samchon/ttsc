@@ -32,8 +32,17 @@ import { recordCacheFileUse } from "../../../plugin/internal/source/recordCacheF
  */
 export namespace RuntimeInputContents {
   /**
-   * One selected path with its physical path and raw SHA-256, or two nulls for
-   * a path that names nothing.
+   * One selected path with its physical path and its hash under the session's
+   * codec, or two nulls for a path that names nothing.
+   *
+   * @evidence contracts/common.md#principled-implementation Path, physical target and content are the three facts a consumer compares; absence is the explicit null pair rather than an omitted row.
+   * @evidence contracts/common.md#clear-and-simple-design A positional triple serializes compactly into snapshots that hold one row per input.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A null hash never stands for unread content; it accompanies a null physical path only.
+   * @evidence contracts/common.md#meaningful-documentation The prose names each position and the absent form.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation The type carries native path strings without interpreting them.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms A type runs no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type grants no reuse.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type holds no resource.
    */
   export type Row = [file: string, physical: string | null, hash: string | null];
 
@@ -54,12 +63,30 @@ export namespace RuntimeInputContents {
     /**
      * Witness `inputs` and return their rows in the given order. A path already
      * witnessed in this session returns its first row without another read.
+     *
+     * @evidence contracts/common.md#principled-implementation One capture states one answer per path, so a path asked for twice gets the witness already taken instead of a second observation that could disagree.
+     * @evidence contracts/common.md#clear-and-simple-design Batches let a caller derive later paths from earlier rows while the session keeps the single-witness rule.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed witness throws; no row is returned for a path that could not be observed.
+     * @evidence contracts/common.md#meaningful-documentation The prose states order and repeat behavior.
+     * @evidence contracts/portability.md#os-neutral-implementation Paths are native absolute spellings witnessed by the session's native metadata and resolution.
+     * @evidence contracts/performance.md#efficient-algorithms One map lookup per path, and one witness for each path not yet seen.
+     * @evidence contracts/performance.md#reuse-equivalent-work A repeated path reuses this session's row; cross-capture reuse is the record's.
+     * @evidence contracts/performance.md#bound-retention-and-release-resources Rows are retained for the session and returned by reference; no handle is held.
      */
     observe(inputs: readonly string[]): Row[];
 
     /**
      * Publish the record when a row changed, and report the capture's content
      * reads. Call once, after the last batch.
+     *
+     * @evidence contracts/common.md#principled-implementation Only rows whose read was bracketed by equal separable metadata are published, and only when the population's rows differ from the record read at opening.
+     * @evidence contracts/common.md#clear-and-simple-design Publication is one explicit step after every batch, so a record always describes a whole population.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts A publication failure is ignored because the witnesses already returned stand without it.
+     * @evidence contracts/common.md#meaningful-documentation The prose states the publication condition, the report and the single call.
+     * @evidence contracts/portability.md#os-neutral-implementation The record is replaced atomically in its own directory by the cache layout owner.
+     * @evidence contracts/performance.md#efficient-algorithms An unchanged population writes nothing beyond a use stamp; a changed one serializes its rows once.
+     * @evidence contracts/performance.md#reuse-equivalent-work The published rows are what later captures in any process reuse.
+     * @evidence contracts/performance.md#bound-retention-and-release-resources The record keeps only this population's rows, so it does not grow with paths no longer selected.
      */
     close(): void;
   }
@@ -78,6 +105,9 @@ export namespace RuntimeInputContents {
    *
    * @param subject Absolute config path naming the record.
    * @param store The run's opened identity store, if any.
+   * @param codec How a file's bytes become its hash, with a name that keeps
+   *   its record apart: raw bytes by default, or a consumer's own decoding,
+   *   such as the text a compiler read.
    * @evidence contracts/common.md#principled-implementation A non-link entry's physical path is its directory's physical path plus its own name, so one resolution per directory states what a resolution per file stated; link entries keep their own resolution. A read is bracketed by equal metadata and physical observations, and a row is recorded only when both were separable.
    * @evidence contracts/common.md#clear-and-simple-design Record reading, per-path witnessing and publication are the session's three steps; the identity store keeps location, version and collection.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing, foreign or malformed records and rows mean a real read, never an empty or guessed hash; a non-missing native error never becomes absence.
@@ -90,11 +120,16 @@ export namespace RuntimeInputContents {
   export function open(
     subject: string,
     store: PluginContentIdentities.Store | undefined,
+    codec: Codec = RAW,
   ): Session {
     const location =
       store === undefined
         ? undefined
-        : PluginContentIdentities.recordLocation(store, KIND, subject);
+        : PluginContentIdentities.recordLocation(
+            store,
+            `${KIND}:${codec.name}`,
+            subject,
+          );
     const known =
       store === undefined || location === undefined
         ? new Map<string, StoredRow>()
@@ -149,10 +184,7 @@ export namespace RuntimeInputContents {
         current.set(file, row);
         return [file, before.physical, row[2]];
       }
-      const hash = crypto
-        .createHash("sha256")
-        .update(fs.readFileSync(file))
-        .digest("hex");
+      const hash = codec.digest(fs.readFileSync(file));
       contentReads++;
       const after = stat(file);
       const settled = after === null ? undefined : signature(after.stats, store);
@@ -235,6 +267,44 @@ export namespace RuntimeInputContents {
     session.close();
     return rows;
   }
+
+  /**
+   * A named rule turning a file's bytes into the hash its rows carry. Records
+   * of different codecs never mix.
+   *
+   * @evidence contracts/common.md#principled-implementation The name enters the record's identity, so a hash is only ever compared with one produced by the same rule.
+   * @evidence contracts/common.md#clear-and-simple-design One pair states the rule and its identity; the session needs nothing else from a consumer.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The digest receives the exact bytes read inside the metadata bracket.
+   * @evidence contracts/common.md#meaningful-documentation Members state identity and input.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation The type performs no native operation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms The type runs no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The type grants no reuse.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The type holds no resource.
+   */
+  export interface Codec {
+    /** Stable identity of the rule; part of the record's name. */
+    name: string;
+
+    /**
+     * Lowercase hexadecimal hash of the file's exact bytes under the rule.
+     *
+     * @evidence contracts/common.md#principled-implementation The session passes exactly the bytes it read inside the metadata bracket, so the hash describes the proven state.
+     * @evidence contracts/common.md#clear-and-simple-design One pure function is all a consumer supplies.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts The rule must depend on the bytes alone; nothing else is offered to it.
+     * @evidence contracts/common.md#meaningful-documentation The prose states input and output form.
+     * @evidenceExclude contracts/portability.md#os-neutral-implementation A member signature performs no native operation.
+     * @evidenceExclude contracts/performance.md#efficient-algorithms A member signature runs no algorithm; implementers state theirs.
+     * @evidenceExclude contracts/performance.md#reuse-equivalent-work A member signature grants no reuse.
+     * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A member signature holds no resource.
+     */
+    digest(bytes: Buffer): string;
+  }
+
+  /** SHA-256 of the exact bytes. */
+  const RAW: Codec = {
+    name: "raw",
+    digest: (bytes) => crypto.createHash("sha256").update(bytes).digest("hex"),
+  };
 
   /** Record family in the identity store; one record per subject. */
   const KIND = "runtime-input-content-v3";

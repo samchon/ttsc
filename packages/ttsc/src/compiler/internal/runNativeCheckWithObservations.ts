@@ -5,7 +5,10 @@ import { createCanonicalTempDirectory } from "../../internal/createCanonicalTemp
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import { parseEnvironmentInputs } from "./parseEnvironmentInputs";
-import { parseReferenceGraph } from "./parseNativeTransformOutput";
+import {
+  parseGraphInputObservations,
+  parseReferenceGraph,
+} from "./parseNativeTransformOutput";
 
 /**
  * Execute a check or opted-in build with same-generation input observations,
@@ -165,6 +168,7 @@ function parseObservations(
   | "hostInputRealpaths"
   | "observationsComplete"
   | "graph"
+  | "compilerObservations"
 > {
   if (!isRecord(value) || !Array.isArray(value.hostInputs))
     throw new Error("expected an observation record and input list");
@@ -187,7 +191,19 @@ function parseObservations(
       graph.inputRealpaths === undefined &&
       graph.inputProofFailures === undefined);
   const environmentInputs = parseEnvironmentInputs(value.environmentInputs);
+  // The compiler's whole question population is proof only when the producer
+  // called it complete and every entry is a well-formed predicate at an
+  // absolute path; otherwise it is dropped whole, which costs reuse only.
+  const compiler =
+    value.compilerObservationsComplete === true
+      ? parseGraphInputObservations(value.compilerObservations)
+      : {};
   return {
+    ...(compiler.observations !== undefined &&
+    compiler.failures === undefined &&
+    Object.keys(compiler.observations).every((file) => path.isAbsolute(file))
+      ? { compilerObservations: compiler.observations }
+      : {}),
     ...(environmentInputs === undefined ? {} : { environmentInputs }),
     ...(graph === undefined ? {} : { graph }),
     ...(graphUnavailable ? { observationsComplete: false as const } : {}),

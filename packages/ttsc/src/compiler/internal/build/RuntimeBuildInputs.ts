@@ -7,6 +7,7 @@ import { PluginContentIdentities } from "../../../plugin/internal/source/PluginC
 import { pluginSourceStateHolds } from "../../../plugin/internal/source/pluginSourceStateHolds";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import { CompilerArgumentsInspection } from "../CompilerArgumentsInspection";
+import { readJsoncFile } from "../project/readJsoncFile";
 import { resolveTsgo } from "../resolveTsgo";
 import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
 import { spawnNative } from "../spawnNative";
@@ -66,6 +67,11 @@ export namespace RuntimeBuildInputs {
         capture: () => string | undefined;
         admit: (result: TtscBuildResult, emitDir: string) => boolean;
         record: (result: TtscBuildResult) => TtscBuildResult;
+        identity?: () => string | undefined;
+        replay?: (
+          result: TtscBuildResult,
+          emitDir: string,
+        ) => string | undefined;
       }
     | undefined {
     const refuse = (reason: string): undefined => {
@@ -194,7 +200,154 @@ export namespace RuntimeBuildInputs {
       )
     )
       return refuse("effectful-compiler-options");
+    // Declared in a config of the chain, these select work a stored result
+    // cannot stand for: other projects' builds, external code, or reports and
+    // traces written beside it. Any config of the chain declaring one refuses,
+    // whichever the effective value is.
+    const declaresUnsupportedConfiguration = (): boolean =>
+      execution.project.configPaths.some((config) => {
+        const declared = readJsoncFile(config) as {
+          compilerOptions?: Record<string, unknown>;
+          references?: unknown;
+        };
+        return (
+          (Array.isArray(declared.references) &&
+            declared.references.length !== 0) ||
+          [
+            "runExternalCode",
+            "generateTrace",
+            "generateCpuProfile",
+            "pprofDir",
+            "diagnostics",
+            "extendedDiagnostics",
+            "traceResolution",
+            "explainFiles",
+            "listFiles",
+            "listEmittedFiles",
+          ].some((name) => declared.compilerOptions?.[name])
+        );
+      });
+    const privately = (arg: string): string =>
+      arg === emitDir || arg.startsWith(emitDir + path.sep)
+        ? "<private-output>" + arg.slice(emitDir.length)
+        : arg;
+    // With native plugins the emitting producer is one of ttsc's own hosts,
+    // which reports every filesystem question its compiler asked. A stored
+    // result is then proven by replaying those answers, so finding and proving
+    // it runs no compiler and reads no unchanged file (samchon/ttsc#1852).
+    // Without plugins the unmodified upstream compiler runs directly and
+    // reports no observations, so that lane keeps the snapshot proof, which
+    // asks it for its source selection.
+    const replayed =
+      execution.nativePlugins.length !== 0 &&
+      options.forceEmitProvenance === true
+        ? {
+            identity: (): string | undefined => {
+              try {
+                if (process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1")
+                  return refuse("descriptor-bootstrap");
+                const node = resolveNodeBinary(
+                  env,
+                  execution.projectRoot,
+                  identities,
+                );
+                if (node === undefined)
+                  return refuse("node-executable-proof-unavailable");
+                // Plugin bytes are deterministic inputs of the pipeline, so a
+                // harmless stamp or link change keeps their identity; compiler
+                // and Node authority keep the strict physical identity.
+                const compiler = [
+                  ...new Set([
+                    execution.tsgo.binary,
+                    ...execution.nativePlugins.map((plugin) => plugin.binary),
+                    node,
+                  ]),
+                ].map((binary) =>
+                  runtimeExecutableIdentity(
+                    binary,
+                    identities,
+                    binary === execution.tsgo.binary || binary === node,
+                  ),
+                );
+                if (compiler.some((identity) => identity === undefined))
+                  return refuse(
+                    "compiler-or-plugin-executable-proof-unavailable",
+                  );
+                for (const [directory, state] of Object.entries(
+                  loaded?.pluginSources ?? {},
+                ))
+                  if (
+                    !pluginSourceStateHolds(directory, state, {
+                      projectRoot: execution.projectRoot,
+                    })
+                  )
+                    return refuse("plugin-source-proof-changed");
+                if (declaresUnsupportedConfiguration())
+                  return refuse("unsupported-effective-configuration");
+                for (const [file, expected] of Object.entries(
+                  loaded?.hostInputHashes ?? {},
+                ).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+                  const [physical, hash] =
+                    RuntimeInputProof.observeHostInput(file);
+                  if (
+                    hash !== expected ||
+                    physical !== loaded?.hostInputRealpaths[file]
+                  )
+                    return refuse("descriptor-host-input-changed");
+                }
+                const responses: [string, string][] = [];
+                for (const [file, before] of inspected.observations) {
+                  if (
+                    CompilerArgumentsInspection.observeInputFile(file) !== before
+                  )
+                    return refuse("compiler-argument-input-changed");
+                  responses.push([file, (JSON.parse(before) as string[])[2]!]);
+                }
+                // Only private destination values are normalized. The relative
+                // layout remains in the identity because source maps are
+                // output-relative.
+                return JSON.stringify({
+                  format: 4,
+                  version: identities.version,
+                  compiler,
+                  args: inspected.args.map(privately),
+                  responses,
+                  environment: runtimeBuildEnvironment(env),
+                  project: execution.tsconfig,
+                  cwd: execution.compilerSelection.compilerArgsCwd,
+                  layout: path.relative(emitDir, execution.projectRoot),
+                  unchecked: options.skipDiagnosticsCheck === true,
+                  plugins: execution.nativePlugins,
+                  pluginSources: loaded?.pluginSources,
+                });
+              } catch {
+                return refuse("input-snapshot-failed");
+              }
+            },
+            replay: (
+              result: TtscBuildResult,
+              produced: string,
+            ): string | undefined => {
+              if (result.compilerObservations === undefined) return "";
+              const contents = RuntimeInputContents.open(
+                execution.tsconfig,
+                identities,
+                RuntimeInputProof.textCodec,
+              );
+              try {
+                return RuntimeInputProof.replay(
+                  result.compilerObservations,
+                  produced,
+                  contents,
+                );
+              } finally {
+                contents.close();
+              }
+            },
+          }
+        : {};
     return {
+      ...replayed,
       record: (result) => {
         if (loaded === undefined) return result;
         // Evaluation-time reads differ between a cold typed configuration and
@@ -293,9 +446,21 @@ export namespace RuntimeBuildInputs {
               throw new Error("runtime input inspection unavailable");
             return String(result.stdout);
           };
-          const config = JSON.parse(query(["--showConfig"]));
+          // The effective configuration is a function of the arguments and
+          // the config chain. When every file the chain read is known, those
+          // files are witnessed with the other inputs and the arguments enter
+          // the snapshot, so the compiler is not started a second time only to
+          // restate them (samchon/ttsc#1852).
+          const chained = execution.project.configInputsComplete === true;
+          if (chained && declaresUnsupportedConfiguration())
+            return refuse("unsupported-effective-configuration");
+          const config = chained
+            ? undefined
+            : JSON.parse(query(["--showConfig"]));
           if (
-            !config ||
+            chained
+              ? false
+              : !config ||
             typeof config.compilerOptions !== "object" ||
             config.compilerOptions === null ||
             config.references?.length ||
@@ -310,7 +475,7 @@ export namespace RuntimeBuildInputs {
               "explainFiles",
               "listFiles",
               "listEmittedFiles",
-            ].some((name) => config.compilerOptions[name])
+              ].some((name) => config.compilerOptions[name])
           )
             return refuse("unsupported-effective-configuration");
           const listed = query([
@@ -339,6 +504,7 @@ export namespace RuntimeBuildInputs {
           const inputs = new Set([
             ...listed,
             ...execution.project.configPaths,
+            ...(chained ? (execution.project.configInputs ?? []) : []),
             ...inspected.observations.keys(),
           ]);
           const scopes = new Set<string>();
@@ -374,12 +540,9 @@ export namespace RuntimeBuildInputs {
               return refuse("compiler-argument-input-changed");
           // Only private destination values are normalized. The relative layout
           // remains in the identity because source maps are output-relative.
-          for (const key of [
-            "outDir",
-            "declarationDir",
-            "tsBuildInfoFile",
-            "outFile",
-          ])
+          for (const key of config === undefined
+            ? []
+            : ["outDir", "declarationDir", "tsBuildInfoFile", "outFile"])
             if (
               typeof config.compilerOptions[key] === "string" &&
               (path.resolve(
@@ -403,7 +566,7 @@ export namespace RuntimeBuildInputs {
                   ),
                 );
           // Upstream synthesizes an exclusion for the overridden outDir too.
-          if (Array.isArray(config.exclude))
+          if (config !== undefined && Array.isArray(config.exclude))
             config.exclude = config.exclude.map((name: unknown) =>
               typeof name === "string" &&
               path.resolve(path.dirname(execution.tsconfig), name) === emitDir
@@ -414,7 +577,7 @@ export namespace RuntimeBuildInputs {
             format: 3,
             version: identities.version,
             compilerIdentities,
-            config,
+            config: config ?? { arguments: inspected.args.map(privately) },
             hashes,
             environment: runtimeBuildEnvironment(env),
             project: execution.tsconfig,

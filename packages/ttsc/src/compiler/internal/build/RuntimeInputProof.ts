@@ -5,6 +5,7 @@ import path from "node:path";
 import type { ITtscCompilerTransformation } from "../../../structures/ITtscCompilerTransformation";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
+import type { RuntimeInputContents } from "./RuntimeInputContents";
 
 /**
  * Replay the compiler and native input witnesses of a completed runtime build.
@@ -144,6 +145,152 @@ export namespace RuntimeInputProof {
     return [beforePhysical, hash];
   }
 
+  /**
+   * Replay a compiler's complete filesystem observations against the disk and
+   * name the first path whose answer moved, or `undefined` when every predicate
+   * still holds.
+   *
+   * The population is every question the compiler asked while it built one
+   * result (`TtscBuildResult.compilerObservations`). When each still has its
+   * recorded answer, compiling again would load the same configuration, root
+   * files, resolved modules and source text, so the stored result stands
+   * without running the compiler (samchon/ttsc#1852). An added root appears as
+   * a changed directory listing, a new higher-priority resolution candidate as
+   * a file that now exists, an edit as a changed text hash.
+   *
+   * A read file's text hash comes from `contents`, which proves an unchanged
+   * file from its metadata and reads only one that moved. Paths inside
+   * `excluded`, the producer's own private output root, are not inputs.
+   *
+   * @param observations The stored result's complete observation population.
+   * @param excluded The private output root of the build that produced it.
+   * @param contents An open content session using {@link textCodec}.
+   * @evidence contracts/common.md#principled-implementation Equal answers to every recorded compiler question reproduce the compiler's inputs; each predicate kind is compared under the codec it was recorded in, and any unobservable state is a moved answer.
+   * @evidence contracts/common.md#clear-and-simple-design One pass visits the population; the content session owns byte reuse and this function owns predicate comparison.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No predicate is skipped for a recognized path or kind; only the producer's private output subtree is excluded, and native-codec predicates, which a compiler population never carries, refuse the replay.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states why the population is sufficient, how each kind of change surfaces, and the exclusion.
+   * @evidence contracts/portability.md#os-neutral-implementation Following stat classifies as the compiler's view does; physical paths come from the session's native resolution, with a per-path native resolution before any difference is declared, so a case or short-name spelling is not mistaken for a retarget.
+   * @evidence contracts/performance.md#efficient-algorithms P predicates cost one metadata request each, one more per read file, one enumeration per observed directory listing and the bytes of only the files whose proof moved; physical resolution is shared per directory.
+   * @evidence contracts/performance.md#reuse-equivalent-work A stored result is reused under equal answers to the questions that produced it, the same condition under which the compiler itself would rebuild it identically.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Enumeration lists and resolved directories are call-local; the session keeps its own rows and no handle is retained.
+   */
+  export function replay(
+    observations: Readonly<
+      Record<string, ITtscCompilerTransformation.IInputObservation>
+    >,
+    excluded: string,
+    contents: RuntimeInputContents.Session,
+  ): string | undefined {
+    const resolved = new Map<string, string | null>();
+    const native = (file: string): string | null => {
+      let current = resolved.get(file);
+      if (current === undefined) {
+        current = physical(file);
+        resolved.set(file, current);
+      }
+      return current;
+    };
+    try {
+      for (const [file, observed] of Object.entries(observations)) {
+        const relative = path.relative(excluded, file);
+        if (
+          relative === "" ||
+          (!path.isAbsolute(relative) &&
+            relative !== ".." &&
+            !relative.startsWith(".." + path.sep))
+        )
+          continue;
+        if (observed.nativePredicates !== undefined) return file;
+        let kind: "file" | "directory" | "missing" = "missing";
+        try {
+          kind = fs.statSync(file).isDirectory() ? "directory" : "file";
+        } catch (error) {
+          if (!missing(error)) return file;
+        }
+        if (
+          (observed.fileExists !== undefined &&
+            observed.fileExists !== (kind === "file")) ||
+          (observed.directoryExists !== undefined &&
+            observed.directoryExists !== (kind === "directory")) ||
+          (observed.stat !== undefined && observed.stat !== kind)
+        )
+          return file;
+        // The session's row carries the file's physical path with its hash.
+        let row: RuntimeInputContents.Row | undefined;
+        if (observed.readFile !== undefined) {
+          if (observed.readFile.ok) {
+            if (kind !== "file") return file;
+            row = contents.observe([file])[0]!;
+            if (row[2] !== observed.readFile.hash) return file;
+          } else if (kind === "file") return file;
+        }
+        if (observed.realpath !== undefined) {
+          if (!observed.realpath.ok) {
+            if (kind !== "missing") return file;
+          } else if (
+            kind === "missing" ||
+            ((row?.[1] ?? null) !== observed.realpath.path &&
+              native(file) !== observed.realpath.path)
+          )
+            return file;
+        }
+        if (
+          observed.accessibleEntries !== undefined &&
+          !entriesHold(file, observed.accessibleEntries)
+        )
+          return file;
+      }
+      return undefined;
+    } catch {
+      return "";
+    }
+  }
+
+  /**
+   * The content codec of a compiler's read observations: SHA-256 of the text
+   * the compiler host returned, with a UTF-8 byte-order mark removed and UTF-16
+   * decoded, as the producer hashes it. Its name keeps these records apart from
+   * raw-byte ones, so the two kinds of hash are never compared. The replay,
+   * which owns this codec's use, states its grounds.
+   */
+  export const textCodec: RuntimeInputContents.Codec = {
+    name: "compiler-text",
+    digest: (bytes) => textHash(bytes),
+  };
+
+  /** Compare a recorded directory listing with the compiler's current view. */
+  function entriesHold(
+    file: string,
+    recorded: { directories: string[]; files: string[] },
+  ): boolean {
+    const directories: string[] = [];
+    const files: string[] = [];
+    let entries: fs.Dirent[] = [];
+    try {
+      entries = fs.readdirSync(file, { withFileTypes: true });
+    } catch {
+      /* Compiler enumeration returns an empty view. */
+    }
+    for (const entry of entries) {
+      try {
+        const stat = entry.isSymbolicLink()
+          ? fs.statSync(path.join(file, entry.name))
+          : entry;
+        if (stat.isDirectory()) directories.push(entry.name);
+        else if (stat.isFile()) files.push(entry.name);
+      } catch {
+        /* Compiler enumeration omits inaccessible link targets. */
+      }
+    }
+    const compare = (a: string, b: string): number =>
+      Buffer.compare(Buffer.from(a), Buffer.from(b));
+    return (
+      JSON.stringify({
+        directories: directories.sort(compare),
+        files: files.sort(compare),
+      }) === JSON.stringify(recorded)
+    );
+  }
   /** Compare one compiler query record with the corresponding current queries. */
   function observationHolds(
     file: string,

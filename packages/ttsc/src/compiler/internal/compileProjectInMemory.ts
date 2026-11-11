@@ -5,6 +5,7 @@ import { createCanonicalTempDirectory } from "../../internal/createCanonicalTemp
 import { hasProjectPluginEntries } from "../../plugin/internal/load/hasProjectPluginEntries";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
+import type { ITtscCompilerTransformation } from "../../structures/ITtscCompilerTransformation";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import { PrivateCompilerOutput } from "./PrivateCompilerOutput";
@@ -12,6 +13,7 @@ import { runBuild } from "./build/runBuild";
 import { buildNativeCompiler } from "./buildNativeCompiler";
 import { outputText } from "./outputText";
 import { packageRootDir } from "./packageRootDir";
+import { parseGraphInputObservations } from "./parseNativeTransformOutput";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
@@ -100,6 +102,9 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
     result: {
       diagnostics: output.diagnostics,
       emittedSources: output.emittedSources,
+      ...(output.compilerObservations === undefined
+        ? {}
+        : { compilerObservations: output.compilerObservations }),
       status: res.status ?? 1,
       stdout: "",
       stderr: outputText(res.stderr),
@@ -232,12 +237,18 @@ function parseNativeCompileOutput(
   diagnostics: ITtscCompilerDiagnostic[];
   output: Record<string, string>;
   emittedSources?: Record<string, readonly string[]>;
+  compilerObservations?: Record<
+    string,
+    ITtscCompilerTransformation.IInputObservation
+  >;
 } {
   try {
     const parsed = JSON.parse(stdout) as {
       diagnostics?: ITtscCompilerDiagnostic[];
       output?: Record<string, string>;
       emittedSources?: Record<string, readonly string[]>;
+      observations?: unknown;
+      observationsComplete?: unknown;
     };
     if (
       typeof parsed !== "object" ||
@@ -270,10 +281,22 @@ function parseNativeCompileOutput(
         "ttsc: native compiler host returned invalid emit provenance",
       );
     }
+    // The population is proof only when the host called it complete and every
+    // entry is a well-formed predicate at an absolute path; anything less is
+    // dropped whole, so the result is simply not provable without a compile.
+    const observed =
+      parsed.observationsComplete === true
+        ? parseGraphInputObservations(parsed.observations)
+        : {};
     return {
       diagnostics: Array.isArray(parsed.diagnostics) ? parsed.diagnostics : [],
       output: parsed.output,
       emittedSources: parsed.emittedSources,
+      ...(observed.observations !== undefined &&
+      observed.failures === undefined &&
+      Object.keys(observed.observations).every((file) => path.isAbsolute(file))
+        ? { compilerObservations: observed.observations }
+        : {}),
     };
   } catch (error) {
     if (error instanceof Error && !(error instanceof SyntaxError)) {

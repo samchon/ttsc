@@ -13,6 +13,13 @@ import { RuntimeEmitBundle } from "./RuntimeEmitBundle";
  * or one lazy runtime bundle, so collection cannot remove an executing emit.
  * Input discovery and producer-proof admission belong to the supplied owners.
  *
+ * A stored result is proven in one of two ways. A producer that reports every
+ * input observation it made lets the request name its document by everything
+ * except the filesystem's state and prove it by replaying those observations,
+ * so a hit observes no input to find it and keeps one document per build
+ * configuration. Any other producer is named by a complete input snapshot,
+ * which is then the proof.
+ *
  * @evidence contracts/common.md#principled-implementation Content-addressed snapshots select complete checksummed result and output documents in the run bundle's own raw layout (RuntimeEmitBundle.archive). SHA-256 consumes exact UTF-8 text and exact output bytes; native normalization rejects absolute, dot, parent and Windows drive-relative output coordinates. Relocation changes producer output coordinates and private-root stream text while retaining source paths.
  * @evidence contracts/common.md#clear-and-simple-design One operation coordinates lookup, proof, restore and publication; RuntimeEmitBundle owns lazy byte representation, while input capture and producer validation remain separate callbacks.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Misses execute the original build exactly once; failed or absent proofs never manufacture successful output. Every transported output must be a normalized private descendant, without filename or consumer-name exceptions.
@@ -29,18 +36,21 @@ export namespace RuntimeBuildCache {
   /**
    * Reuse a proven private emit, or invoke the original producer once. Capture
    * returns a deterministic complete input snapshot, or undefined to decline
-   * caching. Admission must validate the producer's extra input observations;
+   * caching. With an identity and a replay, the snapshot is not captured: the
+   * identity names the document and the replay proves the stored result, and
+   * only a result carrying replayable observations is published under it.
+   * Admission must validate the producer's extra input observations;
    * the second argument is the output root that producer actually used. Cache
    * IO or cache-admission failure costs reuse only. Errors thrown by the
    * original build retain their normal failure policy.
    *
-   * @evidence contracts/common.md#principled-implementation Lookup proves one current input snapshot and publication brackets its build with a second, preserving the actual producer result and require explicit extra-input admission; files or a run-owned checksummed bundle are established before the result is rebased.
+   * @evidence contracts/common.md#principled-implementation Lookup proves the stored result once, by an equal input snapshot or by replaying the observations it carries, and publication brackets its build with a second proof, preserving the actual producer result and require explicit extra-input admission; files or a run-owned checksummed bundle are established before the result is rebased.
    * @evidence contracts/common.md#clear-and-simple-design Snapshot, proof and build callbacks expose their independent responsibilities while the operation alone owns storage and restore cleanup.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Only successful complete emits are published; malformed, oversized, damaged or unproved documents fall through to the caller's real producer without changing compiler selection.
    * @evidence contracts/common.md#meaningful-documentation Native prose states complete-snapshot meaning, producer-root coordinates, callback error policy and recoverable cache IO.
    * @evidence contracts/portability.md#os-neutral-implementation Native lstat refuses aliases, path.relative checks containment and native mkdir/write/rename preserve byte payloads and host path semantics.
    * @evidence contracts/performance.md#efficient-algorithms Snapshot owners govern input work; a hit parses the index and annex, copies the document once and hashes its bodies once, with no text encoding of output bytes. Runtime hits place one bundle plus distinct directories instead of all output files; publication walks private fresh output and writes it once.
-   * @evidence contracts/performance.md#reuse-equivalent-work A format-and-snapshot digest names one candidate; checksum, output grammar and producer admission are independent reuse gates, and a restore reads no input that a second capture could protect. Every miss calls build once.
+   * @evidence contracts/performance.md#reuse-equivalent-work A format-and-snapshot digest, or a format-and-identity digest for a replayed proof, names one candidate; checksum, output grammar, producer admission and, where used, the replay of the result's own observations are independent reuse gates, and a restore reads no input that a second capture could protect. Every miss calls build once.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Call-local output buffers and the written document are bounded by the 128 MiB admission ceiling; partial restores are unlinked and staging removal is attempted in finally. Collector failures can retain files under the existing cache policy.
    */
   export function run(props: {
@@ -54,6 +64,18 @@ export namespace RuntimeBuildCache {
     project?: string;
     /** Fresh complete input snapshot; undefined preserves ordinary execution. */
     capture: () => string | undefined;
+    /**
+     * Everything that selects the build except the state of the filesystem, or
+     * undefined to use `capture`. With it a stored result is found without
+     * observing any input and proven by `replay`.
+     */
+    identity?: () => string | undefined;
+    /**
+     * Replay the stored result's own input observations against the disk:
+     * undefined when every one holds, otherwise the path that moved, or an
+     * empty string when the result carries no replayable observations.
+     */
+    replay?: (result: TtscBuildResult, emitDir: string) => string | undefined;
     /** Producer-specific proof, with its original private output root. */
     admit: (result: TtscBuildResult, emitDir: string) => boolean;
     /** Original build operation, including its diagnostic policy. */
@@ -80,17 +102,67 @@ export namespace RuntimeBuildCache {
       report("bypassed", "persistence-disabled");
       return props.build();
     }
-    let snapshot: string | undefined;
+    // A replayed proof needs no input observation to find its document; a
+    // snapshot proof is the document's name. Either states what the stored
+    // entry must say, how it is proven, and how a fresh build is bracketed.
+    let proof: Proof | undefined;
     try {
-      snapshot = props.capture();
+      const identity =
+        props.replay === undefined ? undefined : props.identity?.();
+      if (identity !== undefined) {
+        const replay = props.replay!;
+        proof = {
+          text: "replay\0" + identity,
+          field: "identity",
+          value: identity,
+          restores: (result, emitDir) => {
+            if (!props.admit(result, emitDir))
+              return "unproved runtime cache document";
+            const moved = replay(result, emitDir);
+            return moved === undefined
+              ? undefined
+              : "runtime input moved: " + moved;
+          },
+          publishes: (result) => {
+            if (result.compilerObservations === undefined)
+              return "compiler-observations-unavailable";
+            if (props.identity!() !== identity) return "inputs-changed";
+            if (!props.admit(result, props.emitDir))
+              return "producer-proof-refused";
+            // Nothing moved since the compiler read it, so the observations
+            // describe the disk the next lookup will be compared with.
+            return replay(result, props.emitDir) === undefined
+              ? undefined
+              : "inputs-changed";
+          },
+        };
+      } else {
+        const snapshot = props.capture();
+        if (snapshot !== undefined)
+          proof = {
+            text: snapshot,
+            field: "snapshot",
+            value: snapshot,
+            restores: (result, emitDir) =>
+              props.admit(result, emitDir)
+                ? undefined
+                : "unproved runtime cache document",
+            publishes: (result) =>
+              props.capture() !== snapshot
+                ? "inputs-changed"
+                : props.admit(result, props.emitDir)
+                  ? undefined
+                  : "producer-proof-refused",
+          };
+      }
     } catch {
       /* An unavailable proof is a miss. */
     }
-    if (snapshot === undefined) {
+    if (proof === undefined) {
       report("ineligible", "input-snapshot-unavailable");
       return props.build();
     }
-    const key = digest(FORMAT + "\0" + snapshot);
+    const key = digest(FORMAT + "\0" + proof.text);
     const file = path.join(props.directory, key + ".emit");
     const restored: string[] = [];
     let operation = "lookup";
@@ -103,13 +175,16 @@ export namespace RuntimeBuildCache {
       const entry = JSON.parse(document.annex);
       if (
         entry.format !== FORMAT ||
-        entry.snapshot !== snapshot ||
+        entry[proof.field] !== proof.value ||
         typeof entry.emitDir !== "string" ||
         !path.isAbsolute(entry.emitDir) ||
-        entry.result?.status !== 0 ||
-        !props.admit(entry.result, entry.emitDir)
+        entry.result?.status !== 0
       )
         throw new Error("unproved runtime cache document");
+      operation = "input-proof";
+      const refused = proof.restores(entry.result, entry.emitDir);
+      if (refused !== undefined) throw new Error(refused);
+      operation = "document-validation";
       const names = new Set(document.names);
       if (names.size === 0) throw new Error("empty runtime cache document");
       for (const output of Object.keys(entry.result.emittedSources ?? {}))
@@ -130,11 +205,11 @@ export namespace RuntimeBuildCache {
         if (RuntimeEmitBundle.open(props.emitDir) === undefined)
           throw new Error("restored runtime bundle is missing");
       } else RuntimeEmitBundle.extract(file, props.emitDir, restored);
-      // The document's bytes are immutable and checksummed, and the snapshot
-      // and admission above proved the inputs at one instant. Restoring reads
-      // no input, so a second capture could only move that instant: the run
-      // would be as old as its sources either way, at twice the proof's cost
-      // (samchon/ttsc#1852). Publication below still brackets the build.
+      // The document's bytes are immutable and checksummed, and the proof
+      // above held at one instant. Restoring reads no input, so a second proof
+      // could only move that instant: the run would be as old as its sources
+      // either way, at twice the proof's cost (samchon/ttsc#1852). Publication
+      // below still brackets the build.
       recordCacheFileUse(file);
       report(
         "reused",
@@ -203,7 +278,7 @@ export namespace RuntimeBuildCache {
       }
       const annex = JSON.stringify({
         format: FORMAT,
-        snapshot,
+        [proof.field]: proof.value,
         emitDir: props.emitDir,
         result,
       });
@@ -220,12 +295,9 @@ export namespace RuntimeBuildCache {
         report("not-recorded", "document-byte-limit", key);
         return result;
       }
-      if (props.capture() !== snapshot) {
-        report("not-recorded", "inputs-changed", key);
-        return result;
-      }
-      if (!props.admit(result, props.emitDir)) {
-        report("not-recorded", "producer-proof-refused", key);
+      const unpublishable = proof.publishes(result);
+      if (unpublishable !== undefined) {
+        report("not-recorded", unpublishable, key);
         return result;
       }
       fs.mkdirSync(props.directory, { recursive: true });
@@ -253,6 +325,29 @@ export namespace RuntimeBuildCache {
       }
     }
     return result;
+  }
+
+  /**
+   * How one request finds and proves a stored result. A replayed proof names
+   * its document by everything but the filesystem's state and proves it from
+   * the result's own recorded observations; a snapshot proof names it by a
+   * complete input snapshot, which is then its whole proof beside admission.
+   */
+  interface Proof {
+    /** Text hashed, with the format, into the document's name. */
+    text: string;
+
+    /** Annex member that must equal `value` for the document to be this one. */
+    field: "identity" | "snapshot";
+
+    /** The identity or snapshot the document was stored under. */
+    value: string;
+
+    /** Why a stored result may not be restored now, or undefined. */
+    restores(result: TtscBuildResult, emitDir: string): string | undefined;
+
+    /** Why a fresh result may not be published, or undefined. */
+    publishes(result: TtscBuildResult): string | undefined;
   }
 
   /** Hash encoded input or document bytes with SHA-256. */

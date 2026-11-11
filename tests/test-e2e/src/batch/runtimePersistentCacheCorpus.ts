@@ -18,11 +18,11 @@ import { BatchWorkspace } from "./BatchWorkspace";
  *
  * @evidence contracts/testing.md#behavioral-verification Real installed ttsx processes print actual package values, cwd, filenames, entry/main identity, adjacent asset bytes and a caught source-mapped stack in CommonJS and ESM. Product trace events distinguish recorded/reused generations, one materialized bundle and zero source-content reads for an unchanged proof. Warm execution has no native emit, lint check or transform command, including combined lint/evidence/banner execution; bypass still emits. Changing only model.ts produces TS2322 in unchanged consumer.ts and blocks execution; dependency, membership, package-export and native config changes are separately exercised. Concurrent cold publishers both execute the correct program.
  * @evidence contracts/testing.md#independent-expectations Authored enum literals 7/11, adjacent asset text, actual filesystem source paths and the authored throw line determine expected behavior independently of stored documents or compiler output. Producer argv and trace outcomes are actual observations.
- * @evidence contracts/testing.md#distinguishing-cases Cold/warm/bypass, dependency-only edits, type failure/repair, corrupt storage and dynamic excluded roots contrast success reuse with required recompilation. Both linked packages export src and a non-imported root remains checked.
+ * @evidence contracts/testing.md#distinguishing-cases Cold/warm/bypass, a warm run under other program arguments and unread environment variables, the authored files' unchanged link count and stamps across runs, a plugin project proven without starting the compiler, dependency-only edits, type failure/repair, corrupt storage and dynamic excluded roots contrast success reuse with required recompilation. Both linked packages export src and a non-imported root remains checked.
  * @evidence contracts/testing.md#execution-ownership The Runtime batch invokes this helper using its existing installed SDK and cache owner. Independent launcher lifetimes prove persistence and input transitions; linked banner and combined lint/evidence/banner compositions borrow the installed contributors, with no extra installation.
  * @evidence contracts/e2e.md#necessary-boundary Cross-process persistence, native compiler invocation, source-linked package resolution and actual Node source identity cannot be established by a document-store unit.
  * @evidence contracts/e2e.md#shared-execution One upfront graph shares two workspace package owners and all identity/map assertions across the necessary state transitions. The installed banner contributor adds one linked-host composition, prepared by its native bypass run before the completed-result cold/warm pair and config edit. A separate ESM request supplies native module URL/main/resource evidence across cold/warm/bypass. Native source-selection probes remain real work even on a hit.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Child environments clear the harness compiler override so package discovery selects the installed consumer's compiler. Every ordinary synchronous launcher is joined and its PID checked before input mutation. Unresolved ownership retains the batch graph and stops transitions. The batch owns cleanup; package junctions remain within its authored graph. One precreated trace sink stays unchanged across runs so instrumentation cannot alter the cache identity.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Child environments clear the harness compiler override so package discovery selects the installed consumer's compiler. Every ordinary synchronous launcher is joined and its PID checked before input mutation. Unresolved ownership retains the batch graph and stops transitions. The batch owns cleanup; package junctions remain within its authored graph. One precreated trace sink serves every run; reporting switches are not part of a cache identity.
  * @evidence contracts/e2e.md#preserved-coverage Adds a real warm-generation neighbor to existing fresh runtime coverage without deleting or retargeting previous cases. All state assertions collect before the final verdict; CI owns the full Runtime batch.
  */
 export async function runtimePersistentCacheCorpus(
@@ -154,6 +154,7 @@ export async function runtimePersistentCacheCorpus(
     errorFile?: string,
     entry = "src/main.ts",
     errorPattern = /TS2322/,
+    invocation: { args?: string[]; env?: NodeJS.ProcessEnv } = {},
   ): any[] => {
     if (unresolved)
       throw new Error("preceding cache actor ownership unresolved");
@@ -161,8 +162,13 @@ export async function runtimePersistentCacheCorpus(
     const cwd = fs.realpathSync.native(path.join(root, "test"));
     const result = E2eProcessTrace.spawnSync(
       process.execPath,
-      [workspace.installedTtsx, ...flags, entry],
-      { cwd, env, encoding: "utf8", windowsHide: true },
+      [workspace.installedTtsx, ...flags, entry, ...(invocation.args ?? [])],
+      {
+        cwd,
+        env: { ...env, ...invocation.env },
+        encoding: "utf8",
+        windowsHide: true,
+      },
     );
     if (!isOrdinarilyClosedReadonlyLauncher(result)) {
       unresolved = true;
@@ -249,8 +255,49 @@ export async function runtimePersistentCacheCorpus(
             arg.startsWith("--emit-provenance-json="),
         ),
     );
+  // A run must leave the metadata of the user's own files as it found it:
+  // linking one into a private layout moved its change time and link count,
+  // which every metadata proof of that file reads (samchon/ttsc#1852).
+  const authored = [
+    "test/package.json",
+    "test/tsconfig.json",
+    "test/src/asset.txt",
+    "package.json",
+  ].map((name) => path.join(root, name));
+  const metadata = (): string =>
+    JSON.stringify(
+      authored.map((file) => {
+        const stat = fs.statSync(file, { bigint: true });
+        return [String(stat.nlink), String(stat.mtimeNs), String(stat.ctimeNs)];
+      }),
+    );
+  const untouched = metadata();
+  const queries = (records: any[], flag: string): any[] =>
+    records.filter(
+      (event) =>
+        event.launcher &&
+        event.event === "process-attempt" &&
+        event.argv?.includes(flag),
+    );
   const cold = run();
+  check(() => assert.equal(metadata(), untouched));
   const warm = run();
+  check(() => assert.equal(metadata(), untouched));
+  // The program's own arguments and variables no build process reads are not
+  // inputs of a compile: a package manager exports the former into the
+  // environment, and a key over all of it missed on every invocation.
+  const noise = run([], 8, true, undefined, "src/main.ts", /TS2322/, {
+    args: ["--list", "--port=3000"],
+    env: {
+      npm_lifecycle_script: "ttsx src/main.ts --list --port=3000",
+      TTSX_E2E_UNREAD_VARIABLE: String(process.pid),
+    },
+  });
+  check(() => {
+    assert.ok(outcomes(noise, "reused", true).length > 0);
+    assert.equal(outcomes(noise, "recorded").length, 0);
+    assert.equal(emitting(noise).length, 0);
+  });
   const bypass = run(["--no-cache"]);
   check(() => {
     assert.ok(outcomes(cold, "recorded").length > 0);
@@ -259,14 +306,19 @@ export async function runtimePersistentCacheCorpus(
     assert.ok(
       outcomes(warm, "reused").every((event) => event.data.materialized === 1),
     );
-    assert.ok(
-      warm.some(
-        (event) =>
-          event.data?.phase === "runtime-input-content" &&
-          event.data.contentReads === 0 &&
-          event.data.inputs > 0,
-      ),
+    // Every proof of the unchanged run, not merely one of them, must stand on
+    // metadata alone, and the configuration is not asked for a second time.
+    const contents = warm.filter(
+      (event) => event.data?.phase === "runtime-input-content",
     );
+    assert.ok(contents.length > 0);
+    assert.ok(
+      contents.every(
+        (event) => event.data.contentReads === 0 && event.data.inputs > 0,
+      ),
+      JSON.stringify(contents.map((event) => event.data)),
+    );
+    assert.equal(queries(warm, "--showConfig").length, 0);
     assert.equal(emitting(warm).length, 0);
     assert.equal(outcomes(bypass, "reused").length, 0);
     assert.ok(emitting(bypass).length > 0);
@@ -304,8 +356,14 @@ export async function runtimePersistentCacheCorpus(
   fs.unlinkSync(path.join(root, "packages/a/src/alternative.ts"));
   run([], 12);
   const documents = path.join(cache, "runtime-builds");
+  check(() =>
+    assert.ok(
+      fs.readdirSync(documents).some((name) => name.endsWith(".emit")),
+      "no persistent document to damage",
+    ),
+  );
   for (const name of fs.readdirSync(documents))
-    if (name.endsWith(".json"))
+    if (name.endsWith(".emit"))
       fs.writeFileSync(path.join(documents, name), "invalid-cache-document");
   const concurrent = await Promise.all(
     [0, 1].map(
@@ -410,6 +468,13 @@ export async function runtimePersistentCacheCorpus(
   check(() => assert.ok(outcomes(nativeCold, "recorded", true).length > 0));
   check(() => assert.ok(outcomes(nativeWarm, "reused", true).length > 0));
   check(() => assert.equal(emitting(nativeWarm).length, 0));
+  // A native host reports every question its compiler asked, so the stored
+  // result is proven by replaying those answers: the launcher starts no
+  // compiler at all to ask for its source selection.
+  check(() => {
+    assert.equal(queries(nativeWarm, "--listFilesOnly").length, 0);
+    assert.equal(queries(nativeWarm, "--showConfig").length, 0);
+  });
   const served = (records: any[]): string =>
     records
       .filter(
