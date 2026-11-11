@@ -294,7 +294,7 @@ const stale = Object.entries(t.pluginSources ?? {}).some(
   - the relative path and bytes of every file below the directory, in sorted order, skipping files below a `node_modules`, `.git`, or `.ttsc` directory, generated `go.work` files, package tarballs, editor sidecars, and backups ending in `~`;
   - the build environment there: the Go compiler ttsc resolves for the directory, the values `go env` reports for the variables the build keys on (`GOFLAGS`, `GOOS`, `CGO_ENABLED`, the C toolchain's commands by content, GOROOT by content, and the others), and cgo's external toolchain variables.
 
-  The sources are read on every call. Reading the environment costs a `go env` run and a GOROOT walk. Under `process.env`, the process keeps that reading per directory and set of variables while its witnesses still match: the Go tool, the file `go env -w` writes, the C toolchain executables and GOROOT.
+  The sources are read on every call. Reading the environment costs a `go env` run and a GOROOT walk. Under `process.env`, the process keeps that reading per directory and set of variables while its witnesses still match: the Go tool, the file `go env -w` writes, the C toolchain executables and GOROOT. With a project's plugin cache, the reading is also kept for later processes under the same witnesses.
 
   Changed witness metadata triggers a fresh reading at the next call. This requires edits to alter the captured identity or timestamps; reproducing the entire metadata signature falls outside that proof. `options.env` requests a fresh reading under the supplied environment. An unreadable listed file throws, as it would during a build.
 

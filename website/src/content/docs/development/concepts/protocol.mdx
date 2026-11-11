@@ -64,7 +64,7 @@ Direct evaluator output is held until the retry decision: retained-attempt diagn
 
 A launch failure, signal, non-zero exit, missing result, or invalid JSON stops setup with a cause-specific error; move long-running work into the native plugin command instead. A `.ts` descriptor whose isolated runtime reports a supported loader incompatibility is retried through `ttsx`, but user exceptions from module initialization or the factory are not retried.
 
-A direct evaluation that printed nothing and proved every module and candidate it read is kept in the plugin cache root when the descriptor returns `hostInputHashes`, and a later launch reuses its answer while the descriptor, the factory context, the evaluator working directory, the complete environment, the runtime executable, and the ttsc version match and each proven input is still in the state it was read in.
+A direct evaluation that printed nothing and proved every module and candidate it read is kept in the plugin cache root when the descriptor returns `hostInputHashes`, and a later launch reuses its answer while the descriptor, the factory context, the evaluator working directory, the environment except ttsc's own per-run channels and reporting switches, the runtime executable, and the ttsc version match and each proven input is still in the state it was read in.
 
 Returning `hostInputHashes` declares every file the factory read outside its module graph, each with its fingerprint, and `{}` declares that it read none. A descriptor that returns no `hostInputHashes`, or lists a `hostInputs` entry without a fingerprint, is evaluated again by every launch: `ttsc` cannot observe a plain `fs` read on every Node release it supports, so nothing else can prove such an answer later.
 
