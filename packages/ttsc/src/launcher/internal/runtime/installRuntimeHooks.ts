@@ -201,9 +201,6 @@ function resolveCommonJsRequest(
   }
 }
 
-/** Resolutions this process made, by request; see `resolve`. */
-const resolutions = new Map<string, ResolveResult>();
-
 /** Source/JS extensions probed when an extensionless relative import fails. */
 const RESOLVABLE_EXTENSIONS = [
   ".ts",
@@ -332,40 +329,23 @@ function resolve(
   let selected: string | undefined;
   try {
     let result: ResolveResult;
-    // A request is resolved once per process, as Node's own loaders keep their
-    // resolutions: the export-name scan of a CommonJS barrel and the load that
-    // follows it asked the same questions twice, each through the failing
-    // native lookup of a source-only file (samchon/ttsc#1852). A descriptor
-    // evaluation records every candidate it consults, so it always resolves.
-    const key =
-      process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE === "1"
-        ? undefined
-        : JSON.stringify([
-            specifier,
-            context.parentURL ?? null,
-            [...(context.conditions ?? [])],
-            context.importAttributes?.type ?? null,
-          ]);
-    const known = key === undefined ? undefined : resolutions.get(key);
-    if (known !== undefined)
-      result = rememberRuntimeEntry({ ...known }, context);
-    else {
-      let resolved: ResolveResult;
-      try {
-        resolved = restoreStrippedNodeBuiltinScheme(
+    try {
+      result = rememberRuntimeEntry(
+        restoreStrippedNodeBuiltinScheme(
           specifier,
           nextResolve(specifier, context),
-        );
-      } catch (error) {
-        const rescued = probeRescuableSpecifier(specifier, context.parentURL);
-        if (rescued === null) {
-          throw error;
-        }
-        resolved = { shortCircuit: true, url: rescued };
+        ),
+        context,
+      );
+    } catch (error) {
+      const rescued = probeRescuableSpecifier(specifier, context.parentURL);
+      if (rescued === null) {
+        throw error;
       }
-      if (key !== undefined)
-        resolutions.set(key, { ...resolved, shortCircuit: true });
-      result = rememberRuntimeEntry(resolved, context);
+      result = rememberRuntimeEntry(
+        { shortCircuit: true, url: rescued },
+        context,
+      );
     }
     selected = result.url;
     recordPluginDescriptorResolution(specifier, context.parentURL, result.url);
@@ -867,7 +847,8 @@ const commonJsNameScanSources = new Map<string, string | null>();
 
 /**
  * Project outputs an export-name scan served, until the module's own load takes
- * them over. Each entry is released by that load.
+ * them over. That load releases its entry; an output whose module never loads,
+ * behind a re-export the program never reaches, stays until the process exits.
  */
 const scannedProjectSources = new Map<string, ServedSource>();
 
