@@ -1,4 +1,4 @@
-import { parse } from "acorn";
+import { parse, tokTypes, tokenizer } from "acorn";
 import NativeModule, { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -133,26 +133,16 @@ export namespace CommonJsRuntimeSource {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Node's evaluation owner calls this operation once for each loaded body; this function retains no mutable-source cache.
    * @evidence contracts/performance.md#bound-retention-and-release-resources AST, comments and map data end with this call, scaling with source and map bytes; the returned body belongs to the loader. The installation owns one process-lifetime factory slot per helper location, replaced by configure without retaining body history.
    */
-  export function prepare(source: string, filename: string): string {
-    const comments: Array<{ end: number; start: number; text: string }> = [];
-    const program = parse(source, {
-      ecmaVersion: "latest",
-      sourceType: "commonjs",
-      onComment: (_block, text, start, end) =>
-        comments.push({ end, start, text }),
-    });
-    if (
-      program.body.some(
-        (node) =>
-          node.type === "FunctionDeclaration" && node.id?.name === "require",
-      )
-    )
-      return source;
-    let strict = false;
-    for (const node of program.body) {
-      if (node.type !== "ExpressionStatement" || !("directive" in node)) break;
-      if (node.directive === "use strict") strict = true;
-    }
+  export function prepare(
+    source: string,
+    filename: string,
+    compilerEmitted = false,
+  ): string {
+    const facts =
+      (compilerEmitted ? emittedFacts(source) : undefined) ??
+      parsedFacts(source);
+    if (facts.userRequire) return source;
+    const { strict, comments } = facts;
     const firstBreak = /\r\n|[\r\n\u2028\u2029]/.exec(source);
     if (source.startsWith("#!") && firstBreak === null) return source;
     const offset = source.startsWith("#!")
@@ -204,6 +194,93 @@ export namespace CommonJsRuntimeSource {
       Buffer.from(JSON.stringify(map)).toString("base64")
     );
   }
+}
+
+/** What the bootstrap insertion needs to know about one module's text. */
+interface IModuleFacts {
+  /** The module declares its own top-level `require` function. */
+  userRequire: boolean;
+
+  /** Its directive prologue contains `use strict`. */
+  strict: boolean;
+
+  /** Comments, of which only the last one is consulted. */
+  comments: Array<{ end: number; start: number; text: string }>;
+}
+
+/** Facts from a complete CommonJS parse; exact for any JavaScript. */
+function parsedFacts(source: string): IModuleFacts {
+  const comments: Array<{ end: number; start: number; text: string }> = [];
+  const program = parse(source, {
+    ecmaVersion: "latest",
+    sourceType: "commonjs",
+    onComment: (_block, text, start, end) =>
+      comments.push({ end, start, text }),
+  });
+  let strict = false;
+  for (const node of program.body) {
+    if (node.type !== "ExpressionStatement" || !("directive" in node)) break;
+    if (node.directive === "use strict") strict = true;
+  }
+  return {
+    userRequire: program.body.some(
+      (node) =>
+        node.type === "FunctionDeclaration" && node.id?.name === "require",
+    ),
+    strict,
+    comments,
+  };
+}
+
+/**
+ * The same facts for a runtime emit without parsing the whole module, which
+ * every served module paid on every run (samchon/ttsc#1852); undefined when the
+ * text is not in the compiler printer's form these facts rely on.
+ *
+ * The printer puts every top-level statement at the start of a line, so a
+ * module that declares `function require` has that text at a line start; a
+ * match anywhere, even inside a template literal, takes the exact parse. The
+ * prologue is read token by token until its first non-directive statement, and
+ * the last line of a runtime emit is the source-map directive the compiler
+ * wrote, inlined by the serving lane.
+ */
+function emittedFacts(source: string): IModuleFacts | undefined {
+  if (/^(?:async[ \t]+)?function[ \t]*\*?[ \t]*require[ \t]*\(/m.test(source))
+    return undefined;
+  let strict = false;
+  try {
+    const lexer = tokenizer(source, { ecmaVersion: "latest" });
+    for (;;) {
+      const literal = lexer.getToken();
+      if (literal.type !== tokTypes.string) break;
+      const end = lexer.getToken();
+      // `\"a\" + b` and an ASI-terminated literal are not plain directives
+      // the printer writes; the exact parse decides them.
+      if (end.type !== tokTypes.semi) return undefined;
+      // A directive is its raw text: an escaped `"use\x20strict`" is not one.
+      const raw = source.slice(literal.start + 1, literal.end - 1);
+      if (raw === "use strict") strict = true;
+    }
+  } catch {
+    return undefined;
+  }
+  const directive = /\/\/([#@] sourceMappingURL=[^\r\n]*)[ \t\r\n]*$/.exec(
+    source,
+  );
+  return {
+    userRequire: false,
+    strict,
+    comments:
+      directive === null
+        ? []
+        : [
+            {
+              start: directive.index,
+              end: directive.index + 2 + directive[1]!.length,
+              text: directive[1]!,
+            },
+          ],
+  };
 }
 
 type Resolver = (

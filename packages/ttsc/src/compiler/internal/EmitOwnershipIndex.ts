@@ -82,7 +82,7 @@ export class EmitOwnershipIndex {
     this.emitDir = outputIdentity.resolve(path.resolve(props.emitDir)).path;
     this.bundle =
       props.bundledOutputs === true
-        ? RuntimeEmitBundle.open(this.emitDir)
+        ? RuntimeEmitBundle.shared(this.emitDir)
         : undefined;
     if (props.bundledOutputs === true && this.bundle === undefined)
       throw new Error("ttsc: admitted runtime output bundle is missing");
@@ -209,7 +209,7 @@ export class EmitOwnershipIndex {
    */
   public static listOutputs(emitDir: string, bundledOutputs = false): string[] {
     if (bundledOutputs) {
-      const bundle = RuntimeEmitBundle.open(emitDir);
+      const bundle = RuntimeEmitBundle.shared(emitDir);
       if (bundle === undefined)
         throw new Error("ttsc: admitted runtime output bundle is missing");
       return bundle.outputs();

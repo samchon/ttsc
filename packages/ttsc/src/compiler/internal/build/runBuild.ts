@@ -79,6 +79,9 @@ export namespace runBuild {
         ? RuntimeBuildInputs.create(prepared.buildOptions, execution)
         : undefined;
     const build = () => {
+      // A producer that reports no input observations is observed just before
+      // it runs, so the replay after it can prove nothing moved in between.
+      proof?.begin?.();
       const fresh = BuildExecution.runPreparedBuild(
         options,
         timing,

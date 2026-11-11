@@ -208,6 +208,10 @@ export namespace RuntimeBuildCache {
         if (!names.has(path.relative(entry.emitDir, output)))
           throw new Error("missing runtime cache provenance output");
       operation = "output-restoration";
+      // Stamped before restoring: a restored bundle can be a link to the same
+      // file, whose stamps then stay as its validation saw them.
+      recordCacheFileUse(file);
+      recordCacheFileUse(bodies);
       const bundleFile = path.join(props.emitDir, RuntimeEmitBundle.filename);
       const bundled =
         props.bundle === true &&
@@ -219,7 +223,7 @@ export namespace RuntimeBuildCache {
         // every copied body against the index, so a damaged document is a miss
         // here rather than an error in whoever reads the artifact next.
         restored.push(bundleFile);
-        if (RuntimeEmitBundle.open(props.emitDir) === undefined)
+        if (RuntimeEmitBundle.shared(props.emitDir) === undefined)
           throw new Error("restored runtime bundle is missing");
       } else RuntimeEmitBundle.extract(bodies, props.emitDir, restored);
       // The document's bytes are immutable and checksummed, and the proof
@@ -227,8 +231,6 @@ export namespace RuntimeBuildCache {
       // could only move that instant: the run would be as old as its sources
       // either way, at twice the proof's cost (samchon/ttsc#1852). Publication
       // below still brackets the build.
-      recordCacheFileUse(file);
-      recordCacheFileUse(bodies);
       report(
         "reused",
         undefined,

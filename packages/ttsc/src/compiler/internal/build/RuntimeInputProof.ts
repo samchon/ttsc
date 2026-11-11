@@ -285,13 +285,35 @@ export namespace RuntimeInputProof {
     file: string,
     recorded: { directories: string[]; files: string[] },
   ): boolean {
+    const current = listEntries(file) ?? { directories: [], files: [] };
+    return JSON.stringify(current) === JSON.stringify(recorded);
+  }
+
+  /**
+   * A directory's entries as the compiler's enumeration sees them: names of
+   * subdirectories and files, links classified by their targets, inaccessible
+   * targets omitted, each list sorted by UTF-8 bytes. Undefined when the
+   * directory cannot be listed.
+   *
+   * @evidence contracts/common.md#principled-implementation The view follows links and omits unclassifiable entries as the compiler's own enumeration does, so a recorded and a current listing compare the same thing.
+   * @evidence contracts/common.md#clear-and-simple-design One projection serves recording and replay.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A listing failure is reported, not turned into an empty directory, so a recorder can record absence instead.
+   * @evidence contracts/common.md#meaningful-documentation The prose states classification, omission, order and the failure result.
+   * @evidence contracts/portability.md#os-neutral-implementation Native readdir and following stat classify entries; names are compared as returned, ordered by UTF-8 bytes.
+   * @evidence contracts/performance.md#efficient-algorithms One readdir, one stat per link and an O(n log n) sort of the names.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A fresh observation.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The returned lists belong to the caller; no handle is retained.
+   */
+  export function listEntries(
+    file: string,
+  ): { directories: string[]; files: string[] } | undefined {
     const directories: string[] = [];
     const files: string[] = [];
-    let entries: fs.Dirent[] = [];
+    let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(file, { withFileTypes: true });
     } catch {
-      /* Compiler enumeration returns an empty view. */
+      return undefined;
     }
     for (const entry of entries) {
       try {
@@ -306,12 +328,10 @@ export namespace RuntimeInputProof {
     }
     const compare = (a: string, b: string): number =>
       Buffer.compare(Buffer.from(a), Buffer.from(b));
-    return (
-      JSON.stringify({
-        directories: directories.sort(compare),
-        files: files.sort(compare),
-      }) === JSON.stringify(recorded)
-    );
+    return {
+      directories: directories.sort(compare),
+      files: files.sort(compare),
+    };
   }
   /** Compare one compiler query record with the corresponding current queries. */
   function observationHolds(

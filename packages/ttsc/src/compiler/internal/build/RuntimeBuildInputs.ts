@@ -6,6 +6,7 @@ import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
 import { pluginSourceStateHolds } from "../../../plugin/internal/source/pluginSourceStateHolds";
+import type { ITtscCompilerTransformation } from "../../../structures/ITtscCompilerTransformation";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import { CompilerArgumentsInspection } from "../CompilerArgumentsInspection";
 import { readJsoncFile } from "../project/readJsoncFile";
@@ -13,6 +14,7 @@ import { resolveTsgo } from "../resolveTsgo";
 import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
 import { spawnNative } from "../spawnNative";
 import type { BuildExecution } from "./BuildExecution";
+import { CompilerTraceObservations } from "./CompilerTraceObservations";
 import { PassthroughFlags } from "./PassthroughFlags";
 import type { RunBuildOptions } from "./RunBuildOptions";
 import { RuntimeBuildExplanation } from "./RuntimeBuildExplanation";
@@ -69,6 +71,7 @@ export namespace RuntimeBuildInputs {
         admit: (result: TtscBuildResult, emitDir: string) => boolean;
         record: (result: TtscBuildResult) => TtscBuildResult;
         identity?: () => string | undefined;
+        begin?: () => void;
         replay?: (
           result: TtscBuildResult,
           emitDir: string,
@@ -252,16 +255,18 @@ export namespace RuntimeBuildInputs {
       arg === emitDir || arg.startsWith(emitDir + path.sep)
         ? "<private-output>" + arg.slice(emitDir.length)
         : arg;
-    // With native plugins the emitting producer is one of ttsc's own hosts,
-    // which reports every filesystem question its compiler asked. A stored
-    // result is then proven by replaying those answers, so finding and proving
-    // it runs no compiler and reads no unchanged file (samchon/ttsc#1852).
-    // Without plugins the unmodified upstream compiler runs directly and
-    // reports no observations, so that lane keeps the snapshot proof, which
-    // asks it for its source selection.
+    // A stored result is proven by replaying the filesystem questions its
+    // compiler asked, so finding and proving it runs no compiler and reads no
+    // unchanged file, with plugins or without (samchon/ttsc#1852). With native
+    // plugins the emitting producer is one of ttsc's own hosts, which reports
+    // those questions itself. Without plugins the user's tsc compiles, and the
+    // same questions come from one query of that tsc made just before the build
+    // (CompilerTraceObservations); the replay after the build brackets it.
     let replaying = false;
+    let traced:
+      | Record<string, ITtscCompilerTransformation.IInputObservation>
+      | undefined;
     const replayed =
-      execution.nativePlugins.length !== 0 &&
       options.forceEmitProvenance === true
         ? {
             identity: (): string | undefined => {
@@ -269,12 +274,11 @@ export namespace RuntimeBuildInputs {
               try {
                 if (process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1")
                   return refuse("descriptor-bootstrap");
-                const node = resolveNodeBinary(
-                  env,
-                  execution.projectRoot,
-                  identities,
-                );
-                if (node === undefined)
+                const node =
+                  execution.nativePlugins.length === 0
+                    ? undefined
+                    : resolveNodeBinary(env, execution.projectRoot, identities);
+                if (execution.nativePlugins.length !== 0 && node === undefined)
                   return refuse("node-executable-proof-unavailable");
                 // Plugin bytes are deterministic inputs of the pipeline, so a
                 // harmless stamp or link change keeps their identity; compiler
@@ -283,7 +287,7 @@ export namespace RuntimeBuildInputs {
                   ...new Set([
                     execution.tsgo.binary,
                     ...execution.nativePlugins.map((plugin) => plugin.binary),
-                    node,
+                    ...(node === undefined ? [] : [node]),
                   ]),
                 ].map((binary) =>
                   runtimeExecutableIdentity(
@@ -350,6 +354,45 @@ export namespace RuntimeBuildInputs {
                 return refuse("input-snapshot-failed");
               }
             },
+            begin: (): void => {
+              traced = undefined;
+              if (execution.nativePlugins.length !== 0) return;
+              const contents = RuntimeInputContents.open(
+                execution.tsconfig,
+                identities,
+                RuntimeInputProof.textCodec,
+              );
+              try {
+                const result = spawnNative(
+                  execution.tsgo.binary,
+                  [
+                    ...args,
+                    "--listFilesOnly",
+                    "true",
+                    "--listEmittedFiles",
+                    "false",
+                    "--traceResolution",
+                    "true",
+                  ],
+                  { cwd: execution.compilerSelection.compilerArgsCwd, env },
+                );
+                if (
+                  result.error === undefined &&
+                  result.status === 0 &&
+                  result.signal === null
+                )
+                  traced = CompilerTraceObservations.observe({
+                    output: String(result.stdout),
+                    configPaths: execution.project.configPaths,
+                    configInputs: execution.project.configInputs ?? [],
+                    contents,
+                  });
+              } catch {
+                traced = undefined;
+              } finally {
+                contents.close();
+              }
+            },
             replay: (
               result: TtscBuildResult,
               produced: string,
@@ -374,7 +417,14 @@ export namespace RuntimeBuildInputs {
         : {};
     return {
       ...replayed,
-      record: (result) => {
+      record: (fresh) => {
+        // The plugin-free producer reports nothing itself; the query taken
+        // just before it stands for its reads once the replay after it holds.
+        const result =
+          traced === undefined || fresh.compilerObservations !== undefined
+            ? fresh
+            : { ...fresh, compilerObservations: traced };
+        traced = undefined;
         if (loaded === undefined) return result;
         // Evaluation-time reads differ between a cold typed configuration and
         // its validated cached answer. Preserve their original proof with the

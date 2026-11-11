@@ -897,7 +897,12 @@ function load(
       return {
         format,
         shortCircuit: true,
-        source: CommonJsRuntimeSource.prepare(served.source, filename),
+        source: CommonJsRuntimeSource.prepare(
+          served.source,
+          filename,
+          // Owned emits are compiler-printed; an orphan can be stripped text.
+          served.emittedFile !== undefined,
+        ),
       };
     }
     return {
@@ -947,7 +952,12 @@ function load(
     shortCircuit: true,
     source:
       format === "commonjs"
-        ? CommonJsRuntimeSource.prepare(served.source, filename)
+        ? CommonJsRuntimeSource.prepare(
+            served.source,
+            filename,
+            // Owned emits are compiler-printed; an orphan can be stripped text.
+            served.emittedFile !== undefined,
+          )
         : served.source,
   };
 }
@@ -1300,11 +1310,14 @@ function resolveServedSource(
  * caching.
  */
 function withInlineSourceMap(served: ServedSource): ServedSource {
+  // Every runtime emit lane forces a compiler source map, so the last line of
+  // each served output is the compiler's own directive.
   const source = inlineServedSourceMap(
     served.source,
     served.emittedFile,
     served.sourceFile,
     served.readOutput,
+    true,
   );
   return source === served.source ? served : { ...served, source };
 }
@@ -2470,10 +2483,20 @@ class EmptyProjectEmitError extends Error {}
  * project that does. `null` when no config owns the file at all.
  */
 function owningTsconfig(real: string): string | null {
-  const nearest = RuntimeProjectOwnership.nearestTsconfig(
-    real,
-    recordPluginDescriptorProjectInputs,
-  );
+  // The nearest config of a directory is looked up once per process, the
+  // lifetime of the project build it selects; every module of a directory
+  // asked again and stat-ed each candidate (samchon/ttsc#1852). A descriptor
+  // evaluation records those candidates as its inputs, so it keeps asking.
+  const directory = path.dirname(real);
+  const recording = process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE === "1";
+  let nearest = recording ? undefined : nearestConfigs.get(directory);
+  if (nearest === undefined) {
+    nearest = RuntimeProjectOwnership.nearestTsconfig(
+      real,
+      recordPluginDescriptorProjectInputs,
+    );
+    if (!recording) nearestConfigs.set(directory, nearest);
+  }
   if (nearest === null) return null;
   // The project this selects is built once per process (`ensureProjectBuilt`),
   // so the reference roots that select it are kept for the process as well;
@@ -2494,6 +2517,9 @@ function owningTsconfig(real: string): string | null {
  * they had; an unchanged one owns its files without being parsed per module.
  */
 const unreferencedConfigs = new Map<string, string>();
+
+/** The nearest config of each directory a served module lived in. */
+const nearestConfigs = new Map<string, string | null>();
 
 /** Reference roots `owningTsconfig` expanded in this process, by config. */
 const ownerExpansions = new Map<

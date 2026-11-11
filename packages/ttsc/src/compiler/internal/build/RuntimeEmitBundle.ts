@@ -180,19 +180,20 @@ export class RuntimeEmitBundle {
   }
 
   /**
-   * Make a persistent document a run's own artifact by copying it into `root`.
+   * Make a persistent document a run's own artifact in `root`: a hard link to
+   * the immutable document, or a copy where links are refused.
    * Returns false, leaving nothing behind, when an output coordinate aliases
    * the artifact's name there; the caller then restores ordinary files.
    *
    * @param file A document {@link inspect} reported as bundleable.
    * @param root The run's empty private output directory.
    * @param names The document's output coordinates, from {@link inspect}.
-   * @evidence contracts/common.md#principled-implementation The copy is byte-identical, so the run artifact carries the document's index and hashes; native identity of the created file against each first output component detects a name collision before any reader trusts the layout.
+   * @evidence contracts/common.md#principled-implementation The link names the document's immutable bytes and a copy is byte-identical, so the run artifact carries the document's index and hashes; native identity of the created file against each first output component detects a name collision before any reader trusts the layout.
    * @evidence contracts/common.md#clear-and-simple-design Placement rules are shared with write; only the byte source differs.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts An existing artifact is never replaced, and refusal removes the copy.
    * @evidence contracts/common.md#meaningful-documentation The prose states the copy, the refusal and the caller's fallback.
    * @evidence contracts/portability.md#os-neutral-implementation Exclusive native copy and lstat identity carry the host's alias rules; no case policy is assumed.
-   * @evidence contracts/performance.md#efficient-algorithms One native file copy of B bytes and one directory creation per distinct output parent; no body is decoded or hashed here.
+   * @evidence contracts/performance.md#efficient-algorithms One native link, or a copy of B bytes where links are refused, and one directory creation per distinct output parent; no body is decoded or hashed here.
    * @evidence contracts/performance.md#reuse-equivalent-work The run owns its copy, so collection of the document cannot remove an executing emit.
    * @evidence contracts/performance.md#bound-retention-and-release-resources No descriptor outlives the call; a refused copy is unlinked.
    */
@@ -322,7 +323,15 @@ export class RuntimeEmitBundle {
   ): boolean {
     const file = path.join(root, this.filename);
     if (source !== undefined)
-      fs.copyFileSync(source, file, fs.constants.COPYFILE_EXCL);
+      try {
+        // A published document is immutable: it is replaced by renaming a new
+        // file over its name, never rewritten. A link therefore gives the run
+        // its own name for the same bytes without copying them, and removing
+        // or replacing the document leaves the run's bytes in place.
+        fs.linkSync(source, file);
+      } catch {
+        fs.copyFileSync(source, file, fs.constants.COPYFILE_EXCL);
+      }
     const fd = fs.openSync(file, source === undefined ? "wx" : "r");
     let completed = false;
     try {
@@ -437,9 +446,9 @@ export class RuntimeEmitBundle {
    */
   public static open(root: string): RuntimeEmitBundle | undefined {
     const file = path.join(root, this.filename);
-    let stat: fs.Stats;
+    let stat: fs.BigIntStats;
     try {
-      stat = fs.lstatSync(file);
+      stat = fs.lstatSync(file, { bigint: true });
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
       throw error;
@@ -447,13 +456,14 @@ export class RuntimeEmitBundle {
     if (
       !stat.isFile() ||
       stat.isSymbolicLink() ||
-      stat.size < 12 ||
-      stat.size > this.maxBytes
+      stat.size < 12n ||
+      stat.size > BigInt(this.maxBytes)
     )
       throw new Error("invalid runtime output bundle file");
+    const size = Number(stat.size);
     const fd = fs.openSync(file, "r");
     try {
-      const { rows, start } = this.readIndex(fd, stat.size);
+      const { rows, start } = this.readIndex(fd, size);
       const buffer = Buffer.alloc(64 * 1024);
       for (const [, offset, size, expected] of rows) {
         const hash = crypto.createHash("sha256");
@@ -466,10 +476,62 @@ export class RuntimeEmitBundle {
         if (hash.digest("hex") !== expected)
           throw new Error("invalid runtime output bundle body");
       }
-      return new RuntimeEmitBundle(root, rows, start, stat.size);
+      const bundle = new RuntimeEmitBundle(root, rows, start, size);
+      this.validated.set(path.resolve(file), {
+        signature: this.signature(stat),
+        bundle,
+      });
+      return bundle;
     } finally {
       fs.closeSync(fd);
     }
+  }
+
+  /**
+   * {@link open} for the owners of one run, which ask about the same artifact
+   * several times: whether a generation emitted anything, its inventory, and
+   * its ownership index. The artifact is validated whole once per process and
+   * file state; later calls return that index while the file keeps its
+   * identity, size and stamps. Every read still verifies the hash of the range
+   * it returns, so a body changed afterwards is never served
+   * (samchon/ttsc#1852).
+   *
+   * @evidence contracts/common.md#principled-implementation The first call is a complete validation; reuse requires the same native identity, size and both stamps, and each read independently re-verifies its range hash and the file size.
+   * @evidence contracts/common.md#clear-and-simple-design One memo serves the run's repeated queries; direct callers that must observe current validation keep using open.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Absence and invalid storage behave as in open; the memo never answers for a file whose metadata moved.
+   * @evidence contracts/common.md#meaningful-documentation The prose states who calls it, the reuse condition and why serving stays safe.
+   * @evidence contracts/portability.md#os-neutral-implementation Native bigint lstat supplies device, inode, size and nanosecond stamps.
+   * @evidence contracts/performance.md#efficient-algorithms A repeated call costs one lstat instead of hashing every body.
+   * @evidence contracts/performance.md#reuse-equivalent-work Callers in one process share one validated index per unchanged artifact.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The memo keeps one index per artifact opened in the process, without eviction; run artifacts are few per process.
+   */
+  public static shared(root: string): RuntimeEmitBundle | undefined {
+    const file = path.join(root, this.filename);
+    const known = this.validated.get(path.resolve(file));
+    if (known !== undefined)
+      try {
+        if (
+          this.signature(fs.lstatSync(file, { bigint: true })) ===
+          known.signature
+        )
+          return known.bundle;
+      } catch {
+        /* open reports absence and failure itself. */
+      }
+    return this.open(root);
+  }
+
+  /** Artifacts this process validated whole, by path, with their metadata. */
+  private static readonly validated = new Map<
+    string,
+    { signature: string; bundle: RuntimeEmitBundle }
+  >();
+
+  /** Identity, size and both stamps of an artifact. */
+  private static signature(stat: fs.BigIntStats): string {
+    return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(
+      ":",
+    );
   }
 
   /**
