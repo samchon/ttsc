@@ -77,7 +77,9 @@ export function test_runtimebuildenvironment_keys_only_what_a_build_reads(): voi
       project({ FORCE_COLOR: "1", WT_SESSION: "another-tab" }),
     );
   } catch (cause) {
-    failures.push(new Error("terminal capability under forced color", { cause }));
+    failures.push(
+      new Error("terminal capability under forced color", { cause }),
+    );
   }
   if (failures.length)
     throw new AggregateError(failures, "runtime build environment projection");

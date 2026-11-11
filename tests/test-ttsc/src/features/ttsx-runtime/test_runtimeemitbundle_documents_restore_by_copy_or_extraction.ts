@@ -15,8 +15,8 @@ import { RuntimeEmitBundle } from "../../../../../packages/ttsc/src/compiler/int
  *
  * 1. Archive outputs with an owner annex and inspect the document.
  * 2. Restore it by copy and read through the run bundle; extract it as files.
- * 3. Refuse what cannot be trusted: a bare artifact, a damaged body, an
- *    occupied destination, and a map reference needing file lookup.
+ * 3. Refuse what cannot be trusted: a bare artifact, a damaged body, an occupied
+ *    destination, and a map reference needing file lookup.
  *
  * @evidence contracts/testing.md#behavioral-verification The production archive, inspection, copy restore and extraction run over real files; restored bytes are read back through the run bundle and from disk, and a released descriptor lets the run directory be removed.
  * @evidence contracts/testing.md#independent-expectations Authored output texts, a non-UTF-8 byte sequence and the authored annex are the expected bytes; document size is compared with their summed lengths, which a text encoding would exceed.

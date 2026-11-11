@@ -238,11 +238,13 @@ export namespace RuntimeBuildInputs {
     // Without plugins the unmodified upstream compiler runs directly and
     // reports no observations, so that lane keeps the snapshot proof, which
     // asks it for its source selection.
+    let replaying = false;
     const replayed =
       execution.nativePlugins.length !== 0 &&
       options.forceEmitProvenance === true
         ? {
             identity: (): string | undefined => {
+              replaying = false;
               try {
                 if (process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1")
                   return refuse("descriptor-bootstrap");
@@ -298,7 +300,8 @@ export namespace RuntimeBuildInputs {
                 const responses: [string, string][] = [];
                 for (const [file, before] of inspected.observations) {
                   if (
-                    CompilerArgumentsInspection.observeInputFile(file) !== before
+                    CompilerArgumentsInspection.observeInputFile(file) !==
+                    before
                   )
                     return refuse("compiler-argument-input-changed");
                   responses.push([file, (JSON.parse(before) as string[])[2]!]);
@@ -306,6 +309,7 @@ export namespace RuntimeBuildInputs {
                 // Only private destination values are normalized. The relative
                 // layout remains in the identity because source maps are
                 // output-relative.
+                replaying = true;
                 return JSON.stringify({
                   format: 4,
                   version: identities.version,
@@ -321,6 +325,7 @@ export namespace RuntimeBuildInputs {
                   pluginSources: loaded?.pluginSources,
                 });
               } catch {
+                replaying = false;
                 return refuse("input-snapshot-failed");
               }
             },
@@ -461,21 +466,21 @@ export namespace RuntimeBuildInputs {
             chained
               ? false
               : !config ||
-            typeof config.compilerOptions !== "object" ||
-            config.compilerOptions === null ||
-            config.references?.length ||
-            config.compilerOptions.runExternalCode === true ||
-            [
-              "generateTrace",
-              "generateCpuProfile",
-              "pprofDir",
-              "diagnostics",
-              "extendedDiagnostics",
-              "traceResolution",
-              "explainFiles",
-              "listFiles",
-              "listEmittedFiles",
-              ].some((name) => config.compilerOptions[name])
+                typeof config.compilerOptions !== "object" ||
+                config.compilerOptions === null ||
+                config.references?.length ||
+                config.compilerOptions.runExternalCode === true ||
+                [
+                  "generateTrace",
+                  "generateCpuProfile",
+                  "pprofDir",
+                  "diagnostics",
+                  "extendedDiagnostics",
+                  "traceResolution",
+                  "explainFiles",
+                  "listFiles",
+                  "listEmittedFiles",
+                ].some((name) => config.compilerOptions[name])
           )
             return refuse("unsupported-effective-configuration");
           const listed = query([
@@ -631,6 +636,9 @@ export namespace RuntimeBuildInputs {
           execution.projectRoot,
           emitDir,
           env,
+          // The replayed proof validates this population whole, but only a
+          // request that took its identity runs that replay.
+          replaying && result.compilerObservations !== undefined,
         );
         if (!accepted)
           RuntimeBuildExplanation.report({

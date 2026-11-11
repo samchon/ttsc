@@ -2,8 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { RuntimeEmitBundle } from "../../../compiler/internal/build/RuntimeEmitBundle";
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";

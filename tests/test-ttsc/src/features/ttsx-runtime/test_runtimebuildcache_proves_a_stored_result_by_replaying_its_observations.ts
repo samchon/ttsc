@@ -18,8 +18,8 @@ import type { TtscBuildResult } from "../../../../../packages/ttsc/src/structure
  * 1. Build under an identity and store the result with its observations.
  * 2. Reuse it while the replay holds; rebuild once it names a moved input, and
  *    reuse the replacement.
- * 3. Keep a result without observations, another identity, and a refused
- *    identity apart.
+ * 3. Keep a result without observations, another identity, and a refused identity
+ *    apart.
  *
  * @evidence contracts/testing.md#behavioral-verification The production store runs real producers and restores their bytes; counts of builds, snapshot captures and replays, with the restored text, show which proof decided each request.
  * @evidence contracts/testing.md#independent-expectations Authored state numbers decide what the replay answers and the producer writes, so the expected counts and texts follow from the scenario rather than from stored keys or documents.
@@ -85,7 +85,11 @@ export function test_runtimebuildcache_proves_a_stored_result_by_replaying_its_o
     assert.equal(execute({ identity: "build" }), "built from state 1");
     assert.deepEqual([builds, captures], [1, 0]);
     assert.equal(execute({ identity: "build" }), "built from state 1");
-    assert.deepEqual([builds, captures], [1, 0], "a replayed hit builds nothing");
+    assert.deepEqual(
+      [builds, captures],
+      [1, 0],
+      "a replayed hit builds nothing",
+    );
     assert.ok(replays > 0);
 
     // An input moved: the replay names it and the document is replaced.

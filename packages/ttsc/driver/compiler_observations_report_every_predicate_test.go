@@ -18,11 +18,11 @@ import (
 // directory a root pattern expanded, and the higher-priority candidate that was
 // absent when an import resolved (samchon/ttsc#1852).
 //
-// 1. Load a project whose root pattern expands a directory and whose import
-//    resolves past a missing candidate.
-// 2. Read the Program's complete observations after emit.
-// 3. Assert the read source's hash, the expanded directory's members, the
-//    missing candidate's absence and the population's completeness.
+//  1. Load a project whose root pattern expands a directory and whose import
+//     resolves past a missing candidate.
+//  2. Read the Program's complete observations after emit.
+//  3. Assert the read source's hash, the expanded directory's members, the
+//     missing candidate's absence and the population's completeness.
 //
 // @evidence contracts/testing.md#behavioral-verification An actual loaded and emitted Program reports its observer population; the assertions read the reported predicates for a source, a pattern-expanded directory and a resolution candidate that did not exist.
 // @evidence contracts/testing.md#independent-expectations The expected digest is crypto/sha256 of the authored source text, the expected members are the authored file names, and the candidate is known absent because the test never creates it.

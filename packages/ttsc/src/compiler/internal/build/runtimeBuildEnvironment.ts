@@ -8,8 +8,8 @@ import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
  * the script's own arguments (`npm_lifecycle_script`), a shell its session
  * (`WT_SESSION`, `_`), and CI its run number, so a key over every variable
  * changed with each invocation and no completed emit was found again
- * (samchon/ttsc#1852). Three consumers read variables, and each is keyed by what
- * it reads:
+ * (samchon/ttsc#1852). Three consumers read variables, and each is keyed by
+ * what it reads:
  *
  * - Ttsc and its first-party plugins read their own `TTSC_` and `TTSX_` names,
  *   which select the compiler, the plugin set, their configuration directory
@@ -22,10 +22,10 @@ import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
  *   and `NODE_PATH`.
  * - The upstream compiler reads variables only to decide how diagnostics are
  *   drawn (`internal/execute/tsc/diagnostics.go`): `NO_COLOR` and `FORCE_COLOR`
- *   select color for an output that is not a terminal, which a captured
- *   runtime build never is, and the terminal's capabilities are consulted only
- *   once color is on. The projection keeps those decisions, not the values, so
- *   a new terminal tab is not a new compile.
+ *   select color for an output that is not a terminal, which a captured runtime
+ *   build never is, and the terminal's capabilities are consulted only once
+ *   color is on. The projection keeps those decisions, not the values, so a new
+ *   terminal tab is not a new compile.
  *
  * A linked native plugin declares any other variable at its read site through
  * `PluginContext.Env`; the build records it and admission replays it against
@@ -48,8 +48,7 @@ export function runtimeBuildEnvironment(
   env: NodeJS.ProcessEnv,
 ): [string, string | boolean][] {
   const rows: [string, string | boolean][] = [];
-  const control =
-    process.platform === "win32" ? /^TTS[CX]_/i : /^TTS[CX]_/;
+  const control = process.platform === "win32" ? /^TTS[CX]_/i : /^TTS[CX]_/;
   const unkeyed =
     process.platform === "win32"
       ? /^(?:TTSX_RUNTIME_.*|TTSC_EXPLAIN_CACHE|TTSC_E2E_TRACE)$/i
@@ -67,7 +66,10 @@ export function runtimeBuildEnvironment(
   // terminal: no color unless forced, and capabilities only under color.
   if (read("NO_COLOR") === "" && read("FORCE_COLOR") !== "") {
     rows.push(["<color>", true]);
-    rows.push(["<color:windows>", read("OS").toLowerCase().includes("windows")]);
+    rows.push([
+      "<color:windows>",
+      read("OS").toLowerCase().includes("windows"),
+    ]);
     rows.push(["<color:windows-terminal>", read("WT_SESSION") !== ""]);
     rows.push(["<color:vscode>", read("TERM_PROGRAM") === "vscode"]);
     rows.push([

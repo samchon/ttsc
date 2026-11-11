@@ -132,8 +132,8 @@ export namespace RuntimeManifestRegistry {
   }
 
   /**
-   * Find the manifest whose checked build emitted `real`, the physical path
-   * the caller resolved for the module it is loading, and that emit.
+   * Find the manifest whose checked build emitted `real`, the physical path the
+   * caller resolved for the module it is loading, and that emit.
    *
    * A manifest's prepared root is matched first, by its recorded source, so a
    * root keeps precedence over other preparations. Every match, including that

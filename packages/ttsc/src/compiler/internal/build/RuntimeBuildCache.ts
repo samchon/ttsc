@@ -39,10 +39,10 @@ export namespace RuntimeBuildCache {
    * caching. With an identity and a replay, the snapshot is not captured: the
    * identity names the document and the replay proves the stored result, and
    * only a result carrying replayable observations is published under it.
-   * Admission must validate the producer's extra input observations;
-   * the second argument is the output root that producer actually used. Cache
-   * IO or cache-admission failure costs reuse only. Errors thrown by the
-   * original build retain their normal failure policy.
+   * Admission must validate the producer's extra input observations; the second
+   * argument is the output root that producer actually used. Cache IO or
+   * cache-admission failure costs reuse only. Errors thrown by the original
+   * build retain their normal failure policy.
    *
    * @evidence contracts/common.md#principled-implementation Lookup proves the stored result once, by an equal input snapshot or by replaying the observations it carries, and publication brackets its build with a second proof, preserving the actual producer result and require explicit extra-input admission; files or a run-owned checksummed bundle are established before the result is rebased.
    * @evidence contracts/common.md#clear-and-simple-design Snapshot, proof and build callbacks expose their independent responsibilities while the operation alone owns storage and restore cleanup.

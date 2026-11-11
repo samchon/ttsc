@@ -15,8 +15,8 @@ import { modulePhysicalPath } from "../../../../../packages/ttsc/src/launcher/in
  *
  * 1. Resolve modules through a real directory and through a directory link.
  * 2. Resolve a missing module, which keeps its spelling.
- * 3. Ask an ownership index with the resolved path, and with a link spelling
- *    that only a fresh resolution can match.
+ * 3. Ask an ownership index with the resolved path, and with a link spelling that
+ *    only a fresh resolution can match.
  *
  * @evidence contracts/testing.md#behavioral-verification The production resolver and ownership index run over a real tree with a native directory link; returned paths and owned outputs are compared directly.
  * @evidence contracts/testing.md#independent-expectations Node's native realpath of each authored file is the expected physical path, and the authored provenance fixes which output each source owns.

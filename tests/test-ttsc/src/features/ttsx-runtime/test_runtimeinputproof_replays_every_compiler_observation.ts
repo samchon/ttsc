@@ -52,7 +52,10 @@ export function test_runtimeinputproof_replays_every_compiler_observation(): voi
     > = {
       [source]: {
         directoryExists: true,
-        accessibleEntries: { directories: [], files: ["helper.tsx", "main.ts"] },
+        accessibleEntries: {
+          directories: [],
+          files: ["helper.tsx", "main.ts"],
+        },
         realpath: { ok: true, path: source },
       },
       [main]: {

@@ -191,7 +191,7 @@ export class EmitOwnershipIndex {
   }
 
   /**
-   * List JavaScript outputs before virtual-layout user files are added. The
+   * List the JavaScript outputs of a completed build's private directory. The
    * default enumerates physical files; an explicit bundled generation validates
    * its stored inventory. Paths are relative to emitDir with protocol slashes.
    * This list checks coverage but cannot establish source ownership.

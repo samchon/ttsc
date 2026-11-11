@@ -14,12 +14,12 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * without references owns its files by itself, so only an edit can change the
  * answer.
  *
- * 1. Look up a module through a config with no references: it owns the module
- *    and is kept with its metadata.
- * 2. Look it up again: the same answer, the config still reported to the
- *    caller's observer.
- * 3. Edit the config to reference the project that includes the module: the
- *    kept entry is dropped and the referenced project owns it.
+ * 1. Look up a module through a config with no references: it owns the module and
+ *    is kept with its metadata.
+ * 2. Look it up again: the same answer, the config still reported to the caller's
+ *    observer.
+ * 3. Edit the config to reference the project that includes the module: the kept
+ *    entry is dropped and the referenced project owns it.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual lookup runs over real config files and, once a reference exists, the installed compiler's root expansion; the selected config, the observer calls and the kept map are the observed behavior.
  * @evidence contracts/testing.md#independent-expectations The authored configs fix the owner: no reference means the nearest config, and a reference to the one project including the module means that project.

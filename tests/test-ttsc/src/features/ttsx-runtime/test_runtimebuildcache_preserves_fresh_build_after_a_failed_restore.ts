@@ -14,8 +14,8 @@ import type { TtscBuildResult } from "../../../../../packages/ttsc/src/structure
  * is withdrawn and the original producer supplies the run.
  *
  * 1. Publish a successful authored generation of two outputs.
- * 2. Occupy the second output's path in the next run, so restoring it fails
- *    after the first output was written.
+ * 2. Occupy the second output's path in the next run, so restoring it fails after
+ *    the first output was written.
  * 3. Require the original producer to run and return its actual output, with no
  *    restored file left beside it.
  *

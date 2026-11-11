@@ -1080,8 +1080,8 @@ function isDescriptorEvaluatorBootstrap(value: string): boolean {
 }
 
 /**
- * Whether `real`, a module's physical path, is the TypeScript main module
- * named on Node's argv. The entry's own physical path is resolved once per argv
+ * Whether `real`, a module's physical path, is the TypeScript main module named
+ * on Node's argv. The entry's own physical path is resolved once per argv
  * spelling: every module load asks this, and resolving both sides each time
  * cost two native resolutions per module (samchon/ttsc#1852).
  */
@@ -2092,11 +2092,11 @@ function rootIsChecked(real: string): boolean {
  *
  * WARNING (samchon/ttsc#1852): the answer is remembered by the config and the
  * plugin policy before anything else is computed. Every module a project owns
- * asks for this build, and deriving the cache address first proved the
- * compiler executable's identity (three metadata requests, a physical
- * resolution, a record read and a use-stamp write) once per served module, a
- * third of a warm start. A process serves one build of a project for its
- * whole life, so a compiler replaced mid-run belongs to the next process.
+ * asks for this build, and deriving the cache address first proved the compiler
+ * executable's identity (three metadata requests, a physical resolution, a
+ * record read and a use-stamp write) once per served module, a third of a warm
+ * start. A process serves one build of a project for its whole life, so a
+ * compiler replaced mid-run belongs to the next process.
  */
 function ensureProjectBuilt(
   tsconfig: string,

@@ -531,7 +531,7 @@ export class RuntimeEmitBundle {
    *
    * @evidence contracts/common.md#principled-implementation Exact native relative coordinates select one admitted range; current size and its content hash must still match before UTF-8 text is returned.
    * @evidence contracts/common.md#clear-and-simple-design The index owns lookup and bounded range reading together without retaining decoded bodies.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown or outside names return null and cannot adopt authored bytes through the virtual layout.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown or outside names return null and cannot adopt authored bytes from the filesystem.
    * @evidence contracts/common.md#meaningful-documentation The prose states exact membership and no filesystem fallback.
    * @evidence contracts/portability.md#os-neutral-implementation Shared coordinate resolution preserves native directory aliases and rejects distinct siblings; no filename case policy is guessed.
    * @evidence contracts/performance.md#efficient-algorithms One map lookup and optional parent realpath precede reading and hashing only the requested B bytes through the artifact's one retained descriptor.

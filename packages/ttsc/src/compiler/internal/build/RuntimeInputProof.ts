@@ -30,6 +30,12 @@ export namespace RuntimeInputProof {
    * recorded environment read must still have its value, or remain unset, in
    * `environment`, the environment the build would spawn its plugins under.
    *
+   * With `compilerReplayed`, the caller replays the result's complete compiler
+   * observations itself ({@link replay}). The graph's compiler predicates and
+   * its content projection are taken from that same population, so they are not
+   * replayed a second time, which would read every source again; native
+   * contributor predicates and host witnesses are still validated here.
+   *
    * @evidence contracts/common.md#principled-implementation Explicit incomplete observations and any graph failure reject reuse; host paths require both content and physical witnesses, recorded environment reads require their exact value or absence, and rich compiler predicates are replayed under their own codec.
    * @evidence contracts/common.md#clear-and-simple-design One admission pass delegates individual compiler observations and native codecs.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing witness fields never become an empty successful observation, a changed environment value is a changed input, and only the caller-owned private output subtree is excluded.
@@ -44,6 +50,7 @@ export namespace RuntimeInputProof {
     projectRoot: string,
     emitDir: string,
     environment: NodeJS.ProcessEnv,
+    compilerReplayed = false,
   ): boolean {
     if (
       result.observationsComplete === false ||
@@ -79,9 +86,24 @@ export namespace RuntimeInputProof {
             !relative.startsWith(".." + path.sep))
         )
           continue;
-        if (!observationHolds(file, observed)) return false;
+        // The graph's compiler predicates are a projection of the population
+        // the caller replays whole, so only a native contributor's own
+        // predicates, which that population never carries, are replayed here.
+        if (compilerReplayed && observed.nativePredicates === undefined)
+          continue;
+        if (
+          !observationHolds(
+            file,
+            compilerReplayed
+              ? { nativePredicates: observed.nativePredicates }
+              : observed,
+          )
+        )
+          return false;
       }
-      for (const [name, expected] of Object.entries(graph?.inputHashes ?? {})) {
+      for (const [name, expected] of Object.entries(
+        compilerReplayed ? {} : (graph?.inputHashes ?? {}),
+      )) {
         if (Object.hasOwn(graph?.inputObservations ?? {}, name)) continue;
         const file = path.resolve(projectRoot, name);
         if (physical(file) !== graph?.inputRealpaths?.[name]) return false;

@@ -44,7 +44,11 @@ export namespace RuntimeInputContents {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type grants no reuse.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type holds no resource.
    */
-  export type Row = [file: string, physical: string | null, hash: string | null];
+  export type Row = [
+    file: string,
+    physical: string | null,
+    hash: string | null,
+  ];
 
   /**
    * One capture's observations: each path is witnessed once, in any number of
@@ -105,9 +109,9 @@ export namespace RuntimeInputContents {
    *
    * @param subject Absolute config path naming the record.
    * @param store The run's opened identity store, if any.
-   * @param codec How a file's bytes become its hash, with a name that keeps
-   *   its record apart: raw bytes by default, or a consumer's own decoding,
-   *   such as the text a compiler read.
+   * @param codec How a file's bytes become its hash, with a name that keeps its
+   *   record apart: raw bytes by default, or a consumer's own decoding, such as
+   *   the text a compiler read.
    * @evidence contracts/common.md#principled-implementation A non-link entry's physical path is its directory's physical path plus its own name, so one resolution per directory states what a resolution per file stated; link entries keep their own resolution. A read is bracketed by equal metadata and physical observations, and a row is recorded only when both were separable.
    * @evidence contracts/common.md#clear-and-simple-design Record reading, per-path witnessing and publication are the session's three steps; the identity store keeps location, version and collection.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing, foreign or malformed records and rows mean a real read, never an empty or guessed hash; a non-missing native error never becomes absence.
@@ -161,7 +165,10 @@ export namespace RuntimeInputContents {
             stats: fs.statSync(file, { bigint: true }),
           };
         return {
-          physical: path.join(directory(path.dirname(file)), path.basename(file)),
+          physical: path.join(
+            directory(path.dirname(file)),
+            path.basename(file),
+          ),
           stats: entry,
         };
       } catch (error) {
@@ -187,7 +194,8 @@ export namespace RuntimeInputContents {
       const hash = codec.digest(fs.readFileSync(file));
       contentReads++;
       const after = stat(file);
-      const settled = after === null ? undefined : signature(after.stats, store);
+      const settled =
+        after === null ? undefined : signature(after.stats, store);
       if (
         after === null ||
         settled === undefined ||
