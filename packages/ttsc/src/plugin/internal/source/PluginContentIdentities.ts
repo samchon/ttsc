@@ -341,22 +341,82 @@ export namespace PluginContentIdentities {
     separateChangeTime = false,
   ): Observation | undefined {
     try {
-      const stats = fs.statSync(file, { bigint: true });
-      if (!stats.isFile()) return undefined;
-      return {
-        separable: separable(references, stats, separateChangeTime),
-        signature: [
-          stats.dev,
-          stats.ino,
-          stats.mode,
-          stats.size,
-          stats.mtimeNs,
-          stats.ctimeNs,
-        ].join(":"),
-      };
+      return statObservation(
+        references,
+        fs.statSync(file, { bigint: true }),
+        separateChangeTime,
+      );
     } catch {
       return undefined;
     }
+  }
+
+  /**
+   * The observation {@link fileObservation} makes, from metadata the caller
+   * already read; `undefined` when it does not describe a regular file.
+   *
+   * A caller that needs a file's metadata for another decision, such as whether
+   * the entry is a link, states the observation from that same reading instead
+   * of asking the filesystem twice.
+   *
+   * @param references The store's device references.
+   * @param stats Metadata of the file, following links.
+   * @param separateChangeTime Also require the change stamp to precede the
+   *   reference.
+   * @evidence contracts/common.md#principled-implementation The signature and separability are functions of one metadata reading, so a caller's reading and this observation cannot describe different states of the file.
+   * @evidence contracts/common.md#clear-and-simple-design fileObservation delegates here; the signature has one definition.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A non-regular entry yields no observation, so the content reader decides.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states why a caller supplies its own reading and the undefined meaning.
+   * @evidence contracts/portability.md#os-neutral-implementation Node bigint metadata supplies native identity and nanosecond stamps.
+   * @evidence contracts/performance.md#efficient-algorithms Fixed numeric formatting of one reading; no filesystem request.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A projection of supplied metadata.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Nothing is retained.
+   */
+  export function statObservation(
+    references: ReadonlyMap<bigint, bigint>,
+    stats: fs.BigIntStats,
+    separateChangeTime = false,
+  ): Observation | undefined {
+    if (!stats.isFile()) return undefined;
+    return {
+      separable: separable(references, stats, separateChangeTime),
+      signature: [
+        stats.dev,
+        stats.ino,
+        stats.mode,
+        stats.size,
+        stats.mtimeNs,
+        stats.ctimeNs,
+      ].join(":"),
+    };
+  }
+
+  /**
+   * Where a record of `kind` about `subject` lives in the store, for an owner
+   * that keeps its own record shape beside the digest records.
+   *
+   * The location carries the record format, the ttsc version, the family and
+   * the subject, so families and releases never read each other's files, and it
+   * lies in the collected identity directory with every other record.
+   *
+   * @param store The opened store.
+   * @param kind Record family; it must differ from every digest family.
+   * @param subject Absolute path the record describes.
+   * @evidence contracts/common.md#principled-implementation One keyed location per family and subject, shared with digest records, keeps every identity record under the same collection and cleaning policy.
+   * @evidence contracts/common.md#clear-and-simple-design The private locator is exposed unchanged rather than duplicated by a second owner.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The family name separates record shapes; no shape is guessed from a file's content.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states what the location encodes and who collects it.
+   * @evidence contracts/portability.md#os-neutral-implementation Native path joins under the store's physical root.
+   * @evidence contracts/performance.md#efficient-algorithms One hash of fixed framing text.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure function of its arguments.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Nothing is retained.
+   */
+  export function recordLocation(
+    store: Store,
+    kind: string,
+    subject: string,
+  ): string {
+    return recordFile(store, kind, subject);
   }
 
   /**

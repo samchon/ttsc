@@ -14,11 +14,12 @@ import { inlineServedSourceMap } from "../../../../../packages/ttsc/src/launcher
  *
  * 1. Publish a producer's exact JavaScript, source map and declaration bytes.
  * 2. Restore a bundled run and read its actual source-owned bytes and map.
- * 3. Delete persistent storage, corrupt a run artifact and refuse moving inputs.
+ * 3. Delete persistent storage, corrupt a run artifact and move inputs after a
+ *    lookup.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual cache and ownership index serve JS/source-map bytes from a bundled hit while per-output files are absent; persistent deletion cannot remove the run's data, corruption is rejected, and a changed restore snapshot invokes the fresh producer.
+ * @evidence contracts/testing.md#behavioral-verification The actual cache and ownership index serve JS/source-map bytes from a bundled hit while per-output files are absent; persistent deletion cannot remove the run's data, corruption is rejected, and inputs that move after a hit's one proof leave that hit served without a second producer call.
  * @evidence contracts/testing.md#independent-expectations Authored JS text, a literal map source, native source identity and explicit producer-call counts determine expectations independently of stored key or bundle representation.
- * @evidence contracts/testing.md#distinguishing-cases Cold physical emit, warm bundle, persistent collection, missing bundled output, corrupt run storage and inputs moving during restoration retain separate behavior; existing store units cover bypass, damaged persistent documents and failed publication.
+ * @evidence contracts/testing.md#distinguishing-cases Cold physical emit, warm bundle, persistent collection, missing bundled output, corrupt run storage and inputs moving after a lookup retain separate behavior; existing store units cover bypass, damaged persistent documents and failed publication.
  * @evidence contracts/testing.md#execution-ownership The test-ttsc runner discovers this source-unit function; portable files and maintained owners execute without a compiler or installed consumer.
  */
 export function test_runtimebuildcache_bundles_outputs_with_run_owned_bytes_and_maps(): void {
@@ -111,8 +112,12 @@ export function test_runtimebuildcache_bundles_outputs_with_run_owned_bytes_and_
     );
     run("cold-after-collection");
     assert.equal(builds, 2);
-    run("moving", true);
-    assert.equal(builds, 3);
+    // A hit proves its inputs once, when it is looked up. Restoring reads no
+    // input, so inputs that move afterwards belong to the next run's proof and
+    // do not turn this one into a second compile.
+    const moved = run("moving", true);
+    assert.equal(builds, 2);
+    assert.equal(moved.result.bundledOutputs, true);
     fs.writeFileSync(
       path.join(warm.emitDir, RuntimeEmitBundle.filename),
       "invalid bundle",

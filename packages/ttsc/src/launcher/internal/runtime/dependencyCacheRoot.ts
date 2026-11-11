@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
+import { RuntimeEmitBundle } from "../../../compiler/internal/build/RuntimeEmitBundle";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
@@ -102,6 +103,8 @@ function processPrivateRoot(): string {
   }
   process.once("exit", () => {
     try {
+      // The builds below were served through descriptors this process holds.
+      RuntimeEmitBundle.release();
       fs.rmSync(directory, { force: true, recursive: true });
     } catch {
       // Best effort: the next manifest-less process sweeps what remains.

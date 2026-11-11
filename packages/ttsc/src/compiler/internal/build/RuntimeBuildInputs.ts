@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -18,6 +17,7 @@ import { RuntimeBuildExplanation } from "./RuntimeBuildExplanation";
 import { RuntimeInputContents } from "./RuntimeInputContents";
 import { RuntimeInputProof } from "./RuntimeInputProof";
 import { TsgoArguments } from "./TsgoArguments";
+import { runtimeBuildEnvironment } from "./runtimeBuildEnvironment";
 
 /**
  * Prove runtime build inputs through the selected upstream compiler's read-only
@@ -36,7 +36,7 @@ import { TsgoArguments } from "./TsgoArguments";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Incomplete descriptors, unsupported effectful compiler modes and unproved native producers and custom compilers without package authority use the existing fresh build rather than weakening diagnostics or substituting a compiler.
  * @evidence contracts/common.md#meaningful-documentation Native prose describes compiler-owned membership, workspace scope and independent plugin observations.
  * @evidence contracts/portability.md#os-neutral-implementation The selected executable receives native argv and cwd; source and package scopes use native physical paths and preserve lexical spellings without OS-wide case folding.
- * @evidence contracts/performance.md#efficient-algorithms Each snapshot runs two native membership/configuration queries and observes selected source/package metadata. The aggregate content owner reuses hashes under separable unchanged witnesses or reads actual bytes; executable and declared host proofs retain their independent owners, and shared ancestor sets avoid repeated package-scope walks.
+ * @evidence contracts/performance.md#efficient-algorithms Each snapshot runs two native membership/configuration queries and observes selected source/package metadata. The content owner reuses each file's hash under its own separable unchanged witness and reads only the files that moved; executable and declared host proofs retain their independent owners, and shared ancestor sets avoid repeated package-scope walks.
  * @evidence contracts/performance.md#reuse-equivalent-work A completed emit may be reused only for equal selected input snapshots and currently valid native witnesses; unsupported proof falls back to compilation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Query buffers and path/hash records are call-local, with source/report bytes unbounded by this factory; the document store owns persistent byte limits and retention.
  */
@@ -54,8 +54,8 @@ export namespace RuntimeBuildInputs {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Native transforms without complete emit observations and arbitrary external-code or profiling modes decline reuse rather than inventing input completeness. Custom compiler overrides need matching installed package identity, including inherited dependency hints; the original build remains the fallback.
    * @evidence contracts/common.md#meaningful-documentation Native prose states current producer support and private-runtime scope, including why fresh transformation remains necessary.
    * @evidence contracts/portability.md#os-neutral-implementation Source and package observations use native paths and bracketed byte reads, and upstream probes use the original compiler working directory and argv without shell composition.
-   * @evidence contracts/performance.md#efficient-algorithms Capture performs two upstream queries, executable proofs and a selected-population metadata scan; unproved content adds actual byte hashing. Unique ancestor/path sets bound duplicate scope work, and admission replays recorded native inputs.
-   * @evidence contracts/performance.md#reuse-equivalent-work Equal deterministic snapshots retain compiler arguments, versions, content, scope manifests, resolved native plugins and environment. Descriptor reads are validated currently and captured with the fresh result for later admission, so discovery-cache temperature changes no execution key; graph and host witnesses separately gate reuse.
+   * @evidence contracts/performance.md#efficient-algorithms Capture performs two upstream queries, executable proofs and one metadata request per selected path with one physical resolution per directory; a file whose proof moved adds its own byte hashing. Unique ancestor/path sets bound duplicate scope work, and admission replays recorded native inputs.
+   * @evidence contracts/performance.md#reuse-equivalent-work Equal deterministic snapshots retain compiler arguments, versions, content, scope manifests, resolved native plugins and the environment variables their processes read (runtimeBuildEnvironment), never the whole environment. Descriptor reads are validated currently and captured with the fresh result for later admission, so discovery-cache temperature changes no execution key; graph and host witnesses separately gate reuse.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The resolved context and closures belong to one build; each capture releases local source and native-output buffers on return, with no resident process or historical map retained.
    */
   export function create(
@@ -329,14 +329,24 @@ export namespace RuntimeBuildInputs {
             )
           )
             return refuse("source-selection-unavailable");
+          // The selected sources are witnessed first: their physical
+          // directories name the package scopes whose manifests, present or
+          // absent, are inputs of the same compile.
+          const contents = RuntimeInputContents.open(
+            execution.tsconfig,
+            identities,
+          );
           const inputs = new Set([
             ...listed,
             ...execution.project.configPaths,
             ...inspected.observations.keys(),
           ]);
           const scopes = new Set<string>();
-          for (const file of listed) {
-            for (const spelling of [file, fs.realpathSync.native(file)]) {
+          for (const [file, physical] of contents.observe(listed)) {
+            // The compiler just listed it, so its absence is a moving input.
+            if (physical === null)
+              throw new Error("runtime source selection moved");
+            for (const spelling of [file, physical]) {
               let directory = path.dirname(spelling);
               while (!scopes.has(directory)) {
                 scopes.add(directory);
@@ -347,11 +357,8 @@ export namespace RuntimeBuildInputs {
               }
             }
           }
-          const hashes = RuntimeInputContents.capture(
-            [...inputs].sort(),
-            execution.tsconfig,
-            identities,
-          );
+          const hashes = contents.observe([...inputs].sort());
+          contents.close();
           for (const [file, expected] of Object.entries(
             loaded?.hostInputHashes ?? {},
           ).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
@@ -403,19 +410,13 @@ export namespace RuntimeBuildInputs {
                 ? "<private-output>"
                 : name,
             );
-          const environment = Object.entries(env)
-            .filter(([key]) => !/^TTSX_RUNTIME_/i.test(key))
-            .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
           return JSON.stringify({
-            format: 2,
+            format: 3,
             version: identities.version,
             compilerIdentities,
             config,
             hashes,
-            environment: crypto
-              .createHash("sha256")
-              .update(JSON.stringify(environment))
-              .digest("hex"),
+            environment: runtimeBuildEnvironment(env),
             project: execution.tsconfig,
             cwd: execution.compilerSelection.compilerArgsCwd,
             layout: path.relative(emitDir, execution.projectRoot),

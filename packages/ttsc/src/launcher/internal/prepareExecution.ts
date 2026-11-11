@@ -16,7 +16,6 @@ import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resol
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import { assertTtsxNoWatch } from "./assertTtsxNoWatch";
 import { buildSingleRootProject } from "./buildSingleRootProject";
-import { linkVirtualEntry } from "./linkVirtualEntry";
 import { resolveCacheDir } from "./resolveCacheDir";
 import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
@@ -49,8 +48,8 @@ import { runtimeEmitProfile } from "./runtimeEmitProfile";
  * @evidence contracts/common.md#clear-and-simple-design Context creation, project compilation, entry fallback and output selection have distinct helpers. After a context returns, one failure boundary attempts cleanup without replacing the original error; construction owns earlier acquisition failures.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or malformed provenance cannot authorize emitted bytes. An empty inventoried build serves nothing and selects the excluded-entry build, which inherits actual project settings and proves its own output rather than stripping source or fabricating an empty ledger.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain discovery, cleanup and mandatory producer provenance; result members distinguish relative output-list paths from absolute output-to-source records without property acknowledgments.
- * @evidence contracts/portability.md#os-neutral-implementation Native path/identity helpers preserve lexical discovery separately from best-effort native source/cache coordinates. Cooperating directory locks serialize ownership mutations without pinning filesystem objects; virtual layout encodes distinct volume roots through native path operations rather than shell commands.
- * @evidence contracts/performance.md#efficient-algorithms Delegated config discovery, effective-options preparation and compilation precede native output inventory and provenance-shape inspection. Each nonempty entry lookup builds an EmitOwnershipIndex with record/path/identity costs; an empty inventory or unowned entry selects the additional checked build. Native virtual linking and bounded ancestor traversal add their own entry and byte costs, so entry counts alone do not bound this operation.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path/identity helpers preserve lexical discovery separately from best-effort native source/cache coordinates. Cooperating directory locks serialize ownership mutations without pinning filesystem objects; the private output layout encodes distinct volume roots through native path operations rather than shell commands, and creates no link to or copy of a user file.
+ * @evidence contracts/performance.md#efficient-algorithms Delegated config discovery, effective-options preparation and compilation precede native output inventory and provenance-shape inspection. Each nonempty entry lookup builds an EmitOwnershipIndex with record/path/identity costs; an empty inventory or unowned entry selects the additional checked build. No user file is linked or copied into the private layout, so preparation adds no per-entry work over the project's own directories.
  * @evidence contracts/performance.md#reuse-equivalent-work A context retains the accepted producer record and output inventory for lookup and transfer, without synthesizing ownership or re-reading producer observations. Lookup indexes are constructed per lookup. One original-request reader serves source-root selection, the profile and argument lowering within this context; changed lowered arguments and completed-emit provenance keep their separate observations. Checked fallback shares its own overlay reader within that build and then replaces the generation and recomputes the context profile.
  * @evidence contracts/performance.md#bound-retention-and-release-resources A returned context owns one claimed generation at the resolved cache coordinate. Later failures attempt relinquishment and recursive removal under its cooperative lock; cleanup errors are swallowed to preserve the initiating failure and can retain storage. Success transfers cleanupDir and runtimeCacheDir to the caller, while delegated compilers, identity contexts and construction failures retain their own lifecycle responsibilities.
  */
@@ -160,14 +159,6 @@ export function prepareExecution(
     throw error;
   }
 }
-
-/**
- * Maximum number of ancestor directories above the project root that the
- * virtual filesystem overlay mirrors. Three levels covers the common monorepo
- * layout (workspace-root → packages → package-root) so `node_modules` symlinks
- * resolve correctly without reaching an unsafe boundary.
- */
-const MAX_VIRTUAL_PARENT_DEPTH = 3;
 
 /**
  * Emit directory of the entry-only fallback build, a sibling of the virtual
@@ -524,10 +515,13 @@ function resolveRuntimeSourceRoot(
  * Complete the context's checked project build once, with all compiler output
  * locations confined to its private emit directory.
  *
- * Record emitted files before linking source neighbors, so linked user files
- * cannot masquerade as compiler output. Only a successful build publishes the
- * completed context. Failure releases the claimed generation and preserves the
- * compiler's diagnostic output in the thrown error.
+ * The private directory holds compiler output only. The runtime hooks serve it
+ * under each source's own path, so nothing of the user's tree is linked or
+ * copied beside it: linking a file moves its change time and link count, which
+ * every metadata proof of that file reads (samchon/ttsc#1852). Only a
+ * successful build publishes the completed context. Failure releases the
+ * claimed generation and preserves the compiler's diagnostic output in the
+ * thrown error.
  */
 function buildProject(
   context: ReturnType<typeof createProjectContext>,
@@ -576,10 +570,6 @@ function buildProject(
     tsconfig: context.tsconfig,
   });
   if (result.status === 0) {
-    // Record the build's outputs before the virtual layout links the user's
-    // own files in beside them. Without an `outDir` the emit directory is the
-    // mirror of the project root, and a `tool.js` linked there from the user's
-    // tree would otherwise be recorded as the output of `tool.ts`.
     context.bundledOutputs = result.bundledOutputs;
     context.outputs = EmitOwnershipIndex.listOutputs(
       context.emitDir,
@@ -592,7 +582,6 @@ function buildProject(
         ? undefined
         : requireEmitProvenance(result.emittedSources, context.tsconfig);
     context.emittedSourceProofFailures = result.emittedSourceProofFailures;
-    linkVirtualProjectLayout(context);
     context.built = true;
     return;
   }
@@ -709,82 +698,6 @@ function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
   } catch {
     // Best effort: cleanup must not hide the original preparation failure.
   }
-}
-
-/**
- * Mirror selected project ancestors beside emitted output so native module
- * lookup can reach source neighbors and installed dependencies.
- *
- * Existing virtual entries, including compiler output, win over linked user
- * entries. Each source directory is enumerated once; linkVirtualEntry owns the
- * native file/directory link representation.
- */
-function linkVirtualProjectLayout(
-  context: ReturnType<typeof createProjectContext>,
-): void {
-  for (const directory of collectLinkDirectories(context.root)) {
-    const virtualDirectory = virtualPath(context.virtualRoot, directory);
-    fs.mkdirSync(virtualDirectory, { recursive: true });
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const realEntry = path.join(directory, entry.name);
-      const virtualEntry = path.join(virtualDirectory, entry.name);
-      if (fs.existsSync(virtualEntry)) {
-        continue;
-      }
-      linkVirtualEntry(realEntry, virtualEntry, entry);
-    }
-  }
-}
-
-/**
- * Walk from `projectRoot` upward (up to `MAX_VIRTUAL_PARENT_DEPTH` steps),
- * stopping early at a workspace root (`pnpm-workspace.yaml` or `.git`). The
- * collected directories are reversed so callers can construct parent layouts
- * before their children. Existing virtual entries win when neighboring source
- * entries are linked, preserving the compiler's own emitted files.
- */
-function collectLinkDirectories(projectRoot: string): string[] {
-  const out: string[] = [];
-  const identities = createFilesystemPathIdentityContext({
-    throwOnRealpathError: false,
-  });
-  let current = projectRoot;
-  for (let depth = 0; depth <= MAX_VIRTUAL_PARENT_DEPTH; depth += 1) {
-    out.push(current);
-    if (
-      depth > 0 &&
-      (fs.existsSync(path.join(current, "pnpm-workspace.yaml")) ||
-        fs.existsSync(path.join(current, ".git")))
-    ) {
-      break;
-    }
-    const parent = path.dirname(current);
-    if (parent === current || isUnsafeVirtualParent(parent, identities)) {
-      break;
-    }
-    current = parent;
-  }
-  return out.reverse();
-}
-
-/**
- * Whether mirroring `directory` would reach a filesystem root, the temporary
- * root or any of its ancestors. A caller can place its temporary root inside
- * its project; its parents still contain shared entries outside that project.
- * Identity comparison is required on Windows, where `os.tmpdir()` can carry an
- * 8.3 component while a project created below it is returned in long spelling.
- */
-function isUnsafeVirtualParent(
-  directory: string,
-  identities: ReturnType<typeof createFilesystemPathIdentityContext>,
-): boolean {
-  const resolved = identities.resolve(directory);
-  const root = identities.resolve(path.parse(resolved.path).root);
-  const temporaryRoot = identities.resolve(os.tmpdir());
-  return (
-    resolved.key === root.key ||
-    identities.isWithin(resolved.path, temporaryRoot.path)
-  );
 }
 
 /**

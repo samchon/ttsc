@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 import { parseCommonJsExports } from "../parseCommonJsExports";
-import { realPath } from "./realPath";
+import { modulePhysicalPath } from "./modulePhysicalPath";
 
 /**
  * Static CommonJS names under the served module's source identity.
@@ -20,7 +20,7 @@ import { realPath } from "./realPath";
  * @evidence contracts/common.md#clear-and-simple-design One traversal serves both JavaScript and TypeScript facades. A call-scoped physical seen set prevents mixed-source cycles and duplicate reads without separate emitted/source resolution policies.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Native package resolution and the runtime's existing relative-source policy decide targets. No package-specific exception, foreign loader replacement or target evaluation supplies names.
  * @evidence contracts/common.md#meaningful-documentation Native prose states source-origin and owned-reader authority, unresolved versus reader failure, static-only discovery and direct versus nested default semantics.
- * @evidence contracts/portability.md#os-neutral-implementation Node native require/path resolution and realPath preserve actual filesystem identity, package maps and platform paths without separator rewriting or OS-based casing assumptions.
+ * @evidence contracts/portability.md#os-neutral-implementation Node native require/path resolution and modulePhysicalPath preserve actual filesystem identity, package maps and platform paths without separator rewriting or OS-based casing assumptions.
  * @evidence contracts/performance.md#efficient-algorithms Each reachable physical target is read and parsed at most once per scan; edges incur native resolution and set insertion. Source bytes, metadata, names and a DFS stack scale with the reachable graph; no configured graph/depth cap bounds parser or reader work.
  * @evidence contracts/performance.md#reuse-equivalent-work The traversal shares equivalent physical targets within one scan. Compiler-owned emission reuse belongs to the supplied reader; mutable package resolution and source results are not cached across scans here.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Names and visited identities are call-local; only the returned array escapes. The reader and native resolver own their synchronous resources and compiler lifetimes; this scanner retains no historical graph or native handle.
@@ -36,8 +36,9 @@ export function commonJsExportNames(
 ): string[] {
   const names = new Set<string>();
   const seen = new Set<string>();
-  const visit = (file: string, text: string, root: boolean): void => {
-    const real = realPath(file);
+  // `real` is a physical path: the root is resolved once below and every
+  // nested target once where its edge is followed.
+  const visit = (real: string, text: string, root: boolean): void => {
     if (seen.has(real)) return;
     seen.add(real);
     const parsed = parseCommonJsExports(text);
@@ -52,13 +53,13 @@ export function commonJsExportNames(
       }
       if (!path.isAbsolute(target)) continue;
       if ([".json", ".node", ".mjs"].includes(path.extname(target))) continue;
-      const physical = realPath(target);
+      const physical = modulePhysicalPath(target);
       if (seen.has(physical)) continue;
       const nested = readSource(physical);
       if (nested === null) seen.add(physical);
       else visit(physical, nested, false);
     }
   };
-  visit(filename, source, true);
+  visit(modulePhysicalPath(filename), source, true);
   return [...names];
 }

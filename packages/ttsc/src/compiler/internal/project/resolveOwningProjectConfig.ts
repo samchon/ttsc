@@ -62,8 +62,8 @@ import { selectReferencedProject } from "./selectReferencedProject";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state ownership order, fallback, callbacks and lookup-scoped reuse, with parameter explanations separated from acknowledgments.
  * @evidence contracts/portability.md#os-neutral-implementation Node path operations select native config spellings, actual filesystem identity compares target and roots, and spawnNative owns executable representation rather than applying OS-name case guesses.
  * @evidence contracts/performance.md#efficient-algorithms Each distinct observed config identity key is visited once in the DFS and receives at most one expansion plus one ctime-based retry; ctime can change for metadata updates as well as creation. Direct config reads/parsing, reference path text/stat work, delegated identity/case probes and binary selection precede or accompany compiler execution. Root-list decoding and membership scans cost their bytes and entries; DFS stack depth follows the reference chain and native recursion limits still apply. The no-reference path avoids a compiler subprocess, not config I/O.
- * @evidence contracts/performance.md#reuse-equivalent-work The lookup reuses discovered reference edges and filesystem identity observations; visited keys prevent expansion of a repeated observed identity, while later requests rerun because paths alone cannot prove unchanged inheritance, directory membership or compiler selection, unless the caller keeps expansions for a lifetime its own builds already assume. Best-effort identity cannot guarantee deduplication of every physical alias.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Identity maps, visited keys and root observations are lookup-local; only a caller-supplied expansions map retains root lists, one per config, for the caller's lifetime. Synchronous expansion delegates capture cleanup to spawnNative's finally path, whose cleanup failures are suppressed; output storage and child duration have no configured ceiling here. A nonterminating child prevents the lookup from finishing, rather than being released by this graph traversal.
+ * @evidence contracts/performance.md#reuse-equivalent-work The lookup reuses discovered reference edges and filesystem identity observations; visited keys prevent expansion of a repeated observed identity, while later requests rerun because paths alone cannot prove unchanged inheritance, directory membership or compiler selection, unless the caller keeps expansions for a lifetime its own builds already assume. A caller may also keep the configs that declare no reference: such an answer depends on that file alone, so it is reused only while the file's identity, size and both stamps are the ones it was read under. Best-effort identity cannot guarantee deduplication of every physical alias.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Identity maps, visited keys and root observations are lookup-local; only caller-supplied maps retain anything: root lists, one per config, and one metadata signature per config without references, for the caller's lifetime. Synchronous expansion delegates capture cleanup to spawnNative's finally path, whose cleanup failures are suppressed; output storage and child duration have no configured ceiling here. A nonterminating child prevents the lookup from finishing, rather than being released by this graph traversal.
  */
 export function resolveOwningProjectConfig(props: {
   /** Absolute or invocation-relative spelling of the discovered config. */
@@ -91,12 +91,39 @@ export function resolveOwningProjectConfig(props: {
    * (samchon/ttsc#1747).
    */
   expansions?: Map<string, { files: readonly string[]; takenAt: number }>;
+
+  /**
+   * Configs found to declare no reference, by path, with the metadata they had
+   * when read, kept across lookups by a caller that asks once per served
+   * module. Such a config owns the file itself, and only an edit of it can
+   * change that, so an unchanged one is not read and parsed again
+   * (samchon/ttsc#1852). A config that declares references is always read.
+   */
+  unreferenced?: Map<string, string>;
 }): string {
   const discovered = path.resolve(props.tsconfig);
-  const discoveredReferences = readReferences(discovered, props.onConfig);
-  if (discoveredReferences.length === 0) {
+  const kept =
+    props.unreferenced === undefined ? undefined : configSignature(discovered);
+  if (kept !== undefined && props.unreferenced!.get(discovered) === kept) {
+    props.onConfig?.(discovered);
     return discovered;
   }
+  const discoveredReferences = readReferences(discovered, props.onConfig);
+  if (discoveredReferences.length === 0) {
+    // Only a config that was read whole and names no reference is kept: one
+    // whose references name nothing on disk yet can gain an owner without
+    // being edited. The metadata is taken again after the read, so a config
+    // that moved under it is read once more by the next lookup.
+    if (
+      kept !== undefined &&
+      declaresNoReference(discovered) &&
+      configSignature(discovered) === kept
+    )
+      props.unreferenced!.set(discovered, kept);
+    else props.unreferenced?.delete(discovered);
+    return discovered;
+  }
+  props.unreferenced?.delete(discovered);
   const identities = createFilesystemPathIdentityContext({
     throwOnRealpathError: false,
   });
@@ -182,6 +209,42 @@ function readReferences(
     if (isFile(file)) out.push(file);
   }
   return out;
+}
+
+/**
+ * Whether `config` parses and its `references` is absent or an empty list, so
+ * no later filesystem change short of editing it can give it a reference edge.
+ */
+function declaresNoReference(config: string): boolean {
+  try {
+    const references = (readJsoncFile(config) as { references?: unknown })
+      .references;
+    return (
+      references === undefined ||
+      (Array.isArray(references) && references.length === 0)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Identity, size and both stamps of a config file, or `undefined` when it
+ * cannot be observed; a write or replacement moves at least one of them.
+ */
+function configSignature(config: string): string | undefined {
+  try {
+    const stats = fs.statSync(config, { bigint: true });
+    return [
+      stats.dev,
+      stats.ino,
+      stats.size,
+      stats.mtimeNs,
+      stats.ctimeNs,
+    ].join(":");
+  } catch {
+    return undefined;
+  }
 }
 
 /**

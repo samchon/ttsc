@@ -52,6 +52,7 @@ import { commonJsExportNames } from "./commonJsExportNames";
 import { commonJsImportFacade } from "./commonJsImportFacade";
 import { dependencyCacheKey } from "./dependencyCacheKey";
 import { dependencyCacheRoot } from "./dependencyCacheRoot";
+import { modulePhysicalPath } from "./modulePhysicalPath";
 import { observeMappedDescriptorResolution } from "./observeMappedDescriptorResolution";
 import { projectModuleOptions } from "./projectModuleOptions";
 import { readDependencyCache } from "./readDependencyCache";
@@ -862,10 +863,14 @@ function load(
   if (!isTypeScriptSource(filename)) {
     return loadJavaScript(url, filename, context, nextLoad);
   }
+  // Resolved once: the entry test and every serving lane ask about the same
+  // physical file.
+  const real = modulePhysicalPath(filename);
   const served = resolveServedSource(
     filename,
     url,
-    runtimeEntryUrls.delete(url) || isProcessEntry(filename),
+    runtimeEntryUrls.delete(url) || isProcessEntry(real),
+    real,
   );
   const format = RuntimeModuleFormat.moduleFormat(
     filename,
@@ -1028,11 +1033,21 @@ function runtimeCommonJsExportNames(
         ? emitCommonJsForNameScan(target)
         : readFileOrNull(target),
     (parent, specifier) => {
-      const native = createRequire(parent).resolve;
-      return resolveCommonJsRequest(native, specifier, undefined, parent);
+      // A barrel resolves every edge from one parent.
+      if (scanParent?.file !== parent)
+        scanParent = { file: parent, resolve: createRequire(parent).resolve };
+      return resolveCommonJsRequest(
+        scanParent.resolve,
+        specifier,
+        undefined,
+        parent,
+      );
     },
   );
 }
+
+/** The resolver of the module whose re-export edges were last followed. */
+let scanParent: { file: string; resolve: NodeJS.RequireResolve } | undefined;
 
 /**
  * Whether a hook context carries `condition`. The conditions arrive as an array
@@ -1064,15 +1079,21 @@ function isDescriptorEvaluatorBootstrap(value: string): boolean {
   );
 }
 
-/** Whether `filename` is the TypeScript main module named on Node's argv. */
-function isProcessEntry(filename: string): boolean {
+/**
+ * Whether `real`, a module's physical path, is the TypeScript main module
+ * named on Node's argv. The entry's own physical path is resolved once per argv
+ * spelling: every module load asks this, and resolving both sides each time
+ * cost two native resolutions per module (samchon/ttsc#1852).
+ */
+function isProcessEntry(real: string): boolean {
   const entry = process.argv[1];
-  return (
-    entry !== undefined &&
-    isTypeScriptSource(entry) &&
-    realPath(path.resolve(entry)) === realPath(filename)
-  );
+  if (entry === undefined || !isTypeScriptSource(entry)) return false;
+  if (processEntry?.spelling !== entry)
+    processEntry = { spelling: entry, physical: realPath(path.resolve(entry)) };
+  return processEntry.physical === real;
 }
+
+let processEntry: { spelling: string; physical: string } | undefined;
 
 /**
  * Read one owning config while its discovered chain stays unchanged.
@@ -1242,8 +1263,8 @@ function resolveServedSource(
   filename: string,
   url: string = pathToFileURL(filename).href,
   prepareAsEntry: boolean = false,
+  real: string = realPath(filename),
 ): ServedSource {
-  const real = realPath(filename);
   let served = serveInlinedEntryEmit(real, prepareAsEntry);
   if (served !== null) {
     return served;
@@ -1420,9 +1441,11 @@ function emitOrphanSource(
  * discovery may inspect a source dependency without executing it, so sharing
  * that output with the runtime fallback would let a speculative scan affect a
  * later load path.
+ *
+ * `real` is the target's physical path, which the name scan resolved when it
+ * followed the edge.
  */
-function emitCommonJsForNameScan(filename: string): string | null {
-  const real = realPath(filename);
+function emitCommonJsForNameScan(real: string): string | null {
   const cached = commonJsNameScanSources.get(real);
   if (cached !== undefined) {
     return cached;
@@ -1836,7 +1859,7 @@ function serveBuiltDependency(
   built: DependencyBuildGeneration.BuiltProject,
   real: string,
 ): ServedSource | null {
-  const emitted = builtProjectIndex(built).find(real);
+  const emitted = builtProjectIndex(built).findPhysical(real);
   if (emitted === null) {
     return null;
   }
@@ -2066,8 +2089,48 @@ function rootIsChecked(real: string): boolean {
  * per-run cache: a finished build leaves a meta marker that any later process
  * (or a second import in this one) reuses, and concurrent first-builders are
  * serialised by an atomic lock directory.
+ *
+ * WARNING (samchon/ttsc#1852): the answer is remembered by the config and the
+ * plugin policy before anything else is computed. Every module a project owns
+ * asks for this build, and deriving the cache address first proved the
+ * compiler executable's identity (three metadata requests, a physical
+ * resolution, a record read and a use-stamp write) once per served module, a
+ * third of a warm start. A process serves one build of a project for its
+ * whole life, so a compiler replaced mid-run belongs to the next process.
  */
 function ensureProjectBuilt(
+  tsconfig: string,
+): DependencyBuildGeneration.BuiltProject {
+  const selection = `${runtimePluginPolicy() === false ? "plain" : "plugins"}\0${tsconfig}`;
+  const selected = selectedProjects.get(selection);
+  if (selected !== undefined) {
+    if (selected.built === undefined) throw selected.error;
+    return selected.built;
+  }
+  try {
+    const built = buildSelectedProject(tsconfig);
+    selectedProjects.set(selection, { built });
+    return built;
+  } catch (error) {
+    selectedProjects.set(selection, { error });
+    throw error;
+  }
+}
+
+/**
+ * What this process serves for a config under a plugin policy: its one build,
+ * or the failure every later module of the project reports again.
+ */
+const selectedProjects = new Map<
+  string,
+  { built?: DependencyBuildGeneration.BuiltProject; error?: unknown }
+>();
+
+/**
+ * Find or make the shared build of `tsconfig` at its content-keyed cache
+ * address, once per selection in this process ({@link ensureProjectBuilt}).
+ */
+function buildSelectedProject(
   tsconfig: string,
 ): DependencyBuildGeneration.BuiltProject {
   const { cacheDir, lockDir, metaPath, root, compilerProof, plugins } =
@@ -2422,8 +2485,15 @@ function owningTsconfig(real: string): string | null {
     file: real,
     onConfig: (config) => recordPluginDescriptorProjectInputs([config]),
     tsconfig: nearest,
+    unreferenced: unreferencedConfigs,
   });
 }
+
+/**
+ * Configs `owningTsconfig` found to declare no reference, with the metadata
+ * they had; an unchanged one owns its files without being parsed per module.
+ */
+const unreferencedConfigs = new Map<string, string>();
 
 /** Reference roots `owningTsconfig` expanded in this process, by config. */
 const ownerExpansions = new Map<
