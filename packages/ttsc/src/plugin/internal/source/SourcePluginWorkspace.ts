@@ -346,7 +346,7 @@ export namespace SourcePluginWorkspace {
           // mod-edit attempt below still owns its current failure or success.
           const observed =
             launcher?.isFile() === true
-              ? GoEnvironmentReading.read(
+              ? GoEnvironmentReading.recorded(
                   goBinary,
                   os.tmpdir(),
                   environment,

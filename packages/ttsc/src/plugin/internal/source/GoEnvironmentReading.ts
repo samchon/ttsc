@@ -1,10 +1,13 @@
 import crypto from "node:crypto";
+import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
 import { PluginLoadAnswers } from "./PluginLoadAnswers";
+import { WitnessedLoadAnswers } from "./WitnessedLoadAnswers";
+import { goToolVariables } from "./goToolVariables";
 import { spawnGoTool } from "./spawnGoTool";
 
 /**
@@ -18,7 +21,7 @@ import { spawnGoTool } from "./spawnGoTool";
  * @evidence contracts/common.md#meaningful-documentation Prose distinguishes observation from a discovery hint and identifies both consumers.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation The read member owns native observation and execution.
  * @evidenceExclude contracts/performance.md#efficient-algorithms The read member owns acquisition and identity costs.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The read member owns hint sharing; no result cache is exposed.
+ * @evidence contracts/performance.md#reuse-equivalent-work `read` shares only file-location hints and always runs Go; `recorded` shares a whole answer across processes only under its variables and witness.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The read member describes the private hint map and delegated native lifetime.
  */
 export namespace GoEnvironmentReading {
@@ -164,6 +167,91 @@ export namespace GoEnvironmentReading {
       PluginBuildEnvironmentWitness.refuse(witness, named);
     return undefined;
   }
+
+  /**
+   * {@link read}, answered from the record a previous process left while
+   * everything that reading depended on still holds (`WitnessedLoadAnswers`).
+   *
+   * A go.mod reader qualifies its parse cache by the Go tool's `GOROOT` and
+   * `GOENV` once per load, so every launch ran `go env` for values nothing had
+   * changed (samchon/ttsc#1852). The answer depends on the variables the tool
+   * receives (`goToolVariables`) and on files no variable names, each witnessed
+   * here: the tool, the file `go env -w` writes ({@link read}), the `go.mod` and
+   * `go.work` that `cwd` and its ancestors hold or lack, which can switch the
+   * toolchain, and the toolchain's own `go.env`, observed once Go has named its
+   * GOROOT.
+   *
+   * @param goBinary The Go tool.
+   * @param cwd Working directory of the run.
+   * @param env Effective environment of the run.
+   * @param keys Requested `go env` keys.
+   * @param witness Receives the paths the answer depends on.
+   * @param identities Optional record store; without it every call runs Go.
+   * @returns The parsed object, or `undefined` when Go could not answer.
+   * @evidence contracts/common.md#principled-implementation A recorded answer is served only under every variable the tool receives and the metadata of every file that selects its toolchain or environment; Go answers whenever either moved.
+   * @evidence contracts/common.md#clear-and-simple-design The shared witnessed-answer owner carries the proof; this member only names what Go reads.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No handwritten Go value or path is assumed: the values and the environment-file location still come from Go.
+   * @evidence contracts/common.md#meaningful-documentation Native prose lists each witnessed dependency and why it can change the answer.
+   * @evidence contracts/portability.md#os-neutral-implementation Native path ancestry and stat identity; Go reports its own GOROOT and GOENV.
+   * @evidence contracts/performance.md#efficient-algorithms A hit hashes the variables and stats the witnessed paths, one per ancestor directory pair; a miss adds the Go run it replaces.
+   * @evidence contracts/performance.md#reuse-equivalent-work Equal tool, directory, keys and variables share one Go run across processes while the witness holds.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Records belong to the answer store's collector; nothing is retained in memory.
+   */
+  export function recorded(
+    goBinary: string,
+    cwd: string,
+    env: NodeJS.ProcessEnv,
+    keys: readonly string[],
+    witness: PluginBuildEnvironmentWitness.Record | undefined,
+    identities: PluginContentIdentities.Store | undefined,
+  ): Record<string, unknown> | undefined {
+    const identity = [goBinary, path.resolve(cwd), keys, goToolVariables(env)];
+    const kept = WitnessedLoadAnswers.read(
+      identities,
+      RECORDED_READING,
+      identity,
+      (value): value is Record<string, unknown> =>
+        typeof value === "object" && value !== null && !Array.isArray(value),
+    );
+    if (kept !== undefined) {
+      WitnessedLoadAnswers.join(witness, kept.witness);
+      return kept.value;
+    }
+    const observed: PluginBuildEnvironmentWitness.Record = new Map();
+    PluginBuildEnvironmentWitness.add(observed, goBinary);
+    for (let directory = path.resolve(cwd); ; ) {
+      PluginBuildEnvironmentWitness.add(
+        observed,
+        path.join(directory, "go.mod"),
+      );
+      PluginBuildEnvironmentWitness.add(
+        observed,
+        path.join(directory, "go.work"),
+      );
+      const parent = path.dirname(directory);
+      if (parent === directory) break;
+      directory = parent;
+    }
+    const values = read(goBinary, cwd, env, keys, observed, identities);
+    if (values === undefined) return undefined;
+    if (typeof values.GOROOT === "string" && path.isAbsolute(values.GOROOT))
+      PluginBuildEnvironmentWitness.add(
+        observed,
+        path.join(values.GOROOT, "go.env"),
+      );
+    WitnessedLoadAnswers.join(witness, observed);
+    WitnessedLoadAnswers.write(
+      identities,
+      RECORDED_READING,
+      identity,
+      values,
+      observed,
+    );
+    return values;
+  }
+
+  /** Answer family of {@link recorded} (`WitnessedLoadAnswers`). */
+  const RECORDED_READING = "go-environment-reading";
 
   // A wrong hint is safe: the reading compares it with the `GOENV` Go reports
   // and runs again with the reported file witnessed.

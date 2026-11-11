@@ -286,12 +286,26 @@ export namespace loadProjectPlugins {
       };
     }
 
+    // Where isolated descriptor evaluations keep their answers across launches
+    // (`PluginDescriptorEvaluationCache`).
+    // WARNING (#1721, #1722, #1723): a warm load must prove its unchanged inputs
+    // from this store, not re-read them. Every launch is a new process, so any
+    // module-level memo of this load's work dies with it; a 27 s warm typia
+    // launch whose native build took 0.28 s is what that looked like.
+    const identities =
+      options.identities ??
+      PluginContentIdentities.open({
+        projectRoot: project.root,
+        cacheDir: options.cacheDir,
+        env: callerEnv,
+      });
     // Every Go command of this load compiles the compiler target of the
     // project's TypeScript line; the target travels in the environment.
     const effectiveEnv = CompilerTarget.buildEnv(
       callerEnv,
-      CompilerTarget.resolve(project.root, callerEnv),
+      CompilerTarget.resolve(project.root, callerEnv, identities),
       project.root,
+      identities,
     );
     const cwd = path.resolve(options.cwd ?? process.cwd());
     const context = {
@@ -304,19 +318,6 @@ export namespace loadProjectPlugins {
       projectRoot: project.root,
       tsconfig: project.path,
     };
-    // Where isolated descriptor evaluations keep their answers across launches
-    // (`PluginDescriptorEvaluationCache`).
-    // WARNING (#1721, #1722, #1723): a warm load must prove its unchanged inputs
-    // from this store, not re-read them. Every launch is a new process, so any
-    // module-level memo of this load's work dies with it; a 27 s warm typia
-    // launch whose native build took 0.28 s is what that looked like.
-    const identities =
-      options.identities ??
-      PluginContentIdentities.open({
-        projectRoot: project.root,
-        cacheDir: options.cacheDir,
-        env: effectiveEnv,
-      });
     const descriptorCache: DescriptorCacheOptions = {
       cacheDir: options.cacheDir,
       identities,

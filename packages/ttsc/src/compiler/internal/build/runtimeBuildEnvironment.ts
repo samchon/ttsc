@@ -52,12 +52,12 @@ export function runtimeBuildEnvironment(
 ): [string, string | boolean][] {
   const rows: [string, string | boolean][] = [];
   const control = process.platform === "win32" ? /^TTS[CX]_/i : /^TTS[CX]_/;
-  const unkeyed =
-    process.platform === "win32"
-      ? /^(?:TTSX_RUNTIME_.*|TTSC_EXPLAIN_CACHE|TTSC_E2E_TRACE)$/i
-      : /^(?:TTSX_RUNTIME_.*|TTSC_EXPLAIN_CACHE|TTSC_E2E_TRACE)$/;
   for (const [name, value] of Object.entries(env))
-    if (value !== undefined && control.test(name) && !unkeyed.test(name))
+    if (
+      value !== undefined &&
+      control.test(name) &&
+      !runtimeBuildEnvironment.unkeyed(name)
+    )
       rows.push([name, value]);
   for (const name of ["NODE_OPTIONS", "NODE_PATH"]) {
     const value = SidecarEnvironment.read(env, name);
@@ -81,4 +81,36 @@ export function runtimeBuildEnvironment(
     ]);
   }
   return rows.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+/**
+ * Members of the runtime build environment projection that other recorded
+ * readings share.
+ *
+ * @evidence contracts/common.md#principled-implementation Each name `unkeyed` excludes belongs to ttsc's own protocol and selects no compile, Go reading or descriptor answer.
+ * @evidence contracts/common.md#clear-and-simple-design The projection and its exclusion live in one module.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No variable outside ttsc's own namespace is named.
+ * @evidence contracts/common.md#meaningful-documentation The member states which variables it names and why none is read.
+ * @evidence contracts/portability.md#os-neutral-implementation Windows variable names compare case-insensitively, POSIX names exactly.
+ * @evidence contracts/performance.md#efficient-algorithms `unkeyed` is one anchored match over the name.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The declaration coordinates no work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The declaration retains one compiled pattern.
+ */
+export namespace runtimeBuildEnvironment {
+  /**
+   * Whether `name` is one of ttsc's own variables that no build reads: a
+   * per-run `TTSX_RUNTIME_` channel, which names one run's directories, or a
+   * reporting switch, `TTSC_EXPLAIN_CACHE` or `TTSC_E2E_TRACE`, which only
+   * makes a build describe itself.
+   *
+   * @param name Variable name, matched case-insensitively on Windows.
+   */
+  export function unkeyed(name: string): boolean {
+    return UNKEYED.test(name);
+  }
+
+  const UNKEYED =
+    process.platform === "win32"
+      ? /^(?:TTSX_RUNTIME_.*|TTSC_EXPLAIN_CACHE|TTSC_E2E_TRACE)$/i
+      : /^(?:TTSX_RUNTIME_.*|TTSC_EXPLAIN_CACHE|TTSC_E2E_TRACE)$/;
 }

@@ -15,8 +15,8 @@ import { PluginLoadAnswers } from "./PluginLoadAnswers";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { ensureExecutableGoToolchain } from "./ensureExecutableGoToolchain";
-import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
 import { pluginSourceDigest } from "./pluginSourceDigest";
+import { readPluginBuildEnvironment } from "./readPluginBuildEnvironment";
 import { resolveGoCompiler } from "./resolveGoCompiler";
 import { resolvePluginGoModule } from "./resolvePluginGoModule";
 import { spawnGoTool } from "./spawnGoTool";
@@ -578,18 +578,14 @@ function selectionIdentity(
     const resolvedRoot = path.resolve(moduleRoot);
     let environment = readings.environments?.get(resolvedRoot);
     if (environment === undefined) {
-      const hash = crypto.createHash("sha256");
       const witness: PluginBuildEnvironmentWitness.Record = new Map();
-      hashPluginBuildEnvironment(
-        hash,
+      environment = readPluginBuildEnvironment(
         goBinary,
         moduleRoot,
         env,
-        { readFile: (location) => fs.readFileSync(location) },
         witness,
         identities,
       );
-      environment = hash.digest("hex");
       readings.environments?.set(resolvedRoot, environment);
       readings.witnesses?.set(resolvedRoot, witness);
     }
