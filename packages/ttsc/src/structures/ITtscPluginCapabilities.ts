@@ -103,6 +103,22 @@ export interface ITtscPluginCapabilities {
   emitObservations?: true;
 
   /**
+   * Whether every environment variable that can change this host's result is
+   * read through `PluginContext.Env`, which records the read with its value in
+   * the generation's `environmentInputs`.
+   *
+   * A persistent runtime emit is then keyed only by the variables its processes
+   * read, and a recorded value that changed withdraws it. Without the
+   * capability ttsc cannot know which variables a host reads with `os.Getenv`,
+   * so a project that uses it stays keyed by the complete environment: any
+   * changed variable, including the program arguments a package manager
+   * exports, builds it again.
+   *
+   * @default false
+   */
+  environmentInputs?: true;
+
+  /**
    * Whether the sidecar accepts ttsc's `--project-context-json` identity
    * protocol. The payload keeps lexical selection paths, physical Program
    * paths, and explicit overrides as separate fields.

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -227,6 +228,26 @@ export namespace RuntimeBuildInputs {
           ].some((name) => declared.compilerOptions?.[name])
         );
       });
+    // A native host that has not declared its environment reads may read any
+    // variable with os.Getenv, so a project using one is keyed by the complete
+    // environment, as every project was. Hosts that declare them, and projects
+    // without plugins, are keyed by what their processes read
+    // (samchon/ttsc#1852).
+    const environment = (): unknown =>
+      execution.nativePlugins.every(
+        (plugin) => plugin.capabilities?.environmentInputs === true,
+      )
+        ? runtimeBuildEnvironment(env)
+        : crypto
+            .createHash("sha256")
+            .update(
+              JSON.stringify(
+                Object.entries(env)
+                  .filter(([key]) => !/^TTSX_RUNTIME_/i.test(key))
+                  .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+              ),
+            )
+            .digest("hex");
     const privately = (arg: string): string =>
       arg === emitDir || arg.startsWith(emitDir + path.sep)
         ? "<private-output>" + arg.slice(emitDir.length)
@@ -316,7 +337,7 @@ export namespace RuntimeBuildInputs {
                   compiler,
                   args: inspected.args.map(privately),
                   responses,
-                  environment: runtimeBuildEnvironment(env),
+                  environment: environment(),
                   project: execution.tsconfig,
                   cwd: execution.compilerSelection.compilerArgsCwd,
                   layout: path.relative(emitDir, execution.projectRoot),
@@ -584,7 +605,7 @@ export namespace RuntimeBuildInputs {
             compilerIdentities,
             config: config ?? { arguments: inspected.args.map(privately) },
             hashes,
-            environment: runtimeBuildEnvironment(env),
+            environment: environment(),
             project: execution.tsconfig,
             cwd: execution.compilerSelection.compilerArgsCwd,
             layout: path.relative(emitDir, execution.projectRoot),

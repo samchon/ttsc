@@ -29,9 +29,12 @@ import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
  *
  * A linked native plugin declares any other variable at its read site through
  * `PluginContext.Env`; the build records it and admission replays it against
- * the current environment. A descriptor or an executable configuration file
- * that reads an undeclared variable is outside every proof here, as it is for
- * the plugin configuration caches; `ttsx --no-cache` is its opt-out.
+ * the current environment. A project whose plugin has not declared that it
+ * reads variables only that way (`capabilities.environmentInputs`) is not given
+ * this projection: its caller keys it by the complete environment. A descriptor
+ * or an executable configuration file that reads an undeclared variable is
+ * outside every proof here, as it is for the plugin configuration caches; `ttsx
+ * --no-cache` is its opt-out.
  *
  * @param env Complete merged environment the build spawns its processes under.
  * @returns Name-ordered rows; equal projections spawn equal compiles.

@@ -358,12 +358,12 @@ export async function runtimePersistentCacheCorpus(
   const documents = path.join(cache, "runtime-builds");
   check(() =>
     assert.ok(
-      fs.readdirSync(documents).some((name) => name.endsWith(".emit")),
+      fs.readdirSync(documents).some((name) => name.endsWith(".json")),
       "no persistent document to damage",
     ),
   );
   for (const name of fs.readdirSync(documents))
-    if (name.endsWith(".emit"))
+    if (name.endsWith(".json"))
       fs.writeFileSync(path.join(documents, name), "invalid-cache-document");
   const concurrent = await Promise.all(
     [0, 1].map(
@@ -474,6 +474,16 @@ export async function runtimePersistentCacheCorpus(
   check(() => {
     assert.equal(queries(nativeWarm, "--listFilesOnly").length, 0);
     assert.equal(queries(nativeWarm, "--showConfig").length, 0);
+  });
+  // A plugin that has not declared its environment reads may read any
+  // variable directly, so its project stays keyed by the complete environment:
+  // an unread variable builds it again rather than risking a stale emit.
+  const nativeNoise = run([], 12, true, undefined, "src/main.ts", /TS2322/, {
+    env: { TTSX_E2E_UNREAD_VARIABLE: String(process.pid) },
+  });
+  check(() => {
+    assert.equal(outcomes(nativeNoise, "reused", true).length, 0);
+    assert.ok(outcomes(nativeNoise, "recorded", true).length > 0);
   });
   const served = (records: any[]): string =>
     records

@@ -163,7 +163,10 @@ export namespace RuntimeBuildCache {
       return props.build();
     }
     const key = digest(FORMAT + "\0" + proof.text);
-    const file = path.join(props.directory, key + ".emit");
+    // The name keeps the extension documents have always had, which tools
+    // that inspect or damage this directory select by; the content is the run
+    // bundle's raw layout, not JSON.
+    const file = path.join(props.directory, key + ".json");
     const restored: string[] = [];
     let operation = "lookup";
     try {
