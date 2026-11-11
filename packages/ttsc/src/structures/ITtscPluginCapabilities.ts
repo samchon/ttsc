@@ -104,8 +104,9 @@ export interface ITtscPluginCapabilities {
 
   /**
    * Whether every environment variable that can change this host's result is
-   * read through `PluginContext.Env`, which records the read with its value in
-   * the generation's `environmentInputs`.
+   * read through `PluginContext.Env`, or through `Program.Env` in a host that
+   * loads its own Program, which records the read with its value in the
+   * generation's `environmentInputs`.
    *
    * A persistent runtime emit is then keyed only by the variables its processes
    * read, and a recorded value that changed withdraws it. Without the

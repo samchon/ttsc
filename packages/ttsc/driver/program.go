@@ -1100,6 +1100,40 @@ func (p *Program) PluginEnvironmentInputs() map[string]*string {
   return p.plugins.environmentInputs()
 }
 
+// Env returns the value of the environment variable name, like os.LookupEnv,
+// and records the read as an input of this Program's generation, exactly as
+// PluginContext.Env does for a linked hook. It serves a host that owns its
+// Program: an executable plugin host calls driver.LoadProgram itself and never
+// receives a PluginContext, so without this read its only way to consult a
+// variable was os.Getenv, which nothing records, and a persistent host then
+// reused output compiled under another value (samchon/ttsc#1852).
+//
+// The recorded reads are the ones PluginEnvironmentInputs reports and
+// WriteCheckObservationsJSON publishes, and they share the generation's
+// ledger with linked hooks: the first read of a name fixes its value for every
+// later read. ok is false for an unset variable, and that absence is recorded
+// too. A name that cannot name a variable (empty, or containing '=' or NUL)
+// reads as unset and is not recorded. A nil Program reads the process
+// environment without recording it.
+//
+// @evidence contracts/common.md#principled-implementation The read site records the exact name and the value or absence it returned in the generation ledger the envelopes publish, so a host's output and its record cannot disagree.
+// @evidence contracts/common.md#clear-and-simple-design One accessor delegates to the ledger PluginContext.Env uses; name validation precedes it and a nil Program falls back to os.LookupEnv.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No variable list or prefix rule stands in for the explicit read, and os.Getenv is not intercepted.
+// @evidence contracts/common.md#meaningful-documentation Native prose states who needs this read, where the record goes, first-read fixing, absence, invalid names and the nil case following the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation os.LookupEnv supplies native lookup; the ledger shares Windows case aliases while keeping the first spelling and keeps POSIX names distinct.
+// @evidence contracts/performance.md#efficient-algorithms Name validation scans the name once; the ledger takes one lock and one map lookup, plus one os.LookupEnv on a first read.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Recording an input coordinates no completed or in-flight computation; consumers decide reuse from the record.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The ledger retains one name and value copy per distinct name for the Program's lifetime; repeated reads add nothing and no handle is acquired.
+func (p *Program) Env(name string) (string, bool) {
+  if name == "" || strings.ContainsAny(name, "=\x00") {
+    return "", false
+  }
+  if p == nil {
+    return os.LookupEnv(name)
+  }
+  return p.plugins.inputs.readEnvironment(name)
+}
+
 // PluginObservationsIncomplete reports whether any linked hook explicitly
 // declared that its supported public API could not observe the input population
 // for this generation. False means no such declaration, not completeness proof.
