@@ -41,7 +41,10 @@ export default function createTtscPaths(
   context: TtscPathsFactoryContext,
 ): TtscPathsDescriptor {
   return {
-    capabilities: { emitProvenance: true },
+    // The driver reads no environment variable, so a project that uses only
+    // this plugin keeps its runtime emit across unrelated environment changes
+    // (samchon/ttsc#1852).
+    capabilities: { emitProvenance: true, environmentInputs: true },
     // The descriptor reads no file outside its module graph, which lets a
     // launch reuse its evaluation (samchon/ttsc#1561).
     hostInputHashes: {},
@@ -60,8 +63,11 @@ type TtscPathsFactoryContext = {
 
 /** Native transform registration returned to the ttsc plugin host. */
 type TtscPathsDescriptor = {
-  /** The bundled driver host records actual writes and their physical sources. */
-  capabilities: { emitProvenance: true };
+  /**
+   * The bundled driver host records actual writes and their physical sources,
+   * and the path rewrite reads no environment variable.
+   */
+  capabilities: { emitProvenance: true; environmentInputs: true };
 
   /** No external files are read while this factory constructs its descriptor. */
   hostInputHashes: Record<string, string | null>;
