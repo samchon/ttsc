@@ -1,1 +1,1 @@
-{"name":"unused-mapper","version":"0.36.4","typescript":{"contentMapper":{"exec":["node","./mapper.cjs"]}}}
+{"name":"unused-mapper","version":"0.37.0","typescript":{"contentMapper":{"exec":["node","./mapper.cjs"]}}}
