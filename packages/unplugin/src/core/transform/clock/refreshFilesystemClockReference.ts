@@ -3,6 +3,7 @@ import path from "node:path";
 
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { filesystemClockReferences } from "./filesystemClockReferences";
+import { filesystemListingDevices } from "./filesystemListingDevices";
 
 /**
  * Replace every prior clock proof with one reference minted by a fresh write.
@@ -24,6 +25,12 @@ import { filesystemClockReferences } from "./filesystemClockReferences";
  * valid price for this optimization, so the cross-volume case degrades to more
  * reads instead.
  *
+ * Recreating the probe is also an entry change in the owned directory. When the
+ * view sees that directory's modification and change stamps both move, its
+ * device is admitted as one whose directory stamps witness their entries
+ * (`filesystemListingDevices`), so a plugin source listing can be replayed
+ * there instead of enumerated.
+ *
  * @evidence contracts/common.md#principled-implementation Clearing old references before a fresh owned probe write prevents previous or rolled-back stamps from certifying content; only observed regular-file metadata establishes a same-device reference.
  * @evidence contracts/common.md#clear-and-simple-design This operation mints and records one probe stamp; input metadata comparison remains in the separability consumer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed writes, inaccessible probes, or another device cannot be replaced by Date.now or a historical maximum; actual content proof remains necessary.
@@ -31,10 +38,10 @@ import { filesystemClockReferences } from "./filesystemClockReferences";
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral clock proof uses native owned-path writes and the observing view's bigint device/time metadata, preserving cross-volume and unavailable-probe behavior without a platform clock assumption.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Clear the view's prior entries, then an available directory performs native
- *   path joining, one write of process-counter text and one observed metadata
- *   read. Costs include path/counter text and native I/O; a missing directory
- *   skips I/O. Clearing/recording follows the current reference population,
- *   not a scan of project inputs.
+ *   path joining, one removal and one write of process-counter text and three
+ *   observed metadata reads. Costs include path/counter text and native I/O; a
+ *   missing directory skips I/O. Clearing/recording follows the current
+ *   reference population, not a scan of project inputs.
  * @evidence contracts/performance.md#reuse-equivalent-work The existing probe path and shared per-view reference table are reused; only a newly minted stamp can authorize signature reuse.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Refresh clears history and retains at most one regular-file device stamp;
@@ -49,17 +56,48 @@ export function refreshFilesystemClockReference(
   filesystem: TtscTransformFilesystemOperations,
 ): void {
   const references = filesystemClockReferences(filesystem);
+  const listings = filesystemListingDevices(filesystem);
   references.clear();
+  listings.clear();
   if (referenceDirectory === undefined) return;
   try {
     const probe = path.join(referenceDirectory, "clock-reference");
+    // The probe is recreated rather than rewritten, so the owned directory sees
+    // an entry change whose effect on its stamps qualifies the device.
+    const directory = ():
+      | { dev: bigint; mtimeNs: bigint; ctimeNs: bigint }
+      | undefined => {
+      try {
+        return filesystem.lstat(referenceDirectory);
+      } catch {
+        // A view that cannot state the directory only forgoes the listing.
+        return undefined;
+      }
+    };
+    const parent = directory();
+    try {
+      fs.rmSync(probe, { force: true });
+    } catch {
+      // A probe that cannot be removed is rewritten in place, which moves no
+      // directory stamp, so the device is simply not admitted.
+    }
     fs.writeFileSync(probe, `${process.hrtime.bigint()}\n`);
     const stats = filesystem.lstat(probe);
     if (stats.isFile()) {
       references.set(stats.dev, stats.mtimeNs);
+      const moved = parent === undefined ? undefined : directory();
+      if (
+        parent !== undefined &&
+        moved !== undefined &&
+        moved.dev === stats.dev &&
+        moved.mtimeNs > parent.mtimeNs &&
+        moved.ctimeNs > parent.ctimeNs
+      )
+        listings.add(stats.dev);
     }
   } catch {
     // A failed refresh leaves no reference, so content comparison continues.
     references.clear();
+    listings.clear();
   }
 }

@@ -81,6 +81,7 @@ export async function case_watch_topology_worker_owns_responsive_ordered_lifetim
       await topology.setExtraInputs([plugin], {
         root: path.join(root, "cache"),
         references: new Map([[fs.statSync(root, { bigint: true }).dev, 0n]]),
+        listings: new Set(),
         version: "transport",
       });
       await topology.setProjectInputs({

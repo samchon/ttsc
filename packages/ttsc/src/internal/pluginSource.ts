@@ -15,6 +15,7 @@
  * declaration per file.
  */
 export * from "../plugin/internal/source/CompilerTarget";
+export * from "../plugin/internal/source/IPluginSourceListing";
 export * from "../plugin/internal/source/collectPluginSourceFiles";
 export * from "../plugin/internal/source/pluginBuildVersions";
 export * from "../plugin/internal/source/pluginSourceCovers";
