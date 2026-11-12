@@ -30,7 +30,9 @@ import { projectModules } from "../../../../internal/unplugin/internal/transform
  * them costs a stat of its target. Those reads are bounded the same way: each
  * spelling once per delivery, or twice for an input whose proof is re-earned on
  * every delivery, the broken link here, which is read on each side of its
- * content comparison; and in number by the inputs the fixture declares.
+ * content comparison; and in number by the inputs the fixture declares. The
+ * clock mint's own directory, stated on each side of recreating its probe to
+ * learn whether directory stamps move, is no input and is not bounded here.
  *
  * The descriptor's absent inputs are proven by a native stat of each on every
  * delivery: a directory listing cannot see a short-name or Unicode alias, and a
@@ -259,9 +261,17 @@ export async function test_transformttsc_persistent_validation_uses_per_file_inp
       directoryStats.length,
       `a delivery reads each watched directory once (active resources: ${activeResourceSummary()}; host tracker: ${trackerState(capturedHostTracker)}; validated but not tracker-covered: ${uncoveredInputs(capturedGeneration, capturedHostTracker)}): ${directoryStats.map((location, index) => `${location}\n${directoryStatCallers[index]}`).join("\n")}`,
     );
-    const spellings = new Set(metadataReads);
+    // The clock mint states its own directory on each side of recreating its
+    // probe; that directory is no input, so it is left out of the bound.
+    const mints = new Set(
+      metadataReads
+        .filter((location) => path.basename(location) === "clock-reference")
+        .map((location) => path.dirname(location)),
+    );
+    const inputReads = metadataReads.filter((location) => !mints.has(location));
+    const spellings = new Set(inputReads);
     assert.ok(
-      metadataReads.length <= spellings.size + 1,
+      inputReads.length <= spellings.size + 1,
       `a delivery reads each input spelling's metadata once, and the broken link on each side of its content comparison: ${metadataReads.join(", ")}`,
     );
   }
