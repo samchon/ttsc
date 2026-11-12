@@ -368,10 +368,10 @@ export namespace PluginContentIdentities {
    * @param listings The store's devices whose directory stamps move.
    * @evidence contracts/common.md#principled-implementation Device, inode, mode, link count and both stamps identify the directory and its last entry change; only a device that showed the premise and stamps whose tick ended before the reference are offered.
    * @evidence contracts/common.md#clear-and-simple-design One closure carries one proof's references, as sourceEvidence does for files.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts A link, a non-directory, a failure, an unknown device or an unseparable stamp yields no witness, so the population is enumerated.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A non-directory, a failure, an unknown device or an unseparable stamp yields no witness, so the population is enumerated; a link is stated only together with the directory it names.
    * @evidence contracts/common.md#meaningful-documentation Native prose states both conditions of a witness.
    * @evidence contracts/portability.md#os-neutral-implementation Native bigint lstat supplies the device, identity and nanosecond stamps; the premise is per device.
-   * @evidence contracts/performance.md#efficient-algorithms One native lstat and fixed formatting per directory.
+   * @evidence contracts/performance.md#efficient-algorithms One native lstat, a second stat for a link, and fixed formatting per directory.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A fresh observation.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The closure retains the supplied maps only.
    */
@@ -379,23 +379,31 @@ export namespace PluginContentIdentities {
     references: ReadonlyMap<bigint, bigint>,
     listings: ReadonlySet<bigint>,
   ): (directory: string) => string | undefined {
+    const stated = (stats: fs.BigIntStats): string | undefined =>
+      listings.has(stats.dev) && separable(references, stats, true)
+        ? [
+            stats.dev,
+            stats.ino,
+            stats.mode,
+            stats.nlink,
+            stats.mtimeNs,
+            stats.ctimeNs,
+          ].join(":")
+        : undefined;
     return (directory) => {
       try {
-        const stats = fs.lstatSync(directory, { bigint: true });
-        if (
-          !stats.isDirectory() ||
-          !listings.has(stats.dev) ||
-          !separable(references, stats, true)
-        )
-          return undefined;
-        return [
-          stats.dev,
-          stats.ino,
-          stats.mode,
-          stats.nlink,
-          stats.mtimeNs,
-          stats.ctimeNs,
-        ].join(":");
+        const entry = fs.lstatSync(directory, { bigint: true });
+        // A source root reached through a link, as a package manager installs
+        // one, is stated by the link and by the directory it names, so a
+        // retarget moves the first and an entry change the second.
+        const target = entry.isSymbolicLink()
+          ? fs.statSync(directory, { bigint: true })
+          : entry;
+        if (!target.isDirectory()) return undefined;
+        const own = stated(entry);
+        if (own === undefined || target === entry) return own;
+        const named = stated(target);
+        return named === undefined ? undefined : `${own}>${named}`;
       } catch {
         return undefined;
       }

@@ -1,3 +1,4 @@
+import type fs from "node:fs";
 import path from "node:path";
 import {
   type IPluginSourceListing,
@@ -117,25 +118,35 @@ function directoryEvidence(
   directory: string,
   filesystem: TtscTransformFilesystemOperations,
 ): string | undefined {
-  try {
-    const stats = filesystem.lstat(directory);
+  const stated = (stats: fs.BigIntStats): string | undefined => {
     const reference = filesystemClockReferences(filesystem).get(stats.dev);
-    if (
-      !stats.isDirectory() ||
-      !filesystemListingDevices(filesystem).has(stats.dev) ||
-      reference === undefined ||
-      stats.mtimeNs >= reference ||
-      stats.ctimeNs >= reference
-    )
-      return undefined;
-    return [
-      stats.dev,
-      stats.ino,
-      stats.mode,
-      stats.nlink,
-      stats.mtimeNs,
-      stats.ctimeNs,
-    ].join(":");
+    return filesystemListingDevices(filesystem).has(stats.dev) &&
+      reference !== undefined &&
+      stats.mtimeNs < reference &&
+      stats.ctimeNs < reference
+      ? [
+          stats.dev,
+          stats.ino,
+          stats.mode,
+          stats.nlink,
+          stats.mtimeNs,
+          stats.ctimeNs,
+        ].join(":")
+      : undefined;
+  };
+  try {
+    const entry = filesystem.lstat(directory);
+    // A source root reached through a link is stated by the link and by the
+    // directory it names: a retarget moves the first, an entry change the
+    // second.
+    const target = entry.isSymbolicLink()
+      ? filesystem.statBigInt(directory)
+      : entry;
+    if (!target.isDirectory()) return undefined;
+    const own = stated(entry);
+    if (own === undefined || target === entry) return own;
+    const named = stated(target);
+    return named === undefined ? undefined : `${own}>${named}`;
   } catch {
     return undefined;
   }
