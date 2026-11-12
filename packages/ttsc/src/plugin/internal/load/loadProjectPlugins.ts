@@ -458,10 +458,16 @@ export namespace loadProjectPlugins {
       string,
       PluginBuildEnvironmentWitness.Record
     >();
+    // The overlay modules every selection and build of this load uses, found
+    // once: each lookup walks the compiler line's shim tree.
+    const overlayDirs = SourcePluginWorkspace.findTtscOverlayDirs(
+      CompilerTarget.ofEnv(effectiveEnv),
+    );
     const readings = {
       sources: sourceDigests,
       environments: environmentDigests,
       witnesses: environmentWitnesses,
+      overlays: overlayDirs,
     };
     // Records describing sources must never land inside one, so the store is
     // admitted for source proofs only once every source of the load is known.
@@ -471,9 +477,7 @@ export namespace loadProjectPlugins {
         candidate.packageDir,
         ...(candidate.contributors ?? []).map((input) => input.source),
       ]),
-      ...SourcePluginWorkspace.findTtscOverlayDirs(
-        CompilerTarget.ofEnv(effectiveEnv),
-      ),
+      ...overlayDirs,
     ]);
     // One fixed-effective-environment load owns manifest syntax sharing from the
     // first watch query through metadata and builds. Do not allocate this after
@@ -744,6 +748,7 @@ export namespace loadProjectPlugins {
           source: record.source,
           environmentDigests,
           environmentWitnesses,
+          overlayDirs,
           sourceDigests,
           ttscVersion,
           tsgoVersion,
@@ -769,6 +774,7 @@ export namespace loadProjectPlugins {
             ),
             environmentDigests,
             environmentWitnesses,
+            overlayDirs,
             sourceDigests,
             ttscVersion,
             tsgoVersion,
@@ -800,6 +806,7 @@ export namespace loadProjectPlugins {
                 source: record.source,
                 environmentDigests,
                 environmentWitnesses,
+                overlayDirs,
                 sourceDigests,
                 ttscVersion,
                 tsgoVersion,

@@ -71,14 +71,16 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * materialized workspace before compilation; legacy cache artifacts have a
  * different key. Existing binary hits trust the cache producer and key rather
  * than rehashing executable bytes. Default caches are managed locally, while
- * explicit roots retain caller-managed pruning policy. Every returned cache key
- * registers a reader token retained by this process until exit; registration
- * shares the builder/collector lease, and other consumers register independent
- * readers. Failure to establish ownership propagates. Private opt-in tracing
- * records the mandatory key-creation and pre-build witness gates and adds one
- * diagnostic observation after Go returns. That diagnostic read adds metadata
- * work, not publication permission. A discarded epoch is separately recorded
- * when the bounded build owner starts again.
+ * explicit roots retain caller-managed pruning policy; a managed cache is
+ * size-pruned after a binary this process compiled, never after adopting one
+ * another process published. Every returned cache key registers a reader token
+ * retained by this process until exit; registration shares the
+ * builder/collector lease, and other consumers register independent readers.
+ * Failure to establish ownership propagates. Private opt-in tracing records the
+ * mandatory key-creation and pre-build witness gates and adds one diagnostic
+ * observation after Go returns. That diagnostic read adds metadata work, not
+ * publication permission. A discarded epoch is separately recorded when the
+ * bounded build owner starts again.
  *
  * Explicit worker scopes check cancellation between build phases, copied source
  * entries and native commands, including reader admission and final
@@ -403,10 +405,13 @@ function buildSourcePluginAttempt(
     binaryPath,
     outcome: compiled ? "compile-returned" : "lock-adopted",
   });
-  if (managePluginCache) {
+  if (managePluginCache && compiled) {
     // The pre-build daily pass cannot account for the binary this cold build
     // just published. Attempt size-policy maintenance after publication, once this
-    // process has released its per-key build lock.
+    // process has released its per-key build lock. A process that adopted a
+    // binary already published adds nothing to account for; its producer ran
+    // this pass. Running it on every adoption walked the whole plugin cache in
+    // each warm process (samchon/ttsc#1852).
     OwnedSynchronousProcess.checkpoint();
     prunePluginCacheRoot(pluginRoot, {
       force: true,
