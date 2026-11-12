@@ -29,15 +29,17 @@ import {
  *
  * 1. Copy the project and a nested Go transformer module into it, settle the
  *    sources' stamps, and build cold.
- * 2. Build again under a private `TTSC_E2E_TRACE` and assert the budget: no `go
- *    list`, no `go work`, no runtime probe, the package selection answered from
- *    its record, and on every device the launch mints a clock reference on no
- *    executable streamed and every content identity reused.
+ * 2. Build again under a private `TTSC_E2E_TRACE` and assert the budget: no Go
+ *    tool at all, neither `go list`, `go work`, `go env` nor `go version`, no
+ *    runtime probe, the package selection answered from its record, and on
+ *    every device the launch mints a clock reference on no executable streamed,
+ *    every content identity reused and the build environment answered from its
+ *    record.
  * 3. Edit the transformer's Go source and build again: the binary is rebuilt and
  *    Go selection observes the edited module.
  *
  * @evidence contracts/testing.md#behavioral-verification Real `ttsc` builds run cold, warm and after an edit; the warm trace's process attempts and identity/answer observations are the asserted behavior, alongside build status, the cold-build log and the rebuilt binary after the edit.
- * @evidence contracts/testing.md#independent-expectations The budget follows from the contract that unchanged inputs are proven from records: Go selection and runtime probing are absent by construction, and each identity outcome and executable stream follows from its subject's device: reused without a stream on the temporary or cache device the launch references, read elsewhere. The edit's expectation, a rebuild with a fresh `go list`, follows from content keying.
+ * @evidence contracts/testing.md#independent-expectations The budget follows from the contract that unchanged inputs are proven from records: Go selection, Go environment readings and runtime probing are absent by construction, and each identity outcome and executable stream follows from its subject's device: reused without a stream on the temporary or cache device the launch references, read elsewhere. The edit's expectation, a rebuild with a fresh `go list`, follows from content keying.
  * @evidence contracts/testing.md#distinguishing-cases Owns the unchanged warm launch (no selection, no probe, referenced identities reused) against the edited launch (rebuild and fresh selection). Unit cases own the per-input invalidation matrix of each record family.
  * @evidence contracts/testing.md#execution-ownership The runtime batch invokes this named scenario after its native frontdoors; its body owns the three CLI launches and reads the trace it requested.
  * @evidence contracts/e2e.md#necessary-boundary Cross-process reuse exists only between real launches: a unit cannot show that a new process reads no bytes and starts no Go selection.
@@ -108,16 +110,9 @@ module.exports = (context) => ({
     .map((event) => event.argv ?? [])
     .filter((argv) => /^go(\.exe)?$/i.test(path.basename(argv[0] ?? "")))
     .map((argv) => argv[1]);
-  assert.equal(
-    goCommands.includes("list"),
-    false,
-    "a warm load must not run go list",
-  );
-  assert.equal(
-    goCommands.includes("work"),
-    false,
-    "a warm load must not write a Go workspace",
-  );
+  // `go env` and `go version` read the toolchain, the file `go env -w` writes
+  // and GOROOT, which the records' witnesses prove unchanged (samchon/ttsc#1852).
+  assert.deepEqual(goCommands, [], "a warm load must not run any Go tool");
   const phases = warm.events
     .filter((event) => event.event === "capability-resolution")
     .map((event) => event.data ?? {});
@@ -150,9 +145,15 @@ module.exports = (context) => ({
   const identities = phases.filter(
     (data) => data.phase === "plugin-content-identity",
   );
+  // The recorded reading's witness covers GOROOT, so a warm load walks none.
   assert.ok(
-    identities.some((data) => data.kind === "goroot"),
-    "the GOROOT identity is proven",
+    phases.some(
+      (data) =>
+        data.phase === "plugin-load-answer" &&
+        data.kind === "plugin-build-environment" &&
+        data.outcome === "reused",
+    ),
+    "the build environment is answered from its record",
   );
   assert.ok(
     identities.some((data) => data.kind === "plugin-source"),

@@ -77,6 +77,20 @@ export interface TtscBuildResult {
    */
   environmentInputs?: Record<string, string | null>;
 
+  /**
+   * Every filesystem predicate the compiler's answer depended on, keyed by
+   * absolute native path: the native host's own record of what it asked, or,
+   * for a project the installed tsc compiles, what that tsc's file list and
+   * resolution trace reported just before the build. Present only when that
+   * record is complete: a later process that finds each predicate still
+   * answering as recorded would compile the same Program, so the result is
+   * provable without asking the compiler again.
+   */
+  compilerObservations?: Record<
+    string,
+    ITtscCompilerTransformation.IInputObservation
+  >;
+
   /** A contributing producer explicitly reported incomplete observations. */
   observationsComplete?: false;
 

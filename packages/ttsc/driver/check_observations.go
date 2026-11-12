@@ -21,6 +21,9 @@ import (
 // removal. Publication occurs only after a temporary write and close succeed.
 // Environment variables the hooks read through PluginContext.Env travel in
 // environmentInputs with their recorded values, omitted when none was read.
+// A loaded Program also publishes every filesystem predicate its compiler asked
+// (compilerObservations) and whether that population is complete, so a host can
+// prove this generation again without loading it (Program.CompilerObservations).
 //
 // @evidence contracts/common.md#principled-implementation The same loaded Program supplies recorded input names and consistent supplied content and physical-path reports; missing generation authority is explicitly incomplete, while diagnostics and individual conflicts retain their independent meanings.
 // @evidence contracts/common.md#clear-and-simple-design One typed wire object keeps hook observations separate from human diagnostic streams and never reloads a second compiler generation to reconstruct them.
@@ -57,6 +60,8 @@ func WriteCheckRecoveryObservationsJSON(fileName string, program *Program, recov
   var environment map[string]*string
   var complete *bool
   var graph *TransformGraph
+  var compiler map[string]TransformInputObservation
+  compilerComplete := false
   if program == nil {
     graph = recovery
   }
@@ -78,6 +83,9 @@ func WriteCheckRecoveryObservationsJSON(fileName string, program *Program, recov
       realpaths = recorded
     }
     environment = program.PluginEnvironmentInputs()
+    // Taken after the graph, whose resolution replay joins this population, so
+    // a predicate that moved while the Program was in use withdraws it.
+    compiler, compilerComplete = program.CompilerObservations()
   }
   data, err := json.Marshal(struct {
     Graph                *TransformGraph    `json:"graph,omitempty"`
@@ -86,7 +94,12 @@ func WriteCheckRecoveryObservationsJSON(fileName string, program *Program, recov
     HostInputRealpaths   map[string]*string `json:"hostInputRealpaths"`
     EnvironmentInputs    map[string]*string `json:"environmentInputs,omitempty"`
     ObservationsComplete *bool              `json:"observationsComplete,omitempty"`
-  }{graph, inputs, hashes, realpaths, environment, complete})
+    // CompilerObservations is every filesystem predicate the compiler asked for
+    // this Program, by native absolute path (Program.CompilerObservations). It
+    // is proof only while CompilerObservationsComplete is true.
+    CompilerObservations         map[string]TransformInputObservation `json:"compilerObservations,omitempty"`
+    CompilerObservationsComplete bool                                 `json:"compilerObservationsComplete,omitempty"`
+  }{graph, inputs, hashes, realpaths, environment, complete, compiler, compilerComplete})
   if err != nil {
     return err
   }

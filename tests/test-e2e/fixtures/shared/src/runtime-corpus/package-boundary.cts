@@ -31,5 +31,14 @@ export async function observePackageBoundary(): Promise<unknown> {
       failures.push({ label, code: (error as any).code ?? null, message: String((error as any).message) });
     }
   }
+  // The same request from lookup paths without the package must not find it:
+  // `paths` reaches Node's own resolution but no resolve hook, so a hook that
+  // reused the answer above would return the wrong module.
+  try {
+    require.resolve("boundary-no-config", { paths: [__dirname] });
+    observed.scoped = false;
+  } catch (error) {
+    observed.scoped = (error as any).code === "MODULE_NOT_FOUND";
+  }
   return { ...observed, failures };
 }

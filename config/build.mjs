@@ -27,9 +27,18 @@ if (options.includes("--host-graph")) {
 
 const pnpm = process.env.npm_execpath;
 if (!pnpm) throw new Error("Run the build through pnpm run build");
+// pnpm is a JavaScript entry under corepack and npm installs, and a native
+// executable under its standalone installer; only the former runs through Node.
+const script = /\.[cm]?js$/i.test(pnpm);
 const result = spawnSync(
-  process.execPath,
-  [pnpm, ...filters.flatMap((filter) => ["--filter", filter]), "-r", "--workspace-concurrency=1", "build"],
+  script ? process.execPath : pnpm,
+  [
+    ...(script ? [pnpm] : []),
+    ...filters.flatMap((filter) => ["--filter", filter]),
+    "-r",
+    "--workspace-concurrency=1",
+    "build",
+  ],
   { cwd: root, stdio: "inherit", windowsHide: true },
 );
 if (result.error) throw result.error;

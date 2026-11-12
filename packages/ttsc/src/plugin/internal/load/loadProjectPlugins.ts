@@ -286,12 +286,26 @@ export namespace loadProjectPlugins {
       };
     }
 
+    // Where isolated descriptor evaluations keep their answers across launches
+    // (`PluginDescriptorEvaluationCache`).
+    // WARNING (#1721, #1722, #1723): a warm load must prove its unchanged inputs
+    // from this store, not re-read them. Every launch is a new process, so any
+    // module-level memo of this load's work dies with it; a 27 s warm typia
+    // launch whose native build took 0.28 s is what that looked like.
+    const identities =
+      options.identities ??
+      PluginContentIdentities.open({
+        projectRoot: project.root,
+        cacheDir: options.cacheDir,
+        env: callerEnv,
+      });
     // Every Go command of this load compiles the compiler target of the
     // project's TypeScript line; the target travels in the environment.
     const effectiveEnv = CompilerTarget.buildEnv(
       callerEnv,
-      CompilerTarget.resolve(project.root, callerEnv),
+      CompilerTarget.resolve(project.root, callerEnv, identities),
       project.root,
+      identities,
     );
     const cwd = path.resolve(options.cwd ?? process.cwd());
     const context = {
@@ -304,19 +318,6 @@ export namespace loadProjectPlugins {
       projectRoot: project.root,
       tsconfig: project.path,
     };
-    // Where isolated descriptor evaluations keep their answers across launches
-    // (`PluginDescriptorEvaluationCache`).
-    // WARNING (#1721, #1722, #1723): a warm load must prove its unchanged inputs
-    // from this store, not re-read them. Every launch is a new process, so any
-    // module-level memo of this load's work dies with it; a 27 s warm typia
-    // launch whose native build took 0.28 s is what that looked like.
-    const identities =
-      options.identities ??
-      PluginContentIdentities.open({
-        projectRoot: project.root,
-        cacheDir: options.cacheDir,
-        env: effectiveEnv,
-      });
     const descriptorCache: DescriptorCacheOptions = {
       cacheDir: options.cacheDir,
       identities,
@@ -457,10 +458,16 @@ export namespace loadProjectPlugins {
       string,
       PluginBuildEnvironmentWitness.Record
     >();
+    // The overlay modules every selection and build of this load uses, found
+    // once: each lookup walks the compiler line's shim tree.
+    const overlayDirs = SourcePluginWorkspace.findTtscOverlayDirs(
+      CompilerTarget.ofEnv(effectiveEnv),
+    );
     const readings = {
       sources: sourceDigests,
       environments: environmentDigests,
       witnesses: environmentWitnesses,
+      overlays: overlayDirs,
     };
     // Records describing sources must never land inside one, so the store is
     // admitted for source proofs only once every source of the load is known.
@@ -470,9 +477,7 @@ export namespace loadProjectPlugins {
         candidate.packageDir,
         ...(candidate.contributors ?? []).map((input) => input.source),
       ]),
-      ...SourcePluginWorkspace.findTtscOverlayDirs(
-        CompilerTarget.ofEnv(effectiveEnv),
-      ),
+      ...overlayDirs,
     ]);
     // One fixed-effective-environment load owns manifest syntax sharing from the
     // first watch query through metadata and builds. Do not allocate this after
@@ -743,6 +748,7 @@ export namespace loadProjectPlugins {
           source: record.source,
           environmentDigests,
           environmentWitnesses,
+          overlayDirs,
           sourceDigests,
           ttscVersion,
           tsgoVersion,
@@ -768,6 +774,7 @@ export namespace loadProjectPlugins {
             ),
             environmentDigests,
             environmentWitnesses,
+            overlayDirs,
             sourceDigests,
             ttscVersion,
             tsgoVersion,
@@ -799,6 +806,7 @@ export namespace loadProjectPlugins {
                 source: record.source,
                 environmentDigests,
                 environmentWitnesses,
+                overlayDirs,
                 sourceDigests,
                 ttscVersion,
                 tsgoVersion,

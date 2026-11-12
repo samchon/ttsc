@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { runtimeBuildEnvironment } from "../../../compiler/internal/build/runtimeBuildEnvironment";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import type { PluginContentIdentities } from "../source/PluginContentIdentities";
@@ -22,10 +23,11 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * their presence is not detection of every omitted read or side effect. An
  * answer is kept under everything else the evaluation was given: the
  * descriptor, its factory context, the working directory, the effective
- * environment, the runtimes that ran it, and this ttsc build. A hit requires
- * matching current stored content/realpath projections; these sequential
- * observations are not an atomic filesystem snapshot and do not distinguish
- * every cause of an unavailable null value.
+ * environment except ttsc's per-run channels and reporting switches
+ * (`runtimeBuildEnvironment.unkeyed`), the runtimes that ran it, and this ttsc
+ * build. A hit requires matching current stored content/realpath projections;
+ * these sequential observations are not an atomic filesystem snapshot and do
+ * not distinguish every cause of an unavailable null value.
  *
  * The files a descriptor reads outside its module graph are its own to declare
  * (`hostInputHashes`), so only the answer of a descriptor supplying that
@@ -172,9 +174,15 @@ export namespace PluginDescriptorEvaluationCache {
           path.resolve(props.request),
           props.context,
           path.resolve(props.cwd),
+          // A ttsx child carries its run's own channels, which name that run's
+          // directories; keying them missed every evaluation of every run
+          // (samchon/ttsc#1852). They and the reporting switches select no
+          // answer, which the recorded module reads prove.
           Object.entries(environment)
             .filter(
-              (entry): entry is [string, string] => entry[1] !== undefined,
+              (entry): entry is [string, string] =>
+                entry[1] !== undefined &&
+                !runtimeBuildEnvironment.unkeyed(entry[0]),
             )
             .sort(([left], [right]) =>
               left < right ? -1 : left > right ? 1 : 0,

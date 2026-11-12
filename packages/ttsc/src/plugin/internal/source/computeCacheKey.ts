@@ -10,6 +10,7 @@ import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOpe
 import type { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
 import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
+import { readPluginBuildEnvironment } from "./readPluginBuildEnvironment";
 
 /**
  * Compute a 32-character lowercase key from a plugin build's SHA-256 digest.
@@ -189,17 +190,28 @@ export function computeCacheKey(inputs: {
     const witness =
       inputs.environmentWitness ??
       (inputs.environmentWitnesses === undefined ? undefined : new Map());
-    const reading = crypto.createHash("sha256");
-    hashPluginBuildEnvironment(
-      reading,
-      goBinary,
-      inputs.dir,
-      env,
-      filesystem,
-      witness,
-      identities,
-    );
-    environment = reading.digest("hex");
+    if (inputs.filesystem === undefined)
+      environment = readPluginBuildEnvironment(
+        goBinary,
+        inputs.dir,
+        env,
+        witness,
+        identities,
+      );
+    else {
+      // Another byte adapter reads what the record's witness does not cover.
+      const reading = crypto.createHash("sha256");
+      hashPluginBuildEnvironment(
+        reading,
+        goBinary,
+        inputs.dir,
+        env,
+        filesystem,
+        witness,
+        identities,
+      );
+      environment = reading.digest("hex");
+    }
     inputs.environmentDigests?.set(environmentDirectory, environment);
     if (inputs.filesystem === undefined && witness !== undefined)
       inputs.environmentWitnesses?.set(environmentDirectory, new Map(witness));

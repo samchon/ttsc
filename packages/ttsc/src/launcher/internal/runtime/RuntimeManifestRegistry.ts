@@ -132,7 +132,8 @@ export namespace RuntimeManifestRegistry {
   }
 
   /**
-   * Find the manifest whose checked build emitted `real`, and that emit.
+   * Find the manifest whose checked build emitted `real`, the physical path the
+   * caller resolved for the module it is loading, and that emit.
    *
    * A manifest's prepared root is matched first, by its recorded source, so a
    * root keeps precedence over other preparations. Every match, including that
@@ -147,8 +148,8 @@ export namespace RuntimeManifestRegistry {
    * @evidence contracts/common.md#clear-and-simple-design Two explicit passes separate entry precedence from general build ownership, with one index helper owning memoized reverse mapping.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No basename fallback or unchecked-file substitution stands in for proof that a selected manifest compiled the requested source.
    * @evidence contracts/common.md#meaningful-documentation Native prose states prepared-entry precedence, trusted preparation premises, null lane selection and possible provenance/native identity exceptions without certifying current contents.
-   * @evidence contracts/portability.md#os-neutral-implementation realPath selects prepared-entry precedence and EmitOwnershipIndex establishes native source identity from the compiler observation; filename existence and OS-name case folding cannot certify ownership.
-   * @evidence contracts/performance.md#efficient-algorithms Two manifest passes enforce precedence without sorting, adding entry realpath and native source-query/text work. First use constructs each index from output/provenance/refusal entries with native output identity observations; inherited read/snapshot costs also apply before the passes. Later queries reuse that association index, not its native alias observations.
+   * @evidence contracts/portability.md#os-neutral-implementation The caller's one physical resolution is compared with each prepared root's own, resolved once per manifest, and with the compiler's captured source coordinates in EmitOwnershipIndex; filename existence and OS-name case folding cannot certify ownership.
+   * @evidence contracts/performance.md#efficient-algorithms Two manifest passes enforce precedence without sorting; a lookup performs no native path resolution, because the caller resolved the module once and each prepared root is resolved once per manifest. First use constructs each index from output/provenance/refusal entries with native output identity observations; inherited read/snapshot costs also apply before the passes. Later queries reuse that association index, not its native alias observations.
    * @evidence contracts/performance.md#reuse-equivalent-work Immutable prepared emit permits one preindexed association record per manifest across import specifiers; query aliases remain fresh and a newly prepared build supplies a distinct manifest identity.
    * @evidence contracts/performance.md#bound-retention-and-release-resources WeakMap indexes follow retained manifest objects; this registry instance keeps registered snapshots and their association/refusal text without eviction while reachable. Current alias observations are call-local rather than a queried-spelling history; artifact storage and immutable-retention policy belong to preparation owners.
    */
@@ -166,9 +167,9 @@ export namespace RuntimeManifestRegistry {
       if (
         candidate.entrySource !== undefined &&
         candidate.entryFile !== undefined &&
-        realPath(candidate.entrySource) === real
+        entrySource(candidate) === real
       ) {
-        const emitted = ownershipIndex(candidate).find(real);
+        const emitted = ownershipIndex(candidate).findPhysical(real);
         if (emitted !== null) {
           return {
             emittedFile: emitted,
@@ -179,7 +180,7 @@ export namespace RuntimeManifestRegistry {
       }
     }
     for (const candidate of manifests) {
-      const emitted = ownershipIndex(candidate).find(real);
+      const emitted = ownershipIndex(candidate).findPhysical(real);
       if (emitted !== null) {
         return {
           emittedFile: emitted,
@@ -190,6 +191,23 @@ export namespace RuntimeManifestRegistry {
     }
     return null;
   }
+
+  /**
+   * The physical path of a manifest's prepared root, resolved once. A checked
+   * preparation records the entry it compiled, and every module load asks
+   * whether it is that entry, so resolving the recorded path per load cost one
+   * native resolution per module per manifest (samchon/ttsc#1852).
+   */
+  function entrySource(manifest: RuntimeManifest): string {
+    let physical = entrySources.get(manifest);
+    if (physical === undefined) {
+      physical = realPath(manifest.entrySource!);
+      entrySources.set(manifest, physical);
+    }
+    return physical;
+  }
+
+  const entrySources = new WeakMap<RuntimeManifest, string>();
 
   /**
    * The ownership index of one manifest's build, created on first use. The

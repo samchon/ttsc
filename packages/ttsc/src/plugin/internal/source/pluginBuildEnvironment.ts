@@ -1,10 +1,7 @@
-import crypto from "node:crypto";
-import fs from "node:fs";
-
 import { GoToolResolution } from "./GoToolResolution";
 import type { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
-import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
+import { readPluginBuildEnvironment } from "./readPluginBuildEnvironment";
 import { resolveGoCompiler } from "./resolveGoCompiler";
 
 /**
@@ -21,8 +18,10 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
  * probe to observe it before reading. Compiler identity reuses a
  * metadata-and-context memo; a changed SDK manifest rehashes all contributing
  * content rather than only edited files. A supplied record store lets a new
- * process take the SDK and executable digests from records instead of their
- * bytes, while `go env` and `go version` still run.
+ * process take the whole reading from the record a previous process left while
+ * everything it depended on still holds (`readPluginBuildEnvironment`), and
+ * otherwise the SDK and executable digests from records instead of their
+ * bytes.
  *
  * @param directory The directory a build runs `go` in.
  * @param env The effective environment, `process.env` by default.
@@ -37,7 +36,7 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
  * @evidence contracts/portability.md#os-neutral-implementation Executable identity is resolved before probing, and Node filesystem/process boundaries implement native spelling rather than assuming Windows or POSIX paths are interchangeable.
  * @evidence contracts/performance.md#efficient-algorithms The wrapper resolves the compiler/tool under the supplied environment before delegating full environment hashing. Native resolution/probes, SDK metadata/name/path sorting and changed-manifest full content reads contribute cost; the final hash output is fixed-width but streamed identity/input text and full-file buffers are not. No independent duplicate source-directory digest scan is added here.
  *
- * @evidence contracts/performance.md#reuse-equivalent-work This is the fresh-reading boundary required by builds: the Go probes run on every call. Content digests of the SDK and executables are shared across processes only through the supplied record store's separable-signature proof; processPluginBuildEnvironment owns reuse of the whole reading when a consumer permits it.
+ * @evidence contracts/performance.md#reuse-equivalent-work With a record store, a reading is shared across processes under the variables the Go tool receives and its witness (`readPluginBuildEnvironment`); without one the Go probes run on every call. processPluginBuildEnvironment owns reuse of the whole reading within a process.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Its digest and filesystem adapter are call-local; retained compiler/content memo ownership belongs to the hasher.
  */
 export function pluginBuildEnvironment(
@@ -52,15 +51,11 @@ export function pluginBuildEnvironment(
     directory,
     witness,
   );
-  const hash = crypto.createHash("sha256");
-  hashPluginBuildEnvironment(
-    hash,
+  return readPluginBuildEnvironment(
     goBinary,
     directory,
     env,
-    { readFile: (location) => fs.readFileSync(location) },
     witness,
     identities,
   );
-  return hash.digest("hex");
 }

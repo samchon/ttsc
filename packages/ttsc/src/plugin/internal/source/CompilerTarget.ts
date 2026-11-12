@@ -2,10 +2,13 @@ import { outputText } from "../../../compiler/internal/outputText";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
+import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
+import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
+import type { PluginContentIdentities } from "./PluginContentIdentities";
+import { PluginLoadAnswers } from "./PluginLoadAnswers";
 import { resolveGoCompiler } from "./resolveGoCompiler";
-import { spawnGoTool } from "./spawnGoTool";
 
 /**
  * The compiler target a source build compiles against, chosen from the
@@ -84,17 +87,30 @@ export namespace CompilerTarget {
    * or of `TTSC_TSGO_BINARY` when that names a custom compiler. A version newer
    * than every target selects the newest and warns once per version on stderr.
    *
+   * A ttsx run names the compiler it resolved through `TTSC_TSGO_BINARY`, so
+   * every plugin load of its program asked that binary for its version again
+   * (samchon/ttsc#1852). With a record store the answer is kept under the
+   * binary's content identity (`runtimeExecutableIdentity`) for later
+   * processes, as runtime probes are (#1723).
+   *
+   * @param projectRoot Project whose compiler is resolved.
+   * @param env Effective environment of the load.
+   * @param identities Optional record store of the project's plugin cache.
    * @evidence contracts/common.md#principled-implementation resolveTsgo locates the same compiler the project's build runs; its manifest version is used, and a custom binary is asked for --version since it has no manifest. An unresolvable compiler maps to the 7.0 default, leaving the build's own resolution to report it.
    * @evidence contracts/common.md#clear-and-simple-design Version reading stays here and line mapping in lineOf; callers receive only the line.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The project's real compiler decides the target; no fixture name or path pattern does.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the two version sources and the warning.
    * @evidence contracts/portability.md#os-neutral-implementation resolveTsgo and spawnNative own the native lookup and process launch; the version text is read without shell interpretation.
    * @evidence contracts/performance.md#efficient-algorithms A manifest version costs resolveTsgo's lookup; only a custom binary adds one --version process.
-   * @evidence contracts/performance.md#reuse-equivalent-work Custom-binary versions are remembered per binary path for the process, since the binary at a path does not change its line mid-process; manifest versions are read afresh because projects differ.
+   * @evidence contracts/performance.md#reuse-equivalent-work Custom-binary versions are remembered per binary path for the process, and with a record store across processes under the binary's content identity, since equal bytes answer `--version` equally; manifest versions are read afresh because projects differ.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The remembered map grows with distinct custom binary paths and the warned set with distinct newer versions, both for the process lifetime; the spawned process is synchronous and released on return.
    */
-  export function resolve(projectRoot: string, env: NodeJS.ProcessEnv): Line {
-    const version = installedVersion(projectRoot, env);
+  export function resolve(
+    projectRoot: string,
+    env: NodeJS.ProcessEnv,
+    identities?: PluginContentIdentities.Store,
+  ): Line {
+    const version = installedVersion(projectRoot, env, identities);
     const { line, newer } = lineOf(version);
     if (newer && !warned.has(version)) {
       warned.add(version);
@@ -119,19 +135,21 @@ export namespace CompilerTarget {
    * @evidence contracts/common.md#clear-and-simple-design One environment transform per target replaces threading tags through each command.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Other GOFLAGS entries are kept unchanged and in order, and the stored value comes from Go itself rather than a handwritten environment-file location.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the per-line result, the merge and why the stored value is read.
-   * @evidence contracts/portability.md#os-neutral-implementation Go locates and reads its own environment file; resolveGoCompiler, GoToolResolution and spawnGoTool own the native lookup and launch.
+   * @evidence contracts/portability.md#os-neutral-implementation Go locates and reads its own environment file; resolveGoCompiler, GoToolResolution and GoEnvironmentReading own the native lookup and launch.
    * @evidence contracts/performance.md#efficient-algorithms One pass over the GOFLAGS fields; only a 7.1 build whose env sets no GOFLAGS adds one go env process.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The stored value is read afresh because go env -w can change it between loads.
+   * @evidence contracts/performance.md#reuse-equivalent-work With a record store the stored value is answered across loads while the file `go env -w` writes, the tool and the variables hold; without one it is read afresh.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned environment is a caller-owned copy, and the go env process is synchronous and released on return.
    */
   export function buildEnv(
     env: NodeJS.ProcessEnv,
     line: Line,
     cwd: string,
+    identities?: PluginContentIdentities.Store,
   ): NodeJS.ProcessEnv {
     if (line !== "7.1") return env;
     const current =
-      SidecarEnvironment.read(env, "GOFLAGS") || storedGoFlags(env, cwd);
+      SidecarEnvironment.read(env, "GOFLAGS") ||
+      storedGoFlags(env, cwd, identities);
     const fields = current.split(/\s+/).filter((field) => field !== "");
     let tagged = false;
     const next = fields.map((field) => {
@@ -201,23 +219,34 @@ export namespace CompilerTarget {
       .join(" ");
   }
 
-  /** The GOFLAGS Go reports from cwd, or empty when Go cannot answer. */
-  function storedGoFlags(env: NodeJS.ProcessEnv, cwd: string): string {
+  /**
+   * The GOFLAGS Go reports from cwd, or empty when Go cannot answer. With a
+   * record store a later process takes the answer from the record while what it
+   * depended on holds (`GoEnvironmentReading.recorded`).
+   */
+  function storedGoFlags(
+    env: NodeJS.ProcessEnv,
+    cwd: string,
+    identities: PluginContentIdentities.Store | undefined,
+  ): string {
     const goBinary = GoToolResolution.resolveGoToolForBuild(
       resolveGoCompiler(env).binary,
       env,
       cwd,
     );
-    const result = spawnGoTool(goBinary, ["env", "GOFLAGS"], {
+    const values = GoEnvironmentReading.recorded(
+      goBinary,
       cwd,
-      encoding: "utf8",
-      env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
-      windowsHide: true,
-    });
-    return result.error === undefined && result.status === 0
-      ? result.stdout.trim()
-      : "";
+      GoSourceInputs.goBuildEnv(goBinary, undefined, env),
+      ["GOFLAGS"],
+      undefined,
+      identities,
+    );
+    return typeof values?.GOFLAGS === "string" ? values.GOFLAGS.trim() : "";
   }
+
+  /** Answer family of custom compiler versions (`PluginLoadAnswers`). */
+  const COMPILER_VERSION = "compiler-version";
 
   const warned = new Set<string>();
   const customVersions = new Map<string, string>();
@@ -225,6 +254,7 @@ export namespace CompilerTarget {
   function installedVersion(
     projectRoot: string,
     env: NodeJS.ProcessEnv,
+    identities: PluginContentIdentities.Store | undefined,
   ): string {
     let tsgo: ReturnType<typeof resolveTsgo>;
     try {
@@ -235,15 +265,39 @@ export namespace CompilerTarget {
     if (tsgo.version !== "custom") return tsgo.version;
     const known = customVersions.get(tsgo.binary);
     if (known !== undefined) return known;
+    const before =
+      identities === undefined
+        ? undefined
+        : runtimeExecutableIdentity(tsgo.binary, identities);
+    if (before !== undefined) {
+      const recorded = PluginLoadAnswers.read(identities, COMPILER_VERSION, [
+        tsgo.binary,
+        before,
+      ]);
+      if (typeof recorded === "string") {
+        customVersions.set(tsgo.binary, recorded);
+        return recorded;
+      }
+    }
     const result = spawnNative(tsgo.binary, ["--version"], {
       cwd: projectRoot,
       env,
     });
-    const version =
-      result.error === undefined && result.status === 0
-        ? outputText(result.stdout).trim()
-        : "unknown";
+    const answered = result.error === undefined && result.status === 0;
+    const version = answered ? outputText(result.stdout).trim() : "unknown";
     customVersions.set(tsgo.binary, version);
+    // Recorded only for the bytes that answered: unchanged around the run.
+    if (
+      answered &&
+      before !== undefined &&
+      runtimeExecutableIdentity(tsgo.binary, identities) === before
+    )
+      PluginLoadAnswers.write(
+        identities,
+        COMPILER_VERSION,
+        [tsgo.binary, before],
+        version,
+      );
     return version;
   }
 }

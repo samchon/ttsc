@@ -3,7 +3,6 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { linkVirtualEntry } from "../../../../../packages/ttsc/src/launcher/internal/linkVirtualEntry";
 import { CompilerArchives } from "../../../../utils/src/CompilerArchives";
 import { CompilerArtifactPreparation } from "../../../../utils/src/CompilerArtifactPreparation";
 import { TestProject } from "../../../../utils/src/TestProject";
@@ -18,7 +17,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Actual filesystem inputs and archive bytes exercise the owner, producer, borrowers and release callback; fresh generations run their normal producers after source/config/manifest changes, exact immutable generations remain explicit, and missing/corrupt/replaced archives or failed release cannot grant reuse or cleanup.
  * @evidence contracts/testing.md#independent-expectations Literal distinct payloads, independent SHA-256, explicit producer/release counts and authored failure objects define expected outcomes without deriving them from the owner's verdict. Actual corrupt, equal-byte replaced and metadata-only archive mutations independently determine which finite refusal facts must appear in CI stderr and the error cause.
- * @evidence contracts/testing.md#distinguishing-cases Unchanged two-consumer reuse differs from new-owner production, new production after same-size/restored-mtime source changes, configuration/package selection and environment changes, missing/corrupt/replaced archives, metadata-only refusal distinct from changed bytes, malformed or missing borrowed/remaining package manifests, retained readers and producer/release failures. Actual runtime entry mirroring contrasts a root archive's native hardlink transition with an opaque archive directory. Child replacement and outer replacement with the original child both refuse reuse and cleanup; initial native aliases remain valid until retargeted, while escaped or non-directory allocations refuse before production.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged two-consumer reuse differs from new-owner production, new production after same-size/restored-mtime source changes, configuration/package selection and environment changes, missing/corrupt/replaced archives, metadata-only refusal distinct from changed bytes, malformed or missing borrowed/remaining package manifests, retained readers and producer/release failures. A native link to a root archive contrasts its hardlink transition with an opaque archive directory. Child replacement and outer replacement with the original child both refuse reuse and cleanup; initial native aliases remain valid until retargeted, while escaped or non-directory allocations refuse before production.
  * @evidence contracts/testing.md#execution-ownership The existing test-ttsc runner discovers this utility test; it calls the shared CompilerArchives owner and CompilerArtifactPreparation facade, whose CommonJS runtime also serves the actual E2E child. Explicit producer/release callbacks operate only small authored allocations without native builds, packs, installs or foreign-method replacement.
  */
 export async function test_e2e_compiler_archives_preserve_run_authority(): Promise<void> {
@@ -101,7 +100,7 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
   };
   for (const isolated of [false, true])
     check(
-      "runtime mirroring " + (isolated ? "isolated directory" : "root file"),
+      "native linking " + (isolated ? "isolated directory" : "root file"),
       () => {
         const fixture = seed();
         const root = TestProject.tmpdir("compiler-archive-project-");
@@ -123,7 +122,20 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
           isolated ? ".compiler-archives" : "compiler.tgz",
         );
         const mirrored = path.join(virtual, entry.name);
-        linkVirtualEntry(path.join(root, entry.name), mirrored, entry);
+        // A foreign tool that links a project entry: a directory by junction
+        // or symlink, a file by hard link, or by copy where links are refused.
+        if (entry.isDirectory())
+          fs.symlinkSync(
+            path.join(root, entry.name),
+            mirrored,
+            process.platform === "win32" ? "junction" : undefined,
+          );
+        else
+          try {
+            fs.linkSync(path.join(root, entry.name), mirrored);
+          } catch {
+            fs.copyFileSync(path.join(root, entry.name), mirrored);
+          }
         const after = archiveState(artifact.archive);
         assert.equal(
           crypto
@@ -167,7 +179,7 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
               loan.release();
             }
           } else {
-            // The actual helper can copy when the filesystem refuses hardlinks.
+            // A filesystem that refuses hardlinks leaves a copy instead.
             assert.deepEqual(after, before);
             const loan = owner.borrow();
             loan.release();

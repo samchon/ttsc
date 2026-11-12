@@ -571,3 +571,51 @@ func (fs *inputObservationFS) proof(path string) (hash, realpath *string, failur
   }
   return nil, nil, inputProofUnsupportedInputKind
 }
+
+// CompilerObservations reports every filesystem predicate the compiler asked
+// while this Program was loaded, checked and emitted, keyed by the native
+// absolute spelling each path was first asked under, and whether that
+// population is a complete proof of the Program's inputs.
+//
+// The compiler reads the disk only through this Program's observed filesystem,
+// so a later process that finds every reported predicate still answering as it
+// did would load the same Program: the same configuration, root files, resolved
+// modules and source text. A host can therefore prove a stored result from the
+// reported paths alone, without asking the compiler again, which a graph
+// projection cannot offer because it keeps only the predicates of the input
+// classes it names. Files embedded in the compiler binary are not filesystem
+// inputs and are not reported.
+//
+// complete is false when any path's predicates conflicted or failed, since the
+// Program was then built from more than one filesystem state, and when a
+// content mapper declared dependencies, which are declarations rather than
+// observed reads. An incomplete population authorizes no reuse.
+//
+// Call it after the last compiler operation whose reads must be covered. The
+// returned map is the caller's; later compiler reads do not change it.
+//
+// @evidence contracts/common.md#principled-implementation The observer wraps the only filesystem the compiler host is given, so its population is every question the compiler asked; equal answers to all of them reproduce the Program's inputs. Conflicting answers and declared, unobserved dependencies withdraw completeness instead of being reported as proof.
+// @evidence contracts/common.md#clear-and-simple-design One accessor projects the existing observer through its existing per-path proof; no second recorder or path class is introduced.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No path is re-read to repair a failed observation and no predicate is inferred for a path the compiler did not ask about.
+// @evidence contracts/common.md#meaningful-documentation Native prose states what the population proves, why a graph projection cannot stand for it, both incompleteness causes and when to call it.
+// @evidence contracts/portability.md#os-neutral-implementation Keys keep the native spelling the compiler asked under, cleaned by filepath; identity predicates carry the adapter's reported physical path, and no case policy is applied here.
+// @evidence contracts/performance.md#efficient-algorithms One pass over the P observed paths in first-observation order, each a keyed lookup under the observer's mutex; no filesystem request is made.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The accessor reports evidence; hosts decide reuse from it.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned map holds one predicate record per observed path and transfers to the caller; the observer keeps its own population for the Program's lifetime and no handle is acquired.
+func (p *Program) CompilerObservations() (observations map[string]TransformInputObservation, complete bool) {
+  if p == nil || p.inputObserver == nil {
+    return nil, false
+  }
+  paths := p.inputObserver.observedPaths()
+  observations = make(map[string]TransformInputObservation, len(paths))
+  complete = len(p.mapperDependencies) == 0 && p.mapperDependencyError == nil
+  for _, path := range paths {
+    observation, failure := p.inputObserver.predicateProof(path)
+    if failure != "" {
+      complete = false
+      continue
+    }
+    observations[path] = observation
+  }
+  return observations, complete
+}

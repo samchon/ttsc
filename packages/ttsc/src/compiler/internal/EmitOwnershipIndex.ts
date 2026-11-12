@@ -82,7 +82,7 @@ export class EmitOwnershipIndex {
     this.emitDir = outputIdentity.resolve(path.resolve(props.emitDir)).path;
     this.bundle =
       props.bundledOutputs === true
-        ? RuntimeEmitBundle.open(this.emitDir)
+        ? RuntimeEmitBundle.shared(this.emitDir)
         : undefined;
     if (props.bundledOutputs === true && this.bundle === undefined)
       throw new Error("ttsc: admitted runtime output bundle is missing");
@@ -191,7 +191,7 @@ export class EmitOwnershipIndex {
   }
 
   /**
-   * List JavaScript outputs before virtual-layout user files are added. The
+   * List the JavaScript outputs of a completed build's private directory. The
    * default enumerates physical files; an explicit bundled generation validates
    * its stored inventory. Paths are relative to emitDir with protocol slashes.
    * This list checks coverage but cannot establish source ownership.
@@ -209,7 +209,7 @@ export class EmitOwnershipIndex {
    */
   public static listOutputs(emitDir: string, bundledOutputs = false): string[] {
     if (bundledOutputs) {
-      const bundle = RuntimeEmitBundle.open(emitDir);
+      const bundle = RuntimeEmitBundle.shared(emitDir);
       if (bundle === undefined)
         throw new Error("ttsc: admitted runtime output bundle is missing");
       return bundle.outputs();
@@ -270,12 +270,29 @@ export class EmitOwnershipIndex {
    * @evidence contracts/portability.md#os-neutral-implementation Native realpath resolves current aliases to physical spelling; exact captured names remain distinct when directory case policy changes, without OS-wide lowercase assumptions.
    */
   public find(source: string): string | null {
-    if (this.unavailableReasons.length !== 0) {
-      throw new Error(
-        `ttsc: exact emitted-source ownership is unavailable for ${JSON.stringify(path.resolve(source))} in ${JSON.stringify(this.emitDir)}; ${this.unavailableReasons.join("; ")}. Rebuild with supported emit provenance`,
-      );
-    }
-    const physical = fs.realpathSync.native(path.resolve(source));
+    this.assertAvailable(source);
+    return this.findPhysical(fs.realpathSync.native(path.resolve(source)));
+  }
+
+  /**
+   * {@link find} for a caller that resolved the source's physical path itself,
+   * in this same lookup. The runtime resolves each module once when it is
+   * loaded and then asks every build in turn whether it compiled that file;
+   * resolving it again per build cost several native path resolutions per
+   * module (samchon/ttsc#1852). A spelling that is not the current physical
+   * path simply matches no captured source.
+   *
+   * @evidence contracts/common.md#principled-implementation Ownership compares the supplied current physical path with captured physical source coordinates; the freshness of that path is the caller's single resolution rather than a second one here.
+   * @evidence contracts/common.md#clear-and-simple-design find resolves and delegates, so both entry points share one lookup and one failure policy.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No filename or extension inference answers for an unmatched spelling; unavailable or ambiguous provenance still throws.
+   * @evidence contracts/common.md#meaningful-documentation The prose states the caller's obligation, why the split exists and the unmatched-spelling result.
+   * @evidence contracts/performance.md#efficient-algorithms One key normalization and one map lookup, with no filesystem request.
+   * @evidence contracts/performance.md#reuse-equivalent-work The caller's one resolution serves every build it asks; captured associations are shared as for find.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources No query history or native handle is retained.
+   * @evidence contracts/portability.md#os-neutral-implementation The key keeps the native physical spelling and normalizes only the Windows volume root, as captured sources are keyed.
+   */
+  public findPhysical(physical: string): string | null {
+    this.assertAvailable(physical);
     const outputs = this.bySource.get(physicalSourceKey(physical));
     if (outputs === undefined) return null;
     if (outputs.size !== 1) {
@@ -284,6 +301,15 @@ export class EmitOwnershipIndex {
       );
     }
     return outputs.values().next().value!;
+  }
+
+  /** Refuse every lookup while this build's provenance has a proof gap. */
+  private assertAvailable(source: string): void {
+    if (this.unavailableReasons.length !== 0) {
+      throw new Error(
+        `ttsc: exact emitted-source ownership is unavailable for ${JSON.stringify(path.resolve(source))} in ${JSON.stringify(this.emitDir)}; ${this.unavailableReasons.join("; ")}. Rebuild with supported emit provenance`,
+      );
+    }
   }
 }
 

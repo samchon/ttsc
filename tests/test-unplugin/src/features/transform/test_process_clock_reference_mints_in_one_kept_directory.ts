@@ -27,9 +27,10 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * while the directory cannot serve would still let a signature stand for
  * content, the very trust a rollback defeats, so the references are cleared.
  *
- * 1. Mint twice through a filesystem that records every path it states, and assert
- *    both probes are the same file, in this process's directory below the state
- *    root, outside the project, and that the directory is kept.
+ * 1. Mint twice through a filesystem that records every non-directory it states,
+ *    and assert both probes are the same file, in this process's directory
+ *    below the state root, outside the project, and that the directory is
+ *    kept.
  * 2. Mint for a root that holds the state root, and assert no reference is left,
  *    the earlier one included.
  * 3. Reach the state parent through a real directory link; refuse a probe
@@ -48,8 +49,11 @@ export function test_process_clock_reference_mints_in_one_kept_directory(): void
   const filesystem: TtscTransformFilesystemOperations = {
     ...DEFAULT_FILESYSTEM_OPERATIONS,
     lstat: (location) => {
-      stated.push(path.resolve(location));
-      return DEFAULT_FILESYSTEM_OPERATIONS.lstat(location);
+      const stats = DEFAULT_FILESYSTEM_OPERATIONS.lstat(location);
+      // The mint also states its own directory around recreating the probe to
+      // learn whether directory stamps move; only probe observations count.
+      if (!stats.isDirectory()) stated.push(path.resolve(location));
+      return stats;
     },
   };
   const kept = userStateDirectory(`${process.pid}-clock`);

@@ -32,6 +32,16 @@ type apiCompileResult struct {
   // paths and generation-time physical source paths. Empty rows preserve unknown
   // ownership; the empty object means no JavaScript write succeeded.
   EmittedSources map[string][]string `json:"emittedSources"`
+
+  // Observations is every filesystem predicate the compiler asked while it
+  // loaded, checked and emitted this Program, keyed by native absolute path.
+  // A host that finds each still answering as recorded may reuse this result
+  // without compiling again. Absent when no Program was loaded.
+  Observations map[string]driver.TransformInputObservation `json:"observations,omitempty"`
+
+  // ObservationsComplete reports whether Observations is a complete and
+  // self-consistent proof; false or absent authorizes no reuse.
+  ObservationsComplete bool `json:"observationsComplete,omitempty"`
 }
 
 // apiCompileDiagnostic mirrors the public TypeScript-side diagnostic DTO.
@@ -138,6 +148,10 @@ func writeCompiledProgramResponse(prog *driver.Program, diags []driver.Diagnosti
     Diagnostics:    make([]apiCompileDiagnostic, 0, len(diags)),
     Output:         output,
     EmittedSources: emittedSources,
+  }
+  if prog != nil {
+    // Taken after emit, so the population covers every read of this result.
+    result.Observations, result.ObservationsComplete = prog.CompilerObservations()
   }
   for _, diag := range diags {
     result.Diagnostics = append(result.Diagnostics, toAPICompileDiagnostic(diag))

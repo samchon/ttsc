@@ -44,6 +44,11 @@ export function appendBuildOutput(
       right.emittedFiles !== undefined ? right.emittedFiles : left.emittedFiles,
     emittedSources: right.emittedSources,
     emittedSourceProofFailures: right.emittedSourceProofFailures,
+    // The emitting phase's own complete proof; an earlier phase's inputs stay
+    // in its host witnesses and never extend this population.
+    ...(right.compilerObservations === undefined
+      ? {}
+      : { compilerObservations: right.compilerObservations }),
     processCompletedNormally: right.processCompletedNormally,
     ...(left.hostInputs === undefined && right.hostInputs === undefined
       ? {}

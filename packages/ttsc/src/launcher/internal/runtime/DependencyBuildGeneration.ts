@@ -227,7 +227,7 @@ export namespace DependencyBuildGeneration {
   ): boolean {
     if (bundledOutputs)
       return (
-        RuntimeEmitBundle.open(directory)
+        RuntimeEmitBundle.shared(directory)
           ?.outputs()
           .some((name) => /\.(?:[cm]?js)$/i.test(name)) ?? false
       );

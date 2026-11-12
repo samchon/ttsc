@@ -64,7 +64,7 @@ Direct evaluator output is held until the retry decision: retained-attempt diagn
 
 A launch failure, signal, non-zero exit, missing result, or invalid JSON stops setup with a cause-specific error; move long-running work into the native plugin command instead. A `.ts` descriptor whose isolated runtime reports a supported loader incompatibility is retried through `ttsx`, but user exceptions from module initialization or the factory are not retried.
 
-A direct evaluation that printed nothing and proved every module and candidate it read is kept in the plugin cache root when the descriptor returns `hostInputHashes`, and a later launch reuses its answer while the descriptor, the factory context, the evaluator working directory, the complete environment, the runtime executable, and the ttsc version match and each proven input is still in the state it was read in.
+A direct evaluation that printed nothing and proved every module and candidate it read is kept in the plugin cache root when the descriptor returns `hostInputHashes`, and a later launch reuses its answer while the descriptor, the factory context, the evaluator working directory, the environment except ttsc's own per-run channels and reporting switches, the runtime executable, and the ttsc version match and each proven input is still in the state it was read in.
 
 Returning `hostInputHashes` declares every file the factory read outside its module graph, each with its fingerprint, and `{}` declares that it read none. A descriptor that returns no `hostInputHashes`, or lists a `hostInputs` entry without a fingerprint, is evaluated again by every launch: `ttsc` cannot observe a plain `fs` read on every Node release it supports, so nothing else can prove such an answer later.
 
@@ -128,6 +128,7 @@ interface ITtscPlugin {
     diagnosticsTiming?: boolean;
     emitProvenance?: true;
     emitObservations?: true;
+    environmentInputs?: true;
     lsp?: boolean;
     projectContextArgs?: boolean;
     projectDiagnostics?: boolean;
@@ -163,6 +164,8 @@ Field rules:
 `checkObservations: true` opts into the private observation channel described under [`check`](#check). `emitProvenance: true` independently opts into the output ownership channel under [`build`](#build). Declare each only when the selected executable implements it. Importing a linked driver library does not declare an executable's capabilities. Omitted capabilities keep those flags out of strict hosts' argv and establish no claim about complete observations or output ownership.
 
 `emitObservations: true` additionally supports `--emit-observations-json=<absolute private path>` during `build`, publishing the same input-witness schema as check observations from the actual transform/emit generation. Record compiler resolution and configuration predicates and the transform's external input reads, preserving explicit incomplete or conflicting proof. Combined with authoritative emit provenance, this lets completed-runtime cache hits skip lint, transform and emit together. A descriptor flag without the native implementation cannot establish reusable output. Older hosts remain executable and select fresh compilation; `TTSC_EXPLAIN_CACHE=1` identifies the unsupported host.
+
+`environmentInputs: true` declares that every environment variable able to change the host's result is read through `PluginContext.Env`, so the read is recorded in `environmentInputs`. `ttsx` then keys the project's stored emit by the variables its processes read and withdraws it when a recorded value changes. A host without the capability may call `os.Getenv`, which nothing records, so its project stays keyed by the complete environment and is built again whenever any variable changes, including the script arguments a package manager exports. Move each such read to `ctx.Env`, or to `Program.Env` in a host that loads its own Program, before declaring it.
 
 `compilerArgsCwd: true` declares that the selected host consumes `TTSC_TSGO_ARGS_CWD` with its forwarded compiler argv. That directory anchors upstream response-file and relative command-line option parsing; `--cwd` and the explicit config still own the Program, plugin and rule context. Declare it only for an executable that implements both contexts. Linked imports and unrelated capabilities do not establish support. The launcher requires it only for a nonempty payload whose argument directory differs from the Program root; legacy same-directory and empty-payload paths retain their existing protocol.
 
@@ -505,7 +508,7 @@ my-plugin check \
 
 Run diagnostics only. Write diagnostics to stderr. Exit non-zero for errors.
 
-With `capabilities.checkObservations: true`, the host also passes `--check-observations-json=<absolute private path>`. Write a JSON object containing `hostInputs`, `hostInputHashes`, `hostInputRealpaths`, optional `environmentInputs` and optional `observationsComplete: false`, all from that same check Program. Publish it for checks that return diagnostics as well as successful checks. Preserve the ordinary text streams and exit status.
+With `capabilities.checkObservations: true`, the host also passes `--check-observations-json=<absolute private path>`. Write a JSON object containing `hostInputs`, `hostInputHashes`, `hostInputRealpaths`, optional `environmentInputs`, optional `observationsComplete: false`, and `compilerObservations` with `compilerObservationsComplete`, all from that same check Program. `compilerObservations` maps each absolute path the compiler asked the filesystem about to the answers it got, in the predicate shape of `graph.inputObservations`; `compilerObservationsComplete: true` states that the map is every such question and that no answer changed while the Program was in use. `ttsx` replays that map to prove a stored emit without starting the compiler, and treats a missing or incomplete map as no proof. Publish it for checks that return diagnostics as well as successful checks. Preserve the ordinary text streams and exit status.
 
 `driver.WriteCheckObservationsJSON` supplies this channel for utility-based check hosts. The executable descriptor must opt in explicitly; the loader does not infer support from a Go import or package name. A standalone checker with its own input contract retains that contract when it omits this capability.
 

@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../../../internal/E2ETrace";
+import type { IPluginSourceListing } from "./IPluginSourceListing";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 import { pluginSourceCovers } from "./pluginSourceCovers";
 import { pluginSourceDigest } from "./pluginSourceDigest";
@@ -79,6 +80,12 @@ export namespace PluginContentIdentities {
      */
     readonly references: ReadonlyMap<bigint, bigint>;
 
+    /**
+     * Devices on which this store's probe moved its directory's stamps, so a
+     * directory's stamps there witness its entries (`IPluginSourceListing`).
+     */
+    readonly listings: ReadonlySet<bigint>;
+
     /** Ttsc package version entering every record identity. */
     readonly version: string;
   }
@@ -132,7 +139,7 @@ export namespace PluginContentIdentities {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No wall clock or historical stamp substitutes for the minted reference.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs state root selection, the marker ordering and the undefined fallback.
    * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and the probe's device identity carry platform semantics; Windows environment names are read case-insensitively by the shared reader.
-   * @evidence contracts/performance.md#efficient-algorithms Root selection can walk ancestors and read manifests; each of the two probes performs one directory creation, one write, one lstat and one removal; the temporary one also checks its directory's ownership. No plugin source is read.
+   * @evidence contracts/performance.md#efficient-algorithms Root selection can walk ancestors and read manifests; each of the two probes performs one directory creation, one write, up to three lstats and one removal; the temporary one also checks its directory's ownership. No plugin source is read.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each load needs a freshly minted reference; reusing an older one would defeat the separation premise.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Each probe is removed in its owner's finally; the per-user temporary directory stays, empty, for later loads so the temporary directory itself does not move. The returned store retains at most two device references and two strings.
    */
@@ -153,19 +160,24 @@ export namespace PluginContentIdentities {
         props.cacheDir || SidecarEnvironment.read(props.env, "TTSC_CACHE_DIR")
           ? selected
           : SourceBuildCacheLayout.markDefaultWorkspaceCacheRoot(selected);
-      const owned = mintReference(
+      const owned = mint(
         path.join(root, SourceBuildCacheLayout.IDENTITY_CACHE_DIRNAME),
       );
-      if (owned.size === 0) return undefined;
+      if (owned.references.size === 0) return undefined;
       // The cache root's device covers the project, its installed plugins and
       // the toolchain bundled with them. A runtime or SDK installed elsewhere,
       // typically on the system drive, is judged against a second reference
       // minted in a per-user directory below the system temporary directory.
-      const references = new Map([...temporaryReference(), ...owned]);
+      const temporary = temporaryReference();
+      const references = new Map([
+        ...temporary.references,
+        ...owned.references,
+      ]);
+      const listings = new Set([...temporary.listings, ...owned.listings]);
       // WARNING (#1726): resolve no module here. A descriptor evaluator opens a
       // store under its resolution recorder, and any lookup becomes an input of
       // the descriptor it did not read (`ttscPackageVersion`).
-      return { root, references, version: ttscPackageVersion() };
+      return { root, references, listings, version: ttscPackageVersion() };
     } catch {
       return undefined;
     }
@@ -211,16 +223,18 @@ export namespace PluginContentIdentities {
    * @param store The opened store, or `undefined` to read content only.
    * @param kind Population family; records of different families never mix.
    * @param subject Absolute population path identifying the record.
-   * @param observe Current signature of the population against references.
+   * @param observe Current signature of the population against references,
+   *   given the listing the record holds, if any; an observer that lists its
+   *   population returns the listing for the record.
    * @param read The owning content reader; its result is the digest.
-   * @evidence contracts/common.md#principled-implementation A record is used only when the current separable signature equals the recorded one; publication requires equal separable signatures before and after the actual content read.
+   * @evidence contracts/common.md#principled-implementation A record is used only when the current separable signature equals the recorded one; publication requires equal separable signatures before and after the actual content read. A recorded listing only shortens how the observer reaches the current signature.
    * @evidence contracts/common.md#clear-and-simple-design The caller keeps population selection and content hashing; this function owns only lookup, admission and publication.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Corrupt, foreign or unproved records cause the real read; the record cannot widen what the caller's reader covers.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the reuse condition and the self-containment exclusion; parameters describe their roles.
    * @evidence contracts/portability.md#os-neutral-implementation Separability is the observer's per-device judgement; record files use native path joins and atomic same-directory replacement.
-   * @evidence contracts/performance.md#efficient-algorithms A hit costs one population observation and one small record read; a miss adds the content read and a second observation. Record identity hashes fixed framing text.
-   * @evidence contracts/performance.md#reuse-equivalent-work Processes share a digest only for the same family, subject, version and current separable signature that the producing read was bracketed by.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources One small file per subject is published atomically and aged out by the single-file collector; hits refresh its use time; nothing is retained in memory.
+   * @evidence contracts/performance.md#efficient-algorithms A hit costs one small record read and one population observation, which a held listing makes metadata-only; a miss adds the content read and a second observation. Record identity hashes fixed framing text.
+   * @evidence contracts/performance.md#reuse-equivalent-work Processes share a digest only for the same family, subject, version and current separable signature that the producing read was bracketed by, and an observer's listing with it.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources One small file per subject is published atomically and aged out by the single-file collector; hits refresh its use time, or rewrite it once with the listing their walk read; nothing is retained in memory.
    */
   export function digest(
     store: Store | undefined,
@@ -228,7 +242,10 @@ export namespace PluginContentIdentities {
     subject: string,
     observe: (
       references: ReadonlyMap<bigint, bigint>,
-    ) => Observation | undefined,
+      listing?: IPluginSourceListing,
+    ) =>
+      | (Observation & { readonly listing?: IPluginSourceListing })
+      | undefined,
     read: () => string,
   ): string {
     if (
@@ -237,9 +254,9 @@ export namespace PluginContentIdentities {
     )
       return read();
     const file = recordFile(store, kind, subject);
-    const before = observe(store.references);
+    const known = readRecord(file);
+    const before = observe(store.references, known?.listing);
     if (before?.separable === true) {
-      const known = readRecord(file);
       if (
         known !== undefined &&
         known.signature === before.signature &&
@@ -247,7 +264,22 @@ export namespace PluginContentIdentities {
         known.kind === kind &&
         known.subject === subject
       ) {
-        recordCacheFileUse(file);
+        // A walk that could state every directory leaves the listing it read,
+        // so a record written where the premise was not yet shown, or whose
+        // listing moved without changing the population, is replayed next time.
+        if (before.listing !== undefined && before.listing !== known.listing)
+          try {
+            SourceBuildCacheLayout.replaceCacheMetadataFile(
+              file,
+              JSON.stringify({
+                ...known,
+                listing: before.listing,
+              } satisfies IRecord),
+            );
+          } catch {
+            // The record still stands; only the next proof walks again.
+          }
+        else recordCacheFileUse(file);
         E2ETrace.capabilityResolution("plugin-content-identity", {
           kind,
           subject,
@@ -274,6 +306,7 @@ export namespace PluginContentIdentities {
             subject,
             signature: after.signature,
             digest: value,
+            ...(after.listing === undefined ? {} : { listing: after.listing }),
           } satisfies IRecord),
         );
       } catch {
@@ -292,15 +325,20 @@ export namespace PluginContentIdentities {
    * The `pluginSourceDigest` of a plugin source directory, proven from the
    * metadata of exactly the files that digest reads.
    *
+   * The record keeps the population's listing (`IPluginSourceListing`), so a
+   * later proof states its directories' stamps instead of enumerating them: a
+   * source tree of thousands of files took seconds to enumerate on every plugin
+   * load and a single metadata pass to replay (samchon/ttsc#1852).
+   *
    * @param store The opened store, or `undefined` to read content only.
    * @param directory The source directory.
-   * @evidence contracts/common.md#principled-implementation The signature walks the same `collectPluginSourceFiles` population the digest reads, with the capability cache's separable-stamp evidence; additions, removals and renames change that population.
-   * @evidence contracts/common.md#clear-and-simple-design Selection and hashing remain with their owners; this adapter only names the family and subject.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Links and unreadable files fail as the content reader would; no metadata stands for a file the digest does not read.
-   * @evidence contracts/common.md#meaningful-documentation Native prose names the shared population.
-   * @evidence contracts/portability.md#os-neutral-implementation Native lstat device/inode/link/mode/size/stamps form each file's signature.
-   * @evidence contracts/performance.md#efficient-algorithms A hit enumerates and stats F files without reading content; a miss also reads B bytes and stats again.
-   * @evidence contracts/performance.md#reuse-equivalent-work Loads in any process share a directory digest while its separable signature holds.
+   * @evidence contracts/common.md#principled-implementation The signature walks, or replays a recorded listing of, the same `collectPluginSourceFiles` population the digest reads, with the capability cache's separable-stamp evidence; additions, removals and renames change that population and the stamps of the directory they happen in.
+   * @evidence contracts/common.md#clear-and-simple-design Selection and hashing remain with their owners; this adapter only names the family and subject and supplies the store's evidence.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Links and unreadable files fail as the content reader would; no metadata stands for a file the digest does not read, and a directory whose stamps moved is listed again.
+   * @evidence contracts/common.md#meaningful-documentation Native prose names the shared population and the listing kept with it.
+   * @evidence contracts/portability.md#os-neutral-implementation Native lstat device/inode/link/mode/size/stamps form each file's and directory's signature; directory stamps witness entries only on a device the store saw move them.
+   * @evidence contracts/performance.md#efficient-algorithms A hit with a held listing stats D directories and F files without listing or reading; a hit without one enumerates D directories; a miss also reads B bytes and walks again.
+   * @evidence contracts/performance.md#reuse-equivalent-work Loads in any process share a directory digest while its separable signature holds, and its listing while its directories' stamps do.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Storage belongs to digest.
    */
   export function sourceDirectory(
@@ -312,10 +350,64 @@ export namespace PluginContentIdentities {
       store,
       "plugin-source",
       resolved,
-      (references) =>
-        pluginSourceFilesSignature(resolved, sourceEvidence(references)),
+      (references, known) =>
+        pluginSourceFilesSignature(resolved, sourceEvidence(references), {
+          directory: directoryEvidence(references, store!.listings),
+          known,
+        }),
       () => pluginSourceDigest(resolved),
     );
+  }
+
+  /**
+   * One directory's metadata signature when its stamps witness its entries: on
+   * a device that moved a directory's stamps when the store created an entry,
+   * with both stamps strictly older than that device's reference.
+   *
+   * @param references The store's device references.
+   * @param listings The store's devices whose directory stamps move.
+   * @evidence contracts/common.md#principled-implementation Device, inode, mode, link count and both stamps identify the directory and its last entry change; only a device that showed the premise and stamps whose tick ended before the reference are offered.
+   * @evidence contracts/common.md#clear-and-simple-design One closure carries one proof's references, as sourceEvidence does for files.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A non-directory, a failure, an unknown device or an unseparable stamp yields no witness, so the population is enumerated; a link is stated only together with the directory it names.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states both conditions of a witness.
+   * @evidence contracts/portability.md#os-neutral-implementation Native bigint lstat supplies the device, identity and nanosecond stamps; the premise is per device.
+   * @evidence contracts/performance.md#efficient-algorithms One native lstat, a second stat for a link, and fixed formatting per directory.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A fresh observation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The closure retains the supplied maps only.
+   */
+  export function directoryEvidence(
+    references: ReadonlyMap<bigint, bigint>,
+    listings: ReadonlySet<bigint>,
+  ): (directory: string) => string | undefined {
+    const stated = (stats: fs.BigIntStats): string | undefined =>
+      listings.has(stats.dev) && separable(references, stats, true)
+        ? [
+            stats.dev,
+            stats.ino,
+            stats.mode,
+            stats.nlink,
+            stats.mtimeNs,
+            stats.ctimeNs,
+          ].join(":")
+        : undefined;
+    return (directory) => {
+      try {
+        const entry = fs.lstatSync(directory, { bigint: true });
+        // A source root reached through a link, as a package manager installs
+        // one, is stated by the link and by the directory it names, so a
+        // retarget moves the first and an entry change the second.
+        const target = entry.isSymbolicLink()
+          ? fs.statSync(directory, { bigint: true })
+          : entry;
+        if (!target.isDirectory()) return undefined;
+        const own = stated(entry);
+        if (own === undefined || target === entry) return own;
+        const named = stated(target);
+        return named === undefined ? undefined : `${own}>${named}`;
+      } catch {
+        return undefined;
+      }
+    };
   }
 
   /**
@@ -341,22 +433,82 @@ export namespace PluginContentIdentities {
     separateChangeTime = false,
   ): Observation | undefined {
     try {
-      const stats = fs.statSync(file, { bigint: true });
-      if (!stats.isFile()) return undefined;
-      return {
-        separable: separable(references, stats, separateChangeTime),
-        signature: [
-          stats.dev,
-          stats.ino,
-          stats.mode,
-          stats.size,
-          stats.mtimeNs,
-          stats.ctimeNs,
-        ].join(":"),
-      };
+      return statObservation(
+        references,
+        fs.statSync(file, { bigint: true }),
+        separateChangeTime,
+      );
     } catch {
       return undefined;
     }
+  }
+
+  /**
+   * The observation {@link fileObservation} makes, from metadata the caller
+   * already read; `undefined` when it does not describe a regular file.
+   *
+   * A caller that needs a file's metadata for another decision, such as whether
+   * the entry is a link, states the observation from that same reading instead
+   * of asking the filesystem twice.
+   *
+   * @param references The store's device references.
+   * @param stats Metadata of the file, following links.
+   * @param separateChangeTime Also require the change stamp to precede the
+   *   reference.
+   * @evidence contracts/common.md#principled-implementation The signature and separability are functions of one metadata reading, so a caller's reading and this observation cannot describe different states of the file.
+   * @evidence contracts/common.md#clear-and-simple-design fileObservation delegates here; the signature has one definition.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A non-regular entry yields no observation, so the content reader decides.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states why a caller supplies its own reading and the undefined meaning.
+   * @evidence contracts/portability.md#os-neutral-implementation Node bigint metadata supplies native identity and nanosecond stamps.
+   * @evidence contracts/performance.md#efficient-algorithms Fixed numeric formatting of one reading; no filesystem request.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A projection of supplied metadata.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Nothing is retained.
+   */
+  export function statObservation(
+    references: ReadonlyMap<bigint, bigint>,
+    stats: fs.BigIntStats,
+    separateChangeTime = false,
+  ): Observation | undefined {
+    if (!stats.isFile()) return undefined;
+    return {
+      separable: separable(references, stats, separateChangeTime),
+      signature: [
+        stats.dev,
+        stats.ino,
+        stats.mode,
+        stats.size,
+        stats.mtimeNs,
+        stats.ctimeNs,
+      ].join(":"),
+    };
+  }
+
+  /**
+   * Where a record of `kind` about `subject` lives in the store, for an owner
+   * that keeps its own record shape beside the digest records.
+   *
+   * The location carries the record format, the ttsc version, the family and
+   * the subject, so families and releases never read each other's files, and it
+   * lies in the collected identity directory with every other record.
+   *
+   * @param store The opened store.
+   * @param kind Record family; it must differ from every digest family.
+   * @param subject Absolute path the record describes.
+   * @evidence contracts/common.md#principled-implementation One keyed location per family and subject, shared with digest records, keeps every identity record under the same collection and cleaning policy.
+   * @evidence contracts/common.md#clear-and-simple-design The private locator is exposed unchanged rather than duplicated by a second owner.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The family name separates record shapes; no shape is guessed from a file's content.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states what the location encodes and who collects it.
+   * @evidence contracts/portability.md#os-neutral-implementation Native path joins under the store's physical root.
+   * @evidence contracts/performance.md#efficient-algorithms One hash of fixed framing text.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure function of its arguments.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Nothing is retained.
+   */
+  export function recordLocation(
+    store: Store,
+    kind: string,
+    subject: string,
+  ): string {
+    return recordFile(store, kind, subject);
   }
 
   /**
@@ -415,18 +567,49 @@ export namespace PluginContentIdentities {
   export function mintReference(
     directory: string,
   ): ReadonlyMap<bigint, bigint> {
+    return mint(directory).references;
+  }
+
+  /**
+   * {@link mintReference}, and whether the probe's directory moved both of its
+   * stamps when the probe was created in it: the premise under which a
+   * directory's stamps witness its entries (`IPluginSourceListing`). The
+   * directory's stamps are taken only when it existed before this call, so a
+   * directory created now, whose stamps are new anyway, proves nothing; a
+   * creation within the tick of the directory's last change leaves the device
+   * unproven for this store, which only costs enumeration.
+   */
+  function mint(directory: string): {
+    references: Map<bigint, bigint>;
+    listings: Set<bigint>;
+  } {
     const references = new Map<bigint, bigint>();
+    const listings = new Set<bigint>();
     const probe = path.join(
       directory,
       `clock-${process.pid}-${crypto.randomUUID()}.probe`,
     );
     try {
-      fs.mkdirSync(directory, { recursive: true });
+      const created = fs.mkdirSync(directory, { recursive: true });
+      const parent =
+        created === undefined
+          ? fs.lstatSync(directory, { bigint: true })
+          : undefined;
       fs.writeFileSync(probe, `${process.hrtime.bigint()}\n`);
       const stats = fs.lstatSync(probe, { bigint: true });
       references.set(stats.dev, stats.mtimeNs);
+      if (parent !== undefined) {
+        const moved = fs.lstatSync(directory, { bigint: true });
+        if (
+          moved.dev === stats.dev &&
+          moved.mtimeNs > parent.mtimeNs &&
+          moved.ctimeNs > parent.ctimeNs
+        )
+          listings.add(stats.dev);
+      }
     } catch {
       references.clear();
+      listings.clear();
     } finally {
       try {
         fs.rmSync(probe, { force: true });
@@ -434,7 +617,7 @@ export namespace PluginContentIdentities {
         // A leftover probe contains this call's hrtime text, not source data.
       }
     }
-    return references;
+    return { references, listings };
   }
 
   /**
@@ -496,6 +679,9 @@ export namespace PluginContentIdentities {
     subject: string;
     signature: string;
     digest: string;
+
+    /** The population's listing, when its observer kept one. */
+    listing?: IPluginSourceListing;
   }
 
   // The temporary-volume reference lives in one directory reused by every
@@ -506,7 +692,11 @@ export namespace PluginContentIdentities {
   // there could be another user's, so the directory is named for this user,
   // created private, and used only while it is a real directory this user owns
   // that nobody else can write to.
-  function temporaryReference(): ReadonlyMap<bigint, bigint> {
+  function temporaryReference(): {
+    references: ReadonlyMap<bigint, bigint>;
+    listings: ReadonlySet<bigint>;
+  } {
+    const none = { references: new Map(), listings: new Set<bigint>() };
     try {
       const uid =
         typeof process.getuid === "function" ? process.getuid() : undefined;
@@ -519,18 +709,17 @@ export namespace PluginContentIdentities {
       try {
         fs.mkdirSync(directory, { mode: 0o700 });
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "EEXIST")
-          return new Map();
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") return none;
       }
       const stats = fs.lstatSync(directory);
       if (
         !stats.isDirectory() ||
         (uid !== undefined && (stats.uid !== uid || (stats.mode & 0o022) !== 0))
       )
-        return new Map();
-      return mintReference(directory);
+        return none;
+      return mint(directory);
     } catch {
-      return new Map();
+      return none;
     }
   }
 
@@ -563,11 +752,30 @@ export namespace PluginContentIdentities {
         typeof value.kind === "string" &&
         typeof value.subject === "string" &&
         typeof value.signature === "string" &&
-        typeof value.digest === "string"
+        typeof value.digest === "string" &&
+        (value.listing === undefined || isListing(value.listing))
         ? (value as IRecord)
         : undefined;
     } catch {
       return undefined;
     }
+  }
+
+  function isListing(value: unknown): value is IPluginSourceListing {
+    const listing = value as Partial<IPluginSourceListing> | null;
+    return (
+      typeof listing === "object" &&
+      listing !== null &&
+      Array.isArray(listing.directories) &&
+      listing.directories.every(
+        (row) =>
+          Array.isArray(row) &&
+          row.length === 2 &&
+          typeof row[0] === "string" &&
+          typeof row[1] === "string",
+      ) &&
+      Array.isArray(listing.files) &&
+      listing.files.every((file) => typeof file === "string")
+    );
   }
 }

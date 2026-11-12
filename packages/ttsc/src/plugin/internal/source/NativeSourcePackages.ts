@@ -15,8 +15,8 @@ import { PluginLoadAnswers } from "./PluginLoadAnswers";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { ensureExecutableGoToolchain } from "./ensureExecutableGoToolchain";
-import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
 import { pluginSourceDigest } from "./pluginSourceDigest";
+import { readPluginBuildEnvironment } from "./readPluginBuildEnvironment";
 import { resolveGoCompiler } from "./resolveGoCompiler";
 import { resolvePluginGoModule } from "./resolvePluginGoModule";
 import { spawnGoTool } from "./spawnGoTool";
@@ -72,8 +72,8 @@ export namespace NativeSourcePackages {
    * absolute directory. The builds fill and report the same maps, so a load
    * reads each directory and each module's toolchain once.
    *
-   * @evidence contracts/common.md#principled-implementation Both maps carry readings already taken in this load under its fixed effective environment; builds still take their own environment reading with a witness.
-   * @evidence contracts/common.md#clear-and-simple-design Two maps already owned by the loader travel together.
+   * @evidence contracts/common.md#principled-implementation The maps and the overlay list carry readings already taken in this load under its fixed effective environment and compiler line; builds still take their own environment reading with a witness.
+   * @evidence contracts/common.md#clear-and-simple-design The readings already owned by the loader travel together.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The maps never outlive the load; cross-process reuse belongs to the record store.
    * @evidence contracts/common.md#meaningful-documentation Members state their keys and values.
    * @evidence contracts/portability.md#os-neutral-implementation Keys are native absolute paths.
@@ -93,6 +93,12 @@ export namespace NativeSourcePackages {
      * directory keys on that reading instead of probing Go again.
      */
     witnesses?: Map<string, PluginBuildEnvironmentWitness.Record>;
+
+    /**
+     * The ttsc overlay modules of this load's compiler line
+     * (`SourcePluginWorkspace.findTtscOverlayDirs`), found once for the load.
+     */
+    overlays?: readonly string[];
   }
 
   /**
@@ -578,18 +584,14 @@ function selectionIdentity(
     const resolvedRoot = path.resolve(moduleRoot);
     let environment = readings.environments?.get(resolvedRoot);
     if (environment === undefined) {
-      const hash = crypto.createHash("sha256");
       const witness: PluginBuildEnvironmentWitness.Record = new Map();
-      hashPluginBuildEnvironment(
-        hash,
+      environment = readPluginBuildEnvironment(
         goBinary,
         moduleRoot,
         env,
-        { readFile: (location) => fs.readFileSync(location) },
         witness,
         identities,
       );
-      environment = hash.digest("hex");
       readings.environments?.set(resolvedRoot, environment);
       readings.witnesses?.set(resolvedRoot, witness);
     }
@@ -623,8 +625,9 @@ function selectionIdentity(
           : ["go.mod", "go.sum"].map((name) =>
               fileDigest(path.join(host, name)),
             ),
-      overlays: SourcePluginWorkspace.findTtscOverlayDirs(
-        CompilerTarget.ofEnv(env),
+      overlays: (
+        readings.overlays ??
+        SourcePluginWorkspace.findTtscOverlayDirs(CompilerTarget.ofEnv(env))
       ).map(directory),
       entries: opts.packages.map((input) => [
         input.entry,

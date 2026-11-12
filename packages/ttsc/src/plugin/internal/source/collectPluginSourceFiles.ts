@@ -28,8 +28,14 @@ import { GoSourceInputs } from "./GoSourceInputs";
  * neither this list nor anything keyed on it covers; a Go module zip excludes
  * links from a module's content for the same reason.
  *
+ * A caller that keeps the population as a listing (`IPluginSourceListing`)
+ * passes `visit`, which sees each directory the walk lists just before its
+ * entries are read, so a change made after that observation moves what the
+ * observation recorded.
+ *
  * @param root The source directory: a plugin's Go module root, an overlay
  *   module, a contributor's source, or a `replace` target outside the module.
+ * @param visit Called with each listed directory, before its entries are read.
  * @throws When the directory holds a link the build would read.
  * @throws When enumeration fails for a reason other than a vanished entry.
  * @evidence contracts/common.md#principled-implementation The recursive Dirent walk selects reported regular files under the shared prune/omit policy and refuses contributing links observed during enumeration. The returned path list is not an atomic snapshot or a retained handle pinning each entry against later replacement; copying/content readers own their subsequent observations.
@@ -37,22 +43,31 @@ import { GoSourceInputs } from "./GoSourceInputs";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Shared source rules apply the declared kind/name exclusions instead of adapting the key to observed fixtures or inferring Go dependency membership from names.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs identify counted files, explicit exclusions, the Go embed limitation, link rejection and the common reader used by keys and proofs.
  * @evidence contracts/portability.md#os-neutral-implementation Native path joining and Dirent kinds distinguish ordinary files, directories and links, including junctions; neither case folding nor slash-only identity is assumed.
- * @evidence contracts/performance.md#efficient-algorithms Enumeration visits unpruned entries and sorts F selected native path strings with O(F log F) comparisons whose text length matters. Native readdir/Dirent/name/path construction and recursion also cost work; it retains complete selected path bytes and ancestor listing arrays, not file contents.
+ * @evidence contracts/performance.md#efficient-algorithms Enumeration visits unpruned entries, calls the optional visitor once per listed directory, and sorts F selected native path strings with O(F log F) comparisons whose text length matters. Native readdir/Dirent/name/path construction and recursion also cost work; it retains complete selected path bytes and ancestor listing arrays, not file contents.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This supplies a fresh source population to its callers; cached digests and validation reuse are owned by those callers.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The synchronous walk retains only the returned path list and transient recursion state, with no persistent handle or task.
  */
-export function collectPluginSourceFiles(root: string): string[] {
+export function collectPluginSourceFiles(
+  root: string,
+  visit?: (directory: string) => void,
+): string[] {
   const out: string[] = [];
   const directory = path.resolve(root);
-  walk(directory, directory, out);
+  walk(directory, directory, out, visit);
   out.sort();
   return out;
 }
 
-function walk(root: string, dir: string, out: string[]): void {
+function walk(
+  root: string,
+  dir: string,
+  out: string[],
+  visit: ((directory: string) => void) | undefined,
+): void {
   let entries: fs.Dirent[];
   try {
+    visit?.(dir);
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
@@ -80,7 +95,7 @@ function walk(root: string, dir: string, out: string[]): void {
     }
     if (entry.isDirectory()) {
       if (GoSourceInputs.shouldPruneDirectory(entry.name)) continue;
-      walk(root, full, out);
+      walk(root, full, out, visit);
       continue;
     }
     if (!entry.isFile()) continue;

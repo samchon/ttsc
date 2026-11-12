@@ -6,18 +6,22 @@ import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
 import { pluginSourceStateHolds } from "../../../plugin/internal/source/pluginSourceStateHolds";
+import type { ITtscCompilerTransformation } from "../../../structures/ITtscCompilerTransformation";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import { CompilerArgumentsInspection } from "../CompilerArgumentsInspection";
+import { readJsoncFile } from "../project/readJsoncFile";
 import { resolveTsgo } from "../resolveTsgo";
 import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
 import { spawnNative } from "../spawnNative";
 import type { BuildExecution } from "./BuildExecution";
+import { CompilerTraceObservations } from "./CompilerTraceObservations";
 import { PassthroughFlags } from "./PassthroughFlags";
 import type { RunBuildOptions } from "./RunBuildOptions";
 import { RuntimeBuildExplanation } from "./RuntimeBuildExplanation";
 import { RuntimeInputContents } from "./RuntimeInputContents";
 import { RuntimeInputProof } from "./RuntimeInputProof";
 import { TsgoArguments } from "./TsgoArguments";
+import { runtimeBuildEnvironment } from "./runtimeBuildEnvironment";
 
 /**
  * Prove runtime build inputs through the selected upstream compiler's read-only
@@ -36,7 +40,7 @@ import { TsgoArguments } from "./TsgoArguments";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Incomplete descriptors, unsupported effectful compiler modes and unproved native producers and custom compilers without package authority use the existing fresh build rather than weakening diagnostics or substituting a compiler.
  * @evidence contracts/common.md#meaningful-documentation Native prose describes compiler-owned membership, workspace scope and independent plugin observations.
  * @evidence contracts/portability.md#os-neutral-implementation The selected executable receives native argv and cwd; source and package scopes use native physical paths and preserve lexical spellings without OS-wide case folding.
- * @evidence contracts/performance.md#efficient-algorithms Each snapshot runs two native membership/configuration queries and observes selected source/package metadata. The aggregate content owner reuses hashes under separable unchanged witnesses or reads actual bytes; executable and declared host proofs retain their independent owners, and shared ancestor sets avoid repeated package-scope walks.
+ * @evidence contracts/performance.md#efficient-algorithms Each snapshot runs two native membership/configuration queries and observes selected source/package metadata. The content owner reuses each file's hash under its own separable unchanged witness and reads only the files that moved; executable and declared host proofs retain their independent owners, and shared ancestor sets avoid repeated package-scope walks.
  * @evidence contracts/performance.md#reuse-equivalent-work A completed emit may be reused only for equal selected input snapshots and currently valid native witnesses; unsupported proof falls back to compilation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Query buffers and path/hash records are call-local, with source/report bytes unbounded by this factory; the document store owns persistent byte limits and retention.
  */
@@ -54,8 +58,8 @@ export namespace RuntimeBuildInputs {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Native transforms without complete emit observations and arbitrary external-code or profiling modes decline reuse rather than inventing input completeness. Custom compiler overrides need matching installed package identity, including inherited dependency hints; the original build remains the fallback.
    * @evidence contracts/common.md#meaningful-documentation Native prose states current producer support and private-runtime scope, including why fresh transformation remains necessary.
    * @evidence contracts/portability.md#os-neutral-implementation Source and package observations use native paths and bracketed byte reads, and upstream probes use the original compiler working directory and argv without shell composition.
-   * @evidence contracts/performance.md#efficient-algorithms Capture performs two upstream queries, executable proofs and a selected-population metadata scan; unproved content adds actual byte hashing. Unique ancestor/path sets bound duplicate scope work, and admission replays recorded native inputs.
-   * @evidence contracts/performance.md#reuse-equivalent-work Equal deterministic snapshots retain compiler arguments, versions, content, scope manifests, resolved native plugins and environment. Descriptor reads are validated currently and captured with the fresh result for later admission, so discovery-cache temperature changes no execution key; graph and host witnesses separately gate reuse.
+   * @evidence contracts/performance.md#efficient-algorithms Capture performs two upstream queries, executable proofs and one metadata request per selected path with one physical resolution per directory; a file whose proof moved adds its own byte hashing. Unique ancestor/path sets bound duplicate scope work, and admission replays recorded native inputs.
+   * @evidence contracts/performance.md#reuse-equivalent-work Equal deterministic snapshots retain compiler arguments, versions, content, scope manifests, resolved native plugins and the environment variables their processes read (runtimeBuildEnvironment), never the whole environment. Descriptor reads are validated currently and captured with the fresh result for later admission, so discovery-cache temperature changes no execution key; graph and host witnesses separately gate reuse.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The resolved context and closures belong to one build; each capture releases local source and native-output buffers on return, with no resident process or historical map retained.
    */
   export function create(
@@ -66,6 +70,12 @@ export namespace RuntimeBuildInputs {
         capture: () => string | undefined;
         admit: (result: TtscBuildResult, emitDir: string) => boolean;
         record: (result: TtscBuildResult) => TtscBuildResult;
+        identity?: () => string | undefined;
+        begin?: () => void;
+        replay?: (
+          result: TtscBuildResult,
+          emitDir: string,
+        ) => string | undefined;
       }
     | undefined {
     const refuse = (reason: string): undefined => {
@@ -194,8 +204,240 @@ export namespace RuntimeBuildInputs {
       )
     )
       return refuse("effectful-compiler-options");
+    // Declared in a config of the chain, these select work a stored result
+    // cannot stand for: other projects' builds, external code, or reports and
+    // traces written beside it. Any config of the chain declaring one refuses,
+    // whichever the effective value is.
+    const declaresUnsupportedConfiguration = (): boolean =>
+      execution.project.configPaths.some((config) => {
+        const declared = readJsoncFile(config) as {
+          compilerOptions?: Record<string, unknown>;
+          references?: unknown;
+        };
+        return (
+          (Array.isArray(declared.references) &&
+            declared.references.length !== 0) ||
+          [
+            "runExternalCode",
+            "generateTrace",
+            "generateCpuProfile",
+            "pprofDir",
+            "diagnostics",
+            "extendedDiagnostics",
+            "traceResolution",
+            "explainFiles",
+            "listFiles",
+            "listEmittedFiles",
+          ].some((name) => declared.compilerOptions?.[name])
+        );
+      });
+    // A native host that has not declared its environment reads may read any
+    // variable with os.Getenv, so a project using one is keyed by the complete
+    // environment, as every project was. Hosts that declare them, and projects
+    // without plugins, are keyed by what their processes read
+    // (samchon/ttsc#1852).
+    const environment = (): unknown =>
+      execution.nativePlugins.every(
+        (plugin) => plugin.capabilities?.environmentInputs === true,
+      )
+        ? runtimeBuildEnvironment(env)
+        : crypto
+            .createHash("sha256")
+            .update(
+              JSON.stringify(
+                Object.entries(env)
+                  .filter(([key]) => !/^TTSX_RUNTIME_/i.test(key))
+                  .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+              ),
+            )
+            .digest("hex");
+    const privately = (arg: string): string =>
+      arg === emitDir || arg.startsWith(emitDir + path.sep)
+        ? "<private-output>" + arg.slice(emitDir.length)
+        : arg;
+    // A stored result is proven by replaying the filesystem questions its
+    // compiler asked, so finding and proving it runs no compiler and reads no
+    // unchanged file, with plugins or without (samchon/ttsc#1852). With native
+    // plugins the emitting producer is one of ttsc's own hosts, which reports
+    // those questions itself. Without plugins the user's tsc compiles, and the
+    // same questions come from one query of that tsc made just before the build
+    // (CompilerTraceObservations); the replay after the build brackets it.
+    let replaying = false;
+    // The declared host inputs the last identity or capture observed. The cache
+    // admits a result right after one of them, so admission compares the
+    // result's recorded witnesses with these instead of observing each input a
+    // second time within the same proof (samchon/ttsc#1852).
+    let hostObservations = new Map<
+      string,
+      readonly [string | null, string | null]
+    >();
+    const observeHostInput = (file: string) => {
+      const observed = RuntimeInputProof.observeHostInput(file);
+      hostObservations.set(file, observed);
+      return observed;
+    };
+    let traced:
+      | Record<string, ITtscCompilerTransformation.IInputObservation>
+      | undefined;
+    const replayed =
+      options.forceEmitProvenance === true
+        ? {
+            identity: (): string | undefined => {
+              replaying = false;
+              hostObservations = new Map();
+              try {
+                if (process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1")
+                  return refuse("descriptor-bootstrap");
+                const node =
+                  execution.nativePlugins.length === 0
+                    ? undefined
+                    : resolveNodeBinary(env, execution.projectRoot, identities);
+                if (execution.nativePlugins.length !== 0 && node === undefined)
+                  return refuse("node-executable-proof-unavailable");
+                // Plugin bytes are deterministic inputs of the pipeline, so a
+                // harmless stamp or link change keeps their identity; compiler
+                // and Node authority keep the strict physical identity.
+                const compiler = [
+                  ...new Set([
+                    execution.tsgo.binary,
+                    ...execution.nativePlugins.map((plugin) => plugin.binary),
+                    ...(node === undefined ? [] : [node]),
+                  ]),
+                ].map((binary) =>
+                  runtimeExecutableIdentity(
+                    binary,
+                    identities,
+                    binary === execution.tsgo.binary || binary === node,
+                  ),
+                );
+                if (compiler.some((identity) => identity === undefined))
+                  return refuse(
+                    "compiler-or-plugin-executable-proof-unavailable",
+                  );
+                for (const [directory, state] of Object.entries(
+                  loaded?.pluginSources ?? {},
+                ))
+                  if (
+                    !pluginSourceStateHolds(directory, state, {
+                      projectRoot: execution.projectRoot,
+                    })
+                  )
+                    return refuse("plugin-source-proof-changed");
+                if (declaresUnsupportedConfiguration())
+                  return refuse("unsupported-effective-configuration");
+                for (const [file, expected] of Object.entries(
+                  loaded?.hostInputHashes ?? {},
+                ).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+                  const [physical, hash] = observeHostInput(file);
+                  if (
+                    hash !== expected ||
+                    physical !== loaded?.hostInputRealpaths[file]
+                  )
+                    return refuse("descriptor-host-input-changed");
+                }
+                const responses: [string, string][] = [];
+                for (const [file, before] of inspected.observations) {
+                  if (
+                    CompilerArgumentsInspection.observeInputFile(file) !==
+                    before
+                  )
+                    return refuse("compiler-argument-input-changed");
+                  responses.push([file, (JSON.parse(before) as string[])[2]!]);
+                }
+                // Only private destination values are normalized. The relative
+                // layout remains in the identity because source maps are
+                // output-relative.
+                replaying = true;
+                return JSON.stringify({
+                  format: 4,
+                  version: identities.version,
+                  compiler,
+                  args: inspected.args.map(privately),
+                  responses,
+                  environment: environment(),
+                  project: execution.tsconfig,
+                  cwd: execution.compilerSelection.compilerArgsCwd,
+                  layout: path.relative(emitDir, execution.projectRoot),
+                  unchecked: options.skipDiagnosticsCheck === true,
+                  plugins: execution.nativePlugins,
+                  pluginSources: loaded?.pluginSources,
+                });
+              } catch {
+                replaying = false;
+                return refuse("input-snapshot-failed");
+              }
+            },
+            begin: (): void => {
+              traced = undefined;
+              if (execution.nativePlugins.length !== 0) return;
+              const contents = RuntimeInputContents.open(
+                execution.tsconfig,
+                identities,
+                RuntimeInputProof.textCodec,
+              );
+              try {
+                const result = spawnNative(
+                  execution.tsgo.binary,
+                  [
+                    ...args,
+                    "--listFilesOnly",
+                    "true",
+                    "--listEmittedFiles",
+                    "false",
+                    "--traceResolution",
+                    "true",
+                  ],
+                  { cwd: execution.compilerSelection.compilerArgsCwd, env },
+                );
+                if (
+                  result.error === undefined &&
+                  result.status === 0 &&
+                  result.signal === null
+                )
+                  traced = CompilerTraceObservations.observe({
+                    output: String(result.stdout),
+                    configPaths: execution.project.configPaths,
+                    configInputs: execution.project.configInputs ?? [],
+                    contents,
+                  });
+              } catch {
+                traced = undefined;
+              } finally {
+                contents.close();
+              }
+            },
+            replay: (
+              result: TtscBuildResult,
+              produced: string,
+            ): string | undefined => {
+              if (result.compilerObservations === undefined) return "";
+              const contents = RuntimeInputContents.open(
+                execution.tsconfig,
+                identities,
+                RuntimeInputProof.textCodec,
+              );
+              try {
+                return RuntimeInputProof.replay(
+                  result.compilerObservations,
+                  produced,
+                  contents,
+                );
+              } finally {
+                contents.close();
+              }
+            },
+          }
+        : {};
     return {
-      record: (result) => {
+      ...replayed,
+      record: (fresh) => {
+        // The plugin-free producer reports nothing itself; the query taken
+        // just before it stands for its reads once the replay after it holds.
+        const result =
+          traced === undefined || fresh.compilerObservations !== undefined
+            ? fresh
+            : { ...fresh, compilerObservations: traced };
+        traced = undefined;
         if (loaded === undefined) return result;
         // Evaluation-time reads differ between a cold typed configuration and
         // its validated cached answer. Preserve their original proof with the
@@ -245,6 +487,7 @@ export namespace RuntimeBuildInputs {
         };
       },
       capture: () => {
+        hostObservations = new Map();
         try {
           if (process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1")
             return refuse("descriptor-bootstrap");
@@ -293,24 +536,36 @@ export namespace RuntimeBuildInputs {
               throw new Error("runtime input inspection unavailable");
             return String(result.stdout);
           };
-          const config = JSON.parse(query(["--showConfig"]));
+          // The effective configuration is a function of the arguments and
+          // the config chain. When every file the chain read is known, those
+          // files are witnessed with the other inputs and the arguments enter
+          // the snapshot, so the compiler is not started a second time only to
+          // restate them (samchon/ttsc#1852).
+          const chained = execution.project.configInputsComplete === true;
+          if (chained && declaresUnsupportedConfiguration())
+            return refuse("unsupported-effective-configuration");
+          const config = chained
+            ? undefined
+            : JSON.parse(query(["--showConfig"]));
           if (
-            !config ||
-            typeof config.compilerOptions !== "object" ||
-            config.compilerOptions === null ||
-            config.references?.length ||
-            config.compilerOptions.runExternalCode === true ||
-            [
-              "generateTrace",
-              "generateCpuProfile",
-              "pprofDir",
-              "diagnostics",
-              "extendedDiagnostics",
-              "traceResolution",
-              "explainFiles",
-              "listFiles",
-              "listEmittedFiles",
-            ].some((name) => config.compilerOptions[name])
+            chained
+              ? false
+              : !config ||
+                typeof config.compilerOptions !== "object" ||
+                config.compilerOptions === null ||
+                config.references?.length ||
+                config.compilerOptions.runExternalCode === true ||
+                [
+                  "generateTrace",
+                  "generateCpuProfile",
+                  "pprofDir",
+                  "diagnostics",
+                  "extendedDiagnostics",
+                  "traceResolution",
+                  "explainFiles",
+                  "listFiles",
+                  "listEmittedFiles",
+                ].some((name) => config.compilerOptions[name])
           )
             return refuse("unsupported-effective-configuration");
           const listed = query([
@@ -329,14 +584,25 @@ export namespace RuntimeBuildInputs {
             )
           )
             return refuse("source-selection-unavailable");
+          // The selected sources are witnessed first: their physical
+          // directories name the package scopes whose manifests, present or
+          // absent, are inputs of the same compile.
+          const contents = RuntimeInputContents.open(
+            execution.tsconfig,
+            identities,
+          );
           const inputs = new Set([
             ...listed,
             ...execution.project.configPaths,
+            ...(chained ? (execution.project.configInputs ?? []) : []),
             ...inspected.observations.keys(),
           ]);
           const scopes = new Set<string>();
-          for (const file of listed) {
-            for (const spelling of [file, fs.realpathSync.native(file)]) {
+          for (const [file, physical] of contents.observe(listed)) {
+            // The compiler just listed it, so its absence is a moving input.
+            if (physical === null)
+              throw new Error("runtime source selection moved");
+            for (const spelling of [file, physical]) {
               let directory = path.dirname(spelling);
               while (!scopes.has(directory)) {
                 scopes.add(directory);
@@ -347,15 +613,12 @@ export namespace RuntimeBuildInputs {
               }
             }
           }
-          const hashes = RuntimeInputContents.capture(
-            [...inputs].sort(),
-            execution.tsconfig,
-            identities,
-          );
+          const hashes = contents.observe([...inputs].sort());
+          contents.close();
           for (const [file, expected] of Object.entries(
             loaded?.hostInputHashes ?? {},
           ).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
-            const [physical, hash] = RuntimeInputProof.observeHostInput(file);
+            const [physical, hash] = observeHostInput(file);
             if (
               hash !== expected ||
               physical !== loaded?.hostInputRealpaths[file]
@@ -367,12 +630,9 @@ export namespace RuntimeBuildInputs {
               return refuse("compiler-argument-input-changed");
           // Only private destination values are normalized. The relative layout
           // remains in the identity because source maps are output-relative.
-          for (const key of [
-            "outDir",
-            "declarationDir",
-            "tsBuildInfoFile",
-            "outFile",
-          ])
+          for (const key of config === undefined
+            ? []
+            : ["outDir", "declarationDir", "tsBuildInfoFile", "outFile"])
             if (
               typeof config.compilerOptions[key] === "string" &&
               (path.resolve(
@@ -396,26 +656,20 @@ export namespace RuntimeBuildInputs {
                   ),
                 );
           // Upstream synthesizes an exclusion for the overridden outDir too.
-          if (Array.isArray(config.exclude))
+          if (config !== undefined && Array.isArray(config.exclude))
             config.exclude = config.exclude.map((name: unknown) =>
               typeof name === "string" &&
               path.resolve(path.dirname(execution.tsconfig), name) === emitDir
                 ? "<private-output>"
                 : name,
             );
-          const environment = Object.entries(env)
-            .filter(([key]) => !/^TTSX_RUNTIME_/i.test(key))
-            .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
           return JSON.stringify({
-            format: 2,
+            format: 3,
             version: identities.version,
             compilerIdentities,
-            config,
+            config: config ?? { arguments: inspected.args.map(privately) },
             hashes,
-            environment: crypto
-              .createHash("sha256")
-              .update(JSON.stringify(environment))
-              .digest("hex"),
+            environment: environment(),
             project: execution.tsconfig,
             cwd: execution.compilerSelection.compilerArgsCwd,
             layout: path.relative(emitDir, execution.projectRoot),
@@ -467,6 +721,10 @@ export namespace RuntimeBuildInputs {
           execution.projectRoot,
           emitDir,
           env,
+          // The replayed proof validates this population whole, but only a
+          // request that took its identity runs that replay.
+          replaying && result.compilerObservations !== undefined,
+          hostObservations,
         );
         if (!accepted)
           RuntimeBuildExplanation.report({
