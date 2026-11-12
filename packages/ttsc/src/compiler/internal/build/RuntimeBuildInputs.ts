@@ -263,6 +263,19 @@ export namespace RuntimeBuildInputs {
     // same questions come from one query of that tsc made just before the build
     // (CompilerTraceObservations); the replay after the build brackets it.
     let replaying = false;
+    // The declared host inputs the last identity or capture observed. The cache
+    // admits a result right after one of them, so admission compares the
+    // result's recorded witnesses with these instead of observing each input a
+    // second time within the same proof (samchon/ttsc#1852).
+    let hostObservations = new Map<
+      string,
+      readonly [string | null, string | null]
+    >();
+    const observeHostInput = (file: string) => {
+      const observed = RuntimeInputProof.observeHostInput(file);
+      hostObservations.set(file, observed);
+      return observed;
+    };
     let traced:
       | Record<string, ITtscCompilerTransformation.IInputObservation>
       | undefined;
@@ -271,6 +284,7 @@ export namespace RuntimeBuildInputs {
         ? {
             identity: (): string | undefined => {
               replaying = false;
+              hostObservations = new Map();
               try {
                 if (process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1")
                   return refuse("descriptor-bootstrap");
@@ -314,8 +328,7 @@ export namespace RuntimeBuildInputs {
                 for (const [file, expected] of Object.entries(
                   loaded?.hostInputHashes ?? {},
                 ).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
-                  const [physical, hash] =
-                    RuntimeInputProof.observeHostInput(file);
+                  const [physical, hash] = observeHostInput(file);
                   if (
                     hash !== expected ||
                     physical !== loaded?.hostInputRealpaths[file]
@@ -474,6 +487,7 @@ export namespace RuntimeBuildInputs {
         };
       },
       capture: () => {
+        hostObservations = new Map();
         try {
           if (process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1")
             return refuse("descriptor-bootstrap");
@@ -604,7 +618,7 @@ export namespace RuntimeBuildInputs {
           for (const [file, expected] of Object.entries(
             loaded?.hostInputHashes ?? {},
           ).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
-            const [physical, hash] = RuntimeInputProof.observeHostInput(file);
+            const [physical, hash] = observeHostInput(file);
             if (
               hash !== expected ||
               physical !== loaded?.hostInputRealpaths[file]
@@ -710,6 +724,7 @@ export namespace RuntimeBuildInputs {
           // The replayed proof validates this population whole, but only a
           // request that took its identity runs that replay.
           replaying && result.compilerObservations !== undefined,
+          hostObservations,
         );
         if (!accepted)
           RuntimeBuildExplanation.report({

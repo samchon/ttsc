@@ -25,6 +25,9 @@ export class RuntimeEmitBundle {
 
   /** Physical private root represented by the relative output coordinates. */
   public readonly root: string;
+
+  /** The root's spelling followed by a separator, for {@link locate}. */
+  private readonly prefix: string;
   private readonly ranges: ReadonlyMap<string, [number, number, string]>;
 
   /** Physical spellings of the parent directories reads have named. */
@@ -41,9 +44,9 @@ export class RuntimeEmitBundle {
     root: string,
     outputs: [string, number, number, string][],
     private readonly dataOffset: number,
-    private readonly fileSize: number,
   ) {
     this.root = fs.realpathSync.native(root);
+    this.prefix = this.root + path.sep;
     this.ranges = new Map(
       outputs.map(([name, offset, size, hash]) => [name, [offset, size, hash]]),
     );
@@ -479,7 +482,7 @@ export class RuntimeEmitBundle {
         if (hash.digest("hex") !== expected)
           throw new Error("invalid runtime output bundle body");
       }
-      const bundle = new RuntimeEmitBundle(root, rows, start, size);
+      const bundle = new RuntimeEmitBundle(root, rows, start);
       this.validated.set(path.resolve(file), {
         signature: this.signature(stat),
         bundle,
@@ -571,15 +574,31 @@ export class RuntimeEmitBundle {
    * @evidence contracts/performance.md#bound-retention-and-release-resources Each call returns its coordinate and retains no native handle or alias history.
    */
   public resolve(file: string): string | null {
+    return this.locate(file)?.[0] ?? null;
+  }
+
+  /**
+   * {@link resolve}, with the coordinate's name relative to the root. A
+   * normalized spelling below the root's own spelling is its name by
+   * construction, which every module read asks for; any other spelling takes
+   * the native containment check.
+   */
+  private locate(file: string): [string, string] | null {
     const absolute = path.resolve(file);
-    const contained = (candidate: string): boolean => {
+    if (absolute.startsWith(this.prefix)) {
+      const name = absolute.slice(this.prefix.length);
+      if (name.length !== 0 && name !== "." && name !== "..")
+        return [absolute, name];
+    }
+    const contained = (candidate: string): [string, string] | null => {
       const relative = path.relative(this.root, candidate);
-      return (
-        RuntimeEmitBundle.safeRelative(relative) &&
+      return RuntimeEmitBundle.safeRelative(relative) &&
         path.join(this.root, relative) === candidate
-      );
+        ? [candidate, relative]
+        : null;
     };
-    if (contained(absolute)) return absolute;
+    const direct = contained(absolute);
+    if (direct !== null) return direct;
     try {
       // The run owns this private layout and never moves it, so each parent
       // spelling is resolved once instead of once per module read.
@@ -589,8 +608,7 @@ export class RuntimeEmitBundle {
         resolved = fs.realpathSync.native(parent);
         this.parents.set(parent, resolved);
       }
-      const physical = path.join(resolved, path.basename(absolute));
-      return contained(physical) ? physical : null;
+      return contained(path.join(resolved, path.basename(absolute)));
     } catch {
       return null;
     }
@@ -599,19 +617,19 @@ export class RuntimeEmitBundle {
   /**
    * Read one exact recorded output; absence grants no filesystem fallback.
    *
-   * @evidence contracts/common.md#principled-implementation Exact native relative coordinates select one admitted range; current size and its content hash must still match before UTF-8 text is returned.
+   * @evidence contracts/common.md#principled-implementation Exact native relative coordinates select one admitted range; the complete range must still be readable and match its content hash before UTF-8 text is returned.
    * @evidence contracts/common.md#clear-and-simple-design The index owns lookup and bounded range reading together without retaining decoded bodies.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown or outside names return null and cannot adopt authored bytes from the filesystem.
    * @evidence contracts/common.md#meaningful-documentation The prose states exact membership and no filesystem fallback.
    * @evidence contracts/portability.md#os-neutral-implementation Shared coordinate resolution preserves native directory aliases and rejects distinct siblings; no filename case policy is guessed.
-   * @evidence contracts/performance.md#efficient-algorithms One map lookup and optional parent realpath precede reading and hashing only the requested B bytes through the artifact's one retained descriptor.
+   * @evidence contracts/performance.md#efficient-algorithms A spelling below the root costs one prefix comparison and one map lookup, other spellings an optional parent realpath; then only the requested B bytes are read and hashed through the artifact's one retained descriptor.
    * @evidence contracts/performance.md#reuse-equivalent-work One admitted immutable range index serves all reads while Node owns loaded-module caching.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The first read opens one descriptor that later reads share, held until release() or process exit. Successful reads transfer text to the caller without retaining a buffer or per-module history.
    */
   public read(file: string): string | null {
-    const resolved = this.resolve(file);
-    if (resolved === null) return null;
-    const range = this.ranges.get(path.relative(this.root, resolved));
+    const located = this.locate(file);
+    if (located === null) return null;
+    const range = this.ranges.get(located[1]);
     if (range === undefined) return null;
     // One descriptor serves every read of this artifact: opening it again for
     // each module was the largest single cost of a warm start, since a host
@@ -623,10 +641,10 @@ export class RuntimeEmitBundle {
       );
       RuntimeEmitBundle.reading.add(this);
     }
+    // The range's own hash decides: a truncated artifact fails the read and
+    // changed bytes fail the hash, so the descriptor's metadata is not asked
+    // again for every module.
     const fd = this.descriptor;
-    const stat = fs.fstatSync(fd);
-    if (!stat.isFile() || stat.size !== this.fileSize)
-      throw new Error("runtime output bundle changed");
     const [offset, size, expected] = range;
     const bytes = Buffer.alloc(size);
     RuntimeEmitBundle.readAll(fd, bytes, this.dataOffset + offset);

@@ -401,8 +401,14 @@ export namespace RuntimeBuildCache {
     current: string,
   ): TtscBuildResult {
     const { bundledOutputs: _previousBundle, ...producer } = result;
+    const prefix = previous + path.sep;
     const move = (output: string): string => {
-      const relative = path.relative(previous, output);
+      // A recorded output spelled below the recorded root is relocated by its
+      // spelling; path.relative resolves and folds both paths for each of
+      // thousands of outputs, and the result is the same suffix.
+      const relative = output.startsWith(prefix)
+        ? output.slice(prefix.length)
+        : path.relative(previous, output);
       if (!safeRelative(relative))
         throw new Error("runtime provenance escapes its output root");
       return path.join(current, relative);

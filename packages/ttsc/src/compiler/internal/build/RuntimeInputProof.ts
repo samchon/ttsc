@@ -30,6 +30,11 @@ export namespace RuntimeInputProof {
    * recorded environment read must still have its value, or remain unset, in
    * `environment`, the environment the build would spawn its plugins under.
    *
+   * `observed` carries the declared host inputs the caller's proof observed
+   * just before this admission ({@link observeHostInput}); an input it holds is
+   * compared with that observation rather than observed again, and any other is
+   * observed here.
+   *
    * With `compilerReplayed`, the caller replays the result's complete compiler
    * observations itself ({@link replay}). The graph's compiler predicates and
    * its content projection are taken from that same population, so they are not
@@ -42,7 +47,7 @@ export namespace RuntimeInputProof {
    * @evidence contracts/common.md#meaningful-documentation Native prose identifies result admission and the caller's separate completeness obligations.
    * @evidence contracts/portability.md#os-neutral-implementation Native path resolution anchors producer-relative graph keys, current physical paths come from native realpath, and SidecarEnvironment.read applies Windows' case-insensitive variable names.
    * @evidence contracts/performance.md#efficient-algorithms Input and predicate populations drive replay; each read hashes its actual bytes and directories sort immediate entry records.
-   * @evidence contracts/performance.md#reuse-equivalent-work Generation witnesses, rather than an identity-key match, decide whether a completed build remains reusable.
+   * @evidence contracts/performance.md#reuse-equivalent-work Generation witnesses, rather than an identity-key match, decide whether a completed build remains reusable; a host input the caller's proof observed just before is compared with that one observation instead of a second one.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Temporary path and predicate records are invocation-owned without retained handles or history.
    */
   export function holds(
@@ -51,6 +56,7 @@ export namespace RuntimeInputProof {
     emitDir: string,
     environment: NodeJS.ProcessEnv,
     compilerReplayed = false,
+    observed?: ReadonlyMap<string, readonly [string | null, string | null]>,
   ): boolean {
     if (
       result.observationsComplete === false ||
@@ -64,7 +70,8 @@ export namespace RuntimeInputProof {
         return false;
     try {
       for (const file of result.hostInputs ?? []) {
-        const [currentPhysical, hash] = observeHostInput(file);
+        const [currentPhysical, hash] =
+          observed?.get(file) ?? observeHostInput(file);
         if (
           !Object.hasOwn(result.hostInputHashes ?? {}, file) ||
           !Object.hasOwn(result.hostInputRealpaths ?? {}, file) ||
