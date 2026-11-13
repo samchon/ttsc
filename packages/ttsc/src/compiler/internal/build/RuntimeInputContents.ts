@@ -81,7 +81,9 @@ export namespace RuntimeInputContents {
 
     /**
      * Publish the record when a row changed, and report the capture's content
-     * reads. Call once, after the last batch.
+     * reads. Call once, after the last batch. `complete` states that the
+     * session witnessed its whole population, which then replaces the record;
+     * otherwise the rows it did not witness are kept.
      *
      * @evidence contracts/common.md#principled-implementation Only rows whose read was bracketed by equal separable metadata are published, and only when the population's rows differ from the record read at opening.
      * @evidence contracts/common.md#clear-and-simple-design Publication is one explicit step after every batch, so a record always describes a whole population.
@@ -90,9 +92,9 @@ export namespace RuntimeInputContents {
      * @evidence contracts/portability.md#os-neutral-implementation The record is replaced atomically in its own directory by the cache layout owner.
      * @evidence contracts/performance.md#efficient-algorithms An unchanged population writes nothing beyond a use stamp; a changed one serializes its rows once.
      * @evidence contracts/performance.md#reuse-equivalent-work The published rows are what later captures in any process reuse.
-     * @evidence contracts/performance.md#bound-retention-and-release-resources The record keeps only this population's rows, so it does not grow with paths no longer selected.
+     * @evidence contracts/performance.md#bound-retention-and-release-resources A complete session's record keeps only its population's rows, so it does not grow with paths no longer selected; a partial session adds its rows to the record's.
      */
-    close(): void;
+    close(complete?: boolean): void;
   }
 
   /**
@@ -112,6 +114,13 @@ export namespace RuntimeInputContents {
    * @param codec How a file's bytes become its hash, with a name that keeps its
    *   record apart: raw bytes by default, or a consumer's own decoding, such as
    *   the text a compiler read.
+   * @param stamped Require every existing input's stamps to end before the
+   *   store's clock reference, throwing {@link UnsettledInput} otherwise. A
+   *   caller that witnesses, after a compile, the files that compile read opens
+   *   its store before the compile and sets this, so every hash it gets is of
+   *   the bytes the compiler read. A map supplies the clock references of a
+   *   store opened before an earlier compile instead, for a compile whose
+   *   witnesses are taken by a later process.
    * @evidence contracts/common.md#principled-implementation A non-link entry's physical path is its directory's physical path plus its own name, so one resolution per directory states what a resolution per file stated; link entries keep their own resolution. A read is bracketed by equal metadata and physical observations, and a row is recorded only when both were separable.
    * @evidence contracts/common.md#clear-and-simple-design Record reading, per-path witnessing and publication are the session's three steps; the identity store keeps location, version and collection.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing, foreign or malformed records and rows mean a real read, never an empty or guessed hash; a non-missing native error never becomes absence.
@@ -125,6 +134,7 @@ export namespace RuntimeInputContents {
     subject: string,
     store: PluginContentIdentities.Store | undefined,
     codec: Codec = RAW,
+    stamped: boolean | ReadonlyMap<bigint, bigint> = false,
   ): Session {
     const location =
       store === undefined
@@ -180,6 +190,20 @@ export namespace RuntimeInputContents {
       const before = stat(file);
       if (before === null) return [file, null, null];
       const state = signature(before.stats, store);
+      if (stamped !== false) {
+        const references =
+          stamped === true ? (store?.references ?? NO_REFERENCES) : stamped;
+        if (!references.has(before.stats.dev))
+          throw new UnsettledInput(
+            `No clock reference for the device of ${file}`,
+            true,
+          );
+        if (!PluginContentIdentities.separable(references, before.stats, true))
+          throw new UnsettledInput(
+            `Input moved after the reference: ${file}`,
+            false,
+          );
+      }
       const row = known.get(file);
       if (
         state.separable &&
@@ -220,11 +244,16 @@ export namespace RuntimeInputContents {
           }
           return row;
         }),
-      close: () => {
+      close: (complete = false) => {
         if (location !== undefined && store !== undefined) {
-          // A recorded path this population no longer selects, or no longer
-          // proves, leaves the record with the rows that changed.
-          if (changed || current.size !== known.size)
+          // A session that witnessed its whole population replaces the record:
+          // a recorded path the population no longer selects, or no longer
+          // proves, leaves it. A partial one, such as a replay that stopped at
+          // the first moved input, keeps every row it did not witness; replacing
+          // the record with the few rows a failed proof reached made the next
+          // capture read every file again (samchon/ttsc#1859).
+          const rows = complete ? current : new Map([...known, ...current]);
+          if (changed || (complete && current.size !== known.size))
             try {
               fs.mkdirSync(path.dirname(location), { recursive: true });
               SourceBuildCacheLayout.replaceCacheMetadataFile(
@@ -233,7 +262,7 @@ export namespace RuntimeInputContents {
                   format: FORMAT,
                   version: store.version,
                   subject,
-                  rows: Object.fromEntries(current),
+                  rows: Object.fromEntries(rows),
                 } satisfies IRecord),
               );
             } catch {
@@ -248,6 +277,35 @@ export namespace RuntimeInputContents {
         });
       },
     };
+  }
+
+  /**
+   * A settled session met an input whose stamps do not end before the store's
+   * clock reference: it changed after the reference was minted, or it lives on
+   * a device the store has no reference for, so its current bytes cannot be
+   * shown to be the bytes read before the reference.
+   *
+   * @evidence contracts/common.md#principled-implementation A distinct error class lets the caller tell an unprovable ordering apart from an unreadable input.
+   * @evidence contracts/common.md#clear-and-simple-design One subclass carries the refusal.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The refusal is thrown, never turned into a guessed row.
+   * @evidence contracts/common.md#meaningful-documentation The prose states both causes.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation An error type touches no native boundary.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms An error type runs no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work An error type grants no reuse.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources An error type holds no resource.
+   */
+  export class UnsettledInput extends Error {
+    /**
+     * @param message What could not be shown.
+     * @param unreferenced Whether the input's device has no reference at all,
+     *   which every later compile meets again, rather than a stamp that moved.
+     */
+    public constructor(
+      message: string,
+      public readonly unreferenced: boolean,
+    ) {
+      super(message);
+    }
   }
 
   /**
@@ -272,7 +330,7 @@ export namespace RuntimeInputContents {
   ): Row[] {
     const session = open(subject, store);
     const rows = session.observe(inputs);
-    session.close();
+    session.close(true);
     return rows;
   }
 

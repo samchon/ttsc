@@ -88,8 +88,28 @@ export class EmitOwnershipIndex {
       throw new Error("ttsc: admitted runtime output bundle is missing");
     this.rootDir = path.resolve(props.rootDir);
     const inputRoot = path.resolve(props.emitDir);
-    const resolveOutput = (output: string): { path: string; key: string } => {
-      if (this.bundle === undefined) return outputIdentity.resolve(output);
+    const inputPrefix = inputRoot + path.sep;
+    // The private directory holds only what the compiler wrote into it, so a
+    // name spelled below its root is that root's physical path plus the same
+    // suffix. Resolving each output natively cost a resolution per output, over
+    // a second for one project (samchon/ttsc#1859). A recorded output that this
+    // spelling does not name, such as one whose directory exists under another
+    // case, keeps the native resolution.
+    const physicalBelow = (output: string): { path: string; key: string } => {
+      const location = this.emitDir + output.slice(inputRoot.length);
+      return { path: location, key: physicalSourceKey(location) };
+    };
+    const resolveOutput = (
+      output: string,
+      recorded?: ReadonlySet<string>,
+    ): { path: string; key: string } => {
+      if (this.bundle === undefined) {
+        if (output.startsWith(inputPrefix)) {
+          const below = physicalBelow(output);
+          if (recorded === undefined || recorded.has(below.key)) return below;
+        }
+        return outputIdentity.resolve(output);
+      }
       // Resolve native parent aliases without following the virtual output leaf.
       // Containment alone grants neither inventory membership nor provenance.
       const location = this.bundle.resolve(output);
@@ -126,7 +146,7 @@ export class EmitOwnershipIndex {
       if (!path.isAbsolute(output) || !Array.isArray(sources)) {
         throw new Error("ttsc: invalid emitted-source provenance record");
       }
-      const identity = resolveOutput(path.resolve(output));
+      const identity = resolveOutput(path.resolve(output), recorded);
       const location = identity.path;
       if (!isJavaScriptOutput(location)) continue;
       const relative = path.relative(this.emitDir, location);

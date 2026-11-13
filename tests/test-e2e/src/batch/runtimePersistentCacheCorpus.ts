@@ -16,9 +16,9 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * 3. Edit a cross-package const enum, reject a type error, repair it, and damage
  *    persisted documents before another successful execution.
  *
- * @evidence contracts/testing.md#behavioral-verification Real installed ttsx processes print actual package values, cwd, filenames, entry/main identity, adjacent asset bytes and a caught source-mapped stack in CommonJS and ESM. Product trace events distinguish recorded/reused generations, one materialized bundle and zero source-content reads for an unchanged proof. Warm execution has no native emit, lint check or transform command, including combined lint/evidence/banner execution; bypass still emits. Changing only model.ts produces TS2322 in unchanged consumer.ts and blocks execution; dependency, membership, package-export and native config changes are separately exercised. Concurrent cold publishers both execute the correct program.
- * @evidence contracts/testing.md#independent-expectations Authored enum literals 7/11, adjacent asset text, actual filesystem source paths and the authored throw line determine expected behavior independently of stored documents or compiler output. Producer argv and trace outcomes are actual observations.
- * @evidence contracts/testing.md#distinguishing-cases Cold/warm/bypass, a warm run under other program arguments and unread environment variables, the authored files' unchanged link count and stamps across runs, a plugin project proven without starting the compiler, dependency-only edits, type failure/repair, corrupt storage and dynamic excluded roots contrast success reuse with required recompilation. Both linked packages export src and a non-imported root remains checked.
+ * @evidence contracts/testing.md#behavioral-verification Real installed ttsx processes print actual package values, cwd, filenames, entry/main identity, adjacent asset bytes and a caught source-mapped stack in CommonJS and ESM. Product trace events distinguish recorded or parked generations from reused ones, each served from one materialized bundle or an adopted parked build, and zero source-content reads for an unchanged proof once the adoption recorded its observations; a stale JavaScript sibling of a workspace source never runs. Warm execution has no native emit, lint check or transform command, including combined lint/evidence/banner execution; bypass still emits. Changing only model.ts produces TS2322 in unchanged consumer.ts and blocks execution; dependency, membership, package-export and native config changes are separately exercised. Concurrent cold publishers both execute the correct program.
+ * @evidence contracts/testing.md#independent-expectations Authored enum literals 7/11, a zero offset whose stale sibling JavaScript would add 1000, adjacent asset text, actual filesystem source paths and the authored throw line determine expected behavior independently of stored documents or compiler output. Producer argv and trace outcomes are actual observations.
+ * @evidence contracts/testing.md#distinguishing-cases Cold/warm/bypass, a warm run under other program arguments and unread environment variables, a banner project reused under an unread variable, the authored files' unchanged link count and stamps across runs, a plugin project proven without starting the compiler, dependency-only edits, type failure/repair with the unchanged dependency not compiled again after the failed run stopped its prebuild workers, corrupt storage and dynamic excluded roots contrast success reuse with required recompilation. Both linked packages export src and a non-imported root remains checked.
  * @evidence contracts/testing.md#execution-ownership The Runtime batch invokes this helper using its existing installed SDK and cache owner. Independent launcher lifetimes prove persistence and input transitions; linked banner and combined lint/evidence/banner compositions borrow the installed contributors, with no extra installation.
  * @evidence contracts/e2e.md#necessary-boundary Cross-process persistence, native compiler invocation, source-linked package resolution and actual Node source identity cannot be established by a document-store unit.
  * @evidence contracts/e2e.md#shared-execution One upfront graph shares two workspace package owners and all identity/map assertions across the necessary state transitions. The installed banner contributor adds one linked-host composition, prepared by its native bypass run before the completed-result cold/warm pair and config edit. A separate ESM request supplies native module URL/main/resource evidence across cold/warm/bypass. Native source-selection probes remain real work even on a hit.
@@ -80,8 +80,13 @@ export async function runtimePersistentCacheCorpus(
   );
   write(
     "packages/b/src/index.ts",
-    "import { value } from 'runtime-persistent-a'; export const result = value + 1;\n",
+    "import { value } from 'runtime-persistent-a'; import { offset } from './offset'; export const result = value + 1 + offset;\n",
   );
+  // Stale JavaScript beside a source, as a build of the package can leave it:
+  // the compiler resolves './offset' to the TypeScript source and checks the
+  // program against it, so that is what must run (samchon/ttsc#1860).
+  write("packages/b/src/offset.ts", "export const offset: number = 0;\n");
+  write("packages/b/src/offset.js", "exports.offset = 1000;\n");
   write("test/src/unused.ts", "export const checked: number = 1;\n");
   write("test/src/model.ts", "export interface Shape { value: number }\n");
   write(
@@ -242,6 +247,12 @@ export async function runtimePersistentCacheCorpus(
         event.data.outcome === outcome &&
         (!launcherOnly || event.launcher),
     );
+  // A fresh build is stored while its program runs and parked when the
+  // program ends first; either keeps it for the next run (samchon/ttsc#1859).
+  const stored = (records: any[], launcherOnly = false): any[] => [
+    ...outcomes(records, "recorded", launcherOnly),
+    ...outcomes(records, "parked", launcherOnly),
+  ];
   const emitting = (records: any[]): any[] =>
     records.filter(
       (event) =>
@@ -300,15 +311,23 @@ export async function runtimePersistentCacheCorpus(
   });
   const bypass = run(["--no-cache"]);
   check(() => {
-    assert.ok(outcomes(cold, "recorded").length > 0);
+    assert.ok(stored(cold).length > 0);
     assert.ok(outcomes(warm, "reused").length > 0);
     assert.ok(outcomes(warm, "reused", true).length > 0);
+    // A reused build is either one stored bundle or a parked build's own
+    // output directory, taken into the run by a rename.
     assert.ok(
-      outcomes(warm, "reused").every((event) => event.data.materialized === 1),
+      outcomes(warm, "reused").every(
+        (event) =>
+          event.data.materialized === 1 || event.data.reason === "parked",
+      ),
+      JSON.stringify(outcomes(warm, "reused").map((event) => event.data)),
     );
-    // Every proof of the unchanged run, not merely one of them, must stand on
+    // Every proof of an unchanged run, not merely one of them, must stand on
     // metadata alone, and the configuration is not asked for a second time.
-    const contents = warm.filter(
+    // The run after a parked build's first adoption is that run: the adoption
+    // hashed what the parking run's compiler read.
+    const contents = noise.filter(
       (event) => event.data?.phase === "runtime-input-content",
     );
     assert.ok(contents.length > 0);
@@ -317,6 +336,17 @@ export async function runtimePersistentCacheCorpus(
         (event) => event.data.contentReads === 0 && event.data.inputs > 0,
       ),
       JSON.stringify(contents.map((event) => event.data)),
+    );
+    // The dependency projects the cold run's program reached are prepared
+    // beside the entry project from the next run on (samchon/ttsc#1859).
+    assert.ok(
+      warm.some(
+        (event) =>
+          event.event === "process-attempt" &&
+          event.argv?.some((arg: string) =>
+            arg.endsWith("runtimeDependencyPrebuild.js"),
+          ),
+      ),
     );
     // A warm run proves every project by replaying what tsc reported when it
     // built them, so it starts no compiler at all.
@@ -338,7 +368,22 @@ export async function runtimePersistentCacheCorpus(
   write("test/src/unused.ts", "export const checked: number = 'invalid';\n");
   run([], 12, false);
   write("test/src/unused.ts", "export const checked: number = 1;\n");
-  run([], 12);
+  const recovered = run([], 12);
+  // The failed run stopped its dependency prebuild workers. A dependency one
+  // had already taken from the store goes back to it, so the unchanged
+  // package is not compiled again.
+  check(() =>
+    assert.deepEqual(
+      emitting(recovered).filter((event) =>
+        event.argv.some((arg: string) =>
+          path
+            .normalize(arg)
+            .endsWith(path.join("packages", "a", "tsconfig.json")),
+        ),
+      ),
+      [],
+    ),
+  );
   write("test/src/added.ts", "export const added: number = 'invalid';\n");
   run([], 12, false);
   fs.unlinkSync(path.join(root, "test/src/added.ts"));
@@ -361,13 +406,21 @@ export async function runtimePersistentCacheCorpus(
   const documents = path.join(cache, "runtime-builds");
   check(() =>
     assert.ok(
-      fs.readdirSync(documents).some((name) => name.endsWith(".json")),
+      fs
+        .readdirSync(documents)
+        .some((name) => name.endsWith(".json") || name.endsWith(".pending")),
       "no persistent document to damage",
     ),
   );
   for (const name of fs.readdirSync(documents))
     if (name.endsWith(".json"))
       fs.writeFileSync(path.join(documents, name), "invalid-cache-document");
+    else if (name.endsWith(".pending"))
+      for (const parked of fs.readdirSync(path.join(documents, name)))
+        fs.writeFileSync(
+          path.join(documents, name, parked, "job.json"),
+          "invalid-cache-document",
+        );
   const concurrent = await Promise.all(
     [0, 1].map(
       () =>
@@ -468,7 +521,7 @@ export async function runtimePersistentCacheCorpus(
   run(["--no-cache"], 12);
   const nativeCold = run([], 12);
   const nativeWarm = run([], 12);
-  check(() => assert.ok(outcomes(nativeCold, "recorded", true).length > 0));
+  check(() => assert.ok(stored(nativeCold, true).length > 0));
   check(() => assert.ok(outcomes(nativeWarm, "reused", true).length > 0));
   check(() => assert.equal(emitting(nativeWarm).length, 0));
   // A native host reports every question its compiler asked, so the stored
@@ -478,15 +531,16 @@ export async function runtimePersistentCacheCorpus(
     assert.equal(queries(nativeWarm, "--listFilesOnly").length, 0);
     assert.equal(queries(nativeWarm, "--showConfig").length, 0);
   });
-  // A plugin that has not declared its environment reads may read any
-  // variable directly, so its project stays keyed by the complete environment:
-  // an unread variable builds it again rather than risking a stale emit.
+  // `@ttsc/banner` declares that it reads only the variables a runtime build
+  // is keyed by, so a variable it does not read leaves its project's stored
+  // emit in place (samchon/ttsc#1856).
   const nativeNoise = run([], 12, true, undefined, "src/main.ts", /TS2322/, {
     env: { E2E_UNREAD_VARIABLE: String(process.pid) },
   });
   check(() => {
-    assert.equal(outcomes(nativeNoise, "reused", true).length, 0);
-    assert.ok(outcomes(nativeNoise, "recorded", true).length > 0);
+    assert.ok(outcomes(nativeNoise, "reused", true).length > 0);
+    assert.equal(stored(nativeNoise, true).length, 0);
+    assert.equal(emitting(nativeNoise).length, 0);
   });
   const served = (records: any[]): string =>
     records
@@ -507,7 +561,7 @@ export async function runtimePersistentCacheCorpus(
   });
   write("test/banner.config.json", '{"text":"changed-native-transform"}');
   const nativeChanged = run([], 12);
-  check(() => assert.ok(outcomes(nativeChanged, "recorded", true).length > 0));
+  check(() => assert.ok(stored(nativeChanged, true).length > 0));
   check(() => assert.match(served(nativeChanged), /changed-native-transform/));
   // Keep a real check contributor and transform in the same cached pipeline.
   // The existing installation already owns lint/evidence and the banner host.
@@ -540,7 +594,7 @@ export async function runtimePersistentCacheCorpus(
     );
   check(() =>
     assert.ok(
-      outcomes(checkedCold, "recorded", true).length > 0,
+      stored(checkedCold, true).length > 0,
       cacheDecisions(checkedCold),
     ),
   );

@@ -4,12 +4,14 @@ import os from "node:os";
 import path from "node:path";
 
 import { EmitOwnershipIndex } from "../../compiler/internal/EmitOwnershipIndex";
+import { RuntimeBuildCache } from "../../compiler/internal/build/RuntimeBuildCache";
 import { privateRuntimeRootDir } from "../../compiler/internal/build/privateRuntimeRootDir";
 import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveOwningProjectConfig } from "../../compiler/internal/project/resolveOwningProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
+import { RuntimeTrash } from "../../internal/RuntimeTrash";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
@@ -67,6 +69,22 @@ export function prepareExecution(
 
     /** False bypasses persistent project emits while keeping normal execution. */
     runtimeCache?: boolean;
+
+    /**
+     * Called once the run directory exists, before the entry project builds, so
+     * the caller can start work that runs beside that build.
+     */
+    onRuntimeDirectory?: (run: {
+      /** The run's own directory. */
+      processDir: string;
+      /** The resolved runtime cache coordinate. */
+      cacheDir: string;
+      /** The runtime build store, when the persistent cache is on. */
+      runtimeBuildCacheDir?: string;
+      /** The entry project's config and root. */
+      tsconfig: string;
+      projectRoot: string;
+    }) => void;
   } = {},
 ): {
   /** Claimed runtime generation whose cleanup ownership transfers to the caller. */
@@ -102,6 +120,16 @@ export function prepareExecution(
   /** Effective project module settings used to classify emitted runtime files. */
   moduleOptions: OwningModuleOptions;
 
+  /**
+   * The entry build's publication, when it compiled and the runtime cache is
+   * on. The caller advances it while the program runs and parks the rest before
+   * the run's output directory goes.
+   */
+  publication?: RuntimeBuildCache.Publication;
+
+  /** The runtime build store, whose retired parked builds a run deletes. */
+  runtimeBuildCacheDir?: string;
+
   /** Where the run keeps its lowered orphan sources, under its cache root. */
   orphanCacheDir: string;
 
@@ -129,6 +157,13 @@ export function prepareExecution(
     options,
   );
   try {
+    options.onRuntimeDirectory?.({
+      processDir: context.processDir,
+      cacheDir: context.cacheDir,
+      runtimeBuildCacheDir: context.runtimeBuildCacheDir,
+      tsconfig: context.tsconfig,
+      projectRoot: context.root,
+    });
     buildProject(context, options);
     let emittedEntry = emittedEntryOf(context, entry);
     if (emittedEntry === null) {
@@ -151,6 +186,8 @@ export function prepareExecution(
       emittedSourceProofFailures: context.emittedSourceProofFailures,
       moduleOptions: context.moduleOptions,
       orphanCacheDir: context.orphanCacheDir,
+      publication: context.publication,
+      runtimeBuildCacheDir: context.runtimeBuildCacheDir,
       projectRoot: context.root,
       rootDir: context.runtimeRootDir,
     };
@@ -418,6 +455,7 @@ function createProjectContext(
     // map, so no override is needed.
     forceRuntimeSourceMap: emitProfile.forceRuntimeSourceMap,
     built: false,
+    publication: undefined as RuntimeBuildCache.Publication | undefined,
     bundledOutputs: undefined as true | undefined,
     outputs: [] as readonly string[],
     emittedSourceProofFailures: undefined as
@@ -568,6 +606,10 @@ function buildProject(
     resolvedProject: context.project,
     singleThreaded: options.singleThreaded,
     tsconfig: context.tsconfig,
+    // Stored while the program runs, not before it starts (samchon/ttsc#1859).
+    deferRuntimePublication: (publication) => {
+      context.publication = publication;
+    },
   });
   if (result.status === 0) {
     context.bundledOutputs = result.bundledOutputs;
@@ -684,16 +726,25 @@ function defaultRuntimeCacheDir(
 }
 
 /**
- * Relinquish and remove a pinned generation under its runtime-directory lock.
- * Cleanup is best effort during failure handling; a cleanup error must not hide
- * the original compiler or preparation error. Abandoned runs remain
- * discoverable by the process-ownership sweep.
+ * Relinquish a pinned generation under its runtime-directory lock, and remove
+ * it when no other process owns it. Cleanup is best effort during failure
+ * handling; a cleanup error must not hide the original compiler or preparation
+ * error.
+ *
+ * A dependency prebuild worker the caller started beside the build owns the run
+ * too, so a failed preparation leaves the directory to whoever finds it
+ * abandoned: the caller once it stopped its workers, or the next run's sweep.
+ * Whoever removes it first parks the builds its processes asked to keep.
  */
 function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
   try {
     withRuntimeDirectoryLock(runtimeCacheDir, () => {
       ProcessOwnedDirectory.relinquish(directory);
-      fs.rmSync(directory, { recursive: true, force: true });
+      const ownership = ProcessOwnedDirectory.ownership(directory, false);
+      if (ownership !== "abandoned" && ownership !== "unowned") return;
+      RuntimeBuildCache.parkRequested(directory);
+      if (!RuntimeTrash.retire(directory, runtimeCacheDir))
+        fs.rmSync(directory, { recursive: true, force: true });
     });
   } catch {
     // Best effort: cleanup must not hide the original preparation failure.

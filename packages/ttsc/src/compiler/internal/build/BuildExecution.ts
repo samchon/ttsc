@@ -36,6 +36,7 @@ import { selectSharedHostPlugin } from "../sharedHost/selectSharedHostPlugin";
 import { spawnNative } from "../spawnNative";
 import { BuildTiming } from "./BuildTiming";
 import { CompilerDiagnostics } from "./CompilerDiagnostics";
+import { CompilerTraceObservations } from "./CompilerTraceObservations";
 import { NativePluginArguments } from "./NativePluginArguments";
 import { PassthroughFlags } from "./PassthroughFlags";
 import { PluginFailureDiagnostics } from "./PluginFailureDiagnostics";
@@ -997,6 +998,7 @@ export namespace BuildExecution {
         cwd: execution.compilerSelection.compilerArgsCwd,
         env: compilerEnv(options.env),
         encoding: "utf8",
+        pipe: execution.tsgo.packageJson !== "",
       },
     );
     if (res.error) {
@@ -1095,15 +1097,25 @@ export namespace BuildExecution {
       execution.compilerSelection.compilerArgsCwd,
     );
     const userListedEmitted = userOptions?.("listEmittedFiles") === true;
+    const traced = options.onResolutionTrace;
     const run = (
       commandArgs: readonly string[],
     ): { result: TtscBuildResult; completedNormally: boolean } => {
       CompilerProjectSelection.assertCurrent(execution.compilerSelection);
-      const res = spawnNative(execution.tsgo.binary, commandArgs, {
-        cwd: execution.compilerSelection.compilerArgsCwd,
-        env,
-        encoding: "utf8",
-      });
+      const res = spawnNative(
+        execution.tsgo.binary,
+        traced === undefined
+          ? commandArgs
+          : [...commandArgs, "--traceResolution", "true"],
+        {
+          cwd: execution.compilerSelection.compilerArgsCwd,
+          env,
+          encoding: "utf8",
+          // The installed compiler starts no process of its own; a custom
+          // executable may be a wrapper that does.
+          pipe: execution.tsgo.packageJson !== "",
+        },
+      );
       if (res.error) {
         throw new Error(
           "ttsc.build: failed to spawn " +
@@ -1112,9 +1124,16 @@ export namespace BuildExecution {
             res.error.message,
         );
       }
+      const output = outputText(res.stdout);
+      // The trace belongs to the runtime proof, not to the build's report.
+      if (traced !== undefined && res.status !== null && res.signal === null)
+        traced(output, res.status);
       const captured = {
         status: res.status ?? 1,
-        stdout: outputText(res.stdout),
+        stdout:
+          traced === undefined
+            ? output
+            : CompilerTraceObservations.withoutTrace(output),
         stderr: outputText(res.stderr),
       };
       // Collect structured diagnostics now, but keep captured streams in their
@@ -1135,6 +1154,7 @@ export namespace BuildExecution {
             binary: execution.tsgo.binary,
             cwd: execution.compilerSelection.compilerArgsCwd,
             env,
+            pipe: execution.tsgo.packageJson !== "",
             run,
           })
         : run(args).result;

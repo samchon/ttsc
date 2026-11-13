@@ -71,10 +71,26 @@ export namespace RuntimeBuildInputs {
         admit: (result: TtscBuildResult, emitDir: string) => boolean;
         record: (result: TtscBuildResult) => TtscBuildResult;
         identity?: () => string | undefined;
-        begin?: () => void;
+        beforeBuild?: () =>
+          | ((output: string, status: number) => void)
+          | undefined;
+        parked?: () => unknown;
+        recordSteps?: (
+          fresh: TtscBuildResult,
+        ) => Generator<void, TtscBuildResult>;
+        replaySteps?: (
+          result: TtscBuildResult,
+          emitDir: string,
+          first?: readonly string[],
+        ) => Generator<void, string | undefined>;
+        recordParked?: (
+          fresh: TtscBuildResult,
+          state: unknown,
+        ) => TtscBuildResult;
         replay?: (
           result: TtscBuildResult,
           emitDir: string,
+          first?: readonly string[],
         ) => string | undefined;
       }
     | undefined {
@@ -260,8 +276,9 @@ export namespace RuntimeBuildInputs {
     // unchanged file, with plugins or without (samchon/ttsc#1852). With native
     // plugins the emitting producer is one of ttsc's own hosts, which reports
     // those questions itself. Without plugins the user's tsc compiles, and the
-    // same questions come from one query of that tsc made just before the build
-    // (CompilerTraceObservations); the replay after the build brackets it.
+    // same questions come from the trace of that emitting run itself
+    // (CompilerTraceObservations), not from a second compiler run
+    // (samchon/ttsc#1859); the replay after the build brackets it.
     let replaying = false;
     // The declared host inputs the last identity or capture observed. The cache
     // admits a result right after one of them, so admission compares the
@@ -279,6 +296,65 @@ export namespace RuntimeBuildInputs {
     let traced:
       | Record<string, ITtscCompilerTransformation.IInputObservation>
       | undefined;
+    // The identity of this request, once taken; it names the marker that sends
+    // a build whose inputs cannot be bracketed by the clock to trace first.
+    let identified: string | undefined;
+    // The emitting run's own resolution trace, hashed when its result is
+    // published rather than before the program starts.
+    let tracedOutput: string | undefined;
+    // A build whose inputs cannot all be bracketed by a clock reference traces
+    // before its compile instead; this marker, named by its identity, says so.
+    const pretraceMarker = (): string | undefined =>
+      identified === undefined
+        ? undefined
+        : path.join(
+            options.runtimeCacheDir!,
+            `pretrace-${crypto.createHash("sha256").update(identified).digest("hex")}`,
+          );
+    const observeTrace = (
+      output: string,
+      stamped: boolean | ReadonlyMap<bigint, bigint>,
+    ): void => {
+      const steps = observeTraceSteps(output, stamped);
+      while (steps.next().done !== true);
+    };
+    // Bounded steps, so a launcher records a build while its program runs.
+    function* observeTraceSteps(
+      output: string,
+      stamped: boolean | ReadonlyMap<bigint, bigint>,
+    ): Generator<void, void> {
+      const contents = RuntimeInputContents.open(
+        execution.tsconfig,
+        identities,
+        RuntimeInputProof.textCodec,
+        stamped,
+      );
+      try {
+        traced = yield* CompilerTraceObservations.observeSteps({
+          output,
+          configPaths: execution.project.configPaths,
+          configInputs: execution.project.configInputs ?? [],
+          contents,
+        });
+      } catch (error) {
+        traced = undefined;
+        const marker = pretraceMarker();
+        if (
+          error instanceof RuntimeInputContents.UnsettledInput &&
+          error.unreferenced &&
+          marker !== undefined
+        )
+          try {
+            fs.writeFileSync(marker, "");
+          } catch {
+            /* The next build traces in its own run again. */
+          }
+      } finally {
+        // Only an observation that reached its end witnessed the whole
+        // population the compile read.
+        contents.close(traced !== undefined);
+      }
+    }
     const replayed =
       options.forceEmitProvenance === true
         ? {
@@ -348,7 +424,7 @@ export namespace RuntimeBuildInputs {
                 // layout remains in the identity because source maps are
                 // output-relative.
                 replaying = true;
-                return JSON.stringify({
+                return (identified = JSON.stringify({
                   format: 4,
                   version: identities.version,
                   compiler,
@@ -361,20 +437,33 @@ export namespace RuntimeBuildInputs {
                   unchecked: options.skipDiagnosticsCheck === true,
                   plugins: execution.nativePlugins,
                   pluginSources: loaded?.pluginSources,
-                });
+                }));
               } catch {
                 replaying = false;
                 return refuse("input-snapshot-failed");
               }
             },
-            begin: (): void => {
+            beforeBuild: ():
+              | ((output: string, status: number) => void)
+              | undefined => {
               traced = undefined;
-              if (execution.nativePlugins.length !== 0) return;
-              const contents = RuntimeInputContents.open(
-                execution.tsconfig,
-                identities,
-                RuntimeInputProof.textCodec,
-              );
+              tracedOutput = undefined;
+              if (execution.nativePlugins.length !== 0) return undefined;
+              const marker = pretraceMarker();
+              if (marker === undefined || !fs.existsSync(marker))
+                // The emitting run traces its own resolution. The trace is
+                // kept and its files are hashed when the result is published,
+                // after the program has started; each must have stopped
+                // changing before the store opened, ahead of the compile, and
+                // one that cannot be shown to have marks this build to trace
+                // beforehand instead.
+                return (output, status) => {
+                  if (status === 0) tracedOutput = output;
+                };
+              // An input of this build lives where no clock reference shows
+              // its bytes predate the compile, such as another volume. Its
+              // resolution is traced and hashed before the compile, and the
+              // replay after the compile brackets it.
               try {
                 const result = spawnNative(
                   execution.tsgo.binary,
@@ -387,28 +476,70 @@ export namespace RuntimeBuildInputs {
                     "--traceResolution",
                     "true",
                   ],
-                  { cwd: execution.compilerSelection.compilerArgsCwd, env },
+                  {
+                    cwd: execution.compilerSelection.compilerArgsCwd,
+                    env,
+                    pipe: true,
+                  },
                 );
                 if (
                   result.error === undefined &&
                   result.status === 0 &&
                   result.signal === null
                 )
-                  traced = CompilerTraceObservations.observe({
-                    output: String(result.stdout),
-                    configPaths: execution.project.configPaths,
-                    configInputs: execution.project.configInputs ?? [],
-                    contents,
-                  });
+                  observeTrace(String(result.stdout), false);
               } catch {
                 traced = undefined;
-              } finally {
-                contents.close();
               }
+              return undefined;
+            },
+            parked: (): unknown => ({
+              trace: tracedOutput,
+              references: [...identities.references].map(([device, stamp]) => [
+                String(device),
+                String(stamp),
+              ]),
+              observations: traced,
+            }),
+            recordParked: (
+              fresh: TtscBuildResult,
+              state: unknown,
+            ): TtscBuildResult => {
+              traced = undefined;
+              tracedOutput = undefined;
+              const parked = state as {
+                trace?: unknown;
+                references?: unknown;
+                observations?: unknown;
+              } | null;
+              if (
+                typeof parked?.trace === "string" &&
+                Array.isArray(parked.references)
+              )
+                // Hashed now, in another process, against the clock references
+                // the parking build minted before its compile.
+                observeTrace(
+                  parked.trace,
+                  new Map(
+                    (parked.references as [string, string][]).map(
+                      ([device, stamp]) => [BigInt(device), BigInt(stamp)],
+                    ),
+                  ),
+                );
+              else if (
+                parked?.observations !== null &&
+                typeof parked?.observations === "object"
+              )
+                traced = parked.observations as Record<
+                  string,
+                  ITtscCompilerTransformation.IInputObservation
+                >;
+              return record(fresh);
             },
             replay: (
               result: TtscBuildResult,
               produced: string,
+              first?: readonly string[],
             ): string | undefined => {
               if (result.compilerObservations === undefined) return "";
               const contents = RuntimeInputContents.open(
@@ -421,6 +552,29 @@ export namespace RuntimeBuildInputs {
                   result.compilerObservations,
                   produced,
                   contents,
+                  first,
+                );
+              } finally {
+                contents.close();
+              }
+            },
+            replaySteps: function* (
+              result: TtscBuildResult,
+              produced: string,
+              first?: readonly string[],
+            ): Generator<void, string | undefined> {
+              if (result.compilerObservations === undefined) return "";
+              const contents = RuntimeInputContents.open(
+                execution.tsconfig,
+                identities,
+                RuntimeInputProof.textCodec,
+              );
+              try {
+                return yield* RuntimeInputProof.replaySteps(
+                  result.compilerObservations,
+                  produced,
+                  contents,
+                  first,
                 );
               } finally {
                 contents.close();
@@ -428,64 +582,81 @@ export namespace RuntimeBuildInputs {
             },
           }
         : {};
+    function record(fresh: TtscBuildResult): TtscBuildResult {
+      const steps = recordSteps(fresh);
+      for (;;) {
+        const next = steps.next();
+        if (next.done === true) return next.value;
+      }
+    }
+    function* recordSteps(
+      fresh: TtscBuildResult,
+    ): Generator<void, TtscBuildResult> {
+      // The plugin-free producer's own trace stands for its reads once the
+      // replay after it holds. It is hashed now, at publication, against
+      // the clock references minted before its compile.
+      if (tracedOutput !== undefined) {
+        const output = tracedOutput;
+        tracedOutput = undefined;
+        yield* observeTraceSteps(output, true);
+      }
+      const result =
+        traced === undefined || fresh.compilerObservations !== undefined
+          ? fresh
+          : { ...fresh, compilerObservations: traced };
+      traced = undefined;
+      if (loaded === undefined) return result;
+      // Evaluation-time reads differ between a cold typed configuration and
+      // its validated cached answer. Preserve their original proof with the
+      // result instead of making discovery-cache temperature a program key.
+      const deferred = new Set(loaded.deferredHostInputs);
+      const populations = [
+        result,
+        {
+          ...loaded,
+          // Forwarded config paths have not been read by the descriptor.
+          // Their consuming native generation supplies any required proof.
+          hostInputs: loaded.hostInputs.filter((file) => !deferred.has(file)),
+        },
+      ];
+      const hostInputs = [
+        ...new Set(
+          populations.flatMap((owner) => [
+            ...(owner.hostInputs ?? []),
+            ...Object.keys(owner.hostInputHashes ?? {}),
+            ...Object.keys(owner.hostInputRealpaths ?? {}),
+          ]),
+        ),
+      ].sort();
+      const merge = (key: "hostInputHashes" | "hostInputRealpaths") => {
+        const witnesses: Record<string, string | null> = {};
+        const unavailable = new Set<string>();
+        for (const owner of populations) {
+          for (const file of owner.hostInputs ?? [])
+            if (!Object.hasOwn(owner[key] ?? {}, file)) unavailable.add(file);
+          for (const [file, value] of Object.entries(owner[key] ?? {})) {
+            if (Object.hasOwn(witnesses, file) && witnesses[file] !== value)
+              unavailable.add(file);
+            witnesses[file] = value;
+          }
+        }
+        for (const file of unavailable) delete witnesses[file];
+        return witnesses;
+      };
+      return {
+        ...result,
+        hostInputs,
+        hostInputHashes: merge("hostInputHashes"),
+        hostInputRealpaths: merge("hostInputRealpaths"),
+        ...(loaded.observationsComplete === false
+          ? { observationsComplete: false as const }
+          : {}),
+      };
+    }
     return {
       ...replayed,
-      record: (fresh) => {
-        // The plugin-free producer reports nothing itself; the query taken
-        // just before it stands for its reads once the replay after it holds.
-        const result =
-          traced === undefined || fresh.compilerObservations !== undefined
-            ? fresh
-            : { ...fresh, compilerObservations: traced };
-        traced = undefined;
-        if (loaded === undefined) return result;
-        // Evaluation-time reads differ between a cold typed configuration and
-        // its validated cached answer. Preserve their original proof with the
-        // result instead of making discovery-cache temperature a program key.
-        const deferred = new Set(loaded.deferredHostInputs);
-        const populations = [
-          result,
-          {
-            ...loaded,
-            // Forwarded config paths have not been read by the descriptor.
-            // Their consuming native generation supplies any required proof.
-            hostInputs: loaded.hostInputs.filter((file) => !deferred.has(file)),
-          },
-        ];
-        const hostInputs = [
-          ...new Set(
-            populations.flatMap((owner) => [
-              ...(owner.hostInputs ?? []),
-              ...Object.keys(owner.hostInputHashes ?? {}),
-              ...Object.keys(owner.hostInputRealpaths ?? {}),
-            ]),
-          ),
-        ].sort();
-        const merge = (key: "hostInputHashes" | "hostInputRealpaths") => {
-          const witnesses: Record<string, string | null> = {};
-          const unavailable = new Set<string>();
-          for (const owner of populations) {
-            for (const file of owner.hostInputs ?? [])
-              if (!Object.hasOwn(owner[key] ?? {}, file)) unavailable.add(file);
-            for (const [file, value] of Object.entries(owner[key] ?? {})) {
-              if (Object.hasOwn(witnesses, file) && witnesses[file] !== value)
-                unavailable.add(file);
-              witnesses[file] = value;
-            }
-          }
-          for (const file of unavailable) delete witnesses[file];
-          return witnesses;
-        };
-        return {
-          ...result,
-          hostInputs,
-          hostInputHashes: merge("hostInputHashes"),
-          hostInputRealpaths: merge("hostInputRealpaths"),
-          ...(loaded.observationsComplete === false
-            ? { observationsComplete: false as const }
-            : {}),
-        };
-      },
+      record,
+      recordSteps,
       capture: () => {
         hostObservations = new Map();
         try {
@@ -614,7 +785,7 @@ export namespace RuntimeBuildInputs {
             }
           }
           const hashes = contents.observe([...inputs].sort());
-          contents.close();
+          contents.close(true);
           for (const [file, expected] of Object.entries(
             loaded?.hostInputHashes ?? {},
           ).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {

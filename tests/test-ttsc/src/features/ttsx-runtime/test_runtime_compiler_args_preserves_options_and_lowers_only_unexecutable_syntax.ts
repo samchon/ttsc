@@ -28,7 +28,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification runtimeCompilerArgs uses the real effective-option reader for visible arguments and returns exact runtime-only overrides while retaining the original tokens.
  * @evidence contracts/testing.md#independent-expectations Node cannot execute preserved JSX or proposal decorators; supported ES2025 and React emit modes, unchanged explicit libraries/modules and false emit suppression establish the independent suffix expectations.
- * @evidence contracts/testing.md#distinguishing-cases Default, ES2025, ES2019, CLI ES2019/null and alias/case/repeated target overrides, explicit module/lib/noLib, both preserved JSX modes, all classic declarations, automatic import-source precedence, executable JSX modes and null effective readers distinguish each policy branch; four CommonJS helper/rewrite combinations retain configured and forwarded booleans without adding an implicit module override or changing project options. Four declared noEmit/declaration-only configurations preserve absent or explicit root/output metadata while the returned runtime tail disables emit suppression; this does not certify native root inference or actual cache output isolation.
+ * @evidence contracts/testing.md#distinguishing-cases Declarations are switched off in every ordinary runtime tail and kept for composite, configured and forwarded isolatedDeclarations projects. Default, ES2025, ES2019, CLI ES2019/null and alias/case/repeated target overrides, explicit module/lib/noLib, both preserved JSX modes, all classic declarations, automatic import-source precedence, executable JSX modes and null effective readers distinguish each policy branch; four CommonJS helper/rewrite combinations retain configured and forwarded booleans without adding an implicit module override or changing project options. Four declared noEmit/declaration-only configurations preserve absent or explicit root/output metadata while the returned runtime tail disables emit suppression; this does not certify native root inference or actual cache output isolation.
  * @evidence contracts/testing.md#execution-ownership This named source unit resolves fixture configuration and calls authored functions in one process; no compiler binary, installation or product host executes.
  */
 export function test_runtime_compiler_args_preserves_options_and_lowers_only_unexecutable_syntax() {
@@ -37,7 +37,16 @@ export function test_runtime_compiler_args_preserves_options_and_lowers_only_une
     cwd: root,
     tsconfig: path.join(root, "tsconfig.json"),
   });
-  const tail = ["--noEmit", "false", "--emitDeclarationOnly", "false"];
+  const emitting = ["--noEmit", "false", "--emitDeclarationOnly", "false"];
+  // Nothing executes declarations, so a runtime build writes none
+  // (samchon/ttsc#1859).
+  const tail = [
+    ...emitting,
+    "--declaration",
+    "false",
+    "--declarationMap",
+    "false",
+  ];
   const implied = [
     "--target",
     "es2025",
@@ -378,6 +387,33 @@ export function test_runtime_compiler_args_preserves_options_and_lowers_only_une
         tail,
       );
       assert.equal(JSON.stringify(project.compilerOptions), before);
+    });
+  // The compiler requires declarations of a composite project and checks
+  // isolatedDeclarations only while they are on, so both keep them.
+  for (const [name, configured, args] of [
+    ["composite", { composite: true }, []],
+    [
+      "isolated declarations",
+      { isolatedDeclarations: true, declaration: true },
+      [],
+    ],
+    [
+      "forwarded isolated declarations",
+      {},
+      ["--isolatedDeclarations", "--declaration"],
+    ],
+  ] as const)
+    check("declarations-required/" + name, () => {
+      project.compilerOptions = {
+        plugins: [],
+        target: "ES2022",
+        module: "commonjs",
+        ...configured,
+      };
+      assert.deepEqual(runtimeCompilerArgs(project, [...args]), [
+        ...args,
+        ...emitting,
+      ]);
     });
   if (failures.length)
     throw new AggregateError(

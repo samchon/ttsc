@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { E2ETrace } from "../../../internal/E2ETrace";
+import { RuntimeTrash } from "../../../internal/RuntimeTrash";
 import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBuildCacheLayout";
 import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
 
@@ -11,10 +12,11 @@ import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
  * The runtime directory holds one directory per prepared run, owned by the
  * processes of that run (`ProcessOwnedDirectory`). A run still in progress
  * keeps its directory, which clean reports instead of removing. Every other
- * entry whose owners are all provably gone goes. A run without an owner record
- * may still belong to an older executable that does not use the lock, so it is
- * kept alongside live and unreadable owners. When nothing is kept, the whole
- * runtime directory goes.
+ * entry whose owners are all provably gone goes, and so does the trash of
+ * retired runs (`RuntimeTrash`), which no process owns. A run without an owner
+ * record may still belong to an older executable that does not use the lock, so
+ * it is kept alongside live and unreadable owners. When nothing is kept, the
+ * whole runtime directory goes.
  *
  * Call while holding `withRuntimeDirectoryLock` for this runtime root, so a new
  * cooperating run cannot appear between inspection and removal. Physical
@@ -95,6 +97,10 @@ export function resolveRuntimeCleanTargets(cacheRoot: string): {
       ownership,
     );
   }
+  // Retired runs belong to no process; their trash beside the run index is
+  // always removable, even while a live run keeps the runtime tree.
+  const trash = path.join(runtime, RuntimeTrash.DIRNAME);
+  if (kept.length !== 0 && fs.existsSync(trash)) removable.push(trash);
   return {
     kept,
     // Remove pinned external run targets before removing a runtime link. A

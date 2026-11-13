@@ -16,6 +16,28 @@ import { E2ETrace } from "../../../internal/E2ETrace";
  * @evidence contracts/performance.md#bound-retention-and-release-resources This reporter retains no history; the private trace owner bounds its sink and the invocation owns stderr.
  */
 export namespace RuntimeBuildExplanation {
+  /** Trace phase of this process's decisions. */
+  let phase = "runtime-build-cache";
+
+  /**
+   * Report this process's later decisions as speculative work. A dependency
+   * prebuild worker builds projects the program may never request in this run,
+   * so its decisions are kept apart from the decisions of the program's own
+   * requests, which observers count as the run's reuse.
+   *
+   * @evidence contracts/common.md#principled-implementation Only the trace phase changes; the decision fields and the opt-in stderr line are the same.
+   * @evidence contracts/common.md#clear-and-simple-design One process-wide switch, set once by the worker before it builds.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Decisions are still reported, under a name that says what they are.
+   * @evidence contracts/common.md#meaningful-documentation The prose states who calls it and why the phase differs.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation No native operation.
+   * @evidence contracts/performance.md#efficient-algorithms One assignment.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Reporting grants no reuse.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources One string for the process lifetime.
+   */
+  export function speculative(): void {
+    phase = "runtime-dependency-prebuild";
+  }
+
   /**
    * Record one owner-computed decision, retaining ordinary quiet execution.
    *
@@ -48,7 +70,7 @@ export namespace RuntimeBuildExplanation {
     /** Outputs individually materialized by this decision. */
     materialized?: number;
   }): void {
-    E2ETrace.capabilityResolution("runtime-build-cache", decision);
+    E2ETrace.capabilityResolution(phase, decision);
     if (process.env.TTSC_EXPLAIN_CACHE !== "1") return;
     try {
       fs.writeFileSync(2, `ttsx cache: ${JSON.stringify(decision)}\n`);

@@ -194,6 +194,10 @@ export namespace RuntimeInputProof {
    * @param observations The stored result's complete observation population.
    * @param excluded The private output root of the build that produced it.
    * @param contents An open content session using {@link textCodec}.
+   * @param first Paths to ask before the others, such as those that moved in
+   *   earlier proofs of the same build. The rest are asked in the order most
+   *   likely to find a moved answer early: read files outside installed
+   *   packages, other read files, then everything else.
    * @evidence contracts/common.md#principled-implementation Equal answers to every recorded compiler question reproduce the compiler's inputs; each predicate kind is compared under the codec it was recorded in, and any unobservable state is a moved answer.
    * @evidence contracts/common.md#clear-and-simple-design One pass visits the population; the content session owns byte reuse and this function owns predicate comparison.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No predicate is skipped for a recognized path or kind; only the producer's private output subtree is excluded, and native-codec predicates, which a compiler population never carries, refuse the replay.
@@ -209,7 +213,63 @@ export namespace RuntimeInputProof {
     >,
     excluded: string,
     contents: RuntimeInputContents.Session,
+    first: readonly string[] = [],
   ): string | undefined {
+    const steps = replaySteps(observations, excluded, contents, first);
+    for (;;) {
+      const next = steps.next();
+      if (next.done === true) return next.value;
+    }
+  }
+
+  /**
+   * {@link replay} in bounded steps: it yields after every 256 predicates, so a
+   * launcher that proves a build while its program runs can stop between them
+   * when the program ends (samchon/ttsc#1859).
+   *
+   * @evidence contracts/common.md#principled-implementation The same predicates in the same order as replay; batching changes when they are asked, not their answers.
+   * @evidence contracts/common.md#clear-and-simple-design replay drains this generator, so one body serves both.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The answer exists only when the generator completes; a stopped replay proves nothing.
+   * @evidence contracts/common.md#meaningful-documentation The prose states the batch size and why it exists.
+   * @evidence contracts/portability.md#os-neutral-implementation As replay.
+   * @evidence contracts/performance.md#efficient-algorithms As replay, with one yield per batch.
+   * @evidence contracts/performance.md#reuse-equivalent-work As replay.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The generator holds its resolved-directory map until it completes or is dropped.
+   */
+  export function* replaySteps(
+    observations: Readonly<
+      Record<string, ITtscCompilerTransformation.IInputObservation>
+    >,
+    excluded: string,
+    contents: RuntimeInputContents.Session,
+    first: readonly string[] = [],
+  ): Generator<void, string | undefined> {
+    // The first moved answer ends the replay, so the questions most likely to
+    // have moved are asked first: paths that moved in earlier proofs, since
+    // an edited file is usually edited again, then the files the compiler read
+    // outside installed packages, which are what a user edits, then the other
+    // files it read, and last the candidates it found absent. The order
+    // changes no answer, only how soon a moved one is found.
+    const hinted = new Set(first);
+    const rank = (
+      file: string,
+      observed: ITtscCompilerTransformation.IInputObservation,
+    ): number =>
+      hinted.has(file)
+        ? 0
+        : observed.readFile?.ok !== true
+          ? 3
+          : /[\\/]node_modules[\\/]/.test(file)
+            ? 2
+            : 1;
+    const ordered: Record<
+      string,
+      ITtscCompilerTransformation.IInputObservation
+    > = Object.create(null);
+    for (const level of [0, 1, 2, 3])
+      for (const [file, observed] of Object.entries(observations))
+        if (rank(file, observed) === level) ordered[file] = observed;
+    observations = ordered;
     const resolved = new Map<string, string | null>();
     const native = (file: string): string | null => {
       let current = resolved.get(file);
@@ -219,8 +279,10 @@ export namespace RuntimeInputProof {
       }
       return current;
     };
+    let visited = 0;
     try {
       for (const [file, observed] of Object.entries(observations)) {
+        if (++visited % 256 === 0) yield;
         const relative = path.relative(excluded, file);
         if (
           relative === "" ||
@@ -231,10 +293,19 @@ export namespace RuntimeInputProof {
           continue;
         if (observed.nativePredicates !== undefined) return file;
         let kind: "file" | "directory" | "missing" = "missing";
-        try {
-          kind = fs.statSync(file).isDirectory() ? "directory" : "file";
-        } catch (error) {
-          if (!missing(error)) return file;
+        // The session's witness of a file the compiler read is itself one
+        // metadata request that refuses anything but a regular file, so a read
+        // observation needs no stat of its own; every other one asks once,
+        // without building an error for a path that is absent, most of the
+        // candidates a resolution tried (samchon/ttsc#1859).
+        let row: RuntimeInputContents.Row | undefined;
+        if (observed.readFile?.ok === true) {
+          row = contents.observe([file])[0]!;
+          if (row[1] !== null) kind = "file";
+        } else {
+          const stat = fs.statSync(file, { throwIfNoEntry: false });
+          if (stat !== undefined)
+            kind = stat.isDirectory() ? "directory" : "file";
         }
         if (
           (observed.fileExists !== undefined &&
@@ -245,12 +316,10 @@ export namespace RuntimeInputProof {
         )
           return file;
         // The session's row carries the file's physical path with its hash.
-        let row: RuntimeInputContents.Row | undefined;
         if (observed.readFile !== undefined) {
           if (observed.readFile.ok) {
-            if (kind !== "file") return file;
-            row = contents.observe([file])[0]!;
-            if (row[2] !== observed.readFile.hash) return file;
+            if (kind !== "file" || row![2] !== observed.readFile.hash)
+              return file;
           } else if (kind === "file") return file;
         }
         if (observed.realpath !== undefined) {
