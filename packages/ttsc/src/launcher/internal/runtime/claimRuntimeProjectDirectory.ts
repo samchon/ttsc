@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { RuntimeBuildCache } from "../../../compiler/internal/build/RuntimeBuildCache";
 import { RuntimeTrash } from "../../../internal/RuntimeTrash";
 import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBuildCacheLayout";
 import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
@@ -49,8 +50,10 @@ export function claimRuntimeProjectDirectory(
     const processDir = path.join(runsDir, runKey);
     // An abandoned run is retired by one rename into the runtime root's trash,
     // outside the run index, and deleted while this run's program executes,
-    // not before it starts (samchon/ttsc#1859).
+    // not before it starts (samchon/ttsc#1859). The builds its processes asked
+    // to keep, such as those of a launcher that was killed, are parked first.
     ProcessOwnedDirectory.sweep(runsDir, undefined, false, (abandoned) => {
+      RuntimeBuildCache.parkRequested(abandoned);
       if (!RuntimeTrash.retire(abandoned, runtimeRoot))
         fs.rmSync(abandoned, { force: true, recursive: true });
     });

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { EmitOwnershipIndex } from "../../compiler/internal/EmitOwnershipIndex";
-import type { RuntimeBuildCache } from "../../compiler/internal/build/RuntimeBuildCache";
+import { RuntimeBuildCache } from "../../compiler/internal/build/RuntimeBuildCache";
 import { privateRuntimeRootDir } from "../../compiler/internal/build/privateRuntimeRootDir";
 import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
@@ -726,15 +726,23 @@ function defaultRuntimeCacheDir(
 }
 
 /**
- * Relinquish and remove a pinned generation under its runtime-directory lock.
- * Cleanup is best effort during failure handling; a cleanup error must not hide
- * the original compiler or preparation error. Abandoned runs remain
- * discoverable by the process-ownership sweep.
+ * Relinquish a pinned generation under its runtime-directory lock, and remove
+ * it when no other process owns it. Cleanup is best effort during failure
+ * handling; a cleanup error must not hide the original compiler or preparation
+ * error.
+ *
+ * A dependency prebuild worker the caller started beside the build owns the run
+ * too, so a failed preparation leaves the directory to whoever finds it
+ * abandoned: the caller once it stopped its workers, or the next run's sweep.
+ * Whoever removes it first parks the builds its processes asked to keep.
  */
 function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
   try {
     withRuntimeDirectoryLock(runtimeCacheDir, () => {
       ProcessOwnedDirectory.relinquish(directory);
+      const ownership = ProcessOwnedDirectory.ownership(directory, false);
+      if (ownership !== "abandoned" && ownership !== "unowned") return;
+      RuntimeBuildCache.parkRequested(directory);
       if (!RuntimeTrash.retire(directory, runtimeCacheDir))
         fs.rmSync(directory, { recursive: true, force: true });
     });

@@ -115,6 +115,8 @@ async function run(
   const dependencies: {
     stop: () => Promise<void>;
     remember?: () => void;
+    /** Remove the run directory once the workers are stopped. */
+    release?: () => void;
   } = { stop: async () => undefined };
   const startDependencies = (
     run: Parameters<
@@ -149,6 +151,10 @@ async function run(
         tsconfig: run.tsconfig,
         plugins,
       });
+    dependencies.release = () => {
+      if (fs.existsSync(run.processDir))
+        removeRuntimeOutput(run.processDir, run.cacheDir);
+    };
   };
   let prepared: ReturnType<typeof prepareExecution>;
   try {
@@ -174,7 +180,11 @@ async function run(
       singleThreaded: parsed.singleThreaded,
     });
   } catch (error) {
+    // Preparation leaves a run its prebuild workers still own; once they are
+    // stopped, it goes, and the dependency builds they took from the store go
+    // back to it.
     await dependencies.stop();
+    dependencies.release?.();
     throw error;
   }
   await settleSignals();

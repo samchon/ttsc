@@ -2590,9 +2590,13 @@ function buildDependency(
  * A dependency build is reached while a module loads, and storing it reads
  * every output back and replays its proof before that module can run. Other
  * processes of the run may read the same outputs, so this process cannot move
- * them either. It writes, when it exits, a request into the run's `parks`
- * directory; the launcher parks each one when no process of the run remains,
- * and the next run that needs the build takes it from the store.
+ * them either. It writes a request into the run's `parks` directory at once;
+ * the launcher parks each one when no process of the run remains, and the next
+ * run that needs the build takes it from the store. The request is written
+ * before the build serves anything, not when this process exits, because a
+ * process can end without exiting: a prebuild worker the launcher stops is
+ * terminated, and a build it had adopted from the store would otherwise leave
+ * with its run.
  */
 function deferDependencyPublication():
   | ((publication: RuntimeBuildCache.Publication) => void)
@@ -2605,29 +2609,20 @@ function deferDependencyPublication():
   )
     return undefined;
   return (publication) => {
-    if (deferredPublications.length === 0)
-      process.once("exit", () => {
-        for (const deferred of deferredPublications) {
-          const request = deferred.request();
-          if (request === undefined) continue;
-          try {
-            const parks = path.join(runDir, RuntimeBuildCache.PARKS_DIRNAME);
-            fs.mkdirSync(parks, { recursive: true });
-            fs.writeFileSync(
-              path.join(parks, `${process.pid}-${crypto.randomUUID()}.json`),
-              JSON.stringify(request),
-            );
-          } catch {
-            // The outputs go with the run; the next run builds again.
-          }
-        }
-      });
-    deferredPublications.push(publication);
+    const request = publication.request();
+    if (request === undefined) return;
+    try {
+      const parks = path.join(runDir, RuntimeBuildCache.PARKS_DIRNAME);
+      const file = path.join(parks, `${process.pid}-${crypto.randomUUID()}`);
+      fs.mkdirSync(parks, { recursive: true });
+      // Renamed into place, so the launcher never reads a torn request.
+      fs.writeFileSync(file + ".tmp", JSON.stringify(request));
+      fs.renameSync(file + ".tmp", file + ".json");
+    } catch {
+      // The outputs go with the run; the next run builds again.
+    }
   };
 }
-
-/** Dependency publications this process hands to its launcher at exit. */
-const deferredPublications: RuntimeBuildCache.Publication[] = [];
 
 /**
  * Publish the completion marker atomically: write it to a private temp name in

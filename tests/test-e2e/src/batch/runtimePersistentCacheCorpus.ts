@@ -18,7 +18,7 @@ import { BatchWorkspace } from "./BatchWorkspace";
  *
  * @evidence contracts/testing.md#behavioral-verification Real installed ttsx processes print actual package values, cwd, filenames, entry/main identity, adjacent asset bytes and a caught source-mapped stack in CommonJS and ESM. Product trace events distinguish recorded or parked generations from reused ones, each served from one materialized bundle or an adopted parked build, and zero source-content reads for an unchanged proof once the adoption recorded its observations; a stale JavaScript sibling of a workspace source never runs. Warm execution has no native emit, lint check or transform command, including combined lint/evidence/banner execution; bypass still emits. Changing only model.ts produces TS2322 in unchanged consumer.ts and blocks execution; dependency, membership, package-export and native config changes are separately exercised. Concurrent cold publishers both execute the correct program.
  * @evidence contracts/testing.md#independent-expectations Authored enum literals 7/11, a zero offset whose stale sibling JavaScript would add 1000, adjacent asset text, actual filesystem source paths and the authored throw line determine expected behavior independently of stored documents or compiler output. Producer argv and trace outcomes are actual observations.
- * @evidence contracts/testing.md#distinguishing-cases Cold/warm/bypass, a warm run under other program arguments and unread environment variables, a banner project reused under an unread variable, the authored files' unchanged link count and stamps across runs, a plugin project proven without starting the compiler, dependency-only edits, type failure/repair, corrupt storage and dynamic excluded roots contrast success reuse with required recompilation. Both linked packages export src and a non-imported root remains checked.
+ * @evidence contracts/testing.md#distinguishing-cases Cold/warm/bypass, a warm run under other program arguments and unread environment variables, a banner project reused under an unread variable, the authored files' unchanged link count and stamps across runs, a plugin project proven without starting the compiler, dependency-only edits, type failure/repair with the unchanged dependency not compiled again after the failed run stopped its prebuild workers, corrupt storage and dynamic excluded roots contrast success reuse with required recompilation. Both linked packages export src and a non-imported root remains checked.
  * @evidence contracts/testing.md#execution-ownership The Runtime batch invokes this helper using its existing installed SDK and cache owner. Independent launcher lifetimes prove persistence and input transitions; linked banner and combined lint/evidence/banner compositions borrow the installed contributors, with no extra installation.
  * @evidence contracts/e2e.md#necessary-boundary Cross-process persistence, native compiler invocation, source-linked package resolution and actual Node source identity cannot be established by a document-store unit.
  * @evidence contracts/e2e.md#shared-execution One upfront graph shares two workspace package owners and all identity/map assertions across the necessary state transitions. The installed banner contributor adds one linked-host composition, prepared by its native bypass run before the completed-result cold/warm pair and config edit. A separate ESM request supplies native module URL/main/resource evidence across cold/warm/bypass. Native source-selection probes remain real work even on a hit.
@@ -368,7 +368,22 @@ export async function runtimePersistentCacheCorpus(
   write("test/src/unused.ts", "export const checked: number = 'invalid';\n");
   run([], 12, false);
   write("test/src/unused.ts", "export const checked: number = 1;\n");
-  run([], 12);
+  const recovered = run([], 12);
+  // The failed run stopped its dependency prebuild workers. A dependency one
+  // had already taken from the store goes back to it, so the unchanged
+  // package is not compiled again.
+  check(() =>
+    assert.deepEqual(
+      emitting(recovered).filter((event) =>
+        event.argv.some((arg: string) =>
+          path
+            .normalize(arg)
+            .endsWith(path.join("packages", "a", "tsconfig.json")),
+        ),
+      ),
+      [],
+    ),
+  );
   write("test/src/added.ts", "export const added: number = 'invalid';\n");
   run([], 12, false);
   fs.unlinkSync(path.join(root, "test/src/added.ts"));
