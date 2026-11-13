@@ -79,16 +79,18 @@ export namespace runBuild {
         ? RuntimeBuildInputs.create(prepared.buildOptions, execution)
         : undefined;
     const build = () => {
-      // A producer that reports no input observations is observed just before
-      // it runs, so the replay after it can prove nothing moved in between.
-      proof?.begin?.();
-      const fresh = BuildExecution.runPreparedBuild(
+      // A producer that reports no input observations traces its resolution,
+      // in the emitting run itself or just before it, so the replay after it
+      // can prove nothing moved since it read its inputs.
+      const onResolutionTrace = proof?.beforeBuild?.();
+      return BuildExecution.runPreparedBuild(
         options,
         timing,
         execution,
-        prepared.buildOptions,
+        onResolutionTrace === undefined
+          ? prepared.buildOptions
+          : { ...prepared.buildOptions, onResolutionTrace },
       );
-      return proof === undefined ? fresh : proof.record(fresh);
     };
     const result =
       prepared.result ??
@@ -100,6 +102,9 @@ export namespace runBuild {
             bundle: options.bundleRuntimeOutputs,
             project: execution.tsconfig,
             ...proof,
+            // The observations a record needs are completed when it is
+            // published, which a launcher defers until its program runs.
+            defer: options.deferRuntimePublication,
             build,
           }));
     return BuildTiming.appendTimingOutput(result, timing);

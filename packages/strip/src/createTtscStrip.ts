@@ -72,7 +72,13 @@ export default function createTtscStrip(
   }
   const configInputs = stripConfigInputs(context);
   return {
-    capabilities: { emitProvenance: true },
+    // The host reads only ttsc's own variables (`TTSC_NODE_BINARY` and its
+    // kin) and `NODE_PATH`, which key a runtime build already, so a project
+    // using it keeps its runtime emit across unrelated environment changes
+    // (samchon/ttsc#1856). An executable strip config is evaluated under the
+    // whole environment; a variable it reads is outside every proof, as for
+    // every plugin configuration, and `ttsx --no-cache` is the opt-out.
+    capabilities: { emitProvenance: true, environmentInputs: true },
     hostInputHashes: configInputs.hashes,
     hostInputRealpaths: configInputs.realpaths,
     hostInputs: configInputs.inputs,
@@ -111,8 +117,12 @@ type TtscStripInputs = {
 
 /** Registration of native source and the descriptor's observed inputs. */
 type TtscStripDescriptor = {
-  /** The bundled driver host records actual writes and their physical sources. */
-  capabilities: { emitProvenance: true };
+  /**
+   * The bundled driver host records actual writes and their physical sources,
+   * and reads only ttsc's own variables and `NODE_PATH`, which the runtime
+   * build key already holds.
+   */
+  capabilities: { emitProvenance: true; environmentInputs: true };
 
   /** Evaluation-time fingerprints used to validate descriptor reuse. */
   hostInputHashes: TtscStripInputs["hashes"];

@@ -23,6 +23,13 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
  * check is unchanged by them, but the runtime build is that check's emit, and
  * without JavaScript there is nothing to run.
  *
+ * Declarations are switched off, as the single-root lane already does: the
+ * runtime executes JavaScript and nothing reads them. The diagnostics only a
+ * declaration emit reports, such as an exported type that cannot be named,
+ * belong to `ttsc build`, not to running the program. A composite project and
+ * one that sets `isolatedDeclarations` keep declarations, because the compiler
+ * requires them there.
+ *
  * A caller coordinating one build may supply its effective-options reader for
  * this exact project and forwarded arguments. Null preserves the compiler's
  * argument-rejection path; omission creates the reader here.
@@ -93,7 +100,18 @@ export function runtimeCompilerArgs(
   // Unconditional, after every forwarded token: a response file can carry the
   // flag too. Explicit false operands clear the two native boolean assignments.
   args.push("--noEmit", "false", "--emitDeclarationOnly", "false");
+  // Nothing reads a runtime build's declarations, and writing them cost a third
+  // of its outputs and emit time (samchon/ttsc#1859). A composite project
+  // requires them, and `isolatedDeclarations` is a check the compiler only runs
+  // while declarations are on, so both keep the project's own choice.
+  if (!enabled(option("composite")) && !enabled(option("isolatedDeclarations")))
+    args.push("--declaration", "false", "--declarationMap", "false");
   return args;
+}
+
+/** A boolean compiler option read from an effective assignment. */
+function enabled(value: unknown): boolean {
+  return value === true || value === "true";
 }
 
 /**

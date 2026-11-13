@@ -13,24 +13,34 @@ import { PassthroughFlags } from "./PassthroughFlags";
 /**
  * Observe emitted-source ownership around the selected external compiler. The
  * callback runs the original producer once, with file-list reporting added only
- * when its read-only option and source probes succeeded. Compiler status,
- * diagnostics and user-requested file-list display remain owned by that run.
+ * when its read-only option probe succeeded. Compiler status, diagnostics and
+ * user-requested file-list display remain owned by that run.
  *
- * Admission requires stable effective options and physical source paths before
- * and after emission, plus unchanged response files and selected executable
- * bytes. A reported source list proves the emitting selection independently of
- * roots rediscovered by showConfig after emission. When an unreported host's
- * shown roots change, the union of inspected source populations must still
- * predict a unique physical owner for each previously predicted write; new
- * sources can only introduce ambiguity. Response inspection preserves native
- * argument-frame boundaries and operand positions; the producer and its probes
- * receive the original argv. The executable's change time is excluded from
- * cross-command equality because that metadata changed in real executions
- * without changing the executable object or bytes; source contents belong to
- * the compiler's own Program. Each executable read brackets its full metadata.
- * This is an external observation, not an atomic compiler-generation ledger; a
- * concurrent change restored between observations can remain invisible.
- * Unsupported layouts and ambiguous outputs carry an empty ownership list.
+ * A reporting producer names, in that one run, every source of its Program
+ * (`--listFiles`) and every file it wrote (`--listEmittedFiles`); its own list
+ * is the selection, so no second compiler run lists it beforehand
+ * (samchon/ttsc#1859). Each written JavaScript file is owned by the one listed
+ * source whose output the effective layout predicts at that name, resolved to
+ * its physical path once per directory. Response files and the selected
+ * executable bytes must be unchanged across the run. The layout is the one read
+ * before the run; the runtime builds that require provenance pin their output
+ * directory and root on the command line, and an output whose name the layout
+ * cannot predict stays unowned rather than guessed.
+ *
+ * An observed host, which cannot report, is listed and resolved before it runs
+ * and inspected again after: its effective options and physical source paths
+ * must hold, and when its shown roots change, the union of inspected source
+ * populations must still predict a unique physical owner for each previously
+ * predicted write; new sources can only introduce ambiguity. Response
+ * inspection preserves native argument-frame boundaries and operand positions;
+ * the producer and its probes receive the original argv. The executable's
+ * change time is excluded from cross-command equality because that metadata
+ * changed in real executions without changing the executable object or bytes;
+ * source contents belong to the compiler's own Program. Each executable read
+ * brackets its full metadata. This is an external observation, not an atomic
+ * compiler-generation ledger; a concurrent change restored between observations
+ * can remain invisible. Unsupported layouts and ambiguous outputs carry an
+ * empty ownership list.
  *
  * A nonzero compiler status can still carry proved writes for an unchecked
  * consumer. Ownership metadata never changes that status or its diagnostics.
@@ -50,12 +60,12 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * in emittedSourceProofFailures. These explanations preserve compiler streams
  * and status; they do not replace missing ownership with a successful claim.
  *
- * @evidence contracts/common.md#principled-implementation Actual TSFILE writes are matched against the supported upstream per-source extension and explicit-root layout under matching compiler-selected inputs and stable physical source identities and response/executable content observations. Parsed settings exclude rediscovered showConfig.files. A reporting producer proves its emitting selection; an observed host with changed roots rechecks source selection and includes additional candidates only to reject conflicting physical owners of previously predicted writes. No emitted filename alone establishes ownership; observation gaps remain documented.
+ * @evidence contracts/common.md#principled-implementation Actual TSFILE writes are matched against the supported upstream per-source extension and explicit-root layout over the sources the same run listed, with physical identities and response/executable content observations. Parsed settings exclude rediscovered showConfig.files. A reporting producer proves its emitting selection in its own run; an observed host with changed roots rechecks source selection and includes additional candidates only to reject conflicting physical owners of previously predicted writes. No emitted filename alone establishes ownership; observation gaps remain documented.
  * @evidence contracts/common.md#clear-and-simple-design One adapter owns read-only compiler probes, the single delegated emission and admission; private helpers isolate option parsing, physical observation and path prediction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The selected executable and original arguments remain authoritative. Unknown layouts are reported unknown instead of switching compilers, guessing same-stem ownership or consulting source maps.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain producer preservation, unknown states and the non-atomic observation limitation; the investigation record documents the supported upstream naming subset.
  * @evidence contracts/portability.md#os-neutral-implementation Native node:path and filesystem realpath/stat separate writer spelling from physical source identity. Executables receive separate argv entries through spawnNative, without a shell or OS-based case folding.
- * @evidence contracts/performance.md#efficient-algorithms Source and output indexes avoid cross-product matching; changed observed roots add one native source probe and a deduplicated union of the two populations. Response inspection uses an iterative frame stack and active physical-path set. Response/executable observations read and hash complete files; source identity checks resolve paths without comparing mutable text; showConfig text, source/output lists, signature JSON, candidate path components and byte buffers are processed at their actual sizes alongside native probes/path operations. No native duration or report-size ceiling follows from using one index.
+ * @evidence contracts/performance.md#efficient-algorithms A reporting producer costs one showConfig query and the emitting run; its sources are resolved only when they own a written output, with one native resolution and one listing per directory and one lstat per owning file. Source and output indexes avoid cross-product matching; changed observed roots add one native source probe and a deduplicated union of the two populations. Response inspection uses an iterative frame stack and active physical-path set. Response/executable observations read and hash complete files; showConfig text, source/output lists, signature JSON, candidate path components and byte buffers are processed at their actual sizes. No native duration or report-size ceiling follows from using one index.
  * @evidence contracts/performance.md#reuse-equivalent-work Each source observation and predicted output index is shared by all outputs in this invocation. Cross-build reuse is unavailable because arbitrary external producer and filesystem dependencies have no invalidation contract.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Response/config/source tokens and predicted owner sets live for this invocation; returned provenance/refusal records transfer to the caller. Retained bytes grow with complete reports, expanded arguments, paths and observations, while individual file reads allocate full file buffers. Probe capture cleanup is delegated and may be best effort; no timeout, output ceiling or descendant-release certification is provided here.
  */
@@ -71,6 +81,9 @@ export function runExternalEmitProvenance(options: {
 
   /** Same child environment used by the emitting command. */
   env: NodeJS.ProcessEnv;
+
+  /** Capture the read-only probes through pipes; see `spawnNative`. */
+  pipe?: boolean;
 
   /**
    * How the emitting command's writes are known. `reported` (the default) reads
@@ -95,10 +108,16 @@ export function runExternalEmitProvenance(options: {
   };
 }): TtscBuildResult {
   let refusal = "External compiler provenance inspection did not complete.";
-  const probe = prepareProbe(options, (reason) => {
-    refusal = reason;
-  });
   const observed = options.writes === "observed";
+  // A reporting producer names its own sources in the emitting run, so only a
+  // host that cannot report them is listed beforehand (samchon/ttsc#1859).
+  const probe = prepareProbe(
+    options,
+    (reason) => {
+      refusal = reason;
+    },
+    observed,
+  );
   const outputsBefore =
     observed && probe !== undefined
       ? observePredictedOutputs(probe)
@@ -109,7 +128,16 @@ export function runExternalEmitProvenance(options: {
       : [...options.args, "--listFiles", "true", "--listEmittedFiles", "true"],
   );
   const lines = result.stdout.split(/\r?\n/);
-  const sourceLines = new Set(probe?.files);
+  // An observed host lists nothing; it compiles the same selected tsconfig, and
+  // the source identity observations below still prove that selection retained
+  // its physical owners. A reporting producer's own listing is its selection.
+  const listed =
+    probe === undefined
+      ? []
+      : observed
+        ? probe.files
+        : compilerSourceList(lines, options.cwd);
+  const sourceLines = new Set(observed ? [] : listed);
   const stdout =
     probe === undefined ||
     observed ||
@@ -146,23 +174,13 @@ export function runExternalEmitProvenance(options: {
     };
   }
 
-  // An observed host lists nothing; it compiles the same selected tsconfig, and
-  // the source identity observations below still prove that selection retained its physical owners.
-  const listed = observed
-    ? probe.files
-    : compilerSourceList(lines, options.cwd);
-  const sameSelection = JSON.stringify(listed) === JSON.stringify(probe.files);
-
-  let stable = sameSelection;
-  const firstDifference = sameSelection
-    ? -1
-    : probe.files.findIndex((source, index) => listed[index] !== source);
-  let failure = sameSelection
+  let stable = observed || listed.length !== 0;
+  let failure = stable
     ? undefined
-    : `Emitting source selection differs from its inspection (${probe.files.length} inspected, ${listed.length} reported); first differing inspected path ${JSON.stringify(probe.files[firstDifference])}, reported path ${JSON.stringify(listed[firstDifference === -1 ? probe.files.length : firstDifference])}.`;
+    : "The emitting run reported no source selection.";
   let stage = "response-file reinspection";
   try {
-    let sources = probe.files;
+    let sources = listed;
     for (const [file, before] of probe.responseObservations) {
       if (!stable) break;
       stable = CompilerArgumentsInspection.observeInputFile(file) === before;
@@ -170,7 +188,12 @@ export function runExternalEmitProvenance(options: {
         failure = `Compiler response file changed across emission: ${JSON.stringify(file)}.`;
     }
     stage = "effective configuration reinspection";
-    if (stable) {
+    // Ownership is predicted from the configuration read before the run. A
+    // configuration edited during it could move the layout, and a moved
+    // root can make one source's output land where the earlier layout puts
+    // another's, so it is read again, unless the command line fixes both the
+    // output directory and the root, as every ttsx runtime build's does.
+    if (stable && (observed || !probe.layoutPinned)) {
       const after = readConfig(options);
       if (after?.signature !== probe.signature) {
         stable = false;
@@ -216,17 +239,23 @@ export function runExternalEmitProvenance(options: {
       stage = "output prediction";
       const owners = new Map<string, Set<string>>();
       const predictOutputs = createOutputPrediction(probe.config, probe.base);
+      const writes = new Set(written);
+      const identity = createSourceIdentity();
       let predictedSources = 0;
       let sourceExample: string | undefined;
       for (const source of sources) {
-        const outputs = predictOutputs(source);
+        // Only a source whose predicted output was written is an owner, so
+        // only those sources are resolved to their physical identity.
+        const outputs = predictOutputs(source).filter((output) =>
+          writes.has(output),
+        );
         if (outputs.length === 0) continue;
         predictedSources++;
         sourceExample ??= source;
         // Observed writes were predicted before the host ran. A newly selected
         // source can make their ownership ambiguous, never establish a new write.
         const physicalSource =
-          probe.observations.get(source) ?? observeSourceIdentity(source);
+          probe.observations.get(source) ?? identity(source);
         for (const output of outputs) {
           const sources = owners.get(output) ?? new Set<string>();
           sources.add(physicalSource);
@@ -261,10 +290,15 @@ export function runExternalEmitProvenance(options: {
   };
 }
 
-/** Append reporting only when it cannot supply a missing trailing option value. */
+/**
+ * Append reporting only when it cannot supply a missing trailing option value.
+ * `listSources` lists and resolves the selection before the producer runs,
+ * which only a host that cannot report its own selection needs.
+ */
 function prepareProbe(
   options: Parameters<typeof runExternalEmitProvenance>[0],
   onUnavailable: (reason: string) => void,
+  listSources: boolean,
 ) {
   let stage = "argument classification";
   const unavailable = (reason: string): undefined => {
@@ -283,11 +317,13 @@ function prepareProbe(
         "Original argv selects an effective terminal compiler command; provenance inspection would change its command behavior.",
       );
     let unsupportedArg: string | undefined;
+    const pinned = new Set<string>();
     for (let index = 0; index < inspected.args.length; ) {
       const arg = inspected.args[index]!;
       const occurrence = readCompilerOptionOccurrence(inspected.args, index);
       const flag = resolveFlagSpec(arg);
       const name = occurrence.option?.name;
+      if (name === "rootDir" || name === "outDir") pinned.add(name);
       if (
         flag?.name === "--build" ||
         name === "pprofDir" ||
@@ -352,7 +388,7 @@ function prepareProbe(
         "Original argv does not establish a supported selected configuration directory.",
       );
     stage = "compiler source-list inspection";
-    const files = readSourceList(options);
+    const files = listSources ? readSourceList(options) : [];
     const observations = new Map<string, string>();
     for (const source of files) {
       stage = `initial source observation of ${JSON.stringify(source)}`;
@@ -366,6 +402,7 @@ function prepareProbe(
     return {
       ...parsed,
       base,
+      layoutPinned: pinned.size === 2,
       binaryObservation,
       binaryPath,
       files,
@@ -674,4 +711,37 @@ function writtenJavaScript(stdout: string, cwd: string): string[] {
  */
 function observeSourceIdentity(source: string): string {
   return fs.realpathSync.native(source);
+}
+
+/**
+ * Resolve sources to physical paths with one native resolution per directory
+ * instead of one per file, which cost hundreds of microseconds each and five
+ * seconds for one project on Windows (samchon/ttsc#1859).
+ *
+ * A file that is not itself a link lives at its directory's physical path under
+ * its own name, provided that name is the spelling the directory lists: a
+ * case-insensitive volume accepts another case, and only the listed spelling is
+ * physical. A link, or a name the listing does not hold verbatim, is resolved
+ * by itself. Each directory is listed once.
+ */
+function createSourceIdentity(): (source: string) => string {
+  const directories = new Map<
+    string,
+    { physical: string; names: ReadonlySet<string> }
+  >();
+  return (source) => {
+    if (fs.lstatSync(source).isSymbolicLink())
+      return fs.realpathSync.native(source);
+    const parent = path.dirname(source);
+    let directory = directories.get(parent);
+    if (directory === undefined) {
+      const physical = fs.realpathSync.native(parent);
+      directory = { physical, names: new Set(fs.readdirSync(physical)) };
+      directories.set(parent, directory);
+    }
+    const name = path.basename(source);
+    return directory.names.has(name)
+      ? path.join(directory.physical, name)
+      : fs.realpathSync.native(source);
+  };
 }

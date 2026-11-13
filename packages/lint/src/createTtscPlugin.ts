@@ -28,6 +28,7 @@ type TtscPluginDescriptor = {
     checkObservations?: true;
     compilerArgsCwd?: true;
     diagnosticsTiming?: boolean;
+    environmentInputs?: true;
     graphNodes?: boolean;
     lsp?: boolean;
     projectContextArgs?: boolean;
@@ -144,6 +145,13 @@ export default function createTtscPlugin(
       checkObservations: true,
       compilerArgsCwd: true,
       diagnosticsTiming: true,
+      // Rules read the environment only through the host's recorded reads
+      // (the browserslist variables), which every check observation lists,
+      // and ttsc's own variables and `NODE_PATH`, which key a runtime build
+      // already (samchon/ttsc#1855, samchon/ttsc#1856). An executable lint
+      // config is evaluated under the whole environment; a variable it reads
+      // is outside every proof, and `ttsx --no-cache` is the opt-out.
+      environmentInputs: true,
       graphNodes: true,
       lsp: true,
       projectContextArgs: true,

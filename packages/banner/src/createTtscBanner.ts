@@ -12,8 +12,12 @@ import type { ITtscBannerPluginConfig } from "./structures";
  * executable sidecar or linked native source.
  */
 type TtscPluginDescriptor = {
-  /** The bundled driver host records actual writes and their physical sources. */
-  capabilities: { emitProvenance: true };
+  /**
+   * The bundled driver host records actual writes and their physical sources,
+   * and reads only ttsc's own variables and `NODE_PATH`, which the runtime
+   * build key already holds.
+   */
+  capabilities: { emitProvenance: true; environmentInputs: true };
 
   /** Universal config-discovery inputs consumed by the native transform. */
   hostInputs?: string[];
@@ -142,7 +146,13 @@ export default function createTtscBanner(
 
   const configInputs = bannerConfigInputs(context);
   return {
-    capabilities: { emitProvenance: true },
+    // The host reads only ttsc's own variables (`TTSC_NODE_BINARY` and its
+    // kin) and `NODE_PATH`, which key a runtime build already, so a project
+    // using it keeps its runtime emit across unrelated environment changes
+    // (samchon/ttsc#1856). An executable banner config is evaluated under the
+    // whole environment; a variable it reads is outside every proof, as for
+    // every plugin configuration, and `ttsx --no-cache` is the opt-out.
+    capabilities: { emitProvenance: true, environmentInputs: true },
     hostInputHashes: configInputs.hashes,
     hostInputRealpaths: configInputs.realpaths,
     hostInputs: configInputs.inputs,

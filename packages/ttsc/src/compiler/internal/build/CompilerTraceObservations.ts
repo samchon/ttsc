@@ -13,13 +13,14 @@ import { RuntimeInputProof } from "./RuntimeInputProof";
  *
  * A project without native plugins is compiled by the user's installed `tsc`,
  * which keeps no record of its reads. It does report them on request: with
- * `--listFilesOnly` it names every file of the Program, and with
+ * `--listFiles` it names every file of the Program, and with
  * `--traceResolution` every resolution candidate it found or did not find,
  * every directory it skipped as missing, every `package.json` it found and
- * every physical path it resolved. Recording those answers once, when the
- * project is built, lets every later run prove the project by metadata alone,
- * without starting the compiler (samchon/ttsc#1852). The compiler's own words
- * are recorded; no resolution rule is reproduced here.
+ * every physical path it resolved. Recording those answers from the emitting
+ * run itself lets every later run prove the project by metadata alone, without
+ * starting the compiler (samchon/ttsc#1852), and costs no second compiler run
+ * (samchon/ttsc#1859). The compiler's own words are recorded; no resolution
+ * rule is reproduced here.
  *
  * Three questions the trace does not print are answered from the project's own
  * declarations, each conservatively:
@@ -50,8 +51,8 @@ export namespace CompilerTraceObservations {
    * The observations of one project, keyed by absolute native path, or
    * undefined when the output does not have the expected shape.
    *
-   * @param props.output Combined output of one `tsc -p <config> --listFilesOnly
-   *   --traceResolution` run with the build's own arguments.
+   * @param props.output Standard output of the emitting `tsc -p <config>
+   *   --listFiles --traceResolution` run with the build's own arguments.
    * @param props.configPaths The project's config chain, base configs first.
    * @param props.configInputs Further files the config chain read.
    * @param props.contents The content session hashing files as compiler text.
@@ -72,6 +73,36 @@ export namespace CompilerTraceObservations {
   }):
     | Record<string, ITtscCompilerTransformation.IInputObservation>
     | undefined {
+    const steps = observeSteps(props);
+    for (;;) {
+      const next = steps.next();
+      if (next.done === true) return next.value;
+    }
+  }
+
+  /**
+   * {@link observe} in bounded steps: it yields after every batch of 256
+   * witnessed files, so a launcher that records a build while its program runs
+   * can stop between batches when the program ends (samchon/ttsc#1859).
+   *
+   * @evidence contracts/common.md#principled-implementation The same projection as observe; batching changes when the work happens, not what is recorded.
+   * @evidence contracts/common.md#clear-and-simple-design observe drains this generator, so one body serves both.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A step never records a partial population; the result exists only at the end.
+   * @evidence contracts/common.md#meaningful-documentation The prose states the batch size and why it exists.
+   * @evidence contracts/portability.md#os-neutral-implementation As observe.
+   * @evidence contracts/performance.md#efficient-algorithms As observe, with one yield per batch.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work As observe.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The generator holds the parsed population until it completes or is dropped.
+   */
+  export function* observeSteps(props: {
+    output: string;
+    configPaths: readonly string[];
+    configInputs: readonly string[];
+    contents: RuntimeInputContents.Session;
+  }): Generator<
+    void,
+    Record<string, ITtscCompilerTransformation.IInputObservation> | undefined
+  > {
     const observations: Record<
       string,
       ITtscCompilerTransformation.IInputObservation
@@ -117,43 +148,47 @@ export namespace CompilerTraceObservations {
 
     // The files the Program read, the config chain and every package.json the
     // compiler found carry their content and physical path.
-    const read = [
-      ...new Set([
-        ...listed,
-        ...props.configPaths.map((file) => path.resolve(file)),
-        ...props.configInputs.map((file) => path.resolve(file)),
-        ...Object.keys(observations).filter(
-          (file) =>
-            path.basename(file) === "package.json" &&
-            observations[file]!.fileExists === true,
-        ),
-      ]),
-    ];
+    const read = new Set([
+      ...listed,
+      ...props.configPaths.map((file) => path.resolve(file)),
+      ...props.configInputs.map((file) => path.resolve(file)),
+      ...Object.keys(observations).filter(
+        (file) =>
+          path.basename(file) === "package.json" &&
+          observations[file]!.fileExists === true,
+      ),
+    ]);
     // Module format comes from the nearest package.json of each file.
     const scopes = new Set<string>();
     for (const file of listed)
       for (let directory = path.dirname(file); !scopes.has(directory); ) {
         scopes.add(directory);
-        const manifest = path.join(directory, "package.json");
-        if (!read.includes(manifest)) read.push(manifest);
+        read.add(path.join(directory, "package.json"));
         const parent = path.dirname(directory);
         if (parent === directory) break;
         directory = parent;
       }
-    for (const [file, physical, hash] of props.contents.observe(read)) {
-      if (hash === null) {
-        // Only a listed file must exist; a scope candidate may be absent.
-        if (listed.includes(file)) return undefined;
-        at(file).fileExists = false;
-        continue;
+    const members = new Set(listed);
+    const population = [...read];
+    for (let start = 0; start < population.length; start += 256) {
+      yield;
+      for (const [file, physical, hash] of props.contents.observe(
+        population.slice(start, start + 256),
+      )) {
+        if (hash === null) {
+          // Only a listed file must exist; a scope candidate may be absent.
+          if (members.has(file)) return undefined;
+          at(file).fileExists = false;
+          continue;
+        }
+        const observation = at(file);
+        // The compiler found it missing, and now it is there: it moved during
+        // the query, so no population of this instant can be recorded.
+        if (observation.fileExists === false) return undefined;
+        observation.readFile = { ok: true, hash };
+        observation.realpath = { ok: true, path: physical! };
+        delete observation.fileExists;
       }
-      const observation = at(file);
-      // The compiler found it missing, and now it is there: it moved during
-      // the query, so no population of this instant can be recorded.
-      if (observation.fileExists === false) return undefined;
-      observation.readFile = { ok: true, hash };
-      observation.realpath = { ok: true, path: physical! };
-      delete observation.fileExists;
     }
 
     // Root membership and automatic type inclusion are directory listings.
@@ -215,6 +250,122 @@ export namespace CompilerTraceObservations {
       }
     return observations;
   }
+
+  /**
+   * `output` without the lines `--traceResolution` added to it.
+   *
+   * The runtime asks the emitting run for its trace instead of starting the
+   * compiler a second time (samchon/ttsc#1859), so the trace must leave the
+   * build's report again: a failed check shows its diagnostics, not thousands
+   * of resolution steps. A line is a trace line when it is one of the module
+   * and type-reference resolution messages the upstream resolver writes to its
+   * tracer (`internal/module/resolver.go`), with every argument in place. A
+   * diagnostic carries a file position or an `error TS` prefix, and a listed
+   * file is a bare path, so neither can match a whole message.
+   *
+   * @param output Standard output of a run that traced its resolution.
+   * @returns The output with every trace line removed, line breaks preserved.
+   * @evidence contracts/common.md#principled-implementation The vocabulary is the upstream resolver's own trace messages, matched as whole lines with their argument slots, so no diagnostic or listing line is mistaken for one.
+   * @evidence contracts/common.md#clear-and-simple-design The owner of the trace's grammar also removes it, beside the parser that reads it.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown lines are kept: a message outside the vocabulary stays visible rather than being guessed away.
+   * @evidence contracts/common.md#meaningful-documentation The prose states why the trace is removed, the vocabulary's source and why diagnostics cannot match.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Text processing over compiler output touches no native boundary.
+   * @evidence contracts/performance.md#efficient-algorithms One pass over the lines with one combined pattern test per line.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure projection of its argument.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The returned text is the caller's; the compiled pattern is module-owned.
+   */
+  export function withoutTrace(output: string): string {
+    return output
+      .split(/(?<=\n)/)
+      .filter((line) => !TRACE.test(line.replace(/^﻿/, "").trim()))
+      .join("");
+  }
+
+  /**
+   * The resolution messages the pinned upstream resolver writes to its tracer,
+   * with `{n}` marking an argument.
+   */
+  const TRACE_MESSAGES: readonly string[] = [
+    "======== Resolving module '{0}' from '{1}'. ========",
+    "======== Module name '{0}' was successfully resolved to '{1}'. ========",
+    "======== Module name '{0}' was successfully resolved to '{1}' with Package ID '{2}'. ========",
+    "======== Module name '{0}' was not resolved. ========",
+    "======== Resolving type reference directive '{0}', containing file '{1}', root directory '{2}'. ========",
+    "======== Resolving type reference directive '{0}', containing file '{1}', root directory not set. ========",
+    "======== Resolving type reference directive '{0}', containing file not set, root directory '{1}'. ========",
+    "======== Resolving type reference directive '{0}', containing file not set, root directory not set. ========",
+    "======== Resolving type reference directive '{0}', containing file '{1}'. ========",
+    "======== Type reference directive '{0}' was successfully resolved to '{1}', primary: {2}. ========",
+    "======== Type reference directive '{0}' was successfully resolved to '{1}' with Package ID '{2}', primary: {3}. ========",
+    "======== Type reference directive '{0}' was not resolved. ========",
+    "Checking if '{0}' is the longest matching prefix for '{1}' - '{2}'.",
+    "Directory '{0}' does not exist, skipping all lookups in it.",
+    "Directory '{0}' has no containing package.json scope. Imports will not resolve.",
+    "Entering conditional exports.",
+    "Exiting conditional exports.",
+    "Expected type of '{0}' field in 'package.json' to be '{1}', got '{2}'.",
+    "Explicitly specified module resolution kind: '{0}'.",
+    "Export specifier '{0}' does not exist in package.json scope at path '{1}'.",
+    "Failed to find peerDependency '{0}'.",
+    "Failed to resolve under condition '{0}'.",
+    "File '{0}' does not exist.",
+    "File '{0}' does not exist according to earlier cached lookups.",
+    "File '{0}' exists according to earlier cached lookups.",
+    "File '{0}' exists - use it as a name resolution result.",
+    "File name '{0}' has a '{1}' extension - stripping it.",
+    "Found 'package.json' at '{0}'.",
+    "Found peerDependency '{0}' with '{1}' version.",
+    "Import specifier '{0}' does not exist in package.json scope at path '{1}'.",
+    "Invalid import specifier '{0}' has no possible resolutions.",
+    "Loading '{0}' from the root dir '{1}', candidate location '{2}'.",
+    "Loading module '{0}' from 'node_modules' folder, target file types: {1}.",
+    "Loading module as file / folder, candidate module location '{0}', target file types: {1}.",
+    "Longest matching prefix for '{0}' is '{1}'.",
+    "Looking up in 'node_modules' folder, initial location '{0}'.",
+    "Matched '{0}' condition '{1}'.",
+    "Module name '{0}', matched pattern '{1}'.",
+    "Module resolution kind is not specified, using '{0}'.",
+    "Module resolution using 'rootDirs' has failed.",
+    "Resolution of non-relative name failed; trying with modern Node resolution features disabled to see if npm library needs configuration update.",
+    "Resolved under condition '{0}'.",
+    "Resolving in {0} mode with conditions {1}.",
+    "Resolving real path for '{0}', result '{1}'.",
+    "Resolving type reference directive for program that specifies custom typeRoots, skipping lookup in 'node_modules' folder.",
+    "Resolving with primary search path '{0}'.",
+    "Root directory cannot be determined, skipping primary search paths.",
+    "Saw non-matching condition '{0}'.",
+    "Scoped package detected, looking in '{0}'",
+    "Searching all ancestor node_modules directories for fallback extensions: {0}.",
+    "Searching all ancestor node_modules directories for preferred extensions: {0}.",
+    "Skipping module '{0}' that looks like an absolute URI, target file types: {1}.",
+    "Trying other entries in 'rootDirs'.",
+    "Trying substitution '{0}', candidate module location: '{1}'.",
+    "Using '{0}' subpath '{1}' with target '{2}'.",
+    "Using compiler options of project reference redirect '{0}'.",
+    "'package.json' does not have a '{0}' field.",
+    "'package.json' had a falsy '{0}' field.",
+    "'package.json' has '{0}' field '{1}' that references '{2}'.",
+    "'package.json' has a 'peerDependencies' field.",
+    "'package.json' has a 'typesVersions' entry '{0}' that matches compiler version '{1}', looking for a pattern to match module name '{2}'.",
+    "'package.json' has a 'typesVersions' field with version-specific path mappings.",
+    "'package.json' does not have a 'typesVersions' entry that matches version '{0}'.",
+    "package.json scope '{0}' explicitly maps specifier '{1}' to null.",
+    "package.json scope '{0}' has invalid type for target of specifier '{1}'",
+    "package.json scope '{0}' has no imports defined.",
+    "'paths' option is specified, looking for a pattern to match module name '{0}'.",
+    "'rootDirs' option is set, using it to resolve relative module name '{0}'.",
+  ];
+
+  const TRACE = new RegExp(
+    "^(?:" +
+      TRACE_MESSAGES.map((message) =>
+        message
+          .split(/\{\d+\}/)
+          .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+          .join(".*"),
+      ).join("|") +
+      ")$",
+  );
 
   /**
    * Record the listing of `root`, and of every directory below it that a

@@ -136,9 +136,11 @@ export function test_runtimeinputproof_replays_every_compiler_observation(): voi
       () => fs.unlinkSync(candidate),
     );
     const moved = path.join(root, "helper.moved");
+    // The file and its directory's listing both moved; a read file is asked
+    // before a listing, since an edited file is the likelier change.
     expect(
       "removed source",
-      source,
+      helper,
       () => fs.renameSync(helper, moved),
       () => fs.renameSync(moved, helper),
     );

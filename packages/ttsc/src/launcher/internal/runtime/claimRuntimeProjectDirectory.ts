@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { RuntimeTrash } from "../../../internal/RuntimeTrash";
 import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBuildCacheLayout";
 import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
 import { withRuntimeDirectoryLock } from "./withRuntimeDirectoryLock";
@@ -46,7 +47,17 @@ export function claimRuntimeProjectDirectory(
     fs.mkdirSync(directory, { recursive: true });
     const runsDir = fs.realpathSync.native(directory);
     const processDir = path.join(runsDir, runKey);
-    ProcessOwnedDirectory.sweep(runsDir);
+    // An abandoned run is retired by one rename and deleted while this run's
+    // program executes, not before it starts (samchon/ttsc#1859).
+    ProcessOwnedDirectory.sweep(
+      runsDir,
+      (name) => name !== RuntimeTrash.DIRNAME,
+      false,
+      (directory, parent) => {
+        if (!RuntimeTrash.retire(directory, parent))
+          fs.rmSync(directory, { force: true, recursive: true });
+      },
+    );
     fs.rmSync(processDir, { recursive: true, force: true });
     ProcessOwnedDirectory.claim(processDir);
     return processDir;

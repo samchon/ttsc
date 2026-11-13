@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { EmitOwnershipIndex } from "../../../compiler/internal/EmitOwnershipIndex";
+import { RuntimeBuildCache } from "../../../compiler/internal/build/RuntimeBuildCache";
 import { privateRuntimeRootDir } from "../../../compiler/internal/build/privateRuntimeRootDir";
 import { runBuild } from "../../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
@@ -36,6 +37,7 @@ import type { OwningModuleOptions } from "./OwningModuleOptions";
 import { PluginDescriptorInputObservation } from "./PluginDescriptorInputObservation";
 import { PluginDescriptorInputReport } from "./PluginDescriptorInputReport";
 import type { ResolveResult } from "./ResolveResult";
+import { RuntimeDependencyPrebuild } from "./RuntimeDependencyPrebuild";
 import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
 import { RuntimeEntrySources } from "./RuntimeEntrySources";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
@@ -147,6 +149,36 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
 }
 
 /**
+ * Entry points of the runtime that run without installing its hooks.
+ *
+ * @evidence contracts/common.md#principled-implementation The worker reaches the same project build the hooks reach, under the same per-process selection.
+ * @evidence contracts/common.md#clear-and-simple-design One member exposes the existing build; nothing is duplicated.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No separate build path exists for workers.
+ * @evidence contracts/common.md#meaningful-documentation The member states its caller.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation The namespace delegates every native operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace delegates its work.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The delegated build owns reuse.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The delegated build owns its resources.
+ */
+export namespace installRuntimeHooks {
+  /**
+   * Build `tsconfig`'s project as a dependency of the current run, exactly as a
+   * module of it reaching the project would. The dependency prebuild worker
+   * calls this.
+   */
+  export function prebuild(tsconfig: string): void {
+    prebuilding = true;
+    ensureProjectBuilt(tsconfig);
+  }
+}
+
+/**
+ * Whether this process is a dependency prebuild worker, whose builds serve a
+ * program but are not projects that program reached.
+ */
+let prebuilding = false;
+
+/**
  * Actual public-hook coverage determines whether module-local resolve needs
  * adaptation.
  */
@@ -181,8 +213,19 @@ function resolveCommonJsRequest(
   let selected: string | undefined;
   try {
     try {
-      const resolved = native(specifier, options);
-      if (path.isAbsolute(resolved)) selected = pathToFileURL(resolved).href;
+      let resolved = native(specifier, options);
+      if (path.isAbsolute(resolved)) {
+        selected = pathToFileURL(resolved).href;
+        const compiled = compiledSourceOf(
+          specifier,
+          pathToFileURL(filename).href,
+          selected,
+        );
+        if (compiled !== undefined) {
+          selected = compiled;
+          resolved = fileURLToPath(compiled);
+        }
+      }
       if (selected !== undefined)
         recordPluginDescriptorResolution(specifier, parents[0], selected);
       return resolved;
@@ -337,6 +380,13 @@ function resolve(
         ),
         context,
       );
+      const compiled = compiledSourceOf(
+        specifier,
+        context.parentURL,
+        result.url,
+      );
+      if (compiled !== undefined)
+        result = { shortCircuit: true, url: compiled };
     } catch (error) {
       const rescued = probeRescuableSpecifier(specifier, context.parentURL);
       if (rescued === null) {
@@ -1891,6 +1941,7 @@ function serveBuiltDependency(
   if (emitted === null) {
     return null;
   }
+  servedBuilds.set(real, built);
   return {
     emittedFile: emitted,
     moduleOptions: built.moduleOptions,
@@ -1900,6 +1951,82 @@ function serveBuiltDependency(
     readOutput: (file) => builtProjectIndex(built).readOutput(file),
     sourceFile: real,
   };
+}
+
+/**
+ * The dependency or root build that served each source this process loaded, by
+ * its physical path, so a relative import inside it resolves to what that build
+ * compiled ({@link compiledSourceOf}).
+ */
+const servedBuilds = new Map<string, DependencyBuildGeneration.BuiltProject>();
+
+/**
+ * The TypeScript source a relative import of a served module names, where
+ * Node's resolver chose a JavaScript file beside it (samchon/ttsc#1860).
+ *
+ * The compiler resolves `./value`, and `./value.js`, to `value.ts` before
+ * `value.js`, so the emit of the importing module was checked and compiled
+ * against `value.ts`. Node knows no TypeScript extension and finds the stale
+ * `value.js` that a build or a tool left in the source tree, and the program
+ * that ran was not the program that was checked. When the build that served the
+ * importing module also compiled a same-stem TypeScript source, in the
+ * compiler's own extension order, that source is the module the import names. A
+ * JavaScript file no build compiled a source beside keeps Node's answer.
+ *
+ * @param specifier The import's own specifier; only relative ones apply.
+ * @param parentURL The importing module.
+ * @param resolvedURL What Node's resolver selected.
+ * @returns The source's URL, or undefined to keep Node's answer.
+ */
+function compiledSourceOf(
+  specifier: string,
+  parentURL: string | undefined,
+  resolvedURL: string,
+): string | undefined {
+  if (
+    !isRelativeSpecifier(specifier) ||
+    parentURL === undefined ||
+    !parentURL.startsWith("file:") ||
+    !resolvedURL.startsWith("file:")
+  )
+    return undefined;
+  const parent = fileURLToPath(parentURL);
+  if (!isTypeScriptSource(parent)) return undefined;
+  const suffixStart = resolvedURL.search(/[?#]/);
+  const suffix = suffixStart === -1 ? "" : resolvedURL.slice(suffixStart);
+  const resolved = fileURLToPath(
+    suffixStart === -1 ? resolvedURL : resolvedURL.slice(0, suffixStart),
+  );
+  const candidates = typescriptSourcesForJavaScriptSpecifier(resolved);
+  if (candidates.length === 0) return undefined;
+  let compiledBy: ((source: string) => boolean) | undefined;
+  try {
+    const parentReal = modulePhysicalPath(parent);
+    const entry = RuntimeManifestRegistry.findEntryEmit(parentReal);
+    if (entry !== null)
+      compiledBy = (source) =>
+        RuntimeManifestRegistry.findEntryEmit(source)?.manifest ===
+        entry.manifest;
+    else {
+      const built = servedBuilds.get(parentReal);
+      if (built !== undefined)
+        compiledBy = (source) =>
+          builtProjectIndex(built).findPhysical(source) !== null;
+    }
+  } catch {
+    return undefined;
+  }
+  if (compiledBy === undefined) return undefined;
+  for (const candidate of candidates) {
+    if (!RuntimeFilesystem.isFile(candidate)) continue;
+    try {
+      if (compiledBy(modulePhysicalPath(candidate)))
+        return pathToFileURL(candidate).href + suffix;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
 }
 
 /** The ownership index of one dependency or root build, created on first use. */
@@ -2138,6 +2265,16 @@ function ensureProjectBuilt(
   try {
     const built = buildSelectedProject(tsconfig);
     selectedProjects.set(selection, { built });
+    // The launcher starts this project's build early next run. Only a project
+    // the program itself reached is noted, not one a prebuild worker built.
+    const runDir = process.env.TTSX_RUNTIME_RUN_DIR;
+    if (
+      !prebuilding &&
+      runDir !== undefined &&
+      path.isAbsolute(runDir) &&
+      process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD !== "1"
+    )
+      RuntimeDependencyPrebuild.note(runDir, tsconfig);
     return built;
   } catch (error) {
     selectedProjects.set(selection, { error });
@@ -2364,6 +2501,9 @@ function buildDependency(
       // type-only elision), just not the error gate.
       skipDiagnosticsCheck: true,
       tsconfig,
+      // Storing the build would read its outputs back while the program
+      // waits for this module (samchon/ttsc#1859); it is left to the launcher.
+      deferRuntimePublication: deferDependencyPublication(),
     });
     // Success is "the project wrote JavaScript", not the exit status: the build is
     // emit-only, so diagnostics do not fail it, and a native transform host
@@ -2440,6 +2580,52 @@ function buildDependency(
     throwAfterFailedArtifactCleanup(error, emitDir, true);
   }
 }
+
+/**
+ * Hand this process's dependency publications to the launcher of its run, or
+ * undefined to publish them in place when no launcher owns the run.
+ *
+ * A dependency build is reached while a module loads, and storing it reads
+ * every output back and replays its proof before that module can run. Other
+ * processes of the run may read the same outputs, so this process cannot move
+ * them either. It writes, when it exits, a request into the run's `parks`
+ * directory; the launcher parks each one when no process of the run remains,
+ * and the next run that needs the build takes it from the store.
+ */
+function deferDependencyPublication():
+  | ((publication: RuntimeBuildCache.Publication) => void)
+  | undefined {
+  const runDir = process.env.TTSX_RUNTIME_RUN_DIR;
+  if (
+    runDir === undefined ||
+    !path.isAbsolute(runDir) ||
+    process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
+  )
+    return undefined;
+  return (publication) => {
+    if (deferredPublications.length === 0)
+      process.once("exit", () => {
+        for (const deferred of deferredPublications) {
+          const request = deferred.request();
+          if (request === undefined) continue;
+          try {
+            const parks = path.join(runDir, RuntimeBuildCache.PARKS_DIRNAME);
+            fs.mkdirSync(parks, { recursive: true });
+            fs.writeFileSync(
+              path.join(parks, `${process.pid}-${crypto.randomUUID()}.json`),
+              JSON.stringify(request),
+            );
+          } catch {
+            // The outputs go with the run; the next run builds again.
+          }
+        }
+      });
+    deferredPublications.push(publication);
+  };
+}
+
+/** Dependency publications this process hands to its launcher at exit. */
+const deferredPublications: RuntimeBuildCache.Publication[] = [];
 
 /**
  * Publish the completion marker atomically: write it to a private temp name in

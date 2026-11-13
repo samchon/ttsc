@@ -24,7 +24,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Executes the authored adapter and private functions with supplied read-only compiler reports and real fixture source/output/executable files. Assertions distinguish completed-source ownership from fresh root discovery while preserving one producer invocation, status and streams.
  * @evidence contracts/testing.md#independent-expectations Literal rootDir/outDir and the fixture-written main.js define ownership of the physical main.ts. A new root has no emitted output; independent option/include changes and unavailable reports cannot establish unchanged settings.
- * @evidence contracts/testing.md#distinguishing-cases Both modes cover stable configuration, formatting, added roots, changed layout, nested options, include patterns and failed/malformed config inspection. An observed host also rejects a newly selected output collision and unavailable post-emission source selection; a reporting producer's exact selection remains sufficient. Reported mode rejects a mismatching emitting selection. Source text edits retain physical owners. The native response E2E owns real root expansion.
+ * @evidence contracts/testing.md#distinguishing-cases Both modes cover stable configuration, formatting, added roots, changed layout, nested options, include patterns and failed/malformed config inspection; a reporting producer is reinspected because its command line does not fix its layout. An observed host also rejects a newly selected output collision and unavailable post-emission source selection; a reporting producer's own listing is its selection, so a written output that no listed source predicts stays unowned. Source text edits retain physical owners. The native response E2E owns real root expansion.
  * @evidence contracts/testing.md#execution-ownership One discovered source unit extracts the actual functions with ts-legacy and supplies their process boundary, following the adjacent provenance units. TestProject owns temporary allocation/cleanup; no compiler or host is launched. All rows finish before AggregateError reports their named failures.
  */
 export function test_external_emit_provenance_separates_settings_from_rediscovered_roots(): void {
@@ -237,9 +237,7 @@ export function test_external_emit_provenance_separates_settings_from_rediscover
         assert.equal(result.stderr, "preserved");
         assert.equal(
           result.stdout,
-          writes === "observed" || item.mismatch
-            ? stdout
-            : "TSFILE: " + output + "\n",
+          writes === "observed" ? stdout : "TSFILE: " + output + "\n",
         );
         assert.deepEqual(
           result.emittedSources?.[output],
@@ -254,7 +252,7 @@ export function test_external_emit_provenance_separates_settings_from_rediscover
           assert.match(
             result.emittedSourceProofFailures?.[output] ?? "",
             item.mismatch
-              ? /source selection differs/
+              ? /No selected source predicts this writer/
               : (item.observedRefusal ?? /Effective configuration changed/),
           );
       } catch (error) {

@@ -223,6 +223,9 @@ export namespace ProcessOwnedDirectory {
    * @param parent The directory holding owned entries.
    * @param accepts Which entry names are owned directories.
    * @param legacyProcessRoot Include the prior manifest-less owner format.
+   * @param remove How an abandoned entry is removed, given its physical path
+   *   and the physical parent; recursive removal by default. The ttsx run index
+   *   retires it into its trash instead.
    * @evidence contracts/common.md#principled-implementation A pinned physical parent and all-proven-dead ownership select only abandoned entries; missing, malformed and live claims are preserved, preventing alias retargeting from choosing another same-named removal target.
    * @evidence contracts/common.md#clear-and-simple-design The sweep separates one parent snapshot, caller-defined entry selection and shared ownership classification before best-effort removal.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed inspection or deletion does not trigger broader cleanup; the operation never treats a caller's accepted name as proof that its owner is dead.
@@ -238,6 +241,8 @@ export namespace ProcessOwnedDirectory {
     parent: string,
     accepts: (name: string) => boolean = () => true,
     legacyProcessRoot = false,
+    remove: (directory: string, parent: string) => void = (directory) =>
+      fs.rmSync(directory, { force: true, recursive: true }),
   ): void {
     let entries: string[];
     let physicalParent: string;
@@ -254,7 +259,7 @@ export namespace ProcessOwnedDirectory {
       const directory = path.join(physicalParent, entry);
       if (ownership(directory, legacyProcessRoot) !== "abandoned") continue;
       try {
-        fs.rmSync(directory, { force: true, recursive: true });
+        remove(directory, physicalParent);
       } catch {
         // Held open or concurrently removed: a later sweep retries.
       }

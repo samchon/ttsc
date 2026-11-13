@@ -2,8 +2,11 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { RuntimeBuildCache } from "../../compiler/internal/build/RuntimeBuildCache";
+import { RuntimeEmitBundle } from "../../compiler/internal/build/RuntimeEmitBundle";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { E2ETrace } from "../../internal/E2ETrace";
+import { RuntimeTrash } from "../../internal/RuntimeTrash";
 import { TtsxNodeOptions } from "../../internal/TtsxNodeOptions";
 import { TtsxEntryOptions } from "./TtsxEntryOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
@@ -11,6 +14,7 @@ import { parseTtsxCLI } from "./parseTtsxCLI";
 import { prepareExecution } from "./prepareExecution";
 import { resolveCacheDir } from "./resolveCacheDir";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
+import { RuntimeDependencyPrebuild } from "./runtime/RuntimeDependencyPrebuild";
 import { checkNodeRuntimeSupport } from "./runtime/checkNodeRuntimeSupport";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 
@@ -105,34 +109,125 @@ async function run(
     return runJavaScriptEntry(parsed, cwd, entry, signals);
   }
 
-  const prepared = prepareExecution(entry, {
-    binary: parsed.binary,
-    cacheDir: resolveCacheDir(cwd, parsed.cacheDir),
-    checkers: parsed.checkers,
-    cwd,
-    env: parsed.noCache ? { TTSX_DISABLE_CACHE: "1" } : undefined,
-    passthrough: parsed.tsgoFlags,
-    // `--no-plugins` builds the entry's owning project with plugin
-    // discovery and loading disabled. ttsc's own config loaders use it
-    // when they evaluate a `*.config.ts` through ttsx: that build only
-    // needs to type-check and run the config file, so loading the host
-    // project's transform/check plugins (`@nestia/core`, `typia`, …)
-    // would be both wasteful and wrong — those plugins impose project
-    // requirements (e.g. `strict` mode) the ephemeral config-loader
-    // tsconfig deliberately does not satisfy.
-    plugins: parsed.noPlugins ? false : undefined,
-    project: parsed.project,
-    runtimeCache: !parsed.noCache,
-    singleThreaded: parsed.singleThreaded,
-  });
+  // Dependency projects the last run of this entry served are built beside
+  // the entry project (samchon/ttsc#1859), and this run's list replaces it.
+  const dependencies: {
+    stop: () => Promise<void>;
+    remember?: () => void;
+  } = { stop: async () => undefined };
+  const startDependencies = (
+    run: Parameters<
+      NonNullable<
+        NonNullable<
+          Parameters<typeof prepareExecution>[1]
+        >["onRuntimeDirectory"]
+      >
+    >[0],
+  ): void => {
+    const store = run.runtimeBuildCacheDir;
+    if (parsed.noCache || store === undefined) return;
+    const plugins = parsed.noPlugins ? false : undefined;
+    dependencies.stop = RuntimeDependencyPrebuild.start({
+      runDir: run.processDir,
+      store,
+      tsconfig: run.tsconfig,
+      projectRoot: run.projectRoot,
+      plugins,
+      environment: (manifest) =>
+        runtimeEnvironment(parsed, {
+          projectRoot: run.projectRoot,
+          manifest,
+          runDir: run.processDir,
+          cacheDir: run.cacheDir,
+        }),
+    });
+    dependencies.remember = () =>
+      RuntimeDependencyPrebuild.remember({
+        runDir: run.processDir,
+        store,
+        tsconfig: run.tsconfig,
+        plugins,
+      });
+  };
+  let prepared: ReturnType<typeof prepareExecution>;
+  try {
+    prepared = prepareExecution(entry, {
+      binary: parsed.binary,
+      cacheDir: resolveCacheDir(cwd, parsed.cacheDir),
+      checkers: parsed.checkers,
+      cwd,
+      env: parsed.noCache ? { TTSX_DISABLE_CACHE: "1" } : undefined,
+      onRuntimeDirectory: startDependencies,
+      passthrough: parsed.tsgoFlags,
+      // `--no-plugins` builds the entry's owning project with plugin
+      // discovery and loading disabled. ttsc's own config loaders use it
+      // when they evaluate a `*.config.ts` through ttsx: that build only
+      // needs to type-check and run the config file, so loading the host
+      // project's transform/check plugins (`@nestia/core`, `typia`, …)
+      // would be both wasteful and wrong — those plugins impose project
+      // requirements (e.g. `strict` mode) the ephemeral config-loader
+      // tsconfig deliberately does not satisfy.
+      plugins: parsed.noPlugins ? false : undefined,
+      project: parsed.project,
+      runtimeCache: !parsed.noCache,
+      singleThreaded: parsed.singleThreaded,
+    });
+  } catch (error) {
+    await dependencies.stop();
+    throw error;
+  }
   await settleSignals();
   if (signals.received !== undefined) {
     // The signal arrived while the project was prepared. Preparation has
     // finished cleaning up its own files; the runtime output goes now.
+    await dependencies.stop();
     removeRuntimeOutput(prepared.cleanupDir, prepared.runtimeCacheDir);
     signals.raiseReceived();
   }
-  return runPreparedEntry(parsed, prepared, cwd, entry, signals);
+  return runPreparedEntry(parsed, prepared, cwd, entry, signals, dependencies);
+}
+
+/**
+ * The environment a run's program executes under, and its dependency prebuild
+ * workers with their own manifest: the inherited environment with the runtime
+ * hooks preloaded, the compiler this run resolved, and the run's channels. A
+ * worker must see exactly the program's environment, because the variables the
+ * program's processes read are part of every runtime build key.
+ */
+function runtimeEnvironment(
+  parsed: Exclude<ReturnType<typeof parseTtsxCLI>, "help" | "version">,
+  run: {
+    projectRoot: string;
+    manifest: string;
+    runDir: string;
+    cacheDir: string;
+  },
+): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    ...(parsed.noCache ? { TTSX_DISABLE_CACHE: "1" } : {}),
+    // ttsc's own helpers run with what the user passed (#1740).
+    ...TtsxNodeOptions.give(
+      process.env,
+      appendNodeOption(
+        prependNodeOption(
+          process.env.NODE_OPTIONS,
+          `--require ${JSON.stringify(path.join(__dirname, "runtimeOwnerPreload.js"))}`,
+        ),
+        `--require ${JSON.stringify(path.join(__dirname, "runtimeHookPreload.js"))}`,
+      ),
+    ),
+    // The compiler this run resolved, which already honours an inherited
+    // `TTSC_TSGO_BINARY` when no `--binary` was given.
+    TTSC_TSGO_BINARY: resolveTsgo({
+      binary: parsed.binary,
+      cwd: run.projectRoot,
+    }).binary,
+    TTSX_RUNTIME_MANIFEST: run.manifest,
+    TTSX_RUNTIME_CACHE_DIR: run.cacheDir,
+    TTSX_RUNTIME_RUN_DIR: run.runDir,
+    TTSX_RUNTIME_RUNS_DIR: path.dirname(run.runDir),
+  };
 }
 
 function formatError(error: unknown): string {
@@ -284,9 +379,14 @@ async function runPreparedEntry(
   cwd: string,
   sourceEntry: string,
   signals: LauncherSignals,
+  dependencies: { stop: () => Promise<void>; remember?: () => void },
 ): Promise<number> {
   let cleaned = false;
+  // Earlier runs' retired directories are deleted while this program runs,
+  // time the launcher only waits; the deletion stops when the program ends.
+  let stopDrain: (() => void) | undefined;
   const cleanup = (): void => {
+    stopDrain?.();
     if (cleaned) return;
     cleaned = true;
     removeRuntimeOutput(execution.cleanupDir, execution.runtimeCacheDir);
@@ -318,11 +418,6 @@ async function runPreparedEntry(
       "utf8",
     );
 
-    const tsgo = resolveTsgo({
-      binary: parsed.binary,
-      cwd: execution.projectRoot,
-    }).binary;
-
     const args = [
       "--disable-warning=ExperimentalWarning",
       ...parsed.preload.flatMap((preload) => [
@@ -332,32 +427,45 @@ async function runPreparedEntry(
       sourceEntry,
       ...parsed.passthrough,
     ];
-    const runtimeEnv: NodeJS.ProcessEnv = {
-      ...process.env,
-      ...(parsed.noCache ? { TTSX_DISABLE_CACHE: "1" } : {}),
-      // ttsc's own helpers run with what the user passed (#1740).
-      ...TtsxNodeOptions.give(
-        process.env,
-        appendNodeOption(
-          prependNodeOption(
-            process.env.NODE_OPTIONS,
-            `--require ${JSON.stringify(path.join(__dirname, "runtimeOwnerPreload.js"))}`,
-          ),
-          `--require ${JSON.stringify(path.join(__dirname, "runtimeHookPreload.js"))}`,
-        ),
-      ),
-      // The compiler this run resolved, which already honours an inherited
-      // `TTSC_TSGO_BINARY` when no `--binary` was given.
-      TTSC_TSGO_BINARY: tsgo,
-      TTSX_RUNTIME_MANIFEST: manifestPath,
-      TTSX_RUNTIME_CACHE_DIR: execution.runtimeCacheDir,
-      TTSX_RUNTIME_RUN_DIR: execution.cleanupDir,
-      TTSX_RUNTIME_RUNS_DIR: execution.runtimeRunsDir,
-    };
+    const runtimeEnv = runtimeEnvironment(parsed, {
+      projectRoot: execution.projectRoot,
+      manifest: manifestPath,
+      runDir: execution.cleanupDir,
+      cacheDir: execution.runtimeCacheDir,
+    });
+    const drains = [execution.runtimeRunsDir, execution.runtimeBuildCacheDir]
+      .filter((parent): parent is string => parent !== undefined)
+      .map((parent) => RuntimeTrash.drain(parent));
+    stopDrain = () => drains.forEach((stop) => stop());
+    // A fresh entry build is stored while the program runs, one bounded step
+    // per turn of the event loop, so a cache miss starts the program as soon
+    // as an uncached run would (samchon/ttsc#1859). A program that ends first
+    // parks the rest, and the next run that needs the build publishes it.
+    const publication = execution.publication;
+    let publishing = publication !== undefined;
+    const published = (async (): Promise<void> => {
+      while (publishing) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        if (!publishing) return;
+        const progress = publication!.step();
+        if (progress === true) return;
+        if (progress !== false) await progress;
+      }
+    })();
     return await runProgram(args, runtimeEnv, cwd, signals, {
-      afterClose: cleanup,
+      afterClose: async () => {
+        publishing = false;
+        await published;
+        publication?.park();
+        // Workers still building serve no one any more; they are joined
+        // before the run directory goes, and this run's list is kept.
+        await dependencies.stop();
+        dependencies.remember?.();
+        cleanup();
+      },
     });
   } finally {
+    await dependencies.stop();
     cleanup();
   }
 }
@@ -376,7 +484,7 @@ async function runProgram(
   cwd: string,
   signals: LauncherSignals,
   hooks: {
-    afterClose?: () => void;
+    afterClose?: () => void | Promise<void>;
   } = {},
 ): Promise<number> {
   const trace = E2ETrace.begin(process.execPath, args, { cwd }, "ttsx-runtime");
@@ -399,7 +507,7 @@ async function runProgram(
     });
     child.once("close", (code, signal) => resolve({ code, signal, error }));
   });
-  hooks.afterClose?.();
+  await hooks.afterClose?.();
   if (outcome.error !== undefined) {
     process.stderr.write(`${outcome.error.message}\n`);
     return 1;
@@ -535,7 +643,14 @@ function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
       observe?.("ownership", ownership);
       if (ownership === "abandoned" || ownership === "unowned") {
         stage = "remove";
-        fs.rmSync(directory, { force: true, recursive: true });
+        // Builds its processes did not store move into the store first, for
+        // the next run that needs them.
+        RuntimeBuildCache.parkRequested(directory);
+        // Retired by one rename, its files are deleted while a later run's
+        // program executes, instead of holding this exit (samchon/ttsc#1859).
+        RuntimeEmitBundle.release();
+        if (!RuntimeTrash.retire(directory, path.dirname(directory)))
+          fs.rmSync(directory, { force: true, recursive: true });
         observe?.("removed", ownership);
       } else {
         observe?.("retained", ownership);

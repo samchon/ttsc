@@ -4,6 +4,7 @@ import type {
   TtscPluginSourceInputsHandler,
   TtscProjectInputsHandler,
 } from "../../../structures/internal/TtscSingleFileEmitOptions";
+import type { RuntimeBuildCache } from "./RuntimeBuildCache";
 
 /**
  * Options of one {@link runBuild} call: the public build options plus the knobs
@@ -56,6 +57,34 @@ export type RunBuildOptions = TtscBuildOptions & {
    * phase, not earlier checks or terminal/format operations without emission.
    */
   forceEmitProvenance?: boolean;
+
+  /**
+   * Receive the module-resolution trace of the emitting direct-compiler run.
+   *
+   * A runtime build without native plugins records its compiler's resolution
+   * answers as the proof a later run replays. The emitting run reports them
+   * itself (`--traceResolution`), so they are taken from it instead of from a
+   * second compiler run (samchon/ttsc#1859). The handler receives the run's
+   * complete standard output and exit status; the trace is then removed from
+   * the output the build returns, so a failed check shows only its own
+   * diagnostics. Native hosts report their observations themselves and ignore
+   * this option.
+   */
+  onResolutionTrace?: (output: string, status: number) => void;
+
+  /**
+   * Receive a fresh runtime build's publication instead of running it before
+   * the build returns (`RuntimeBuildCache.Publication`).
+   *
+   * Storing a build reads every output back and replays its proof, seconds a
+   * launcher would otherwise spend before its program starts
+   * (samchon/ttsc#1859). A launcher that sets this advances the publication
+   * while its program executes and parks the rest when the program ends first,
+   * so a miss costs what an uncached run costs.
+   */
+  deferRuntimePublication?: (
+    publication: RuntimeBuildCache.Publication,
+  ) => void;
 
   /**
    * Apply final compiler destination overrides for this private directory. This

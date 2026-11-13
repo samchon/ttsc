@@ -1,5 +1,6 @@
 import { type SpawnSyncReturns } from "node:child_process";
 
+import { isSpawnSyncFdExhaustion } from "../../internal/isSpawnSyncFdExhaustion";
 import { spawnSyncResilient } from "../../internal/spawnSyncResilient";
 import { captureProcessOutput } from "./captureProcessOutput";
 import { ensureExecutable } from "./ensureExecutable";
@@ -10,12 +11,16 @@ import { ensureExecutable } from "./ensureExecutable";
  *
  * Streams go to private files and are materialized after exit, avoiding the
  * piped maxBuffer ceiling while retaining filesystem and runtime allocation
- * limits. Filesystem read failures propagate after capture cleanup.
+ * limits. Filesystem read failures propagate after capture cleanup. A caller
+ * whose command starts no process of its own may capture through pipes without
+ * a buffer ceiling instead, which is much cheaper for a command that writes its
+ * report one line per system call; a pipe that cannot be created falls back to
+ * the files.
  *
  * When `options.encoding` is omitted it defaults to `"utf8"`. Pass `"buffer"`
  * when the caller needs raw bytes.
  *
- * @evidence contracts/common.md#principled-implementation Executable plus argv are passed directly to Node spawning; script candidates instead pass their path to process.execPath, and file-backed output reconstructs the normal stdout/stderr/output result fields.
+ * @evidence contracts/common.md#principled-implementation Executable plus argv are passed directly to Node spawning; script candidates instead pass their path to process.execPath, and file-backed or unbounded piped output reconstructs the normal stdout/stderr/output result fields. Pipes are used only when the caller states the command starts no descendant that could hold them open.
  * @evidence contracts/common.md#clear-and-simple-design This operation owns synchronous execution and capture lifetime; permission preparation, low-descriptor recovery and byte decoding remain explicit delegated boundaries.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No shell parses argv or foreign process API is replaced. Descriptor recovery is selected by the real resource-exhaustion contract in spawnSyncResilient rather than a fixture outcome.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain executable routing, capture limits, read errors and encoding ownership following the documentation skill.
@@ -33,11 +38,53 @@ export function spawnNative(
     cwd?: string;
     env?: NodeJS.ProcessEnv;
     encoding?: BufferEncoding | "buffer";
+
+    /**
+     * Capture through pipes instead of files. Only for a command that starts no
+     * process of its own, such as the upstream compiler: a descendant that
+     * inherits a pipe keeps the call waiting until it exits.
+     */
+    pipe?: boolean;
   },
 ): SpawnSyncReturns<string | Buffer> {
   const viaNode = /\.(?:[cm]?js|ts)$/i.test(binary);
   if (!viaNode) {
     ensureExecutable(binary);
+  }
+  if (options.pipe === true) {
+    // The compiler writes each line of a report with its own system call. On
+    // Windows a write to a file pays the filesystem filter stack every time,
+    // and a module-resolution trace took three times as long captured to a
+    // file as through a pipe (samchon/ttsc#1859).
+    const result = spawnSyncResilient(
+      viaNode ? process.execPath : binary,
+      viaNode ? [binary, ...args] : [...args],
+      {
+        cwd: options.cwd,
+        env: options.env,
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+        maxBuffer: Infinity,
+      },
+    );
+    // A pipe that cannot be created leaves the file capture, whose
+    // descriptor-exhaustion recovery the pipe lane does not have.
+    if (!isSpawnSyncFdExhaustion(result.error)) {
+      const decode = (bytes: Buffer | null): string | Buffer => {
+        const buffer = bytes ?? Buffer.alloc(0);
+        return options.encoding === "buffer"
+          ? buffer
+          : buffer.toString(options.encoding ?? "utf8");
+      };
+      const stdout = decode(result.stdout as Buffer | null);
+      const stderr = decode(result.stderr as Buffer | null);
+      return {
+        ...result,
+        output: [null, stdout, stderr],
+        stderr,
+        stdout,
+      } as SpawnSyncReturns<string | Buffer>;
+    }
   }
   const capture = captureProcessOutput();
   try {

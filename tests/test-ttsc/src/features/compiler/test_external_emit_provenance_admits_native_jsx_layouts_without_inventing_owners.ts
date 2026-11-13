@@ -75,6 +75,8 @@ export function test_external_emit_provenance_admits_native_jsx_layouts_without_
     response?: true;
     ambiguous?: true;
     missing?: true;
+    /** Reporting is requested, yet no written output gains an owner. */
+    owned?: false;
   }
   const cases: Case[] = [];
   for (const [jsx, suffix] of [
@@ -136,7 +138,7 @@ export function test_external_emit_provenance_admits_native_jsx_layouts_without_
       extension: ".tsx",
       suffix: ".js",
       missing: true,
-      admitted: false,
+      owned: false,
     },
   );
   for (const [extension, suffix] of [
@@ -167,7 +169,7 @@ export function test_external_emit_provenance_admits_native_jsx_layouts_without_
       extension: ".tsx",
       suffix: ".js",
       missing: true,
-      admitted: false,
+      owned: false,
     },
   );
   for (const jsx of [
@@ -277,11 +279,11 @@ export function test_external_emit_provenance_admits_native_jsx_layouts_without_
       assert.equal(result.stderr, "fixture diagnostic preserved");
       assert.deepEqual(
         result.emittedSources?.[output],
-        item.admitted !== false && !item.ambiguous
+        item.admitted !== false && !item.ambiguous && item.owned !== false
           ? [fs.realpathSync.native(source)]
           : [],
       );
-      if (item.admitted === false || item.ambiguous)
+      if (item.admitted === false || item.ambiguous || item.owned === false)
         assert.ok(result.emittedSourceProofFailures?.[output]);
       else assert.equal(result.emittedSourceProofFailures, undefined);
     } catch (error) {

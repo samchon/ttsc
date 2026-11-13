@@ -10,7 +10,9 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * files: the descriptor evaluations under `descriptors/`, the capability
  * answers under `capabilities/`, the plugin content identities under
  * `identities/`, the plugin-load answers under `answers/`, and the lowered
- * orphan sources under `ttsx-orphan/`.
+ * orphan sources under `ttsx-orphan/`. The runtime builds under
+ * `runtime-builds/` are files too, except the builds a ttsx run parked in a
+ * `<key>.pending` directory, which age out whole on the same age limit.
  *
  * The policy is the plugin cache's (`CachePrunePolicy`). An entry's last use is
  * its modification time: a write sets it, and every hit records a use by
@@ -63,6 +65,16 @@ export function pruneCacheFileRoot(
     for (const entry of collectEntries(root))
       if (now - entry.lastUsedAt > CachePrunePolicy.ENTRY_MAX_AGE_MS)
         removeEntry(entry.file);
+    // A ttsx runtime build parked in `<key>.pending` is a directory of outputs
+    // that the next run of its build adopts or discards. One whose build is
+    // never requested again, because its key changed, ages out like a file.
+    for (const parked of collectParkedBuilds(root))
+      if (now - parked.lastUsedAt > CachePrunePolicy.ENTRY_MAX_AGE_MS)
+        try {
+          fs.rmSync(parked.file, { force: true, recursive: true });
+        } catch {
+          // A later pass retries.
+        }
     const remaining = collectEntries(root);
     let total = remaining.reduce((sum, entry) => sum + entry.size, 0);
     if (total > maxBytes) {
@@ -118,6 +130,43 @@ function collectEntries(root: string): ICacheFileEntry[] {
       entries.push({ file, lastUsedAt: stats.mtimeMs, size: stats.size });
     } catch {
       // Removed or replaced since the listing: not an entry this pass sees.
+    }
+  }
+  return entries;
+}
+
+/**
+ * Every parked runtime build below a `<key>.pending` directory of `root`, with
+ * its directory's modification time as its last use: parking creates it, and
+ * nothing writes into it afterwards.
+ */
+function collectParkedBuilds(root: string): ICacheFileEntry[] {
+  const entries: ICacheFileEntry[] = [];
+  let containers: fs.Dirent[];
+  try {
+    containers = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return entries;
+  }
+  for (const container of containers) {
+    if (!container.isDirectory() || !container.name.endsWith(".pending"))
+      continue;
+    const directory = path.join(root, container.name);
+    let names: string[];
+    try {
+      names = fs.readdirSync(directory);
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      const file = path.join(directory, name);
+      try {
+        const stats = fs.lstatSync(file);
+        if (stats.isDirectory())
+          entries.push({ file, lastUsedAt: stats.mtimeMs, size: 0 });
+      } catch {
+        // Adopted or discarded since the listing.
+      }
     }
   }
   return entries;
