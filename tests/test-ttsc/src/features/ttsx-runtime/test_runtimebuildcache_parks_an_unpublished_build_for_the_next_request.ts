@@ -19,11 +19,13 @@ import type { TtscBuildResult } from "../../../../../packages/ttsc/src/structure
  * 1. Build under an identity, defer its publication and park it at once.
  * 2. Adopt it, park it again, and adopt it again with the same outputs and job.
  * 3. Finish one adoption's publication into a stored record, then refuse a parked
- *    build whose input moved and a request that does not defer.
+ *    build whose input moved, keep a refused one across a failed build until
+ *    its input returns, and publish in place for a request that does not
+ *    defer.
  *
  * @evidence contracts/testing.md#behavioral-verification The production store runs a real producer and real renames over an owned tree; counts of builds and recordings, the served output text and the store's directory entries show which path each request took.
  * @evidence contracts/testing.md#independent-expectations The authored state number decides what the producer writes and what the replay answers, so the expected texts and counts follow from the scenario rather than from stored keys.
- * @evidence contracts/testing.md#distinguishing-cases A parked build, its adoption, its unchanged re-parking, a finished idle publication, a moved input that discards the parked build, and a non-deferring request that publishes a parked build in place separate each publication path.
+ * @evidence contracts/testing.md#distinguishing-cases A parked build, its adoption, its unchanged re-parking, a finished idle publication, a moved input whose successful rebuild supersedes the parked build, a failed build that keeps a refused parked build serving once its input returns, and a non-deferring request that publishes a parked build in place separate each publication path.
  * @evidence contracts/testing.md#execution-ownership The unit runner discovers this named export and calls the portable store over an owned temporary tree; no compiler or product host runs and finally removes the tree.
  */
 export async function test_runtimebuildcache_parks_an_unpublished_build_for_the_next_request(): Promise<void> {
@@ -34,6 +36,7 @@ export async function test_runtimebuildcache_parks_an_unpublished_build_for_the_
     let builds = 0;
     let recorded = 0;
     let sequence = 0;
+    let failing = false;
     const request = (
       after: "park" | "defer" | "inline",
     ): {
@@ -80,6 +83,13 @@ export async function test_runtimebuildcache_parks_an_unpublished_build_for_the_
               },
         build: (): TtscBuildResult => {
           builds++;
+          if (failing)
+            return {
+              status: 1,
+              diagnostics: [],
+              stdout: "",
+              stderr: "",
+            };
           fs.writeFileSync(output, `built from state ${disk}`);
           return {
             status: 0,
@@ -90,6 +100,10 @@ export async function test_runtimebuildcache_parks_an_unpublished_build_for_the_
           };
         },
       });
+      if (failing) {
+        assert.notEqual(result.status, 0);
+        return { text: "", emitDir };
+      }
       assert.equal(result.status, 0);
       const served = Object.keys(result.emittedSources ?? {})[0]!;
       assert.equal(path.dirname(served), emitDir);
@@ -146,18 +160,31 @@ export async function test_runtimebuildcache_parks_an_unpublished_build_for_the_
     assert.equal(request("park").text, "built from state 1");
     assert.equal(builds, 1, "the stored record serves without building");
 
-    // A parked build whose input moved is discarded and the build runs.
+    // A parked build whose input moved is refused and the build runs; the new
+    // build supersedes it.
     disk = 2;
     assert.equal(request("park").text, "built from state 2");
     assert.equal(builds, 2);
     disk = 3;
     assert.equal(request("park").text, "built from state 3");
     assert.equal(builds, 3);
-    assert.equal(parkedBuilds().length, 1, "the stale parked build is gone");
+    assert.equal(parkedBuilds().length, 1, "the superseded build is gone");
+
+    // A failed build supersedes nothing: the refused parked build stays, and
+    // serves again once its input returns to what it was built from.
+    disk = 4;
+    failing = true;
+    request("park");
+    assert.equal(builds, 4);
+    assert.equal(parkedBuilds().length, 1, "a refused parked build is kept");
+    failing = false;
+    disk = 3;
+    assert.equal(request("park").text, "built from state 3");
+    assert.equal(builds, 4, "the kept parked build serves without building");
 
     // A request that does not defer publishes a parked build in place.
     assert.equal(request("inline").text, "built from state 3");
-    assert.equal(builds, 3);
+    assert.equal(builds, 4);
     assert.deepEqual(parkedBuilds(), []);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

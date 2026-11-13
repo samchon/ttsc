@@ -9,13 +9,15 @@ import path from "node:path";
  * A run that compiled leaves thousands of emitted files, and removing them
  * before the launcher exited held the user's terminal for nine to twenty-six
  * seconds after the program's last line (samchon/ttsc#1859). The directory is
- * instead renamed into the `.trash` of its own parent, the run index or the
- * runtime build store, so the rename never leaves its volume and never copies.
- * The files are deleted by a launcher whose own program is running, a time it
- * otherwise spends waiting, and the deletion stops when that program ends, so
- * it never delays an exit either.
+ * instead renamed into the `.trash` of the cache directory that holds it: the
+ * runtime root, beside its run index, so the index lists only runs that may
+ * still be live, or the runtime build store. The rename stays within that
+ * directory tree and never copies; one that would cross a volume fails, and the
+ * caller removes the directory as before. The files are deleted by a launcher
+ * whose own program is running, a time it otherwise spends waiting, and the
+ * deletion stops when that program ends, so it never delays an exit either.
  *
- * @evidence contracts/common.md#principled-implementation A same-directory rename is an atomic metadata change on every supported filesystem, so a retired tree leaves the run index at once; deletion is ordinary unlinking of a tree no run owns any more.
+ * @evidence contracts/common.md#principled-implementation A rename within one volume is an atomic metadata change on every supported filesystem, so a retired tree leaves the run index or the store at once; deletion is ordinary unlinking of a tree no run owns any more.
  * @evidence contracts/common.md#clear-and-simple-design One namespace owns the trash location, retirement and draining; callers keep their ownership decisions and call retire where they used to remove.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A rename that fails returns false, and the caller keeps its previous removal; nothing is left unowned and undeletable.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the measured cost this replaces, where the trash lives, who deletes it and when deletion stops.
@@ -26,21 +28,20 @@ import path from "node:path";
  */
 export namespace RuntimeTrash {
   /**
-   * Name of the trash directory inside a run index. Run directories are named
-   * by run keys, which never start with a dot, and the trash holds no owner
-   * record, so run sweeping never selects it.
+   * Name of the trash directory inside the runtime root or the runtime build
+   * store. Neither holds anything else under a name starting with a dot.
    */
   export const DIRNAME = ".trash";
 
   /**
    * Move `directory` into the trash of `parent`.
    *
-   * @param directory A run directory, or a tree below it, that no process owns
+   * @param directory A run directory, or a parked build, that no process owns
    *   any more.
-   * @param parent The physical directory holding `directory`, the run index or
-   *   the runtime build store.
+   * @param parent The cache directory that holds `directory`: the runtime root
+   *   for a run, or the runtime build store for a parked build.
    * @returns Whether the directory was moved; false leaves it in place.
-   * @evidence contracts/common.md#principled-implementation The trash is a child of the same parent, so the rename stays on one volume and in one directory tree.
+   * @evidence contracts/common.md#principled-implementation The trash is a child of the cache directory that holds the retired tree, so the rename stays in one directory tree; a rename across volumes fails and is reported.
    * @evidence contracts/common.md#clear-and-simple-design One rename and a unique name; the caller decides what may be retired.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A refused rename, such as a file a lingering process holds open on Windows, is reported to the caller instead of being retried or forced.
    * @evidence contracts/common.md#meaningful-documentation Parameters state the ownership premise and the result's meaning.

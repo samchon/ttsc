@@ -604,93 +604,119 @@ export namespace RuntimeBuildCache {
         },
       });
     };
+    /** Remove one parked build by a rename into the store's trash. */
+    const discard = (parked: string): void => {
+      if (fs.existsSync(parked) && !RuntimeTrash.retire(parked, directory))
+        try {
+          fs.rmSync(parked, { force: true, recursive: true });
+        } catch {
+          /* Collection owns what cannot be removed now. */
+        }
+    };
+    /** The parked builds of this request, newest first. */
+    const parkedBuilds = (): string[] => {
+      try {
+        return fs
+          .readdirSync(parkedRoot)
+          .sort()
+          .reverse()
+          .map((name) => path.join(parkedRoot, name));
+      } catch {
+        return [];
+      }
+    };
     // A parked build of this request is proven now, when it is needed. A
     // caller that runs the program takes its outputs by one rename, as a fresh
     // build would have left them, and stores or parks them again; another
     // caller publishes it. Both cost less than compiling again. A parked build
-    // whose inputs have moved since is refused like any other and discarded.
+    // whose inputs have moved since is refused like any other and kept, as a
+    // refused record is, since its inputs can return to what it was built
+    // from; one older than a build this request adopted or built since goes.
     if (props.recordParked !== undefined) {
-      let names: string[] = [];
-      try {
-        names = fs.readdirSync(parkedRoot).sort().reverse();
-      } catch {
-        /* Nothing is parked. */
-      }
       let adopted: TtscBuildResult | undefined;
       let carried: { directory: string; job?: unknown } | undefined;
       let published = false;
-      for (const name of names) {
-        const parked = path.join(parkedRoot, name);
-        if (adopted === undefined && !published)
+      for (const parked of parkedBuilds()) {
+        if (adopted !== undefined || published) {
+          discard(parked);
+          continue;
+        }
+        const job = (() => {
           try {
-            const job = JSON.parse(
+            return JSON.parse(
               fs.readFileSync(path.join(parked, "job.json"), "utf8"),
             );
-            if (
-              job.format === PARKED_FORMAT &&
-              job[proof.field] === proof.value &&
-              typeof job.emitDir === "string" &&
-              path.isAbsolute(job.emitDir) &&
-              job.result?.status === 0
-            ) {
-              const outputs = path.join(parked, "outputs");
-              if (props.defer === undefined)
-                published = finish(
-                  publication(job.result, job.emitDir, outputs, (result) =>
-                    lift(
-                      job.recorded === true
-                        ? result
-                        : props.recordParked!(result, job.state),
-                    ),
-                  ),
-                );
-              else {
-                const result: TtscBuildResult =
+          } catch {
+            return undefined;
+          }
+        })();
+        if (
+          job?.format !== PARKED_FORMAT ||
+          job[proof.field] !== proof.value ||
+          typeof job.emitDir !== "string" ||
+          !path.isAbsolute(job.emitDir) ||
+          job.result?.status !== 0
+        ) {
+          // Torn, or left by a format or request this one cannot prove. A
+          // directory still being parked has no job yet; its parker reports
+          // the failure, and only its own build is lost.
+          discard(parked);
+          continue;
+        }
+        try {
+          const outputs = path.join(parked, "outputs");
+          if (props.defer === undefined) {
+            published = finish(
+              publication(job.result, job.emitDir, outputs, (result) =>
+                lift(
                   job.recorded === true
-                    ? job.result
-                    : props.recordParked(job.result, job.state);
-                const refused = proof.restores(result, job.emitDir);
-                if (refused !== undefined)
-                  report(
-                    "miss",
-                    "parked-input-proof-failed",
-                    key,
-                    undefined,
-                    undefined,
-                    refused,
-                  );
-                else {
-                  // The run's output directory is empty until a build fills
-                  // it. The parked directory moves into the run whole, its
-                  // outputs take the output directory's place, and parking
-                  // again moves both back without rewriting the job, unless
-                  // this adoption recorded the observations it lacked.
-                  const directory = `${props.emitDir}.parked`;
-                  fs.rmdirSync(props.emitDir);
-                  fs.renameSync(parked, directory);
-                  fs.renameSync(path.join(directory, "outputs"), props.emitDir);
-                  carried = {
-                    directory,
-                    job:
-                      job.recorded === true
-                        ? undefined
-                        : { ...job, result, recorded: true, state: undefined },
-                  };
-                  adopted = relocate(result, job.emitDir, props.emitDir);
-                  report("reused", "parked", key);
-                }
-              }
-            }
-          } catch {
-            /* A torn or concurrently taken parked build is discarded. */
-            fs.mkdirSync(props.emitDir, { recursive: true });
+                    ? result
+                    : props.recordParked!(result, job.state),
+                ),
+              ),
+            );
+            // Its outputs now live in the stored record.
+            if (published) discard(parked);
+            continue;
           }
-        if (fs.existsSync(parked) && !RuntimeTrash.retire(parked, directory))
-          try {
-            fs.rmSync(parked, { force: true, recursive: true });
-          } catch {
-            /* Collection owns what cannot be removed now. */
+          const result: TtscBuildResult =
+            job.recorded === true
+              ? job.result
+              : props.recordParked(job.result, job.state);
+          const refused = proof.restores(result, job.emitDir);
+          if (refused !== undefined) {
+            report(
+              "miss",
+              "parked-input-proof-failed",
+              key,
+              undefined,
+              undefined,
+              refused,
+            );
+            continue;
           }
+          // The run's output directory is empty until a build fills it. The
+          // parked directory moves into the run whole, its outputs take the
+          // output directory's place, and parking again moves both back
+          // without rewriting the job, unless this adoption recorded the
+          // observations it lacked.
+          const moved = `${props.emitDir}.parked`;
+          fs.rmdirSync(props.emitDir);
+          fs.renameSync(parked, moved);
+          fs.renameSync(path.join(moved, "outputs"), props.emitDir);
+          carried = {
+            directory: moved,
+            job:
+              job.recorded === true
+                ? undefined
+                : { ...job, result, recorded: true, state: undefined },
+          };
+          adopted = relocate(result, job.emitDir, props.emitDir);
+          report("reused", "parked", key);
+        } catch {
+          /* Taken by a concurrent run, or unreadable: this run builds. */
+          fs.mkdirSync(props.emitDir, { recursive: true });
+        }
       }
       if (adopted !== undefined) {
         defer(adopted, lift, undefined, true, carried);
@@ -706,6 +732,9 @@ export namespace RuntimeBuildCache {
       report("not-recorded", "producer-failed", key);
       return result;
     }
+    // This build supersedes every parked build of the request, as its record
+    // replaces the stored one.
+    for (const parked of parkedBuilds()) discard(parked);
     const record =
       props.recordSteps ??
       ((fresh: TtscBuildResult) => lift(props.record?.(fresh) ?? fresh));

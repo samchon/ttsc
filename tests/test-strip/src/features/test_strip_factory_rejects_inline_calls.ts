@@ -66,7 +66,7 @@ export function test_strip_factory_rejects_inline_calls(): void {
         },
       }),
       {
-        capabilities: { emitProvenance: true },
+        capabilities: { emitProvenance: true, environmentInputs: true },
         hostInputHashes: { [config]: null },
         hostInputRealpaths: { [config]: null },
         hostInputs: [config],

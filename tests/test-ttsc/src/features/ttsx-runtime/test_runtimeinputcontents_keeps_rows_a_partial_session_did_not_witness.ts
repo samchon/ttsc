@@ -34,6 +34,9 @@ export function test_runtimeinputcontents_keeps_rows_a_partial_session_did_not_w
     for (const file of files) fs.writeFileSync(file, `// ${file}\n`);
     const subject = path.join(root, "tsconfig.json");
     const open = () => {
+      // A row is kept only for a file whose stamps end before the store's
+      // clock reference, so the clock first leaves the tick of the last write.
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 60);
       const store = PluginContentIdentities.open({
         projectRoot: root,
         cacheDir: path.join(root, "cache"),

@@ -47,17 +47,13 @@ export function claimRuntimeProjectDirectory(
     fs.mkdirSync(directory, { recursive: true });
     const runsDir = fs.realpathSync.native(directory);
     const processDir = path.join(runsDir, runKey);
-    // An abandoned run is retired by one rename and deleted while this run's
-    // program executes, not before it starts (samchon/ttsc#1859).
-    ProcessOwnedDirectory.sweep(
-      runsDir,
-      (name) => name !== RuntimeTrash.DIRNAME,
-      false,
-      (directory, parent) => {
-        if (!RuntimeTrash.retire(directory, parent))
-          fs.rmSync(directory, { force: true, recursive: true });
-      },
-    );
+    // An abandoned run is retired by one rename into the runtime root's trash,
+    // outside the run index, and deleted while this run's program executes,
+    // not before it starts (samchon/ttsc#1859).
+    ProcessOwnedDirectory.sweep(runsDir, undefined, false, (abandoned) => {
+      if (!RuntimeTrash.retire(abandoned, runtimeRoot))
+        fs.rmSync(abandoned, { force: true, recursive: true });
+    });
     fs.rmSync(processDir, { recursive: true, force: true });
     ProcessOwnedDirectory.claim(processDir);
     return processDir;

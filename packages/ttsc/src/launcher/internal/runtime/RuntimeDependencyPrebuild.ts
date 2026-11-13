@@ -16,10 +16,15 @@ import { E2ETrace } from "../../../internal/E2ETrace";
  * is known after its first run: every process of the run notes each dependency
  * project it served in the run directory, and the launcher keeps that list in
  * the runtime build store, keyed by the entry project and its plugin policy.
- * The next run starts one worker process per listed project, up to four, as
- * soon as its run directory exists; each builds or adopts its project through
+ * The next run starts up to four worker processes for the listed projects as
+ * soon as its run directory exists; each builds or adopts its projects through
  * the same per-run dependency cache, lock and store as the program, which then
- * finds it ready or waits for the worker holding its lock.
+ * finds each ready or waits for the worker holding its lock. Starting them only
+ * after the entry build was measured to double the cost of a run whose edit
+ * reached both the entry and a dependency. A worker's cache decisions are
+ * speculative, so it reports them apart from the program's own
+ * (`RuntimeBuildExplanation.speculative`), and a run whose entry build fails
+ * stops its workers.
  *
  * No worker starts when `NODE_OPTIONS` selects an inspector, since a worker
  * runs under the program's options and would open, or wait for, a debugger of
@@ -112,7 +117,7 @@ export namespace RuntimeDependencyPrebuild {
 
   /**
    * Start building the projects the last run of this entry served, or return a
-   * no-op when none is recorded.
+   * no-op when none is recorded. Called before the entry project builds.
    *
    * @param props.runDir The run directory, which holds the run's dependency
    *   cache.

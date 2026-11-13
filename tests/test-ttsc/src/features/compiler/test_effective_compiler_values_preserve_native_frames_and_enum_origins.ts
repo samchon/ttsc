@@ -119,6 +119,10 @@ export function test_effective_compiler_values_preserve_native_frames_and_enum_o
             "false",
             "--emitDeclarationOnly",
             "false",
+            "--declaration",
+            "false",
+            "--declarationMap",
+            "false",
           ]);
         });
       observe(`runtime target ${code}/${side}`, () => {
@@ -130,6 +134,10 @@ export function test_effective_compiler_values_preserve_native_frames_and_enum_o
           "--noEmit",
           "false",
           "--emitDeclarationOnly",
+          "false",
+          "--declaration",
+          "false",
+          "--declarationMap",
           "false",
         ]);
       });
@@ -164,6 +172,10 @@ export function test_effective_compiler_values_preserve_native_frames_and_enum_o
         "--noEmit",
         "false",
         "--emitDeclarationOnly",
+        "false",
+        "--declaration",
+        "false",
+        "--declarationMap",
         "false",
       ]);
     });

@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { EmitOwnershipIndex } from "../../../compiler/internal/EmitOwnershipIndex";
 import { RuntimeBuildCache } from "../../../compiler/internal/build/RuntimeBuildCache";
+import { RuntimeBuildExplanation } from "../../../compiler/internal/build/RuntimeBuildExplanation";
 import { privateRuntimeRootDir } from "../../../compiler/internal/build/privateRuntimeRootDir";
 import { runBuild } from "../../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
@@ -168,6 +169,7 @@ export namespace installRuntimeHooks {
    */
   export function prebuild(tsconfig: string): void {
     prebuilding = true;
+    RuntimeBuildExplanation.speculative();
     ensureProjectBuilt(tsconfig);
   }
 }

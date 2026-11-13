@@ -735,7 +735,7 @@ function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
   try {
     withRuntimeDirectoryLock(runtimeCacheDir, () => {
       ProcessOwnedDirectory.relinquish(directory);
-      if (!RuntimeTrash.retire(directory, path.dirname(directory)))
+      if (!RuntimeTrash.retire(directory, runtimeCacheDir))
         fs.rmSync(directory, { recursive: true, force: true });
     });
   } catch {

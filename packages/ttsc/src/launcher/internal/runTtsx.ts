@@ -110,7 +110,8 @@ async function run(
   }
 
   // Dependency projects the last run of this entry served are built beside
-  // the entry project (samchon/ttsc#1859), and this run's list replaces it.
+  // the entry project, instead of one after another as the program first
+  // imports each (samchon/ttsc#1859), and this run's list replaces the last.
   const dependencies: {
     stop: () => Promise<void>;
     remember?: () => void;
@@ -433,7 +434,7 @@ async function runPreparedEntry(
       runDir: execution.cleanupDir,
       cacheDir: execution.runtimeCacheDir,
     });
-    const drains = [execution.runtimeRunsDir, execution.runtimeBuildCacheDir]
+    const drains = [execution.runtimeCacheDir, execution.runtimeBuildCacheDir]
       .filter((parent): parent is string => parent !== undefined)
       .map((parent) => RuntimeTrash.drain(parent));
     stopDrain = () => drains.forEach((stop) => stop());
@@ -649,7 +650,7 @@ function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
         // Retired by one rename, its files are deleted while a later run's
         // program executes, instead of holding this exit (samchon/ttsc#1859).
         RuntimeEmitBundle.release();
-        if (!RuntimeTrash.retire(directory, path.dirname(directory)))
+        if (!RuntimeTrash.retire(directory, runtimeCacheDir))
           fs.rmSync(directory, { force: true, recursive: true });
         observe?.("removed", ownership);
       } else {

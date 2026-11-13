@@ -28,7 +28,7 @@ import {
  * 3. Run `ttsx src/index.ts` and require the stub's output, not the source.
  * 4. On POSIX remove the stub's executable bits and run `ttsc --version`.
  *
- * @evidence contracts/testing.md#behavioral-verification Four real launcher requests against one scripted compiler require exactly one invocation with --noEmit and no --noEmitOnError and no output for a noEmit project; exactly one invocation with --noEmitOnError and dist/main.js for an emit; ttsx output consumer-local-tsgo with --outDir, --showConfig and --listFilesOnly true in the log; and on POSIX the NONEXEC banner with repaired executable bits.
+ * @evidence contracts/testing.md#behavioral-verification Four real launcher requests against one scripted compiler require exactly one invocation with --noEmit and no --noEmitOnError and no output for a noEmit project; exactly one invocation with --noEmitOnError and dist/main.js for an emit; ttsx output consumer-local-tsgo with --outDir, --showConfig and one emitting invocation that also lists files and traces resolution, with no --listFilesOnly invocation, in the log; and on POSIX the NONEXEC banner with repaired executable bits.
  * @evidence contracts/testing.md#independent-expectations Argument literals defined by the launcher protocol and authored stub output strings (single-pass, consumer-local-tsgo, NONEXEC) are the oracles; the source prints source-should-not-run so executing the original source cannot satisfy the ttsx request.
  * @evidence contracts/testing.md#distinguishing-cases The noEmit and emitting configurations differ only in the compiler option, so the same stub distinguishes the guard flag from its absence; the ttsx request distinguishes stub output from source output; the version request distinguishes a repaired from an unrepaired binary.
  * @evidence contracts/testing.md#execution-ownership This named E2E entry owns three universal requests and the existing POSIX-only fourth request. Reset recorder rows count scripted target invocations, not launcher/Go-wrapper/Node/descendant totals. Named failures are collected; this local package fixture is not packed installation or a real TypeScript semantic compiler.
@@ -186,7 +186,13 @@ ${provenanceRecorder ? "}" : ""}
         .join("\n");
       assert.match(text, /--outDir/);
       assert.match(text, /--showConfig/);
-      assert.match(text, /--listFilesOnly true/);
+      // The emitting run lists its files and traces its own resolution; no
+      // second compiler run asks for them (samchon/ttsc#1859).
+      assert.match(
+        text,
+        /--listFiles true --listEmittedFiles true --traceResolution true/,
+      );
+      assert.doesNotMatch(text, /--listFilesOnly/);
     },
   );
 

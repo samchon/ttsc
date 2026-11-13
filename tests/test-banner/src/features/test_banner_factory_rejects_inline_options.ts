@@ -82,7 +82,7 @@ export function test_banner_factory_rejects_inline_options(): void {
     };
     const config = path.join(root, "banner.config.json");
     assert.deepEqual(factory({ ...context, plugin }), {
-      capabilities: { emitProvenance: true },
+      capabilities: { emitProvenance: true, environmentInputs: true },
       hostInputHashes: { [config]: null },
       hostInputRealpaths: { [config]: null },
       hostInputs: [config],

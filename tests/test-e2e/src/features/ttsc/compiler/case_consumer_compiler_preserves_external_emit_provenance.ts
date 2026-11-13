@@ -14,7 +14,7 @@ import { TestProject } from "../../../../../utils/src/TestProject";
  * It is not activated until the instrumented legacy baseline has been
  * measured.
  *
- * @evidence contracts/testing.md#behavioral-verification Imports the actual built CJS adapter and spawn owner; readonly probes and the one emitting callback execute the same immutable recorder. Each row checks actual emit-log count, original argv/prefix/list admission, status7, literal stderr, physical singleton-or-empty ownership and refusal presence.
+ * @evidence contracts/testing.md#behavioral-verification Imports the actual built CJS adapter and spawn owner; readonly probes and the one emitting callback execute the same immutable recorder. Each row checks actual emit-log count, original argv/prefix/list admission (a missing source is requested and refused by the emitting run's own listing), status7, literal stderr, physical singleton-or-empty ownership and refusal presence.
  * @evidence contracts/testing.md#independent-expectations Authored profiles preserve canonical JSX suffixes, unsupported structures, missing/ambiguous contributors and exact original item names. Native realpath supplies physical identity; fixture status and diagnostic are literal independent inputs.
  * @evidence contracts/testing.md#distinguishing-cases All41 original profiles remain separate, including response-frame argv, last overrides, both JSX source types and six non-JSX extensions. A nonzero normal exit cannot masquerade as build success.
  * @evidence contracts/testing.md#execution-ownership This exported case owns the adapter and actual process callback. Its caller owns prepared root/recorder and activation; a body alone is not discovery or executed coverage. Per-row failures retain item.name and are aggregated after all rows.
@@ -121,9 +121,12 @@ export function case_consumer_compiler_preserves_external_emit_provenance(
         assert.deepEqual(writes[0]!.args, writerArgs);
         assert.deepEqual(args, original);
         assert.deepEqual(writerArgs!.slice(0, original.length), original);
+        // A missing source is found by the emitting run's own listing, not by
+        // a listing run before it (samchon/ttsc#1859), so the request is made
+        // and the ownership below refuses it.
         assert.equal(
           writerArgs!.includes("--listEmittedFiles"),
-          item.admitted !== false,
+          item.admitted !== false || item.missing === true,
         );
         assert.equal(result.status, 7);
         assert.equal(result.stderr, "fixture diagnostic preserved");

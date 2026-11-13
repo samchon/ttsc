@@ -69,11 +69,6 @@ export function resolveRuntimeCleanTargets(cacheRoot: string): {
   const removable: string[] = [];
   for (const entry of entries) {
     const directory = path.join(physicalRuns, entry);
-    // Retired runs belong to no process; their trash is always removable.
-    if (entry === RuntimeTrash.DIRNAME) {
-      removable.push(directory);
-      continue;
-    }
     const observe = E2ETrace.runtimeCleanup(
       directory,
       runtime,
@@ -102,6 +97,10 @@ export function resolveRuntimeCleanTargets(cacheRoot: string): {
       ownership,
     );
   }
+  // Retired runs belong to no process; their trash beside the run index is
+  // always removable, even while a live run keeps the runtime tree.
+  const trash = path.join(runtime, RuntimeTrash.DIRNAME);
+  if (kept.length !== 0 && fs.existsSync(trash)) removable.push(trash);
   return {
     kept,
     // Remove pinned external run targets before removing a runtime link. A
