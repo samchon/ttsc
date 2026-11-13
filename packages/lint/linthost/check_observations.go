@@ -212,7 +212,8 @@ func (p *program) writeCheckObservations(name string) (resultErr error) {
     HostInputHashes      map[string]*string `json:"hostInputHashes"`
     HostInputRealpaths   map[string]*string `json:"hostInputRealpaths"`
     ObservationsComplete *bool              `json:"observationsComplete,omitempty"`
-  }{graph, inputs, hashes, physicals, unavailable})
+    EnvironmentInputs    map[string]*string `json:"environmentInputs,omitempty"`
+  }{graph, inputs, hashes, physicals, unavailable, lintEnvironmentInputs()})
   if err != nil {
     return err
   }

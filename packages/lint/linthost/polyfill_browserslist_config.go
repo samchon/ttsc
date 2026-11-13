@@ -42,10 +42,10 @@ var browserslistCommentPattern = regexp.MustCompile(`#[^\n]*`)
 // path. `found` reports a JS-truthy config (an empty query array is still
 // truthy, and resolves to an empty browser list).
 func browserslistLoadConfig(opts browserslistOpts) (queries []string, found bool, err error) {
-  if value := os.Getenv("BROWSERSLIST"); value != "" {
+  if value := lintGetenv("BROWSERSLIST"); value != "" {
     return []string{value}, true, nil
   }
-  if file := os.Getenv("BROWSERSLIST_CONFIG"); file != "" {
+  if file := lintGetenv("BROWSERSLIST_CONFIG"); file != "" {
     config, parseErr := browserslistParsePackageOrReadConfig(file)
     if parseErr != nil {
       return nil, false, parseErr
@@ -75,10 +75,10 @@ func browserslistPickEnv(config *browserslistPackageConfig, opts browserslistOpt
   }
   name := opts.env
   if name == "" {
-    name = os.Getenv("BROWSERSLIST_ENV")
+    name = lintGetenv("BROWSERSLIST_ENV")
   }
   if name == "" {
-    name = os.Getenv("NODE_ENV")
+    name = lintGetenv("NODE_ENV")
   }
   if name == "" {
     name = "production"
@@ -298,7 +298,7 @@ func browserslistIsDirectory(path string) bool {
 // browserslistPathInRoot mirrors pathInRoot: BROWSERSLIST_ROOT_PATH bounds
 // upward walks.
 func browserslistPathInRoot(p string) bool {
-  root := os.Getenv("BROWSERSLIST_ROOT_PATH")
+  root := lintGetenv("BROWSERSLIST_ROOT_PATH")
   if root == "" {
     return true
   }
@@ -404,7 +404,7 @@ func browserslistFindConfig(from string) (*browserslistPackageConfig, error) {
 // null usage values are tracked separately because they skip percentage
 // filters yet still occupy coverage slots.
 func browserslistGetStat(opts browserslistOpts) (map[string]float64, []string, map[string]bool, error) {
-  statsPath := os.Getenv("BROWSERSLIST_STATS")
+  statsPath := lintGetenv("BROWSERSLIST_STATS")
   if statsPath == "" && opts.path != "" {
     found, err := browserslistEachParent(opts.path, func(dir string) (string, bool, error) {
       candidate := filepath.Join(dir, "browserslist-stats.json")
