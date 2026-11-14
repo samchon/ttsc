@@ -1,4 +1,4 @@
-import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
+import type { TtscBunLoaderOptions } from "./TtscBunLoaderOptions";
 
 /**
  * Options accepted by `bun`, either resolved eagerly or supplied through a
@@ -37,5 +37,5 @@ import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
  *   this union acquires no resource or historical state itself.
  */
 export type TtscBunOptions =
-  | TtscUnpluginOptions
-  | (() => TtscUnpluginOptions | undefined);
+  | TtscBunLoaderOptions
+  | (() => TtscBunLoaderOptions | undefined);

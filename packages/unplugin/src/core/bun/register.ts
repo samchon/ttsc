@@ -1,7 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
 
-import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
+import type { TtscBunLoaderOptions } from "./TtscBunLoaderOptions";
 import { bunRuntime } from "./bunRuntime";
+import { createBunFilter } from "./createBunFilter";
 import { ensureRegistered } from "./ensureRegistered";
 import { registrationState } from "./registrationState";
 
@@ -25,12 +26,20 @@ import { registrationState } from "./registrationState";
  * are idempotent; a different value throws rather than pretending a resolved
  * loader changed configuration.
  *
+ * The `filter` option selects the project modules ttsc transforms and is
+ * described by `TtscBunLoaderOptions`. It is an ordinary option for snapshots,
+ * so a later call with an equal filter is idempotent. The first TypeScript
+ * module outside `node_modules` locks the snapshot whether or not the filter
+ * selects it.
+ *
  * @throws When called explicitly off the Bun runtime, when options are not
- *   structured-cloneable, or when a different option value is supplied after
- *   the first load. The import-time registration of the entry stays silent off
- *   Bun so the module is harmless to import from Node (tests, tooling).
+ *   structured-cloneable, when `filter` holds a value that is not a RegExp, or
+ *   when a different option value is supplied after the first load. The
+ *   import-time registration of the entry stays silent off Bun so the module is
+ *   harmless to import from Node (tests, tooling).
  * @evidence contracts/common.md#principled-implementation
- *   Structured cloning captures option values before installation. Before first
+ *   Structured cloning captures option values before installation, including
+ *   each filter pattern with its match position reset. Before first
  *   load the pending snapshot is replaceable; afterward deep equality permits
  *   only idempotent calls, matching the immutable runtime module session.
  * @evidence contracts/common.md#clear-and-simple-design
@@ -46,7 +55,8 @@ import { registrationState } from "./registrationState";
  *   Performs no filesystem, path or process operation of its own.
  * @evidence contracts/performance.md#efficient-algorithms
  *   structuredClone follows the supplied option graph and allocates its detached
- *   snapshot; a locked call additionally pays deep-comparison cost even when
+ *   snapshot; filter validation copies its P patterns once and discards them.
+ *   A locked call additionally pays deep-comparison cost even when
  *   idempotent. First installation delegates plugin construction/setup to
  *   ensureRegistered and the host. Fixed entry-point branches do not erase these costs.
  * @evidence contracts/performance.md#reuse-equivalent-work
@@ -59,7 +69,7 @@ import { registrationState } from "./registrationState";
  *   the loader's setup cache for the runtime session; no teardown or fixed option
  *   byte bound is provided here. Rejected snapshot/deep-compare values are local.
  */
-export function register(options?: TtscUnpluginOptions): void {
+export function register(options?: TtscBunLoaderOptions): void {
   const runtime = bunRuntime();
   if (runtime === undefined) {
     throw new Error(
@@ -70,6 +80,9 @@ export function register(options?: TtscUnpluginOptions): void {
   }
   const state = registrationState(runtime);
   const snapshot = snapshotOptions(options);
+  // Report an invalid filter to the call that supplied it, not to the first
+  // module load that happens to resolve the options.
+  createBunFilter(snapshot?.filter);
   if (state.optionsLocked) {
     if (isDeepStrictEqual(snapshot, state.lockedOptions)) {
       return;
@@ -86,8 +99,8 @@ export function register(options?: TtscUnpluginOptions): void {
 
 /** Detach JSON-shaped options from mutations made after `register` returns. */
 function snapshotOptions(
-  options: TtscUnpluginOptions | undefined,
-): TtscUnpluginOptions | undefined {
+  options: TtscBunLoaderOptions | undefined,
+): TtscBunLoaderOptions | undefined {
   if (options === undefined) return undefined;
   try {
     return structuredClone(options);

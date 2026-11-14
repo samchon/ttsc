@@ -201,6 +201,17 @@ register({ project: "tsconfig.build.json" });
 
 Importing the module registers it, so a bare `import "@ttsc/unplugin/bun-register"` is enough when the defaults are right. CommonJS and ESM loads in the same Bun process share that one registration. Calls made before the first transformable TypeScript load use last-call-wins and capture their options by value, which lets an immediate explicit call replace the preload defaults without installing a second loader. Entering the first such load locks the options synchronously for the module-loading session. A later call with the same structural value is idempotent, while a different value throws and requires restarting the Bun process.
 
+By default, `ttsc` transforms every TypeScript module that Bun loads, except those in `node_modules`. To transform only some of them, pass `filter`, a `RegExp` or an array of `RegExp`. A module is transformed when any pattern matches its absolute path, and every other module loads as Bun would load it without `ttsc`:
+
+```ts
+import register from "@ttsc/unplugin/bun-register";
+
+// Transform only the modules in a src/validators directory.
+register({ filter: /\/src\/validators\// });
+```
+
+`ttsc({ filter })` takes the same option under `Bun.build`. The [bundler guide](https://ttsc.dev/docs/setup/unplugin/#select-modules-with-filter) covers how a path is matched and when `filter` can no longer change.
+
 Under `Bun.build`, the adapter yields to the next loader for declarations, `node_modules`, source that `ttsc` leaves unchanged, and entries supplied through `Bun.build({ files })`. In-memory entries remain with Bun because ttsc transforms filesystem-backed project inputs. Bun's runtime `onLoad` contract does not accept an undefined result, so `Bun.plugin()` explicitly passes excluded and unchanged filesystem files through with their original source. Each `Bun.build` opens a delivery pass through `onStart`, then `onEnd` disposes the completed project generation and its filesystem trackers. The runtime API has neither lifecycle hook, so one setup is treated as one immutable module-loading session: restart the Bun process after changing source, tsconfig, or plugin inputs.
 
 ## Configuration

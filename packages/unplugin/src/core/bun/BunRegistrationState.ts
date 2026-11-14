@@ -1,4 +1,4 @@
-import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
+import type { TtscBunLoaderOptions } from "./TtscBunLoaderOptions";
 
 /**
  * The single runtime loader's registration and option lifecycle for one Bun
@@ -8,6 +8,9 @@ import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
  * first included transformable disk load; that entry locks the pending snapshot
  * for this state's runtime session. Host-owned memory files are passed over
  * before locking options.
+ *
+ * The `filter` option is part of the snapshot, so a project module the filter
+ * skips still locks the options when it is the first one loaded.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Pending and locked snapshots distinguish pre-load replacement from the
@@ -39,10 +42,10 @@ import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
  */
 export interface BunRegistrationState {
   /** Options the next lock takes, detached from the caller's object. */
-  activeOptions: TtscUnpluginOptions | undefined;
+  activeOptions: TtscBunLoaderOptions | undefined;
 
   /** Options the loader resolved with, once `optionsLocked` holds. */
-  lockedOptions: TtscUnpluginOptions | undefined;
+  lockedOptions: TtscBunLoaderOptions | undefined;
 
   /** Whether a load has started, which fixes `lockedOptions` for good. */
   optionsLocked: boolean;

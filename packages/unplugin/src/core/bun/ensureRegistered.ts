@@ -1,6 +1,6 @@
-import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
 import type { BunRegistrationState } from "./BunRegistrationState";
 import type { BunRuntimeGlobal } from "./BunRuntimeGlobal";
+import type { TtscBunLoaderOptions } from "./TtscBunLoaderOptions";
 import { bun } from "./bun";
 
 /**
@@ -60,7 +60,7 @@ export function ensureRegistered(
 /** Lock and return the detached option snapshot at first load-handler entry. */
 function lockOptions(
   state: BunRegistrationState,
-): TtscUnpluginOptions | undefined {
+): TtscBunLoaderOptions | undefined {
   if (!state.optionsLocked) {
     state.lockedOptions = state.activeOptions;
     state.optionsLocked = true;

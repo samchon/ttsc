@@ -3,6 +3,7 @@ import { ensureRegistered } from "./core/bun/ensureRegistered";
 import { registrationState } from "./core/bun/registrationState";
 
 export { register, register as default } from "./core/bun/register";
+export type { TtscBunLoaderOptions } from "./core/bun/TtscBunLoaderOptions";
 
 // Auto-register on import so a `bunfig.toml` `preload` entry — which only
 // imports the module — takes effect. The side effect lives in this entry, not
