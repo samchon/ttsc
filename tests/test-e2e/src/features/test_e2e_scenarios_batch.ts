@@ -67,6 +67,7 @@ import { test_ttsc_utility_plugins_paths_side_loads_into_driver_host } from "./t
 import { test_ttsc_descriptor_input_report_preserves_order_and_failure } from "./ttsc/native-plugins/utility/test_ttsc_descriptor_input_report_preserves_order_and_failure";
 import { test_ttsc_lint_config_evaluator_keeps_bootstrap_out_of_the_parent_descriptor_channel } from "./ttsc/native-plugins/utility/test_ttsc_lint_config_evaluator_keeps_bootstrap_out_of_the_parent_descriptor_channel";
 import { test_ttsc_lint_descriptor_tracks_external_discovery_candidates } from "./ttsc/native-plugins/utility/test_ttsc_lint_descriptor_tracks_external_discovery_candidates";
+import { test_ttsc_transform_host_failure_reports_its_own_program_once } from "./ttsc/native-plugins/utility/test_ttsc_transform_host_failure_reports_its_own_program_once";
 import { test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build } from "./ttsc/native-plugins/utility/test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build";
 import { test_loadprojectplugins_reports_the_directories_its_plugin_builds_key_on } from "./ttsc/project/test_loadprojectplugins_reports_the_directories_its_plugin_builds_key_on";
 import { test_loadprojectplugins_selected_record_root_contains_parent_descriptor_scratch } from "./ttsc/project/test_loadprojectplugins_selected_record_root_contains_parent_descriptor_scratch";
@@ -563,6 +564,10 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
   [
     "test_ttsc_descriptor_input_report_preserves_order_and_failure",
     test_ttsc_descriptor_input_report_preserves_order_and_failure,
+  ],
+  [
+    "test_ttsc_transform_host_failure_reports_its_own_program_once",
+    test_ttsc_transform_host_failure_reports_its_own_program_once,
   ],
   [
     "test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build",

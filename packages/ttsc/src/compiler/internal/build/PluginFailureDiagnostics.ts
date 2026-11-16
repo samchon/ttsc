@@ -42,6 +42,32 @@ export namespace PluginFailureDiagnostics {
   }
 
   /**
+   * Whether a failed transform host already reported the diagnostics of its
+   * Program. A transform host's `build` runs the project's diagnostics before
+   * it writes outputs, which is why a successful shared-host build has no
+   * separate TypeScript check. A host that printed an error diagnostic got that
+   * far, so the independent check could only add reports about another Program:
+   * a plain `tsgo --noEmit` loads no linked plugin and reads each referenced
+   * project's declaration outputs where the host read its sources. A host that
+   * printed no error diagnostic (a Go panic, a launch or load failure written
+   * as plain text) keeps the independent check.
+   *
+   * @evidence contracts/common.md#principled-implementation Only the failed host's own parsed error reports decide; check-stage results, warnings and unparsed process failures never suppress the independent check.
+   * @evidence contracts/common.md#clear-and-simple-design One predicate states when the build's own Program already answered, beside the mode gate it complements.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No diagnostic code, plugin name or message text is inspected; the decision rests on the host's reported category alone.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states the build contract the predicate relies on and both outcomes.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Parsed report categories are inspected without native paths, filesystem or process calls.
+   * @evidence contracts/performance.md#efficient-algorithms One short-circuit scan of the host's parsed diagnostics.
+   * @evidence contracts/performance.md#reuse-equivalent-work The host's completed Program diagnostics stand in for a second compiler run over a different Program.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This predicate retains no diagnostic population, handle or task.
+   */
+  export function transformHostReported(host: TtscBuildResult): boolean {
+    return host.diagnostics.some(
+      (diagnostic) => diagnostic.category === "error",
+    );
+  }
+
+  /**
    * Keep the original failure when no new diagnostic batch remains. Otherwise
    * seed its unparsed process failure before the recovered reports and retain
    * its status, even if the independent check returned another status.
