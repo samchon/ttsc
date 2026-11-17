@@ -1425,21 +1425,32 @@ export namespace BuildExecution {
         `${label}: failed to spawn ${plugin.binary}: ${res.error.message}`,
       );
     }
-    const result = normalizeBuildOutput(
-      {
-        processCompletedNormally: res.status !== null && res.signal === null,
-        status: res.status ?? 1,
-        stdout: outputText(res.stdout),
-        stderr: outputText(res.stderr),
-      },
-      execution.projectRoot,
-    );
-    return diagnosticsToken === undefined
-      ? result
-      : PluginFailureDiagnostics.consumeTransformHostReport(
-          result,
-          diagnosticsToken,
-        );
+    const captured = {
+      processCompletedNormally: res.status !== null && res.signal === null,
+      status: res.status ?? 1,
+      stdout: outputText(res.stdout),
+      stderr: outputText(res.stderr),
+    };
+    const result =
+      diagnosticsToken === undefined
+        ? captured
+        : PluginFailureDiagnostics.consumeTransformHostReport(
+            captured,
+            diagnosticsToken,
+            {
+              pid: res.pid,
+              args,
+              context: [
+                TSGO_ARGS_ENV,
+                TSGO_ARGS_CWD_ENV,
+                "TTSC_SEMANTIC_CONFIG_PATH",
+                "TTSC_PLUGIN_CONFIG_DIR",
+                CompilationSnapshot.ENV,
+                "TTSC_LINKED_PLUGINS_JSON",
+              ].map((name) => SidecarEnvironment.read(env, name) ?? ""),
+            },
+          );
+    return normalizeBuildOutput(result, execution.projectRoot);
   }
 
   /**

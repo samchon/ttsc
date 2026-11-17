@@ -1,7 +1,8 @@
 package utility
 
 import (
-  "bytes"
+  "crypto/sha256"
+  "encoding/hex"
   "encoding/json"
   "flag"
   "fmt"
@@ -34,6 +35,11 @@ type hostOptions struct {
   tsgoArgs       []string
   stdout         io.Writer
   stderr         io.Writer
+
+  // diagnosticToken and diagnosticCommand bind one requested report to the
+  // command that loaded it; nested utility calls retain their own arguments.
+  diagnosticToken   string
+  diagnosticCommand string
 
   // provenanceJSON is a caller-owned absolute private build-result path.
   provenanceJSON string
@@ -131,20 +137,21 @@ func RunCheck(args []string) int {
 // Rejected flag admission installs no publication defer. Input authority does not erase status or diagnostics.
 // Callers own the metadata artifact's removal and supplied-stream lifetime.
 // Diagnostic/report writes retain their best-effort status policy. The shared
-// report helper buffers the complete diagnostic batch and writes an optional
-// invocation token only after a successful full transfer for a loaded Program.
+// report helper preserves streaming writes and issues a receipt only after
+// a successful full transfer for a loaded Program. It names the current PID
+// and the exact command's NUL-terminated UTF-8 argv fingerprint.
 // Empty batches acknowledge completion; configuration-only or failed transfers
 // do not. The token comes from TTSC_DIAGNOSTICS_COMPLETION_TOKEN in the native
 // environment and is not a reusable input or a successful-build receipt.
 //
-// @evidence contracts/common.md#principled-implementation A no-emit generation validates linked configuration and hook failures; requested observation metadata comes from that generation even on diagnostics, and missing generation authority is explicitly incomplete. The shared report helper acknowledges only a loaded Program's fully delivered diagnostic batch, including an empty batch; configuration and partial delivery provide no completion proof.
+// @evidence contracts/common.md#principled-implementation A no-emit generation validates linked configuration and hook failures; requested observation metadata comes from that generation even on diagnostics, and missing generation authority is explicitly incomplete. The shared report helper acknowledges a loaded Program's fully delivered diagnostic batch with the current PID and captured command fingerprint; configuration, partial delivery and another command cannot certify completion.
 // @evidence contracts/common.md#clear-and-simple-design Parse, load, and apply are ordered phases with one deferred Program close. Check and build share one completion-aware diagnostic writer before their later hook or emission work.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A failed load or hook returns failure instead of manufacturing an empty successful program.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish flag admission from deferred metadata publication, describe statuses and missing-generation meaning, and state artifact/stream ownership and best-effort reporting.
 // @evidence contracts/portability.md#os-neutral-implementation Native cwd and config paths flow through driver loading; streams remain invocation-owned without globally swapping standard descriptors.
-// @evidence contracts/performance.md#efficient-algorithms One admitted invocation loads and diagnoses a no-emit program and applies its linked hooks; argument/manifest parsing and delegated native project work depend on reached inputs. Optional publication collects that generation's host observations and encodes/writes their JSON, adding input/path/hash bytes and reporting costs; orchestration is not fixed work merely because it calls each phase once. Completion admission buffers rendered diagnostic bytes for one checked transfer and adds one environment lookup and at most one token-sized write.
+// @evidence contracts/performance.md#efficient-algorithms One admitted invocation loads and diagnoses a no-emit program and applies its linked hooks; argument/manifest parsing and delegated native project work depend on reached inputs. Optional publication collects that generation's host observations and encodes/writes their JSON, adding input/path/hash bytes and reporting costs; orchestration is not fixed work merely because it calls each phase once. Completion admission preserves streaming writes with constant delivery-tracking state, hashes the requested argv incrementally by its UTF-8 bytes and encodes one fixed-shape receipt containing only PID and digest.
 // @evidence contracts/performance.md#reuse-equivalent-work The loaded generation's latched hooks are used once instead of loading separate check and plugin programs. The acknowledgement reuses that generation's completed report rather than querying another Program.
-// @evidence contracts/performance.md#bound-retention-and-release-resources After flag admission one defer attempts requested observations before returning an acquired Program's checker lease on success, diagnostics or hook failure. Program graphs and temporary observation/JSON state lose local ownership after return; Close is not immediate destruction of all memory. Supplied streams and any written private artifact remain caller-owned, without an invocation-enforced byte cap. The unbounded rendered diagnostic buffer is invocation-local and released from local ownership after transfer.
+// @evidence contracts/performance.md#bound-retention-and-release-resources After flag admission one defer attempts requested observations before returning an acquired Program's checker lease on success, diagnostics or hook failure. Program graphs and temporary observation/JSON state lose local ownership after return; Close is not immediate destruction of all memory. Supplied streams and any written private artifact remain caller-owned, without an invocation-enforced byte cap. Delivery tracking and digest state remain invocation-local; the compact receipt transfers to the caller's stream without retaining the rendered diagnostic batch.
 func RunCheckWithIO(args []string, stdout, stderr io.Writer) (status int) {
   opts, ok := parseHostOptions("check", args, stdout, stderr)
   if !ok {
@@ -222,20 +229,21 @@ func RunBuild(args []string) int {
 // Program.Close returns its checker lease; it does not remove emitted files or
 // private metadata. Summary and diagnostic stream writes are best-effort here,
 // so a zero status does not certify delivery to the supplied io.Writer values.
-// Before emission, the shared report helper buffers the loaded Program's whole
+// Before emission, the shared report helper streams the loaded Program's whole
 // diagnostic batch and acknowledges TTSC_DIAGNOSTICS_COMPLETION_TOKEN only
-// after a successful full transfer, including an empty batch. Configuration
+// after a successful full transfer, including an empty batch. The receipt names
+// this process and the exact command that requested the report. Configuration
 // errors without a Program and failed or short transfers cannot acknowledge it.
 // The native environment supplies the token; command status stays independent.
 //
-// @evidence contracts/common.md#principled-implementation A loaded build delegates withholding to native noEmitOnError while retaining project and emit diagnostics with status two. Completed emission publishes the same generation's successful writer ownership even when another output failed; failed metadata alone returns three, and successful noEmit publishes an empty map. The shared report helper acknowledges only a loaded Program's fully delivered diagnostic batch, including an empty batch; configuration and partial delivery provide no completion proof.
+// @evidence contracts/common.md#principled-implementation A loaded build delegates withholding to native noEmitOnError while retaining project and emit diagnostics with status two. Completed emission publishes the same generation's successful writer ownership even when another output failed; failed metadata alone returns three, and successful noEmit publishes an empty map. The shared report helper acknowledges a loaded Program's fully delivered diagnostic batch with the current PID and captured command fingerprint; configuration, partial delivery and another command cannot certify completion.
 // @evidence contracts/common.md#clear-and-simple-design One loaded program delegates linked emission and shared diagnostic classification; successful writer keys supply the verbose count. Check and build share one completion-aware diagnostic writer before their later hook or emission work.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler error output is not converted into success; banner handling follows the source-preamble contract rather than expected fixture output.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs identify stream ownership, failure statuses, private metadata admission and caller artifact removal following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Driver loading and DefaultWriteFile own native paths and filesystem APIs; output streams are not replaced globally.
-// @evidence contracts/performance.md#efficient-algorithms Admission and loading include argument/plugin-manifest parsing, native project and diagnostic work. Emission dispatches linked AST transforms through the driver, which owns native generation and one authored-coordinate correction. The final writer indexes compiler carrier/map paths and shifts generated map coordinates only when it inserts missing preamble text, including JSON/base64/VLQ and output-byte work. Optional provenance adds output-path candidate collection, successful-write bookkeeping, source-proof checks, owner sorting and JSON/file publication; costs depend on source/graph, output and metadata bytes rather than only the number of emit calls. Completion admission buffers rendered diagnostic bytes for one checked transfer and adds one environment lookup and at most one token-sized write.
+// @evidence contracts/performance.md#efficient-algorithms Admission and loading include argument/plugin-manifest parsing, native project and diagnostic work. Emission dispatches linked AST transforms through the driver, which owns native generation and one authored-coordinate correction. The final writer indexes compiler carrier/map paths and shifts generated map coordinates only when it inserts missing preamble text, including JSON/base64/VLQ and output-byte work. Optional provenance adds output-path candidate collection, successful-write bookkeeping, source-proof checks, owner sorting and JSON/file publication; costs depend on source/graph, output and metadata bytes rather than only the number of emit calls. Completion admission preserves streaming writes with constant delivery-tracking state, hashes the requested argv incrementally by its UTF-8 bytes and encodes one fixed-shape receipt containing only PID and digest.
 // @evidence contracts/performance.md#reuse-equivalent-work The same loaded compiler generation validates, emits and optionally publishes its input witnesses; linked program hooks remain latched rather than independently reexecuted for output files. Completed-generation reuse belongs to the caller. The acknowledgement reuses that generation's completed report rather than querying another Program.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Successful loading transfers one Program checker lease to a deferred Close on analysis-only, normal and failure returns. The final writer retains output-path decisions and maps awaiting their carrier without a byte cap, releases pending map entries as their carrier arrives, and reports unfinished pairs at emit completion. Facade graphs, provenance maps, writer closures and serialization buffers lose local ownership when the invocation ends; Close does not destroy all program memory, supplied-stream state or emitted disk artifacts. Callers own stream lifetime and metadata/output removal, with no invocation-enforced byte cap. The unbounded rendered diagnostic buffer is invocation-local and released from local ownership after transfer.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Successful loading transfers one Program checker lease to a deferred Close on analysis-only, normal and failure returns. The final writer retains output-path decisions and maps awaiting their carrier without a byte cap, releases pending map entries as their carrier arrives, and reports unfinished pairs at emit completion. Facade graphs, provenance maps, writer closures and serialization buffers lose local ownership when the invocation ends; Close does not destroy all program memory, supplied-stream state or emitted disk artifacts. Callers own stream lifetime and metadata/output removal, with no invocation-enforced byte cap. Delivery tracking and digest state remain invocation-local; the compact receipt transfers to the caller's stream without retaining the rendered diagnostic batch.
 func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   opts, ok := parseHostOptions("build", args, stdout, stderr)
   if !ok {
@@ -332,18 +340,66 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
 // Empty loaded batches also complete the check. Diagnostic write errors or
 // short writes withhold acknowledgement; a missing token leaves the launcher
 // on its independent recovery path. Stream failure retains the command's
-// existing best-effort reporting and exit-status policy.
+// existing best-effort reporting and exit-status policy. The receipt names this
+// process and the command captured before loading, so another utility call or
+// descendant cannot acknowledge the launcher's selected command.
 func writeProgramDiagnostics(opts hostOptions, prog *driver.Program, diags []driver.Diagnostic) {
-  var report bytes.Buffer
-  driver.WritePrettyDiagnostics(&report, diags, opts.cwd)
-  if _, err := report.WriteTo(opts.stderr); err != nil {
+  if opts.diagnosticToken == "" || prog == nil {
+    driver.WritePrettyDiagnostics(opts.stderr, diags, opts.cwd)
     return
   }
-  if prog != nil {
-    if token := os.Getenv("TTSC_DIAGNOSTICS_COMPLETION_TOKEN"); token != "" {
-      fmt.Fprintln(opts.stderr, token)
-    }
+  report := diagnosticReportWriter{target: opts.stderr}
+  driver.WritePrettyDiagnostics(&report, diags, opts.cwd)
+  if report.failed {
+    return
   }
+  receipt, err := json.Marshal(struct {
+    PID     int    `json:"pid"`
+    Command string `json:"command"`
+  }{PID: os.Getpid(), Command: opts.diagnosticCommand})
+  if err == nil {
+    fmt.Fprintf(opts.stderr, "\n%s %s\n", opts.diagnosticToken, receipt)
+  }
+}
+
+// diagnosticReportWriter preserves the renderer's original streaming writes
+// while remembering any failed or short transfer for completion admission.
+type diagnosticReportWriter struct {
+  target io.Writer
+  failed bool
+}
+
+func (w *diagnosticReportWriter) Write(data []byte) (int, error) {
+  count, err := w.target.Write(data)
+  if err != nil || count != len(data) {
+    w.failed = true
+  }
+  return count, err
+}
+
+// diagnosticCommandKey matches the launcher's NUL-terminated UTF-8 argv and
+// fixed compiler-channel hash. The command is the first argument; native
+// arguments and environment values contain no NUL.
+func diagnosticCommandKey(command string, args []string) string {
+  hash := sha256.New()
+  _, _ = io.WriteString(hash, command)
+  _, _ = hash.Write([]byte{0})
+  for _, arg := range args {
+    _, _ = io.WriteString(hash, arg)
+    _, _ = hash.Write([]byte{0})
+  }
+  for _, name := range []string{
+    driver.TsgoArgsEnv,
+    driver.TsgoArgsCwdEnv,
+    driver.SemanticConfigPathEnv,
+    driver.PluginConfigDirEnv,
+    "TTSC_COMPILATION_SNAPSHOT",
+    driver.LinkedPluginsEnv,
+  } {
+    _, _ = io.WriteString(hash, os.Getenv(name))
+    _, _ = hash.Write([]byte{0})
+  }
+  return hex.EncodeToString(hash.Sum(nil))
 }
 
 // RunTransform returns the project TypeScript text after linked source
@@ -549,6 +605,14 @@ func parseHostOptions(command string, args []string, stdout, stderr io.Writer) (
     }
     resolvedCwd = abs
   }
+  token := ""
+  commandKey := ""
+  if command == "check" || command == "build" {
+    token = os.Getenv("TTSC_DIAGNOSTICS_COMPLETION_TOKEN")
+    if token != "" {
+      commandKey = diagnosticCommandKey(command, args)
+    }
+  }
   return hostOptions{
     cwd:                   filepath.Clean(resolvedCwd),
     emit:                  *emit,
@@ -563,6 +627,8 @@ func parseHostOptions(command string, args []string, stdout, stderr io.Writer) (
     tsgoArgs:              tsgoArgs,
     stdout:                stdout,
     stderr:                stderr,
+    diagnosticToken:       token,
+    diagnosticCommand:     commandKey,
     provenanceJSON:        provenanceJSON,
     checkObservationsJSON: checkObservationsJSON,
     emitObservationsJSON:  emitObservationsJSON,

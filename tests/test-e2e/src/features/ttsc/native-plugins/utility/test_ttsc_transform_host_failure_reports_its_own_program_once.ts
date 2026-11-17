@@ -22,14 +22,15 @@ import {
  *
  * 1. Prepare one referenced app and one sidecar with selectable partial output.
  * 2. Run both emitting and no-emit lanes with missing and stale declarations, then
- *    crash with no report, plugin/TypeScript errors or warnings.
+ *    crash with no report, plugin/TypeScript errors, warnings, or completion of
+ *    another project in this process or an inherited-token child.
  * 3. Assert complete reports contain only the host's TS2322, partial failures
  *    retain the panic and recover TS2322, and an empty completed report
  *    followed by an emit failure adds no stale-reference diagnostic.
  *
  * @evidence contracts/testing.md#behavioral-verification Runs the public CLI through the real linked utility host and a real panicking sidecar; appending the plain recheck after a reporting host, or dropping it after a crashed one, fails an assertion.
  * @evidence contracts/testing.md#independent-expectations TypeScript itself defines TS2322 for the assignment and TS6305 for a reference whose outputs are missing; the host's Program reads sources, so only TS2322 is a real error in the first project.
- * @evidence contracts/testing.md#distinguishing-cases Covers emitting and no-emit host dispatch, unbuilt and stale referenced outputs, valid source, empty completed diagnostics before emit failure, and crashes after no report, plugin errors, TypeScript errors and warnings. Token matching and phase ownership belong to the source unit; check-stage duplicate suppression belongs to test_plugin_corpus_ttsc_lint_failure_does_not_duplicate_typescript_diagnostics.
+ * @evidence contracts/testing.md#distinguishing-cases Covers both command lanes, unbuilt/stale references, Unicode and spaces in native paths, valid source, empty diagnostics before emit failure, partial reports and completion of another project in-process or in a descendant. Token/PID/command validation and phase ownership belong to the source unit; check-stage deduplication has its separate corpus scene.
  * @evidence contracts/testing.md#execution-ownership The scenarios batch registers this export; it needs the built CLI, the utility host and a Go toolchain.
  * @evidence contracts/e2e.md#necessary-boundary Only a real host process shows which Program reported and whether the build lane appended a second check.
  * @evidence contracts/e2e.md#shared-execution One banner preparation serves both lanes and declaration states through shared caches. One changed panicking source and private plugin cache serve every partial-output variant and both lanes, sharing Go objects with the suite.
@@ -45,7 +46,9 @@ export function test_ttsc_transform_host_failure_reports_its_own_program_once():
       failures.push(new Error(name, { cause }));
     }
   };
-  const root = TestProject.tmpdir("ttsc-transform-host-reference-");
+  const root = TestProject.tmpdir(
+    "ttsc-transform-host-reference-\ud55c\uae00 ",
+  );
   const write = (file: string, text: string) => {
     fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
     fs.writeFileSync(path.join(root, file), text);
@@ -148,11 +151,28 @@ export function test_ttsc_transform_host_failure_reports_its_own_program_once():
   });
 
   const crashed = ProjectFixtures.copy("go-source-plugin");
+  write(
+    "other/tsconfig.json",
+    JSON.stringify({
+      compilerOptions: { strict: true, target: "ES2022", module: "commonjs" },
+      files: ["index.ts"],
+    }),
+  );
+  write("other/index.ts", "export const healthy: number = 1;\n");
+  fs.appendFileSync(
+    path.join(crashed, "go-plugin", "go.mod"),
+    "\nrequire github.com/samchon/ttsc/packages/ttsc v0.0.0\n",
+  );
   const main = path.join(crashed, "go-plugin", "main.go");
   const source = fs.readFileSync(main, "utf8");
-  const panicking = source.replace(
-    "func main() {",
-    `func main() {
+  const panicking = source
+    .replace(
+      "func main() {",
+      `func main() {
+  other := os.Getenv("TTSC_TEST_OTHER_PROJECT")
+  if os.Getenv("TTSC_TEST_OTHER_CHILD") == "1" {
+    os.Exit(utility.RunCheck([]string{"--cwd", other}))
+  }
   switch os.Getenv("TTSC_TEST_EARLY_REPORT") {
   case "plugin":
     fmt.Fprintln(os.Stderr, "error HOST_SETUP: failed before Program loading")
@@ -160,9 +180,25 @@ export function test_ttsc_transform_host_failure_reports_its_own_program_once():
     fmt.Fprintln(os.Stderr, "src/main.ts:1:1 - error TS2304: Cannot find name 'missing'.")
   case "warning":
     fmt.Fprintln(os.Stderr, "warning HOST_SETUP: host has not loaded the Program")
+  case "other-program":
+    if utility.RunCheck([]string{"--cwd", other}) != 0 {
+      panic("secondary program failed")
+    }
+  case "child":
+    child := exec.Command(os.Args[0], os.Args[1:]...)
+    child.Env = append(os.Environ(), "TTSC_TEST_OTHER_CHILD=1")
+    child.Stdout = os.Stdout
+    child.Stderr = os.Stderr
+    if err := child.Run(); err != nil {
+      panic(err)
+    }
   }
   panic("transform host crashed")`,
-  );
+    )
+    .replace(
+      '"os"',
+      '"os"\n "os/exec"\n "github.com/samchon/ttsc/packages/ttsc/utility"',
+    );
   assert.notEqual(panicking, source, "expected to inject the panic");
   fs.writeFileSync(main, panicking);
   fs.appendFileSync(
@@ -170,7 +206,14 @@ export function test_ttsc_transform_host_failure_reports_its_own_program_once():
     '\nconst wrong: number = "type-error";\nvoid wrong;\n',
   );
   const panicCache = TestProject.tmpdir("ttsc-transform-host-panic-");
-  for (const earlyReport of ["", "plugin", "typescript", "warning"])
+  for (const earlyReport of [
+    "",
+    "plugin",
+    "typescript",
+    "warning",
+    "other-program",
+    "child",
+  ])
     for (const args of lanes) {
       scenario(
         `partial ${earlyReport || "empty"} report ${args.join(" ") || "build"}`,
@@ -185,6 +228,7 @@ export function test_ttsc_transform_host_failure_reports_its_own_program_once():
                 TTSC_CACHE_DIR: panicCache,
                 TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
                 TTSC_TEST_EARLY_REPORT: earlyReport,
+                TTSC_TEST_OTHER_PROJECT: path.join(root, "other"),
               },
             },
           );

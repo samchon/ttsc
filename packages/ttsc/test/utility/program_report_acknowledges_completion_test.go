@@ -2,8 +2,12 @@ package ttsc_test
 
 import (
   "bytes"
+  "crypto/sha256"
+  "encoding/json"
   "errors"
+  "fmt"
   "io"
+  "os"
   "strings"
   "testing"
 
@@ -19,8 +23,8 @@ import (
 //  3. Assert loaded reports precede exactly one token, early failures have none,
 //     and a command without a token request preserves ordinary output.
 //
-// @evidence contracts/testing.md#behavioral-verification Calls real check and build entrypoints over authored projects and asserts actual diagnostic delivery, completion ordering and exit status; unconditional or error-only acknowledgement fails.
-// @evidence contracts/testing.md#independent-expectations A string-to-number assignment requires TS2322, an unknown compiler option requires a configuration failure, and the protocol permits acknowledgement only after a loaded Program's full diagnostic batch.
+// @evidence contracts/testing.md#behavioral-verification Calls real check and build entrypoints and checks delivered diagnostics, receipt ordering, actual PID, exact command fingerprint and status; unconditional, partial or incorrectly owned acknowledgement fails.
+// @evidence contracts/testing.md#independent-expectations TypeScript requires TS2322 for the authored assignment and failure for an unknown option. The receipt PID is independently os.Getpid; its expected command hash is SHA-256 over the authored command and arguments with literal NUL boundaries, without calling the production fingerprint helper.
 // @evidence contracts/testing.md#distinguishing-cases Covers check and emitting build, error and empty batches, pre-Program configuration failure, failed and short diagnostic writes, and absent opt-in. Launcher filtering and partial-process crashes belong to TypeScript units and the transform-host E2E.
 // @evidence contracts/testing.md#execution-ownership This Go unit invokes utility functions in-process using private buffers and t.TempDir projects; it launches no product process or consumer installation.
 func TestUtilityProgramReportAcknowledgesCompletion(t *testing.T) {
@@ -40,6 +44,8 @@ func TestUtilityProgramReportAcknowledgesCompletion(t *testing.T) {
       {"no-request", `export const value: number = "bad";`, `"strict": true`, false, false, 2},
       {"write-error", `export const value: number = "bad";`, `"strict": true`, true, false, 2},
       {"short-write", `export const value: number = "bad";`, `"strict": true`, true, false, 2},
+      {"prefixed-report", `export const value: number = 1;`, `"strict": true`, true, true, 0},
+      {"no-request-prefix", `export const value: number = 1;`, `"strict": true`, false, false, 0},
     } {
       t.Run(command+"/"+scenario.name, func(t *testing.T) {
         request := ""
@@ -51,6 +57,9 @@ func TestUtilityProgramReportAcknowledgesCompletion(t *testing.T) {
         writeProjectFile(t, root, "tsconfig.json", `{"compilerOptions":{"target":"ES2022","module":"commonjs","outDir":"dist",`+scenario.options+`},"files":["index.ts"]}`)
         writeProjectFile(t, root, "index.ts", scenario.source)
         var stdout, stderr bytes.Buffer
+        if scenario.name == "prefixed-report" || scenario.name == "no-request-prefix" {
+          stderr.WriteString("progress-without-newline")
+        }
         var writer io.Writer = &stderr
         if scenario.name == "write-error" || scenario.name == "short-write" {
           writer = &programReportWriter{output: &stderr, short: scenario.name == "short-write"}
@@ -63,12 +72,36 @@ func TestUtilityProgramReportAcknowledgesCompletion(t *testing.T) {
           status = utility.RunBuildWithIO(args, &stdout, writer)
         }
         text := stderr.String()
+        if scenario.name == "no-request-prefix" && text != "progress-without-newline" {
+          t.Fatalf("ordinary streaming output changed: %q", text)
+        }
         if status != scenario.status {
           t.Fatalf("status=%d, want %d; stderr=%s", status, scenario.status, text)
         }
         count := strings.Count(text, token)
         if scenario.completed && count != 1 || !scenario.completed && count != 0 {
           t.Fatalf("completion=%v, token count=%d; stderr=%s", scenario.completed, count, text)
+        }
+        if scenario.completed {
+          var receipt struct {
+            PID     int    `json:"pid"`
+            Command string `json:"command"`
+          }
+          for _, line := range strings.Split(text, "\n") {
+            if payload, found := strings.CutPrefix(line, token+" "); found {
+              if err := json.Unmarshal([]byte(payload), &receipt); err != nil {
+                t.Fatal(err)
+              }
+            }
+          }
+          input := command + "\x00--cwd\x00" + root + "\x00"
+          for _, name := range []string{"TTSC_TSGO_ARGS", "TTSC_TSGO_ARGS_CWD", "TTSC_SEMANTIC_CONFIG_PATH", "TTSC_PLUGIN_CONFIG_DIR", "TTSC_COMPILATION_SNAPSHOT", "TTSC_LINKED_PLUGINS_JSON"} {
+            input += os.Getenv(name) + "\x00"
+          }
+          expected := fmt.Sprintf("%x", sha256.Sum256([]byte(input)))
+          if receipt.PID != os.Getpid() || receipt.Command != expected {
+            t.Fatalf("receipt=%+v, want pid=%d command=%s", receipt, os.Getpid(), expected)
+          }
         }
         if scenario.name == "type-error" || scenario.name == "no-request" {
           diagnostic := strings.Index(text, "TS2322")
