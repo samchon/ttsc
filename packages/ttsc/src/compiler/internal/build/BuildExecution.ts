@@ -460,7 +460,8 @@ export namespace BuildExecution {
             timing,
           );
           const result = appendBuildOutput(checked, compiled);
-          return compiled.status === 0
+          return compiled.status === 0 ||
+            PluginFailureDiagnostics.transformHostReported(compiled)
             ? result
             : appendTypeScriptDiagnosticsAfterPluginFailure(
                 result,
@@ -487,7 +488,10 @@ export namespace BuildExecution {
           timing,
         );
         result = appendBuildOutput(checked, compiled);
-        if (compiled.status !== 0) {
+        if (
+          compiled.status !== 0 &&
+          !PluginFailureDiagnostics.transformHostReported(compiled)
+        ) {
           result = appendTypeScriptDiagnosticsAfterPluginFailure(
             result,
             buildOptions,
@@ -700,6 +704,13 @@ export namespace BuildExecution {
    * the original status; secondary compiler/environment/normalization errors
    * can propagate before that result merge. NoEmit prevents compiler emission,
    * not unrelated native/cache effects or incremental metadata writes.
+   *
+   * The transform-host build sites skip this pass when the failed host printed
+   * error diagnostics of its own
+   * (`PluginFailureDiagnostics.transformHostReported`): that host already
+   * checked the build's Program, and this pass would check a different one,
+   * without linked plugins and with each referenced project read from its
+   * declaration outputs.
    *
    * @evidence contracts/common.md#principled-implementation An independent no-emit pass adds only unreported diagnostics, seeds an otherwise unstructured plugin failure when needed and restores the original failure status after output merging.
    * @evidence contracts/common.md#clear-and-simple-design Recovery policy, compiler execution and diagnostic identity comparison are separate shared operations, with one result merge preserving the failed producer's ownership.

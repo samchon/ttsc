@@ -741,7 +741,7 @@ For the two binary paths, an inherited value wins, because it is how an embedder
 
 **Unrecovered Go panics in a plugin process surface as a normal exit-2 with the panic stack on stderr.** The host does not catch or symbolize the panic, but it preserves the plugin's stderr and exit code. Wrap rule bodies in `recover()` when you need graceful per-rule reporting. See `packages/lint/linthost/engine.go` for the reference pattern.
 
-After plugin discovery/build fails or a check/build sidecar exits unsuccessfully, `ttsc` also runs an independent `tsgo --noEmit` pass and appends TypeScript diagnostics the plugin did not already report, so a plugin failure cannot hide unrelated source errors. Format and internal emit-only modes keep their diagnostics-free contracts.
+After plugin discovery/build fails or a check/build sidecar exits unsuccessfully, `ttsc` also runs an independent `tsgo --noEmit` pass and appends TypeScript diagnostics the plugin did not already report, so a plugin failure cannot hide unrelated source errors. A transform host whose failed `build` printed error diagnostics of its own already reported its Program's diagnostics, so that pass is skipped: `tsgo` would check a different Program, one without the linked plugins that reads each referenced project from its declaration outputs instead of its sources. Format and internal emit-only modes keep their diagnostics-free contracts.
 
 ## Compatibility Rules
 
