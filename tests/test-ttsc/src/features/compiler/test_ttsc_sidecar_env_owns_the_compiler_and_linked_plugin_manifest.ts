@@ -25,7 +25,8 @@ import { publishLinkedTransformPlugins } from "../../../../../packages/ttsc/src/
  *    descriptor-evaluation env with an explicit compiler.
  * 3. Assert each carries the resolved compiler and no inherited manifest or record
  *    root, while a caller-named manifest, opened record store and this
- *    invocation's linked list survive.
+ *    invocation's linked list survive. Completion tokens are always cleared,
+ *    including an explicit caller value in the descriptor environment.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls composeNativePluginEnv, inheritedSidecarEnv and publishLinkedTransformPlugins with an outer compiler, stale record root and invalid manifest, asserting exact selected compiler, removed inherited payload and snapshot, explicitly retained caller snapshot and caller/own store and linked-plugin contents.
  * @evidence contracts/testing.md#independent-expectations Literal outer, selected, caller and descriptor compiler identities establish invocation precedence independently of composition. The explicit authored plugin DTO establishes the linked list without reading it back as an expected result.
@@ -106,6 +107,9 @@ export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest 
         const env = BuildExecution.composeNativePluginEnv(
           SidecarEnvironment.merge(process.env, {
             TTSC_NATIVE_PLUGIN_RECORD_ROOT: "/outer/cache",
+            TTSC_DIAGNOSTICS_COMPLETION_TOKEN:
+              "ttsc:diagnostics-complete:outer",
+            ttsc_diagnostics_completion_token: "lowercase-outer",
           }),
           undefined,
           execution,
@@ -117,6 +121,12 @@ export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest 
         assert.equal(env.TTSC_LINKED_PLUGINS_JSON, undefined, stage);
         assert.equal(env.TTSC_NATIVE_PLUGIN_RECORD_ROOT, undefined, stage);
         assert.equal(env.TTSC_NODE_BINARY, "/selected/node", stage);
+        assert.equal(env.TTSC_DIAGNOSTICS_COMPLETION_TOKEN, undefined, stage);
+        assert.equal(
+          env.ttsc_diagnostics_completion_token,
+          process.platform === "win32" ? undefined : "lowercase-outer",
+          stage,
+        );
       }
       const withStore = BuildExecution.composeNativePluginEnv(
         SidecarEnvironment.merge(process.env, {
@@ -146,10 +156,16 @@ export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest 
       );
       assert.equal(overridden.TTSC_TSGO_BINARY, "/selected/tsgo");
 
-      const descriptor = inheritedSidecarEnv(undefined, "/explicit/tsgo");
+      const descriptor = inheritedSidecarEnv(
+        {
+          TTSC_DIAGNOSTICS_COMPLETION_TOKEN: "ttsc:diagnostics-complete:outer",
+        },
+        "/explicit/tsgo",
+      );
       assert.equal(descriptor.TTSC_TSGO_BINARY, "/explicit/tsgo");
       assert.equal(descriptor.TTSC_LINKED_PLUGINS_JSON, undefined);
       assert.equal(descriptor.TTSC_COMPILATION_SNAPSHOT, undefined);
+      assert.equal(descriptor.TTSC_DIAGNOSTICS_COMPLETION_TOKEN, undefined);
       assert.equal(
         inheritedSidecarEnv({ TTSC_COMPILATION_SNAPSHOT: "/own/snapshot.json" })
           .TTSC_COMPILATION_SNAPSHOT,

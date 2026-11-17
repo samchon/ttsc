@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -121,7 +122,9 @@ export namespace BuildExecution {
    * selected compiler remains authoritative. Absent per-invocation payloads
    * remove stale inherited state rather than leaking an ancestor's project. The
    * emitting-watch write policy is always cleared here and only the selected
-   * build command may arm it for its direct native child.
+   * build command may arm it for its direct native child. The private
+   * diagnostic-completion token is also cleared here; transform dispatch issues
+   * a fresh value rather than inheriting another host's proof.
    *
    * @evidence contracts/common.md#principled-implementation Environment layering preserves caller overrides while the resolved compiler wins last; per-run compiler/config/link payloads are published or cleared according to invocation ownership, and the emitting-watch write policy is cleared until an authorized build child selects it.
    * @evidence contracts/common.md#clear-and-simple-design Shared environment helpers own merging and key access; runtime discovery precedes the pure composer that owns invocation payload publication.
@@ -174,7 +177,9 @@ export namespace BuildExecution {
    * Executable capability discovery remains at the native spawn boundary; this
    * composer only writes protocol values and removes stale payloads. The
    * invocation's opened content-identity store supplies native config-loader
-   * scratch placement, or clears an inherited store when none was opened.
+   * scratch placement, or clears an inherited store when none was opened. A
+   * completion token from another invocation is always cleared; only the
+   * command dispatcher may issue one for its direct transform host.
    *
    * @evidence contracts/common.md#principled-implementation The selected compiler and Node executable own their channels; config, content-identity scratch root, forwarded arguments and linked transforms are published or cleared according to this invocation and explicit caller ownership.
    * @evidence contracts/common.md#clear-and-simple-design A synchronous payload composer consumes the existing merged environment, keeping native executable discovery in nativePluginEnv without copying environment layers again.
@@ -194,6 +199,11 @@ export namespace BuildExecution {
     tsgoArgs?: string,
   ): NodeJS.ProcessEnv {
     CompilerProjectSelection.assertCurrent(execution.compilerSelection);
+    SidecarEnvironment.write(
+      env,
+      "TTSC_DIAGNOSTICS_COMPLETION_TOKEN",
+      undefined,
+    );
     SidecarEnvironment.write(env, "TTSC_NODE_BINARY", nodeBinary);
     SidecarEnvironment.write(env, "TTSC_TSGO_BINARY", execution.tsgo.binary);
     SidecarEnvironment.write(
@@ -461,7 +471,7 @@ export namespace BuildExecution {
           );
           const result = appendBuildOutput(checked, compiled);
           return compiled.status === 0 ||
-            PluginFailureDiagnostics.transformHostReported(compiled)
+            compiled.typeScriptDiagnosticsReported === true
             ? result
             : appendTypeScriptDiagnosticsAfterPluginFailure(
                 result,
@@ -490,7 +500,7 @@ export namespace BuildExecution {
         result = appendBuildOutput(checked, compiled);
         if (
           compiled.status !== 0 &&
-          !PluginFailureDiagnostics.transformHostReported(compiled)
+          compiled.typeScriptDiagnosticsReported !== true
         ) {
           result = appendTypeScriptDiagnosticsAfterPluginFailure(
             result,
@@ -705,12 +715,11 @@ export namespace BuildExecution {
    * can propagate before that result merge. NoEmit prevents compiler emission,
    * not unrelated native/cache effects or incremental metadata writes.
    *
-   * The transform-host build sites skip this pass when the failed host printed
-   * error diagnostics of its own
-   * (`PluginFailureDiagnostics.transformHostReported`): that host already
-   * checked the build's Program, and this pass would check a different one,
-   * without linked plugins and with each referenced project read from its
-   * declaration outputs.
+   * Transform-host sites skip this pass only after the host acknowledges its
+   * complete Program report with this invocation's private token. Error output
+   * alone can precede Program loading. The acknowledgement avoids checking a
+   * different Program without linked plugins and with each referenced project
+   * read from its declaration outputs. Legacy hosts keep recovery.
    *
    * @evidence contracts/common.md#principled-implementation An independent no-emit pass adds only unreported diagnostics, seeds an otherwise unstructured plugin failure when needed and restores the original failure status after output merging.
    * @evidence contracts/common.md#clear-and-simple-design Recovery policy, compiler execution and diagnostic identity comparison are separate shared operations, with one result merge preserving the failed producer's ownership.
@@ -1361,7 +1370,10 @@ export namespace BuildExecution {
    * returned spawn result before its launch error is reported. Environment,
    * capture/read or other thrown failures can occur before timing is recorded;
    * the elapsed interval also includes environment preparation, not only
-   * execution of the selected plugin.
+   * execution of the selected plugin. Transform dispatch publishes a fresh
+   * private completion token and consumes its acknowledgement before returning
+   * output. Other phases cannot inherit that token or certify the transform
+   * host's complete diagnostic report.
    *
    * @evidence contracts/common.md#principled-implementation The selected plugin receives the composed invocation context; only an emitting watch build child receives the write-if-changed opt-in. Actual exit status/output become a normalized result while native launch errors remain thrown failures.
    * @evidence contracts/common.md#clear-and-simple-design One command boundary owns environment publication, timing and output normalization for native build and check phases.
@@ -1386,6 +1398,15 @@ export namespace BuildExecution {
   ): TtscBuildResult {
     const startedAt = process.hrtime.bigint();
     const env = nativePluginEnv(options.env, execution, plugin, tsgoArgs);
+    const diagnosticsToken =
+      label === "ttsc.build"
+        ? `ttsc:diagnostics-complete:${randomUUID()}`
+        : undefined;
+    SidecarEnvironment.write(
+      env,
+      "TTSC_DIAGNOSTICS_COMPLETION_TOKEN",
+      diagnosticsToken,
+    );
     if (
       label === "ttsc.build" &&
       options.emit !== false &&
@@ -1404,7 +1425,7 @@ export namespace BuildExecution {
         `${label}: failed to spawn ${plugin.binary}: ${res.error.message}`,
       );
     }
-    return normalizeBuildOutput(
+    const result = normalizeBuildOutput(
       {
         processCompletedNormally: res.status !== null && res.signal === null,
         status: res.status ?? 1,
@@ -1413,6 +1434,12 @@ export namespace BuildExecution {
       },
       execution.projectRoot,
     );
+    return diagnosticsToken === undefined
+      ? result
+      : PluginFailureDiagnostics.consumeTransformHostReport(
+          result,
+          diagnosticsToken,
+        );
   }
 
   /**
