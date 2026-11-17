@@ -19,6 +19,9 @@ export interface TtscBuildResult {
   /** Structured compiler/plugin diagnostics, supplied or parsed from output. */
   diagnostics: ITtscCompilerDiagnostic[];
 
+  /** This transform invocation acknowledged its complete Program report. */
+  typeScriptDiagnosticsReported?: true;
+
   /** Compiler-reported output coordinates, relocated for cached runtime runs. */
   emittedFiles?: string[];
 

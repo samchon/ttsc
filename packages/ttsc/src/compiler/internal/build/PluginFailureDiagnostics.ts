@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import { PassthroughFlags } from "./PassthroughFlags";
 import type { RunBuildOptions } from "./RunBuildOptions";
@@ -42,29 +44,105 @@ export namespace PluginFailureDiagnostics {
   }
 
   /**
-   * Whether a failed transform host already reported the diagnostics of its
-   * Program. A transform host's `build` runs the project's diagnostics before
-   * it writes outputs, which is why a successful shared-host build has no
-   * separate TypeScript check. A host that printed an error diagnostic got that
-   * far, so the independent check could only add reports about another Program:
-   * a plain `tsgo --noEmit` loads no linked plugin and reads each referenced
-   * project's declaration outputs where the host read its sources. A host that
-   * printed no error diagnostic (a Go panic, a launch or load failure written
-   * as plain text) keeps the independent check.
+   * Remove this transform invocation's completion token from captured output. A
+   * host frames the token and JSON receipt with a leading and trailing newline
+   * after reporting its loaded Program's diagnostics, including an empty batch.
+   * The receipt must name the actual spawned PID and the requested
+   * command/context key; another project checked in-process or a descendant
+   * cannot complete it. Bare legacy tokens are consumed without proving
+   * completion. Error text cannot establish completion: a host may report a
+   * setup error before loading. Tokens from another invocation and tokens
+   * embedded in user text survive. The caller supplies a fresh token containing
+   * only ASCII letters, digits, colons and hyphens, so it can be matched
+   * literally in the line expression. Consume raw capture before diagnostic
+   * parsing, so removing a frame restores the producer's original text and
+   * continuation boundaries.
    *
-   * @evidence contracts/common.md#principled-implementation Only the failed host's own parsed error reports decide; check-stage results, warnings and unparsed process failures never suppress the independent check.
-   * @evidence contracts/common.md#clear-and-simple-design One predicate states when the build's own Program already answered, beside the mode gate it complements.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts No diagnostic code, plugin name or message text is inspected; the decision rests on the host's reported category alone.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states the build contract the predicate relies on and both outcomes.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation Parsed report categories are inspected without native paths, filesystem or process calls.
-   * @evidence contracts/performance.md#efficient-algorithms One short-circuit scan of the host's parsed diagnostics.
-   * @evidence contracts/performance.md#reuse-equivalent-work The host's completed Program diagnostics stand in for a second compiler run over a different Program.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This predicate retains no diagnostic population, handle or task.
+   * @evidence contracts/common.md#principled-implementation The fresh token, actual spawned PID and native argument fingerprint must all match; a secondary utility call, descendant report, bare token, parsed error or warning cannot certify the requested Program report.
+   * @evidence contracts/common.md#clear-and-simple-design One output adapter consumes the private protocol line and records completion separately from diagnostic content and process status.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No diagnostic code, plugin name or error message substitutes for the host's explicit completion acknowledgement.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states complete report delivery, process and command ownership, conservative legacy-token handling and the fresh-token character premise.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Supplied strings are matched with both LF and CRLF line endings without paths, filesystem or process operations.
+   * @evidence contracts/performance.md#efficient-algorithms Two linear stream passes remove framed and legacy metadata; framed JSON is decoded by its own bytes. The requested argv/context is fingerprinted at most once for an expected PID; replacements scale with captured output and no diagnostic array is traversed.
+   * @evidence contracts/performance.md#reuse-equivalent-work Acknowledged diagnostics from the host's actual Program avoid another compiler run; absent acknowledgement makes no equivalence claim.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Result strings transfer to the caller without a retained registry, handle or task.
    */
-  export function transformHostReported(host: TtscBuildResult): boolean {
-    return host.diagnostics.some(
-      (diagnostic) => diagnostic.category === "error",
-    );
+  export function consumeTransformHostReport<
+    T extends Pick<TtscBuildResult, "stdout" | "stderr">,
+  >(
+    host: T,
+    token: string,
+    invocation: {
+      pid: number;
+      args: readonly string[];
+      context?: readonly string[];
+    },
+  ): Omit<T, "stdout" | "stderr" | "typeScriptDiagnosticsReported"> &
+    Pick<
+      TtscBuildResult,
+      "stdout" | "stderr" | "typeScriptDiagnosticsReported"
+    > {
+    const line = new RegExp(`\\n${token} ([^\\r\\n]*)(?:\\r?\\n|$)`, "g");
+    const legacy = new RegExp(`^${token}(?:\\r?\\n|$)`, "gm");
+    let reported = false;
+    let command: string | undefined;
+    const consume = (_line: string, payload: string | undefined): string => {
+      if (payload !== undefined) {
+        try {
+          const receipt: unknown = JSON.parse(payload);
+          if (
+            Number.isSafeInteger(invocation.pid) &&
+            invocation.pid > 0 &&
+            typeof receipt === "object" &&
+            receipt !== null &&
+            "pid" in receipt &&
+            receipt.pid === invocation.pid &&
+            "command" in receipt &&
+            receipt.command ===
+              (command ??= commandKey([
+                ...invocation.args,
+                ...(invocation.context ?? []),
+              ]))
+          )
+            reported = true;
+        } catch {
+          // Malformed private metadata cannot suppress diagnostic recovery.
+        }
+      }
+      return "";
+    };
+    const stdout = host.stdout.replace(line, consume).replace(legacy, "");
+    const stderr = host.stderr.replace(line, consume).replace(legacy, "");
+    return {
+      ...host,
+      stdout,
+      stderr,
+      typeScriptDiagnosticsReported: reported ? true : undefined,
+    };
+  }
+
+  /**
+   * Fingerprint native arguments and owned compiler-channel values with SHA-256
+   * over UTF-8 strings, each terminated by a NUL byte. Native arguments and
+   * environment values cannot contain NUL, so this framing distinguishes empty
+   * values and boundaries without serializing potentially sensitive plugin
+   * configuration into the receipt. Callers use the actual dispatched argv
+   * followed by the protocol's fixed compiler-channel values; this is not a
+   * normalized compiler-options key.
+   *
+   * @evidence contracts/common.md#principled-implementation NUL-terminated UTF-8 framing is unambiguous for native argv accepted by spawning, and SHA-256 supplies the same command identity as the Go producer under its collision-resistance premise.
+   * @evidence contracts/common.md#clear-and-simple-design One fingerprint operation owns receipt command identity beside receipt admission.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The key covers every dispatched argument without recognizing plugins, filenames or selected error codes.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states the native NUL-free premise, UTF-8 framing and exact-argv ownership, including why configuration values are not echoed.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Supplied argument strings are encoded as UTF-8 on every host; native spawning owns their executable and path semantics.
+   * @evidence contracts/performance.md#efficient-algorithms One incremental hash consumes each argument and delimiter once without constructing a joined argv string; work follows total UTF-8 bytes and retained digest state is fixed-size.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure fingerprint retains no cross-invocation producer or cache; the receipt consumer reuses its one computed key locally.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The call-owned hash is finalized before returning one digest and acquires no native handle or retained registry.
+   */
+  export function commandKey(args: readonly string[]): string {
+    const hash = createHash("sha256");
+    for (const arg of args) hash.update(arg, "utf8").update("\0");
+    return hash.digest("hex");
   }
 
   /**

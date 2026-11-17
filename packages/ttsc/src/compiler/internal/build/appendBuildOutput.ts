@@ -17,6 +17,9 @@ import { normalizeBuildOutput } from "./normalizeBuildOutput";
  * - `environmentInputs`: unioned; two phases that recorded different values for
  *   one name withdraw reuse through `observationsComplete: false`.
  *
+ * Only the right phase's complete Program-report acknowledgement survives; an
+ * earlier check cannot certify a later transform host's diagnostics.
+ *
  * The shared normalizer moves combined stdout to stderr when the merged result
  * failed and stderr is blank, preserving visibility for stderr-only consumers.
  *
@@ -50,6 +53,7 @@ export function appendBuildOutput(
       ? {}
       : { compilerObservations: right.compilerObservations }),
     processCompletedNormally: right.processCompletedNormally,
+    typeScriptDiagnosticsReported: right.typeScriptDiagnosticsReported,
     ...(left.hostInputs === undefined && right.hostInputs === undefined
       ? {}
       : {
