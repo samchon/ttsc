@@ -20,6 +20,7 @@ import { test_plugin_corpus_auto_discovered_lint_prefer_const_tracks_lexical_bin
 import { test_plugin_corpus_auto_discovered_ttsc_lint_fails_when_no_config_file_exists } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_auto_discovered_ttsc_lint_fails_when_no_config_file_exists";
 import { test_plugin_corpus_check_watch_fallback_keeps_forwarded_compiler_flags } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_check_watch_fallback_keeps_forwarded_compiler_flags";
 import { test_plugin_corpus_check_watch_invalidates_json_input_membership_without_restarting_resident } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_check_watch_invalidates_json_input_membership_without_restarting_resident";
+import { test_plugin_corpus_check_watch_keeps_resident_checks_beside_a_transform_plugin } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_check_watch_keeps_resident_checks_beside_a_transform_plugin";
 import { test_plugin_corpus_check_watch_preserves_duplicate_resident_entries } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_check_watch_preserves_duplicate_resident_entries";
 import { test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_the_cache_removed } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_the_cache_removed";
 import { test_plugin_corpus_check_watch_records_use_of_its_plugin_binary } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_check_watch_records_use_of_its_plugin_binary";
@@ -217,6 +218,7 @@ import { test_transformttsc_typed_native_configs_keep_project_root_stable } from
 import { test_transformttsc_unnotified_utility_config_link_retarget_invalidates_generation } from "./unplugin/native-plugins/transform/test_transformttsc_unnotified_utility_config_link_retarget_invalidates_generation";
 import { test_transformttsc_uses_filesystem_path_identity } from "./unplugin/native-plugins/transform/test_transformttsc_uses_filesystem_path_identity";
 import { test_transformttsc_utility_config_proof_refuses_a_nearer_candidate_that_came_and_went } from "./unplugin/native-plugins/transform/test_transformttsc_utility_config_proof_refuses_a_nearer_candidate_that_came_and_went";
+import { test_ttsc_watch_plugin_free_check_keeps_private_incremental_state } from "./ttsc/native-plugins/corpus-misc/test_ttsc_watch_plugin_free_check_keeps_private_incremental_state";
 import { test_ttsc_undeclared_run_scrubs_inherited_plugin_config_dir } from "./unplugin/native-plugins/transform/test_ttsc_undeclared_run_scrubs_inherited_plugin_config_dir";
 import { case_explicit_precompilation_overlaps_project_gates } from "./unplugin/scenes/case_explicit_precompilation_overlaps_project_gates";
 import { case_unproven_plugin_source_is_rejected_after_native_preparation } from "./unplugin/scenes/case_unproven_plugin_source_is_rejected_after_native_preparation";
@@ -380,6 +382,10 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
   [
     "test_plugin_corpus_check_watch_invalidates_json_input_membership_without_restarting_resident",
     test_plugin_corpus_check_watch_invalidates_json_input_membership_without_restarting_resident,
+  ],
+  [
+    "test_plugin_corpus_check_watch_keeps_resident_checks_beside_a_transform_plugin",
+    test_plugin_corpus_check_watch_keeps_resident_checks_beside_a_transform_plugin,
   ],
   [
     "test_plugin_corpus_check_watch_preserves_duplicate_resident_entries",
@@ -1157,6 +1163,10 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
   [
     "test_ttsc_undeclared_run_scrubs_inherited_plugin_config_dir",
     test_ttsc_undeclared_run_scrubs_inherited_plugin_config_dir,
+  ],
+  [
+    "test_ttsc_watch_plugin_free_check_keeps_private_incremental_state",
+    test_ttsc_watch_plugin_free_check_keeps_private_incremental_state,
   ],
   [
     "test_transform_session_store_outlives_its_process",

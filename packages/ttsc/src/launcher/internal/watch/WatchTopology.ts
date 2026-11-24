@@ -55,9 +55,10 @@ import { watchDirectory } from "./watchDirectory";
  * resolution. Response files join the config reload set; these observations do
  * not pin files or detect a change restored in between.
  *
- * `TTSC_WATCH_DEBUG_INPUTS` reports the named event, observed population deltas
- * and reload decision. These diagnostics reuse the decision's existing inputs;
- * they perform no extra filesystem observations.
+ * `TTSC_WATCH_DEBUG_INPUTS` reports the named event, observed population deltas,
+ * reload decision and every compiler listing it starts. These diagnostics reuse
+ * the decision's existing inputs; they perform no extra filesystem
+ * observations.
  *
  * @evidence contracts/common.md#principled-implementation The compiler-input operation's membership, published rule inputs and actual content fingerprints qualify notifications; its native default obtains the real compiler list. Post-registration reconciliation compares baselines to recover observed handoff changes, not an atomic guarantee against every transient mutation. Explicit operations preserve native defaults without replacing global filesystem or compiler methods. Project-input attribution: Observed member deltas establish attribution; stale selected names cannot override them, while directory names retain supported population causality and unrelated multiple members remain unnamed.
  * @evidence contracts/common.md#clear-and-simple-design Compiler, plugin and project-input watch populations keep their own baselines and callbacks under one topology owner; small classifiers separate membership, selection and handle replacement. Five distinct operations own directory subscriptions, file subscriptions, immediate reload-directory reads, compiler membership and each decision's case-policy observations; existing callers need no new argument. Project-input attribution: One private reconciliation separates member deltas from immediate resolution-directory digests before choosing a supported event name or an observed single member.
@@ -204,6 +205,10 @@ export class WatchTopology {
    * propagate to the caller; native watcher registration failures are reported
    * through onError while previous coverage remains live.
    *
+   * A caller whose build just loaded the root project's Program passes that
+   * build's reported membership as `programFiles`; the root project then needs
+   * no listing of its own (#1865).
+   *
    * @evidence contracts/common.md#principled-implementation The compiler-input operation defines membership and its native default reads the actual compiler list; new coverage is registered before stale coverage retires, and registration reconciliation compares against pre-registration baselines.
    * @evidence contracts/common.md#clear-and-simple-design One refresh delegates compiler population resolution, watcher synchronization and notification classification to separate private owners.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Predicted outputs never subtract from compiler-reported inputs; failed registration cannot claim complete replacement coverage.
@@ -213,8 +218,8 @@ export class WatchTopology {
    * @evidence contracts/performance.md#reuse-equivalent-work Existing live watchers and unchanged fingerprints are reused by key; one fresh synchronous transaction shares parent case probes across membership, output and directory keys. One current root selection shares response inspection across referenced-project output queries; response observations are checked again after membership and never cached across refreshes. Registration microtasks coalesce gap work while actual compiler membership is refreshed rather than inferred from quiet notifications.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Current snapshots prune removed members and synchronization attempts obsolete handle closure, keeping old coverage after incomplete registration. Current/recovery populations and observations have no size cap; supplied close/error callbacks can throw and close does not await backend completion. State remains owner-held until released.
    */
-  public refresh(notify: boolean): void {
-    this.refreshCompilerInputs(notify, false);
+  public refresh(notify: boolean, programFiles?: readonly string[]): void {
+    this.refreshCompilerInputs(notify, false, false, programFiles);
   }
 
   /**
@@ -254,14 +259,24 @@ export class WatchTopology {
    * @param reuseListings Answer each project's membership with its last listing
    *   under the same arguments instead of asking the compiler again. Only a
    *   refresh whose cause cannot move Program membership passes it.
+   * @param programFiles The root project's membership as the build that just
+   *   loaded its Program reported it, with the same project, arguments and
+   *   argument directory a listing would use. It answers the root project in
+   *   place of a second compiler run (#1865); referenced projects still list.
    */
   private refreshCompilerInputs(
     notify: boolean,
     skipUnobservedProjectInputWatchRoots: boolean,
     reuseListings: boolean = false,
+    programFiles?: readonly string[],
   ): void {
     this.beginLexicalTransaction();
     const listings = new Map<string, CompilerListing>();
+    // resolveWatchTopology asks for the selected root project first.
+    let reported =
+      programFiles === undefined || programFiles.length === 0
+        ? undefined
+        : [...programFiles];
     const next = resolveWatchTopology(
       this.options,
       this.extraInputs,
@@ -269,10 +284,19 @@ export class WatchTopology {
       (project, options) => {
         const question = listingQuestion(project, options);
         const last = this.compilerListings.get(project.path);
+        const root = reported;
+        reported = undefined;
+        const reuse = reuseListings && last?.question === question;
+        if (root === undefined && !reuse && process.env.TTSC_WATCH_DEBUG_INPUTS)
+          process.stdout.write(
+            `[ttsc:debug] compiler listing ${JSON.stringify(project.path)}\n`,
+          );
         const inputs =
-          reuseListings && last?.question === question
-            ? last.inputs
-            : this.getCompilerInputs(project, options);
+          root !== undefined
+            ? root
+            : reuse
+              ? last!.inputs
+              : this.getCompilerInputs(project, options);
         listings.set(project.path, { inputs, question });
         return inputs;
       },

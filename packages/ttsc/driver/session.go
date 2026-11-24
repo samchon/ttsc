@@ -66,6 +66,25 @@ func NewSession(cwd, tsconfig string, options LoadProgramOptions) (*Session, []D
   return &Session{cwd: cwd, overlay: overlay, prog: prog}, nil, nil
 }
 
+// NewSessionFromProgram keeps an already loaded Program resident. The caller
+// must have loaded prog over overlay (LoadProgramOptions.FS), so later Apply
+// edits reach the compiler, and must not use prog on its own afterwards: the
+// session's Apply replaces its generation-specific fields. It lets a host that
+// owns its own loading phases (linked-plugin manifest, diagnostics) still use
+// the session's incremental updates. cwd must be absolute.
+//
+// @evidence contracts/common.md#principled-implementation The same overlay the Program was loaded over is retained, so Apply edits reach the compiler exactly as for NewSession.
+// @evidence contracts/common.md#clear-and-simple-design A field-only constructor; loading stays with the caller.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No second Program is loaded and no compiler state is copied.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the overlay precondition and the ownership transfer.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The constructor stores supplied values and performs no native operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Constant field assignment.
+// @evidence contracts/performance.md#reuse-equivalent-work The caller's loaded Program serves later edits instead of a second load.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The session takes the Program's checker lease; Close releases it.
+func NewSessionFromProgram(cwd string, overlay *OverlayFS, prog *Program) *Session {
+  return &Session{cwd: cwd, overlay: overlay, prog: prog}
+}
+
 // Apply sets the in-memory content of one file and incrementally updates the
 // resident program. absPath must identify an existing resident member, and the
 // caller must satisfy native UpdateProgram's single-changed-file precondition.

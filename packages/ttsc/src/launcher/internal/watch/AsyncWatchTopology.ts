@@ -141,9 +141,11 @@ export class AsyncWatchTopology {
   }
 
   /**
-   * Reconcile actual compiler membership and wait for its publication.
+   * Reconcile actual compiler membership and wait for its publication. A
+   * completed build's own report of the root project's Program travels as
+   * `programFiles`, so the core lists only what nothing reported (#1865).
    *
-   * @evidence contracts/common.md#principled-implementation The worker executes the core's actual refresh before replying, so completion does not stand for a predicted membership.
+   * @evidence contracts/common.md#principled-implementation The worker executes the core's actual refresh before replying, so completion does not stand for a predicted membership; a supplied report is the compiler's own answer from the build that just ran.
    * @evidence contracts/common.md#clear-and-simple-design This operation frames one refresh and delegates transport correlation to request.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Membership still comes from the core's native compiler-input reader.
    * @evidence contracts/common.md#meaningful-documentation Prose states the membership and publication boundary.
@@ -152,8 +154,15 @@ export class AsyncWatchTopology {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Every requested refresh executes; listing reuse remains the core's decision.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Correlation remains live until reply or worker failure; no deadline is imposed.
    */
-  public refresh(notify: boolean): Promise<void> {
-    return this.request({ method: "refresh", notify });
+  public refresh(
+    notify: boolean,
+    programFiles?: readonly string[],
+  ): Promise<void> {
+    return this.request({
+      method: "refresh",
+      notify,
+      ...(programFiles === undefined ? {} : { programFiles }),
+    });
   }
 
   /**

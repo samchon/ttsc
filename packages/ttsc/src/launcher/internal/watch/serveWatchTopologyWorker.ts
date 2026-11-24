@@ -57,7 +57,7 @@ async function execute(
 ): Promise<void> {
   switch (request.method) {
     case "refresh":
-      topology.refresh(request.notify);
+      topology.refresh(request.notify, request.programFiles);
       break;
     case "setExtraInputs":
       topology.setExtraInputs(request.inputs, request.identities);

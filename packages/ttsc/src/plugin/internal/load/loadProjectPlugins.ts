@@ -819,7 +819,8 @@ export namespace loadProjectPlugins {
       return {
         binary,
         // This fallback is compiled from our utility-host, whose actual writer
-        // publishes provenance and supports a separate compiler argument cwd.
+        // publishes provenance and supports a separate compiler argument cwd,
+        // and which serves the resident analysis check (`check-serve`, #1864).
         // A separately selected executable host must opt in itself; a linked
         // library cannot certify that foreign host. An undeclared capability
         // only withholds the optional protocol: build execution still runs such
@@ -833,6 +834,7 @@ export namespace loadProjectPlugins {
                 compilerArgsCwd: true,
                 emitProvenance: true,
                 emitObservations: true,
+                residentCheck: true,
               }
             : record.capabilities,
         config: record.config,

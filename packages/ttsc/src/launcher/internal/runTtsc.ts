@@ -692,6 +692,9 @@ function runWatch(
     if (process.env.TTSC_WATCH_DEBUG_INPUTS)
       debugWatchInputs(`cycle ${JSON.stringify(change)}`);
     let completed = false;
+    // The root project's membership as this cycle's own producer reported it;
+    // the post-build refresh uses it instead of listing again (#1865).
+    let programFiles: readonly string[] | undefined;
     try {
       if (!options.preserveWatchOutput) {
         process.stdout.write("\x1bc");
@@ -715,6 +718,7 @@ function runWatch(
               resident === undefined
                 ? await runBuild.async(buildOptions)
                 : await resident.run(buildOptions, change);
+            programFiles = result.programFiles;
             // Watch output is one ordered stream. The diagnostics a build
             // produced and the "[ttsc] watch build …" marker that concludes
             // them reach a single merged reader, and on two pipes the OS may
@@ -752,7 +756,7 @@ function runWatch(
           // but before post-build reconciliation reaches its re-resolution.
           // Notify for a membership change here as well, otherwise that new
           // input is silently absorbed into the watch set without a rebuild.
-          await topology?.refresh(true);
+          await topology?.refresh(true, programFiles);
         } catch (error) {
           process.stderr.write(
             `[ttsc] watch error on ${watchMessagePath(cwd, root)}: ${formatError(error)}\n`,

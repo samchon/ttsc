@@ -60,7 +60,11 @@ export namespace WatchTopologyWorkerProtocol {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Transport and core owners retain cloned payloads rather than this type.
    */
   export type Operation =
-    | { method: "refresh"; notify: boolean }
+    | {
+        method: "refresh";
+        notify: boolean;
+        programFiles?: readonly string[];
+      }
     | {
         method: "setExtraInputs";
         inputs: readonly string[];
