@@ -47,9 +47,10 @@ type checkServeResponse struct {
   TypeScriptDiagnosticsReported bool `json:"typeScriptDiagnosticsReported,omitempty"`
 }
 
-// checkServeState owns at most one resident Program. A Program with an active
-// linked ProgramPlugin is never kept: those hooks mutate the parsed ASTs in
-// place, so each cycle loads a fresh Program, exactly as one-shot check does.
+// checkServeState owns at most one resident Program. A Program is never kept
+// while a linked ProgramPlugin lacks CheckProgram: that hook can only answer by
+// mutating the parsed ASTs, so each cycle loads a fresh Program, as one-shot
+// check does.
 type checkServeState struct {
   base    hostOptions
   session *driver.Session
@@ -62,14 +63,15 @@ type checkServeState struct {
 // request per line from in and writes one JSON response per request to out
 // until in reaches EOF.
 //
-// Each request runs what `check` runs: the Program's diagnostics, then the
-// linked plugins' program hooks. Without an active ProgramPlugin the Program
+// Each request answers what `check` answers: the Program's diagnostics, then
+// the linked plugins' program-hook outcome, through CheckProgram where a plugin
+// implements it. When no linked ProgramPlugin lacks CheckProgram the Program
 // stays resident and a known changed source is applied incrementally through
 // driver.Session; an unknown path, an unreadable change or an invalidation
 // loads it again. Exit status 2 reports a startup, read or response-write
 // failure; check failures travel in each response.
 //
-// @evidence contracts/common.md#principled-implementation Every request reports the current generation's diagnostics and hook outcome with check's status policy; residency is limited to Programs without AST-mutating ProgramPlugin hooks, and unknown or unreadable paths reload rather than guess.
+// @evidence contracts/common.md#principled-implementation Every request reports the current generation's diagnostics and hook outcome with check's status policy; residency is limited to Programs whose linked ProgramPlugins all answer through the non-mutating CheckProgram, and unknown or unreadable paths reload rather than guess.
 // @evidence contracts/common.md#clear-and-simple-design The loop owns the stream protocol while checkServeState owns the one resident Program and its reload policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Incremental updates use the upstream UpdateProgram through driver.Session; hooks that mutate ASTs never see a reused Program.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state the request semantics, the residency limit and the exit statuses.
@@ -161,7 +163,7 @@ func (s *checkServeState) apply(req checkServeRequest) bool {
       return false
     }
     resolved = filepath.Clean(resolved)
-    if s.session.Program().SourceFile(resolved) == nil {
+    if !s.session.Contains(resolved) {
       if _, declared := external[resolved]; declared {
         continue
       }
@@ -206,7 +208,7 @@ func (s *checkServeState) check(reused bool) checkServeResponse {
     reused = false
     prog = loaded
     diags = loadDiags
-    if !loaded.HasLinkedProgramPlugins() {
+    if !loaded.HasMutatingLinkedCheckPlugins() {
       s.session = driver.NewSessionFromProgram(opts.cwd, overlay, loaded)
     } else {
       defer loaded.Close()
@@ -224,7 +226,7 @@ func (s *checkServeState) check(reused bool) checkServeResponse {
   driver.WritePrettyDiagnostics(&stderr, diags, opts.cwd)
   if len(diags) != 0 {
     response.Status = 2
-  } else if err := prog.ApplyLinkedPlugins(); err != nil {
+  } else if err := prog.CheckLinkedPlugins(); err != nil {
     fmt.Fprintln(&stderr, err)
     response.Status = 2
   }

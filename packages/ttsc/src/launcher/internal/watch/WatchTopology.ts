@@ -76,6 +76,7 @@ export class WatchTopology {
   private compilerPostRegistrationMembershipRefresh = false;
   private compilerPostRegistrationReconciliationScheduled = false;
   private compilerPostRegistrationSkipUnobservedProjectInputWatchRoots = true;
+  private compilerPostRegistrationReuseListings = true;
   private directories = new Map<string, string>();
   private directoryWatchers = new Map<string, DirectoryWatcher>();
   private extraInputs: readonly string[] = [];
@@ -364,6 +365,7 @@ export class WatchTopology {
       this.scheduleCompilerPostRegistrationReconciliation(
         directoryWatcherRegistered,
         skipUnobservedProjectInputWatchRoots,
+        reuseListings,
       );
     }
     if (notify && changed) {
@@ -840,10 +842,17 @@ export class WatchTopology {
    * registration, so one coalesced microtask can recover a change in that
    * handoff window. A real event updates the same stamp first and makes this
    * bounded scan a no-op.
+   *
+   * A registration caused only by published plugin inputs answers membership
+   * from the last listing as its refresh did: plugin inputs join the watched
+   * directories, never the Program, and asking the compiler again for each
+   * plugin publication cost a whole-Program listing per publication while a
+   * watch started (#1865).
    */
   private scheduleCompilerPostRegistrationReconciliation(
     refreshMembership: boolean,
     skipUnobservedProjectInputWatchRoots: boolean,
+    reuseListings: boolean,
   ): void {
     if (this.closed) return;
     if (refreshMembership) {
@@ -851,6 +860,8 @@ export class WatchTopology {
       this.compilerPostRegistrationSkipUnobservedProjectInputWatchRoots =
         this.compilerPostRegistrationSkipUnobservedProjectInputWatchRoots &&
         skipUnobservedProjectInputWatchRoots;
+      this.compilerPostRegistrationReuseListings =
+        this.compilerPostRegistrationReuseListings && reuseListings;
     }
     if (this.compilerPostRegistrationReconciliationScheduled) return;
     this.compilerPostRegistrationReconciliationScheduled = true;
@@ -862,8 +873,10 @@ export class WatchTopology {
         this.compilerPostRegistrationMembershipRefresh;
       const skipUnobservedProjectInputWatchRoots =
         this.compilerPostRegistrationSkipUnobservedProjectInputWatchRoots;
+      const reuseListings = this.compilerPostRegistrationReuseListings;
       this.compilerPostRegistrationMembershipRefresh = false;
       this.compilerPostRegistrationSkipUnobservedProjectInputWatchRoots = true;
+      this.compilerPostRegistrationReuseListings = true;
 
       const changed: string[] = [];
       const rearm: string[] = [];
@@ -885,7 +898,11 @@ export class WatchTopology {
         // Directory watchers own files not present in the current Program.
         // Re-resolve even when every tracked stamp is unchanged so a swallowed
         // startup event cannot strand a newly included source.
-        this.refreshCompilerInputs(true, skipUnobservedProjectInputWatchRoots);
+        this.refreshCompilerInputs(
+          true,
+          skipUnobservedProjectInputWatchRoots,
+          reuseListings,
+        );
       } catch (error) {
         const reported = new Set(changed.map((file) => this.pathKey(file)));
         const reconciledChange = changed.length === 1 ? changed[0]! : undefined;
@@ -972,7 +989,7 @@ export class WatchTopology {
       this.fileWatchers.delete(key);
     }
     if (this.syncFileWatchers(skipMissing)) {
-      this.scheduleCompilerPostRegistrationReconciliation(false, true);
+      this.scheduleCompilerPostRegistrationReconciliation(false, true, true);
     }
   }
 
