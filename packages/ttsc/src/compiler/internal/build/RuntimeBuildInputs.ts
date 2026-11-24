@@ -92,6 +92,7 @@ export namespace RuntimeBuildInputs {
           emitDir: string,
           first?: readonly string[],
         ) => string | undefined;
+        environmentValue: (name: string) => string | undefined;
       }
     | undefined {
     const refuse = (reason: string): undefined => {
@@ -657,6 +658,10 @@ export namespace RuntimeBuildInputs {
       ...replayed,
       record,
       recordSteps,
+      // A plugin's declared environment reads are not part of the identity,
+      // which is taken before any build reports them; the store names its
+      // document by their values instead (RuntimeBuildCache, #1870).
+      environmentValue: (name) => SidecarEnvironment.read(env, name),
       capture: () => {
         hostObservations = new Map();
         try {

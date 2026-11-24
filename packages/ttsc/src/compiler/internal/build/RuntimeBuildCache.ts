@@ -19,8 +19,9 @@ import { RuntimeEmitBundle } from "./RuntimeEmitBundle";
  * input observation it made lets the request name its document by everything
  * except the filesystem's state and prove it by replaying those observations,
  * so a hit observes no input to find it and keeps one document per build
- * configuration. Any other producer is named by a complete input snapshot,
- * which is then the proof.
+ * configuration and per value of the environment variables its plugins recorded
+ * reading. Any other producer is named by a complete input snapshot, which is
+ * then the proof.
  *
  * Storing a fresh build reads every output back and replays its proof, which
  * cost more than the build when it ran before the program started
@@ -39,9 +40,9 @@ import { RuntimeEmitBundle } from "./RuntimeEmitBundle";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Misses execute the original build exactly once; failed or absent proofs never manufacture successful output. Every transported output must be a normalized private descendant, without filename or consumer-name exceptions.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes persistent storage, run-owned copies and proof ownership; run states callback stability and failure behavior, and private helper comments identify byte, path and relocation domains.
  * @evidence contracts/portability.md#os-neutral-implementation Native paths, lstat, relative/join and rename own storage and containment, including Windows drive-relative rejection. Source coordinates remain unchanged; transported symlinks are refused rather than followed.
- * @evidence contracts/performance.md#efficient-algorithms Lookup hashes snapshot text, parses the record and reads only the bundle's index. Runtime restoration copies the bundle as the run's own, verifies its bodies once and reserves each distinct output directory; ordinary SDK restoration writes each verified output. Parking and adoption are renames independent of output count. Publication scales with output bytes and entries, read eight at a time on the thread pool when deferred; relocation scans producer paths and streams.
+ * @evidence contracts/performance.md#efficient-algorithms Lookup hashes snapshot text, reads the identity's small environment-read record, parses the record and reads only the bundle's index. Runtime restoration copies the bundle as the run's own, verifies its bodies once and reserves each distinct output directory; ordinary SDK restoration writes each verified output. Parking and adoption are renames independent of output count. Publication scales with output bytes and entries, read eight at a time on the thread pool when deferred; relocation scans producer paths and streams.
  * @evidence contracts/performance.md#reuse-equivalent-work Equal snapshots reuse completed emits only after independent producer admission; a hit proves its inputs once, a publication brackets its build with a second proof, and an adopted parked build, proven by its adoption, is stored without a third. A restored run owns its copied bytes and rebased output ledger; an adopting run owns the moved outputs; concurrent publishers may duplicate compilation but cannot expose partial documents, and only one adopter can take a parked build.
- * @evidence contracts/performance.md#bound-retention-and-release-resources A record and its bundle are each capped at 128 MiB, and both join the existing collected single-file cache population; a collected half makes the pair a miss. Parked builds are discarded by the next request that cannot adopt them and otherwise age out with the collection policy. Snapshots and output buffers are invocation-owned; staging removal is attempted in finally and run owners release output. Cleanup or collector failures can retain files; helpers retain no handles or history.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources A record and its bundle are each capped at 128 MiB, and both join the existing collected single-file cache population; a collected half makes the pair a miss. An identity's environment-read record holds variable names only, joins the same population, and is touched by every hit it selects; collecting it costs one build. Parked builds are discarded by the next request that cannot adopt them and otherwise age out with the collection policy. Snapshots and output buffers are invocation-owned; staging removal is attempted in finally and run owners release output. Cleanup or collector failures can retain files; helpers retain no handles or history.
  */
 export namespace RuntimeBuildCache {
   const FORMAT = "ttsx-runtime-build-v2";
@@ -122,6 +123,12 @@ export namespace RuntimeBuildCache {
     parked?: () => unknown;
     /** `record` for a parked build, from the state `parked` returned. */
     recordParked?: (result: TtscBuildResult, state: unknown) => TtscBuildResult;
+    /**
+     * The value a variable has in the environment the build's processes run
+     * under. A plugin's recorded reads of such variables select the document,
+     * so each value keeps its own build (samchon/ttsc#1870).
+     */
+    environmentValue?: (name: string) => string | undefined;
   }): TtscBuildResult {
     const report = (
       outcome: string,
@@ -227,8 +234,41 @@ export namespace RuntimeBuildCache {
       report("ineligible", "input-snapshot-unavailable");
       return props.build();
     }
-    const key = digest(FORMAT + "\0" + proof.text);
     const directory = props.directory;
+    // A plugin's environment reads are reported by its build, after the
+    // request is named, so they cannot enter the identity. The variables earlier
+    // builds of this identity read are kept beside its documents, and their
+    // current values select the document: each value keeps its own build, where
+    // one shared document was rejected and rebuilt whenever the value changed
+    // (samchon/ttsc#1870). A missing or unreadable record names the identity's
+    // plain document, so losing it costs one build.
+    const identity = digest(FORMAT + "\0" + proof.text);
+    const readsFile = path.join(directory, identity + ".environment.json");
+    let reads: string[] = [];
+    try {
+      const recorded: unknown = JSON.parse(fs.readFileSync(readsFile, "utf8"));
+      if (
+        Array.isArray(recorded) &&
+        recorded.every((entry) => typeof entry === "string")
+      )
+        reads = [...new Set(recorded as string[])].sort();
+    } catch {
+      /* No build of this identity has recorded an environment read yet. */
+    }
+    const keyOf = (names: readonly string[]): string =>
+      names.length === 0
+        ? identity
+        : digest(
+            identity +
+              "\0" +
+              JSON.stringify(
+                names.map((name) => [
+                  name,
+                  props.environmentValue?.(name) ?? null,
+                ]),
+              ),
+          );
+    const key = keyOf(reads);
     // A stored build is two files. The record is checksummed JSON carrying the
     // proof and the producer's result, as it always was, so it stays readable
     // to whoever inspects the directory. The output bytes live beside it in
@@ -292,6 +332,7 @@ export namespace RuntimeBuildCache {
         // same file, whose stamps then stay as its validation saw them.
         recordCacheFileUse(file);
         recordCacheFileUse(bodies);
+        if (reads.length !== 0) recordCacheFileUse(readsFile);
         const bundleFile = path.join(props.emitDir, RuntimeEmitBundle.filename);
         const bundled =
           props.bundle === true &&
@@ -368,6 +409,14 @@ export namespace RuntimeBuildCache {
     ): Generator<void | Promise<unknown>, boolean> {
       const result = yield* record(fresh);
       options.onRecorded?.(result);
+      // The document is named by every variable this identity's builds read,
+      // this one's included, so the next request with these values finds it.
+      const recordedReads = [
+        ...new Set([...reads, ...Object.keys(result.environmentInputs ?? {})]),
+      ].sort();
+      const target = keyOf(recordedReads);
+      const targetFile = path.join(directory, target + ".json");
+      const targetBodies = path.join(directory, target + ".bundle");
       yield;
       const unpublishable =
         options.proven === true
@@ -477,14 +526,24 @@ export namespace RuntimeBuildCache {
       const staging = crypto.randomUUID();
       let temporary: string | undefined = path.join(
         directory,
-        `${key}.${staging}.bundle.tmp`,
+        `${target}.${staging}.bundle.tmp`,
       );
       try {
         RuntimeEmitBundle.archive(temporary, files, hash);
-        fs.renameSync(temporary, bodies);
-        temporary = path.join(directory, `${key}.${staging}.tmp`);
+        fs.renameSync(temporary, targetBodies);
+        temporary = path.join(directory, `${target}.${staging}.tmp`);
         fs.writeFileSync(temporary, text, { flag: "wx" });
-        fs.renameSync(temporary, file);
+        fs.renameSync(temporary, targetFile);
+        // The read names follow the record, so a reader that sees them finds
+        // the record they name. A concurrent writer can drop a name, which
+        // costs that value one build; admission still replays every read.
+        if (recordedReads.join("\0") !== reads.join("\0")) {
+          temporary = path.join(directory, `${identity}.${staging}.reads.tmp`);
+          fs.writeFileSync(temporary, JSON.stringify(recordedReads), {
+            flag: "wx",
+          });
+          fs.renameSync(temporary, readsFile);
+        }
         temporary = undefined;
       } finally {
         if (temporary !== undefined)
@@ -494,7 +553,7 @@ export namespace RuntimeBuildCache {
             /* Rename or later collection owns it. */
           }
       }
-      report("recorded", undefined, key, files.length, 0);
+      report("recorded", undefined, target, files.length, 0);
       return true;
     }
     /** Drive a publication to its end, reporting an IO failure as refusal. */
