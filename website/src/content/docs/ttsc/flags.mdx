@@ -50,7 +50,7 @@ one layer and silently disappears at the next boundary.
 | `--checkers` | - | value | ttsc, ttsx, build, check, fix, format | launcher, runBuild, tsgo, host, lint | capability: threadingArgs | Type-checker pool size (default: TypeScript-Go's). |
 | `--no-cache` | - | boolean | ttsx | launcher | consumed-not-forwarded | Disable persistent runtime project emit reuse. |
 | `--require` | `-r` | value | ttsx | launcher | repeatable, consumed-not-forwarded | Preload a module before the entrypoint (ttsx; repeatable). |
-| `--no-plugins` | - | boolean | ttsx | launcher | consumed-not-forwarded | Build the project without ttsc plugins (ttsx). |
+| `--no-plugins` | - | boolean | ttsc, ttsx, build, check | launcher | consumed-not-forwarded | Build or check the project without ttsc plugins; the installed tsgo compiles it. |
 | `--listEmittedFiles` | - | boolean | ttsc, build, check | runBuild, tsgo | shadow | Print the list of emitted files (forwarded to tsgo; ttsc keeps the lines when forwarded). |
 | `--pretty` | - | boolean | ttsc, ttsx, build, check, fix, format | tsgo | shadow | Toggle tsgo pretty-printed diagnostics (forwarded to tsgo). |
 | `--diagnostics` | - | boolean | ttsc, ttsx, build, check, fix, format | runBuild, tsgo, lint | capability: diagnosticsTiming | Print compiler performance information; plugin-backed ttsc runs add plugin wall-clock timings. |
