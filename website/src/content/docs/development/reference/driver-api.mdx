@@ -210,6 +210,10 @@ The driver runs these hooks itself; the host binary needs no list of linked pack
 
 `EmitTransform` transforms join the per-file chain after the host's own transforms, in registration order. Calling `ApplyLinkedPlugins()` explicitly remains valid and idempotent.
 
+A `ProgramPlugin` may also implement `CheckingProgramPlugin`. Its `CheckProgram(*Program, PluginContext) error` must return exactly the error `ApplyProgram` would return for the same Program and context, and must not mutate the Program. `Program.CheckLinkedPlugins()` answers an analysis-only check with it: it calls `CheckProgram` where implemented and `ApplyProgram` otherwise, in registration order, and latches nothing. `Program.HasMutatingLinkedCheckPlugins()` reports whether some linked `ProgramPlugin` lacks `CheckProgram`. When it returns false, a resident check host can keep the Program between watch cycles. `@ttsc/paths` and `@ttsc/strip` implement it.
+
+`NewSessionFromProgram(cwd, overlay, prog)` keeps a Program the caller loaded over `overlay` resident as a `Session`, so its `Apply` updates reach the compiler. `Session.Contains(absPath)` tests membership without dispatching linked hooks, unlike `Program.SourceFile`.
+
 An `EmitTransform` that injects an import must allocate one file-level unique identifier and reuse that node for the import binding and every reference:
 
 ```go
