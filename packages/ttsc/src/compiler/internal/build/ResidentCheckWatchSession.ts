@@ -82,11 +82,10 @@ export class ResidentCheckWatchSession {
    * and plugins. Compatible check entries may then start resident processes,
    * and transform hosts of an analysis cycle run their one-shot `check` after
    * them; emitting entries reuse selection but rebuild their Program each
-   * cycle. A
-   * resident process that fails is retired and its entry falls back to the
-   * one-shot check for that cycle. Plugin and project watch handoffs complete
-   * before checks begin; reused topology is republished through the same
-   * completion boundary.
+   * cycle. A resident process that fails is retired and its entry falls back to
+   * the one-shot check for that cycle. Plugin and project watch handoffs
+   * complete before checks begin; reused topology is republished through the
+   * same completion boundary.
    *
    * @evidence contracts/common.md#principled-implementation Compatible no-emit selection uses the same diagnostic/failure policy as one-shot execution, including the shared analysis transform phase after resident checks; emitting selection retains its plugins but runs a fresh build, and reload, missing binaries and changed normalized dependency topology cold-resolve the next execution.
    * @evidence contracts/common.md#clear-and-simple-design The cycle separates setup/reuse, topology refresh, ordered checks and final diagnostics/timing, delegating each phase to its owning shared operation.
@@ -199,7 +198,10 @@ export class ResidentCheckWatchSession {
           )
         : undefined;
     this.assertOpen(generation);
-    if (checked.status !== 0 && checked.typeScriptDiagnosticsReported === true) {
+    if (
+      checked.status !== 0 &&
+      checked.typeScriptDiagnosticsReported === true
+    ) {
       // The failing resident host acknowledged its loaded Program's complete
       // report, so a recovery check would only re-derive it (#1869).
       result = checked;
@@ -235,11 +237,11 @@ export class ResidentCheckWatchSession {
   }
 
   /**
-   * The session's private upstream build-info file, in a directory this
-   * session allocated under the OS temporary root on first use. Every watch
-   * process owns its own, so several watches over the same sources never share
-   * compiler state, and the project and its cache stay untouched (#1866).
-   * Allocation failure leaves the check non-incremental.
+   * The session's private upstream build-info file, in a directory this session
+   * allocated under the OS temporary root on first use. Every watch process
+   * owns its own, so several watches over the same sources never share compiler
+   * state, and the project and its cache stay untouched (#1866). Allocation
+   * failure leaves the check non-incremental.
    */
   private buildInfoFile(): string | undefined {
     if (this.buildInfo === undefined) {
@@ -530,9 +532,9 @@ export class ResidentCheckWatchSession {
   /**
    * Run the analysis cycle's transform hosts after successful check hosts, as
    * BuildExecution.runAnalysisTransformHosts does for a one-shot build. A
-   * shared host that declares `residentCheck` answers through `check-serve`
-   * and keeps its Program between cycles; any other host runs its one-shot
-   * `check`. Returns undefined when the selection has no transform plugin.
+   * shared host that declares `residentCheck` answers through `check-serve` and
+   * keeps its Program between cycles; any other host runs its one-shot `check`.
+   * Returns undefined when the selection has no transform plugin.
    */
   private async runTransformHosts(
     options: RunBuildOptions,
@@ -728,11 +730,11 @@ function planTransformHost(
 /**
  * Translate a resident host's Program files into the spellings the selected
  * compiler lists. A Go host reads the default libraries from its embedded
- * bundle (`bundled:///libs/<name>`), while the installed `tsc` reads and
- * lists the same files beside its executable; the topology must see one
- * membership whichever producer answered, or it would read the difference as
- * a topology change. A library that cannot be found there withdraws the whole
- * report, and the topology lists the project itself.
+ * bundle (`bundled:///libs/<name>`), while the installed `tsc` reads and lists
+ * the same files beside its executable; the topology must see one membership
+ * whichever producer answered, or it would read the difference as a topology
+ * change. A library that cannot be found there withdraws the whole report, and
+ * the topology lists the project itself.
  */
 function residentProgramFiles(
   files: readonly string[] | undefined,
@@ -781,10 +783,9 @@ function projectInputSnapshotsEqual(
 }
 
 /**
- * Residency serves analysis-only cycles without fix/format/terminal effects.
- * A transform plugin does not disqualify the cycle: emit is off, so its host
- * only runs `check`, one-shot, while the check-stage hosts stay resident
- * (#1864).
+ * Residency serves analysis-only cycles without fix/format/terminal effects. A
+ * transform plugin does not disqualify the cycle: emit is off, so its host only
+ * runs `check`, one-shot, while the check-stage hosts stay resident (#1864).
  */
 function residentCheckExecutionIsCompatible(options: RunBuildOptions): boolean {
   return (

@@ -23,9 +23,9 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * 1. Start `ttsc --noEmit --watch --diagnostics` with debug reporting on a lint
  *    project that also selects the `@ttsc/paths` transform, from clean source.
  * 2. Save a clean edit, then introduce a `no-var` finding.
- * 3. Require one stable resident lint process with one update per save, one
- *    stable resident transform host on the two passing cycles, no listing
- *    after startup and no recovery check, and the finding in the last cycle.
+ * 3. Require one stable resident lint process with one update per save, one stable
+ *    resident transform host on the two passing cycles, no listing after
+ *    startup and no recovery check, and the finding in the last cycle.
  * 4. Close the watch, then require `ttsc --no-plugins --noEmit` to pass the same
  *    failing source through the plain compiler (#1867).
  *

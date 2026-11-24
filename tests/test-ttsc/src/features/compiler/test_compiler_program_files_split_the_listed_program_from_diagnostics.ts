@@ -8,9 +8,9 @@ import { appendBuildOutput } from "../../../../../packages/ttsc/src/compiler/int
  * Verifies a watch cycle reads its Program's membership from the compiler's own
  * `--listFiles` answer without losing any diagnostic text (#1865).
  *
- * The watch topology takes this list instead of starting a second compiler
- * run, so every listed path must be kept and every other line must stay in
- * the displayed output.
+ * The watch topology takes this list instead of starting a second compiler run,
+ * so every listed path must be kept and every other line must stay in the
+ * displayed output.
  *
  * 1. Split output that mixes plain and pretty diagnostics, a summary line and
  *    listed files in both slash spellings.

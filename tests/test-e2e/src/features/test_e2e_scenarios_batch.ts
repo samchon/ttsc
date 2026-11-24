@@ -40,6 +40,7 @@ import { test_plugin_corpus_ttsx_runs_a_host_that_declares_no_emit_provenance } 
 import { test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs";
 import { test_plugin_missing_ttsc_export_condition_falls_back_to_default_entry } from "./ttsc/native-plugins/corpus-misc/test_plugin_missing_ttsc_export_condition_falls_back_to_default_entry";
 import { test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch } from "./ttsc/native-plugins/corpus-misc/test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch";
+import { test_ttsc_watch_plugin_free_check_keeps_private_incremental_state } from "./ttsc/native-plugins/corpus-misc/test_ttsc_watch_plugin_free_check_keeps_private_incremental_state";
 import { test_plugin_corpus_source_plugin_build_failure_reports_go_compiler_stderr } from "./ttsc/native-plugins/corpus-source/test_plugin_corpus_source_plugin_build_failure_reports_go_compiler_stderr";
 import { test_plugin_corpus_source_plugin_default_cache_is_workspace_local_content_cache } from "./ttsc/native-plugins/corpus-source/test_plugin_corpus_source_plugin_default_cache_is_workspace_local_content_cache";
 import { test_plugin_corpus_emit_watch_reuses_plugin_selection_until_config_changes } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_emit_watch_reuses_plugin_selection_until_config_changes";
@@ -218,7 +219,6 @@ import { test_transformttsc_typed_native_configs_keep_project_root_stable } from
 import { test_transformttsc_unnotified_utility_config_link_retarget_invalidates_generation } from "./unplugin/native-plugins/transform/test_transformttsc_unnotified_utility_config_link_retarget_invalidates_generation";
 import { test_transformttsc_uses_filesystem_path_identity } from "./unplugin/native-plugins/transform/test_transformttsc_uses_filesystem_path_identity";
 import { test_transformttsc_utility_config_proof_refuses_a_nearer_candidate_that_came_and_went } from "./unplugin/native-plugins/transform/test_transformttsc_utility_config_proof_refuses_a_nearer_candidate_that_came_and_went";
-import { test_ttsc_watch_plugin_free_check_keeps_private_incremental_state } from "./ttsc/native-plugins/corpus-misc/test_ttsc_watch_plugin_free_check_keeps_private_incremental_state";
 import { test_ttsc_undeclared_run_scrubs_inherited_plugin_config_dir } from "./unplugin/native-plugins/transform/test_ttsc_undeclared_run_scrubs_inherited_plugin_config_dir";
 import { case_explicit_precompilation_overlaps_project_gates } from "./unplugin/scenes/case_explicit_precompilation_overlaps_project_gates";
 import { case_unproven_plugin_source_is_rejected_after_native_preparation } from "./unplugin/scenes/case_unproven_plugin_source_is_rejected_after_native_preparation";

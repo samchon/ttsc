@@ -55,10 +55,10 @@ import { watchDirectory } from "./watchDirectory";
  * resolution. Response files join the config reload set; these observations do
  * not pin files or detect a change restored in between.
  *
- * `TTSC_WATCH_DEBUG_INPUTS` reports the named event, observed population deltas,
- * reload decision and every compiler listing it starts. These diagnostics reuse
- * the decision's existing inputs; they perform no extra filesystem
- * observations.
+ * `TTSC_WATCH_DEBUG_INPUTS` reports the named event, observed population
+ * deltas, reload decision and every compiler listing it starts. These
+ * diagnostics reuse the decision's existing inputs; they perform no extra
+ * filesystem observations.
  *
  * @evidence contracts/common.md#principled-implementation The compiler-input operation's membership, published rule inputs and actual content fingerprints qualify notifications; its native default obtains the real compiler list. Post-registration reconciliation compares baselines to recover observed handoff changes, not an atomic guarantee against every transient mutation. Explicit operations preserve native defaults without replacing global filesystem or compiler methods. Project-input attribution: Observed member deltas establish attribution; stale selected names cannot override them, while directory names retain supported population causality and unrelated multiple members remain unnamed.
  * @evidence contracts/common.md#clear-and-simple-design Compiler, plugin and project-input watch populations keep their own baselines and callbacks under one topology owner; small classifiers separate membership, selection and handle replacement. Five distinct operations own directory subscriptions, file subscriptions, immediate reload-directory reads, compiler membership and each decision's case-policy observations; existing callers need no new argument. Project-input attribution: One private reconciliation separates member deltas from immediate resolution-directory digests before choosing a supported event name or an observed single member.

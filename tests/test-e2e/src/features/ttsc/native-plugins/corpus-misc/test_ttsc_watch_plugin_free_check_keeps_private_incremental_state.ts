@@ -13,14 +13,13 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * to its own session, takes membership from its own compiler run, and that two
  * watches over the same sources never share that state (#1865, #1866).
  *
- * 1. Start two `ttsc --noEmit --watch` sessions on one plugin-free project
- *    whose source has a type error.
+ * 1. Start two `ttsc --noEmit --watch` sessions on one plugin-free project whose
+ *    source has a type error.
  * 2. Fix the error, then reintroduce it, waiting for both sessions each time.
  * 3. Require each session's own build-info directory outside the project, no
- *    listing after startup, and the error reported again as a cold
- *    `ttsc --noEmit` reports it.
- * 4. Close both and require both directories gone and nothing new in the
- *    project.
+ *    listing after startup, and the error reported again as a cold `ttsc
+ *    --noEmit` reports it.
+ * 4. Close both and require both directories gone and nothing new in the project.
  *
  * @evidence contracts/testing.md#behavioral-verification Two real watches must each name a distinct existing private directory holding upstream build info outside the project, start no listing per cycle, report the reintroduced error identically to a cold check, and remove the directories on close; a shared, leaked or project-local state, a per-cycle listing or a changed diagnostic each fails an assertion.
  * @evidence contracts/testing.md#independent-expectations The expected diagnostic is the cold one-shot compiler's own line for the same source, and the expected project contents are the files the test wrote; startup lists at most twice (initial refresh plus its post-registration membership check).

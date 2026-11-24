@@ -1100,14 +1100,14 @@ export namespace BuildExecution {
    *
    * The same `tsc` run answers `--listFiles`, so the cycle's topology learns
    * the root project's membership without a second compiler run (#1865); the
-   * list stays visible when the user's own options enable `listFiles`. When
-   * the session supplies a private build-info file and the effective options
-   * choose no incremental state of their own (`incremental`, `composite` or
+   * list stays visible when the user's own options enable `listFiles`. When the
+   * session supplies a private build-info file and the effective options choose
+   * no incremental state of their own (`incremental`, `composite` or
    * `tsBuildInfoFile`), the run keeps upstream incremental state there, so a
    * later cycle re-checks only what the compiler finds affected (#1866). A
-   * plugin-free project is still compiled by the installed `tsc` alone, and
-   * the file lives outside the project and its cache. Unreadable effective
-   * options leave the run non-incremental rather than guessing.
+   * plugin-free project is still compiled by the installed `tsc` alone, and the
+   * file lives outside the project and its cache. Unreadable effective options
+   * leave the run non-incremental rather than guessing.
    *
    * @evidence contracts/common.md#principled-implementation Membership is the upstream compiler's own `--listFiles` answer for this run, and incremental state is the upstream `--incremental` program; the user's explicit incremental choices are forwarded untouched.
    * @evidence contracts/common.md#clear-and-simple-design runTsgo owns the process and list separation; this operation only selects the cycle's flags from the effective options.
@@ -1208,9 +1208,10 @@ export namespace BuildExecution {
    * stdout into `emittedFiles`. Internally requested TSFILE lines are stripped;
    * a user's own listEmittedFiles selection preserves its displayed listing.
    * Required provenance observes this same selected executable before and after
-   * its single emitting run; unsupported or unstable relations stay unknown.
-   * A watch cycle's run also answers `--listFiles`, reported as the result's
-   * `programFiles` and hidden unless the user's own options list files (#1865).
+   * its single emitting run; unsupported or unstable relations stay unknown. A
+   * watch cycle's run also answers `--listFiles`, reported as the result's
+   * `programFiles` and hidden unless the user's own options list files
+   * (#1865).
    */
   function runTsgoBuild(
     execution: ReturnType<typeof resolveExecutionContext>,
