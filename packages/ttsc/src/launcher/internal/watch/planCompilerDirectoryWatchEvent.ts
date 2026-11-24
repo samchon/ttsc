@@ -3,6 +3,7 @@ import path from "node:path";
 import type { ProjectInputPathIdentityContext } from "../../../internal/pathIdentity/ProjectInputPathIdentityContext";
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import type { CompilerDirectoryWatchEventPlan } from "./CompilerDirectoryWatchEventPlan";
+import { ProjectInputWatchRules } from "./ProjectInputWatchRules";
 
 /**
  * Plan one compiler-directory event without relying on backend timing.
@@ -16,14 +17,17 @@ import type { CompilerDirectoryWatchEventPlan } from "./CompilerDirectoryWatchEv
  * unnamed event conservatively selects every surviving tracked input below the
  * watch root as a change candidate and for non-Windows rearming. The caller
  * verifies actual content/owner movement before reporting; an event alone does
- * not prove inode replacement. Windows has no per-file watchers here.
+ * not prove inode replacement. Windows has no per-file watchers here. A named
+ * event for an untracked path refreshes membership only when that path could
+ * move it (namedEventMayMoveMembership); a write the compiler never reads costs
+ * no listing.
  *
  * Native case observations belong to `identities`, shared with the caller's
  * reconciliation or created fresh here. An exact indexed member is preferred; a
  * missing key conservatively routes eligible lexical aliases without merging
  * stored members. `platform` controls rearming, not filesystem case policy.
  *
- * @evidence contracts/common.md#principled-implementation A named tracked survivor is a content candidate; absent localization requires conservative coverage and membership refresh, while POSIX inode replacement additionally rearms per-file watches.
+ * @evidence contracts/common.md#principled-implementation A named tracked survivor is a content candidate; absent localization requires conservative coverage and membership refresh, while POSIX inode replacement additionally rearms per-file watches. A named untracked path refreshes membership when it holds members, is a directory a backend may not descend into, or carries a name the compiler or a member-proven mapper can read.
  * @evidence contracts/common.md#clear-and-simple-design Candidate selection precedes independent refresh/rearm policy with no backend-timing simulation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual tracked membership and existence qualify candidates instead of treating every notification as an edit or guessing missing filenames.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain directory-only events, replacement and unnamed notifications following the documentation skill.
@@ -37,6 +41,11 @@ export function planCompilerDirectoryWatchEvent(input: {
   changed?: string;
   event: string;
   exists(location: string): boolean;
+  /**
+   * Whether an existing path is a directory; absent, every existing untracked
+   * path refreshes membership, the conservative answer.
+   */
+  isDirectory?(location: string): boolean;
   identities?: ProjectInputPathIdentityContext;
   location: string;
   platform: NodeJS.Platform;
@@ -71,7 +80,11 @@ export function planCompilerDirectoryWatchEvent(input: {
     };
   }
   if (candidates.length === 0) {
-    return { changes: [], rearm: [], refresh: true };
+    return {
+      changes: [],
+      rearm: [],
+      refresh: namedEventMayMoveMembership(input, identities),
+    };
   }
   if (input.platform === "win32") {
     return { changes: candidates, rearm: [], refresh: false };
@@ -80,4 +93,43 @@ export function planCompilerDirectoryWatchEvent(input: {
     return { changes: candidates, rearm: candidates, refresh: false };
   }
   return { changes: candidates, rearm: [], refresh: false };
+}
+
+/**
+ * Whether a named event for an untracked path can move compiler membership, so
+ * that only it pays for a whole-Program listing (#1865).
+ *
+ * The compiler admits a root or a resolution only for a source, declaration,
+ * JavaScript or JSON name (`package.json` and configs included), or for an
+ * extension a content mapper already admitted, which a current member shows. A
+ * path holding tracked members can drop them. A directory can hold files the
+ * compiler would read; on the recursive Windows and macOS backends its entries
+ * report events of their own, so only a directory moved in or out (`rename`)
+ * needs the listing there, while a per-directory backend lists for any
+ * directory event. Every other named path, such as a log, a lock file or a
+ * build product the compiler never reads, leaves membership as it was.
+ */
+function namedEventMayMoveMembership(
+  input: Parameters<typeof planCompilerDirectoryWatchEvent>[0],
+  identities: ProjectInputPathIdentityContext,
+): boolean {
+  const changed = path.resolve(input.changed!);
+  for (const file of input.trackedFiles.values())
+    if (identities.lexicalIsWithin(changed, path.resolve(file))) return true;
+  if (input.exists(changed)) {
+    // A caller that cannot tell directories apart gets the listing.
+    if (input.isDirectory === undefined) return true;
+    if (input.isDirectory(changed))
+      return (
+        input.event === "rename" ||
+        (input.platform !== "win32" && input.platform !== "darwin")
+      );
+  }
+  if (ProjectInputWatchRules.projectInputPathMayAffectProgram(changed))
+    return true;
+  const extension = path.extname(changed).toLowerCase();
+  if (extension === "") return false;
+  for (const file of input.trackedFiles.values())
+    if (path.extname(file).toLowerCase() === extension) return true;
+  return false;
 }

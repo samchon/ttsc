@@ -371,9 +371,10 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
   {
     name: "--no-plugins",
     kind: "boolean",
-    subcommands: ["ttsx"],
+    subcommands: ["ttsc", "ttsx", "build", "check"],
     consumedBy: ["launcher"],
-    description: "Build the project without ttsc plugins (ttsx).",
+    description:
+      "Build or check the project without ttsc plugins; the installed tsgo compiles it.",
   },
 
   // -------------------------------------------------------------------------

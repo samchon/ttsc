@@ -36,6 +36,14 @@ type serveCheckResponse struct {
   Stdout    string              `json:"stdout"`
   Stderr    string              `json:"stderr"`
   Telemetry serveCheckTelemetry `json:"telemetry"`
+  // ProgramFiles names every file of the resident Program after this request,
+  // as `--listFilesOnly` would print them, so the watch topology needs no
+  // compiler run of its own to learn the project's membership (#1865).
+  ProgramFiles []string `json:"programFiles,omitempty"`
+  // TypeScriptDiagnosticsReported acknowledges that Stderr holds the loaded
+  // Program's complete TypeScript diagnostic batch. Absent on load, config and
+  // panic failures, where the launcher still runs its recovery check.
+  TypeScriptDiagnosticsReported bool `json:"typeScriptDiagnosticsReported,omitempty"`
 }
 
 // residentCheckState owns the one warm Program in a check-serve process.
@@ -295,15 +303,20 @@ func (s *residentCheckState) run(
     )
   }
   warnUnknownRules(&stderr, engine.UnknownRules())
+  status := 0
   if count := shimdw.FormatMixedDiagnostics(
     &stderr,
     astDiags,
     lintDiags,
     opts.cwd,
   ); count > 0 {
-    return s.response(2, stdout, stderr, reused)
+    status = 2
   }
-  return s.response(0, stdout, stderr, reused)
+  response := s.response(status, stdout, stderr, reused)
+  // The loaded Program's complete TypeScript batch is in this reply, so a
+  // failing status needs no independent recovery check (#1869).
+  response.TypeScriptDiagnosticsReported = true
+  return response
 }
 
 func (s *residentCheckState) response(
@@ -322,5 +335,24 @@ func (s *residentCheckState) response(
       ProgramUpdates: s.programUpdates,
       Reused:         reused,
     },
+    ProgramFiles: s.programFiles(),
   }
+}
+
+// programFiles lists the resident Program's files, or nil when no Program is
+// loaded. A failed load reports nothing, so the caller lists them itself.
+func (s *residentCheckState) programFiles() []string {
+  if s.program == nil || s.program.tsProgram == nil {
+    return nil
+  }
+  // Default libraries keep their `bundled:///libs/` names; the launcher maps
+  // them to the selected compiler's own files.
+  files := s.program.tsProgram.SourceFiles()
+  names := make([]string, 0, len(files))
+  for _, file := range files {
+    if file != nil {
+      names = append(names, string(file.FileName()))
+    }
+  }
+  return names
 }

@@ -16,6 +16,7 @@ import { normalizeBuildOutput } from "./normalizeBuildOutput";
  *   Explicit observation incompleteness is sticky.
  * - `environmentInputs`: unioned; two phases that recorded different values for
  *   one name withdraw reuse through `observationsComplete: false`.
+ * - `programFiles`: the right phase's report wins, otherwise the left's.
  *
  * Only the right phase's complete Program-report acknowledgement survives; an
  * earlier check cannot certify a later transform host's diagnostics.
@@ -54,6 +55,11 @@ export function appendBuildOutput(
       : { compilerObservations: right.compilerObservations }),
     processCompletedNormally: right.processCompletedNormally,
     typeScriptDiagnosticsReported: right.typeScriptDiagnosticsReported,
+    // Every phase of one build loads the same selected project, so either
+    // phase's report states its membership; the later one is the fresher.
+    ...((right.programFiles ?? left.programFiles) === undefined
+      ? {}
+      : { programFiles: right.programFiles ?? left.programFiles }),
     ...(left.hostInputs === undefined && right.hostInputs === undefined
       ? {}
       : {

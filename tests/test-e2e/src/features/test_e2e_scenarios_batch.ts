@@ -20,6 +20,7 @@ import { test_plugin_corpus_auto_discovered_lint_prefer_const_tracks_lexical_bin
 import { test_plugin_corpus_auto_discovered_ttsc_lint_fails_when_no_config_file_exists } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_auto_discovered_ttsc_lint_fails_when_no_config_file_exists";
 import { test_plugin_corpus_check_watch_fallback_keeps_forwarded_compiler_flags } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_check_watch_fallback_keeps_forwarded_compiler_flags";
 import { test_plugin_corpus_check_watch_invalidates_json_input_membership_without_restarting_resident } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_check_watch_invalidates_json_input_membership_without_restarting_resident";
+import { test_plugin_corpus_check_watch_keeps_resident_checks_beside_a_transform_plugin } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_check_watch_keeps_resident_checks_beside_a_transform_plugin";
 import { test_plugin_corpus_check_watch_preserves_duplicate_resident_entries } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_check_watch_preserves_duplicate_resident_entries";
 import { test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_the_cache_removed } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_the_cache_removed";
 import { test_plugin_corpus_check_watch_records_use_of_its_plugin_binary } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_check_watch_records_use_of_its_plugin_binary";
@@ -39,6 +40,7 @@ import { test_plugin_corpus_ttsx_runs_a_host_that_declares_no_emit_provenance } 
 import { test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs } from "./ttsc/native-plugins/corpus-misc/test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs";
 import { test_plugin_missing_ttsc_export_condition_falls_back_to_default_entry } from "./ttsc/native-plugins/corpus-misc/test_plugin_missing_ttsc_export_condition_falls_back_to_default_entry";
 import { test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch } from "./ttsc/native-plugins/corpus-misc/test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch";
+import { test_ttsc_watch_plugin_free_check_keeps_private_incremental_state } from "./ttsc/native-plugins/corpus-misc/test_ttsc_watch_plugin_free_check_keeps_private_incremental_state";
 import { test_plugin_corpus_source_plugin_build_failure_reports_go_compiler_stderr } from "./ttsc/native-plugins/corpus-source/test_plugin_corpus_source_plugin_build_failure_reports_go_compiler_stderr";
 import { test_plugin_corpus_source_plugin_default_cache_is_workspace_local_content_cache } from "./ttsc/native-plugins/corpus-source/test_plugin_corpus_source_plugin_default_cache_is_workspace_local_content_cache";
 import { test_plugin_corpus_emit_watch_reuses_plugin_selection_until_config_changes } from "./ttsc/native-plugins/corpus-ttsc/test_plugin_corpus_emit_watch_reuses_plugin_selection_until_config_changes";
@@ -380,6 +382,10 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
   [
     "test_plugin_corpus_check_watch_invalidates_json_input_membership_without_restarting_resident",
     test_plugin_corpus_check_watch_invalidates_json_input_membership_without_restarting_resident,
+  ],
+  [
+    "test_plugin_corpus_check_watch_keeps_resident_checks_beside_a_transform_plugin",
+    test_plugin_corpus_check_watch_keeps_resident_checks_beside_a_transform_plugin,
   ],
   [
     "test_plugin_corpus_check_watch_preserves_duplicate_resident_entries",
@@ -1157,6 +1163,10 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
   [
     "test_ttsc_undeclared_run_scrubs_inherited_plugin_config_dir",
     test_ttsc_undeclared_run_scrubs_inherited_plugin_config_dir,
+  ],
+  [
+    "test_ttsc_watch_plugin_free_check_keeps_private_incremental_state",
+    test_ttsc_watch_plugin_free_check_keeps_private_incremental_state,
   ],
   [
     "test_transform_session_store_outlives_its_process",

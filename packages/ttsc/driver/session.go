@@ -3,6 +3,7 @@ package driver
 import (
   "context"
 
+  "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
@@ -66,6 +67,25 @@ func NewSession(cwd, tsconfig string, options LoadProgramOptions) (*Session, []D
   return &Session{cwd: cwd, overlay: overlay, prog: prog}, nil, nil
 }
 
+// NewSessionFromProgram keeps an already loaded Program resident. The caller
+// must have loaded prog over overlay (LoadProgramOptions.FS), so later Apply
+// edits reach the compiler, and must not use prog on its own afterwards: the
+// session's Apply replaces its generation-specific fields. It lets a host that
+// owns its own loading phases (linked-plugin manifest, diagnostics) still use
+// the session's incremental updates. cwd must be absolute.
+//
+// @evidence contracts/common.md#principled-implementation The same overlay the Program was loaded over is retained, so Apply edits reach the compiler exactly as for NewSession.
+// @evidence contracts/common.md#clear-and-simple-design A field-only constructor; loading stays with the caller.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No second Program is loaded and no compiler state is copied.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the overlay precondition and the ownership transfer.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The constructor stores supplied values and performs no native operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Constant field assignment.
+// @evidence contracts/performance.md#reuse-equivalent-work The caller's loaded Program serves later edits instead of a second load.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The session takes the Program's checker lease; Close releases it.
+func NewSessionFromProgram(cwd string, overlay *OverlayFS, prog *Program) *Session {
+  return &Session{cwd: cwd, overlay: overlay, prog: prog}
+}
+
 // Apply sets the in-memory content of one file and incrementally updates the
 // resident program. absPath must identify an existing resident member, and the
 // caller must satisfy native UpdateProgram's single-changed-file precondition.
@@ -84,7 +104,9 @@ func NewSession(cwd, tsconfig string, options LoadProgramOptions) (*Session, []D
 func (s *Session) Apply(absPath, content string) bool {
   s.overlay.Set(absPath, content)
   name := absPath
-  if file := s.prog.SourceFile(absPath); file != nil {
+  // The raw lookup runs no linked hook: Program.SourceFile would dispatch a
+  // pending ProgramPlugin and mutate the very generation being updated.
+  if file := s.sourceFile(absPath); file != nil {
     name = string(file.FileName())
   }
   changed := shimcompiler.ProgramPathKey(s.prog.TSProgram, shimtspath.ToRootedFilePath(name, s.prog.TSProgram.GetCurrentDirectory()))
@@ -107,6 +129,30 @@ func (s *Session) Apply(absPath, content string) bool {
     e2etrace.Program("program-load-outcome", "driver-update", "facade-installed", reused, newProg)
   }
   return reused
+}
+
+// Contains reports whether absPath names a file of the resident Program. Unlike
+// Program.SourceFile it dispatches no pending linked hook, so asking leaves the
+// generation unmodified for a later Apply or check.
+//
+// @evidence contracts/common.md#principled-implementation Membership comes from the compiler's own source-file index for the current generation.
+// @evidence contracts/common.md#clear-and-simple-design One boolean accessor over the shared raw lookup.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No hook runs and no disk read substitutes for the resident index.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the difference from Program.SourceFile.
+// @evidence contracts/portability.md#os-neutral-implementation The compiler's rooted path conversion and case policy produce the lookup key.
+// @evidence contracts/performance.md#efficient-algorithms One indexed lookup after path conversion.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A membership query coordinates no shared computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The query acquires and retains nothing.
+func (s *Session) Contains(absPath string) bool {
+  return s.sourceFile(absPath) != nil
+}
+
+// sourceFile looks absPath up in the current generation without hooks.
+func (s *Session) sourceFile(absPath string) *ast.SourceFile {
+  if s.prog == nil || s.prog.TSProgram == nil || absPath == "" {
+    return nil
+  }
+  return s.prog.TSProgram.GetSourceFile(shimtspath.ToRootedFilePath(absPath, s.prog.TSProgram.GetCurrentDirectory()))
 }
 
 // Program returns the resident driver facade, reflecting every Apply so far.

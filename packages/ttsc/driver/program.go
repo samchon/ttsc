@@ -1003,6 +1003,44 @@ func (p *Program) ApplyLinkedPlugins() error {
   return p.pluginsApplyErr
 }
 
+// CheckLinkedPlugins runs the linked plugins' analysis outcome for this
+// generation, in order, stopping at the first missing registration or error.
+// A CheckingProgramPlugin answers through CheckProgram and leaves the Program
+// untouched; any other ProgramPlugin runs ApplyProgram. Unlike
+// ApplyLinkedPlugins nothing is latched, so a resident host can call it once
+// per watch cycle. When HasMutatingLinkedCheckPlugins is false the Program
+// stays reusable afterwards.
+//
+// @evidence contracts/common.md#principled-implementation Each plugin's declared analysis outcome is used, and a plugin that can only answer by mutation still runs its real hook.
+// @evidence contracts/common.md#clear-and-simple-design A guarded delegation to the linked state, beside ApplyLinkedPlugins.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No hook is skipped: every ProgramPlugin answers through CheckProgram or ApplyProgram.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the dispatch, the missing latch and the reuse condition.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Hook scheduling performs no native path operation.
+// @evidence contracts/performance.md#efficient-algorithms One scan of linked entries; hooks do their own work.
+// @evidence contracts/performance.md#reuse-equivalent-work Non-mutating answers keep the Program reusable for later cycles.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Hook contexts join the Program's ledger as for ApplyLinkedPlugins; nothing else is retained.
+func (p *Program) CheckLinkedPlugins() error {
+  if p == nil {
+    return nil
+  }
+  return p.plugins.check(p)
+}
+
+// HasMutatingLinkedCheckPlugins reports whether answering CheckLinkedPlugins
+// mutates the Program: some linked ProgramPlugin lacks CheckProgram.
+//
+// @evidence contracts/common.md#principled-implementation The plugins' own interfaces decide whether a check can leave the Program clean.
+// @evidence contracts/common.md#clear-and-simple-design A guarded delegation preserves one classification owner.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Actual interfaces replace package-name classification.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the classification.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Registry inspection performs no native boundary operation.
+// @evidence contracts/performance.md#efficient-algorithms One scan of linked entries until the first mutating match.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate owns no shared-work coordinator.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No retained state or resource is created.
+func (p *Program) HasMutatingLinkedCheckPlugins() bool {
+  return p != nil && p.plugins.hasMutatingCheckPlugins()
+}
+
 // HasLinkedProgramPlugins reports whether the loaded project has an active
 // ProgramPlugin. Those hooks mutate parsed ASTs in place and therefore require
 // a fresh Program rather than Session's incremental source replacement.

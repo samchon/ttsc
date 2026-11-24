@@ -1,4 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import path from "node:path";
 import { type Interface, createInterface } from "node:readline";
 import { parentPort, workerData } from "node:worker_threads";
 
@@ -418,8 +419,31 @@ function parseResidentCheckResult(
   ) {
     return undefined;
   }
+  // Optional: the resident Program's files, as absolute native paths or the
+  // compiler's bundled default-library names. The session maps the latter to
+  // the selected compiler's own files; a host that omits the list, or sends
+  // anything else, leaves membership to the topology's listing.
+  const programFiles =
+    Array.isArray(value.programFiles) &&
+    value.programFiles.length !== 0 &&
+    value.programFiles.every(
+      (file) =>
+        typeof file === "string" &&
+        (path.isAbsolute(file) || file.startsWith(BUNDLED_LIBRARY_PREFIX)),
+    )
+      ? (value.programFiles as string[]).map((file) =>
+          file.startsWith(BUNDLED_LIBRARY_PREFIX) ? file : path.resolve(file),
+        )
+      : undefined;
+  // A complete Program report needs no independent recovery check (#1869).
+  const reported =
+    value.typeScriptDiagnosticsReported === true
+      ? { typeScriptDiagnosticsReported: true as const }
+      : {};
   return {
     diagnostics: [],
+    ...(programFiles === undefined ? {} : { programFiles }),
+    ...reported,
     status: value.status,
     stderr: value.stderr,
     stdout: value.stdout,
@@ -431,6 +455,9 @@ function parseResidentCheckResult(
     },
   };
 }
+
+/** How a Go host names a default library it read from the compiler bundle. */
+const BUNDLED_LIBRARY_PREFIX = "bundled:///libs/";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

@@ -510,6 +510,37 @@ type ProgramPlugin interface {
   ApplyProgram(*Program, PluginContext) error
 }
 
+// CheckingProgramPlugin is a ProgramPlugin whose effect on an analysis-only
+// check does not depend on mutating the Program. CheckProgram must return
+// exactly the error ApplyProgram would return for the same Program and context,
+// and must leave the Program's ASTs untouched. A resident check host may then
+// keep its Program across watch cycles and call CheckProgram on each, instead
+// of loading a fresh Program for an AST-mutating hook (samchon/ttsc#1864).
+//
+// @evidence contracts/common.md#principled-implementation The method states the analysis outcome of ApplyProgram without the mutation, so a reused Program never sees rewritten source.
+// @evidence contracts/common.md#clear-and-simple-design One optional method beside ApplyProgram; plugins without it keep the fresh-Program rule.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The host learns the property from the plugin's own declaration, never from its name.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the equivalence the method must keep and what a host may do with it.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The capability declaration performs no native operation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+type CheckingProgramPlugin interface {
+  ProgramPlugin
+
+  // CheckProgram reports ApplyProgram's analysis outcome without mutation.
+  //
+  // @evidence contracts/common.md#principled-implementation The returned error equals ApplyProgram's for the same Program and context.
+  // @evidence contracts/common.md#clear-and-simple-design One error result mirrors ApplyProgram's signature.
+  // @evidence contracts/common.md#prohibited-implementation-shortcuts The Program stays unmodified, so the host may reuse it.
+  // @evidence contracts/common.md#meaningful-documentation Native prose states the equivalence requirement.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation This method declaration owns no native operation.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CheckProgram declares a signature only.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms CheckProgram declares a signature only.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work CheckProgram declares a signature only.
+  CheckProgram(*Program, PluginContext) error
+}
+
 // EmitTransformPlugin contributes an emit-phase AST transformer. The returned
 // PluginTransform runs first in tsgo's per-file emit chain, sharing the emit
 // EmitContext with the builtin transformers, so a plugin returns AST instead of
@@ -951,6 +982,50 @@ func (state linkedPluginState) apply(prog *Program) error {
     }
   }
   return nil
+}
+
+// check runs every ProgramPlugin's analysis outcome in registration order:
+// CheckProgram where implemented, which leaves the Program untouched, and
+// ApplyProgram otherwise.
+func (state linkedPluginState) check(prog *Program) error {
+  for index, entry := range state.entries {
+    plugin, ok := registeredPlugin(index)
+    if !ok {
+      return fmt.Errorf("ttsc driver: linked plugin entry %d was requested but no linked plugin registered at that position", index)
+    }
+    if checking, ok := plugin.(CheckingProgramPlugin); ok {
+      if err := checking.CheckProgram(prog, state.contextAt(index, entry)); err != nil {
+        return err
+      }
+      continue
+    }
+    transform, ok := plugin.(ProgramPlugin)
+    if !ok {
+      continue
+    }
+    if err := transform.ApplyProgram(prog, state.contextAt(index, entry)); err != nil {
+      return err
+    }
+  }
+  return nil
+}
+
+// hasMutatingCheckPlugins reports a ProgramPlugin without CheckProgram, whose
+// analysis outcome can only be had by mutating the Program.
+func (state linkedPluginState) hasMutatingCheckPlugins() bool {
+  for index := range state.entries {
+    plugin, ok := registeredPlugin(index)
+    if !ok {
+      continue
+    }
+    if _, ok := plugin.(CheckingProgramPlugin); ok {
+      continue
+    }
+    if _, ok := plugin.(ProgramPlugin); ok {
+      return true
+    }
+  }
+  return false
 }
 
 func (state linkedPluginState) hasProgramPlugins() bool {

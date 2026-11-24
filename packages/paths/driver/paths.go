@@ -111,6 +111,47 @@ func (plugin) ApplyProgram(prog *driver.Program, _ driver.PluginContext) error {
   return nil
 }
 
+// CheckProgram is ApplyProgram's analysis outcome: the rewrite never fails and
+// reports no diagnostic, so an analysis-only check has nothing to learn from
+// it. Answering without rewriting lets a resident check host keep its Program
+// across watch cycles (samchon/ttsc#1864).
+//
+// Principled implementation:
+//
+//  ApplyProgram returns nil for every Program, so nil is its exact outcome.
+//
+// Clear and simple design:
+//
+//  One constant answer beside the rewriting hook.
+//
+// Prohibited implementation shortcuts:
+//
+//  No rewrite is skipped on an emitting path; only the analysis question is
+//  answered without the mutation it does not need.
+//
+// Meaningful documentation:
+//
+//  The paragraph states why the answer is exact.
+//
+// OS-neutral implementation:
+//
+//  No path or filesystem operation runs.
+//
+// Efficient algorithms:
+//
+//  Constant time.
+//
+// Reuse equivalent work:
+//
+//  The unmodified Program stays reusable by its host.
+//
+// Bound retention and release resources:
+//
+//  Nothing is acquired.
+func (plugin) CheckProgram(*driver.Program, driver.PluginContext) error {
+  return nil
+}
+
 // rewriter holds the resolved tsconfig paths configuration used to rewrite
 // module specifiers across an entire program.
 type rewriter struct {

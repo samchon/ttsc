@@ -38,7 +38,7 @@ If anything in that paragraph feels new, read [Concepts → Plugin protocol](/do
 
 The package-local sidecars at `packages/banner/plugin/main.go`, `packages/strip/plugin/main.go`, and `packages/paths/plugin/main.go` are small standalone utility dispatchers. The published descriptors for those transform plugins point at `driver/`, so consumer builds run the linked transform package inside the selected native host; the statement-removal code lives in `packages/strip/driver/strip.go`.
 
-Transform packages can also expose linked Go packages instead of executable command packages. A linked package calls `driver.RegisterPlugin` from `init()` and implements `driver.SourcePreamblePlugin` and/or `driver.ProgramPlugin`; `ttsc` copies it into the selected native host at build time. This is capability-based, not package-name based: any transform descriptor whose `source` resolves to a non-`main` Go package uses the same path.
+Transform packages can also expose linked Go packages instead of executable command packages. A linked package calls `driver.RegisterPlugin` from `init()` and implements `driver.SourcePreamblePlugin` and/or `driver.ProgramPlugin`; `ttsc` copies it into the selected native host at build time. A `ProgramPlugin` whose analysis outcome does not need its AST rewrite should also implement `driver.CheckingProgramPlugin`: `CheckProgram` returns exactly the error `ApplyProgram` would, without mutating the Program, which lets `ttsc --noEmit --watch` keep that Program resident between saves. This is capability-based, not package-name based: any transform descriptor whose `source` resolves to a non-`main` Go package uses the same path.
 
 Practical consequence, flagged again on each walkthrough as it becomes relevant:
 

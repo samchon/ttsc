@@ -37,6 +37,7 @@ import { selectSharedHostPlugin } from "../sharedHost/selectSharedHostPlugin";
 import { spawnNative } from "../spawnNative";
 import { BuildTiming } from "./BuildTiming";
 import { CompilerDiagnostics } from "./CompilerDiagnostics";
+import { CompilerProgramFiles } from "./CompilerProgramFiles";
 import { CompilerTraceObservations } from "./CompilerTraceObservations";
 import { NativePluginArguments } from "./NativePluginArguments";
 import { PassthroughFlags } from "./PassthroughFlags";
@@ -461,24 +462,13 @@ export namespace BuildExecution {
           // separate invocation.
           return checked;
         }
-        if (compilers.length !== 0) {
-          assertSharedHostCompatibility(compilers, "emit");
-          const compiled = buildWithNativeCompilerPlugins(
-            buildOptions,
-            execution,
-            compilers,
-            timing,
-          );
-          const result = appendBuildOutput(checked, compiled);
-          return compiled.status === 0 ||
-            compiled.typeScriptDiagnosticsReported === true
-            ? result
-            : appendTypeScriptDiagnosticsAfterPluginFailure(
-                result,
-                buildOptions,
-                execution,
-              );
-        }
+        const transformed = runAnalysisTransformHosts(
+          buildOptions,
+          execution,
+          checked,
+          timing,
+        );
+        if (transformed !== undefined) return transformed;
         if (checkPluginsReportTypeScriptDiagnostics(execution.nativePlugins)) {
           return checked;
         }
@@ -571,6 +561,55 @@ export namespace BuildExecution {
         !PassthroughFlags.forwardsTerminalTsgoFlag(buildOptions),
     });
     return runTsgoBuild(execution, buildOptions, args);
+  }
+
+  /**
+   * Run the transform hosts of an analysis-only build after its check-stage
+   * plugins succeeded, or return undefined when the selection has none.
+   *
+   * A transform host's `check` verb is the only producer of its own findings
+   * (an invalid typia call site, for example), so an analysis build still runs
+   * it once. Its output follows the check plugins' output, and a failed host
+   * that did not acknowledge a complete TypeScript report gets the independent
+   * no-emit recovery pass. The one-shot build and the resident check watch both
+   * use this, so a watch cycle reports what a one-shot `ttsc --noEmit` reports
+   * for the same files (#1864).
+   *
+   * @evidence contracts/common.md#principled-implementation The selected transform-stage plugins share one host verified by assertSharedHostCompatibility, and the established check verb, diagnostic acknowledgement and failure recovery decide the result.
+   * @evidence contracts/common.md#clear-and-simple-design One operation owns the analysis transform phase for both callers, so the one-shot and resident lanes cannot drift apart.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed host never becomes success, and its unacknowledged report never suppresses the recovery pass.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs state why the host still runs, how its output is ordered, and which callers share the phase.
+   * @evidence contracts/portability.md#os-neutral-implementation Execution is delegated to runNativePluginCommand, which keeps the native binary, argv and cwd separate.
+   * @evidence contracts/performance.md#efficient-algorithms One filter over the selected plugins and, when any is a transform, one host run plus output merging; the recovery pass runs only after an unacknowledged failure.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A transform host loads its own Program per run; nothing here is retained between runs.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The returned result transfers to the caller; no process or buffer is retained.
+   */
+  export function runAnalysisTransformHosts(
+    buildOptions: RunBuildOptions,
+    execution: ReturnType<typeof resolveExecutionContext>,
+    checked: TtscBuildResult,
+    timing: BuildTiming.BuildTiming,
+  ): TtscBuildResult | undefined {
+    const compilers = execution.nativePlugins.filter(
+      (plugin) => plugin.stage === "transform",
+    );
+    if (compilers.length === 0) return undefined;
+    assertSharedHostCompatibility(compilers, "emit");
+    const compiled = buildWithNativeCompilerPlugins(
+      buildOptions,
+      execution,
+      compilers,
+      timing,
+    );
+    const result = appendBuildOutput(checked, compiled);
+    return compiled.status === 0 ||
+      compiled.typeScriptDiagnosticsReported === true
+      ? result
+      : appendTypeScriptDiagnosticsAfterPluginFailure(
+          result,
+          buildOptions,
+          execution,
+        );
   }
 
   /**
@@ -982,6 +1021,10 @@ export namespace BuildExecution {
    * (`--noEmit`), and a runtime build that re-enables emit after the user's
    * flags must not turn its check pass into a second emit.
    *
+   * A caller that passed `--listFiles` names `programFiles`: the printed list
+   * then becomes the result's `programFiles`, and `"hidden"` also removes it
+   * from the displayed output.
+   *
    * @evidence contracts/common.md#principled-implementation Pass-owned extra flags follow forwarded flags, so noEmit cannot be overridden into accidental emission; output isolation remains final even for incremental build information.
    * @evidence contracts/common.md#clear-and-simple-design One synchronous compiler boundary composes diagnostics/threading and delegates normalization, serving all independent check operations.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported compiler options express the check contract without intercepting writes or replacing compiler APIs; spawn errors remain errors.
@@ -997,6 +1040,7 @@ export namespace BuildExecution {
     execution: ReturnType<typeof resolveExecutionContext>,
     extraArgs: readonly string[],
     options: RunBuildOptions,
+    programFiles?: "displayed" | "hidden",
   ): TtscBuildResult {
     CompilerProjectSelection.assertCurrent(execution.compilerSelection);
     const res = spawnNative(
@@ -1029,13 +1073,76 @@ export namespace BuildExecution {
           res.error.message,
       );
     }
+    const stdout = outputText(res.stdout);
+    const listed =
+      programFiles === undefined || res.status === null
+        ? undefined
+        : CompilerProgramFiles.split(stdout);
     return normalizeBuildOutput(
       {
+        ...(listed === undefined || listed.files.length === 0
+          ? {}
+          : { programFiles: listed.files }),
         status: res.status ?? 1,
-        stdout: outputText(res.stdout),
+        stdout:
+          listed !== undefined && programFiles === "hidden"
+            ? listed.rest
+            : stdout,
         stderr: outputText(res.stderr),
       },
       execution.projectRoot,
+    );
+  }
+
+  /**
+   * Run one watch cycle's upstream no-emit check and report the Program it
+   * loaded.
+   *
+   * The same `tsc` run answers `--listFiles`, so the cycle's topology learns
+   * the root project's membership without a second compiler run (#1865); the
+   * list stays visible when the user's own options enable `listFiles`. When the
+   * session supplies a private build-info file and the effective options choose
+   * no incremental state of their own (`incremental`, `composite` or
+   * `tsBuildInfoFile`), the run keeps upstream incremental state there, so a
+   * later cycle re-checks only what the compiler finds affected (#1866). A
+   * plugin-free project is still compiled by the installed `tsc` alone, and the
+   * file lives outside the project and its cache. Unreadable effective options
+   * leave the run non-incremental rather than guessing.
+   *
+   * @evidence contracts/common.md#principled-implementation Membership is the upstream compiler's own `--listFiles` answer for this run, and incremental state is the upstream `--incremental` program; the user's explicit incremental choices are forwarded untouched.
+   * @evidence contracts/common.md#clear-and-simple-design runTsgo owns the process and list separation; this operation only selects the cycle's flags from the effective options.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No diagnostic is cached by ttsc: the compiler decides what is affected and replays its own per-file diagnostics, and unreadable options select the plain run.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states both flags' purpose, the user-option precedence and where the state lives.
+   * @evidence contracts/portability.md#os-neutral-implementation The build-info path is a native absolute path passed as one argv element; listed paths are resolved with path.resolve.
+   * @evidence contracts/performance.md#efficient-algorithms One effective-option read (a compiler query only for response files) and one compiler run; list separation is linear in stdout lines.
+   * @evidence contracts/performance.md#reuse-equivalent-work The upstream build info carries per-file check results across cycles of one session, and the reported list replaces the topology's own listing.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The build-info file belongs to the session that supplied it; the returned list transfers to the caller.
+   */
+  export function runWatchTypeCheck(
+    execution: ReturnType<typeof resolveExecutionContext>,
+    options: RunBuildOptions,
+    buildInfoFile: string | undefined,
+  ): TtscBuildResult {
+    const effective = readEffectiveCompilerOptions(
+      execution.project,
+      options.passthrough,
+      execution.tsgo.binary,
+      compilerEnv(options.env),
+      execution.compilerSelection.compilerArgsCwd,
+    );
+    const incremental =
+      buildInfoFile !== undefined &&
+      effective !== null &&
+      effective("incremental") === undefined &&
+      effective("composite") !== true &&
+      effective("tsBuildInfoFile") === undefined
+        ? ["--incremental", "true", "--tsBuildInfoFile", buildInfoFile]
+        : [];
+    return runTsgo(
+      execution,
+      ["--noEmit", "--listFiles", "true", ...incremental],
+      options,
+      effective?.("listFiles") === true ? "displayed" : "hidden",
     );
   }
 
@@ -1101,7 +1208,10 @@ export namespace BuildExecution {
    * stdout into `emittedFiles`. Internally requested TSFILE lines are stripped;
    * a user's own listEmittedFiles selection preserves its displayed listing.
    * Required provenance observes this same selected executable before and after
-   * its single emitting run; unsupported or unstable relations stay unknown.
+   * its single emitting run; unsupported or unstable relations stay unknown. A
+   * watch cycle's run also answers `--listFiles`, reported as the result's
+   * `programFiles` and hidden unless the user's own options list files
+   * (#1865).
    */
   function runTsgoBuild(
     execution: ReturnType<typeof resolveExecutionContext>,
@@ -1118,15 +1228,24 @@ export namespace BuildExecution {
     );
     const userListedEmitted = userOptions?.("listEmittedFiles") === true;
     const traced = options.onResolutionTrace;
+    // A watch cycle's emitting compiler run also answers its Program's
+    // membership, so the topology does not list the project again (#1865).
+    const listsProgram =
+      options.watchWriteIfChanged === true &&
+      traced === undefined &&
+      options.forceEmitProvenance !== true;
+    const userListedFiles = userOptions?.("listFiles") === true;
     const run = (
       commandArgs: readonly string[],
     ): { result: TtscBuildResult; completedNormally: boolean } => {
       CompilerProjectSelection.assertCurrent(execution.compilerSelection);
       const res = spawnNative(
         execution.tsgo.binary,
-        traced === undefined
-          ? commandArgs
-          : [...commandArgs, "--traceResolution", "true"],
+        traced !== undefined
+          ? [...commandArgs, "--traceResolution", "true"]
+          : listsProgram
+            ? [...commandArgs, "--listFiles", "true"]
+            : commandArgs,
         {
           cwd: execution.compilerSelection.compilerArgsCwd,
           env,
@@ -1148,12 +1267,21 @@ export namespace BuildExecution {
       // The trace belongs to the runtime proof, not to the build's report.
       if (traced !== undefined && res.status !== null && res.signal === null)
         traced(output, res.status);
+      const listed =
+        listsProgram && res.status !== null
+          ? CompilerProgramFiles.split(output)
+          : undefined;
       const captured = {
+        ...(listed === undefined || listed.files.length === 0
+          ? {}
+          : { programFiles: listed.files }),
         status: res.status ?? 1,
         stdout:
-          traced === undefined
-            ? output
-            : CompilerTraceObservations.withoutTrace(output),
+          traced !== undefined
+            ? CompilerTraceObservations.withoutTrace(output)
+            : listed !== undefined && !userListedFiles
+              ? listed.rest
+              : output,
         stderr: outputText(res.stderr),
       };
       // Collect structured diagnostics now, but keep captured streams in their

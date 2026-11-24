@@ -69,6 +69,11 @@ export function parseTtscBuildArgs(argv: readonly string[]) {
     format: false,
     outDir: getString(result, "--outDir"),
     passthrough,
+    // `false` is the build pipeline's "no plugin entry" selection, the same
+    // value ttsx passes, so plugin discovery never starts (#1867).
+    ...(getBoolean(result, "--no-plugins") === true
+      ? { plugins: false as const }
+      : {}),
     preserveWatchOutput: getBoolean(result, "--preserveWatchOutput") === true,
     quiet,
     singleThreaded: getBoolean(result, "--singleThreaded") === true,

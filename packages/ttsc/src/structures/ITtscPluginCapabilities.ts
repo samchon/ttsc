@@ -149,14 +149,17 @@ export interface ITtscPluginCapabilities {
   projectInputs?: boolean;
 
   /**
-   * Whether the check-stage sidecar implements the newline-delimited
-   * `check-serve` protocol used by `ttsc check --watch`.
+   * Whether the sidecar implements the newline-delimited `check-serve` protocol
+   * used by `ttsc check --watch`.
    *
    * A resident check host keeps one no-emit TypeScript Program across
    * compatible source and declared external-input changes while constructing a
-   * fresh rule engine and reporter for every request. The launcher retains the
+   * fresh rule engine and reporter for every request. A transform-stage host
+   * may declare it too: in a no-emit watch the launcher then sends its analysis
+   * `check` cycles to `check-serve`, and the host must keep reloading whenever
+   * its program hooks mutate the parsed ASTs. The launcher retains the
    * spawn-per-cycle path when this capability is absent and never uses it for
-   * transform or emit work.
+   * emit work.
    *
    * @default false
    */

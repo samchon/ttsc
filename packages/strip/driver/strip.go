@@ -54,6 +54,19 @@ func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error
   return nil
 }
 
+// CheckProgram is ApplyProgram's analysis outcome without the rewrite. Only
+// loading and parsing the strip configuration can fail; the statement filter
+// cannot, so the same configuration steps decide the same error, and the
+// source ASTs stay untouched for a resident check host (samchon/ttsc#1864).
+func (plugin) CheckProgram(_ *driver.Program, ctx driver.PluginContext) error {
+  config, err := loadStripConfigMapWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath, ctx.ReportObservationIncomplete)
+  if err != nil {
+    return err
+  }
+  _, err = parseStrip(config)
+  return err
+}
+
 // stripRewriter holds the resolved strip configuration for a single build.
 type stripRewriter struct {
   calls         []callPattern
