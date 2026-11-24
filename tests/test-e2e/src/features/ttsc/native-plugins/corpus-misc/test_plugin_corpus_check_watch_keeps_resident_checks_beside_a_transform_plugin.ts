@@ -29,8 +29,8 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * 4. Close the watch, then require `ttsc --no-plugins --noEmit` to pass the same
  *    failing source through the plain compiler (#1867).
  *
- * @evidence contracts/testing.md#behavioral-verification A real watch must print resident lint and transform-host telemetry with stable PIDs and growing update counts, at most the startup listings, no recovery check and the reintroduced finding; each earlier defect breaks one of those assertions (no telemetry, a listing per cycle, a recovery line). The final one-shot must pass without lint.
- * @evidence contracts/testing.md#independent-expectations Literal load/update/reuse tables follow the check-serve protocol (one load, one update per compatible edit); a transform host runs only after passing checks, as in a one-shot build; startup lists at most twice (the initial refresh and its post-registration membership check), and no cycle may list.
+ * @evidence contracts/testing.md#behavioral-verification A real watch must print resident lint and transform-host telemetry with stable PIDs and growing update counts, no listing after the first build, no recovery check and the reintroduced finding; each earlier defect breaks one of those assertions (no telemetry, a listing per cycle, a recovery line). The final one-shot must pass without lint.
+ * @evidence contracts/testing.md#independent-expectations Literal load/update/reuse tables follow the check-serve protocol (one load, one update per compatible edit); a transform host runs only after passing checks, as in a one-shot build; startup lists the project, and no save after the first build may list it again.
  * @evidence contracts/testing.md#distinguishing-cases Owns the mixed check-plus-transform analysis selection, a passing and a failing resident cycle, and the plain-compiler `--no-plugins` control; test_plugin_corpus_check_watch_reuses_resident_program owns config and root transitions of a check-only selection, and test_ttsc_watch_plugin_free_check_keeps_private_incremental_state owns the plugin-free lane.
  * @evidence contracts/testing.md#execution-ownership The E2E scenarios batch registers this named export; WatchSession owns one real launcher and joins it before the one-shot control runs.
  * @evidence contracts/e2e.md#necessary-boundary Residency beside a transform needs filesystem wakeups, descriptor resolution, the real lint check-serve sidecar, the linked utility host and the watch topology worker; unit fakes cannot show them sharing one cycle.
@@ -98,9 +98,12 @@ export async function test_plugin_corpus_check_watch_keeps_resident_checks_besid
     transcript,
   );
   assert.notEqual(host, pid, transcript);
-  const listings = (transcript.match(/\[ttsc:debug\] compiler listing /g) ?? [])
-    .length;
-  assert.ok(listings >= 1 && listings <= 2, transcript);
+  // Startup lists the project; no save may list it again.
+  assert.doesNotMatch(
+    transcript.slice(transcript.indexOf("[ttsc] watch build complete")),
+    /\[ttsc:debug\] compiler listing /,
+    transcript,
+  );
   assert.doesNotMatch(transcript, /\[ttsc:debug\] recovery check/, transcript);
   const lastCycle = transcript.slice(
     transcript.lastIndexOf("[ttsc] rebuilding at"),

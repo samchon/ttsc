@@ -17,12 +17,12 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  *    source has a type error.
  * 2. Fix the error, then reintroduce it, waiting for both sessions each time.
  * 3. Require each session's own build-info directory outside the project, no
- *    listing after startup, and the error reported again as a cold `ttsc
- *    --noEmit` reports it.
+ *    listing after the first build, and the error reported again as a cold
+ *    `ttsc --noEmit` reports it.
  * 4. Close both and require both directories gone and nothing new in the project.
  *
  * @evidence contracts/testing.md#behavioral-verification Two real watches must each name a distinct existing private directory holding upstream build info outside the project, start no listing per cycle, report the reintroduced error identically to a cold check, and remove the directories on close; a shared, leaked or project-local state, a per-cycle listing or a changed diagnostic each fails an assertion.
- * @evidence contracts/testing.md#independent-expectations The expected diagnostic is the cold one-shot compiler's own line for the same source, and the expected project contents are the files the test wrote; startup lists at most twice (initial refresh plus its post-registration membership check).
+ * @evidence contracts/testing.md#independent-expectations The expected diagnostic is the cold one-shot compiler's own line for the same source, and the expected project contents are the files the test wrote; startup lists the project, and no save after the first build may list it again.
  * @evidence contracts/testing.md#distinguishing-cases Owns the plugin-free analysis lane with concurrent sessions, a failing, passing and failing-again sequence; test_plugin_corpus_check_watch_keeps_resident_checks_beside_a_transform_plugin owns the plugin lanes.
  * @evidence contracts/testing.md#execution-ownership The E2E scenarios batch registers this named export; both WatchSessions are joined before the final assertions.
  * @evidence contracts/e2e.md#necessary-boundary Incremental state, membership reporting and temporary-directory ownership cross the real launcher, the installed tsgo and the topology worker; a unit cannot show two processes keeping separate state.
@@ -85,10 +85,12 @@ export async function test_ttsc_watch_plugin_free_check_keeps_private_incrementa
       transcript.lastIndexOf("[ttsc] rebuilding at"),
     );
     assert.ok(lastCycle.includes(expected!.trim()), transcript);
-    const listings = (
-      transcript.match(/\[ttsc:debug\] compiler listing /g) ?? []
-    ).length;
-    assert.ok(listings >= 1 && listings <= 2, transcript);
+    // Startup lists the project; no save may list it again.
+    assert.doesNotMatch(
+      transcript.slice(transcript.indexOf("[ttsc] watch build ")),
+      /\[ttsc:debug\] compiler listing /,
+      transcript,
+    );
   }
   for (const directory of directories)
     assert.equal(fs.existsSync(directory), false, directory);

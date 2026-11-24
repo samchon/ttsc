@@ -535,7 +535,7 @@ function printHelp(): void {
       "  --binary <path>        Use an explicit tsgo binary",
       "  --cache-dir <dir>      Use this cache root for source-plugin builds",
       "  --no-plugins           Load no ttsc plugin; the installed tsgo compiles",
-      "  --singleThreaded      Run TypeScript-Go single-threaded (one checker)",
+      "  --singleThreaded       Run TypeScript-Go single-threaded (one checker)",
       "  --checkers <n>         Type-checker pool size (default: TypeScript-Go's)",
       "",
       "  Any other flag is forwarded to tsgo as-is, so tsgo compiler options",

@@ -5,6 +5,7 @@ import (
   "strings"
   "testing"
 
+  shimast "github.com/microsoft/typescript-go/shim/ast"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
 
   "github.com/samchon/ttsc/packages/strip/test/internal/shared"
@@ -46,7 +47,14 @@ func TestCheckProgramAnswersApplyWithoutMutation(t *testing.T) {
   if clean.HasMutatingLinkedCheckPlugins() {
     t.Fatal("strip must answer the check without mutation")
   }
-  source := clean.TSProgram.GetSourceFile(filepath.ToSlash(filepath.Join(root, "src", "main.ts")))
+  // Raw iteration runs no linked hook, unlike Program.SourceFiles, and needs no
+  // target-specific path type.
+  var source *shimast.SourceFile
+  for _, file := range clean.TSProgram.SourceFiles() {
+    if strings.HasSuffix(filepath.ToSlash(string(file.FileName())), "/src/main.ts") {
+      source = file
+    }
+  }
   if source == nil {
     t.Fatal("main.ts missing from the Program")
   }

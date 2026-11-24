@@ -288,9 +288,14 @@ export class WatchTopology {
         const root = reported;
         reported = undefined;
         const reuse = reuseListings && last?.question === question;
-        if (root === undefined && !reuse && process.env.TTSC_WATCH_DEBUG_INPUTS)
+        if (
+          process.env.TTSC_WATCH_DEBUG_INPUTS &&
+          (root !== undefined || !reuse)
+        )
           process.stdout.write(
-            `[ttsc:debug] compiler listing ${JSON.stringify(project.path)}\n`,
+            root !== undefined
+              ? `[ttsc:debug] compiler membership reported ${JSON.stringify({ project: project.path, files: root.length })}\n`
+              : `[ttsc:debug] compiler listing ${JSON.stringify(project.path)}\n`,
           );
         const inputs =
           root !== undefined
@@ -328,6 +333,21 @@ export class WatchTopology {
       WatchPaths.mapsEqual(this.outputFiles, next.outputFiles) === false ||
       WatchPaths.mapsEqual(this.outputs, next.outputs) === false ||
       WatchPaths.mapsEqual(this.reloadFiles, next.reloadFiles) === false;
+    if (notify && changed && process.env.TTSC_WATCH_DEBUG_INPUTS) {
+      const added = [...next.files.keys()].filter(
+        (key) => !this.files.has(key),
+      );
+      const removed = [...this.files.keys()].filter(
+        (key) => !next.files.has(key),
+      );
+      process.stdout.write(
+        `[ttsc:debug] compiler topology changed ${JSON.stringify({
+          added: added.length,
+          removed: removed.length,
+          sample: [...added.slice(0, 3), ...removed.slice(0, 3)],
+        })}\n`,
+      );
+    }
     this.analysisOnly = next.analysisOnly;
     this.files = next.files;
     // Stamp the tracked set as it is resolved, so the first event that cannot
@@ -818,6 +838,7 @@ export class WatchTopology {
       changed,
       event: notification.rename ? "rename" : "change",
       exists: fs.existsSync,
+      isDirectory: WatchPaths.isDirectory,
       location,
       identities: this.lexicalIdentities,
       platform: process.platform,
@@ -831,7 +852,13 @@ export class WatchTopology {
     )) {
       this.reportCompilerFileChange(file);
     }
-    if (plan.refresh) refreshes.push({ changed, location });
+    if (plan.refresh) {
+      if (process.env.TTSC_WATCH_DEBUG_INPUTS)
+        process.stdout.write(
+          `[ttsc:debug] compiler directory refresh ${JSON.stringify({ location, changed: changed ?? null })}\n`,
+        );
+      refreshes.push({ changed, location });
+    }
   }
 
   /**
