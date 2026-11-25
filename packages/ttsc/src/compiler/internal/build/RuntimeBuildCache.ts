@@ -19,8 +19,11 @@ import { RuntimeEmitBundle } from "./RuntimeEmitBundle";
  * input observation it made lets the request name its document by everything
  * except the filesystem's state and prove it by replaying those observations,
  * so a hit observes no input to find it and keeps one document per build
- * configuration and per value of the environment variables its plugins recorded
- * reading. Any other producer is named by a complete input snapshot, which is
+ * configuration. Either name is further split by the environment variables the
+ * build's plugins recorded reading: a build is stored and parked under the
+ * values of exactly the variables it read, and the variable sets builds of a
+ * name read are registered beside its documents, so every value keeps its own
+ * build. Any other producer is named by a complete input snapshot, which is
  * then the proof.
  *
  * Storing a fresh build reads every output back and replays its proof, which
@@ -40,9 +43,9 @@ import { RuntimeEmitBundle } from "./RuntimeEmitBundle";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Misses execute the original build exactly once; failed or absent proofs never manufacture successful output. Every transported output must be a normalized private descendant, without filename or consumer-name exceptions.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes persistent storage, run-owned copies and proof ownership; run states callback stability and failure behavior, and private helper comments identify byte, path and relocation domains.
  * @evidence contracts/portability.md#os-neutral-implementation Native paths, lstat, relative/join and rename own storage and containment, including Windows drive-relative rejection. Source coordinates remain unchanged; transported symlinks are refused rather than followed.
- * @evidence contracts/performance.md#efficient-algorithms Lookup hashes snapshot text, reads the identity's small environment-read record, parses the record and reads only the bundle's index. Runtime restoration copies the bundle as the run's own, verifies its bodies once and reserves each distinct output directory; ordinary SDK restoration writes each verified output. Parking and adoption are renames independent of output count. Publication scales with output bytes and entries, read eight at a time on the thread pool when deferred; relocation scans producer paths and streams.
+ * @evidence contracts/performance.md#efficient-algorithms Lookup hashes snapshot text, lists the identity's registered variable sets and probes one document per set, parses the found record and reads only the bundle's index. Runtime restoration copies the bundle as the run's own, verifies its bodies once and reserves each distinct output directory; ordinary SDK restoration writes each verified output. Parking and adoption are renames independent of output count. Publication scales with output bytes and entries, read eight at a time on the thread pool when deferred; relocation scans producer paths and streams.
  * @evidence contracts/performance.md#reuse-equivalent-work Equal snapshots reuse completed emits only after independent producer admission; a hit proves its inputs once, a publication brackets its build with a second proof, and an adopted parked build, proven by its adoption, is stored without a third. A restored run owns its copied bytes and rebased output ledger; an adopting run owns the moved outputs; concurrent publishers may duplicate compilation but cannot expose partial documents, and only one adopter can take a parked build.
- * @evidence contracts/performance.md#bound-retention-and-release-resources A record and its bundle are each capped at 128 MiB, and both join the existing collected single-file cache population; a collected half makes the pair a miss. An identity's environment-read record holds variable names only, joins the same population, and is touched by every hit it selects; collecting it costs one build. Parked builds are discarded by the next request that cannot adopt them and otherwise age out with the collection policy. Snapshots and output buffers are invocation-owned; staging removal is attempted in finally and run owners release output. Cleanup or collector failures can retain files; helpers retain no handles or history.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources A record and its bundle are each capped at 128 MiB, and both join the existing collected single-file cache population; a collected half makes the pair a miss. Each variable set an identity registered is one immutable file of variable names in the same population, touched by every hit it selects; collecting a set leaves its builds unreachable until a build of those values registers it again. Parked builds are discarded by the next request that cannot adopt them and otherwise age out with the collection policy. Snapshots and output buffers are invocation-owned; staging removal is attempted in finally and run owners release output. Cleanup or collector failures can retain files; helpers retain no handles or history.
  */
 export namespace RuntimeBuildCache {
   const FORMAT = "ttsx-runtime-build-v2";
@@ -52,13 +55,15 @@ export namespace RuntimeBuildCache {
    * Reuse a proven private emit, or invoke the original producer once. Capture
    * returns a deterministic complete input snapshot, or undefined to decline
    * caching. With an identity and a replay, the snapshot is not captured: the
-   * identity names the document and the replay proves the stored result, and
+   * identity names the request and the replay proves the stored result, and
    * only a result carrying replayable observations is published under it.
-   * Admission must validate the producer's extra input observations; the second
-   * argument is the output root that producer actually used. Cache IO or
-   * cache-admission failure costs reuse only. Errors thrown by the original
-   * build retain their normal failure policy. With `defer`, a fresh or adopted
-   * build returns before it is stored and the caller owns its publication.
+   * Either name holds one document per value of the environment variables a
+   * build recorded reading, read through `environmentValue`. Admission must
+   * validate the producer's extra input observations; the second argument is
+   * the output root that producer actually used. Cache IO or cache-admission
+   * failure costs reuse only. Errors thrown by the original build retain their
+   * normal failure policy. With `defer`, a fresh or adopted build returns
+   * before it is stored and the caller owns its publication.
    *
    * @evidence contracts/common.md#principled-implementation Lookup proves the stored result once, by an equal input snapshot or by replaying the observations it carries, and publication brackets its build with a second proof, preserving the actual producer result and require explicit extra-input admission; files or a run-owned checksummed bundle are established before the result is rebased.
    * @evidence contracts/common.md#clear-and-simple-design Snapshot, proof and build callbacks expose their independent responsibilities while the operation alone owns storage and restore cleanup.
@@ -66,7 +71,7 @@ export namespace RuntimeBuildCache {
    * @evidence contracts/common.md#meaningful-documentation Native prose states complete-snapshot meaning, producer-root coordinates, callback error policy and recoverable cache IO.
    * @evidence contracts/portability.md#os-neutral-implementation Native lstat refuses aliases, path.relative checks containment and native mkdir/write/rename preserve byte payloads and host path semantics.
    * @evidence contracts/performance.md#efficient-algorithms Snapshot owners govern input work; a hit parses the record and the bundle's index, copies the bundle once and hashes its bodies once, with no text encoding of output bytes. Runtime hits place one bundle plus distinct directories instead of all output files; publication walks private fresh output and writes it once.
-   * @evidence contracts/performance.md#reuse-equivalent-work A format-and-snapshot digest, or a format-and-identity digest for a replayed proof, names one candidate; checksum, output grammar, producer admission and, where used, the replay of the result's own observations are independent reuse gates, and a restore reads no input that a second capture could protect. Every miss calls build once.
+   * @evidence contracts/performance.md#reuse-equivalent-work A format-and-snapshot digest, or a format-and-identity digest for a replayed proof, names the request, and each variable set its builds registered, with the current values, names one candidate document; checksum, output grammar, producer admission and, where used, the replay of the result's own observations are independent reuse gates, and a restore reads no input that a second capture could protect. Every miss calls build once.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Call-local output buffers and the written document are bounded by the 128 MiB admission ceiling; partial restores are unlinked and staging removal is attempted in finally. Collector failures can retain files under the existing cache policy.
    */
   export function run(props: {
@@ -236,25 +241,17 @@ export namespace RuntimeBuildCache {
     }
     const directory = props.directory;
     // A plugin's environment reads are reported by its build, after the
-    // request is named, so they cannot enter the identity. The variables earlier
-    // builds of this identity read are kept beside its documents, and their
-    // current values select the document: each value keeps its own build, where
-    // one shared document was rejected and rebuilt whenever the value changed
-    // (samchon/ttsc#1870). A missing or unreadable record names the identity's
-    // plain document, so losing it costs one build.
+    // request is named, so they cannot name the request's document. Each build
+    // is stored and parked under the identity and the values of exactly the
+    // variables it read, and every variable set a build of this identity read
+    // is registered beside its documents, one immutable file per set. A request
+    // tries each registered set with its current values, so every value of a
+    // read variable keeps its own build, a newly read variable leaves the
+    // builds of other sets reachable, and concurrent runs cannot unregister one
+    // another's sets (samchon/ttsc#1870). A build that read no declared
+    // variable is stored under the identity itself.
     const identity = digest(FORMAT + "\0" + proof.text);
-    const readsFile = path.join(directory, identity + ".environment.json");
-    let reads: string[] = [];
-    try {
-      const recorded: unknown = JSON.parse(fs.readFileSync(readsFile, "utf8"));
-      if (
-        Array.isArray(recorded) &&
-        recorded.every((entry) => typeof entry === "string")
-      )
-        reads = [...new Set(recorded as string[])].sort();
-    } catch {
-      /* No build of this identity has recorded an environment read yet. */
-    }
+    const sets = path.join(directory, identity + ".environment");
     const keyOf = (names: readonly string[]): string =>
       names.length === 0
         ? identity
@@ -268,18 +265,77 @@ export namespace RuntimeBuildCache {
                 ]),
               ),
           );
-    const key = keyOf(reads);
+    /** The variables `result`'s plugins recorded reading, name-ordered. */
+    const readNames = (result: TtscBuildResult): string[] =>
+      Object.keys(result.environmentInputs ?? {}).sort();
+    /** Register `names` as a variable set some build of this identity read. */
+    const register = (names: readonly string[]): void => {
+      if (names.length === 0) return;
+      const file = path.join(sets, digest(JSON.stringify(names)) + ".json");
+      // One set is always the same bytes, so an existing file is final.
+      if (fs.existsSync(file)) return;
+      // Collection removes an emptied set directory, so a write that lost it
+      // between creating it and renaming into it tries once more.
+      for (let attempt = 0; attempt < 2; ++attempt) {
+        const temporary = path.join(sets, `${crypto.randomUUID()}.tmp`);
+        try {
+          fs.mkdirSync(sets, { recursive: true });
+          fs.writeFileSync(temporary, JSON.stringify(names), { flag: "wx" });
+          fs.renameSync(temporary, file);
+          return;
+        } catch {
+          try {
+            fs.unlinkSync(temporary);
+          } catch {
+            /* Never written, or collection owns it. */
+          }
+        }
+      }
+    };
+    // The keys this request can be stored under: each registered set with its
+    // current values, most recently used first, then the identity itself.
+    const candidates: { key: string; set?: string }[] = [];
+    try {
+      const registered: { names: string[]; set: string; used: number }[] = [];
+      for (const name of fs.readdirSync(sets)) {
+        if (!name.endsWith(".json")) continue;
+        const set = path.join(sets, name);
+        try {
+          const names: unknown = JSON.parse(fs.readFileSync(set, "utf8"));
+          if (
+            Array.isArray(names) &&
+            names.length !== 0 &&
+            names.every((entry) => typeof entry === "string")
+          )
+            registered.push({
+              names: [...new Set(names as string[])].sort(),
+              set,
+              used: fs.statSync(set).mtimeMs,
+            });
+        } catch {
+          /* Collected or torn: its builds are tried under another set or not. */
+        }
+      }
+      for (const entry of registered.sort((a, b) => b.used - a.used))
+        candidates.push({ key: keyOf(entry.names), set: entry.set });
+    } catch {
+      /* No build of this identity has registered a variable set yet. */
+    }
+    candidates.push({ key: identity });
+    const key = candidates[0]!.key;
     // A stored build is two files. The record is checksummed JSON carrying the
     // proof and the producer's result, as it always was, so it stays readable
     // to whoever inspects the directory. The output bytes live beside it in
     // the run bundle's own raw layout, bound to the record by its checksum, so
-    // restoring them is one file copy instead of decoding text.
-    const file = path.join(directory, key + ".json");
-    const bodies = path.join(directory, key + ".bundle");
-    // Builds whose publication their run did not finish, each with its outputs
-    // and what publishing them still needs (`park`).
-    const parkedRoot = path.join(directory, key + ".pending");
-    movedFile = path.join(directory, key + ".moved.json");
+    // restoring them is one file copy instead of decoding text. Builds whose
+    // publication their run did not finish are parked beside them, each with
+    // its outputs and what publishing them still needs (`park`).
+    const documentOf = (key: string) => ({
+      file: path.join(directory, key + ".json"),
+      bodies: path.join(directory, key + ".bundle"),
+      parked: path.join(directory, key + ".pending"),
+    });
+    movedFile = path.join(directory, identity + ".moved.json");
     try {
       const recorded: unknown = JSON.parse(fs.readFileSync(movedFile, "utf8"));
       if (
@@ -290,7 +346,17 @@ export namespace RuntimeBuildCache {
     } catch {
       /* No input of this request has moved yet. */
     }
-    const lookup = (): TtscBuildResult | undefined => {
+    /**
+     * Restore the stored build of `candidate`, or report why it cannot serve. A
+     * candidate with no document answers `"missing"` without a report, so a
+     * request reports one miss for all of its candidates.
+     */
+    const lookup = (candidate: {
+      key: string;
+      set?: string;
+    }): TtscBuildResult | "missing" | undefined => {
+      const { key } = candidate;
+      const { file, bodies } = documentOf(key);
       const restored: string[] = [];
       let operation = "lookup";
       try {
@@ -332,7 +398,7 @@ export namespace RuntimeBuildCache {
         // same file, whose stamps then stay as its validation saw them.
         recordCacheFileUse(file);
         recordCacheFileUse(bodies);
-        if (reads.length !== 0) recordCacheFileUse(readsFile);
+        if (candidate.set !== undefined) recordCacheFileUse(candidate.set);
         const bundleFile = path.join(props.emitDir, RuntimeEmitBundle.filename);
         const bundled =
           props.bundle === true &&
@@ -366,22 +432,21 @@ export namespace RuntimeBuildCache {
         };
       } catch (error) {
         const code = (error as NodeJS.ErrnoException).code;
-        report(
-          "miss",
-          operation === "lookup" && code === "ENOENT"
-            ? "document-missing"
-            : operation + "-failed",
-          key,
-          undefined,
-          undefined,
-          error instanceof Error ? error.message : String(error),
-        );
         for (const output of restored)
           try {
             fs.unlinkSync(output);
           } catch {
             /* Rejected cache output cannot prevent the ordinary producer. */
           }
+        if (operation === "lookup" && code === "ENOENT") return "missing";
+        report(
+          "miss",
+          operation + "-failed",
+          key,
+          undefined,
+          undefined,
+          error instanceof Error ? error.message : String(error),
+        );
         return undefined;
       }
     };
@@ -409,14 +474,11 @@ export namespace RuntimeBuildCache {
     ): Generator<void | Promise<unknown>, boolean> {
       const result = yield* record(fresh);
       options.onRecorded?.(result);
-      // The document is named by every variable this identity's builds read,
-      // this one's included, so the next request with these values finds it.
-      const recordedReads = [
-        ...new Set([...reads, ...Object.keys(result.environmentInputs ?? {})]),
-      ].sort();
-      const target = keyOf(recordedReads);
-      const targetFile = path.join(directory, target + ".json");
-      const targetBodies = path.join(directory, target + ".bundle");
+      // The document is named by the values of exactly the variables this
+      // build read, which a request with those values computes from its set.
+      const reads = readNames(result);
+      const key = keyOf(reads);
+      const { file: targetFile, bodies: targetBodies } = documentOf(key);
       yield;
       const unpublishable =
         options.proven === true
@@ -520,30 +582,23 @@ export namespace RuntimeBuildCache {
         report("not-recorded", "aliased-cache-directory", key);
         return false;
       }
-      // The outputs are published first and the record last, so a record is
-      // never visible before the bundle it names; a reader that meets a newer
-      // bundle under an older record sees the checksum differ and builds.
+      // The set is registered first and the record last, so a request that
+      // finds the set finds the record once it exists. The outputs precede the
+      // record, so a record is never visible before the bundle it names; a
+      // reader that meets a newer bundle under an older record sees the
+      // checksum differ and builds.
+      register(reads);
       const staging = crypto.randomUUID();
       let temporary: string | undefined = path.join(
         directory,
-        `${target}.${staging}.bundle.tmp`,
+        `${key}.${staging}.bundle.tmp`,
       );
       try {
         RuntimeEmitBundle.archive(temporary, files, hash);
         fs.renameSync(temporary, targetBodies);
-        temporary = path.join(directory, `${target}.${staging}.tmp`);
+        temporary = path.join(directory, `${key}.${staging}.tmp`);
         fs.writeFileSync(temporary, text, { flag: "wx" });
         fs.renameSync(temporary, targetFile);
-        // The read names follow the record, so a reader that sees them finds
-        // the record they name. A concurrent writer can drop a name, which
-        // costs that value one build; admission still replays every read.
-        if (recordedReads.join("\0") !== reads.join("\0")) {
-          temporary = path.join(directory, `${identity}.${staging}.reads.tmp`);
-          fs.writeFileSync(temporary, JSON.stringify(recordedReads), {
-            flag: "wx",
-          });
-          fs.renameSync(temporary, readsFile);
-        }
         temporary = undefined;
       } finally {
         if (temporary !== undefined)
@@ -553,11 +608,15 @@ export namespace RuntimeBuildCache {
             /* Rename or later collection owns it. */
           }
       }
-      report("recorded", undefined, target, files.length, 0);
+      report("recorded", undefined, key, files.length, 0);
       return true;
     }
-    /** Drive a publication to its end, reporting an IO failure as refusal. */
+    /**
+     * Drive the publication of `result` to its end, reporting an IO failure as
+     * refusal under the key it would be stored under.
+     */
     const finish = (
+      result: TtscBuildResult,
       steps: Generator<void | Promise<unknown>, boolean>,
     ): boolean => {
       try {
@@ -566,7 +625,11 @@ export namespace RuntimeBuildCache {
           if (next.done === true) return next.value;
         }
       } catch {
-        report("not-recorded", "cache-publication-io-or-output-failure", key);
+        report(
+          "not-recorded",
+          "cache-publication-io-or-output-failure",
+          keyOf(readNames(result)),
+        );
         return false;
       }
     };
@@ -619,7 +682,7 @@ export namespace RuntimeBuildCache {
             report(
               "not-recorded",
               "cache-publication-io-or-output-failure",
-              key,
+              keyOf(readNames(result)),
             );
             return (settled = true);
           }
@@ -627,9 +690,14 @@ export namespace RuntimeBuildCache {
         request: () => {
           if (settled) return undefined;
           settled = true;
+          // Parked under the values of the variables it read and registered
+          // now, so a request with other values neither finds nor discards it.
+          const reads = readNames(result);
+          const key = keyOf(reads);
+          register(reads);
           report("parked", undefined, key);
           const parked = path.join(
-            parkedRoot,
+            documentOf(key).parked,
             `${Date.now()}-${process.pid}-${crypto.randomUUID()}`,
           );
           return carried !== undefined
@@ -658,7 +726,7 @@ export namespace RuntimeBuildCache {
             report(
               "not-recorded",
               "cache-publication-io-or-output-failure",
-              key,
+              keyOf(readNames(result)),
             );
         },
       });
@@ -672,14 +740,15 @@ export namespace RuntimeBuildCache {
           /* Collection owns what cannot be removed now. */
         }
     };
-    /** The parked builds of this request, newest first. */
-    const parkedBuilds = (): string[] => {
+    /** The parked builds under `key`, newest first. */
+    const parkedBuilds = (key: string): string[] => {
+      const root = documentOf(key).parked;
       try {
         return fs
-          .readdirSync(parkedRoot)
+          .readdirSync(root)
           .sort()
           .reverse()
-          .map((name) => path.join(parkedRoot, name));
+          .map((name) => path.join(root, name));
       } catch {
         return [];
       }
@@ -691,90 +760,96 @@ export namespace RuntimeBuildCache {
     // whose inputs have moved since is refused like any other and kept, as a
     // refused record is, since its inputs can return to what it was built
     // from; one older than a build this request adopted or built since goes.
+    // Each candidate key holds the builds of other values apart, so a request
+    // only meets the parked builds of its own values.
     if (props.recordParked !== undefined) {
       let adopted: TtscBuildResult | undefined;
       let carried: { directory: string; job?: unknown } | undefined;
-      let published = false;
-      for (const parked of parkedBuilds()) {
-        if (adopted !== undefined || published) {
-          discard(parked);
-          continue;
-        }
-        const job = (() => {
+      for (const { key } of candidates) {
+        if (adopted !== undefined) break;
+        let published = false;
+        for (const parked of parkedBuilds(key)) {
+          if (adopted !== undefined || published) {
+            discard(parked);
+            continue;
+          }
+          const job = (() => {
+            try {
+              return JSON.parse(
+                fs.readFileSync(path.join(parked, "job.json"), "utf8"),
+              );
+            } catch {
+              return undefined;
+            }
+          })();
+          if (
+            job?.format !== PARKED_FORMAT ||
+            job[proof.field] !== proof.value ||
+            typeof job.emitDir !== "string" ||
+            !path.isAbsolute(job.emitDir) ||
+            job.result?.status !== 0
+          ) {
+            // Torn, or left by a format or request this one cannot prove. A
+            // directory still being parked has no job yet; its parker reports
+            // the failure, and only its own build is lost.
+            discard(parked);
+            continue;
+          }
           try {
-            return JSON.parse(
-              fs.readFileSync(path.join(parked, "job.json"), "utf8"),
-            );
-          } catch {
-            return undefined;
-          }
-        })();
-        if (
-          job?.format !== PARKED_FORMAT ||
-          job[proof.field] !== proof.value ||
-          typeof job.emitDir !== "string" ||
-          !path.isAbsolute(job.emitDir) ||
-          job.result?.status !== 0
-        ) {
-          // Torn, or left by a format or request this one cannot prove. A
-          // directory still being parked has no job yet; its parker reports
-          // the failure, and only its own build is lost.
-          discard(parked);
-          continue;
-        }
-        try {
-          const outputs = path.join(parked, "outputs");
-          if (props.defer === undefined) {
-            published = finish(
-              publication(job.result, job.emitDir, outputs, (result) =>
-                lift(
-                  job.recorded === true
-                    ? result
-                    : props.recordParked!(result, job.state),
+            const outputs = path.join(parked, "outputs");
+            if (props.defer === undefined) {
+              published = finish(
+                job.result,
+                publication(job.result, job.emitDir, outputs, (result) =>
+                  lift(
+                    job.recorded === true
+                      ? result
+                      : props.recordParked!(result, job.state),
+                  ),
                 ),
-              ),
-            );
-            // Its outputs now live in the stored record.
-            if (published) discard(parked);
-            continue;
-          }
-          const result: TtscBuildResult =
-            job.recorded === true
-              ? job.result
-              : props.recordParked(job.result, job.state);
-          const refused = proof.restores(result, job.emitDir);
-          if (refused !== undefined) {
-            report(
-              "miss",
-              "parked-input-proof-failed",
-              key,
-              undefined,
-              undefined,
-              refused,
-            );
-            continue;
-          }
-          // The run's output directory is empty until a build fills it. The
-          // parked directory moves into the run whole, its outputs take the
-          // output directory's place, and parking again moves both back
-          // without rewriting the job, unless this adoption recorded the
-          // observations it lacked.
-          const moved = `${props.emitDir}.parked`;
-          fs.rmdirSync(props.emitDir);
-          fs.renameSync(parked, moved);
-          fs.renameSync(path.join(moved, "outputs"), props.emitDir);
-          carried = {
-            directory: moved,
-            job:
+              );
+              // Its outputs now live in the stored record.
+              if (published) discard(parked);
+              continue;
+            }
+            const result: TtscBuildResult =
               job.recorded === true
-                ? undefined
-                : { ...job, result, recorded: true, state: undefined },
-          };
-          adopted = relocate(result, job.emitDir, props.emitDir);
-          report("reused", "parked", key);
-        } catch {
-          /* Taken by a concurrent run, or unreadable: this run builds. */
-          fs.mkdirSync(props.emitDir, { recursive: true });
+                ? job.result
+                : props.recordParked(job.result, job.state);
+            const refused = proof.restores(result, job.emitDir);
+            if (refused !== undefined) {
+              report(
+                "miss",
+                "parked-input-proof-failed",
+                key,
+                undefined,
+                undefined,
+                refused,
+              );
+              continue;
+            }
+            // The run's output directory is empty until a build fills it. The
+            // parked directory moves into the run whole, its outputs take the
+            // output directory's place, and parking again moves both back
+            // without rewriting the job, unless this adoption recorded the
+            // observations it lacked.
+            const moved = `${props.emitDir}.parked`;
+            fs.rmdirSync(props.emitDir);
+            fs.renameSync(parked, moved);
+            fs.renameSync(path.join(moved, "outputs"), props.emitDir);
+            carried = {
+              directory: moved,
+              job:
+                job.recorded === true
+                  ? undefined
+                  : { ...job, result, recorded: true, state: undefined },
+            };
+            adopted = relocate(result, job.emitDir, props.emitDir);
+            report("reused", "parked", key);
+          } catch {
+            /* Taken by a concurrent run, or unreadable: this run builds. */
+            fs.mkdirSync(props.emitDir, { recursive: true });
+          }
         }
       }
       if (adopted !== undefined) {
@@ -784,21 +859,32 @@ export namespace RuntimeBuildCache {
     }
     // A parked build is newer than the stored record of the same request, so
     // it is tried first; the record still serves when no parked build does.
-    const reused = lookup();
-    if (reused !== undefined) return reused;
+    let missing = true;
+    for (const candidate of candidates) {
+      const reused = lookup(candidate);
+      if (reused === "missing") continue;
+      missing = false;
+      if (reused !== undefined) return reused;
+    }
+    if (missing) report("miss", "document-missing", key);
     const result = props.build();
     if (result.status !== 0) {
       report("not-recorded", "producer-failed", key);
       return result;
     }
     // This build supersedes every parked build of the request, as its record
-    // replaces the stored one.
-    for (const parked of parkedBuilds()) discard(parked);
+    // replaces the stored one: those of every key it tried, all of which hold
+    // its values, and of the key it is stored under.
+    for (const candidate of new Set([
+      ...candidates.map((entry) => entry.key),
+      keyOf(readNames(result)),
+    ]))
+      for (const parked of parkedBuilds(candidate)) discard(parked);
     const record =
       props.recordSteps ??
       ((fresh: TtscBuildResult) => lift(props.record?.(fresh) ?? fresh));
     if (props.defer === undefined) {
-      finish(publication(result, props.emitDir, props.emitDir, record));
+      finish(result, publication(result, props.emitDir, props.emitDir, record));
       return result;
     }
     // What parking needs is taken now, before a step consumes it.
