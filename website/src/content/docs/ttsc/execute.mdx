@@ -155,7 +155,7 @@ When an ESM entry imports named bindings from a CommonJS-classified source, `tts
 
 ## Source maps, stack traces, and coverage
 
-`ttsx` serves the compiled JavaScript under the original `.ts` path, inlines its source map and enables Node's source-map support. Stack traces and V8 coverage (`c8`, `NODE_V8_COVERAGE`) can therefore use the mapped source locations without a separate `--enable-source-maps` flag.
+`ttsx` serves the compiled JavaScript under the original `.ts` path, inlines its source map and enables Node's source-map support. When an external map lists multiple sources, relative source paths resolve from the map's own directory. Stack traces and V8 coverage (`c8`, `NODE_V8_COVERAGE`) can therefore use the mapped source locations without a separate `--enable-source-maps` flag.
 
 The runtime forces source maps in its private emit regardless of the project's `sourceMap` setting. This applies to entry-project files and raw TypeScript dependencies and leaves the project's published `outDir` unchanged.
 

@@ -23,11 +23,12 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 2. Assert a missing-sibling external trailer is stripped entirely.
  * 3. Assert an already-inline `data:` map is rewritten to one trailer with an
  *    absolute source.
- * 4. Assert a two-source map absolutizes both entries against the map directory.
+ * 4. Assert a two-source map uses the sibling fallback directory, then move the
+ *    unchanged map to its referenced subdirectory and check both URLs.
  *
  * @evidence contracts/testing.md#behavioral-verification inlineServedSourceMap preserves plain code, removes a dangling external trailer, and absolutizes inline or multi-source maps without altering executable body or map payload.
  * @evidence contracts/testing.md#independent-expectations Base64-decoded JSON is compared to literal names/mappings and independently constructed file URLs; unchanged code and a single trailer constrain the rewrite.
- * @evidence contracts/testing.md#distinguishing-cases Absent, missing, already-inline and two-source external maps distinguish passthrough, dangling cleanup and both source-anchor branches.
+ * @evidence contracts/testing.md#distinguishing-cases Absent, missing, already-inline and two-source external maps distinguish passthrough, dangling cleanup and both source-anchor branches. Moving the multi-source map without changing its bytes checks that reusing a rewrite still depends on its directory.
  * @evidence contracts/testing.md#execution-ownership The source unit invokes the authored inliner against private fixture map files; it does not emit a native program or start Node under the ttsx loader.
  */
 export const test_ttsx_inline_source_map_handles_absent_inline_and_multi_source_maps =
@@ -95,6 +96,9 @@ export const test_ttsx_inline_source_map_handles_absent_inline_and_multi_source_
 
     // 4. Multi-source map → each relative source absolutized against map dir.
     const multiEmitted = path.join(dir, "multi.js");
+    const referencedMap = path.join(dir, "maps", "multi.js.map");
+    const multiServed =
+      "exports.x = 1;\n//# sourceMappingURL=maps/multi.js.map";
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
       `${multiEmitted}.map`,
@@ -108,7 +112,7 @@ export const test_ttsx_inline_source_map_handles_absent_inline_and_multi_source_
       }),
     );
     const multiOut = inlineServedSourceMap(
-      "exports.x = 1;\n//# sourceMappingURL=multi.js.map",
+      multiServed,
       multiEmitted,
       undefined,
     );
@@ -126,7 +130,18 @@ export const test_ttsx_inline_source_map_handles_absent_inline_and_multi_source_
         pathToFileURL(path.resolve(dir, "../src/a.ts")).href,
         pathToFileURL(path.resolve(dir, "../src/b.ts")).href,
       ],
-      "each source of a multi-source map must be absolutized against the map dir",
+      "a map loaded through the sibling fallback uses the emit directory",
+    );
+    fs.mkdirSync(path.dirname(referencedMap));
+    fs.renameSync(`${multiEmitted}.map`, referencedMap);
+    const moved = inlineServedSourceMap(multiServed, multiEmitted, undefined);
+    assert.deepEqual(
+      decodeInlineMap(moved).sources,
+      [
+        pathToFileURL(path.join(dir, "src", "a.ts")).href,
+        pathToFileURL(path.join(dir, "src", "b.ts")).href,
+      ],
+      "the referenced map's directory determines source URLs even with unchanged bytes",
     );
   };
 
