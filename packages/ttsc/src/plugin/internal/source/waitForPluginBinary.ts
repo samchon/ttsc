@@ -63,8 +63,11 @@ export function waitForPluginBinary(opts: {
       // The holder retired its generation between the binary check above and
       // this observation. That is a normal release, not abandonment: prefer the
       // binary when it landed inside that window, otherwise hand the free key
-      // back to the caller.
-      return !protectedNativeInputs && fs.existsSync(opts.binaryPath)
+      // back to the caller. A holder settles its pending native readers before
+      // it releases, so the protection read before the release is stale here;
+      // reading it again adopts the binary instead of building the key again.
+      return !SourceNativeRetirement.isProtected(protocolDir) &&
+        fs.existsSync(opts.binaryPath)
         ? { outcome: "published" }
         : { outcome: "released" };
     }
