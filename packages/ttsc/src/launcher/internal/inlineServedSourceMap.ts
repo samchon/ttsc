@@ -19,14 +19,14 @@ import { pathToFileURL } from "node:url";
  * anchor preserves the rewritten bytes. This adapter does not validate every
  * source-map semantic shape or authenticate a cross-process cache population.
  *
- * Reuse requires unchanged served text, source anchor and actual map bytes. The
- * module cache retains at most 128 recent entries; individual map sizes are not
- * capped. Only actual trailing line comments are rewritten. Strings, templates
- * and regular-expression contents cannot supply a directive; unsupported
- * lexical input is left for the runtime loader to diagnose.
+ * Reuse requires unchanged served text, source anchor, map location and map
+ * bytes. The module cache retains at most 128 recent entries; individual map
+ * sizes are not capped. Only actual trailing line comments are rewritten.
+ * Strings, templates and regular-expression contents cannot supply a directive;
+ * unsupported lexical input is left for the runtime loader to diagnose.
  *
  * @param source - The emitted JavaScript text served under the source URL.
- * @param emittedFile - On-disk path of the emitted `.js`, beside its `.map`.
+ * @param emittedFile - On-disk path of the emitted `.js`, used to find its map.
  * @param sourceFile - Real path of the `.ts` source the emit was built from.
  * @param compilerEmitted - The text is a runtime emit, whose producer always
  *   writes its own source-map directive as the last line. That line is then a
@@ -38,7 +38,7 @@ import { pathToFileURL } from "node:url";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain source-URL execution, idempotence, cache equivalence and retention limits; parameters distinguish emitted and original-source paths.
  * @evidence contracts/portability.md#os-neutral-implementation Node path resolution supplies native emitted coordinates to the selected physical or bundled reader, and pathToFileURL encodes source paths; qualified map URLs retain protocol identity without filesystem case rewriting.
  * @evidence contracts/performance.md#efficient-algorithms Work includes regex matching, optional full-source Acorn lexing, delegated map reads, JSON/base64 conversion and recursive section/source normalization with path-text costs. No universal linear-time or depth bound is asserted. Equal-source entries reuse lexical recognition; matching entries avoid rewriting after current map-data validation.
- * @evidence contracts/performance.md#reuse-equivalent-work Absolute native locations capture cwd-sensitive emitted/source anchors, while exact source text shares lexical recognition and freshly read map JSON validates the rewrite; changed bytes or anchors rebuild rather than serving an old generation.
+ * @evidence contracts/performance.md#reuse-equivalent-work Absolute native locations capture cwd-sensitive emitted/source anchors, while exact source text shares lexical recognition. Freshly read JSON and the location it came from validate the rewrite, so moving a map or editing it invalidates the previous result.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The module owns a 128-entry insertion-ordered LRU and evicts its oldest entry after a miss; retained bytes still depend on individual source/map sizes, and process exit releases the remaining cache.
  */
 export function inlineServedSourceMap(
@@ -62,24 +62,25 @@ export function inlineServedSourceMap(
         ? SOURCE_MAPPING_URL.exec(source)
         : trailingSourceMapComment(source);
   const url = match?.[1]?.trim();
-  const json = url ? readMapJson(url, emittedPath, readFile) : null;
+  const map = url ? readSourceMap(url, emittedPath, readFile) : null;
   if (
     cached !== undefined &&
     cached.source === source &&
     cached.sourceFile === sourcePath &&
-    cached.json === json
+    cached.map?.json === map?.json &&
+    cached.map?.anchor === map?.anchor
   ) {
     inlineCache.delete(emittedPath);
     inlineCache.set(emittedPath, cached);
     return cached.rewritten;
   }
-  const rewritten = rewrite(source, emittedPath, sourcePath, match, json);
+  const rewritten = rewrite(source, sourcePath, match, map);
   inlineCache.delete(emittedPath);
   inlineCache.set(emittedPath, {
     source,
     sourceFile: sourcePath,
     match,
-    json,
+    map,
     rewritten,
   });
   if (inlineCache.size > 128) {
@@ -95,7 +96,7 @@ const inlineCache = new Map<
     source: string;
     sourceFile: string | undefined;
     match: RegExpExecArray | null;
-    json: string | null;
+    map: ReturnType<typeof readSourceMap>;
     rewritten: string;
   }
 >();
@@ -135,10 +136,9 @@ function trailingSourceMapComment(source: string): RegExpExecArray | null {
 }
 function rewrite(
   source: string,
-  emittedFile: string,
   sourceFile: string | undefined,
   match: RegExpExecArray | null,
-  json: string | null,
+  map: ReturnType<typeof readSourceMap>,
 ): string {
   if (match === null) {
     return source;
@@ -147,7 +147,7 @@ function rewrite(
   if (url.length === 0) {
     return source;
   }
-  if (json === null) {
+  if (map === null) {
     // The referenced map cannot be read (an external ref whose sibling is
     // missing). Strip the dangling comment so Node does not cache the script
     // with `data: null` and misattribute coverage; leave an already-inline
@@ -156,30 +156,33 @@ function rewrite(
       ? source
       : source.slice(0, match.index).replace(/\r?\n$/, "");
   }
-  const inlined = inlineComment(json, emittedFile, sourceFile);
+  const inlined = inlineComment(map.json, path.dirname(map.anchor), sourceFile);
   if (inlined === null) {
     return source;
   }
   return source.slice(0, match.index) + inlined;
 }
 
-/** Read the raw map JSON from a `data:` URI or a sibling map file. */
-function readMapJson(
+/** Read map JSON and retain the path that owns its relative source entries. */
+function readSourceMap(
   url: string,
   emittedFile: string,
   readFile: (file: string) => string | null,
-): string | null {
+): { json: string; anchor: string } | null {
   if (url.startsWith("data:")) {
-    return decodeDataUri(url);
+    const json = decodeDataUri(url);
+    return json === null ? null : { json, anchor: emittedFile };
   }
   const direct = path.resolve(path.dirname(emittedFile), url);
   const fromRef = readFile(direct);
   if (fromRef !== null) {
-    return fromRef;
+    return { json: fromRef, anchor: direct };
   }
   // tsgo names the comment after the emit basename; fall back to the canonical
   // sibling path when the comment's relative form does not resolve on disk.
-  return readFile(`${emittedFile}.map`);
+  const sibling = `${emittedFile}.map`;
+  const json = readFile(sibling);
+  return json === null ? null : { json, anchor: sibling };
 }
 
 /** Decode a `data:application/json[;base64],...` source-map URI to its JSON. */
@@ -205,7 +208,7 @@ function decodeDataUri(url: string): string | null {
 /** Parse the map, absolutize its `sources`, and re-encode it as a `data:` URI. */
 function inlineComment(
   json: string,
-  emittedFile: string,
+  mapDir: string,
   sourceFile: string | undefined,
 ): string | null {
   let map: {
@@ -222,7 +225,7 @@ function inlineComment(
     return null;
   }
   try {
-    absolutizeMap(map, path.dirname(emittedFile), sourceFile);
+    absolutizeMap(map, mapDir, sourceFile);
   } catch {
     // A URL root that cannot resolve its relative entries must retain the
     // original metadata rather than silently become a native path.
