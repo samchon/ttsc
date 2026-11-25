@@ -55,13 +55,15 @@ export namespace RuntimeBuildCache {
    * Reuse a proven private emit, or invoke the original producer once. Capture
    * returns a deterministic complete input snapshot, or undefined to decline
    * caching. With an identity and a replay, the snapshot is not captured: the
-   * identity names the document and the replay proves the stored result, and
+   * identity names the request and the replay proves the stored result, and
    * only a result carrying replayable observations is published under it.
-   * Admission must validate the producer's extra input observations; the second
-   * argument is the output root that producer actually used. Cache IO or
-   * cache-admission failure costs reuse only. Errors thrown by the original
-   * build retain their normal failure policy. With `defer`, a fresh or adopted
-   * build returns before it is stored and the caller owns its publication.
+   * Either name holds one document per value of the environment variables a
+   * build recorded reading, read through `environmentValue`. Admission must
+   * validate the producer's extra input observations; the second argument is
+   * the output root that producer actually used. Cache IO or cache-admission
+   * failure costs reuse only. Errors thrown by the original build retain their
+   * normal failure policy. With `defer`, a fresh or adopted build returns
+   * before it is stored and the caller owns its publication.
    *
    * @evidence contracts/common.md#principled-implementation Lookup proves the stored result once, by an equal input snapshot or by replaying the observations it carries, and publication brackets its build with a second proof, preserving the actual producer result and require explicit extra-input admission; files or a run-owned checksummed bundle are established before the result is rebased.
    * @evidence contracts/common.md#clear-and-simple-design Snapshot, proof and build callbacks expose their independent responsibilities while the operation alone owns storage and restore cleanup.
@@ -69,7 +71,7 @@ export namespace RuntimeBuildCache {
    * @evidence contracts/common.md#meaningful-documentation Native prose states complete-snapshot meaning, producer-root coordinates, callback error policy and recoverable cache IO.
    * @evidence contracts/portability.md#os-neutral-implementation Native lstat refuses aliases, path.relative checks containment and native mkdir/write/rename preserve byte payloads and host path semantics.
    * @evidence contracts/performance.md#efficient-algorithms Snapshot owners govern input work; a hit parses the record and the bundle's index, copies the bundle once and hashes its bodies once, with no text encoding of output bytes. Runtime hits place one bundle plus distinct directories instead of all output files; publication walks private fresh output and writes it once.
-   * @evidence contracts/performance.md#reuse-equivalent-work A format-and-snapshot digest, or a format-and-identity digest for a replayed proof, names one candidate; checksum, output grammar, producer admission and, where used, the replay of the result's own observations are independent reuse gates, and a restore reads no input that a second capture could protect. Every miss calls build once.
+   * @evidence contracts/performance.md#reuse-equivalent-work A format-and-snapshot digest, or a format-and-identity digest for a replayed proof, names the request, and each variable set its builds registered, with the current values, names one candidate document; checksum, output grammar, producer admission and, where used, the replay of the result's own observations are independent reuse gates, and a restore reads no input that a second capture could protect. Every miss calls build once.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Call-local output buffers and the written document are bounded by the 128 MiB admission ceiling; partial restores are unlinked and staging removal is attempted in finally. Collector failures can retain files under the existing cache policy.
    */
   export function run(props: {
@@ -609,8 +611,12 @@ export namespace RuntimeBuildCache {
       report("recorded", undefined, key, files.length, 0);
       return true;
     }
-    /** Drive a publication to its end, reporting an IO failure as refusal. */
+    /**
+     * Drive the publication of `result` to its end, reporting an IO failure as
+     * refusal under the key it would be stored under.
+     */
     const finish = (
+      result: TtscBuildResult,
       steps: Generator<void | Promise<unknown>, boolean>,
     ): boolean => {
       try {
@@ -619,7 +625,11 @@ export namespace RuntimeBuildCache {
           if (next.done === true) return next.value;
         }
       } catch {
-        report("not-recorded", "cache-publication-io-or-output-failure", key);
+        report(
+          "not-recorded",
+          "cache-publication-io-or-output-failure",
+          keyOf(readNames(result)),
+        );
         return false;
       }
     };
@@ -672,7 +682,7 @@ export namespace RuntimeBuildCache {
             report(
               "not-recorded",
               "cache-publication-io-or-output-failure",
-              key,
+              keyOf(readNames(result)),
             );
             return (settled = true);
           }
@@ -716,7 +726,7 @@ export namespace RuntimeBuildCache {
             report(
               "not-recorded",
               "cache-publication-io-or-output-failure",
-              key,
+              keyOf(readNames(result)),
             );
         },
       });
@@ -789,6 +799,7 @@ export namespace RuntimeBuildCache {
             const outputs = path.join(parked, "outputs");
             if (props.defer === undefined) {
               published = finish(
+                job.result,
                 publication(job.result, job.emitDir, outputs, (result) =>
                   lift(
                     job.recorded === true
@@ -873,7 +884,7 @@ export namespace RuntimeBuildCache {
       props.recordSteps ??
       ((fresh: TtscBuildResult) => lift(props.record?.(fresh) ?? fresh));
     if (props.defer === undefined) {
-      finish(publication(result, props.emitDir, props.emitDir, record));
+      finish(result, publication(result, props.emitDir, props.emitDir, record));
       return result;
     }
     // What parking needs is taken now, before a step consumes it.

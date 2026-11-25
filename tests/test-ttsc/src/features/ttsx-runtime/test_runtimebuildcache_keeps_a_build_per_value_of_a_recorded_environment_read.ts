@@ -18,13 +18,13 @@ import type { TtscBuildResult } from "../../../../../packages/ttsc/src/structure
  * without building, whether its build was published, parked, read a variable
  * other builds did not, or was published while another build was.
  *
- * 1. Publish in place for `MODE` values `on on off off on off`.
- * 2. Park every build for `on off on off`, so no publication ever runs.
- * 3. Publish `on`, which reads `MODE`, and `off`, which also reads `EXTRA`, then
+ * 1. Publish in place for `MODE` values `on on off off on off`, and park every
+ *    build for `on off on off`, so no publication ever runs.
+ * 2. Publish `on`, which reads `MODE`, and `off`, which also reads `EXTRA`, then
  *    both again.
- * 4. Build two values with deferred publications and finish them in the opposite
+ * 3. Build two values with deferred publications, finish them in the opposite
  *    order, then request both again.
- * 5. Require one build per distinct value in each case, each served text to be the
+ * 4. Require one build per distinct value in each case, each served text to be the
  *    one its value built, and a build that reads nothing to register no
  *    variable set.
  *
