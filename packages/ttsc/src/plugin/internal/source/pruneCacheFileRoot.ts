@@ -14,7 +14,9 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * orphan sources under `ttsx-orphan/`. The runtime builds under
  * `runtime-builds/` are files too, except the builds a ttsx run parked in a
  * `<key>.pending` directory: each is one entry of all its files' bytes, which
- * leaves by a rename into the store's trash.
+ * leaves by a rename into the store's trash. The variable sets a build identity
+ * registered in its `<identity>.environment` directory are one file entry each,
+ * and a directory they all left is removed.
  *
  * The policy is the plugin cache's (`CachePrunePolicy`). An entry's last use is
  * its modification time: a write sets it, and every hit records a use by
@@ -36,7 +38,7 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Layout-independent file metadata drives reclamation; failures are tolerated because cache availability is optional, not hidden to fabricate a computed answer.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain payloads, hit-touch metadata, atomic publication and failure behavior under the documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation lstat rejects aliased root leaves at admission, and later paths use the observed physical root instead of the original ancestor alias. Native per-file removal handles sharing restrictions without shell assumptions; physical spelling is not an ongoing object-identity pin.
- * @evidence contracts/performance.md#efficient-algorithms Two metadata scans, including one listing and lstat per file below each parked build, and optional numeric timestamp sorting cost O(entries log entries), with temporary metadata and filename/path text scaling with admitted entries. Root validation and native metadata operations add path work, and interval-marker reading/encoding costs its text bytes; cached answer payload bytes are not read.
+ * @evidence contracts/performance.md#efficient-algorithms Two metadata scans, including one listing and lstat per file below each parked build and each variable-set directory, plus one listing and rmdir attempt per variable-set directory, and optional numeric timestamp sorting cost O(entries log entries), with temporary metadata and filename/path text scaling with admitted entries. Root validation and native metadata operations add path work, and interval-marker reading/encoding costs its text bytes; cached answer payload bytes are not read.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Answer equivalence is established by owning readers and producer keys, not eviction.
  *
@@ -82,6 +84,7 @@ export function pruneCacheFileRoot(
         if (removeEntry(entry.file, root)) total -= entry.size;
       }
     }
+    removeEmptiedSetDirectories(root);
     SourceBuildCacheLayout.replaceCacheMetadataFile(
       marker,
       `${
@@ -107,28 +110,69 @@ interface ICacheFileEntry {
   size: number;
 }
 
-/** Snapshot ordinary files, excluding the collector's own interval marker. */
+/**
+ * Snapshot ordinary files, excluding the collector's own interval marker, with
+ * the variable sets a runtime build identity registered in its
+ * `<identity>.environment` directory: each set is one file and one entry.
+ */
 function collectEntries(root: string): ICacheFileEntry[] {
   const entries: ICacheFileEntry[] = [];
+  const scan = (directory: string, nested: boolean): void => {
+    let dirents: fs.Dirent[];
+    try {
+      dirents = fs.readdirSync(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const dirent of dirents) {
+      if (
+        !nested &&
+        dirent.isDirectory() &&
+        dirent.name.endsWith(ENVIRONMENT_SETS_SUFFIX)
+      ) {
+        scan(path.join(directory, dirent.name), true);
+        continue;
+      }
+      if (!dirent.isFile() || dirent.name === CachePrunePolicy.GC_MARKER_FILE)
+        continue;
+      const file = path.join(directory, dirent.name);
+      try {
+        const stats = fs.lstatSync(file);
+        if (!stats.isFile()) continue;
+        entries.push({ file, lastUsedAt: stats.mtimeMs, size: stats.size });
+      } catch {
+        // Removed or replaced since the listing: not an entry this pass sees.
+      }
+    }
+  };
+  scan(root, false);
+  return entries;
+}
+
+/**
+ * Suffix of the directory where a ttsx runtime build identity registers the
+ * variable sets its builds read (`RuntimeBuildCache`).
+ */
+const ENVIRONMENT_SETS_SUFFIX = ".environment";
+
+/**
+ * Remove each `<identity>.environment` directory whose sets were all collected.
+ * A registering writer that loses the directory this way creates it again.
+ */
+function removeEmptiedSetDirectories(root: string): void {
   let dirents: fs.Dirent[];
   try {
     dirents = fs.readdirSync(root, { withFileTypes: true });
   } catch {
-    return entries;
+    return;
   }
-  for (const dirent of dirents) {
-    if (!dirent.isFile() || dirent.name === CachePrunePolicy.GC_MARKER_FILE)
-      continue;
-    const file = path.join(root, dirent.name);
-    try {
-      const stats = fs.lstatSync(file);
-      if (!stats.isFile()) continue;
-      entries.push({ file, lastUsedAt: stats.mtimeMs, size: stats.size });
-    } catch {
-      // Removed or replaced since the listing: not an entry this pass sees.
-    }
-  }
-  return entries;
+  for (const dirent of dirents)
+    if (dirent.isDirectory() && dirent.name.endsWith(ENVIRONMENT_SETS_SUFFIX))
+      try {
+        fs.rmdirSync(path.join(root, dirent.name));
+      } catch {
+        // Not empty, or removed already.
+      }
 }
 
 /**
