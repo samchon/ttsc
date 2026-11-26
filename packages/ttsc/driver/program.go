@@ -321,6 +321,9 @@ type Program struct {
   // Checker is borrowed under the lease released by Close.
   Checker        *shimchecker.Checker
   checkerRelease func()
+  // pooled records that loadProgram left TypeScript-Go's checker pool unpinned
+  // for a one-shot no-emit batch check.
+  pooled bool
 
   // Host is the compiler host for this generation.
   Host shimcompiler.CompilerHost
@@ -376,12 +379,15 @@ type LoadProgramOptions struct {
   SourcePreamble string
 
   // SingleThreaded forces TypeScript-Go's single-threaded mode (one checker,
-  // serial parse/check/emit), mirroring `tsgo --singleThreaded`.
+  // serial parse/check/emit), mirroring `tsgo --singleThreaded`. It also
+  // disables the one-shot no-emit batch checker pool.
   SingleThreaded bool
 
-  // Checkers supplies the requested pool-size option before Program creation.
-  // CreateProgramFromConfig pins the effective pool to one checker; zero skips
-  // this requested override, and SingleThreaded also selects one checker.
+  // Checkers supplies the requested checker pool size before Program creation.
+  // Every load except a one-shot no-emit batch load under TTSC_BATCH=1 (when
+  // not single-threaded) pins the effective pool to one checker so cross-file
+  // type reads share one checker; a pooled batch no-emit load keeps this
+  // requested count, or TypeScript-Go's default when zero.
   Checkers int
 
   // TsgoArgs carries tsgo CLI flags the `ttsc` launcher did not recognize as
@@ -540,33 +546,38 @@ func parseTsgoArgs(args []string, host shimcompiler.CompilerHost, cwd tspath.Roo
 //
 // ProgramOptions.SingleThreaded is left unset, preserving the parsed option:
 // parallel source parsing and emit remain available unless the caller selected
-// single-threaded operation. The checker
-// pool, however, is pinned to a single checker (see forceSingleChecker):
-// every phase ttsc layers on top — plugin transforms and the output
-// rewriter — walks the program serially against the one checker returned by
-// Program.GetTypeChecker, and then asks that checker to resolve types in
-// nodes drawn from *every* source file. TypeScript-Go's multi-checker pool
-// affinitizes each file to a different checker and forbids mixing types
-// across them; a circular type whose declarations span files on different
-// checkers resolves to `any` on the borrowed checker. Pinning the pool to
-// one checker keeps prog.Checker consistent with how every file was checked
-// without independently forcing serial parse or emit. Both EmitAll and EmitAllRaw
-// serialize the WriteFile callback under a mutex so the emit-stage rewriter
-// never observes the parallel emit either.
+// single-threaded operation. Direct callers always pin the checker pool to one
+// checker (see forceSingleChecker): every type ttsc or a plugin reads goes
+// through the single checker returned by Program.GetTypeChecker, and mixing
+// types across distinct pool checkers breaks cross-file type identity (for
+// example, a circular indexed-access alias can resolve to `any`). Both EmitAll
+// and EmitAllRaw serialize the WriteFile callback under a mutex so the
+// emit-stage rewriter never observes parallel emit writes either.
 //
-// @evidence contracts/common.md#principled-implementation Native Program construction uses parsed config and source project references; one checker keeps cross-file type queries in the same checker affinity.
-// @evidence contracts/common.md#clear-and-simple-design The adapter owns only Program options and checker-affinity policy while upstream owns parsing and compiler construction.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts The checker count is a stated cross-file correctness constraint, not a benchmark-only cap or consumer-specific workaround.
-// @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish the parsed threading choice from the single-checker affinity policy under documentation-skill guidance.
+// The sole exception is a one-shot no-emit batch check loaded through
+// loadProgram under TTSC_BATCH=1 (when not single-threaded), which calls the
+// unexported helper without pinning so diagnostics can run across the compiler's
+// checker pool while prog.Checker stays on TSProgram.GetTypeChecker().
+//
+// @evidence contracts/common.md#principled-implementation Native Program construction uses parsed config and source project references; exported CreateProgramFromConfig pins one checker so direct callers keep cross-file type queries in one checker affinity, while loadProgram uses the unexported helper to admit pooled diagnostics only for one-shot no-emit batch loads.
+// @evidence contracts/common.md#clear-and-simple-design The exported adapter always delegates with pooled=false while the unexported helper threads loadProgram's single pooling decision without recomputing it.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The single-checker pin is a cross-file type-identity invariant and the one-shot no-emit batch exception is explicit rather than a fixture workaround.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish parsed threading, the single-checker invariant for direct callers and the one-shot no-emit batch exception under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation The supplied CompilerHost provides native filesystem capabilities and project anchoring without an OS-name-derived policy.
-// @evidence contracts/performance.md#efficient-algorithms The adapter forces one checker but preserves the parsed threading choice; native NewProgram processes the complete program inputs, initializes the checker pool and verifies options. Source text, file/reference population and native resolution work govern delegated construction cost; this is not a constant-time options wrapper.
+// @evidence contracts/performance.md#efficient-algorithms Direct callers pin one checker while preserving the parsed threading choice; native NewProgram processes complete program inputs, initializes the checker pool and verifies options. Source text, file/reference population and native resolution work govern delegated construction cost; this is not a constant-time options wrapper.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction creates a new compiler generation and does not coordinate reuse across callers.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The returned native Program transfers parsed trees, resolution state and checker-pool ownership to its caller without a byte cap here; acquiring a checker lease is a later LoadProgram responsibility, and releasing that lease does not reclaim all caller-reachable Program state.
 func CreateProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompiler.CompilerHost) (*shimcompiler.Program, []Diagnostic, error) {
+  return createProgramFromConfig(parsed, host, false)
+}
+
+func createProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompiler.CompilerHost, pooled bool) (*shimcompiler.Program, []Diagnostic, error) {
   if parsed == nil {
     return nil, nil, fmt.Errorf("driver: nil parsed command line")
   }
-  forceSingleChecker(parsed)
+  if !pooled {
+    forceSingleChecker(parsed)
+  }
   opts := shimcompiler.NewProgramOptions(parsed, host, true)
   p := shimcompiler.NewProgram(opts)
   if p != nil {
@@ -577,13 +588,17 @@ func CreateProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompi
 
 // forceSingleChecker pins the TypeScript-Go checker pool to a single checker.
 //
-// ttsc's transform and rewrite phases run serially and obtain types through
-// the single checker that Program.GetTypeChecker hands back. Those phases
-// query types on nodes from arbitrary source files, so the checker must be
-// the same one that checked every file. A pool of size > 1 affinitizes files
-// to distinct checkers; resolving a type whose declarations cross that
-// boundary (e.g. a circular indexed-access alias) yields `any`. Parallel
-// parsing and emit are unaffected — they do not consult the checker count.
+// Every type ttsc or a plugin reads comes from the single checker that
+// Program.GetTypeChecker hands back, and emit paths that consult an emit
+// resolver require every file to share that checker. A pool of size > 1
+// affinitizes files to distinct checkers; mixing types across that boundary
+// (for example, a circular indexed-access alias) can yield `any`. Parallel
+// parsing and emit are unaffected because they do not consult the checker count.
+//
+// loadProgram skips this pin only for a one-shot no-emit batch check under
+// TTSC_BATCH=1 when not single-threaded: diagnostics may then run across the
+// compiler's checker pool, while emit paths that read per-file checkers and
+// resident sessions refuse a pooled Program.
 func forceSingleChecker(parsed *tsoptions.ParsedCommandLine) {
   options := parsed.ParsedConfig.CompilerOptions
   if options.SingleThreaded == core.TSTrue {
@@ -591,6 +606,15 @@ func forceSingleChecker(parsed *tsoptions.ParsedCommandLine) {
   }
   one := 1
   options.Checkers = &one
+}
+
+// requireSingleCheckerForEmit rejects emit paths that read a checker for a
+// file's output on a pooled Program.
+func (p *Program) requireSingleCheckerForEmit() error {
+  if p != nil && p.pooled {
+    return errors.New("driver: cannot emit from a pooled Program: a pooled Program checked files on several checkers, and emit reads each file's own checker")
+  }
+  return nil
 }
 
 // LoadProgram is the one-shot convenience used by `ttsc`.
@@ -605,9 +629,13 @@ func forceSingleChecker(parsed *tsoptions.ParsedCommandLine) {
 // Program, binds the created Program and calls the returned programBound
 // callback before returning so nothing has checked it yet. The compiler hook
 // begins at most once per process and its end callback is not called because
-// the marker states the process ends with its batch. Without the marker
-// BeginBatchOnce returns a no-op, and driver.NewSession never calls it even
-// when the marker is set.
+// the marker states the process ends with its batch. When effective noEmit is
+// also true (after ForceNoEmit and ForceEmit) and the load is not
+// single-threaded, LoadProgram leaves TypeScript-Go's checker pool unpinned so
+// diagnostics can run in parallel while prog.Checker stays on
+// TSProgram.GetTypeChecker(). Without the marker BeginBatchOnce returns a
+// no-op, the pool stays pinned to one checker, and driver.NewSession never
+// enables batch mode or pooling even when the marker is set.
 //
 // An enabled private compilation-snapshot document shares first-read text and
 // lookup answers across sequential native stages. This is not an atomic volume
@@ -749,6 +777,11 @@ func loadProgram(cwd, tsconfigPath string, options LoadProgramOptions, allowBatc
     overrideOutDir(directory, parsed, options.OutDir)
   }
   applyThreadingOptions(parsed, options.SingleThreaded, options.Checkers)
+  compilerOpts := parsed.ParsedConfig.CompilerOptions
+  pooled := allowBatch &&
+    os.Getenv(shimcompiler.BatchEnv) == "1" &&
+    compilerOpts.NoEmit.IsTrue() &&
+    compilerOpts.SingleThreaded != core.TSTrue
 
   // The parsed project decides whether its content mappers run, so the
   // Program's host is built only now, over the same filesystem.
@@ -758,7 +791,7 @@ func loadProgram(cwd, tsconfigPath string, options LoadProgramOptions, allowBatc
   if allowBatch {
     onProgramBound = beginBatchOnce()
   }
-  tsProgram, _, _ := CreateProgramFromConfig(parsed, host)
+  tsProgram, _, _ := createProgramFromConfig(parsed, host, pooled)
   if onProgramBound != nil && tsProgram != nil {
     tsProgram.BindSourceFiles()
     onProgramBound()
@@ -771,6 +804,7 @@ func loadProgram(cwd, tsconfigPath string, options LoadProgramOptions, allowBatc
     ParsedConfig:           parsed,
     Checker:                checker,
     checkerRelease:         done,
+    pooled:                 pooled,
     Host:                   host,
     hosts:                  hosts,
     mapperDependencies:     mapperDependencies,
@@ -849,16 +883,17 @@ func rootedWorkingDirectory(cwd string) (tspath.RootedDirectoryPath, error) {
 }
 
 // applyThreadingOptions forwards the CLI threading knobs onto the parsed
-// compiler options. ttsc mirrors tsgo here: `--singleThreaded` / `--checkers`
+// compiler options. ttsc mirrors tsgo here: `--singleThreaded` and `--checkers`
 // land in CompilerOptions, and both Program.SingleThreaded() and the checker
-// pool read them from there — ProgramOptions is left untouched, exactly as
-// tsgo's own CLI does. SingleThreaded wins over Checkers, matching the pool's
-// own precedence.
+// pool read them from there, leaving ProgramOptions untouched as tsgo's own CLI
+// does. SingleThreaded wins over Checkers, matching the pool's own precedence.
 //
-// Note that CreateProgramFromConfig calls forceSingleChecker afterwards, so a
-// `--checkers N` greater than 1 is recorded here but then clamped back to a
-// single checker: ttsc's serial transform/rewrite phases require one checker
-// (see forceSingleChecker). `--singleThreaded` still takes full effect.
+// For every load except a one-shot no-emit batch check under TTSC_BATCH=1 (when
+// not single-threaded), createProgramFromConfig calls forceSingleChecker
+// afterwards and clamps `--checkers N` above 1 back to one checker (see
+// forceSingleChecker). A pooled one-shot no-emit batch load keeps the recorded
+// `--checkers` count, or TypeScript-Go's default when unset. `--singleThreaded`
+// always takes full effect and disables pooling.
 func applyThreadingOptions(parsed *tsoptions.ParsedCommandLine, singleThreaded bool, checkers int) {
   options := parsed.ParsedConfig.CompilerOptions
   if singleThreaded {

@@ -194,7 +194,11 @@ func restoreOriginalDeclarationSymbols(ec *shimprinter.EmitContext, node *shimas
 //
 // With no effective transform, ordinary native emission owns bundled output,
 // declarations and build information. This entry still corrects source maps
-// for the source preamble before delivering them to its writer.
+// for the source preamble before delivering them to its writer. Under noEmit
+// (including a pooled one-shot batch Program), analysis-only emit delegates to
+// EmitAllRaw so incremental build information still writes without building an
+// emit resolver; the plugin-transformer path that constructs pluginEmitHost
+// refuses a pooled Program.
 //
 // Because the JavaScript side bypasses tsgo's own emitter, it reproduces that
 // emitter's whole printSourceFile step via PrintFileWithSourceMap: a
@@ -277,6 +281,9 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       phase = "declaration emit"
     }
     return p.pluginEmitDiagnostics(phase, result.Diagnostics)
+  }
+  if err := p.requireSingleCheckerForEmit(); err != nil {
+    return nil, err
   }
   // Snapshot ownership before any transformer runs, including transforms that
   // mutate their input in place or reuse a member from another source file.
