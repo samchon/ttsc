@@ -27,10 +27,12 @@ import path from "node:path";
  *    identity without requiring metadata from every SDK file.
  * 4. Load a descriptor under a different resolver environment and verify its warm
  *    evaluation and invalidation when a real nearer candidate appears.
+ * 5. Supply conflicting compiler executables to the installed transform API. The
+ *    declared Go module is refused by the line of the explicit executable.
  *
- * @evidence contracts/testing.md#behavioral-verification The installed ttsc CLI checks each project; the probe's compiler version, plugin cache entries, absence of a second build and bounded SDK dependencies are observed. An installed loader reuses a descriptor under its evaluator's search environment and re-evaluates when a real superseding candidate appears.
+ * @evidence contracts/testing.md#behavioral-verification The installed ttsc CLI checks each project; the probe's compiler version, plugin cache entries, absence of a second build and bounded SDK dependencies are observed. An installed loader reuses a descriptor under its evaluator's search environment and re-evaluates when a real superseding candidate appears. The plugin-free transform API reports the 7.1 module requirement for an explicit 7.1 executable even when its environment supplies the 7.0 executable.
  * @evidence contracts/testing.md#independent-expectations The 7.0 project expects its installed manifest version, and the 7.1 project the 7.1.0-dev version its pinned compiler declares; the nightly's gitHead must be the commit the 7.1 target pins, read from the repository's facade go.mod.
- * @evidence contracts/testing.md#distinguishing-cases The same plugin and cache exercise ordinary 7.0 discovery and the 7.1 alias beside legacy 6.0.2. The descriptor case contrasts an irrelevant parent search root with a genuine missing evaluator candidate, repeated reuse and appearance of that candidate.
+ * @evidence contracts/testing.md#distinguishing-cases The same plugin and cache exercise ordinary 7.0 discovery and the 7.1 alias beside legacy 6.0.2. The descriptor case contrasts an irrelevant parent search root with a genuine missing evaluator candidate, repeated reuse and appearance of that candidate. The native transform case distinguishes the explicit compiler from the environment's compiler.
  * @evidence contracts/testing.md#execution-ownership test_e2e_installation supplies its packed consumer; this case installs the 7.1 project's TypeScript and runs the installed CLI four times.
  * @evidence contracts/e2e.md#necessary-boundary Target selection, the packed shim trees and the Go workspace meet only in an installed source-plugin build; no source unit links a plugin against a compiler.
  * @evidence contracts/e2e.md#shared-execution The installation and plugin cache serve all four checks and the descriptor search case, which uses the same 7.0 executable source.
@@ -215,6 +217,46 @@ export function case_installed_ttsc_builds_each_typescript_line_against_its_own_
     );
   }
   verifyDescriptorSearchContext(input.sdk, root, projects["7.0"], cache, env);
+
+  const { TtscCompiler } = fromInstalledTtsc(
+    path.join(input.sdk, "lib", "index.js"),
+  ) as typeof import("ttsc");
+  const { resolveTsgo } = fromInstalledTtsc(
+    path.join(input.sdk, "lib", "compiler", "internal", "resolveTsgo.js"),
+  ) as typeof import("../../../../../../../packages/ttsc/lib/compiler/internal/resolveTsgo");
+  const binary70 = resolveTsgo({ cwd: projects["7.0"], env }).binary;
+  const binary71 = resolveTsgo({ cwd: projects["7.1"], env }).binary;
+  const transformProject = path.join(root, "transform-project");
+  const declaredCompiler = path.join(root, "wrong-compiler-module");
+  fs.mkdirSync(transformProject);
+  fs.mkdirSync(declaredCompiler);
+  fs.writeFileSync(
+    path.join(transformProject, "tsconfig.json"),
+    '{"files":["index.ts"]}',
+  );
+  fs.writeFileSync(
+    path.join(transformProject, "index.ts"),
+    "export const value = 1;\n",
+  );
+  fs.writeFileSync(
+    path.join(declaredCompiler, "go.mod"),
+    "module example.com/wrong-compiler\n\ngo 1.27\n",
+  );
+  const result = new TtscCompiler({
+    binary: binary71,
+    cacheDir: cache,
+    cwd: transformProject,
+    env: {
+      ...env,
+      TTSC_TSGO_BINARY: binary70,
+      TTSC_TSGO_SOURCE: declaredCompiler,
+    },
+  }).transform();
+  assert.equal(result.type, "exception");
+  assert.match(
+    result.error.message,
+    /TypeScript 7\.1 compiler target builds against "github\.com\/microsoft\/TypeScript\/tsc"/,
+  );
   return projects;
 }
 
