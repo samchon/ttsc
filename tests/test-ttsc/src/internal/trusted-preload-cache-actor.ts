@@ -136,6 +136,7 @@ if (cachedDescriptor !== null) {
       inputRealpaths: Record<string, string | null>;
       inputs: string[];
       observation: { complete: boolean };
+      preloadGraphComplete: boolean;
     };
     const evaluation: PluginDescriptorEvaluationCache.IEvaluation = {
       descriptor: parsed.descriptor,
@@ -146,7 +147,7 @@ if (cachedDescriptor !== null) {
     };
     descriptorInputs = evaluation.inputs;
     descriptorObservationsComplete = evaluation.observationsComplete;
-    if (descriptorLocation !== null) {
+    if (descriptorLocation !== null && parsed.preloadGraphComplete) {
       PluginDescriptorEvaluationCache.write(descriptorLocation, evaluation);
     }
   } finally {

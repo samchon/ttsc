@@ -1,4 +1,5 @@
 import { CompilationSnapshot } from "../CompilationSnapshot";
+import { BATCH_ENV } from "./BATCH_ENV";
 import { SidecarEnvironment } from "./SidecarEnvironment";
 import { clearInheritedSemanticConfigPath } from "./clearInheritedSemanticConfigPath";
 import { clearInheritedTsgoArgs } from "./clearInheritedTsgoArgs";
@@ -7,9 +8,10 @@ import { publishLinkedTransformPlugins } from "./publishLinkedTransformPlugins";
 /**
  * Merge inherited and caller environments with native variable-name identity,
  * then clear per-invocation payloads this lane never published: forwarded tsgo
- * arguments, compilation snapshot, semantic config ownership and the
- * linked-plugin manifest. The diagnostic-completion token is always cleared
- * because only direct transform dispatch owns that acknowledgement.
+ * arguments, compilation snapshot, semantic config ownership, the linked-plugin
+ * manifest and the one-shot batch marker. The diagnostic-completion token is
+ * always cleared because only direct transform dispatch owns that
+ * acknowledgement.
  *
  * Use it at every spawn whose child can reach `driver.LoadProgram` — the
  * `api-compile` / `api-transform` hosts, and the plugin loader, whose `ttsx`
@@ -42,6 +44,7 @@ export function inheritedSidecarEnv(
     tsgoBinary === undefined ? undefined : { TTSC_TSGO_BINARY: tsgoBinary },
   );
   SidecarEnvironment.write(env, "TTSC_DIAGNOSTICS_COMPLETION_TOKEN", undefined);
+  SidecarEnvironment.write(env, BATCH_ENV, undefined);
   clearInheritedTsgoArgs(env, callerEnv);
   clearInheritedSemanticConfigPath(env, callerEnv);
   SidecarEnvironment.write(

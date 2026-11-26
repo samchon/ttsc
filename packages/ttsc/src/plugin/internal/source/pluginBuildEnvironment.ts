@@ -29,6 +29,9 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
  *   carries (`hashPluginBuildEnvironment`).
  * @param identities Record store that lets a new process prove the SDK and
  *   executables from metadata (#1722).
+ * @param currentReadings Optional caller-owned map sharing current native
+ *   witness observations across one synchronous batch of recorded-answer
+ *   checks.
  * @evidence contracts/common.md#principled-implementation The digest uses the same resolved compiler and environment serializer as the binary key, so reported toolchain state denotes the inputs actually used by the build.
  * @evidence contracts/common.md#clear-and-simple-design Compiler selection, executable resolution and hashing each stay with their owning helper; this function only composes one environment reading.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The result comes from real Go/environment inputs, not a fixed compiler version or a caller-specific substitute.
@@ -36,7 +39,7 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
  * @evidence contracts/portability.md#os-neutral-implementation Executable identity is resolved before probing, and Node filesystem/process boundaries implement native spelling rather than assuming Windows or POSIX paths are interchangeable.
  * @evidence contracts/performance.md#efficient-algorithms The wrapper resolves the compiler/tool under the supplied environment before delegating full environment hashing. Native resolution/probes, SDK metadata/name/path sorting and changed-manifest full content reads contribute cost; the final hash output is fixed-width but streamed identity/input text and full-file buffers are not. No independent duplicate source-directory digest scan is added here.
  *
- * @evidence contracts/performance.md#reuse-equivalent-work With a record store, a reading is shared across processes under the variables the Go tool receives and its witness (`readPluginBuildEnvironment`); without one the Go probes run on every call. processPluginBuildEnvironment owns reuse of the whole reading within a process.
+ * @evidence contracts/performance.md#reuse-equivalent-work With a record store, a reading is shared across processes under the variables the Go tool receives and its witness (`readPluginBuildEnvironment`), and an optional synchronous batch map shares current witness stat observations across directories checked together; without one the Go probes run on every call. processPluginBuildEnvironment owns reuse of the whole reading within a process.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Its digest and filesystem adapter are call-local; retained compiler/content memo ownership belongs to the hasher.
  */
 export function pluginBuildEnvironment(
@@ -44,6 +47,7 @@ export function pluginBuildEnvironment(
   env: NodeJS.ProcessEnv = process.env,
   witness?: PluginBuildEnvironmentWitness.Record,
   identities?: PluginContentIdentities.Store,
+  currentReadings?: Map<string, string>,
 ): string {
   const goBinary = GoToolResolution.resolveGoToolForBuild(
     resolveGoCompiler(env).binary,
@@ -57,5 +61,6 @@ export function pluginBuildEnvironment(
     env,
     witness,
     identities,
+    currentReadings,
   );
 }

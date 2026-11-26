@@ -37,7 +37,7 @@ if (target === "7.0") {
     "-count=1",
     ...firstParty,
     // Recursive Go patterns stop at nested module boundaries, including shims.
-    ...["shim/ast", "shim/vfs", "tools/gen_facade", "tools/gen_shims", "tools/shim_audit"].map(
+    ...["shim/ast", "shim/compiler", "shim/vfs", "tools/gen_facade", "tools/gen_shims", "tools/shim_audit"].map(
       (name) => `./packages/ttsc/${name}/...`,
     ),
   ]));
@@ -60,7 +60,7 @@ if (target === "7.0") {
   populations.push(run(["test", "-count=1", ...firstParty], targetEnv));
   // The 7.1 bridges are standalone modules: Go admits their imports of the
   // compiler's internal tree only inside their own module graph.
-  for (const bridge of ["ast", "vfs"])
+  for (const bridge of ["ast", "compiler", "vfs"])
     populations.push(run([
       "-C", `packages/ttsc/targets/7.1/bridge/${bridge}`, "test", "-count=1", "./...",
     ], { ...process.env, GOWORK: "off" }));

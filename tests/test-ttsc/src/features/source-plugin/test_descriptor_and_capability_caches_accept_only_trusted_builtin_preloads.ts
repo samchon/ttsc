@@ -231,7 +231,18 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   );
   assert.equal(launch2.capabilityIsCurrent, true);
 
-  // 2. Same preload untrusted (or glob-listed, or paired with untrusted --require): refuses at all three.
+  // 2. Cache refusal still permits normal input observation during evaluation.
+  const unsupportedFlag = runLaunch(
+    { NODE_OPTIONS: "--no-warnings" },
+    "evaluate",
+  );
+  assert.equal(unsupportedFlag.descriptorLocation, null);
+  assert.equal(unsupportedFlag.descriptorEvaluated, true);
+  assert.equal(unsupportedFlag.descriptorObservationsComplete, true);
+  assert.equal(unsupportedFlag.capabilityAuthority, null);
+  assert.equal(unsupportedFlag.resolutionFile, null);
+
+  // Same preload untrusted (or glob-listed, or paired with untrusted --require): refuses at all three.
   const untrusted1 = runLaunch({
     NODE_OPTIONS: `--require=${portZeroFile}`,
     TTSC_CACHE_TRUSTED_PRELOADS: undefined,

@@ -17,10 +17,14 @@ import (
 // values to distinguish a private body edit from a public semantic movement
 // before expanding invalidation through reverse dependencies.
 //
-// @evidence contracts/common.md#principled-implementation TypeScript's own declaration emitter defines public shape; a no-output fallback conservatively hashes source rather than pretending the shape is unchanged.
-// @evidence contracts/common.md#clear-and-simple-design One forced declaration emit feeds a signature builder and SHA-256 digest; diagnostic structure contributes through one helper.
+// A pooled Program is refused with an error before emitting anything because
+// forced declaration emit reads each file's own checker while a pooled Program
+// checked files across several checkers.
+//
+// @evidence contracts/common.md#principled-implementation TypeScript's own declaration emitter defines public shape; a pooled Program is refused before emission because forced declaration emit reads each file's own checker, and a no-output fallback conservatively hashes source rather than pretending the shape is unchanged.
+// @evidence contracts/common.md#clear-and-simple-design One pooled-Program guard precedes one forced declaration emit feeding a signature builder and SHA-256 digest; diagnostic structure contributes through one helper.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Public shape is not guessed from syntax or patched to match expected invalidation examples.
-// @evidence contracts/common.md#meaningful-documentation The native comment explains public versus private movement and resident invalidation purpose following the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation The native comment explains public versus private movement, pooled-Program refusal and resident invalidation purpose following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Diagnostic filenames use compiler path-relative operations; the digest has no guessed OS case policy or native separator serialization.
 // @evidence contracts/performance.md#efficient-algorithms Generation-latched linked hooks precede selected-source forced declaration emit, whose compiler/checker/transform work is delegated. Output and recursive diagnostic text accumulate in a builder before a byte conversion and SHA256 scan; native diagnostic path/text work and output size/depth have no wrapper cap or deadline.
 // @evidence contracts/performance.md#reuse-equivalent-work The method reuses the loaded program and latched linked-hook outcome; declaration-shape reuse across generations is owned by the resident consumer.
@@ -28,6 +32,9 @@ import (
 func (p *Program) DeclarationShapeDigest(file *ast.SourceFile) (string, error) {
   if p == nil || p.TSProgram == nil || file == nil {
     return "", fmt.Errorf("driver: declaration shape requires a loaded source file")
+  }
+  if err := p.requireSingleCheckerForEmit(); err != nil {
+    return "", err
   }
   if err := p.ApplyLinkedPlugins(); err != nil {
     return "", err

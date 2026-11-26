@@ -366,9 +366,13 @@ func scanShimProducerSurface(shimRoot string, inner map[string]*packages.Package
         return producerSurface{}, err
       }
       for _, importedSuffix := range imports {
-        if inner[importedSuffix] == nil {
-          return producerSurface{}, fmt.Errorf("%s: internal package %s has no loaded type information", path, importedSuffix)
+        if inner[importedSuffix] != nil {
+          continue
         }
+        if suffix == "compiler" && importedSuffix == "batch" && isPrivateCompilerBatchAdapter(src, path) {
+          continue
+        }
+        return producerSurface{}, fmt.Errorf("%s: internal package %s has no loaded type information", path, importedSuffix)
       }
       definitions, err := scanLocalFlowDefinitions(src, path)
       if err != nil {
@@ -390,6 +394,35 @@ func scanShimProducerSurface(shimRoot string, inner map[string]*packages.Package
     }
   }
   return surface, nil
+}
+
+// isPrivateCompilerBatchAdapter identifies implementation code compiled only
+// with a declared compiler's batch package. It exposes no declarations that
+// could carry an unknown type into the pinned compiler's producer surface.
+func isPrivateCompilerBatchAdapter(src []byte, filename string) bool {
+  header, _, _ := bytes.Cut(src, []byte("\n"))
+  if string(bytes.TrimSpace(header)) != "//go:build ttsc_compiler_batch" {
+    return false
+  }
+  file, err := parser.ParseFile(token.NewFileSet(), filename, src, parser.SkipObjectResolution)
+  if err != nil {
+    return false
+  }
+  for _, decl := range file.Decls {
+    switch node := decl.(type) {
+    case *ast.FuncDecl:
+      if node.Recv != nil || ast.IsExported(node.Name.Name) {
+        return false
+      }
+    case *ast.GenDecl:
+      if node.Tok != token.IMPORT {
+        return false
+      }
+    default:
+      return false
+    }
+  }
+  return true
 }
 
 func scanLocalFlowDefinitions(src []byte, filename string) (map[string]localFlowDefinition, error) {

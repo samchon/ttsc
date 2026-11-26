@@ -23,6 +23,7 @@ import { readEffectiveCompilerOptions } from "../readEffectiveCompilerOptions";
 import { resolveBinary } from "../resolveBinary";
 import { resolveTsgo } from "../resolveTsgo";
 import { runNativeCheckWithObservations } from "../runNativeCheckWithObservations";
+import { BATCH_ENV } from "../sharedHost/BATCH_ENV";
 import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
 import { TSGO_ARGS_CWD_ENV } from "../sharedHost/TSGO_ARGS_CWD_ENV";
 import { TSGO_ARGS_ENV } from "../sharedHost/TSGO_ARGS_ENV";
@@ -125,12 +126,14 @@ export namespace BuildExecution {
    * emitting-watch write policy is always cleared here and only the selected
    * build command may arm it for its direct native child. The private
    * diagnostic-completion token is also cleared here; transform dispatch issues
-   * a fresh value rather than inheriting another host's proof.
+   * a fresh value rather than inheriting another host's proof. The one-shot
+   * batch marker `TTSC_BATCH` is set to `"1"` only when `batch` is true and
+   * cleared otherwise so an inherited value never reaches a resident child.
    *
-   * @evidence contracts/common.md#principled-implementation Environment layering preserves caller overrides while the resolved compiler wins last; per-run compiler/config/link payloads are published or cleared according to invocation ownership, and the emitting-watch write policy is cleared until an authorized build child selects it.
+   * @evidence contracts/common.md#principled-implementation Environment layering preserves caller overrides while the resolved compiler wins last; per-run compiler/config/link payloads are published or cleared according to invocation ownership, the emitting-watch write policy is cleared until an authorized build child selects it, and TTSC_BATCH is set only for one-shot commands and cleared for resident spawns.
    * @evidence contracts/common.md#clear-and-simple-design Shared environment helpers own merging and key access; runtime discovery precedes the pure composer that owns invocation payload publication.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported environment channels convey compiler/plugin context without patching strict sidecar parsers; clearing inherited payloads corrects ownership rather than compensating for a stale ancestor selection.
-   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain config anchoring, linked sources, precedence and absent-payload effects without mixing prose into tags.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain config anchoring, linked sources, precedence, batch marking and absent-payload effects without mixing prose into tags.
    * @evidence contracts/portability.md#os-neutral-implementation Native environment helpers normalize Windows key aliases while retaining POSIX case distinctions; node:path builds the default launcher path and binary values remain native executable selections.
    * @evidence contracts/performance.md#efficient-algorithms Environment layering copies inherited/caller fields, and Windows channel reads/writes repeatedly scan native-equivalent key names with key-text normalization costs, including one write-policy removal. Linked selection/projection/JSON adds plugin count and payload work. Ordered runtime-candidate probes are delegated before publication and remain native process costs of this call.
    *
@@ -142,6 +145,7 @@ export namespace BuildExecution {
     execution: ReturnType<typeof resolveExecutionContext>,
     plugin?: ITtscLoadedNativePlugin,
     tsgoArgs?: string,
+    batch = false,
   ): NodeJS.ProcessEnv {
     const env = mergeEnv(
       {
@@ -168,6 +172,7 @@ export namespace BuildExecution {
       SidecarEnvironment.read(env, "TTSC_NODE_BINARY"),
       plugin,
       tsgoArgs,
+      batch,
     );
   }
 
@@ -181,11 +186,13 @@ export namespace BuildExecution {
    * scratch placement, or clears an inherited store when none was opened. A
    * completion token from another invocation is always cleared; only the
    * command dispatcher may issue one for its direct transform host.
+   * `TTSC_BATCH` is written `"1"` when `batch` is true and cleared otherwise so
+   * a resident child never inherits an ancestor's one-shot marker.
    *
-   * @evidence contracts/common.md#principled-implementation The selected compiler and Node executable own their channels; config, content-identity scratch root, forwarded arguments and linked transforms are published or cleared according to this invocation and explicit caller ownership.
+   * @evidence contracts/common.md#principled-implementation The selected compiler and Node executable own their channels; config, content-identity scratch root, forwarded arguments, batch marker and linked transforms are published or cleared according to this invocation and explicit caller ownership.
    * @evidence contracts/common.md#clear-and-simple-design A synchronous payload composer consumes the existing merged environment, keeping native executable discovery in nativePluginEnv without copying environment layers again.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supplied executable selections are preserved without guessing capabilities, launching a substitute producer or mutating the global environment.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states the required fresh layered environment, caller ownership and the separation of runtime discovery from protocol publication.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states the required fresh layered environment, caller ownership, batch marker policy and the separation of runtime discovery from protocol publication.
    * @evidence contracts/portability.md#os-neutral-implementation SidecarEnvironment preserves native Windows name identity and POSIX spelling; executable values are supplied native paths rather than shell commands.
    * @evidence contracts/performance.md#efficient-algorithms Protocol channel reads/writes include Windows environment-name scans and key-text costs. Transform-stage publication also filters P native plugins and projects/JSON-serializes linked config/name/stage values with ordinary JSON conversion/error semantics. No capability subprocess or extra environment-layer merge is performed by this composer.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Invocation-owned writes apply to current mutable caller state rather than a reusable producer computation.
@@ -198,6 +205,7 @@ export namespace BuildExecution {
     nodeBinary: string | undefined,
     plugin?: ITtscLoadedNativePlugin,
     tsgoArgs?: string,
+    batch = false,
   ): NodeJS.ProcessEnv {
     CompilerProjectSelection.assertCurrent(execution.compilerSelection);
     SidecarEnvironment.write(
@@ -205,6 +213,7 @@ export namespace BuildExecution {
       "TTSC_DIAGNOSTICS_COMPLETION_TOKEN",
       undefined,
     );
+    SidecarEnvironment.write(env, BATCH_ENV, batch ? "1" : undefined);
     SidecarEnvironment.write(env, "TTSC_NODE_BINARY", nodeBinary);
     SidecarEnvironment.write(env, "TTSC_TSGO_BINARY", execution.tsgo.binary);
     SidecarEnvironment.write(
@@ -1467,7 +1476,7 @@ export namespace BuildExecution {
         NativePluginArguments.createNativeProjectInputsArgs(execution, plugin),
         {
           cwd: execution.projectRoot,
-          env: nativePluginEnv(options.env, execution, plugin),
+          env: nativePluginEnv(options.env, execution, plugin, undefined, true),
           encoding: "utf8",
         },
       );
@@ -1525,7 +1534,7 @@ export namespace BuildExecution {
     tsgoArgs?: string,
   ): TtscBuildResult {
     const startedAt = process.hrtime.bigint();
-    const env = nativePluginEnv(options.env, execution, plugin, tsgoArgs);
+    const env = nativePluginEnv(options.env, execution, plugin, tsgoArgs, true);
     const diagnosticsToken =
       label === "ttsc.build"
         ? `ttsc:diagnostics-complete:${randomUUID()}`

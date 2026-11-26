@@ -70,6 +70,7 @@ func RunCheckWithIO(args []string, stdout, stderr io.Writer) int {
     return 2
   }
   opts.noEmit = true
+  opts.batch = true
   return runProject(opts)
 }
 
@@ -284,6 +285,7 @@ type subcommandOpts struct {
   tsgoArgsCwd           string
   projectIdentity       publicrule.ProjectIdentity
   checkObservationsJSON string
+  batch                 bool
   stdout                io.Writer
   stderr                io.Writer
 }
@@ -465,6 +467,7 @@ func runProject(opts *subcommandOpts) (code int) {
     tsgoArgs:           opts.tsgoArgs,
     tsgoArgsCwd:        opts.tsgoArgsCwd,
     projectIdentity:    opts.projectIdentity,
+    batch:              opts.batch,
   })
   if err != nil {
     fmt.Fprintf(opts.stderr, "@ttsc/lint: %v\n", err)
