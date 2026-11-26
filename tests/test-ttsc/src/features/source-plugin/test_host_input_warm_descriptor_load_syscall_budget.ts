@@ -121,6 +121,7 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
     fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-warm-descriptor-syscalls-")),
   );
   const failures: Error[] = [];
+  const links: string[] = [];
   const check = (name: string, operation: () => void): void => {
     try {
       operation();
@@ -163,19 +164,28 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
     expectedHashes[nested] = digest(nestedContent);
     expectedRealpaths[nested] = fs.realpathSync.native(nested);
 
-    const fileLink = path.join(dist, "file-link.js");
+    let fileLink: string | undefined;
     const dirLink = path.join(dist, "dir-link");
     const brokenLink = path.join(dist, "broken-link.js");
-    fs.symlinkSync(presentFiles[0]!, fileLink, "file");
+    const windows = process.platform === "win32";
+    const fileLinkPath = path.join(dist, "file-link.js");
+    try {
+      fs.symlinkSync(presentFiles[0]!, fileLinkPath, "file");
+      links.push(fileLinkPath);
+      fileLink = fileLinkPath;
+    } catch (cause) {
+      if (!windows || (cause as NodeJS.ErrnoException).code !== "EPERM")
+        throw cause;
+    }
+    fs.symlinkSync(sub, dirLink, windows ? "junction" : "dir");
+    links.push(dirLink);
     fs.symlinkSync(
-      sub,
-      dirLink,
-      process.platform === "win32" ? "junction" : "dir",
+      path.join(dist, "no-such-target"),
+      brokenLink,
+      windows ? "junction" : "file",
     );
-    fs.symlinkSync(path.join(dist, "no-such-target.js"), brokenLink, "file");
+    links.push(brokenLink);
 
-    expectedHashes[fileLink] = expectedHashes[presentFiles[0]!]!;
-    expectedRealpaths[fileLink] = expectedRealpaths[presentFiles[0]!]!;
     expectedHashes[dirLink] = DIRECTORY_HASH;
     expectedRealpaths[dirLink] = expectedRealpaths[sub]!;
     expectedHashes[brokenLink] = null;
@@ -184,14 +194,19 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
     // Children under symlink parents must NOT be short-circuited by the parent.
     const underDirLinkPresent = path.join(dirLink, "nested.js");
     const underDirLinkAbsent = path.join(dirLink, "missing.js");
-    const underFileLinkAbsent = path.join(fileLink, "index.js");
     expectedHashes[underDirLinkPresent] = digest(nestedContent);
     expectedRealpaths[underDirLinkPresent] =
       fs.realpathSync.native(underDirLinkPresent);
     expectedHashes[underDirLinkAbsent] = null;
     expectedRealpaths[underDirLinkAbsent] = null;
-    expectedHashes[underFileLinkAbsent] = null;
-    expectedRealpaths[underFileLinkAbsent] = null;
+    const underFileLinkAbsent =
+      fileLink === undefined ? undefined : path.join(fileLink, "index.js");
+    if (fileLink !== undefined && underFileLinkAbsent !== undefined) {
+      expectedHashes[fileLink] = expectedHashes[presentFiles[0]!]!;
+      expectedRealpaths[fileLink] = expectedRealpaths[presentFiles[0]!]!;
+      expectedHashes[underFileLinkAbsent] = null;
+      expectedRealpaths[underFileLinkAbsent] = null;
+    }
 
     const independentAbsent: string[] = [];
     const underRegularFileAbsent: string[] = [];
@@ -247,14 +262,9 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
       }));
       assert.deepEqual(loaded, evaluation);
 
-      // (a) No absent or non-symlink path calls statSync; only the 3 symlink
-      // entries (fileLink, dirLink, brokenLink) follow with statSync.
+      // (a) Among host inputs only the link targets require statSync.
       const nonSymlinkStats = counts.statPaths.filter(
-        (file) =>
-          file !== fileLink &&
-          file !== dirLink &&
-          file !== brokenLink &&
-          file !== entry,
+        (file) => !links.includes(file) && file !== entry,
       );
       assert.deepEqual(
         nonSymlinkStats,
@@ -300,11 +310,12 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
         1,
         "absent child under directory symlink must be observed",
       );
-      assert.equal(
-        lstatByPath.get(underFileLinkAbsent),
-        1,
-        "child under file symlink must not be short-circuited by symlink parent",
-      );
+      if (underFileLinkAbsent !== undefined)
+        assert.equal(
+          lstatByPath.get(underFileLinkAbsent),
+          1,
+          "child under file symlink must not be short-circuited by symlink parent",
+        );
 
       // (c) Present non-symlink files in dist/ share one realpathSync.native
       // and one readdirSync for dist/ instead of calling realpathSync.native per file.
@@ -600,6 +611,7 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
   } catch (cause) {
     failures.push(new Error("fixture setup", { cause }));
   } finally {
+    for (const link of links) fs.unlinkSync(link);
     fs.rmSync(root, { recursive: true, force: true });
   }
 

@@ -15,6 +15,7 @@ import { outputText } from "./outputText";
 import { packageRootDir } from "./packageRootDir";
 import { parseGraphInputObservations } from "./parseNativeTransformOutput";
 import { readProjectConfig } from "./project/readProjectConfig";
+import { BATCH_ENV } from "./sharedHost/BATCH_ENV";
 import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
 import { spawnNative } from "./spawnNative";
@@ -84,7 +85,7 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
     ["api-compile", "--cwd", project.root, "--tsconfig", tsconfig],
     {
       cwd: project.root,
-      env,
+      env: SidecarEnvironment.merge(env, { [BATCH_ENV]: "1" }),
     },
   );
   if (res.error) {

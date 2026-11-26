@@ -24,6 +24,7 @@ import { createNativeProjectContextArgs } from "./project/createNativeProjectCon
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
 import { runNativeCheckWithObservations } from "./runNativeCheckWithObservations";
+import { BATCH_ENV } from "./sharedHost/BATCH_ENV";
 import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 import { assertSharedHostCompatibility } from "./sharedHost/assertSharedHostCompatibility";
 import { clearInheritedSemanticConfigPath } from "./sharedHost/clearInheritedSemanticConfigPath";
@@ -231,7 +232,7 @@ function transformProjectWithNativeHost(
     ["api-transform", "--cwd", project.root, "--tsconfig", project.path],
     {
       cwd: project.root,
-      env,
+      env: SidecarEnvironment.merge(env, { [BATCH_ENV]: "1" }),
     },
   );
   if (res.error) {
@@ -902,6 +903,7 @@ function nativePluginEnv(
     { TTSC_TSGO_BINARY: tsgoBinary },
   );
   const node = resolveNodeBinary(env, projectRoot, identities);
+  SidecarEnvironment.write(env, BATCH_ENV, "1");
   SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
   SidecarEnvironment.write(
     env,

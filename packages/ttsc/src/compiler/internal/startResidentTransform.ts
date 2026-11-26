@@ -10,6 +10,7 @@ import type { StartedResidentTransform } from "./StartedResidentTransform";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
+import { BATCH_ENV } from "./sharedHost/BATCH_ENV";
 import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 import { assertSharedHostCompatibility } from "./sharedHost/assertSharedHostCompatibility";
 import { clearInheritedSemanticConfigPath } from "./sharedHost/clearInheritedSemanticConfigPath";
@@ -146,6 +147,7 @@ function residentEnv(
     { TTSC_TSGO_BINARY: tsgoBinary },
   );
   const node = resolveNodeBinary(env, projectRoot, identities);
+  SidecarEnvironment.write(env, BATCH_ENV, undefined);
   SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
   SidecarEnvironment.write(
     env,
