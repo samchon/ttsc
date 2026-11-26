@@ -81,9 +81,11 @@ Do not import `github.com/microsoft/typescript-go/internal/...` directly. The sh
 
 ## Compiler Targets
 
-`ttsc` builds a plugin against the compiler of the TypeScript line the project installs: TypeScript 7.0, whose compiler is the Go module `github.com/microsoft/typescript-go`, or TypeScript 7.1, whose compiler moved to `github.com/microsoft/TypeScript/tsc`. The import paths above are the same on both targets, and on 7.1 they alias the 7.1 compiler's own types, so a value crosses any two shim packages unchanged.
+`ttsc` selects a native compiler target by TypeScript's major.minor line. Each `ttsc` release ships a shim tree and pins a specific compiler revision for each target. The 7.0 target uses `github.com/microsoft/typescript-go` and the 7.1 target uses `github.com/microsoft/TypeScript/tsc`. The import paths above are the same on both targets. On 7.1 they alias the 7.1 compiler's own types, so a value crosses any two shim packages unchanged.
 
 The installed `typescript` version picks the target by its major.minor line. `7.0.x` builds against 7.0. `7.1.x`, including the `7.1.0-dev.*` nightlies, builds against 7.1. When `TTSC_TSGO_BINARY` names a custom compiler, `ttsc` reads the line from that binary's `--version` output. A line newer than every target, such as 7.2, builds against 7.1, and `ttsc` warns once on stderr naming both versions. The in-memory compiler host behind the `TtscCompiler` API, `ttsx`, `@ttsc/unplugin` and `@ttsc/metro` follows the same choice. Each target keeps its own cache entry, so switching a project's TypeScript line never reuses the other line's binary.
+
+Native host diagnostics and checker performance follow the compiler revision linked into the host. They can differ from the project's own `tsc` on the same TypeScript line. `TTSC_TSGO_BINARY` selects the executable for standalone compiler invocations and supplies the line for native builds. The native host still links the shipped target. Compiler source substitution is unsupported because the bridges depend on the internal Go APIs of the revision they were built for.
 
 The two compilers differ in API shape. TypeScript 7.1 types every path, hides `ast.Symbol` state behind getters, and changes several compiler signatures. A plugin that must build on both targets uses only what both declare:
 

@@ -13,14 +13,14 @@ import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
  * (`hashPluginBuildEnvironment`), taken from a record a previous process left
  * while everything the recorded reading depended on still holds.
  *
- * A reading runs `go env` and `go version` and walks GOROOT, seconds a load,
- * and every launch is a new process (samchon/ttsc#1852). What a reading depends
- * on is two things. One is the variables the Go tool receives, which are all of
+ * A reading runs `go env` and identifies GOROOT, which can take seconds, and
+ * every launch is a new process (samchon/ttsc#1852). What a reading depends on
+ * is two things. One is the variables the Go tool receives, which are all of
  * them, so the record is keyed by every variable except ttsc's own per-run
  * channels, which name one run's directories and which no Go tool reads
  * (`goToolVariables`). The other is the metadata of every path no variable
- * carries: the Go tool, the file `go env -w` writes, the executables the C
- * toolchain commands name and GOROOT (`PluginBuildEnvironmentWitness`). A
+ * carries: the Go tool, the file `go env -w` writes, toolchain selection files,
+ * the C toolchain executables and GOROOT (`PluginBuildEnvironmentWitness`). A
  * process keeps a reading under exactly that proof
  * (`processPluginBuildEnvironment`); the record carries the same proof to the
  * next process (`WitnessedLoadAnswers`). A recorded reading's witness joins the
@@ -50,6 +50,9 @@ export function readPluginBuildEnvironment(
   identities: PluginContentIdentities.Store | undefined,
 ): string {
   const identity = [
+    // Older answers have no toolchain-selection witness and may walk a
+    // complete packaged SDK snapshot during validation.
+    2,
     goBinary ?? null,
     path.resolve(directory),
     goToolVariables(env),

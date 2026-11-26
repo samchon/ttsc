@@ -75,7 +75,7 @@ func TestLintFixtureCorpus(t *testing.T) {
         findings = project.runCycleOver(engine, []*shimast.SourceFile{file})
       } else {
         project, _, err := loadProgram(projectRoot, "tsconfig.json", loadProgramOptions{
-          forceNoEmit: true, needsRuleChecker: engine.NeedsTypeChecker(),
+          forceNoEmit: true, needsRuleChecker: engine.needsStandalone,
         })
         if project != nil {
           defer project.close()
@@ -86,8 +86,8 @@ func TestLintFixtureCorpus(t *testing.T) {
         if project == nil {
           t.Fatal("no program")
         }
-        if engine.NeedsTypeChecker() && project.checker == nil {
-          t.Fatal("no checker for a type-aware rule")
+        if engine.needsStandalone && project.checker == nil {
+          t.Fatal("no standalone checker for a rule that requires one")
         }
         findings = project.runLintCycle(engine)
       }

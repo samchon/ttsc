@@ -2,6 +2,7 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 /**
@@ -22,10 +23,11 @@ import path from "node:path";
  * 2. Check the project with the installed CLI in each; the probe records
  *    `core.Version()` of the compiler it was linked against.
  * 3. Require the two versions, two cache entries, and a second check of each that
- *    rebuilds nothing.
+ *    rebuilds nothing. Check that the installed SDK answer witnesses package
+ *    identity without requiring metadata from every SDK file.
  * 4. Return both projects, which the installed graph case graphs.
  *
- * @evidence contracts/testing.md#behavioral-verification The installed ttsc CLI checks each project; the probe's recorded compiler version, the plugin cache entries and the absence of a build notice on the second run are the observed results.
+ * @evidence contracts/testing.md#behavioral-verification The installed ttsc CLI checks each project; the probe's recorded compiler version, plugin cache entries, absence of a second build and bounded SDK dependencies in the retained build-environment answers are the observed results.
  * @evidence contracts/testing.md#independent-expectations The 7.0 project expects its installed manifest version, and the 7.1 project the 7.1.0-dev version its pinned compiler declares; the nightly's gitHead must be the commit the 7.1 target pins, read from the repository's facade go.mod.
  * @evidence contracts/testing.md#distinguishing-cases One plugin source and cache exercise ordinary 7.0 discovery versus an explicit 7.1 alias beside legacy 6.0.2; equal compiler versions or one cache entry expose wrong selection, and a build notice on repeat exposes a target missing its own entry. Existing checks of packed target pins remain intact.
  * @evidence contracts/testing.md#execution-ownership test_e2e_installation supplies its packed consumer; this case installs the 7.1 project's TypeScript and runs the installed CLI four times.
@@ -134,6 +136,8 @@ export function case_installed_ttsc_builds_each_typescript_line_against_its_own_
   const cache = TestProject.tmpdir("ttsc-compiler-target-cache-");
   const env: NodeJS.ProcessEnv = { ...process.env, TTSC_CACHE_DIR: cache };
   delete env.TTSC_TSGO_BINARY;
+  delete env.TTSC_GO_BINARY;
+  delete env.GOROOT;
   const entries = () =>
     fs
       .readdirSync(path.join(cache, "plugins"))
@@ -167,5 +171,47 @@ export function case_installed_ttsc_builds_each_typescript_line_against_its_own_
       `the ${line} project reuses its own target's entry`,
     );
   assert.deepEqual(entries(), built);
+
+  const fromInstalledTtsc = createRequire(path.join(input.sdk, "package.json"));
+  const goBinary = fs.realpathSync.native(
+    fromInstalledTtsc.resolve(
+      `@ttsc/${process.platform}-${process.arch}/bin/go/bin/${process.platform === "win32" ? "go.exe" : "go"}`,
+    ),
+  );
+  const goRoot = path.resolve(goBinary, "../..");
+  const goVersion = path.join(goRoot, "VERSION");
+  const goManifest = path.resolve(goRoot, "../../package.json");
+  const answers = path.join(cache, "answers");
+  const bundledAnswers = fs
+    .readdirSync(answers)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) =>
+      JSON.parse(fs.readFileSync(path.join(answers, file), "utf8")),
+    )
+    .filter((answer) => answer.kind === "plugin-build-environment")
+    .map(
+      (answer) =>
+        new Set<string>(
+          answer.value.witness.map(([file]: [string, string]) => file),
+        ),
+    )
+    .filter((witness) => witness.has(goVersion));
+  assert.ok(
+    bundledAnswers.length > 0,
+    "an installed SDK has a reusable environment answer",
+  );
+  for (const witness of bundledAnswers) {
+    assert.ok(
+      witness.has(goManifest),
+      "the SDK answer depends on the installed package version",
+    );
+    const observed = [...witness].filter((file) =>
+      file.startsWith(goRoot + path.sep),
+    );
+    assert.ok(
+      observed.length <= 3,
+      `the SDK witness has ${observed.length} descendant paths`,
+    );
+  }
   return projects;
 }

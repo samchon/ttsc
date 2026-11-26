@@ -63,7 +63,7 @@ func runFormat(opts *subcommandOpts) int {
   }
   engine.SetSerial(opts.singleThreaded)
   engine.SetCurrentDirectory(opts.cwd)
-  needsRuleChecker := engine.NeedsTypeChecker()
+  needsRuleChecker := engine.needsStandalone
 
   prog, code := loadFixProgram(opts, needsRuleChecker)
   if code != 0 {

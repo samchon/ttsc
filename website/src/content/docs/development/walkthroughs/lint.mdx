@@ -185,7 +185,7 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
 
 (Each step expanded in [`packages/lint/linthost/host.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/host.go).)
 
-The Program keeps its configured checker pool for parallel semantic diagnostics. Type-aware rules walk files serially through a separate `checker.NewChecker(program, nil)`, so every lint type belongs to one checker without forcing the Program pool down to one worker. AST-only rule sets create no standalone checker and keep the engine's parallel file walk.
+Type-aware built-in file rules borrow the Program checker assigned to each source file for semantic diagnostics. The walk holds that checker exclusively and releases it when the file is done. Files assigned to different checkers can run in parallel, and `--singleThreaded` keeps the walk serial. Type-aware contributor file rules keep their shared standalone checker and serial walk.
 
 Two design decisions worth highlighting:
 
@@ -735,7 +735,7 @@ The host serializes status transitions, deduplicates equal messages, and sorts d
 
 Project contributors follow the same options compatibility boundary as file contributors. They accept options by default, while an optionless implementation can add `AcceptsTtscLintOptions() bool { return false }` to reject accidental payloads.
 
-The same boundary applies to the checker. A `ProjectContext` carries a live `Checker`, so a declared project rule is treated as type-aware and the engine creates the standalone checker for it. That decision is engine-wide rather than per-rule: one type-aware project rule also puts every file rule in the run on the serial walk, so a project rule that reads only `ctx.Sources` or the filesystem would silently spend a file rule's own `NeedsTypeChecker() bool { return false }`. Such a rule can add the same marker to opt out, and it then receives a nil `ctx.Checker`:
+A `ProjectContext` carries a standalone checker so a project rule can query multiple files through one type graph. When contributor file rules participate, they share that checker and run serially so they can consume project results in the same type graph. A project rule that reads only `ctx.Sources` or the filesystem can opt out with the same marker and receive a nil `ctx.Checker`:
 
 ```go
 func (noCycles) NeedsTypeChecker() bool { return false }

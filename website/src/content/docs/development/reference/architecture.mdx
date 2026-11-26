@@ -25,8 +25,8 @@ The cache key for a built plugin binary is `sha256` of, in order:
 2. `tsgo=${tsgoVersion}`: the resolved `typescript` version.
 3. `platform=${process.platform}/${process.arch}`
 4. `entry=${plugin entry package relative to its go.mod}`
-5. `go=${resolveGoCompilerIdentity(goBinary)}`: the resolved Go binary's file content hash and `go version` text, not the install path.
-6. Every effective Go build env value in `GO_BUILD_ENV_KEYS`: `GOOS`, `GOARCH`, `GOAMD64`, `GOARM`, `GOARM64`, `GO386`, `GOMIPS`, `GOMIPS64`, `GOPPC64`, `GORISCV64`, `GOWASM`, `GOFLAGS`, `GOEXPERIMENT`, `GOFIPS140`, `GO_EXTLINK_ENABLED`, `GCCGO`, `GCCGOTOOLDIR`, `CGO_ENABLED`, the cgo compiler/linker variables, `GOTOOLCHAIN`, and `GOROOT` by toolchain-content fingerprint. Command-valued cgo settings also include the resolved tool binary identity.
+5. `go=${resolveGoCompilerIdentity(goBinary)}` contains the resolved Go binary's content hash.
+6. The effective Go build environment includes `GOVERSION` as reported by the selected toolchain, `GOTOOLCHAIN`, and `GOROOT` by SDK identity. `GO_BUILD_ENV_KEYS` lists the target and cgo settings. Command-valued cgo settings also include the resolved tool binary identity.
 7. Plugin source-directory hash. Skipped paths: `node_modules`, `.git`, `.ttsc`, `go.work`, `go.work.sum`, `*.tgz`, `*.tar.gz`, `.DS_Store`, `Thumbs.db`, and editor backup files ending in `~`.
 8. The hash of every directory outside the module that the plugin's `go.mod` replaces a module with (`replace example.com/dep => ../dep`), sorted by module path. `go build` compiles such a directory, so it is keyed, reported among `pluginSources`, and watched like the module itself. A relative target resolves from the module's own directory, as it does for `go build` there; a module without such a target keys exactly as before.
 9. Overlay-directory hashes, sorted by directory name (`ttsc` and shim source under the host's `node_modules`).
@@ -87,7 +87,7 @@ The plugin builder reads Go's effective build environment for the cache key. It 
 
 ### Cache-key inputs: `GO_BUILD_ENV_KEYS`
 
-These effective Go build env values fold into the cache key when non-empty. `ttsc` reads them through `go env`, covering `go env -w` settings. `GOROOT` contributes a toolchain-content fingerprint instead of its install path, preserving pnpm path sharing for identical bundled toolchains. Command-valued entries such as `CC`, `CXX`, `AR`, `GCCGO`, and `PKG_CONFIG` include the resolved executable content hash as well as the command string.
+These effective Go build env values fold into the cache key when non-empty. `ttsc` reads them through `go env`, covering `go env -w` settings. `GOROOT` contributes a content fingerprint for custom SDKs or a versioned package identity for installed ttsc SDKs. Command-valued entries such as `CC`, `CXX`, `AR`, `GCCGO`, and `PKG_CONFIG` include the resolved executable content hash as well as the command string.
 
 Within one process, a fresh file-metadata manifest check can reuse the GOROOT fingerprint. A new process reuses it, the plugin source and overlay digests, and the Go compiler's content hash from records under `<root>/identities`, but only while the recorded metadata matches and every modification time precedes a reference that process writes on the same drive, into the cache or into its per-user directory below the system temporary directory. A changed or unseparable manifest triggers a full content rehash. This reuse requires contributing changes to alter the captured identity or timestamps; an edit reproducing the entire metadata signature falls outside that proof. `go env` and `go version` still run on every load, because they report which toolchain the environment selects, which no file metadata shows.
 

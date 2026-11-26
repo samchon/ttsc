@@ -26,6 +26,8 @@ A recorded digest is reused only while every file in its population still has th
 
 `ttsx` and `ttsc/register` also keep the TypeScript they lower for a package that no tsconfig owns, such as one shipping raw `.ts` under `node_modules`, under `<root>/ttsx-orphan`, keyed by the source bytes and the compiler that lowered them.
 
+For the Go SDK in an installed ttsc platform package, `ttsc` uses the package name and version plus the SDK's `VERSION` file. Verifying that record checks those files and the SDK root without enumerating the tree. This assumes the installed package is replaced as a unit. SDKs selected by `GOROOT` or `TTSC_GO_BINARY`, SDKs in a ttsc checkout, and SDKs Go switches to outside the package still use a content fingerprint with metadata for each contributing file. Set `GOROOT` or `TTSC_GO_BINARY` when editing an SDK in place.
+
 ## Publisher package artifacts
 
 The optional publisher package cache supplies exact Go package actions to a cold source-plugin build. It is off by default. Set `TTSC_PACKAGE_ARTIFACTS=1` to try it when a release provides a pinned artifact manifest. The current release does not ship a manifest, so the ordinary Go cache remains the default and an opt-in without an operator manifest reports `manifest-unavailable`.

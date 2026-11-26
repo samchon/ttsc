@@ -6,15 +6,16 @@ import { PluginBuildEnvironmentReadings } from "./PluginBuildEnvironmentReadings
  * directory while what it depended on holds, unless `refresh` asks for it
  * again.
  *
- * Reading it probes `go env` and walks GOROOT metadata. A changed compiler
- * metadata/context memo also runs `go version` and reads the binary, and a
- * changed SDK manifest rehashes all contributing content. A consumer that
- * proves a plugin source's state for every adoption, record, or delivery would
- * pay that work again without reuse. The read is therefore kept under the
- * variables it was taken with, all of them, so a changed variable reads it
- * again, and with the metadata of every path it depended on that no variable
- * carries (`PluginBuildEnvironmentWitness`): the Go tool, the Go environment
- * file `go env -w` writes, the executables the C toolchain commands name, and
+ * Reading it probes `go env` for the selected Go version and build settings. A
+ * changed launcher signature reads the binary again. An installed SDK uses its
+ * package identity, and a changed external SDK snapshot rehashes all
+ * contributing content. A consumer that proves a plugin source's state for
+ * every adoption, record, or delivery would pay that work again without reuse.
+ * The read is therefore kept under the variables it was taken with, all of
+ * them, so a changed variable reads it again, and with the metadata of every
+ * path it depended on that no variable carries
+ * (`PluginBuildEnvironmentWitness`): the Go tool, the Go environment file `go
+ * env -w` writes, toolchain selection files, C toolchain executables and
  * GOROOT. A kept read is reused only while each of them holds its metadata, so
  * a distinguishable metadata change triggers a new reading at use. This is the
  * witness's declared distinguishability premise, not detection of every
@@ -28,7 +29,7 @@ import { PluginBuildEnvironmentReadings } from "./PluginBuildEnvironmentReadings
  * @param directory The directory a build runs `go` in.
  * @param refresh Whether to read the environment again rather than reuse it.
  * @param projectRoot Project whose plugin cache root holds the records.
- * @evidence contracts/common.md#principled-implementation Variable serialization is sorted and length-delimited; reuse additionally requires unchanged pre-read metadata for every external dependency, including all contributing GOROOT directories and files, under the witness's documented metadata-distinguishability premise.
+ * @evidence contracts/common.md#principled-implementation Variable serialization is sorted and length-delimited. Reuse requires unchanged metadata for the observed dependencies, including the packaged SDK identity files or the contributing external GOROOT directories and files, under the witness's metadata-distinguishability premise.
  * @evidence contracts/common.md#clear-and-simple-design One process-local map owns environment memoization; fresh construction and witness validation remain separate operations shared with build verification.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Refresh performs the real environment read rather than assuming that a stable compiler path or quiet source tree implies a stable toolchain.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why environment probing is retained, its variable/path invalidation, and why builds still read fresh; descriptive prose and tags are separated.

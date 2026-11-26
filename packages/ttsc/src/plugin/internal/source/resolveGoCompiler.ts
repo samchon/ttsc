@@ -13,8 +13,9 @@ import path from "node:path";
  * the build's output against (`pluginBuildEnvironment`) resolve the compiler
  * here. Nonexplicit layout candidates use resolution/existence checks, not
  * content or executable-kind validation; later lookup/permission/probe owners
- * handle that candidate. The bundled flag denotes selected install layout, not
- * immutable physical ownership.
+ * handle that candidate. The bundled flag also covers mutable development SDKs
+ * for permission handling. Only the installed platform package supplies a
+ * package manifest for SDK identity.
  *
  * @param env The build's effective environment.
  * @returns The compiler, and whether it is the one ttsc bundles.
@@ -31,23 +32,14 @@ import path from "node:path";
 export function resolveGoCompiler(env: NodeJS.ProcessEnv = process.env): {
   binary: string;
   bundled: boolean;
+  packageManifest?: string;
 } {
   const explicit = env.TTSC_GO_BINARY;
   if (explicit && explicit.length > 0) {
     return { binary: explicit, bundled: false };
   }
 
-  try {
-    return {
-      binary: createRequire(__filename).resolve(
-        `@ttsc/${process.platform}-${process.arch}/bin/go/bin/${process.platform === "win32" ? "go.exe" : "go"}`,
-      ),
-      bundled: true,
-    };
-  } catch {
-    /* fall through */
-  }
-
+  const executable = process.platform === "win32" ? "go.exe" : "go";
   const platformPackage = path.resolve(
     __dirname,
     "..",
@@ -59,8 +51,25 @@ export function resolveGoCompiler(env: NodeJS.ProcessEnv = process.env): {
     "bin",
     "go",
     "bin",
-    process.platform === "win32" ? "go.exe" : "go",
+    executable,
   );
+  try {
+    const binary = createRequire(__filename).resolve(
+      `@ttsc/${process.platform}-${process.arch}/bin/go/bin/${executable}`,
+    );
+    const checkout = fs.existsSync(platformPackage)
+      ? fs.realpathSync.native(platformPackage)
+      : undefined;
+    if (binary === platformPackage || binary === checkout)
+      return { binary, bundled: true };
+    return {
+      binary,
+      bundled: true,
+      packageManifest: path.resolve(binary, "../../../../package.json"),
+    };
+  } catch {
+    /* fall through */
+  }
   if (fs.existsSync(platformPackage)) {
     return { binary: platformPackage, bundled: true };
   }

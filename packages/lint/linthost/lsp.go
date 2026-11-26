@@ -270,7 +270,7 @@ func computeLSPProjectDiagnostics(opts *lspCommandOptions) (*lspProjectDiagnosti
     return nil, 2
   }
   engine.SetCurrentDirectory(opts.cwd)
-  prog, _, closeProgram, err := acquireProgram(opts, engine.NeedsTypeChecker())
+  prog, _, closeProgram, err := acquireProgram(opts, engine.needsStandalone)
   if closeProgram != nil {
     defer closeProgram()
   }
@@ -548,7 +548,7 @@ func lspFindings(opts *lspCommandOptions, includeFormatDefaults bool) ([]*Findin
     return nil, nil, nil, 2
   }
   engine.SetCurrentDirectory(opts.cwd)
-  prog, parseDiags, closeProgram, err := acquireProgram(opts, engine.NeedsTypeChecker())
+  prog, parseDiags, closeProgram, err := acquireProgram(opts, engine.needsStandalone)
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
     return nil, nil, nil, 2
@@ -1038,7 +1038,7 @@ func lspWorkspaceEditForSeededCommand(
   }
   // The seeded command's Program opens in the temporary workspace.
   engine.SetCurrentDirectory(tempRoot)
-  needsRuleChecker := engine.NeedsTypeChecker()
+  needsRuleChecker := engine.needsStandalone
   maxPasses := maxFixPasses
   if opts.command == commandFormatDocument {
     maxPasses = maxFormatPasses

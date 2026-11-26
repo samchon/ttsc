@@ -192,7 +192,7 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
   prog, parseDiags, err := loadProgram(resolvedCwd, *tsconfig, loadProgramOptions{
     forceEmit:          true,
     semanticConfigPath: semanticConfigPath,
-    needsRuleChecker:   engine.NeedsTypeChecker(),
+    needsRuleChecker:   engine.needsStandalone,
     singleThreaded:     *singleThreaded,
     checkers:           *checkers,
     tsgoArgs:           tsgoArgs,
@@ -459,7 +459,7 @@ func runProject(opts *subcommandOpts) (code int) {
     forceNoEmit:        opts.noEmit,
     outDir:             opts.outDir,
     semanticConfigPath: opts.semanticConfigPath,
-    needsRuleChecker:   engine.NeedsTypeChecker(),
+    needsRuleChecker:   engine.needsStandalone,
     singleThreaded:     opts.singleThreaded,
     checkers:           opts.checkers,
     tsgoArgs:           opts.tsgoArgs,

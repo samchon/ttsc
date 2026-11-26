@@ -76,7 +76,7 @@ export namespace GoSourceInputs {
     const env = { ...effectiveEnv };
     env.GOWORK = "auto";
     // Only the actual `go build` needs ttsc's GOCACHE; read-only metadata spawns
-    // (`go mod edit`, `go env`, `go version`) call goBuildEnv with no cache root
+    // (`go mod edit`, `go env`) call goBuildEnv with no cache root
     // and inherit ambient GOCACHE rather than receiving the managed build
     // cache here. This constructor does not certify child-side effects.
     if (goBuildCacheRoot) {
