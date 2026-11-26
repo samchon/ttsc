@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
+import { systemTempOutsideProject } from "../../../../../packages/ttsc/src/internal/systemTempOutsideProject";
 import { PluginContentIdentities } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginContentIdentities";
 import { pluginSourceDigest } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceDigest";
 import { TestProject } from "../../../../utils/src/TestProject";
@@ -24,13 +24,12 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 3. Give a file a stamp the reference cannot separate; the record must be neither
  *    trusted nor rewritten.
  * 4. Refuse a store whose root lies inside a plugin source.
- * 5. Reuse one private temporary-volume reference directory across stores, so
- *    opening a store never adds or removes an entry of the temporary directory,
- *    whose metadata signs every missing path below it.
+ * 5. Open another store and check that a separate reference directory is used only
+ *    when the system temp directory is on a different device.
  *
  * @evidence contracts/testing.md#behavioral-verification PluginContentIdentities.open and sourceDirectory run against a real module directory and a real cache root; the observable result is the returned digest and the record file on disk.
  * @evidence contracts/testing.md#independent-expectations pluginSourceDigest called directly, with no store, is the independent oracle for every fresh reading; the corrupted literal digest is the oracle for a reused record.
- * @evidence contracts/testing.md#distinguishing-cases Unchanged separable metadata reuses; identical-byte rewrite, content edit, addition, rename and deletion reread; an unseparable stamp neither reuses nor records; a cache root inside the source refuses the store; a second store reuses the first one's private temporary-volume reference directory. Executable and GOROOT records share digest and are covered by their own units and the E2E warm-load budget.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged separable metadata reuses; identical-byte rewrite, content edit, addition, rename and deletion reread; an unseparable stamp neither reuses nor records; a cache root inside the source refuses the store. The filesystem device decides whether another reference directory is omitted or reused. Executable and GOROOT records share digest and are covered by their own units and the E2E warm-load budget.
  * @evidence contracts/testing.md#execution-ownership The named unit calls the owning source operations directly over a copied package fixture and a private cache root; no Go process, native build or product host runs.
  */
 export function test_plugincontentidentities_reuses_a_digest_only_while_its_metadata_holds(): void {
@@ -39,6 +38,17 @@ export function test_plugincontentidentities_reuses_a_digest_only_while_its_meta
   );
   const module = path.join(root, "plugin");
   const cache = path.join(root, "cache");
+  const uid = process.getuid?.();
+  const temporary = systemTempOutsideProject(root);
+  const temporaryReferences = path.join(
+    temporary,
+    uid === undefined
+      ? "ttsc-clock-references"
+      : `ttsc-clock-references-${uid}`,
+  );
+  const observeTemporaryReferences = () =>
+    fs.lstatSync(temporaryReferences, { bigint: true, throwIfNoEntry: false });
+  const beforeTemporaryReferences = observeTemporaryReferences();
   TestProject.copyDirectory(
     path.join(
       TestProject.WORKSPACE_ROOT,
@@ -169,23 +179,27 @@ export function test_plugincontentidentities_reuses_a_digest_only_while_its_meta
     assert.equal(fs.existsSync(path.join(module, "cache")), false);
   });
 
-  verify("the temporary-volume reference directory is reused", () => {
-    const uid =
-      typeof process.getuid === "function" ? process.getuid() : undefined;
-    const directory = path.join(
-      os.tmpdir(),
-      uid === undefined
-        ? "ttsc-clock-references"
-        : `ttsc-clock-references-${uid}`,
-    );
-    open();
-    const first = fs.lstatSync(directory, { bigint: true });
-    open();
-    const second = fs.lstatSync(directory, { bigint: true });
-    assert.equal(first.isDirectory(), true);
-    assert.equal(second.ino, first.ino, "the directory is not recreated");
-    if (uid !== undefined) assert.equal(first.mode & 0o077n, 0n);
-  });
+  verify(
+    "temporary-volume references are acquired only for a second device",
+    () => {
+      open();
+      const first = observeTemporaryReferences();
+      open();
+      const second = observeTemporaryReferences();
+      if (fs.statSync(cache).dev === fs.statSync(temporary).dev) {
+        assert.equal(first?.ino, beforeTemporaryReferences?.ino);
+        assert.equal(second?.ino, beforeTemporaryReferences?.ino);
+        return;
+      }
+      assert.ok(
+        first && second,
+        "a different device has a reference directory",
+      );
+      assert.equal(first.isDirectory(), true);
+      assert.equal(second.ino, first.ino, "the directory is not recreated");
+      if (uid !== undefined) assert.equal(first.mode & 0o077n, 0n);
+    },
+  );
 
   if (failures.length !== 0)
     throw new AggregateError(failures, "content identity matrix failed");

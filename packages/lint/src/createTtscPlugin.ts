@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveTsgo } from "ttsc/binary";
+import { systemTempOutsideProject } from "ttsc/internal/system-temp";
 
 import {
   configEvaluatorFailureReason,
@@ -2370,32 +2371,9 @@ function configCacheDir(
   resolutionRoot: string,
 ): string | undefined {
   try {
-    const temporary = fs.realpathSync.native(os.tmpdir());
-    if (!fs.lstatSync(temporary).isDirectory()) return undefined;
-    for (const root of [
-      path.dirname(configPath),
+    const temporary = systemTempOutsideProject(path.dirname(configPath), [
       resolutionRoot,
-      process.cwd(),
-    ]) {
-      const project = fs.realpathSync.native(root);
-      for (let directory = project; ; directory = path.dirname(directory)) {
-        if (
-          directory === project ||
-          fs.existsSync(path.join(directory, ".git")) ||
-          fs.existsSync(path.join(directory, "pnpm-workspace.yaml"))
-        ) {
-          const relative = path.relative(directory, temporary);
-          if (
-            !path.isAbsolute(relative) &&
-            relative !== ".." &&
-            !relative.startsWith(`..${path.sep}`) &&
-            path.dirname(directory) !== directory
-          )
-            return undefined;
-        }
-        if (path.dirname(directory) === directory) break;
-      }
-    }
+    ]);
     const dir = path.join(temporary, "ttsc-lint-config-cache");
     const entry = fs.lstatSync(dir, { throwIfNoEntry: false });
     return entry === undefined || entry.isDirectory() ? dir : undefined;

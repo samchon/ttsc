@@ -439,6 +439,11 @@ export namespace BuildExecution {
       );
       const checked = runNativeCheckPlugins(buildOptions, execution, timing);
       if (checked.status !== 0) {
+        if (
+          checked.processCompletedNormally === true &&
+          checked.typeScriptDiagnosticsReported === true
+        )
+          return checked;
         return appendTypeScriptDiagnosticsAfterPluginFailure(
           checked,
           buildOptions,
@@ -754,7 +759,7 @@ export namespace BuildExecution {
    * can propagate before that result merge. NoEmit prevents compiler emission,
    * not unrelated native/cache effects or incremental metadata writes.
    *
-   * Transform-host sites skip this pass only after the host acknowledges its
+   * Check and transform hosts can skip this pass after acknowledging their
    * complete Program report with this invocation's private token. Error output
    * alone can precede Program loading. The acknowledgement avoids checking a
    * different Program without linked plugins and with each referenced project
@@ -1527,7 +1532,7 @@ export namespace BuildExecution {
     const startedAt = process.hrtime.bigint();
     const env = nativePluginEnv(options.env, execution, plugin, tsgoArgs);
     const diagnosticsToken =
-      label === "ttsc.build"
+      label === "ttsc.build" || (label === "ttsc.check" && args[0] === "check")
         ? `ttsc:diagnostics-complete:${randomUUID()}`
         : undefined;
     SidecarEnvironment.write(
@@ -1562,7 +1567,7 @@ export namespace BuildExecution {
     const result =
       diagnosticsToken === undefined
         ? captured
-        : PluginFailureDiagnostics.consumeTransformHostReport(
+        : PluginFailureDiagnostics.consumeHostReport(
             captured,
             diagnosticsToken,
             {

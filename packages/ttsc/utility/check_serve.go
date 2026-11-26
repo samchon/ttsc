@@ -11,6 +11,7 @@ import (
   "strings"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver/diagnosticcompletion"
 )
 
 // checkServeRequest is one analysis watch cycle: the filesystem transitions
@@ -193,7 +194,7 @@ func (s *checkServeState) check(reused bool) checkServeResponse {
   opts := s.base
   opts.stdout = &stdout
   opts.stderr = &stderr
-  opts.diagnosticToken = ""
+  opts.diagnosticReport = diagnosticcompletion.Request{}
   var prog *driver.Program
   var diags []driver.Diagnostic
   if s.session == nil {

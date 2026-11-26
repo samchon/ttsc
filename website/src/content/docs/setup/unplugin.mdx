@@ -343,7 +343,7 @@ Other bundlers watch a project record below the host root's `node_modules/.cache
 
 For webpack and Rspack, include the bundler configuration in cache build dependencies so changing adapter options invalidates cached modules: `cache.buildDependencies.config` for webpack and `cache.buildDependencies` for Rspack.
 
-If the adapter cannot write a project record below the host root, it uses a system temporary directory where the bundler permits it. Turbopack requires the record within its root. Farm uses a same-volume system temporary directory because its watcher ignores `node_modules`. Without writable record storage, the adapter keeps the module out of persistent caches where the host supports that and refuses watch mode where it cannot track compiler inputs.
+Project records normally live under the host's `node_modules/.cache/ttsc/unplugin`. If that location is unwritable, the adapter can use private system storage where the bundler permits it. A temporary path that points into a project is skipped. Turbopack requires the record within its root. Farm uses a same-volume system temporary directory because its watcher ignores `node_modules`. Without writable record storage, the adapter keeps the module out of persistent caches where the host supports that and refuses watch mode where it cannot track compiler inputs.
 
 ### What the snapshot covers
 

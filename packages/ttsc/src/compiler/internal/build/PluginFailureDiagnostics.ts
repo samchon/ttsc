@@ -67,7 +67,7 @@ export namespace PluginFailureDiagnostics {
    * @evidence contracts/performance.md#reuse-equivalent-work Acknowledged diagnostics from the host's actual Program avoid another compiler run; absent acknowledgement makes no equivalence claim.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Result strings transfer to the caller without a retained registry, handle or task.
    */
-  export function consumeTransformHostReport<
+  export function consumeHostReport<
     T extends Pick<TtscBuildResult, "stdout" | "stderr">,
   >(
     host: T,

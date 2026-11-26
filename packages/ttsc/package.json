@@ -30,6 +30,10 @@
       "types": "./src/internal/pluginSource.ts",
       "default": "./lib/internal/pluginSource.js"
     },
+    "./internal/system-temp": {
+      "types": "./src/internal/systemTempOutsideProject.ts",
+      "default": "./lib/internal/systemTempOutsideProject.js"
+    },
     "./register": {
       "types": "./src/register.ts",
       "default": "./lib/register.js"

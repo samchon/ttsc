@@ -1990,26 +1990,30 @@ var (
 // Evaluating a .ts/.js config means spawning a ttsx/node subprocess; the
 // cache keeps every `ttsc` invocation after the first from re-paying it.
 func configCacheDir(location string) string {
-  temporary := configloaderscratch.PrivateTempBase(location, os.TempDir())
-  if temporary == "" {
+  cwd, err := os.Getwd()
+  if err != nil {
     return ""
   }
-  if cwd, err := os.Getwd(); err != nil ||
-    (filepath.Dir(cwd) != cwd && configloaderscratch.PrivateTempBase(filepath.Join(cwd, "tsconfig.json"), temporary) == "") {
-    return ""
-  }
-  dir := filepath.Join(temporary, "ttsc-lint-config-cache")
-  if entry, err := os.Lstat(dir); err == nil {
-    if !entry.IsDir() || entry.Mode()&os.ModeSymlink != 0 {
+  for _, candidate := range []string{os.TempDir(), configloaderscratch.PlatformTempDir()} {
+    temporary := configloaderscratch.PrivateTempBase(location, candidate)
+    if temporary == "" || (filepath.Dir(cwd) != cwd &&
+      configloaderscratch.PrivateTempBase(filepath.Join(cwd, "tsconfig.json"), temporary) == "") {
+      continue
+    }
+    dir := filepath.Join(temporary, "ttsc-lint-config-cache")
+    if entry, err := os.Lstat(dir); err == nil {
+      if !entry.IsDir() || entry.Mode()&os.ModeSymlink != 0 {
+        return ""
+      }
+      if _, err := os.Readlink(dir); err == nil {
+        return ""
+      }
+    } else if !os.IsNotExist(err) {
       return ""
     }
-    if _, err := os.Readlink(dir); err == nil {
-      return ""
-    }
-  } else if !os.IsNotExist(err) {
-    return ""
+    return dir
   }
-  return dir
+  return ""
 }
 
 // configCacheDisabled reports whether the env opt-out is set — an escape
@@ -3926,6 +3930,9 @@ func loadTypeScriptConfigEvaluationWithin(
     (os.IsPermission(err) || os.IsNotExist(err) ||
       errors.Is(err, syscall.ENOTDIR) || errors.Is(err, syscall.EROFS))) {
     base := configloaderscratch.SystemTempBase(location, systemTemp)
+    if base == "" {
+      base = configloaderscratch.SystemTempBase(location, configloaderscratch.PlatformTempDir())
+    }
     if base == "" {
       base = loaderTempBase(location, systemTemp)
     }

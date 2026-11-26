@@ -1,8 +1,6 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-
-import { pathIsWithin } from "./pathIsWithin";
+import { systemTempOutsideProject } from "ttsc/internal/system-temp";
 
 /**
  * A directory below this user's own root under the system temporary directory,
@@ -34,7 +32,7 @@ import { pathIsWithin } from "./pathIsWithin";
  * @evidence contracts/common.md#clear-and-simple-design One provider creates and checks the state root and requested owned directories, leaving store contents, pruning, and probe lifetime to consumers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Native temporary-root discovery and realpath replace guessed user-directory paths; failures decline optional storage rather than fabricating a usable store.
  * @evidence contracts/common.md#meaningful-documentation The prose explains retained output ownership, per-process probes, uid-capable checks, and the long Windows spelling required by native watchers.
- * @evidence contracts/portability.md#os-neutral-implementation OS-neutral directory selection uses os.tmpdir, native realpath, native joins, and available uid capability; hosts without uid checks rely on their user temporary directory's native access policy.
+ * @evidence contracts/portability.md#os-neutral-implementation Shared system-temp selection validates native paths and may select the platform fallback. The store uses native joins and available uid capability; other hosts rely on the temporary directory's native access policy.
  * @evidence contracts/performance.md#bound-retention-and-release-resources This provider leaves no open handles; process probes own exit cleanup, while the persistent store's owner best-effort prunes publication counts, bytes and abandoned-process files.
  * @evidence contracts/performance.md#efficient-algorithms Creation visits only the root and requested segments, with one ownership stat per directory rather than scanning the temporary tree.
  * @evidence contracts/performance.md#reuse-equivalent-work Existing directories are reused by shared compile stores and process probes; consumers independently prove retained content instead of recompiling solely because a process restarted.
@@ -46,18 +44,7 @@ export function userStateDirectory(
 ): string | undefined {
   try {
     const user = process.getuid?.();
-    const temporary = fs.realpathSync.native(os.tmpdir());
-    const project = fs.realpathSync.native(projectRoot);
-    for (let ancestor = project; ; ancestor = path.dirname(ancestor)) {
-      if (
-        (ancestor === project ||
-          fs.existsSync(path.join(ancestor, ".git")) ||
-          fs.existsSync(path.join(ancestor, "pnpm-workspace.yaml"))) &&
-        pathIsWithin(temporary, ancestor)
-      )
-        return undefined;
-      if (path.dirname(ancestor) === ancestor) break;
-    }
+    const temporary = systemTempOutsideProject(projectRoot);
     let directory = path.join(
       temporary,
       `ttsc-unplugin-sessions${user === undefined ? "" : `-${user}`}`,

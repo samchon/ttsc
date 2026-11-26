@@ -226,8 +226,9 @@ export namespace SourceBuildCacheLayout {
         path.basename(modules) !== NODE_MODULES_DIRNAME ||
         !fs.lstatSync(modules).isDirectory()
       )
-        throw new Error(
-          `ttsc: unsafe node_modules cache owner: ${installation}`,
+        throw Object.assign(
+          new Error(`ttsc: unsafe node_modules cache owner: ${installation}`),
+          { code: "TTSC_UNSAFE_NODE_MODULES_CACHE" },
         );
     }
     const parent = path.join(modules, ".cache");

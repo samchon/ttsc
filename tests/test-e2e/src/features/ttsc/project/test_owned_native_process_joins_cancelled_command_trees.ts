@@ -460,8 +460,16 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
     });
   };
   const temporaryEntries = new Set<string>();
-  const projectTempWatch = fs.watch(projectTemp, (_event, name) => {
-    if (name !== null) temporaryEntries.add(name);
+  const projectTempWatch = fs.watch(projectTemp, (event, name) => {
+    if (name === null) return;
+    // FSEvents can report the watched directory's own rename under its name.
+    if (
+      event === "rename" &&
+      name === path.basename(projectTemp) &&
+      !fs.existsSync(path.join(projectTemp, name))
+    )
+      return;
+    temporaryEntries.add(name);
   });
   projectTempWatch.on("error", (error) => failures.push(error));
   try {

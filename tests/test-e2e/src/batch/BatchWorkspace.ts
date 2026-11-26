@@ -615,12 +615,14 @@ export namespace BatchWorkspace {
       ),
     );
     for (const mode of ["root", "index"] as const) {
-      const original = path.join(runtimeFailureStorage, mode + "-original");
-      const victim = path.join(runtimeFailureStorage, mode + "-victim");
       const cache = path.join(runtimeFailureStorage, mode + "-cache");
+      const original = path.join(
+        mode === "index" ? cache : runtimeFailureStorage,
+        mode + "-original",
+      );
+      const victim = path.join(runtimeFailureStorage, mode + "-victim");
       fs.mkdirSync(original, { recursive: true });
       fs.mkdirSync(victim, { recursive: true });
-      if (mode === "index") fs.mkdirSync(cache);
       fs.symlinkSync(
         original,
         mode === "root" ? cache : path.join(cache, "project"),

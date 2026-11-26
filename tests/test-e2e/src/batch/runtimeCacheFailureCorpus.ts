@@ -40,9 +40,12 @@ export function runtimeCacheFailureCorpus(
         throw new Error(
           "the preceding failed-preparation actor has unresolved ownership",
         );
-      const original = path.join(storage, mode + "-original");
-      const victim = path.join(storage, mode + "-victim");
       const cache = path.join(storage, mode + "-cache");
+      const original = path.join(
+        mode === "index" ? cache : storage,
+        mode + "-original",
+      );
+      const victim = path.join(storage, mode + "-victim");
       const alias = mode === "root" ? cache : path.join(cache, "project");
       const originalRuns =
         mode === "root" ? path.join(original, "project") : original;

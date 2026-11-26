@@ -3,8 +3,31 @@ package configloaderscratch
 import (
   "os"
   "path/filepath"
+  "runtime"
   "strings"
 )
+
+// PlatformTempDir returns the platform's conventional system temporary path
+// to try after an unavailable ambient TEMP. Callers validate it before use.
+//
+// @evidence contracts/common.md#principled-implementation The default is chosen by the platform's directory convention, with the user's actual home supplying the Windows prefix.
+// @evidence contracts/common.md#clear-and-simple-design One naming function is shared by callers with and without a same-volume requirement.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts A returned path supplies no directory authority and this function creates nothing.
+// @evidence contracts/common.md#meaningful-documentation The prose explains candidate order and the caller's validation obligation.
+// @evidence contracts/portability.md#os-neutral-implementation Native pathname semantics supply the Windows path. The POSIX candidate is absolute.
+// @evidence contracts/performance.md#efficient-algorithms The selection uses one platform decision and at most one home lookup and pathname join.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Callers observe the current setting and candidate independently.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned string owns no handle, task or storage.
+func PlatformTempDir() string {
+  if runtime.GOOS != "windows" {
+    return "/tmp"
+  }
+  home, err := os.UserHomeDir()
+  if err != nil {
+    return ""
+  }
+  return filepath.Join(home, "AppData", "Local", "Temp")
+}
 
 // IdentityTempBase selects the existing identities directory in the current
 // invocation's record store when Windows TEMP is on another drive or TEMP
@@ -112,7 +135,7 @@ func SystemTempBase(location, systemTemp string) string {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or unusable TEMP cannot be created by optional cache writers using this policy.
 // @evidence contracts/common.md#meaningful-documentation The comment identifies the optional state and its volume independence.
 // @evidence contracts/portability.md#os-neutral-implementation Native canonical paths support junction and symlink identities, and different Windows volumes cannot contain one another.
-// @evidence contracts/performance.md#efficient-algorithms One candidate check and one existing ancestry walk visit no directory payload.
+// @evidence contracts/performance.md#efficient-algorithms The candidate and project ancestry walks check a fixed set of markers per ancestor without reading a directory listing.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call observes current pathname ownership.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The read-only selector acquires no retained state.
 func PrivateTempBase(location, systemTemp string) string {
@@ -131,6 +154,16 @@ func PrivateTempBase(location, systemTemp string) string {
   entry, err := os.Stat(base)
   if err != nil || !entry.IsDir() {
     return ""
+  }
+  for directory := base; ; directory = filepath.Dir(directory) {
+    for _, marker := range []string{".git", "pnpm-workspace.yaml", "tsconfig.json", "package.json", "go.mod"} {
+      if _, err := os.Lstat(filepath.Join(directory, marker)); err == nil {
+        return ""
+      }
+    }
+    if filepath.Dir(directory) == directory {
+      break
+    }
   }
   if !strings.EqualFold(filepath.VolumeName(base), filepath.VolumeName(config)) {
     return base

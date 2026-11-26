@@ -8,6 +8,7 @@ import path from "node:path";
 import { type RollupCache, rollup } from "rollup";
 import type { Compiler, Configuration, Stats, Watching } from "webpack";
 
+import { hostToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.mjs";
 import { BatchWorkspace } from "./BatchWorkspace";
 
 // Webpack's filesystem cache reads its own CommonJS require.cache. Use the
@@ -266,7 +267,7 @@ export async function bundlerCacheCorpus(
                 volatile++;
               },
               project: {
-                toolDirectory: path.join(root, ".ttsc"),
+                toolDirectory: hostToolDirectory(root),
                 watching: true,
                 register: (registration: TtscProjectRegistration) => {
                   handed.push(registration);

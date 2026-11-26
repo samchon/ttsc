@@ -36,7 +36,7 @@ export const test_plugin_failure_recheck_follows_the_transform_host_report =
     ];
     for (const stderr of reported) {
       const host = normalizeBuildOutput({ status: 2, stdout: "", stderr });
-      const partial = PluginFailureDiagnostics.consumeTransformHostReport(
+      const partial = PluginFailureDiagnostics.consumeHostReport(
         host,
         token,
         invocation,
@@ -46,7 +46,7 @@ export const test_plugin_failure_recheck_follows_the_transform_host_report =
       assert.deepEqual(partial.diagnostics, host.diagnostics);
       for (const newline of ["\n", "\r\n"]) {
         const text = stderr === "" ? "" : stderr + newline;
-        const complete = PluginFailureDiagnostics.consumeTransformHostReport(
+        const complete = PluginFailureDiagnostics.consumeHostReport(
           { ...host, stderr: text + receipt + newline },
           token,
           invocation,
@@ -58,7 +58,7 @@ export const test_plugin_failure_recheck_follows_the_transform_host_report =
       }
     }
     for (const text of [receipt + "\n" + receipt + "\n", receipt]) {
-      const complete = PluginFailureDiagnostics.consumeTransformHostReport(
+      const complete = PluginFailureDiagnostics.consumeHostReport(
         normalizeBuildOutput({
           status: 2,
           stdout: text,
@@ -76,7 +76,7 @@ export const test_plugin_failure_recheck_follows_the_transform_host_report =
       "prefix " + token + "\n",
       token + " suffix\n",
     ]) {
-      const partial = PluginFailureDiagnostics.consumeTransformHostReport(
+      const partial = PluginFailureDiagnostics.consumeHostReport(
         normalizeBuildOutput({ status: 2, stdout: "", stderr }),
         token,
         invocation,
@@ -97,7 +97,7 @@ export const test_plugin_failure_recheck_follows_the_transform_host_report =
       "\n" + token + " " + JSON.stringify({ command }) + "\n",
       "\n" + token + " " + JSON.stringify({ pid: 421 }) + "\n",
     ]) {
-      const partial = PluginFailureDiagnostics.consumeTransformHostReport(
+      const partial = PluginFailureDiagnostics.consumeHostReport(
         normalizeBuildOutput({ status: 2, stdout: "", stderr: text }),
         token,
         invocation,
@@ -125,7 +125,7 @@ export const test_plugin_failure_recheck_follows_the_transform_host_report =
       PluginFailureDiagnostics.commandKey(["ab", "c"]),
       PluginFailureDiagnostics.commandKey(["a", "bc"]),
     );
-    const changedContext = PluginFailureDiagnostics.consumeTransformHostReport(
+    const changedContext = PluginFailureDiagnostics.consumeHostReport(
       normalizeBuildOutput({ status: 2, stdout: "", stderr: receipt }),
       token,
       { ...invocation, context: ["changed-compiler-options"] },
@@ -133,7 +133,7 @@ export const test_plugin_failure_recheck_follows_the_transform_host_report =
     assert.equal(changedContext.typeScriptDiagnosticsReported, undefined);
     const original =
       "error TS2322: authored failure\n  details before and after\n";
-    const raw = PluginFailureDiagnostics.consumeTransformHostReport(
+    const raw = PluginFailureDiagnostics.consumeHostReport(
       {
         status: 2,
         stdout: "",
@@ -152,7 +152,7 @@ export const test_plugin_failure_recheck_follows_the_transform_host_report =
       "authored failure\n  details before and after",
     );
     const fromStdout = normalizeBuildOutput(
-      PluginFailureDiagnostics.consumeTransformHostReport(
+      PluginFailureDiagnostics.consumeHostReport(
         {
           status: 2,
           stdout: "error TS2322: stdout failure\n",

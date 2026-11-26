@@ -420,7 +420,10 @@ function createProjectContext(
     cacheDir,
     runtimeCacheKey,
     processDir,
-    pluginCacheDir: explicitCacheDir === undefined ? undefined : cacheDir,
+    pluginCacheDir:
+      explicitCacheDir !== undefined || defaultCache?.systemFallback === true
+        ? cacheDir
+        : undefined,
     runtimeBuildCacheDir:
       options.runtimeCache === false ||
       env.TTSX_DISABLE_CACHE === "1" ||
@@ -693,13 +696,14 @@ function defaultRuntimeCacheDir(
 
   /** The runtime's own directory. */
   runtime: string;
+  systemFallback?: true;
 } {
-  const paths = resolveSourceBuildCachePaths(root, undefined, env);
-  const local = path.join(
-    paths.root,
-    SourceBuildCacheLayout.RUNTIME_CACHE_DIRNAME,
-  );
   try {
+    const paths = resolveSourceBuildCachePaths(root, undefined, env);
+    const local = path.join(
+      paths.root,
+      SourceBuildCacheLayout.RUNTIME_CACHE_DIRNAME,
+    );
     if (!env.TTSC_CACHE_DIR) {
       SourceBuildCacheLayout.markDefaultWorkspaceCacheRoot(paths.root);
     }
@@ -716,13 +720,21 @@ function defaultRuntimeCacheDir(
     const code = (error as NodeJS.ErrnoException).code;
     if (
       env.TTSC_CACHE_DIR ||
-      (code !== "EACCES" && code !== "EPERM" && code !== "EROFS")
+      (code !== "EACCES" &&
+        code !== "EPERM" &&
+        code !== "EROFS" &&
+        code !== "TTSC_UNSAFE_NODE_MODULES_CACHE")
     ) {
       throw error;
     }
   }
   const fallback = systemRuntimeCachePath(root, systemTempOutsideProject(root));
-  return { collected: false, root: fallback, runtime: fallback };
+  return {
+    collected: false,
+    root: fallback,
+    runtime: fallback,
+    systemFallback: true,
+  };
 }
 
 /**

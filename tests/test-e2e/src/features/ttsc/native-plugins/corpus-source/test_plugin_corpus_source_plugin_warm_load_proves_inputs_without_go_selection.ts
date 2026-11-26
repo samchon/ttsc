@@ -1,4 +1,5 @@
 import { TestProject } from "@ttsc/testing";
+import { systemTempOutsideProject } from "ttsc/internal/system-temp";
 
 import { SHARED_GO_BUILD_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 import {
@@ -7,7 +8,6 @@ import {
   copyProject,
   fs,
   goPath,
-  os,
   path,
   spawn,
   ttscBin,
@@ -131,7 +131,7 @@ module.exports = (context) => ({
   // GOROOT and the ttsc overlay, on D: and Node on C:, and its E2E temporary
   // directory on either drive.
   const referenced = new Set([
-    fs.statSync(os.tmpdir()).dev,
+    fs.statSync(systemTempOutsideProject(root)).dev,
     fs.statSync(root).dev,
   ]);
   assert.deepEqual(

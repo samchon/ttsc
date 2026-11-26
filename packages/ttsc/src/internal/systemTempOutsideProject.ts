@@ -8,6 +8,7 @@ import path from "node:path";
  * before allocation and fall back to an existing platform temp directory. A Git
  * worktree or workspace declaration expands a nested project's boundary. The
  * temp path's ancestry also exposes projects outside the invocation directory.
+ * An operation that reads several projects can supply their roots together.
  *
  * @evidence contracts/common.md#principled-implementation Both sides are physically resolved. Explicit project/worktree boundaries and project markers along the temp ancestry block placement, even for callers that run from another project.
  * @evidence contracts/common.md#clear-and-simple-design Directory selection is read-only. Each caller owns any required mkdir, payload and cleanup below the returned physical path.
@@ -18,9 +19,12 @@ import path from "node:path";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A changed mount or TEMP setting requires a fresh observation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No filesystem state is created and no resource is retained.
  */
-export function systemTempOutsideProject(projectRoot: string): string {
+export function systemTempOutsideProject(
+  projectRoot: string,
+  additionalProjectRoots: readonly string[] = [],
+): string {
   const roots = new Set<string>();
-  for (const input of [projectRoot, process.cwd()]) {
+  for (const input of [projectRoot, ...additionalProjectRoots, process.cwd()]) {
     let directory = fs.realpathSync.native(input);
     if (path.dirname(directory) !== directory) roots.add(directory);
     for (;;) {

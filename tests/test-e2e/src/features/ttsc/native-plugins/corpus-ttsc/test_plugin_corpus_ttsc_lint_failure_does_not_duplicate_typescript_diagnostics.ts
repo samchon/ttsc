@@ -10,46 +10,78 @@ import {
 } from "../../../../internal/ttsc/internal/plugin-corpus";
 
 /**
- * Verifies plugin corpus: @ttsc/lint failure does not duplicate TypeScript
- * diagnostics.
+ * Verifies one-shot lint failures reuse a complete Program report.
  *
- * `@ttsc/lint` reports normal Program diagnostics together with its own rule
- * findings. The post-failure TypeScript guard must recognize that TS2322 is
- * already present and avoid appending the same diagnostic a second time while
- * preserving the lint failures in the shared stream.
+ * The lint host checks referenced sources. A standalone recovery check reads
+ * their declaration outputs and reports TS6305 when those outputs are missing.
+ * An early lint failure still needs that recovery check.
  *
- * 1. Copy the lint-violations fixture and add a genuine TS2322 assignment.
- * 2. Run ttsc with `--noEmit` so @ttsc/lint reports both diagnostic families.
- * 3. Assert lint output remains present and TS2322 occurs exactly once.
+ * 1. Add an unbuilt reference and an incompatible assignment to the fixture.
+ * 2. Check that the loaded lint Program reports both kinds of diagnostics.
+ * 3. Break the lint config and check that the standalone diagnostic returns.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual lint failure carries no-var and a genuine TS2322 once through the compiler failure path.
- * @evidence contracts/testing.md#independent-expectations The incompatible string assignment to number independently requires TS2322; one literal TS2322 occurrence and no-var marker establish the asserted diagnostic-family observations, not a complete parsed finding inventory.
- * @evidence contracts/testing.md#distinguishing-cases Owns simultaneous native lint and compiler diagnostics with duplicate suppression, complementing the clean diagnostics-capability control.
+ * @evidence contracts/testing.md#behavioral-verification The CLI reports no-var and one TS2322 from a loaded lint Program without TS6305. When that same host cannot load its config, recovery reports TS6305.
+ * @evidence contracts/testing.md#independent-expectations A string assigned to number requires TS2322. The imported composite reference has no declaration output, so the standalone compiler lane emits TS6305; the unbuilt output supplies a witness even when identical diagnostics would be deduplicated.
+ * @evidence contracts/testing.md#distinguishing-cases The same source/config selection tests a complete native Program failure and a lint-config failure before Program loading. Both retain the nonzero command status and neither leaks a receipt.
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this named corpus-ttsc export in the generic E2E population; the public CLI uses the workspace-linked native lint producer. Body presence is not execution or a packed installation/Linux-only selection claim.
  * @evidence contracts/e2e.md#necessary-boundary The post-plugin failure guard must recognize diagnostics already emitted by the actual producer; isolated renderer or rule units do not prove this handoff.
- * @evidence contracts/e2e.md#shared-execution The unchanged canonical lint producer and explicit suite-owned plugin cache are available for reuse across strict/fix/format consumers. This output does not certify that no compilation occurred, count actual processes, prove a hit or establish minimum preparation cost.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked consumer receives its own incompatible assignment and invocation-local output; producer/cache are not consumer cleanup targets. Error, signal and numeric nonzero status distinguish actual product failure from failed launch. Synchronous return does not certify arbitrary descendants or loaded-image equality.
- * @evidence contracts/e2e.md#preserved-coverage Original failed exit, no-var marker and TS2322 occurrence count exactly one remain. Portable rule meanings retain separate exact direct-unit selection/survival obligations; this stream is not proof those owners executed or that every lint finding was retained.
+ * @evidence contracts/e2e.md#shared-execution Both calls share the tracked consumer, reference, unchanged lint producer and suite-owned plugin cache. The diagnostic contrast establishes the recovery decision without measuring time or counting processes.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The tracked consumer owns the reference, source edits and config changes. Error, signal and numeric nonzero status distinguish a product failure from failed launch.
+ * @evidence contracts/e2e.md#preserved-coverage The original failed exit, no-var report and single TS2322 remain, with a contrast for the independent recovery path.
  */
 export function test_plugin_corpus_ttsc_lint_failure_does_not_duplicate_typescript_diagnostics(): void {
   const root = setupLintProject("lint-violations");
+  const tsconfig = path.join(root, "tsconfig.json");
+  const config = JSON.parse(fs.readFileSync(tsconfig, "utf8"));
+  config.references = [{ path: "./reference" }];
+  fs.writeFileSync(tsconfig, JSON.stringify(config));
+  fs.mkdirSync(path.join(root, "reference", "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "reference", "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        composite: true,
+        target: "ES2022",
+        module: "commonjs",
+        rootDir: "src",
+        outDir: "dist",
+      },
+      include: ["src"],
+    }),
+  );
+  fs.writeFileSync(
+    path.join(root, "reference", "src", "value.ts"),
+    'export const value: string = "type-error";\n',
+  );
   fs.appendFileSync(
     path.join(root, "src", "main.ts"),
-    '\nconst wrong: number = "type-error";\nvoid wrong;\n',
+    '\nimport { value } from "../reference/src/value";\nconst wrong: number = value;\nvoid wrong;\n',
     "utf8",
   );
-  const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
-    cwd: root,
-    env: {
-      PATH: goPath(),
-      TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-    },
-  });
+  const check = () => {
+    const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
+      cwd: root,
+      env: {
+        PATH: goPath(),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+      },
+    });
+    assert.equal(result.error, undefined);
+    assert.equal(result.signal, null);
+    assert.equal(result.status, 2, result.stderr);
+    assert.doesNotMatch(
+      result.stdout + result.stderr,
+      /ttsc:diagnostics-complete:/,
+    );
+    return result.stderr;
+  };
+  const reported = check();
+  assert.match(reported, /\[no-var\]/);
+  assert.equal(reported.match(/TS2322/g)?.length, 1, reported);
+  assert.doesNotMatch(reported, /TS6305/);
 
-  assert.equal(result.error, undefined);
-  assert.equal(result.signal, null);
-  assert.equal(typeof result.status, "number");
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /\[no-var\]/);
-  assert.equal(result.stderr.match(/TS2322/g)?.length, 1, result.stderr);
+  fs.writeFileSync(path.join(root, "lint.config.json"), "{");
+  const recovered = check();
+  assert.match(recovered, /lint\.config\.json/);
+  assert.match(recovered, /TS6305/);
 }

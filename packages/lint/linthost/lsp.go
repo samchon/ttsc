@@ -12,7 +12,6 @@ import (
   "net/url"
   "os"
   "path/filepath"
-  "runtime"
   "strings"
   "unicode/utf16"
   "unicode/utf8"
@@ -1281,12 +1280,7 @@ func prepareLSPCommandWorkspace(cwd string, tsconfig string, target string) (str
   project := filepath.Join(physicalCwd, "tsconfig.json")
   tempBase := configloaderscratch.PrivateTempBase(project, os.TempDir())
   if tempBase == "" {
-    fallback := "/tmp"
-    if runtime.GOOS == "windows" {
-      home, _ := os.UserHomeDir()
-      fallback = filepath.Join(home, "AppData", "Local", "Temp")
-    }
-    tempBase = configloaderscratch.PrivateTempBase(project, fallback)
+    tempBase = configloaderscratch.PrivateTempBase(project, configloaderscratch.PlatformTempDir())
   }
   if tempBase == "" {
     return "", "", "", nil, fmt.Errorf("@ttsc/lint: no private LSP workspace outside %s", cwd)
