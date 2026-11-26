@@ -19,31 +19,36 @@ import { realpathHostInputPaths } from "../../../../../packages/ttsc/src/plugin/
  * 1. Observe an absent candidate and a path under a regular file (ENOTDIR) through
  *    `realpathHostInput` and `realpathHostInputPaths` with a counting realpath
  *    callback; assert both yield `null` with zero realpath calls.
- * 2. Observe a present file, a symlink to it, and a broken symlink; assert the
- *    file and link return the physical path and the broken link returns
- *    `null`.
+ * 2. Observe a present file, a link with a real target and a dangling link.
+ *    Windows uses directory junctions so the test needs no file symlink
+ *    privilege. Assert each existing target resolves to its physical path.
  * 3. Create the previously absent candidate and re-observe in a fresh phase;
  *    assert it now yields its physical path so recorded-versus-current realpath
  *    comparison detects the change.
  *
  * @evidence contracts/testing.md#behavioral-verification Exercises realpathHostInput and realpathHostInputPaths over real files, symlinks, absent paths and regular-file descendants using the counting realpath seam, checking returned physical identities and exact realpath call counts.
  * @evidence contracts/testing.md#independent-expectations Real filesystem targets from fs.realpathSync.native on created files, null for absent or broken targets, and zero realpath invocations on ENOENT/ENOTDIR paths define expectations independently of implementation internals.
- * @evidence contracts/testing.md#distinguishing-cases Contrasts absent ENOENT candidates and ENOTDIR paths under a regular file (zero realpath calls) with present files, symlinks, broken symlinks and a candidate created between two phases; within-phase map deduplication stays in test_host_input_observations_deduplicate_within_phase.
+ * @evidence contracts/testing.md#distinguishing-cases Contrasts absent ENOENT candidates and ENOTDIR paths under a regular file (zero realpath calls) with present files, real and dangling links and a candidate created between phases. Windows uses directory junctions and POSIX uses file symlinks.
  * @evidence contracts/testing.md#execution-ownership Discovered unit calls the maintained source helpers directly over an owned temporary directory removed in finally; no compiler, Go process or host runs.
  */
 export function test_host_input_realpath_skips_absent_candidates(): void {
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-realpath-absent-")),
   );
+  const link = path.join(root, "link");
+  const brokenLink = path.join(root, "broken");
   try {
     const present = path.join(root, "present.ts");
-    const link = path.join(root, "link.ts");
-    const brokenLink = path.join(root, "broken.ts");
     const absent = path.join(root, "missing.ts");
     const underFile = path.join(present, "nested.ts");
     fs.writeFileSync(present, "export const x = 1;\n");
-    fs.symlinkSync(present, link, "file");
-    fs.symlinkSync(path.join(root, "dangling-target.ts"), brokenLink, "file");
+    const windows = process.platform === "win32";
+    const linkTarget = windows
+      ? fs.mkdtempSync(path.join(root, "dir-"))
+      : present;
+    const linkKind = windows ? "junction" : "file";
+    fs.symlinkSync(linkTarget, link, linkKind);
+    fs.symlinkSync(path.join(root, "dangling-target"), brokenLink, linkKind);
 
     const failures: unknown[] = [];
     const verify = (name: string, run: () => void): void => {
@@ -85,7 +90,7 @@ export function test_host_input_realpath_skips_absent_candidates(): void {
           (file) => realpathHostInput(file, countingRealpath),
         );
         assert.equal(result[present], present);
-        assert.equal(result[link], present);
+        assert.equal(result[link], linkTarget);
         assert.equal(result[brokenLink], null);
         assert.equal(
           realpathCalls.length,
@@ -138,6 +143,10 @@ export function test_host_input_realpath_skips_absent_candidates(): void {
         "absent host-input realpath checks failed",
       );
   } finally {
-    fs.rmSync(root, { recursive: true, force: true });
+    for (const name of [link, brokenLink]) {
+      if (fs.lstatSync(name, { throwIfNoEntry: false })?.isSymbolicLink())
+        fs.unlinkSync(name);
+    }
+    fs.rmSync(root, { recursive: true });
   }
 }
