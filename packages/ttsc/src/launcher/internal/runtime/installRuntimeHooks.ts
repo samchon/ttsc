@@ -36,6 +36,7 @@ import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
 import { OwnedProjectSource } from "./OwnedProjectSource";
 import type { OwningModuleOptions } from "./OwningModuleOptions";
 import { PluginDescriptorInputObservation } from "./PluginDescriptorInputObservation";
+import { PluginDescriptorInputObserver } from "./PluginDescriptorInputObserver";
 import { PluginDescriptorInputReport } from "./PluginDescriptorInputReport";
 import type { ResolveResult } from "./ResolveResult";
 import { RuntimeDependencyPrebuild } from "./RuntimeDependencyPrebuild";
@@ -118,7 +119,7 @@ import { selectRuntimePluginPolicy } from "./selectRuntimePluginPolicy";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe the three serving lanes, compile gates, source identity, capability-based local adaptation and extension-registry ownership; helper comments state ownership and failure effects with descriptive prose separated from tags.
  * @evidence contracts/portability.md#os-neutral-implementation Node URL conversion, native filesystem paths and physical resolution preserve OS spelling boundaries. Actual public-hook probes select runtime capabilities, native emit uses executable arguments without shell interpolation, and unresolved filesystem observation refuses reusable descriptor proof.
  * @evidence contracts/performance.md#efficient-algorithms Source ownership indexes replace repeated whole-emit scans with indexed source/native-identity queries. Export discovery processes source/emit bytes, reexport edges, native resolution and Set/name unions under traversal-local seen sets; separate roots can repeat traversal. Config-chain validation reads discovered inputs. Compiler identity brackets and streams executable bytes on valid lookups, refusing failed observations. Native build/name-scan/orphan paths add compilation, path/metadata/IO cost; recursive graphs remain subject to stack limits.
- * @evidence contracts/performance.md#reuse-equivalent-work Entry emits and dependency generations are shared within the current run; project/root keys include the same captured plugin policy compilation consumes, root keys also include source bytes, and orphan keys include source bytes, format, lowering policy and content-proven compiler identity. Nearest-config selection revalidates candidate existence. Project and failed-build memos still use a helper-instance module-evaluation snapshot and do not certify arbitrary mid-run config or dependency edits.
+ * @evidence contracts/performance.md#reuse-equivalent-work Entry emits and dependency generations are shared within the current run; project/root keys include the same captured plugin policy compilation consumes, root keys also include source bytes, and orphan keys include source bytes, format, lowering policy and content-proven compiler identity. Nearest-config selection revalidates candidate existence. Descriptor candidate observation shares ancestor lstat queries and symlink-ancestor observations only within one synchronous resolution window and discards them on return; subsequent resolutions observe every candidate afresh. Project and failed-build memos still use a helper-instance module-evaluation snapshot and do not certify arbitrary mid-run config or dependency edits.
  * @evidence contracts/performance.md#bound-retention-and-release-resources This installed helper retains hooks, callback and memoized module roles/builds, growing with distinct projects, roots and export scans without an eviction cap. Synchronous isolated output/publication staging paths attempt cleanup; failed native removal can propagate or add a causal cleanup error rather than certify release. WeakMap indexes do not independently retain their build keys. Node module caches and cross-process generations have their separate retention owners.
  */
 export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
@@ -464,20 +465,25 @@ function observePluginDescriptorResolutionCandidates(
   }
   // Candidates of a relative or absolute specifier, and those of each search
   // root of a bare one, in search order.
+  const window = PluginDescriptorInputObserver.createWindow();
   const local: string[] = [];
   const roots: { directory: string; lines: string[] }[] = [];
   let lines = local;
   const recorded = new Set<string>();
-  const record = (candidate: string): void => {
+  const record = (candidate: string): boolean | undefined => {
     const resolved = path.resolve(candidate);
-    if (recorded.has(resolved)) return;
+    if (recorded.has(resolved)) return undefined;
     recorded.add(resolved);
-    lines.push(
-      ...observePluginDescriptorInput({
+    const observed = window.observe(
+      {
         parent,
         resolved,
-      }),
+      },
+      false,
+      () => PluginDescriptorInputObservation.invalidate(),
     );
+    lines.push(...observed.lines);
+    return observed.missing;
   };
   const commit = (selectedURL: string | undefined): void => {
     const selected =
@@ -560,19 +566,21 @@ function observePluginDescriptorResolutionCandidates(
       record(resolvedBase + extension);
     }
     const manifestFile = path.join(resolvedBase, "package.json");
-    record(manifestFile);
+    const manifestMissing = record(manifestFile);
     for (const extension of DESCRIPTOR_PROBE_EXTENSIONS) {
       record(path.join(resolvedBase, `index${extension}`));
     }
-    try {
-      const manifest = JSON.parse(
-        fs.readFileSync(manifestFile, "utf8").replace(/^\uFEFF/, ""),
-      ) as Record<string, unknown>;
-      recordManifestTargets(manifest.exports, resolvedBase);
-      recordManifestTargets(manifest.module, resolvedBase, true);
-      recordManifestTargets(manifest.main, resolvedBase, true);
-    } catch {
-      // The real resolver owns malformed package diagnostics.
+    if (manifestMissing !== true) {
+      try {
+        const manifest = JSON.parse(
+          fs.readFileSync(manifestFile, "utf8").replace(/^\uFEFF/, ""),
+        ) as Record<string, unknown>;
+        recordManifestTargets(manifest.exports, resolvedBase);
+        recordManifestTargets(manifest.module, resolvedBase, true);
+        recordManifestTargets(manifest.main, resolvedBase, true);
+      } catch {
+        // The real resolver owns malformed package diagnostics.
+      }
     }
   };
 
@@ -673,107 +681,13 @@ function recordPluginDescriptorInput(
   },
   requirePresent: boolean = false,
 ): void {
-  PluginDescriptorInputReport.append(
-    observePluginDescriptorInput(record, requirePresent),
+  if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return;
+  const observed = PluginDescriptorInputObserver.observe(
+    record,
+    requirePresent,
+    () => PluginDescriptorInputObservation.invalidate(),
   );
-}
-
-/**
- * Observe one path and every symbolic link among its lexical ancestors, as the
- * lines `PluginDescriptorInputReport.append` reports, without reporting them
- * yet.
- */
-function observePluginDescriptorInput(
-  record: {
-    hash?: string | null;
-    parent?: string;
-    realpath?: string | null;
-    resolved: string;
-    signature?: string;
-    specifier?: string;
-    unstable?: boolean;
-  },
-  requirePresent: boolean = false,
-): string[] {
-  if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return [];
-  const lines: string[] = [];
-  const observe = (line: string | undefined): void => {
-    if (line !== undefined) lines.push(line);
-    else PluginDescriptorInputObservation.invalidate();
-  };
-  observe(observePluginDescriptorInputOnce(record, requirePresent));
-  const resolved = path.resolve(record.resolved);
-  const parsed = path.parse(resolved);
-  let current = parsed.root;
-  const relative = path.relative(parsed.root, resolved);
-  for (const segment of relative.split(path.sep).slice(0, -1)) {
-    if (segment === "") continue;
-    current = path.join(current, segment);
-    try {
-      if (fs.lstatSync(current).isSymbolicLink()) {
-        observe(observePluginDescriptorInputOnce({ resolved: current }));
-      }
-    } catch {
-      break;
-    }
-  }
-  return lines;
-}
-
-/** Observe one path without recursively revisiting its lexical ancestors. */
-function observePluginDescriptorInputOnce(
-  record: {
-    hash?: string | null;
-    parent?: string;
-    realpath?: string | null;
-    resolved: string;
-    signature?: string;
-    specifier?: string;
-    unstable?: boolean;
-  },
-  requirePresent: boolean = false,
-): string | undefined {
-  try {
-    const beforeSignature = pluginDescriptorInputMetadataSignature(
-      record.resolved,
-    );
-    const observedHash = pluginDescriptorInputHash(record.resolved);
-    const observedRealpath = pluginDescriptorInputRealpath(record.resolved);
-    const afterSignature = pluginDescriptorInputMetadataSignature(
-      record.resolved,
-    );
-    const unstable =
-      record.unstable === true ||
-      (requirePresent &&
-        (observedHash === null || observedRealpath === null)) ||
-      beforeSignature === undefined ||
-      afterSignature === undefined ||
-      beforeSignature !== afterSignature ||
-      (record.hash !== undefined && record.hash !== observedHash) ||
-      (record.realpath !== undefined && record.realpath !== observedRealpath) ||
-      (record.signature !== undefined && record.signature !== afterSignature);
-    // A missing path's signature is its nearest existing ancestor's metadata,
-    // so a write anywhere in that ancestor refuses the proof; the trace names
-    // which observation moved.
-    if (unstable)
-      E2ETrace.capabilityResolution("plugin-descriptor-input-unstable", {
-        resolved: record.resolved,
-        recordedSignature: record.signature,
-        beforeSignature,
-        afterSignature,
-        hashChanged: record.hash !== undefined && record.hash !== observedHash,
-      });
-    return `${JSON.stringify({
-      ...record,
-      hash: observedHash,
-      realpath: observedRealpath,
-      ...(unstable ? { unstable: true } : { signature: afterSignature }),
-    })}\n`;
-  } catch {
-    // Dependency reporting is advisory to cache reuse; the selected entry is
-    // still retained by the parent if this side channel cannot observe it.
-    return undefined;
-  }
+  PluginDescriptorInputReport.append(observed.lines);
 }
 
 function pluginDescriptorInputRealpath(file: string): string | null {

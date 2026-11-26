@@ -18,7 +18,7 @@ import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc identifies ancestry and missing discovery candidates; the private helper explains the selected-root stopping condition, with paragraph/tag separation following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native resolve/dirname/join and Node createRequire search paths construct OS-neutral host inputs; package-name slash splitting is package-specifier grammar, not filesystem parsing.
  * @evidence contracts/performance.md#efficient-algorithms Config paths are natively normalized and indexed; discovery additionally walks nearest-manifest ancestors, reads/parses manifest bytes and resolves each direct dependency through Node search roots and physical candidate checks. Candidate generation/query work can repeat before Set deduplication. Final sorting costs depend on unique input count and path-text comparisons; native metadata, path/topology and manifest/name bytes remain part of the cost.
- * @evidence contracts/performance.md#reuse-equivalent-work The operation assembles one shared universal input population for the load; identical candidate paths are retained once by the Set, while current filesystem resolution is not cached here.
+ * @evidence contracts/performance.md#reuse-equivalent-work The operation assembles one shared universal input population for the load; identical candidate paths are retained once by the Set, and an optional caller-owned discovery record captures the resolved project manifest and direct-dependency manifest paths so the same load's entry resolver can reuse those bracketed observations without re-resolving every dependency.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The Set and returned array belong to this call, with no cross-call retention or acquired open resource.
  */
@@ -26,6 +26,11 @@ export function collectProjectHostInputs(
   project: ITtscParsedProjectConfig,
   includePluginDiscovery: boolean = true,
   pluginConfigDir?: string,
+  discovered?: {
+    dependencyManifests: Map<string, string | undefined>;
+    projectManifest?: PluginPackageResolution.PackageManifest;
+    projectPackageJson?: string;
+  },
 ): string[] {
   const inputs = new Set<string>(
     [...project.configPaths, ...(project.configInputs ?? [])].map((file) =>
@@ -33,19 +38,28 @@ export function collectProjectHostInputs(
     ),
   );
   if (!includePluginDiscovery) return [...inputs].sort();
-  const manifestCandidates =
-    PluginPackageResolution.collectNearestPackageJsonCandidates(
+  const { candidates: manifestCandidates, manifest } =
+    PluginPackageResolution.findNearestPackageJsonWithCandidates(
       ProjectPluginEntries.resolvePluginBaseDir(project, pluginConfigDir),
     );
   for (const candidate of manifestCandidates) inputs.add(candidate);
-  const manifest = manifestCandidates.find(
-    PluginPackageResolution.existingFile,
-  );
   if (manifest !== undefined) {
     const projectManifest =
       PluginPackageResolution.readPackageManifest(manifest);
+    const projectRoot = path.dirname(manifest);
+    const resolvedManifest =
+      discovered === undefined
+        ? undefined
+        : PluginPackageResolution.resolveRealPath(manifest);
+    const samePhysicalRoot =
+      resolvedManifest !== undefined &&
+      path.dirname(resolvedManifest) === projectRoot;
+    if (discovered !== undefined) {
+      discovered.projectPackageJson = resolvedManifest;
+      discovered.projectManifest = projectManifest;
+    }
     if (projectManifest !== undefined) {
-      const projectRoot = path.dirname(manifest);
+      const requireFromManifest = createRequire(manifest);
       for (const dependency of PluginPackageResolution.directDependencyNames(
         projectManifest,
       )) {
@@ -54,9 +68,14 @@ export function collectProjectHostInputs(
             dependency,
             projectRoot,
           );
+        // Only record dependency manifests when the lexical project root
+        // matches the physical root ProjectPluginEntries resolves from.
+        if (samePhysicalRoot) {
+          discovered?.dependencyManifests.set(dependency, dependencyManifest);
+        }
         for (const candidate of collectDependencyManifestCandidates(
           dependency,
-          manifest,
+          requireFromManifest,
           dependencyManifest,
         )) {
           inputs.add(candidate);
@@ -78,13 +97,11 @@ export function collectProjectHostInputs(
  */
 function collectDependencyManifestCandidates(
   packageName: string,
-  parentFile: string,
+  requireFromParent: NodeRequire,
   selectedManifest: string | undefined,
 ): string[] {
   const out: string[] = [];
-  for (const searchPath of createRequire(parentFile).resolve.paths(
-    packageName,
-  ) ?? []) {
+  for (const searchPath of requireFromParent.resolve.paths(packageName) ?? []) {
     const packageDirectory = path.join(searchPath, ...packageName.split("/"));
     out.push(path.join(packageDirectory, "package.json"));
     if (moduleResolutionBaseSelects(packageDirectory, selectedManifest, []))

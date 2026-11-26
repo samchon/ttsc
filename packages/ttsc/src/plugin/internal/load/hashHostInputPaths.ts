@@ -13,17 +13,30 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The directory marker encodes type, not an expected answer; unreadability stays null rather than synthetic content or a known-path bypass.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc states null's unreadable meaning and downstream comparison purpose; descriptive and acknowledgment paragraphs are separated following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve/stat/readFile preserve host path semantics and follow links; directory kind comes from actual stat rather than separators or platform-name inference.
- * @evidence contracts/performance.md#efficient-algorithms Each input incurs native key normalization and stat; a readable nondirectory allocates and hashes its full bytes, while directories hash a fixed kind marker without scanning children. Processing includes input/path text, native queries and readable file bytes; mapped pairs and the result coexist, and duplicate keys still repeat observation before overwriting. Each file read needs a buffer proportional to its complete size.
+ * @evidence contracts/performance.md#efficient-algorithms Each distinct resolved path incurs one native stat (or reuses an observation already recorded in an optional caller-owned phase map); a readable nondirectory allocates and hashes its full bytes, while directories hash a fixed kind marker without scanning children. Duplicate resolved keys skip repeated filesystem reads.
  *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work This current-state snapshot must reread its supplied files; reusable accepted answers belong to the cache that validates these observations.
+ * @evidence contracts/performance.md#reuse-equivalent-work An optional caller-owned phase map shares content hashes across overlapping checks within one synchronous verification phase and is dropped when that phase ends; without a map, each call rereads every distinct file anew.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous file APIs close their own descriptors and the returned record is caller-owned; this snapshot keeps no global collection or acquired handle.
  */
 export function hashHostInputPaths(
   files: readonly string[],
+  observed?: Map<string, string | null>,
+  observe: (file: string) => string | null = hashHostInput,
 ): Record<string, string | null> {
-  return Object.fromEntries(
-    files.map((file) => [path.resolve(file), hashHostInput(file)]),
-  );
+  const out: Record<string, string | null> = {};
+  for (const file of files) {
+    const resolved = path.resolve(file);
+    if (Object.prototype.hasOwnProperty.call(out, resolved)) continue;
+    let digest: string | null;
+    if (observed !== undefined && observed.has(resolved)) {
+      digest = observed.get(resolved)!;
+    } else {
+      digest = observe(resolved);
+      observed?.set(resolved, digest);
+    }
+    out[resolved] = digest;
+  }
+  return out;
 }
 
 function hashHostInput(file: string): string | null {

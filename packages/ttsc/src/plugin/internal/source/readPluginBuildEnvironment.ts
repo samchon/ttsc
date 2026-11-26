@@ -32,14 +32,16 @@ import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
  * @param witness Receives the paths the reading depends on.
  * @param identities Record store of the project's plugin cache; without it
  *   every call reads.
+ * @param currentReadings Optional caller-owned map sharing current native
+ *   witness readings across one synchronous batch of recorded-answer checks.
  * @returns The environment digest.
  * @evidence contracts/common.md#principled-implementation A recorded digest is served only under the variables the Go tool receives and the pre-read metadata witness of every path no variable carries, the same proof under which a process already keeps a reading; a reading is recorded only after its witness held around it.
  * @evidence contracts/common.md#clear-and-simple-design One function owns the record family, so package selection, the binary key and the source state read the environment the same way.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No Go value is assumed: a missing, malformed or moved record reads Go again, and an unwitnessable reading is never recorded.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the two dependencies, the excluded variables and the admission rule.
  * @evidence contracts/portability.md#os-neutral-implementation Variables pass through the shared native-name merger, and the witness keeps native path, link and stat identity.
- * @evidence contracts/performance.md#efficient-algorithms A hit hashes the variables once, parses one record and stats each witnessed path once; a miss adds the reading it replaces and one witness validation.
- * @evidence contracts/performance.md#reuse-equivalent-work Equal variables, Go tool and directory share one reading across processes while its witness holds.
+ * @evidence contracts/performance.md#efficient-algorithms A hit hashes the variables once, parses one record and stats each witnessed path once per synchronous batch; a miss adds the reading it replaces and one witness validation.
+ * @evidence contracts/performance.md#reuse-equivalent-work Equal variables, Go tool and directory share one reading across processes while its witness holds; an optional caller-owned synchronous batch map shares current witness stat observations across directories checked together and is dropped when the batch ends.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Records are single files in the plugin cache's answer directory, aged by its collector and removed by `ttsc clean`; nothing is retained in memory.
  */
 export function readPluginBuildEnvironment(
@@ -48,6 +50,7 @@ export function readPluginBuildEnvironment(
   env: NodeJS.ProcessEnv,
   witness: PluginBuildEnvironmentWitness.Record | undefined,
   identities: PluginContentIdentities.Store | undefined,
+  currentReadings?: Map<string, string>,
 ): string {
   const identity = [
     goBinary ?? null,
@@ -59,6 +62,7 @@ export function readPluginBuildEnvironment(
     KIND,
     identity,
     (value): value is string => typeof value === "string",
+    currentReadings,
   );
   if (kept !== undefined) {
     WitnessedLoadAnswers.join(witness, kept.witness);

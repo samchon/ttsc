@@ -73,6 +73,47 @@ export namespace ProjectPluginEntries {
   };
 
   /**
+   * Bracketed package-discovery readings already taken for the current load
+   * (`collectProjectHostInputs`), avoiding a second walk of every direct
+   * dependency manifest.
+   *
+   * @evidence contracts/common.md#principled-implementation Only readings proven unchanged by the caller's load snapshot stand for fresh dependency manifest resolution.
+   * @evidence contracts/common.md#clear-and-simple-design Carries the project manifest and its resolved direct-dependency manifest paths without retaining any cache.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unpopulated entries still fall back to fresh resolution; nothing survives the load.
+   * @evidence contracts/common.md#meaningful-documentation States load-scoped provenance of the discovery readings.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Plain data container holding native paths resolved by PluginPackageResolution.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms A type executes no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Reuse lifetime is owned by resolvePluginEntries and its load caller.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Caller owns and drops these readings with the load.
+   */
+  export type DiscoveryReadings = {
+    /** Direct-dependency name to resolved `package.json` path (or undefined). */
+    readonly dependencyManifests?: ReadonlyMap<string, string | undefined>;
+    /** Parsed project `package.json` for `projectPackageJson`. */
+    readonly projectManifest?: PluginPackageResolution.PackageManifest;
+    /** Resolved project `package.json` path, or undefined when absent. */
+    readonly projectPackageJson?: string;
+    /**
+     * Optional resolver override for counting/testing; defaults to
+     * `PluginPackageResolution.resolveDependencyPackageJson`.
+     *
+     * @evidence contracts/common.md#principled-implementation Injects dependency manifest lookup explicitly so tests can count fallback calls without monkey-patching module exports.
+     * @evidence contracts/common.md#clear-and-simple-design Matches PluginPackageResolution.resolveDependencyPackageJson's two-argument signature directly.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts Production leaves this undefined and calls PluginPackageResolution.resolveDependencyPackageJson directly.
+     * @evidence contracts/common.md#meaningful-documentation Names the production default and testing purpose.
+     * @evidence contracts/portability.md#os-neutral-implementation Receives native projectRoot and returns a native manifest path or undefined.
+     *
+     * @evidenceExclude contracts/performance.md#efficient-algorithms This callback supplies dependency lookup; resolvePluginEntries decides when to fall back to it.
+     * @evidenceExclude contracts/performance.md#reuse-equivalent-work The callback itself owns no cache.
+     * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous lookup retains no handles or state.
+     */
+    readonly resolveDependencyPackageJson?: (
+      name: string,
+      projectRoot: string,
+    ) => string | undefined;
+  };
+
+  /**
    * The project's plugin entries in declaration order: `entries` when a caller
    * passed an explicit list, otherwise the tsconfig's `compilerOptions.plugins`
    * followed by the plugins its direct dependencies publish automatically.
@@ -83,7 +124,7 @@ export namespace ProjectPluginEntries {
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states explicit versus discovered ordering; private code comments explain inherited-base choice and invalid-marker diagnostics, with separate tags following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Shared relative detection and native dirname/shared resolver preserve OS-neutral consumer/declarer bases, including Windows relative config spelling.
    * @evidence contracts/performance.md#efficient-algorithms Explicit lists map directly; otherwise configured entries are mapped before a separate index pass. Automatic discovery includes native manifest/ancestor queries, dependency-name enumeration, selected target resolution and marker record copies. Set membership avoids duplicate cross products, while full name/path/manifest bytes and native query work remain part of cost.
-   * @evidence contracts/performance.md#reuse-equivalent-work Invocation-local transform identity indexes are reused across every automatic entry, without caching mutable package authority across calls.
+   * @evidence contracts/performance.md#reuse-equivalent-work Invocation-local transform identity indexes are reused across every automatic entry, and optional load-local bracketed discovery readings from collectProjectHostInputs avoid re-resolving every direct dependency's package.json within the same load. Nothing is retained across calls.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The output and Set indexes are invocation-owned and acquire no persistent resource or collection.
    */
@@ -91,6 +132,7 @@ export namespace ProjectPluginEntries {
     project: ITtscParsedProjectConfig,
     entries?: readonly ITtscProjectPluginConfig[],
     pluginConfigDir?: string,
+    discovery?: DiscoveryReadings,
   ): ProjectPluginEntry[] {
     const consumerDir = resolvePluginBaseDir(project, pluginConfigDir);
     if (entries !== undefined) {
@@ -117,35 +159,46 @@ export namespace ProjectPluginEntries {
     });
     return [
       ...configured,
-      ...discoverPackagePluginEntries(consumerDir, configured),
+      ...discoverPackagePluginEntries(consumerDir, configured, discovery),
     ];
   }
 
   function discoverPackagePluginEntries(
     consumerDir: string,
     configured: readonly ProjectPluginEntry[],
+    discovery?: DiscoveryReadings,
   ): ProjectPluginEntry[] {
     const projectPackageJson =
-      PluginPackageResolution.findNearestPackageJson(consumerDir);
+      discovery !== undefined &&
+      Object.prototype.hasOwnProperty.call(discovery, "projectPackageJson")
+        ? discovery.projectPackageJson
+        : PluginPackageResolution.findNearestPackageJson(consumerDir);
     if (projectPackageJson === undefined) {
       return [];
     }
     const projectPackageRoot = path.dirname(projectPackageJson);
     const projectManifest =
-      PluginPackageResolution.readPackageManifest(projectPackageJson);
+      discovery !== undefined &&
+      Object.prototype.hasOwnProperty.call(discovery, "projectManifest")
+        ? discovery.projectManifest
+        : PluginPackageResolution.readPackageManifest(projectPackageJson);
     if (projectManifest === undefined) {
       return [];
     }
 
+    const resolveDependency =
+      discovery?.resolveDependencyPackageJson ??
+      PluginPackageResolution.resolveDependencyPackageJson;
     const configuredTransforms = createConfiguredTransformSet(configured);
     const out: ProjectPluginEntry[] = [];
     for (const name of PluginPackageResolution.directDependencyNames(
       projectManifest,
     )) {
-      const packageJson = PluginPackageResolution.resolveDependencyPackageJson(
-        name,
-        projectPackageRoot,
-      );
+      const packageJson =
+        discovery?.dependencyManifests !== undefined &&
+        discovery.dependencyManifests.has(name)
+          ? discovery.dependencyManifests.get(name)
+          : resolveDependency(name, projectPackageRoot);
       if (packageJson === undefined) {
         continue;
       }

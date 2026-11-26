@@ -177,9 +177,17 @@ func ReplayProgramResolutions(p0 []tsccompiler.ProgramResolutionTask, p1 tscvfs.
   return tsccompiler.ReplayProgramResolutions(p0, p1)
 }
 
+// ResolveModuleName holds the bridge function: its signature uses a type no bridge
+// exposes (github.com/microsoft/TypeScript/tsc/internal/module.ResolvedModule).
+var ResolveModuleName = tsccompiler.ResolveModuleName
+
 func SortAndDeduplicateDiagnostics(p0 []*tscast.Diagnostic) []*tscast.Diagnostic {
   return tsccompiler.SortAndDeduplicateDiagnostics(p0)
 }
+
+// SourceFileForResolvedModule holds the bridge function: its signature uses a type no bridge
+// exposes (github.com/microsoft/TypeScript/tsc/internal/module.ResolvedModule).
+var SourceFileForResolvedModule = tsccompiler.SourceFileForResolvedModule
 
 type SourceFileMayBeEmittedHost = tsccompiler.SourceFileMayBeEmittedHost
 
