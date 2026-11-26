@@ -53,7 +53,7 @@ export function fallbackToolDirectory(root: string): string | undefined {
     // The provider checks directory kind and available uid/mode authority;
     // other platforms rely on native temporary-directory access policy.
     // The directories below are created by the first write.
-    const state = userStateDirectory();
+    const state = userStateDirectory(undefined, key, false);
     FALLBACKS.set(
       key,
       state === undefined

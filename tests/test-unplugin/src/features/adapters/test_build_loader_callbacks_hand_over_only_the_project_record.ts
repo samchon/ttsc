@@ -472,10 +472,16 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
       membershipPolicy: readProjectMembershipPolicy(linkedConfig),
     };
     const tool = hostToolDirectory(selectedRoot);
-    assert.equal(tool, path.join(configuredRoot, ".ttsc"));
+    assert.equal(
+      tool,
+      path.join(configuredRoot, "node_modules", ".cache", "ttsc", "unplugin"),
+    );
     const expectedRecord = path.join(
       configuredRoot,
-      ".ttsc",
+      "node_modules",
+      ".cache",
+      "ttsc",
+      "unplugin",
       "records",
       createHash("sha256")
         .update(path.resolve(linkedConfig))
@@ -535,13 +541,16 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
     );
     assert.equal(
       path.relative(configuredRoot, expectedRecord).split(path.sep)[0],
-      ".ttsc",
+      "node_modules",
     );
     assert.equal(
       fs.realpathSync.native(expectedRecord),
       path.join(
         physicalRoot,
-        ".ttsc",
+        "node_modules",
+        ".cache",
+        "ttsc",
+        "unplugin",
         "records",
         path.basename(expectedRecord),
       ),

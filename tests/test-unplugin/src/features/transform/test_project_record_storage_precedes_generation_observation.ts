@@ -14,8 +14,8 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
 /**
  * Record storage is acquired before the coordinator awaits a generation.
  *
- * @evidence contracts/testing.md#behavioral-verification An unresolved supported cache owner receives a real transform delivery; both record parents already exist before settling it. Actual record handoff preserves the independently authored root directory predicate, while a new source member still invalidates it. A blocked primary uses the existing fallback handoff.
- * @evidence contracts/testing.md#independent-expectations Literal src, tsconfig.json, node_modules, .ttsc and .fallback names and directory/file markers define the SHA-256 witness independently of the production listing. Without early acquisition the pre-settle directory assertions fail, and late handoff changes the root witness.
+ * @evidence contracts/testing.md#behavioral-verification An unresolved supported cache owner receives a real transform delivery; the primary parent exists before settlement and the unused fallback is absent. Actual record handoff preserves the root directory predicate, while a new source still invalidates it. A blocked primary uses the fallback handoff.
+ * @evidence contracts/testing.md#independent-expectations Literal src, tsconfig.json, node_modules and .ttsc names define the SHA-256 witness independently of the production listing, without counting the unused fallback.
  * @evidence contracts/testing.md#distinguishing-cases Absent storage versus acquired empty parents, primary versus blocked-primary/fallback, unchanged root versus added source, and wrapper bypass versus eligible delivery retain distinct outcomes.
  * @evidence contracts/testing.md#execution-ownership Actual filesystem acquisition, transform coordinator, directory predicate replay and record writer run in process on one temporary corpus. The unresolved cache value is supported authored consumer input; no compiler, child, native capture count or installed adapter is simulated. The existing full Metro E2E owns two-worker native single-execution and adoption.
  */
@@ -26,7 +26,7 @@ export async function test_project_record_storage_precedes_generation_observatio
   // Author its root member before the independent directory witness on all hosts.
   fs.mkdirSync(path.join(root, "node_modules"), { recursive: true });
   const primary = path.join(root, ".ttsc");
-  const fallback = path.join(root, ".fallback");
+  const fallback = path.join(root, "node_modules", ".cache", "test-fallback");
   const records: string[] = [];
   let settle!: (value: TtscCachedProjectTransform) => void;
   const owner = new Promise<TtscCachedProjectTransform>((resolve) => {
@@ -64,27 +64,17 @@ export async function test_project_record_storage_precedes_generation_observatio
       fixture.cache,
       { project },
     );
-    // Before the first await can settle, all accepted parent locations exist.
+    // The first usable parent exists before the compile settles.
     assert.equal(
       fs.statSync(path.join(primary, "records")).isDirectory(),
       true,
     );
-    assert.equal(
-      fs.statSync(path.join(fallback, "records")).isDirectory(),
-      true,
-    );
+    assert.equal(fs.existsSync(fallback), false);
     assert.deepEqual(fs.readdirSync(path.join(primary, "records")), []);
-    assert.deepEqual(fs.readdirSync(path.join(fallback, "records")), []);
     assert.equal(fixture.cache.get(fixture.key), owner);
     const filesystem = transformFilesystem(fixture.cache);
     const identities = createHostPathIdentityContext(filesystem);
-    const rootMembers = [
-      ".fallback",
-      ".ttsc",
-      "node_modules",
-      "src",
-      "tsconfig.json",
-    ];
+    const rootMembers = [".ttsc", "node_modules", "src", "tsconfig.json"];
     assert.deepEqual(fs.readdirSync(root).sort(), rootMembers);
     const predicate = {
       version: 1 as const,
@@ -94,7 +84,7 @@ export async function test_project_record_storage_precedes_generation_observatio
       identityStable: true,
       digest: createHash("sha256")
         .update(
-          ".fallback\0directory\0\0.ttsc\0directory\0\0node_modules\0directory\0\0src\0directory\0\0tsconfig.json\0file\0",
+          ".ttsc\0directory\0\0node_modules\0directory\0\0src\0directory\0\0tsconfig.json\0file\0",
         )
         .digest("hex"),
     };
@@ -131,6 +121,7 @@ export async function test_project_record_storage_precedes_generation_observatio
       true,
     );
     const blocked = path.join(fallback, "blocked-record-storage");
+    fs.mkdirSync(fallback, { recursive: true });
     fs.writeFileSync(blocked, "not a directory\n");
     assert.equal(
       (

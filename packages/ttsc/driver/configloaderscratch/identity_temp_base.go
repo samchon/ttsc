@@ -79,3 +79,83 @@ func IdentityTempBase(location, systemTemp, recordRoot string) string {
   }
   return physicalIdentity
 }
+
+// SystemTempBase returns an existing same-volume temp directory outside the
+// config directory and any enclosing worktree or pnpm workspace. An empty
+// result leaves selection to the caller and authorizes no write.
+//
+// @evidence contracts/common.md#principled-implementation Resolved config and temporary directory identities are compared on the required compiler volume and against concrete ancestry markers before allocation.
+// @evidence contracts/common.md#clear-and-simple-design The selector only checks a candidate; callers retain fallback order and own actual allocation and cleanup.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No directory is created to make an unavailable TEMP usable.
+// @evidence contracts/common.md#meaningful-documentation The prose states the volume, protected project roots and empty result.
+// @evidence contracts/portability.md#os-neutral-implementation Native canonicalDirectory and containsDirectory use real native aliases, while filepath supplies volume and parent semantics.
+// @evidence contracts/performance.md#efficient-algorithms Two directory identity observations precede one ancestor walk and its marker probes.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each request checks live filesystem topology.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The read-only selector retains no file, handle or state.
+func SystemTempBase(location, systemTemp string) string {
+  absolute, err := filepath.Abs(location)
+  if err != nil || !filepath.IsAbs(systemTemp) {
+    return ""
+  }
+  config, err := canonicalDirectory(filepath.Dir(absolute))
+  if err != nil {
+    return ""
+  }
+  base, err := canonicalDirectory(systemTemp)
+  if err != nil || !strings.EqualFold(filepath.VolumeName(base), filepath.VolumeName(absolute)) {
+    return ""
+  }
+  entry, err := os.Stat(base)
+  if err != nil || !entry.IsDir() {
+    return ""
+  }
+  for directory := config; ; directory = filepath.Dir(directory) {
+    _, git := os.Lstat(filepath.Join(directory, ".git"))
+    _, workspace := os.Lstat(filepath.Join(directory, "pnpm-workspace.yaml"))
+    if directory == config || git == nil || workspace == nil {
+      inside, err := containsDirectory(directory, base)
+      if err != nil || inside {
+        return ""
+      }
+    }
+    if filepath.Dir(directory) == directory {
+      return base
+    }
+  }
+}
+
+// CacheTempBase selects the physical node_modules cache on the config volume.
+// Its destination is checked before allocation and aliases at .cache are
+// refused. The caller owns the actual temporary child.
+//
+// @evidence contracts/common.md#principled-implementation The physical node_modules directory must have its own ignored installation name and the config volume before an ordinary cache child can be created.
+// @evidence contracts/common.md#clear-and-simple-design Three config loaders share the path admission; their callers own nearest-installation discovery and scratch lifetime.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts A linked cache or absent installation yields no candidate, without falling back to a directory beside the config.
+// @evidence contracts/common.md#meaningful-documentation The native comment identifies the selected root and child ownership.
+// @evidence contracts/portability.md#os-neutral-implementation Native directory canonicalization observes NTFS junctions as well as POSIX aliases; filepath.VolumeName provides the compiler-volume constraint.
+// @evidence contracts/performance.md#efficient-algorithms A bounded set of canonicalization, stat, link and mkdir calls checks one installation and its cache child without walking their payload.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Mutable path aliases are observed separately on each call.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The ordinary cache directory may remain, while actual scratch allocations belong to the caller.
+func CacheTempBase(location, nodeModules string) string {
+  if nodeModules == "" {
+    return ""
+  }
+  modules, err := canonicalDirectory(nodeModules)
+  if err != nil || filepath.Base(modules) != "node_modules" ||
+    !strings.EqualFold(filepath.VolumeName(modules), filepath.VolumeName(location)) {
+    return ""
+  }
+  cache := filepath.Join(modules, ".cache")
+  if err := os.Mkdir(cache, 0o755); err != nil && !os.IsExist(err) {
+    return ""
+  }
+  entry, err := os.Lstat(cache)
+  if err != nil || !entry.IsDir() || entry.Mode()&os.ModeSymlink != 0 {
+    return ""
+  }
+  physical, err := canonicalDirectory(cache)
+  if err != nil || physical != cache {
+    return ""
+  }
+  return physical
+}

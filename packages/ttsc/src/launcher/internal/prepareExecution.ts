@@ -1,6 +1,5 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { EmitOwnershipIndex } from "../../compiler/internal/EmitOwnershipIndex";
@@ -13,6 +12,7 @@ import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffect
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { RuntimeTrash } from "../../internal/RuntimeTrash";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
+import { systemTempOutsideProject } from "../../internal/systemTempOutsideProject";
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
@@ -702,11 +702,14 @@ function defaultRuntimeCacheDir(
     if (!env.TTSC_CACHE_DIR) {
       SourceBuildCacheLayout.markDefaultWorkspaceCacheRoot(paths.root);
     }
-    fs.mkdirSync(local, { recursive: true });
+    const runtime = !env.TTSC_CACHE_DIR
+      ? SourceBuildCacheLayout.canonicalPluginCacheRoot(local)
+      : local;
+    if (env.TTSC_CACHE_DIR) fs.mkdirSync(local, { recursive: true });
     return {
       collected: !env.TTSC_CACHE_DIR,
       root: paths.root,
-      runtime: local,
+      runtime,
     };
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
@@ -718,7 +721,7 @@ function defaultRuntimeCacheDir(
     }
   }
   const fallback = path.join(
-    os.tmpdir(),
+    systemTempOutsideProject(root),
     "ttsc-ttsx",
     crypto.createHash("sha256").update(root).digest("hex").slice(0, 16),
   );

@@ -30,7 +30,7 @@ import { withRuntimeDirectoryLock } from "./withRuntimeDirectoryLock";
  * @evidence contracts/common.md#clear-and-simple-design One operation owns pinning, sweep, replacement and claim; the caller owns virtual emit layout and eventual relinquishment.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Native filesystem operations and the default real runtime lock preserve actual ownership; supplied lock operations must serialize the same root rather than bypass coordination.
  * @evidence contracts/common.md#meaningful-documentation Native prose states validated replacement authority, cooperative lock/namespace premises, absence of rollback and transferred directory lifetime.
- * @evidence contracts/portability.md#os-neutral-implementation Native realpath selects the currently observed link/junction target before run-path construction. Shared native lock/probe owners coordinate that spelling; stable namespace and caller-owned replacement remain premises rather than handles held here.
+ * @evidence contracts/portability.md#os-neutral-implementation Native lstat and realpath keep project index writes inside the pinned runtime cache root. Shared native lock/probe owners coordinate that spelling; stable namespace and caller-owned replacement remain premises rather than handles held here.
  * @evidence contracts/performance.md#efficient-algorithms Lock acquisition/retirement delegates identity, record IO and contention waits. The index sweep pays entry/path/owner-record/native-probe costs; selected recursive replacement pays its existing tree size, and creation/publication follow path depth/text and JSON/native IO. Fixed effect count does not bound those costs.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Claims and replacements are distinct lifetime effects that cannot reuse a prior operation result.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Finally attempts lock retirement, whose peer-handle release has no independent deadline. Successful directory ownership transfers to the caller; created/deleted/partially published effects are not rolled back on failure, and abandoned/unknown/live or native-failed leftovers have no reclamation deadline here.
@@ -45,8 +45,7 @@ export function claimRuntimeProjectDirectory(
       runtimeRoot,
       SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME,
     );
-    fs.mkdirSync(directory, { recursive: true });
-    const runsDir = fs.realpathSync.native(directory);
+    const runsDir = SourceBuildCacheLayout.canonicalPluginCacheRoot(directory);
     const processDir = path.join(runsDir, runKey);
     // An abandoned run is retired by one rename into the runtime root's trash,
     // outside the run index, and deleted while this run's program executes,

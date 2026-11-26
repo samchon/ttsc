@@ -6,6 +6,7 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
+import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import { buildSingleRootInMemory } from "./buildSingleRootInMemory";
@@ -28,32 +29,15 @@ import { singleRootProjectConfig } from "./singleRootProjectConfig";
  * launcher's entry when the project build did not emit it, and a TypeScript
  * file the running program reaches that no build compiled.
  *
- * Where the synthesized tsconfig lives depends on what the build reads from its
- * location. `extends` with an absolute path resolves from anywhere, and every
- * relative option resolves against the config that declares it, but
- * `${configDir}` is substituted with the directory of the config tsgo was
- * given, and the default `typeRoots` and each `types` entry are looked up from
- * there. A checked build needs all of them exactly as the user's config sees
- * them, so its tsconfig is written beside the real one, and a directory that
- * refuses the write is reported by name. TypeScript-Go's command line cannot
- * combine a project with a file list, so no other placement is faithful for it.
- * TypeScript 7.1's API can hold that tsconfig in memory, beside the real one,
- * without creating a file: `buildSingleRootInMemory` takes the build first, and
- * everything below runs only when that route is unavailable: for a TypeScript
- * 7.0 project, native plugins, a custom compiler, or arguments a tsconfig
- * cannot carry. An emit-only build ignores diagnostics, and none of those
- * lookups changes what it emits, with one exception: `${configDir}` inside
- * `paths` or `baseUrl` decides which module an import resolves to, and so
- * whether a re-exported name is elided as a type. Unless its config chain uses
- * `${configDir}`, an emit-only build's tsconfig is written beside `emitDir`
- * instead, because such a build runs while the program is running, for an
- * installed package whose directory may be read-only or for a plugin descriptor
- * whose inputs are fingerprinted by their directory's metadata, and a file
- * created and removed in the user's tree would disturb both. The overlay is
- * created exclusively: an occupied name is refused without writing or removing
- * that entry. After acquisition, closing its descriptor and removing the
- * overlay are attempted on success or failure; native cleanup failures may
- * leave the overlay behind.
+ * TypeScript 7.1 can hold the overlay beside the real config in memory.
+ * `buildSingleRootInMemory` takes that route first. The command-line fallback
+ * needs a config file to combine an exact file list with project options. For a
+ * checked root it writes under the owning project's ignored cache, so ancestor
+ * lookup for `types` and implicit `typeRoots` still reaches the owning config
+ * directory. The emit-only lane uses its existing private output directory. In
+ * both lanes inherited `${configDir}` compiler paths retain their owning
+ * directory. The temporary file is created exclusively and removed after the
+ * build.
  *
  * `rootDir` is the root of the source's volume. The layout of this emit is
  * private, so `rootDir` decides nothing here but whether a file of the program
@@ -86,7 +70,7 @@ import { singleRootProjectConfig } from "./singleRootProjectConfig";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Private emit layout, disabled declaration/composite products and checked versus installed-package diagnostics are runtime contract distinctions, not source patches or tests-only compiler modes.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the in-memory route and when it is unavailable, overlay placement, wide rootDir, diagnostics and cleanup, while separately documented input members preserve their ownership facts.
  * @evidence contracts/portability.md#os-neutral-implementation Shared filesystem identity selects the source volume from resolved native identity when available and retained spelling otherwise; overlay JSON converts only native separators, preserving literal POSIX backslashes. Public exclusive creation refuses an occupied overlay name without overwriting it; explicit compiler paths avoid shell interpolation and blanket case folding.
- * @evidence contracts/performance.md#efficient-algorithms An admitted in-memory build replaces every step below with its own single API session; a refused one adds its admission (a project parse and an execution resolution without plugin loading) before them. Emit-only placement parses the config chain and scans its text for configDir anchors; checked placement skips that scan. Native identity resolution, overlay serialization/write, effective-options preparation and delegated compilation contribute path/input/output byte costs; this boundary performs no source-directory mirror or second whole-project compilation.
+ * @evidence contracts/performance.md#efficient-algorithms An admitted in-memory build uses one API session. The command-line route parses the original chain and restates the path options before parsing its overlay. Identity, serialization, effective-options preparation and compilation contribute path/input/output byte costs.
  * @evidence contracts/performance.md#reuse-equivalent-work One effective-options reader for this overlay and exact forwarded tokens is shared by runtime lowering, emit classification and rootDir selection, avoiding duplicate response-file compiler queries. Callers own sharing of completed build generations.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Exclusive open establishes ownership of one transient tsconfig and descriptor. The descriptor is closed before parsing; finally attempts any remaining close and removal after write, close, parse or build failure, without removing a failed-acquisition entry. Native cleanup failures may retain the overlay; caller owns emit storage and delegated build lifetimes.
  */
@@ -146,31 +130,45 @@ export function buildSingleRootProject(props: {
   ).root;
   const inMemory = buildSingleRootInMemory({ ...props, options, volumeRoot });
   if (inMemory !== undefined) return inMemory;
-  const beside =
-    props.checked ||
-    readProjectConfig({ tsconfig: props.tsconfig }).configPaths.some((file) =>
-      fs.readFileSync(file, "utf8").includes("${configDir}"),
-    );
+  const templateOptions: Record<string, unknown> = {};
+  const original = readProjectConfig(
+    {
+      cwd: props.projectRoot,
+      projectRoot: options.projectRoot,
+      tsconfig: props.tsconfig,
+    },
+    templateOptions,
+  );
+  const configDir = path.dirname(original.path);
+  const overlayDirectory = props.checked
+    ? SourceBuildCacheLayout.defaultWorkspaceCachePath(
+        path.join(configDir, "node_modules", ".cache", "ttsc"),
+      )
+    : path.dirname(props.emitDir);
   const tsconfig = path.join(
-    beside ? path.dirname(props.tsconfig) : path.dirname(props.emitDir),
+    overlayDirectory,
     `.ttsx-${props.role}.${props.key}.tsconfig.json`,
   );
-  fs.mkdirSync(path.dirname(tsconfig), { recursive: true });
   let configDescriptor: number | undefined;
   let ownsConfig = false;
   try {
     try {
+      fs.mkdirSync(overlayDirectory, { recursive: true });
       configDescriptor = fs.openSync(tsconfig, "wx");
       ownsConfig = true;
+      const config = singleRootProjectConfig({
+        tsconfig: original.path,
+        source: props.source,
+        volumeRoot,
+        checked: props.checked,
+      });
       fs.writeFileSync(
         configDescriptor,
         JSON.stringify(
-          singleRootProjectConfig({
-            tsconfig: props.tsconfig,
-            source: props.source,
-            volumeRoot,
-            checked: props.checked,
-          }),
+          {
+            ...config,
+            compilerOptions: { ...templateOptions, ...config.compilerOptions },
+          },
           null,
           2,
         ),
@@ -183,10 +181,7 @@ export function buildSingleRootProject(props: {
     }
     const project = readProjectConfig({
       cwd: props.projectRoot,
-      // A tsconfig outside the project would otherwise make its own private
-      // directory the project root.
-      projectRoot:
-        options.projectRoot ?? (beside ? undefined : props.projectRoot),
+      projectRoot: original.root,
       tsconfig,
     });
     fs.mkdirSync(props.emitDir, { recursive: true });
@@ -201,7 +196,11 @@ export function buildSingleRootProject(props: {
       checkers: options.checkers,
       cwd: props.projectRoot,
       emit: true,
-      env: options.env,
+      env: SidecarEnvironment.merge(options.env, {
+        TTSC_SEMANTIC_CONFIG_PATH:
+          SidecarEnvironment.read(options.env, "TTSC_SEMANTIC_CONFIG_PATH") ??
+          original.path,
+      }),
       cacheDir: options.cacheDir,
       outDir: props.emitDir,
       // Every output this build writes stays in ttsx's private directory: a
@@ -227,9 +226,7 @@ export function buildSingleRootProject(props: {
       // Native plugins discover their config files from the tsconfig's
       // directory, which for a private tsconfig is ttsx's cache; anchor them
       // at the real one, as a bundler adapter's temporary overlay does.
-      pluginConfigDir:
-        options.pluginConfigDir ??
-        (beside ? undefined : path.dirname(props.tsconfig)),
+      pluginConfigDir: options.pluginConfigDir ?? configDir,
       plugins: options.plugins,
       quiet: true,
       resolvedProject: project,
@@ -290,10 +287,7 @@ export function buildSingleRootProject(props: {
  * directory and what to do instead of surfacing a bare `EPERM`. Any other
  * failure is returned unchanged.
  *
- * TypeScript-Go's command line cannot combine a project with a file list, so a
- * build that must read the anchors of a tsconfig from its own directory needs a
- * tsconfig in that directory. A read-only checkout, mount, or volume refuses
- * it.
+ * The command-line build requires a private file for its selected root.
  */
 function unwritableConfigDirectory(
   error: unknown,
@@ -305,7 +299,7 @@ function unwritableConfigDirectory(
   return new Error(
     [
       `ttsx: cannot compile ${props.source} with the options of ${props.tsconfig}: ${directory} is not writable (${code}).`,
-      "The file is outside that project's file set, and ttsx compiles it through a temporary tsconfig placed beside the project's own for the length of the build.",
+      "The file is outside that project's file set. ttsx requires writable private storage to pass the selected root to this compiler.",
       `Make the directory writable, or add the file to the project's "include" or "files".`,
       "With TypeScript 7.1 or later, a build without native plugins, a custom compiler or a response file compiles it in memory instead.",
     ].join("\n"),

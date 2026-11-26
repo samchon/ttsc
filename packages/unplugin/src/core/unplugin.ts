@@ -122,17 +122,21 @@ const unpluginFactory: UnpluginFactory<
   // Where a host that cannot write below its root keeps its records
   // (samchon/ttsc#1480): below this user's temporary directory, which every
   // host this factory serves accepts but Farm on another drive.
+  const recordToolDirectory = (): string | undefined =>
+    farmRoot === undefined
+      ? hostToolDirectory(hostRoot())
+      : farmRecordFallback(farmRoot);
   const recordFallback = (): { fallbackToolDirectory?: string } => {
-    const fallback =
-      farmRoot !== undefined
-        ? farmRecordFallback(farmRoot)
-        : fallbackToolDirectory(hostRoot());
+    if (farmRoot !== undefined) return {};
+    const fallback = fallbackToolDirectory(hostRoot());
     return fallback === undefined ? {} : { fallbackToolDirectory: fallback };
   };
-  const recordDirectories = (): string[] => [
-    hostToolDirectory(hostRoot()),
-    ...Object.values(recordFallback()),
-  ];
+  const recordDirectories = (): string[] => {
+    const primary = recordToolDirectory();
+    return primary === undefined
+      ? []
+      : [primary, ...Object.values(recordFallback())];
+  };
   const closeBridge = async (): Promise<void> => {
     const open = bridge;
     bridge = undefined;
@@ -463,7 +467,7 @@ const unpluginFactory: UnpluginFactory<
         farmWatching =
           config.compilation?.mode === "development" ||
           (config.compilation?.watch ?? false) !== false;
-        farmRoot = resolveConfiguredHostRoot(config.root);
+        farmRoot = resolveConfiguredHostRoot(config.root ?? ".");
       },
       // Farm calls buildStart only for the initial compilation. Every update
       // opens a new pass so a failed verdict can recover, while an unchanged
@@ -577,6 +581,7 @@ const unpluginFactory: UnpluginFactory<
         native,
         file,
       );
+      const toolDirectory = recordToolDirectory();
       // Lifecycle admission needs an actual host declaration, rather than the
       // ordinary bridge helper's default when no watch capability is reported.
       const watching =
@@ -589,6 +594,14 @@ const unpluginFactory: UnpluginFactory<
               : native?.framework === "farm"
                 ? farmWatching
                 : (this as { meta?: { watchMode?: boolean } }).meta?.watchMode;
+      if (
+        native?.framework === "farm" &&
+        watching &&
+        toolDirectory === undefined
+      )
+        throw new Error(
+          `@ttsc/unplugin: Farm watch for ${hostRoot()} needs a writable system temporary directory on the same volume to track compiler inputs.`,
+        );
       // What the delivery was handed, for Rollup's cache to be answered by:
       // the record, or that no cache may serve the module.
       const handed: {
@@ -612,37 +625,44 @@ const unpluginFactory: UnpluginFactory<
             serveInputs,
             file,
             serveStartedAt,
-          ) ?? {
-            project: {
-              register: (registration: TtscProjectRegistration) => {
-                registerProjectRecord({
-                  addWatchFile,
-                  ...(bridge !== undefined && bridgeStartedAt !== undefined
-                    ? {
-                        bridge: {
-                          instance: bridge,
-                          startedAt: bridgeStartedAt,
-                        },
-                      }
-                    : {}),
-                  registration,
-                });
-                if (registration.digest === undefined) handed.unprovable = true;
-                else
-                  handed.record = {
-                    digest: registration.digest,
-                    file: registration.record,
-                  };
-              },
-              toolDirectory: hostToolDirectory(hostRoot()),
-              ...recordFallback(),
-              watching: bridge !== undefined,
-            },
-          }),
+          ) ??
+            (toolDirectory === undefined
+              ? {}
+              : {
+                  project: {
+                    register: (registration: TtscProjectRegistration) => {
+                      registerProjectRecord({
+                        addWatchFile,
+                        ...(bridge !== undefined &&
+                        bridgeStartedAt !== undefined
+                          ? {
+                              bridge: {
+                                instance: bridge,
+                                startedAt: bridgeStartedAt,
+                              },
+                            }
+                          : {}),
+                        registration,
+                      });
+                      if (registration.digest === undefined)
+                        handed.unprovable = true;
+                      else
+                        handed.record = {
+                          digest: registration.digest,
+                          file: registration.record,
+                        };
+                    },
+                    toolDirectory,
+                    ...recordFallback(),
+                    watching: bridge !== undefined,
+                  },
+                })),
           // A module the plugin declared volatile depends on non-file inputs,
           // which no file-dependency snapshot can represent; mark it
           // uncacheable where the bundler exposes that control.
-          ...(answersRollupCache(this) || loaderContext?.cacheable !== undefined
+          ...(answersRollupCache(this) ||
+          loaderContext?.cacheable !== undefined ||
+          (native?.framework === "farm" && toolDirectory === undefined)
             ? {
                 markVolatile: () => {
                   handed.unprovable = true;

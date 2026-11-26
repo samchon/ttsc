@@ -18,9 +18,9 @@ import (
 // 2. Block that cache and verify the config-directory fallback; verify the no-modules fallback when no ambient install is present.
 // 3. Create a real junction and require the cache beneath its physical target.
 //
-// @evidence contracts/testing.md#behavioral-verification loaderTempBase chooses and creates the same-volume cache for a differing fake temp volume, falls back when cache creation is blocked or no node_modules exists, and returns the canonical cache behind a real junction.
+// @evidence contracts/testing.md#behavioral-verification loaderTempBase chooses and creates the same-volume cache for a differing fake temp volume, refuses when cache creation is blocked or no node_modules exists, and returns the canonical cache behind a real junction.
 // @evidence contracts/testing.md#independent-expectations The authored differing drive, known fixture directories, os.Stat creation result and independent filepath.EvalSymlinks identity establish the expected placement.
-// @evidence contracts/testing.md#distinguishing-cases Owns cache creation, blocked-cache fallback, conditionally isolated no-modules fallback and junction target identity; same-volume and relative-path defaults remain in TestLoaderTempBaseStaysOnConfigVolume.
+// @evidence contracts/testing.md#distinguishing-cases Owns cache creation, blocked-cache refusal, conditionally isolated no-modules refusal and junction target identity; same-volume and relative-path defaults remain in TestLoaderTempBaseStaysOnConfigVolume.
 // @evidence contracts/testing.md#execution-ownership This Windows-constrained Go unit directly invokes the maintained package operation in the owning linthost process over disposable filesystem inputs. Windows supplies aliases and junction fixtures; no installed SDK, source overlay, product build or product host child is required. Fixture-only mklink preparation does not execute the behavior under test.
 func TestWindowsLoaderTempBaseStaysOnConfigVolume(t *testing.T) {
   root := t.TempDir()
@@ -52,9 +52,7 @@ func TestWindowsLoaderTempBaseStaysOnConfigVolume(t *testing.T) {
   if stat, err := os.Stat(base); err != nil || !stat.IsDir() {
     t.Fatalf("cross-volume base was not created: %v", err)
   }
-  // A file squatting on node_modules/.cache blocks the cache dir; the
-  // config's own directory is still on the right volume, unlike the system
-  // temp dir which is guaranteed to fail.
+  // A blocked cache cannot authorize writing beside the config.
   blockedRoot := t.TempDir()
   if err := os.MkdirAll(filepath.Join(blockedRoot, "node_modules"), 0o755); err != nil {
     t.Fatal(err)
@@ -62,21 +60,21 @@ func TestWindowsLoaderTempBaseStaysOnConfigVolume(t *testing.T) {
   if err := os.WriteFile(filepath.Join(blockedRoot, "node_modules", ".cache"), nil, 0o644); err != nil {
     t.Fatal(err)
   }
-  if base := loaderTempBase(filepath.Join(blockedRoot, "lint.config.ts"), fake); base != blockedRoot {
-    t.Fatalf("blocked-cache base mismatch: %q != %q", base, blockedRoot)
+  if base := loaderTempBase(filepath.Join(blockedRoot, "lint.config.ts"), fake); base != "" {
+    t.Fatalf("blocked cache must leave the config directory untouched: %q", base)
   }
-  // Same fallback without any node_modules. Guarded: a stray node_modules
+  // Same refusal without any node_modules. Guarded: a stray node_modules
   // above the test temp dir would legitimately route to its .cache.
   bare := t.TempDir()
   if findNearestNodeModules(bare) == "" {
-    if base := loaderTempBase(filepath.Join(bare, "lint.config.ts"), fake); base != bare {
-      t.Fatalf("no-node_modules base mismatch: %q != %q", base, bare)
+    if base := loaderTempBase(filepath.Join(bare, "lint.config.ts"), fake); base != "" {
+      t.Fatalf("a missing installation must leave the config directory untouched: %q", base)
     }
   }
   // Junction node_modules (privilege-free on Windows, and this section only
   // runs on drive-letter platforms).
   linkedRoot := t.TempDir()
-  realModules := filepath.Join(linkedRoot, "real-modules")
+  realModules := filepath.Join(linkedRoot, "real-installation", "node_modules")
   project := filepath.Join(linkedRoot, "project")
   for _, dir := range []string{realModules, project} {
     if err := os.MkdirAll(dir, 0o755); err != nil {

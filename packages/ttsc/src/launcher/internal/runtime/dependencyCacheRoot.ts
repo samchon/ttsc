@@ -1,10 +1,10 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { RuntimeEmitBundle } from "../../../compiler/internal/build/RuntimeEmitBundle";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
 import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
 
@@ -30,6 +30,7 @@ import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
  * certified here.
  *
  * @param env Environment to read the descriptor-evaluation variables from.
+ * @param projectRoot Project whose emitted dependencies need private storage.
  * @evidence contracts/common.md#principled-implementation Descriptor-owned output, a checked run's depCacheDir and a manifest-less process directory are distinct lifetime authorities; selecting in that order keeps dependency emit with the owner that removes it.
  * @evidence contracts/common.md#clear-and-simple-design One root selector owns the three supported execution contexts, with process-directory acquisition isolated in a private helper.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing manifest selects a genuinely process-owned cache rather than persistent path-only reuse; descriptor channels are explicit host inputs, not fixture-specific names.
@@ -41,6 +42,7 @@ import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
  */
 export function dependencyCacheRoot(
   env: NodeJS.ProcessEnv = process.env,
+  projectRoot: string = process.cwd(),
 ): string {
   // Descriptor evaluators are disposable and must not leave one isolated emit
   // generation in the shared temp cache per load. Their result file already
@@ -60,11 +62,10 @@ export function dependencyCacheRoot(
   const owner = RuntimeManifestRegistry.runtimeManifests().find(
     (candidate) => candidate.depCacheDir.length !== 0,
   );
-  return owner !== undefined ? owner.depCacheDir : processPrivateRoot();
+  return owner !== undefined
+    ? owner.depCacheDir
+    : processPrivateRoot(projectRoot);
 }
-
-/** Parent of the per-process directories of manifest-less runtimes. */
-const PROCESS_ROOT_PARENT = path.join(os.tmpdir(), "ttsx-dep");
 
 /** Prefix of a per-process directory's name, which the sweep recognizes. */
 const PROCESS_ROOT_PREFIX = "process-";
@@ -76,17 +77,24 @@ let processRoot: string | undefined;
  * record, and removed on exit. Creating it first sweeps the directories of
  * processes on this host that are gone.
  */
-function processPrivateRoot(): string {
+function processPrivateRoot(projectRoot: string): string {
   if (processRoot !== undefined) return processRoot;
+  const parent = path.join(systemTempOutsideProject(projectRoot), "ttsx-dep");
+  try {
+    fs.mkdirSync(parent);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  }
+  if (!fs.lstatSync(parent).isDirectory())
+    throw new Error(`ttsx: unsafe private dependency cache: ${parent}`);
   ProcessOwnedDirectory.sweep(
-    PROCESS_ROOT_PARENT,
+    parent,
     (name) => name.startsWith(PROCESS_ROOT_PREFIX),
     true,
   );
-  fs.mkdirSync(PROCESS_ROOT_PARENT, { recursive: true });
   const directory = createCanonicalTempDirectory(
     `${PROCESS_ROOT_PREFIX}${process.pid}-`,
-    PROCESS_ROOT_PARENT,
+    parent,
   );
   try {
     ProcessOwnedDirectory.admit(directory, process.pid);

@@ -37,7 +37,11 @@ func TestConfigLoaderTempBaseStaysOnConfigVolume(t *testing.T) {
   if err := os.MkdirAll(filepath.Join(root, "node_modules"), 0o755); err != nil {
     t.Fatal(err)
   }
-  config := filepath.Join(root, "strip.config.ts")
+  configDir := filepath.Join(root, "project")
+  if err := os.Mkdir(configDir, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  config := filepath.Join(configDir, "strip.config.ts")
   if base := stripLoaderTempBase(config, root); base != "" {
     t.Fatalf("same-volume base mismatch: %q", base)
   }
@@ -70,9 +74,7 @@ func TestConfigLoaderTempBaseStaysOnConfigVolume(t *testing.T) {
   if stat, err := os.Stat(base); err != nil || !stat.IsDir() {
     t.Fatalf("cross-volume base was not created: %v", err)
   }
-  // A file squatting on node_modules/.cache blocks the cache dir; the
-  // config's own directory is still on the right volume, unlike the system
-  // temp dir which is guaranteed to fail.
+  // A blocked cache cannot authorize writing beside the config.
   blockedRoot := t.TempDir()
   if err := os.MkdirAll(filepath.Join(blockedRoot, "node_modules"), 0o755); err != nil {
     t.Fatal(err)
@@ -80,21 +82,21 @@ func TestConfigLoaderTempBaseStaysOnConfigVolume(t *testing.T) {
   if err := os.WriteFile(filepath.Join(blockedRoot, "node_modules", ".cache"), nil, 0o644); err != nil {
     t.Fatal(err)
   }
-  if base := stripLoaderTempBase(filepath.Join(blockedRoot, "strip.config.ts"), fake); base != blockedRoot {
-    t.Fatalf("blocked-cache base mismatch: %q != %q", base, blockedRoot)
+  if base := stripLoaderTempBase(filepath.Join(blockedRoot, "strip.config.ts"), fake); base != "" {
+    t.Fatalf("blocked cache must leave the config directory untouched: %q", base)
   }
-  // Same fallback without any node_modules. Guarded: a stray node_modules
+  // Same refusal without any node_modules. Guarded: a stray node_modules
   // above the test temp dir would legitimately route to its .cache.
   bare := t.TempDir()
   if stripFindNearestNodeModules(bare) == "" {
-    if base := stripLoaderTempBase(filepath.Join(bare, "strip.config.ts"), fake); base != bare {
-      t.Fatalf("no-node_modules base mismatch: %q != %q", base, bare)
+    if base := stripLoaderTempBase(filepath.Join(bare, "strip.config.ts"), fake); base != "" {
+      t.Fatalf("a missing installation must leave the config directory untouched: %q", base)
     }
   }
   // Junction node_modules (privilege-free on Windows, and this section only
   // runs on drive-letter platforms).
   linkedRoot := t.TempDir()
-  realModules := filepath.Join(linkedRoot, "real-modules")
+  realModules := filepath.Join(linkedRoot, "real-installation", "node_modules")
   project := filepath.Join(linkedRoot, "project")
   for _, dir := range []string{realModules, project} {
     if err := os.MkdirAll(dir, 0o755); err != nil {

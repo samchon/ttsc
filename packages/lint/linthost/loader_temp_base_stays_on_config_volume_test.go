@@ -15,7 +15,7 @@ import (
 // 2. Assert same-volume and relative config inputs retain the empty default.
 //
 // @evidence contracts/testing.md#behavioral-verification loaderTempBase returns the empty system-temp default for a same-volume config and for a relative volume-free config, preventing unnecessary project cache creation.
-// @evidence contracts/testing.md#independent-expectations The historical temp-placement contract retains the default unless a config and temp location have different volumes; independently authored same-root and relative inputs require the literal empty result.
+// @evidence contracts/testing.md#independent-expectations The historical temp-placement contract retains an existing same-volume TEMP outside the config directory; independently authored same-root and relative inputs require the literal empty result.
 // @evidence contracts/testing.md#distinguishing-cases Owns same-volume absolute and volume-free relative inputs; TestWindowsLoaderTempBaseStaysOnConfigVolume preserves the differing-volume and kernel-junction branches.
 // @evidence contracts/testing.md#execution-ownership This selected Go unit calls loaderTempBase in-process with an authored fixture directory; it launches no host, installation, native artifact or junction command.
 func TestLoaderTempBaseStaysOnConfigVolume(t *testing.T) {
@@ -23,7 +23,11 @@ func TestLoaderTempBaseStaysOnConfigVolume(t *testing.T) {
   if err := os.MkdirAll(filepath.Join(root, "node_modules"), 0o755); err != nil {
     t.Fatal(err)
   }
-  config := filepath.Join(root, "lint.config.ts")
+  configDir := filepath.Join(root, "project")
+  if err := os.Mkdir(configDir, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  config := filepath.Join(configDir, "lint.config.ts")
   if base := loaderTempBase(config, root); base != "" {
     t.Fatalf("same-volume base mismatch: %q", base)
   }

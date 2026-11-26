@@ -49,6 +49,7 @@ import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
  */
 export function readProjectConfig(
   opts: ITtscProjectLocatorOptions = {},
+  overlayTemplateOptions?: Record<string, unknown>,
 ): ITtscParsedProjectConfig {
   const configInputs = new Set<string>();
   const onInput = (file: string): void => {
@@ -64,6 +65,12 @@ export function readProjectConfig(
     path.dirname(tsconfig),
     onInput,
   );
+  if (overlayTemplateOptions !== undefined) {
+    Object.assign(
+      overlayTemplateOptions,
+      resolveOverlayTemplateOptions(compilerOptions, path.dirname(tsconfig)),
+    );
+  }
   return {
     configInputs: [...configInputs].sort(),
     configInputsComplete: compilerOptions.configInputsComplete,
@@ -101,6 +108,67 @@ const PATH_OPTIONS = new Set([
   "tsBuildInfoFile",
 ]);
 const CONFIG_DIR_TEMPLATE = "${configDir}";
+
+/** Restate paths whose anchor would move when a disk overlay consumes them. */
+function resolveOverlayTemplateOptions(
+  resolved: ResolvedCompilerOptions,
+  configDir: string,
+): Record<string, unknown> {
+  const { options, optionBaseDirs } = resolved;
+  const output: Record<string, unknown> = {};
+  const usesTemplate = (value: unknown): value is string =>
+    typeof value === "string" &&
+    value.toLowerCase().startsWith(CONFIG_DIR_TEMPLATE.toLowerCase());
+  for (const key of PATH_OPTIONS) {
+    const value = options[key];
+    if (typeof value === "string") output[key] = value;
+  }
+  for (const key of ["generateCpuProfile", "generateTrace"]) {
+    const value = options[key];
+    if (usesTemplate(value))
+      output[key] = resolveCompilerOptionPath(configDir, configDir, value);
+  }
+  for (const key of ["rootDirs", "typeRoots"]) {
+    const value = options[key];
+    if (Array.isArray(value) && value.some(usesTemplate))
+      output[key] = value.map((entry) =>
+        typeof entry === "string"
+          ? resolveCompilerOptionPath(optionBaseDirs[key]!, configDir, entry)
+          : entry,
+      );
+  }
+  const paths = options.paths;
+  if (paths !== null && typeof paths === "object" && !Array.isArray(paths)) {
+    const entries = Object.entries(paths);
+    if (
+      entries.some(
+        ([, targets]) => Array.isArray(targets) && targets.some(usesTemplate),
+      )
+    ) {
+      const base =
+        typeof options.baseUrl === "string"
+          ? options.baseUrl
+          : optionBaseDirs.paths!;
+      output.paths = Object.fromEntries(
+        entries.map(([key, targets]) => [
+          key,
+          Array.isArray(targets)
+            ? targets.map((target) =>
+                typeof target === "string"
+                  ? resolveCompilerOptionPath(
+                      base,
+                      configDir,
+                      target,
+                    ).replaceAll(path.sep, "/")
+                  : target,
+              )
+            : targets,
+        ]),
+      );
+    }
+  }
+  return output;
+}
 
 /**
  * Intermediate type used during `extends`-chain resolution before the result is

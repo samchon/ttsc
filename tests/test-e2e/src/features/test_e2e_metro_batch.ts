@@ -4664,7 +4664,14 @@ async function runResidentLoaderPool(): Promise<void> {
       const projectRecordFile = turbopack.dependencies[0]!;
       assert.equal(
         path.dirname(projectRecordFile),
-        path.join(workspace.root, ".ttsc", "records"),
+        path.join(
+          workspace.root,
+          "node_modules",
+          ".cache",
+          "ttsc",
+          "unplugin",
+          "records",
+        ),
       );
       const record = JSON.parse(fs.readFileSync(projectRecordFile, "utf8"));
       assert.equal(record.root, fs.realpathSync.native(workspace.root));

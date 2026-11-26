@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type { TtscProjectRecord } from "./TtscProjectRecord";
+import { prepareProjectRecordDirectory } from "./prepareProjectRecordDirectory";
 import { projectRecordDigest } from "./projectRecordDigest";
 
 /**
@@ -48,6 +49,10 @@ export function writeProjectRecordFile(
   file: string,
   record: TtscProjectRecord,
 ): string {
+  const directory = prepareProjectRecordDirectory(path.dirname(file));
+  const target = path.join(directory, path.basename(file));
+  if (fs.lstatSync(target, { throwIfNoEntry: false })?.isSymbolicLink())
+    throw new Error(`@ttsc/unplugin: unsafe project record file: ${target}`);
   const text = JSON.stringify(record, (_key, value: unknown) =>
     value !== null && typeof value === "object" && !Array.isArray(value)
       ? Object.fromEntries(
@@ -59,11 +64,10 @@ export function writeProjectRecordFile(
   );
   const digest = projectRecordDigest(text);
   try {
-    if (fs.readFileSync(file, "utf8") === text) return digest;
+    if (fs.readFileSync(target, "utf8") === text) return digest;
   } catch {
     // Absent or unreadable: written below.
   }
-  fs.mkdirSync(path.dirname(file), { recursive: true });
   // In place, into the file the host is watching, never beside it and over
   // it. A host watches the record by its path, and replacing the path's file
   // detaches a watcher that holds the one behind it: Rollup's, whose own
@@ -82,6 +86,6 @@ export function writeProjectRecordFile(
   // as a record whose state moved (`refreshProjectRecordFiles`), which is the
   // answer a proof that cannot run already gives. Continued concurrent writes
   // or failed deliveries can repeat invalidation; no one-rebuild bound exists.
-  fs.writeFileSync(file, text);
+  fs.writeFileSync(target, text);
   return digest;
 }

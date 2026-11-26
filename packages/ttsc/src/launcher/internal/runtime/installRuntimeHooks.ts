@@ -1594,7 +1594,7 @@ function emitCommonJsForNameScan(real: string): string | null {
  * (`dependencyCacheRoot`), which is removed with the evaluation or the process
  * that made them.
  */
-function orphanCacheRoot(): string {
+function orphanCacheRoot(filename: string): string {
   const owner = RuntimeManifestRegistry.runtimeManifests().find(
     (candidate) =>
       typeof candidate.orphanCacheDir === "string" &&
@@ -1602,7 +1602,10 @@ function orphanCacheRoot(): string {
   );
   return owner !== undefined
     ? owner.orphanCacheDir!
-    : path.join(dependencyCacheRoot(), "orphan");
+    : path.join(
+        dependencyCacheRoot(process.env, path.dirname(filename)),
+        "orphan",
+      );
 }
 
 /**
@@ -1742,7 +1745,7 @@ function orphanCacheFile(
     .slice(0, 32);
   return {
     compiler,
-    file: path.join(orphanCacheRoot(), `${key}.js`),
+    file: path.join(orphanCacheRoot(filename), `${key}.js`),
     signature,
     source,
   };
@@ -2378,7 +2381,7 @@ function dependencyCachePaths(
     compilerIdentity: compilerProof ?? crypto.randomUUID(),
     plugins,
   });
-  const root = dependencyCacheRoot();
+  const root = dependencyCacheRoot(process.env, path.dirname(tsconfig));
   return {
     cacheDir: path.join(root, key),
     lockDir: path.join(root, `${key}.lock`),

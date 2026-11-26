@@ -79,11 +79,13 @@ function resolveSourceBuildCacheRoot(
     // through path.resolve unchanged.
     return path.resolve(projectRoot, configured);
   }
-  return path.join(
-    resolveWorkspaceRoot(projectRoot),
-    SourceBuildCacheLayout.NODE_MODULES_DIRNAME,
-    LOCAL_CACHE_PARENT_DIRNAME,
-    SourceBuildCacheLayout.TTSC_CACHE_DIRNAME,
+  return SourceBuildCacheLayout.defaultWorkspaceCachePath(
+    path.join(
+      resolveWorkspaceRoot(projectRoot),
+      SourceBuildCacheLayout.NODE_MODULES_DIRNAME,
+      LOCAL_CACHE_PARENT_DIRNAME,
+      SourceBuildCacheLayout.TTSC_CACHE_DIRNAME,
+    ),
   );
 }
 

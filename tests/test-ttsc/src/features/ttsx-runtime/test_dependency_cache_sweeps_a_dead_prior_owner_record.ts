@@ -32,7 +32,9 @@ export function test_dependency_cache_sweeps_a_dead_prior_owner_record(): void {
   try {
     const home = path.join(root, "clean-process-home");
     const temporary = path.join(home, "tmp");
+    const project = path.join(root, "project");
     fs.mkdirSync(temporary, { recursive: true });
+    fs.mkdirSync(project);
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       HOME: home,
@@ -82,7 +84,7 @@ export function test_dependency_cache_sweeps_a_dead_prior_owner_record(): void {
         `delete process.env.TTSX_RUNTIME_MANIFEST; require(${JSON.stringify(modulePath)}).dependencyCacheRoot({});`,
       ],
       {
-        cwd: root,
+        cwd: project,
         env,
         encoding: "utf8",
         maxBuffer: 1024 * 1024 * 64,
@@ -107,6 +109,34 @@ export function test_dependency_cache_sweeps_a_dead_prior_owner_record(): void {
     });
     observe("legacy dead root removed", () => {
       assert.equal(fs.existsSync(dead), false, "the old dead root remained");
+    });
+    observe("project-local TEMP remains absent", () => {
+      const invalidTemp = path.join(project, ".tmp");
+      fs.mkdirSync(path.join(home, "AppData", "Local", "Temp"), {
+        recursive: true,
+      });
+      const run = childProcess.spawnSync(
+        process.execPath,
+        [
+          "--import",
+          loader,
+          "-e",
+          `delete process.env.TTSX_RUNTIME_MANIFEST; require(${JSON.stringify(modulePath)}).dependencyCacheRoot({});`,
+        ],
+        {
+          cwd: project,
+          env: {
+            ...env,
+            TMPDIR: invalidTemp,
+            TEMP: invalidTemp,
+            TMP: invalidTemp,
+          },
+          encoding: "utf8",
+          windowsHide: true,
+        },
+      );
+      assert.equal(run.status, 0, run.stderr || run.error?.message);
+      assert.equal(fs.existsSync(invalidTemp), false);
     });
     observe("legacy live root retained", () => {
       assert.equal(fs.existsSync(live), true, "the old live root was removed");
