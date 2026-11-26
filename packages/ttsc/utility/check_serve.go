@@ -209,13 +209,7 @@ func (s *checkServeState) check(reused bool) checkServeResponse {
     prog = loaded
     diags = loadDiags
     if !loaded.HasMutatingLinkedCheckPlugins() {
-      session, err := driver.NewSessionFromProgram(opts.cwd, overlay, loaded)
-      if err != nil {
-        _ = loaded.Close()
-        fmt.Fprintf(&stderr, "ttsc utility check-serve: %v\n", err)
-        return checkServeResponse{Status: 2, Stdout: stdout.String(), Stderr: stderr.String()}
-      }
-      s.session = session
+      s.session = driver.NewSessionFromProgram(opts.cwd, overlay, loaded)
     } else {
       defer loaded.Close()
     }

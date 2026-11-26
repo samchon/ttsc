@@ -155,17 +155,18 @@ func TestDriverPooledProgramRefusesDeclarationShapeDigest(t *testing.T) {
 }
 
 // TestDriverNewSessionFromProgramRefusesPooledProgram verifies that
-// NewSessionFromProgram enforces single-checker residency by refusing a pooled
-// Program with an error naming why, and accepting a pinned Program.
+// NewSessionFromProgram enforces single-checker residency by panicking on a
+// pooled Program with a message naming why, and accepting a pinned Program,
+// while keeping its established single-result signature.
 //
 //  1. Load a pooled Program over an OverlayFS under TTSC_BATCH=1 with
 //     ForceNoEmit, assert live pool size > 1, and assert NewSessionFromProgram
-//     returns nil and the resident-session single-checker error.
+//     panics with the resident-session single-checker message.
 //  2. Load a pinned Program over an OverlayFS without TTSC_BATCH and assert
-//     NewSessionFromProgram returns a non-nil Session wrapping that Program.
+//     NewSessionFromProgram returns a Session wrapping that Program.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls NewSessionFromProgram with both a real pooled Program and a real pinned Program loaded over OverlayFS.
-// @evidence contracts/testing.md#independent-expectations The resident-session contract requires rejecting any pooled Program with an error explaining that a resident session's diagnostics must come from the checker its reads use, while admitting a pinned Program.
+// @evidence contracts/testing.md#independent-expectations The resident-session contract requires refusing any pooled Program with a message explaining that a resident session's diagnostics must come from the checker its reads use, while admitting a pinned Program through the signature existing hosts call.
 // @evidence contracts/testing.md#distinguishing-cases Covers pooled refusal and pinned acceptance at the NewSessionFromProgram boundary without relying on the launcher clearing TTSC_BATCH; NewSession itself is covered by the sibling checker-count test.
 // @evidence contracts/testing.md#execution-ownership Discoverable Go unit in package driver_test using in-process LoadProgram, OverlayFS and NewSessionFromProgram; no native binary or consumer install runs.
 func TestDriverNewSessionFromProgramRefusesPooledProgram(t *testing.T) {
@@ -186,13 +187,16 @@ func TestDriverNewSessionFromProgramRefusesPooledProgram(t *testing.T) {
 		t.Fatalf("expected pooled Program (>1 checker), got %d", count)
 	}
 
-	sess, err := driver.NewSessionFromProgram(root, pooledOverlay, pooled)
-	if err == nil || sess != nil {
-		t.Fatalf("NewSessionFromProgram(pooled) = (%v, %v), want (nil, error)", sess, err)
-	}
+	refusal := func() (recovered any) {
+		defer func() { recovered = recover() }()
+		sess := driver.NewSessionFromProgram(root, pooledOverlay, pooled)
+		t.Errorf("NewSessionFromProgram(pooled) = %v, want a panic", sess)
+		return nil
+	}()
+	message, ok := refusal.(string)
 	wantSubstr := "a resident session's diagnostics must come from the checker its reads use"
-	if !strings.Contains(err.Error(), wantSubstr) {
-		t.Fatalf("NewSessionFromProgram error = %q, want substring %q", err.Error(), wantSubstr)
+	if !ok || !strings.Contains(message, wantSubstr) {
+		t.Fatalf("NewSessionFromProgram(pooled) panic = %#v, want a message containing %q", refusal, wantSubstr)
 	}
 
 	t.Setenv(shimcompiler.BatchEnv, "")
@@ -205,11 +209,7 @@ func TestDriverNewSessionFromProgramRefusesPooledProgram(t *testing.T) {
 		t.Fatalf("pinned LoadProgram: prog=%v diags=%#v err=%v", pinned, diags, err)
 	}
 
-	okSess, err := driver.NewSessionFromProgram(root, pinnedOverlay, pinned)
-	if err != nil || okSess == nil {
-		_ = pinned.Close()
-		t.Fatalf("NewSessionFromProgram(pinned) = (%v, %v), want non-nil Session and nil error", okSess, err)
-	}
+	okSess := driver.NewSessionFromProgram(root, pinnedOverlay, pinned)
 	defer okSess.Close()
 	if okSess.Program() != pinned {
 		t.Fatalf("NewSessionFromProgram(pinned).Program() = %p, want %p", okSess.Program(), pinned)
