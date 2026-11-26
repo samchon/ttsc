@@ -451,16 +451,20 @@ export namespace RuntimeBuildInputs {
               tracedOutput = undefined;
               if (execution.nativePlugins.length !== 0) return undefined;
               const marker = pretraceMarker();
-              if (marker === undefined || !fs.existsSync(marker))
+              if (marker === undefined || !fs.existsSync(marker)) {
                 // The emitting run traces its own resolution. The trace is
                 // kept and its files are hashed when the result is published,
                 // after the program has started; each must have stopped
                 // changing before the store opened, ahead of the compile, and
                 // one that cannot be shown to have marks this build to trace
-                // beforehand instead.
+                // beforehand instead. Force any temporary-volume reference now,
+                // before the compile runs, so parked and post-compile proofs
+                // compare against pre-compile stamps.
+                PluginContentIdentities.ensureTemporaryReference(identities);
                 return (output, status) => {
                   if (status === 0) tracedOutput = output;
                 };
+              }
               // An input of this build lives where no clock reference shows
               // its bytes predate the compile, such as another volume. Its
               // resolution is traced and hashed before the compile, and the
