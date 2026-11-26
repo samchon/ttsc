@@ -16,7 +16,9 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * The directory is per-call, so ordinary concurrent captures use separate
  * destinations. A descriptor child with a selected record root captures below
  * its existing identities directory, keeping a project-root TEMP from changing
- * the missing-input proof during evaluation. Other callers use system TEMP.
+ * the missing-input proof during evaluation. A source-plugin build can instead
+ * supply its own capture directory inside its held cache lock. Other callers
+ * use system TEMP.
  *
  * This is not held-directory protection against namespace mutation. Descriptor
  * acquisition failures attempt rollback; cleanup failures are suppressed, and
@@ -24,7 +26,7 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * owns the returned capture and must dispose it after reading; read failures
  * propagate, while disposal is idempotent and cleanup is best effort.
  *
- * @evidence contracts/common.md#principled-implementation Precreated files receive exact child stream bytes through inherited descriptors; a descriptor load uses only its preexisting, canonical selected identities directory, while other captures retain system TEMP. Decoding happens on read, and I/O errors cannot masquerade as empty successful output.
+ * @evidence contracts/common.md#principled-implementation Precreated files receive exact child stream bytes through inherited descriptors. An explicit directory is exclusively created within the calling build's held cache lock; other captures use the descriptor's identities directory or system TEMP. Decoding happens on read, and I/O errors cannot masquerade as empty successful output.
  * @evidence contracts/common.md#clear-and-simple-design One capture owns two descriptors and their private directory. The shared record-parent selector checks the descriptor's existing cache before allocation; acquisition rollback and disposal share cleanup helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported Node filesystem and descriptor APIs capture diagnostics without foreign mutation, expected-output substitution or an arbitrary output ceiling; an absent or invalid private root does not invent a cache.
  * @evidence contracts/common.md#meaningful-documentation Separate purpose, placement, limits and ownership paragraphs explain the descriptor-only placement and actual failure effects rather than claiming unlimited output.
@@ -37,15 +39,19 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  */
 export function captureProcessOutput(
   env: NodeJS.ProcessEnv = process.env,
+  ownedDirectory?: string,
 ): CapturedProcessOutput {
   const recordRoot =
     env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
       ? SidecarEnvironment.read(env, "TTSC_PLUGIN_RECORD_ROOT")
       : undefined;
-  const directory = createCanonicalTempDirectory(
-    "ttsc-spawn-",
-    selectedRecordIdentityTempParent(recordRoot),
-  );
+  const directory =
+    ownedDirectory ??
+    createCanonicalTempDirectory(
+      "ttsc-spawn-",
+      selectedRecordIdentityTempParent(recordRoot),
+    );
+  if (ownedDirectory !== undefined) fs.mkdirSync(ownedDirectory);
   const stdoutPath = path.join(directory, "stdout");
   const stderrPath = path.join(directory, "stderr");
   let stdoutFd: number;

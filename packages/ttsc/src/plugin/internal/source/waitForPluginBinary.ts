@@ -8,9 +8,11 @@ import { formatDuration } from "./formatDuration";
 import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
 
 /**
- * Poll for binary pathname publication using a monotonic admission budget.
+ * Poll for binary pathname publication using a monotonic idle budget.
  * `timeoutMs` is checked between observations, not a hard wall-clock limit: the
- * synchronous inspector can retry internally and native calls can block.
+ * synchronous inspector can retry internally and native calls can block. New
+ * bytes in the current generation's Go diagnostics extend the budget. The same
+ * generation remaining alive without output does not extend it.
  *
  * Pending native guards suppress binary adoption while the existing bounded
  * wait continues. Unknown or malformed guards refuse immediately. A timeout
@@ -23,7 +25,7 @@ import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
  * polling sleep; cancellation never retires the holder's generation.
  *
  * @evidence contracts/common.md#principled-implementation Polling first refuses unknown/malformed native guards, suppresses publication while pending and rechecks after observed release; actual abandoned-owner observations retain their exact generation, while budget expiry fails without revoking a possibly active payload task.
- * @evidence contracts/common.md#clear-and-simple-design The loop separates publication, release, retirement and periodic status reporting; generation interpretation belongs to inspectPluginBuildLock.
+ * @evidence contracts/common.md#clear-and-simple-design The loop separates publication, release, retirement and periodic status reporting; the inspector pairs observed diagnostics with their generation and the caller shares the idle budget across admission loops.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Budget expiry throws instead of retiring a live-looking generation and compensating for concurrent callbacks; status output never substitutes for ownership evidence.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe monotonic wait units, distinct results and timeout failure without retirement; owner-aware diagnostics identify the actual contended key.
  * @evidence contracts/portability.md#os-neutral-implementation Node filesystem existence and the shared lock inspector implement native observations; waiting uses platform-neutral shared-memory sleep.
@@ -41,8 +43,10 @@ export function waitForPluginBinary(opts: {
     quiet: boolean;
   };
   timeoutMs: number;
+  idle?: { lastProgressAt: number; generation?: string; outputBytes?: number };
 }): PluginBinaryWaitResult {
   const startedAt = performance.now();
+  const idle = opts.idle ?? { lastProgressAt: startedAt };
   let nextStatusAt = startedAt + PLUGIN_BUILD_LOCK_STATUS_MS;
   const protocolDir = PluginBuildLockProtocol.pluginBuildLockProtocolDir(
     opts.lockDir,
@@ -56,8 +60,7 @@ export function waitForPluginBinary(opts: {
       OwnedSynchronousProcess.checkpoint();
       return { outcome: "published" };
     }
-    const clock = performance.now();
-    const lock = inspectPluginBuildLock(opts.lockDir);
+    const lock = inspectPluginBuildLock(opts.lockDir, true);
     OwnedSynchronousProcess.checkpoint();
     if (lock.state === "released") {
       // The holder retired its generation between the binary check above and
@@ -78,9 +81,20 @@ export function waitForPluginBinary(opts: {
         fence: lock.fence,
       };
     }
-    if (clock - startedAt >= opts.timeoutMs) {
+    const clock = performance.now();
+    if (lock.fence.generation !== idle.generation) {
+      idle.generation = lock.fence.generation;
+      idle.outputBytes = lock.outputBytes;
+    } else if (
+      lock.outputBytes !== undefined &&
+      lock.outputBytes > (idle.outputBytes ?? 0)
+    ) {
+      idle.outputBytes = lock.outputBytes;
+      idle.lastProgressAt = clock;
+    }
+    if (clock - idle.lastProgressAt >= opts.timeoutMs) {
       throw new Error(
-        `ttsc: timed out after ${formatDuration(clock - startedAt)} waiting for ` +
+        `ttsc: timed out after ${formatDuration(clock - idle.lastProgressAt)} waiting for ` +
           `${opts.lockInfo.label} "${opts.lockInfo.pluginName}" at ${opts.lockDir}; ` +
           `${lock.owner} may still be running; ` +
           `${SourceNativeRetirement.describeProtection(protocolDir) ?? "native ownership has no additional guard"}`,
@@ -99,7 +113,7 @@ export function waitForPluginBinary(opts: {
     OwnedSynchronousProcess.sleep(
       Math.min(
         PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_POLL_MS,
-        Math.max(0, opts.timeoutMs - (performance.now() - startedAt)),
+        Math.max(0, opts.timeoutMs - (performance.now() - idle.lastProgressAt)),
       ),
     );
   }

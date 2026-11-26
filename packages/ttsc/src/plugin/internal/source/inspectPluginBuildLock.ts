@@ -39,13 +39,14 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  */
 export function inspectPluginBuildLock(
   lockDir: string,
+  observeOutput: boolean = false,
 ): PluginBuildLockObservation {
   const protocolDir =
     PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir);
   SourceNativeRetirement.assertAvailable(protocolDir);
   for (;;) {
     if (PluginBuildLockProtocol.isPluginBuildLockProtocolV3(protocolDir)) {
-      const current = inspectV3PluginBuildLock(protocolDir);
+      const current = inspectV3PluginBuildLock(protocolDir, observeOutput);
       if (current.state !== "released") {
         return current;
       }
@@ -66,7 +67,10 @@ export function inspectPluginBuildLock(
 // incarnation token keeps a reused PID or another worker's module separate.
 const PLUGIN_BUILD_LOCK_OBSERVER = crypto.randomBytes(16).toString("hex");
 
-function inspectV3PluginBuildLock(lockDir: string): PluginBuildLockObservation {
+function inspectV3PluginBuildLock(
+  lockDir: string,
+  observeOutput: boolean,
+): PluginBuildLockObservation {
   const generationDir = path.join(
     lockDir,
     PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CURRENT_DIR,
@@ -85,6 +89,10 @@ function inspectV3PluginBuildLock(lockDir: string): PluginBuildLockObservation {
   }
   const fence: PluginBuildLockFence = { protocol: "v3", generation };
   const owner = PluginBuildLockOwner.read(generationDir);
+  const outputBytes =
+    observeOutput && owner?.generation === generation
+      ? observeBuildOutput(generationDir)
+      : undefined;
   // Owner and generation are read through a mutable current pathname. A
   // replacement must not inherit an earlier generation's liveness decision.
   if (readPluginBuildLockGeneration(generationDir) !== generation) {
@@ -116,6 +124,7 @@ function inspectV3PluginBuildLock(lockDir: string): PluginBuildLockObservation {
       state: "active",
       owner: label,
       fence,
+      ...(outputBytes === undefined ? {} : { outputBytes }),
     };
   }
 
@@ -126,6 +135,21 @@ function inspectV3PluginBuildLock(lockDir: string): PluginBuildLockObservation {
     owner: `lock generation with unconfirmed ${PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OWNER_FILE}`,
     fence,
   };
+}
+
+/** Observe only the size of the running build's ordinary diagnostics file. */
+function observeBuildOutput(generationDir: string): number | undefined {
+  try {
+    const directory = path.join(
+      generationDir,
+      PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CAPTURE_DIR,
+    );
+    if (!fs.lstatSync(directory).isDirectory()) return undefined;
+    const output = fs.lstatSync(path.join(directory, "stderr"));
+    return output.isFile() ? output.size : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

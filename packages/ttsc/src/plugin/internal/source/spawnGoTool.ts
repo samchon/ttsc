@@ -23,7 +23,8 @@ import { windowsGoCommandArgs } from "./windowsGoCommandArgs";
  * turn a verbose `go build` into a failure. On Windows a `.cmd` or `.bat`
  * wrapper is run through a generated shim with exact argument quoting; a
  * descriptor-exhaustion failure on POSIX is retried through the low-descriptor
- * broker.
+ * broker. The lock-owning build can supply its capture location so waiters can
+ * observe new compiler output.
  *
  * @evidence contracts/common.md#principled-implementation Child streams are routed to owned files and then reconstructed as the normal SpawnSyncReturns shape; Windows wrappers receive one-pass environment expansion and native argv quoting rather than unsafe shell concatenation.
  * @evidence contracts/common.md#clear-and-simple-design Output capture lifetime is separate from process selection and wrapper quoting; finally covers spawn failures and output-read failures alike.
@@ -40,12 +41,13 @@ export function spawnGoTool(
   goBinary: string,
   args: readonly string[],
   options: SpawnSyncOptionsWithStringEncoding,
+  captureDirectory?: string,
 ): SpawnSyncReturns<string> {
   // The child's streams go to files rather than pipes, so no output ceiling
   // applies: `spawnSync` only bounds what it must hold in this process's
   // memory, and a `go build` that says a great deal is not a failure to invent
   // a limit for. See `captureProcessOutput`.
-  const capture = captureProcessOutput();
+  const capture = captureProcessOutput(process.env, captureDirectory);
   const spawnOptions = {
     ...options,
     stdio: ["ignore", capture.stdoutFd, capture.stderrFd] as StdioOptions,

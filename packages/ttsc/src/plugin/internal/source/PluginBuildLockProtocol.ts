@@ -41,8 +41,9 @@ import type { PluginBuildLockFence } from "./PluginBuildLockFence";
  */
 export namespace PluginBuildLockProtocol {
   /**
-   * Maximum admission-wait budget for a source-plugin build. Exhaustion fails
-   * the request; it cannot authorize retirement of a live or uncertain holder.
+   * Maximum wait without source-plugin build output. Go cache maintenance also
+   * uses this interval as its acquisition limit. Expiry cannot authorize
+   * retirement of a live or uncertain holder.
    */
   export const PLUGIN_BUILD_LOCK_WAIT_MS = 600_000;
 
@@ -73,6 +74,9 @@ export namespace PluginBuildLockProtocol {
 
   /** Directory name of the held v3 generation. */
   export const PLUGIN_BUILD_LOCK_CURRENT_DIR = "current";
+
+  /** The running Go build's existing stdout and stderr capture directory. */
+  export const PLUGIN_BUILD_LOCK_CAPTURE_DIR = "go-build-output";
 
   /** Directory holding one tombstone per retired v3 generation. */
   export const PLUGIN_BUILD_LOCK_RETIRED_DIR = "retired";

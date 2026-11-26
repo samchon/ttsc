@@ -353,7 +353,7 @@ function buildSourcePluginAttempt(
         opts.pluginName,
         "lock-adoption",
       ),
-    () => {
+    (captureDirectory) => {
       OwnedSynchronousProcess.checkpoint();
       compiled = true;
       E2ETrace.capabilityResolution("plugin-build-cache-admission", {
@@ -371,6 +371,7 @@ function buildSourcePluginAttempt(
       return compileSourcePlugin({
         binaryPath,
         cacheDir,
+        captureDirectory,
         contributors,
         packageOwnership: opts.packageOwnership,
         dir,
@@ -464,6 +465,7 @@ function compileSourcePlugin(opts: {
   artifactRoot: string;
   binaryPath: string;
   cacheDir: string;
+  captureDirectory: string;
   contributors: readonly ITtscBuildContributor[];
   packageOwnership?: readonly {
     entry: string;
@@ -675,6 +677,7 @@ function compileSourcePlugin(opts: {
               goBuildCacheRoot,
               recording?.env ?? artifacts!.env,
               opts.normalizeGoToolPermissions,
+              opts.captureDirectory,
               recording?.actionGraph,
             );
           } finally {
@@ -818,12 +821,12 @@ function buildUnderPluginLock(
     quiet: boolean;
   },
   validateAdoption: () => void,
-  build: () => string,
+  build: (captureDirectory: string) => string,
 ): string {
   const lockDir = `${cacheDir}.lock`;
   const retirementRoot =
     PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir);
-  const startedAt = performance.now();
+  const idle = { lastProgressAt: performance.now() };
   for (;;) {
     OwnedSynchronousProcess.checkpoint();
     SourceNativeRetirement.assertAvailable(retirementRoot);
@@ -839,7 +842,7 @@ function buildUnderPluginLock(
     }
     const remaining =
       PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_WAIT_MS -
-      (performance.now() - startedAt);
+      (performance.now() - idle.lastProgressAt);
     if (remaining <= 0) {
       throw new Error(
         `ttsc: timed out waiting for ${lockInfo.label} "${lockInfo.pluginName}" ` +
@@ -857,11 +860,8 @@ function buildUnderPluginLock(
         binaryPath,
         lockDir,
         lockInfo,
-        timeoutMs: Math.max(
-          0,
-          PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_WAIT_MS -
-            (performance.now() - startedAt),
-        ),
+        idle,
+        timeoutMs: PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_WAIT_MS,
       });
       if (waited.outcome === "published") {
         // Publication is not reader admission: reacquire the key to register
@@ -898,7 +898,13 @@ function buildUnderPluginLock(
             touchCacheEntry(cacheDir);
             return binaryPath;
           }
-          const binary = build();
+          const binary = build(
+            path.join(
+              retirementRoot,
+              PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CURRENT_DIR,
+              PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CAPTURE_DIR,
+            ),
+          );
           OwnedSynchronousProcess.checkpoint();
           PluginBinaryUse.retain(cacheDir);
           return binary;
@@ -1263,6 +1269,7 @@ function runGoBuild(
   goBuildCacheRoot: string,
   env: NodeJS.ProcessEnv,
   normalizeGoToolPermissions: boolean,
+  captureDirectory: string,
   actionGraph?: string,
 ): void {
   OwnedSynchronousProcess.checkpoint();
@@ -1272,6 +1279,9 @@ function runGoBuild(
     [
       "build",
       ...GoSourceInputs.BUILD_FLAGS,
+      // The required diagnostics capture doubles as the waiter's observation of
+      // actual work. Go emits a package name when it starts compiling it.
+      "-v",
       ...(actionGraph ? [`-debug-actiongraph=${actionGraph}`] : []),
       "-o",
       binaryName,
@@ -1283,6 +1293,7 @@ function runGoBuild(
       env: GoSourceInputs.goBuildEnv(goBinary, goBuildCacheRoot, env),
       windowsHide: true,
     },
+    captureDirectory,
   );
   OwnedSynchronousProcess.checkpoint();
   if (result.error) {
