@@ -87,10 +87,10 @@ export function runtimeBuildEnvironment(
  * Members of the runtime build environment projection that other recorded
  * readings share.
  *
- * @evidence contracts/common.md#principled-implementation Each name `unkeyed` excludes is either a ttsc per-run channel/reporting switch or a proven per-launch jobserver, direnv, cowshed, or shell variable that Go, cgo, and build consumers never read.
+ * @evidence contracts/common.md#principled-implementation Each name `unkeyed` excludes belongs to ttsc's own protocol and selects no compile, Go reading or descriptor answer.
  * @evidence contracts/common.md#clear-and-simple-design The projection and its exclusion live in one module.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Only ttsc's own per-run channels, reporting switches, and proven per-launch non-build variables are excluded; all other variables stay keyed so arbitrary Go wrapper inputs remain covered.
- * @evidence contracts/common.md#meaningful-documentation The member states every variable class it names and why none is read.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No variable outside ttsc's own namespace is named.
+ * @evidence contracts/common.md#meaningful-documentation The member states which variables it names and why none is read.
  * @evidence contracts/portability.md#os-neutral-implementation Windows variable names compare case-insensitively, POSIX names exactly.
  * @evidence contracts/performance.md#efficient-algorithms `unkeyed` is one anchored match over the name.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The declaration coordinates no work.
@@ -98,15 +98,10 @@ export function runtimeBuildEnvironment(
  */
 export namespace runtimeBuildEnvironment {
   /**
-   * Whether `name` is a per-launch variable that no compile, Go or cgo build
-   * reads:
-   *
-   * - `TTSX_RUNTIME_*`: per-run channels naming one run's directories;
-   * - `TTSC_EXPLAIN_CACHE`, `TTSC_E2E_TRACE`: reporting switches;
-   * - `MAKEFLAGS`, `CARGO_MAKEFLAGS`: per-launch jobserver FIFO flags;
-   * - `COWSHED_INSTALL_OBSERVED`: per-launch cowshed observation state;
-   * - `DIRENV_DIFF`, `DIRENV_WATCHES`: per-launch direnv shell state;
-   * - `OLDPWD`, `SHLVL`: per-launch POSIX shell session state.
+   * Whether `name` is one of ttsc's own variables that no build reads: a
+   * per-run `TTSX_RUNTIME_` channel, which names one run's directories, or a
+   * reporting switch, `TTSC_EXPLAIN_CACHE` or `TTSC_E2E_TRACE`, which only
+   * makes a build describe itself.
    *
    * @param name Variable name, matched case-insensitively on Windows.
    */
@@ -114,31 +109,8 @@ export namespace runtimeBuildEnvironment {
     return UNKEYED.test(name);
   }
 
-  const UNKEYED_NAMES = [
-    // Per-run ttsx channels naming one run's directories.
-    "TTSX_RUNTIME_.*",
-    // Reporting switches that only make a build describe itself.
-    "TTSC_EXPLAIN_CACHE",
-    "TTSC_E2E_TRACE",
-    // Make and Cargo jobserver flags carrying a per-invocation FIFO path; Go
-    // and cgo builds never read them.
-    "MAKEFLAGS",
-    "CARGO_MAKEFLAGS",
-    // Cowshed per-invocation observation state; Go and cgo builds never read
-    // it.
-    "COWSHED_INSTALL_OBSERVED",
-    // direnv per-invocation serialized diff and watch state; Go and cgo builds
-    // never read them.
-    "DIRENV_DIFF",
-    "DIRENV_WATCHES",
-    // POSIX shell previous directory and nesting counter; Go and cgo builds
-    // never read them.
-    "OLDPWD",
-    "SHLVL",
-  ];
-
-  const UNKEYED = new RegExp(
-    `^(?:${UNKEYED_NAMES.join("|")})$`,
-    process.platform === "win32" ? "i" : "",
-  );
+  const UNKEYED =
+    process.platform === "win32"
+      ? /^(?:TTSX_RUNTIME_.*|TTSC_EXPLAIN_CACHE|TTSC_E2E_TRACE)$/i
+      : /^(?:TTSX_RUNTIME_.*|TTSC_EXPLAIN_CACHE|TTSC_E2E_TRACE)$/;
 }

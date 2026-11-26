@@ -179,23 +179,57 @@ export namespace PluginPackageResolution {
   /**
    * Select the nearest regular `package.json` at or above `location`, using its
    * realpath when available and retaining the selected spelling on failure.
-   * Candidate enumeration and file-kind rechecks are separate observations;
-   * this query does not freeze package scope or certify unresolved identity.
+   * This query does not freeze package scope or certify unresolved identity.
    *
-   * @evidence contracts/common.md#principled-implementation Ancestor candidates are rechecked for the first regular manifest, then best-effort canonicalization returns realpath or selected lexical spelling. This current scope observation is not a frozen physical-identity proof.
-   * @evidence contracts/common.md#clear-and-simple-design Candidate enumeration and physical resolution stay in shared helpers while this adapter selects the nearest file.
+   * @evidence contracts/common.md#principled-implementation Ancestor candidates are checked once for the first regular manifest, then best-effort canonicalization returns realpath or selected lexical spelling. This current scope observation is not a frozen physical-identity proof.
+   * @evidence contracts/common.md#clear-and-simple-design Candidate enumeration and selection share one ancestor walk while physical resolution stays in its helper.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Scope is derived from ancestor candidates, not a known-package path or manifest-shaped directory.
-   * @evidence contracts/common.md#meaningful-documentation Native JSDoc states nearest scope, separate observations and realpath fallback, with separate tags under the documentation skill.
+   * @evidence contracts/common.md#meaningful-documentation Native JSDoc states nearest scope and realpath fallback, with separate tags under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native dirname/resolve/realpath provide OS-neutral ancestor and link semantics without manual slash splitting.
-   * @evidence contracts/performance.md#efficient-algorithms Candidate enumeration performs native start/ancestor queries and stores complete path strings; find then rechecks candidate file kinds before best-effort realpath. Native path/link lookup and path-text cost accompany depth, and the selection pass repeats metadata queries rather than reusing their earlier observations.
+   * @evidence contracts/performance.md#efficient-algorithms One ancestor walk probes each directory's package.json once until the first regular manifest is found, followed by best-effort realpath. Native path/link lookup and path-text cost accompany depth.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This fresh scope query owns no retained discovery cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Candidate arrays and the returned path are call-owned with no open resource retained.
    */
-  export function findNearestPackageJson(location: string): string | undefined {
-    const selected =
-      collectNearestPackageJsonCandidates(location).find(existingFile);
-    return selected === undefined ? undefined : resolveRealPath(selected);
+  export function findNearestPackageJson(
+    location: string,
+    isFile: (file: string) => boolean = existingFile,
+  ): string | undefined {
+    const { manifest } = findNearestPackageJsonWithCandidates(location, isFile);
+    return manifest === undefined ? undefined : resolveRealPath(manifest);
+  }
+
+  /**
+   * Walk ancestors once from `location` to collect every `package.json`
+   * candidate through the first regular manifest file, returning both the
+   * candidate list and the selected manifest (or `undefined` when none
+   * exists).
+   *
+   * @evidence contracts/common.md#principled-implementation One start-kind stat and native parent walk collect missing nearer candidates and return the first regular manifest without re-probing already-tested ancestors.
+   * @evidence contracts/common.md#clear-and-simple-design Returns both the candidate trail and the matched manifest so callers needing both avoid a second ancestor pass.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Stops at the actual nearest regular manifest without guessing workspace depth.
+   * @evidence contracts/common.md#meaningful-documentation States single-walk candidate and selected-manifest semantics.
+   * @evidence contracts/portability.md#os-neutral-implementation Native stat/resolve/dirname handle root termination across platforms.
+   * @evidence contracts/performance.md#efficient-algorithms One initial kind stat and one file-kind probe per ancestor directory up to the first manifest or root.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current ancestor candidates are observed per query rather than cached.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned paths are caller-owned with no retained handles.
+   */
+  export function findNearestPackageJsonWithCandidates(
+    location: string,
+    isFile: (file: string) => boolean = existingFile,
+  ): { candidates: string[]; manifest: string | undefined } {
+    let current = fs.statSync(location).isDirectory()
+      ? location
+      : path.dirname(location);
+    const candidates: string[] = [];
+    while (true) {
+      const manifest = path.resolve(current, "package.json");
+      candidates.push(manifest);
+      if (isFile(manifest)) return { candidates, manifest };
+      const parent = path.dirname(current);
+      if (parent === current) return { candidates, manifest: undefined };
+      current = parent;
+    }
   }
 
   /**
@@ -215,19 +249,9 @@ export namespace PluginPackageResolution {
    */
   export function collectNearestPackageJsonCandidates(
     location: string,
+    isFile: (file: string) => boolean = existingFile,
   ): string[] {
-    let current = fs.statSync(location).isDirectory()
-      ? location
-      : path.dirname(location);
-    const candidates: string[] = [];
-    while (true) {
-      const manifest = path.resolve(current, "package.json");
-      candidates.push(manifest);
-      if (existingFile(manifest)) return candidates;
-      const parent = path.dirname(current);
-      if (parent === current) return candidates;
-      current = parent;
-    }
+    return findNearestPackageJsonWithCandidates(location, isFile).candidates;
   }
 
   /**

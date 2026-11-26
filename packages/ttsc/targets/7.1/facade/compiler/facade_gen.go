@@ -17,6 +17,16 @@ import (
   tscvfs "github.com/microsoft/TypeScript/tsc/shim/vfs"
 )
 
+const BatchEnv = tsccompiler.BatchEnv
+
+func BeginBatch() (func(), func()) {
+  return tsccompiler.BeginBatch()
+}
+
+func BeginBatchOnce() func() {
+  return tsccompiler.BeginBatchOnce()
+}
+
 type CheckerPool = tsccompiler.CheckerPool
 
 func CombineEmitResults(p0 []*tsccompiler.EmitResult) *tsccompiler.EmitResult {
@@ -167,9 +177,17 @@ func ReplayProgramResolutions(p0 []tsccompiler.ProgramResolutionTask, p1 tscvfs.
   return tsccompiler.ReplayProgramResolutions(p0, p1)
 }
 
+// ResolveModuleName holds the bridge function: its signature uses a type no bridge
+// exposes (github.com/microsoft/TypeScript/tsc/internal/module.ResolvedModule).
+var ResolveModuleName = tsccompiler.ResolveModuleName
+
 func SortAndDeduplicateDiagnostics(p0 []*tscast.Diagnostic) []*tscast.Diagnostic {
   return tsccompiler.SortAndDeduplicateDiagnostics(p0)
 }
+
+// SourceFileForResolvedModule holds the bridge function: its signature uses a type no bridge
+// exposes (github.com/microsoft/TypeScript/tsc/internal/module.ResolvedModule).
+var SourceFileForResolvedModule = tsccompiler.SourceFileForResolvedModule
 
 type SourceFileMayBeEmittedHost = tsccompiler.SourceFileMayBeEmittedHost
 

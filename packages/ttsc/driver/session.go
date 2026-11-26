@@ -57,7 +57,7 @@ type Session struct {
 func NewSession(cwd, tsconfig string, options LoadProgramOptions) (*Session, []Diagnostic, error) {
   overlay := NewOverlayFS(DefaultFS())
   options.FS = overlay
-  prog, diags, err := LoadProgram(cwd, tsconfig, options)
+  prog, diags, err := loadProgram(cwd, tsconfig, options, false)
   if err != nil {
     return nil, diags, err
   }
@@ -74,15 +74,25 @@ func NewSession(cwd, tsconfig string, options LoadProgramOptions) (*Session, []D
 // owns its own loading phases (linked-plugin manifest, diagnostics) still use
 // the session's incremental updates. cwd must be absolute.
 //
-// @evidence contracts/common.md#principled-implementation The same overlay the Program was loaded over is retained, so Apply edits reach the compiler exactly as for NewSession.
-// @evidence contracts/common.md#clear-and-simple-design A field-only constructor; loading stays with the caller.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts No second Program is loaded and no compiler state is copied.
-// @evidence contracts/common.md#meaningful-documentation Native prose states the overlay precondition and the ownership transfer.
+// A resident session must be single-checker by construction: its diagnostics
+// must come from the checker its reads use. A pooled Program comes only from a
+// one-shot no-emit batch load (TTSC_BATCH=1), which no resident host makes,
+// since every resident host spawns with that marker cleared. Passing one is
+// therefore a caller defect, and NewSessionFromProgram panics on it rather
+// than changing its signature for every host that calls it correctly.
+//
+// @evidence contracts/common.md#principled-implementation The same overlay the Program was loaded over is retained, so Apply edits reach the compiler exactly as for NewSession; a pooled Program panics so a resident Session never mixes multi-checker diagnostics with single-checker reads.
+// @evidence contracts/common.md#clear-and-simple-design A guarded field-only constructor with its established signature; loading stays with the caller and pooled Programs are refused at the Session boundary.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No second Program is loaded, no compiler state is copied, and single-checker residency does not rely on callers clearing TTSC_BATCH.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the overlay precondition, ownership transfer and pooled-Program refusal.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation The constructor stores supplied values and performs no native operation.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Constant field assignment.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Constant guard and field assignment.
 // @evidence contracts/performance.md#reuse-equivalent-work The caller's loaded Program serves later edits instead of a second load.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The session takes the Program's checker lease; Close releases it.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The session takes the Program's checker lease and Close releases it; a refused pooled Program stays owned by the caller.
 func NewSessionFromProgram(cwd string, overlay *OverlayFS, prog *Program) *Session {
+  if prog != nil && prog.pooled {
+    panic("driver: cannot create a resident Session from a pooled Program: a resident session's diagnostics must come from the checker its reads use")
+  }
   return &Session{cwd: cwd, overlay: overlay, prog: prog}
 }
 

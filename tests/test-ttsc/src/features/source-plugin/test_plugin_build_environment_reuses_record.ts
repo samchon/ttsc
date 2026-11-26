@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { PluginDescriptorEvaluationCache } from "../../../../../packages/ttsc/src/plugin/internal/load/PluginDescriptorEvaluationCache";
 import { GoToolResolution } from "../../../../../packages/ttsc/src/plugin/internal/source/GoToolResolution";
 import { PluginContentIdentities } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginContentIdentities";
 import { readPluginBuildEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/readPluginBuildEnvironment";
@@ -12,19 +13,18 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * Verifies a warm build-environment load reuses its recorded answer when only
  * per-launch non-build variables move, while toolchain changes move it.
  *
- * Jobserver flags, direnv/cowshed state and shell session variables change
- * between launches without changing what Go or cgo reads. Keying the record on
- * them writes a new answer on every launch instead of replaying the recorded
- * one, while a real GOFLAGS change or an arbitrary wrapper variable must still
- * select a new record.
+ * A caller may opt in to ignoring jobserver, direnv, cowshed and shell state
+ * for Go tool queries. The default keeps them as inputs because wrappers can
+ * read them. JavaScript descriptors keep them under either setting.
  *
  * 1. Read the build environment into a fresh cache with initial values.
- * 2. Reload with moved per-launch variables and verify record reuse.
- * 3. Move GOFLAGS and a custom variable and verify each writes a new record.
+ * 2. Reload with moved launch variables and verify record reuse under opt-in.
+ * 3. Move GOFLAGS and a custom variable and verify distinct Go records.
+ * 4. Verify default Go records and descriptor keys vary with launch state.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls readPluginBuildEnvironment with fresh PluginContentIdentities stores across consecutive loads and inspects the returned digests, persisted plugin-build-environment answer files, and record inode in the cache directory.
+ * @evidence contracts/testing.md#behavioral-verification Calls readPluginBuildEnvironment with fresh stores and inspects the returned digests, persisted answer files and record inode. The descriptor locator verifies the independent descriptor keys.
  * @evidence contracts/testing.md#independent-expectations Reusing a record leaves the persisted plugin-build-environment answer file set and inode unchanged with identical digest; distinct GOFLAGS values must change both the digest and the answer file set, and a non-excluded variable must produce a new answer file under the non-allowlist contract.
- * @evidence contracts/testing.md#distinguishing-cases Covers unchanged toolchain with moving per-launch variables (MAKEFLAGS, CARGO_MAKEFLAGS, COWSHED_INSTALL_OBSERVED, DIRENV_DIFF, DIRENV_WATCHES, OLDPWD, SHLVL) against real toolchain change (GOFLAGS) and an arbitrary non-excluded variable that a Go wrapper could read.
+ * @evidence contracts/testing.md#distinguishing-cases Covers moving launch variables in default and opted-in Go queries, effective GOFLAGS changes, arbitrary environment values and descriptor keys with the Go opt-in selected.
  * @evidence contracts/testing.md#execution-ownership Unit test under tests/test-ttsc calling maintained source-plugin environment readers directly against temporary directories owned by TestProject, without mutating process.env or building a native plugin binary.
  */
 export function test_plugin_build_environment_reuses_record(): void {
@@ -35,6 +35,8 @@ export function test_plugin_build_environment_reuses_record(): void {
 
   const baseEnv: NodeJS.ProcessEnv = {
     ...process.env,
+    NODE_OPTIONS: undefined,
+    TTSC_CACHE_IGNORE_GO_LAUNCH_ENV: "1",
     GOFLAGS: "-tags=ttsc_build_env_probe_a",
     MAKEFLAGS: "-j4 --jobserver-auth=fifo:/tmp/GMfifo1001",
     CARGO_MAKEFLAGS: "--jobserver-auth=fifo:/tmp/GMfifo1001",
@@ -130,6 +132,35 @@ export function test_plugin_build_environment_reuses_record(): void {
     3,
     "an arbitrary non-excluded variable must still move the record key",
   );
+
+  read({ ...baseEnv, TTSC_CACHE_IGNORE_GO_LAUNCH_ENV: undefined });
+  read({ ...secondEnv, TTSC_CACHE_IGNORE_GO_LAUNCH_ENV: undefined });
+  assert.equal(
+    buildEnvironmentAnswerFiles(cacheDir).length,
+    5,
+    "by default each effective Go environment needs its own record",
+  );
+
+  const descriptorAuthority = {
+    cacheDir,
+    context: {},
+    cwd: projectDir,
+    projectRoot: projectDir,
+    request: path.join(projectDir, "plugin.cjs"),
+    runtime: process.execPath,
+    version: "go-launch-env-unit",
+  };
+  const firstDescriptor = PluginDescriptorEvaluationCache.locate({
+    ...descriptorAuthority,
+    env: baseEnv,
+  });
+  const secondDescriptor = PluginDescriptorEvaluationCache.locate({
+    ...descriptorAuthority,
+    env: secondEnv,
+  });
+  assert.notEqual(firstDescriptor, null);
+  assert.notEqual(secondDescriptor, null);
+  assert.notEqual(firstDescriptor, secondDescriptor);
 }
 
 /**

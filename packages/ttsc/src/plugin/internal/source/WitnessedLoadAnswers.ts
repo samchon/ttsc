@@ -33,13 +33,16 @@ export namespace WitnessedLoadAnswers {
    * @param kind Answer family.
    * @param identity Every keyed input of the answer.
    * @param accept Shape check of the recorded value.
+   * @param currentReadings Optional caller-owned map sharing current native
+   *   witness observations across one synchronous batch only; never reused
+   *   across an await, build, environment mutation or publication boundary.
    * @evidence contracts/common.md#principled-implementation An answer is returned only when its shape is accepted and every witnessed path and variable still matches.
    * @evidence contracts/common.md#clear-and-simple-design The answer store owns the file; this member owns the witness half of the proof.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A malformed or moved record returns undefined rather than a partial answer.
    * @evidence contracts/common.md#meaningful-documentation Native prose states both conditions of a served answer.
    * @evidence contracts/portability.md#os-neutral-implementation Validation uses the witness's native stat, link and variable observations.
-   * @evidence contracts/performance.md#efficient-algorithms One record parse and one stat per witnessed path, stopping at the first mismatch.
-   * @evidence contracts/performance.md#reuse-equivalent-work A still-holding answer replaces the reading it records.
+   * @evidence contracts/performance.md#efficient-algorithms One record parse and one stat per witnessed path not yet in the optional synchronous batch map, stopping at the first mismatch.
+   * @evidence contracts/performance.md#reuse-equivalent-work A still-holding answer replaces the reading it records; an optional caller-owned synchronous batch map shares current native witness readings across multiple answers validated together, dropped when the batch ends.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned witness belongs to the caller; nothing is retained.
    */
   export function read<T>(
@@ -47,6 +50,7 @@ export namespace WitnessedLoadAnswers {
     kind: string,
     identity: unknown,
     accept: (value: unknown) => value is T,
+    currentReadings?: Map<string, string>,
   ): { value: T; witness: PluginBuildEnvironmentWitness.Record } | undefined {
     const entry = PluginLoadAnswers.read(store, kind, identity);
     if (typeof entry !== "object" || entry === null) return undefined;
@@ -66,7 +70,11 @@ export namespace WitnessedLoadAnswers {
     const record: PluginBuildEnvironmentWitness.Record = new Map(
       witness as [string, string][],
     );
-    return PluginBuildEnvironmentWitness.holds(record)
+    return PluginBuildEnvironmentWitness.holds(
+      record,
+      undefined,
+      currentReadings,
+    )
       ? { value, witness: record }
       : undefined;
   }
