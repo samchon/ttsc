@@ -8,6 +8,7 @@ import { createNativeProjectContextArgs } from "../../../compiler/internal/proje
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { resolveBinary } from "../../../compiler/internal/resolveBinary";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
+import { BATCH_ENV } from "../../../compiler/internal/sharedHost/BATCH_ENV";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { E2ETrace } from "../../../internal/E2ETrace";
@@ -264,6 +265,7 @@ function lspSidecarEnvironment(options: {
       path.join(__dirname, "..", "..", "..", "launcher", "ttsx.js"),
   });
   const node = resolveNodeBinary(env, options.cwd, options.identities);
+  SidecarEnvironment.write(env, BATCH_ENV, undefined);
   SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
   SidecarEnvironment.write(
     env,
@@ -439,6 +441,7 @@ function captureInitialLSPProjectInputs(options: {
       pluginConfigOrigin: options.pluginConfigOrigin,
       tsgoBinary: options.tsgoBinary,
     });
+    SidecarEnvironment.write(env, BATCH_ENV, "1");
     const result = spawnNative(plugin.binary, args, {
       cwd: options.project.root,
       env,

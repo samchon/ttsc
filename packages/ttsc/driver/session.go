@@ -57,7 +57,7 @@ type Session struct {
 func NewSession(cwd, tsconfig string, options LoadProgramOptions) (*Session, []Diagnostic, error) {
   overlay := NewOverlayFS(DefaultFS())
   options.FS = overlay
-  prog, diags, err := LoadProgram(cwd, tsconfig, options)
+  prog, diags, err := loadProgram(cwd, tsconfig, options, false)
   if err != nil {
     return nil, diags, err
   }
