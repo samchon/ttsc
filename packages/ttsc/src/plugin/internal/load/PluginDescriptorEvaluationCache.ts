@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { runtimeBuildEnvironment } from "../../../compiler/internal/build/runtimeBuildEnvironment";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
+import { TrustedNodeOptions } from "../../../internal/TrustedNodeOptions";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import type { PluginContentIdentities } from "../source/PluginContentIdentities";
 import { SourceBuildCacheLayout } from "../source/SourceBuildCacheLayout";
@@ -37,9 +38,18 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * observations refuse a write. The caller also excludes evaluations whose
  * captured diagnostics file is nonempty, since a hit replays no diagnostics.
  * Startup preloads run before these observations and cannot authorize
- * persistence merely through a stable NODE_OPTIONS string.
+ * persistence merely through a stable NODE_OPTIONS string. Only
+ * `--require`/`-r` preloads whose exact physical paths are listed in
+ * `TTSC_CACHE_TRUSTED_PRELOADS` are accepted (`TrustedNodeOptions`), keyed by
+ * `NODE_OPTIONS` and `TTSC_CACHE_TRUSTED_PRELOADS` here while the evaluator
+ * child walks each trusted root's `require.cache` `module.children` graph and
+ * records every file into `evaluation.inputs`, `hostInputHashes` and
+ * `hostInputRealpaths` for `read()` to verify on every hit. Whoever lists a
+ * preload vouches for everything it does beyond its module graph (reads,
+ * bindings, dlopen, branches that depend on the environment). ttsc proves only
+ * which code the preload is, by observing and digesting its module graph.
  *
- * @evidence contracts/common.md#principled-implementation Persistent evaluation identity includes evaluator format, descriptor/context, working directory, effective environment, actual primary/secondary executable content identities and ttsc version. Acceptance checks recorded input observations and producer-declared external content, not every possible read; unobserved startup preload authority refuses persistence.
+ * @evidence contracts/common.md#principled-implementation Persistent evaluation identity includes evaluator format, descriptor/context, working directory, effective environment, actual primary/secondary executable content identities, any trusted `--require` startup preload key part and ttsc version, while the evaluator child records the observed preload module graph into the entry's input proofs verified by `read()`. Acceptance checks recorded input observations and producer-declared external content, not every possible read; untrusted preloads, `--import` and other `NODE_OPTIONS` flags refuse persistence.
  * @evidence contracts/common.md#clear-and-simple-design Locate/read/write separate key construction, proof validation and publication while the loader owns evaluation and its diagnostics.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A descriptor without its explicit external-read declaration is not persisted, and the caller excludes nonempty captured diagnostics because a cache hit cannot replay them.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains isolation cost, input-proof responsibility, working-directory/environment identity and write refusal in distinct paragraphs; exported operation comments and tag spacing follow the documentation skill.
@@ -84,8 +94,14 @@ export namespace PluginDescriptorEvaluationCache {
 
   /**
    * Where the answer for one evaluation lives, or `null` when no cache root can
-   * be resolved, either runtime cannot be identified, or startup preloads are
-   * unobserved.
+   * be resolved, either runtime cannot be identified, or `NODE_OPTIONS` carries
+   * anything other than trusted `--require`/`-r` preloads
+   * (`TrustedNodeOptions`).
+   *
+   * Whoever lists a preload in `TTSC_CACHE_TRUSTED_PRELOADS` vouches for
+   * everything it does beyond its module graph (reads, bindings, dlopen,
+   * branches that depend on the environment). ttsc proves only which code the
+   * preload is, by observing and digesting its module graph.
    *
    * @param props.projectRoot The project whose cache root holds the entry.
    * @param props.cacheDir The plugin cache directory the caller selected.
@@ -97,7 +113,7 @@ export namespace PluginDescriptorEvaluationCache {
    * @param props.additionalRuntime Selected Node executable exposed to the
    *   descriptor and used by ttsx/config loaders, when distinct from runtime.
    * @param props.version This ttsc build's version.
-   * @evidence contracts/common.md#principled-implementation Canonical identity includes factory context, normalized evaluator working directory, sorted effective environment and fresh content/lexical/physical proof of both actual runtime authorities; unobserved startup preloads and unreadable runtimes cannot select a reusable entry.
+   * @evidence contracts/common.md#principled-implementation Canonical identity includes factory context, normalized evaluator working directory, sorted effective environment, fresh content/lexical/physical proof of both actual runtime authorities and the trusted-preload key part when NODE_OPTIONS is non-empty; untrusted preloads, `--import`, other `NODE_OPTIONS` flags and unreadable runtimes cannot select a reusable entry.
    * @evidence contracts/common.md#clear-and-simple-design The locator delegates cache-root policy and runtime observation, then constructs only the descriptor entry identity.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unidentifiable runtime/storage returns null for uncached evaluation rather than weakening the key or selecting a fixture-specific runtime.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc identifies every key premise and null result; parameter entries and separate tags follow the documentation skill.
@@ -142,10 +158,14 @@ export namespace PluginDescriptorEvaluationCache {
     identities?: PluginContentIdentities.Store;
   }): string | null {
     const environment = SidecarEnvironment.merge(props.env);
-    // Startup preloads can run before the descriptor recorder and read inputs
-    // it never sees; a stable option string cannot prove their current meaning.
-    if (SidecarEnvironment.read(environment, "NODE_OPTIONS")?.trim())
-      return null;
+    // Whoever lists a preload vouches for everything it does beyond its module
+    // graph (reads, bindings, dlopen, branches that depend on the environment);
+    // the evaluator child records the observed preload graph for read().
+    const preloadKey = TrustedNodeOptions.descriptorKey({
+      cwd: props.cwd,
+      env: environment,
+    });
+    if (preloadKey === null) return null;
     const runtime = runtimeIdentity(props.runtime, props.identities);
     if (runtime === null) return null;
     const additionalRuntime =
@@ -189,6 +209,7 @@ export namespace PluginDescriptorEvaluationCache {
             ),
           runtime,
           additionalRuntime,
+          ...(preloadKey === "" ? [] : [preloadKey]),
         ]),
       )
       .digest("hex");

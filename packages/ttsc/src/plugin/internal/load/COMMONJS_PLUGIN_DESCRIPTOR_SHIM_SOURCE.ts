@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   PLUGIN_INPUT_OBSERVATION_PATH,
   RESOLUTION_INPUT_RECORDER_PATH,
+  TRUSTED_NODE_OPTIONS_PATH,
 } from "./RESOLUTION_INPUT_RECORDER_PATH";
 
 /**
@@ -27,6 +28,8 @@ export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `const vm = require("node:vm");`,
   `const { PluginDescriptorInputObservation } = require.cache[${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)}]?.exports ?? require(${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)});`,
   `const { PluginDescriptorInputReport } = require(${JSON.stringify(path.resolve(path.dirname(PLUGIN_INPUT_OBSERVATION_PATH), "PluginDescriptorInputReport.js"))});`,
+  `const { TrustedNodeOptions } = require(${JSON.stringify(TRUSTED_NODE_OPTIONS_PATH)});`,
+  `const trustedPreloadRoots = TrustedNodeOptions.resolveTrustedRoots({ cwd: process.cwd(), env: process.env });`,
   `const { fileURLToPath } = require("node:url");`,
   `const { createResolutionInputRecorder, requireResolveConsultsHooks } = (() => {`,
   `  const file = ${JSON.stringify(RESOLUTION_INPUT_RECORDER_PATH)};`,
@@ -166,7 +169,23 @@ export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   // lazily require a config; snapshotting inputs first would silently omit
   // that influence.
   `  const serializedDescriptor = JSON.stringify(descriptor);`,
+  `  let recordedPreloadFiles = [];`,
+  `  if (trustedPreloadRoots === null) {`,
+  `    recorder.invalidateObservation();`,
+  `  } else if (trustedPreloadRoots.length !== 0) {`,
+  `    const preloadGraph = TrustedNodeOptions.walkModuleGraph(trustedPreloadRoots, require.cache);`,
+  `    if (preloadGraph === null) {`,
+  `      recorder.invalidateObservation();`,
+  `    } else {`,
+  `      recordedPreloadFiles = preloadGraph;`,
+  `      for (const preloadFile of preloadGraph) recorder.recordFile(preloadFile);`,
+  `    }`,
+  `  }`,
   `  const recorded = recorder.finish();`,
+  `  if (recordedPreloadFiles.some((file) => typeof recorded.hashes[file] !== "string" || typeof recorded.realpaths[file] !== "string")) {`,
+  `    recorder.invalidateObservation();`,
+  `    recorded.complete = false;`,
+  `  }`,
   `  PluginDescriptorInputReport.finish();`,
   `  const observation = PluginDescriptorInputObservation.snapshot();`,
   `  observation.complete = observation.complete && recorded.complete === true;`,

@@ -5,6 +5,7 @@ import { createNativeProjectContextJson } from "../compiler/internal/project/cre
 import { resolveBinary } from "../compiler/internal/resolveBinary";
 import { SidecarEnvironment } from "../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../internal/E2ETrace";
+import { TrustedNodeOptions } from "../internal/TrustedNodeOptions";
 import { javascriptRuntimeCapabilities } from "../internal/javascriptRuntimeCapabilities";
 import type {
   ITtscCapabilityPlugin,
@@ -282,18 +283,24 @@ function capabilityRecordStore(
  * Whether the keyed executable is the actual sole descriptor runtime.
  *
  * A direct hook-capable Node executable selects itself for both direct and ttsx
- * evaluation. Bun, wrappers and startup preloads introduce additional
- * authorities that this cache format does not observe, so they are not reused.
- * Native environment-name lookup preserves Windows aliases on direct and worker
- * calls; POSIX names remain case-sensitive. Private tracing reports this
- * operation's existing decision and preserves short-circuited comparisons as
- * unobserved, without repeating native queries.
+ * evaluation. Bun, wrappers and untrusted or unobservable startup preloads
+ * introduce additional authorities that this cache format does not observe, so
+ * they are not reused. Trusted `--require`/`-r` preloads (`TrustedNodeOptions`)
+ * are admitted and keyed by their observed `require.cache` `module.children`
+ * graph digests alongside `NODE_OPTIONS` and `TTSC_CACHE_TRUSTED_PRELOADS`.
+ * Whoever lists a preload vouches for everything it does beyond its module
+ * graph (reads, bindings, dlopen, branches that depend on the environment).
+ * ttsc proves only which code the preload is, by observing and digesting its
+ * module graph. Native environment-name lookup preserves Windows aliases on
+ * direct and worker calls; POSIX names remain case-sensitive. Private tracing
+ * reports this operation's existing decision and preserves short-circuited
+ * comparisons as unobserved, without repeating native queries.
  */
 function capabilityRuntimeAuthorityComplete(
   cwd: string,
   identities: () => PluginContentIdentities.Store | undefined,
 ): boolean {
-  if (SidecarEnvironment.read(process.env, "NODE_OPTIONS")?.trim()) {
+  if (TrustedNodeOptions.key({ cwd, env: process.env, identities }) === null) {
     E2ETrace.capabilityResolution("runtime-authority", {
       cwd,
       proved: false,
