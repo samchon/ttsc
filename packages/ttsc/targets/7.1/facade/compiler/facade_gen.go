@@ -17,6 +17,16 @@ import (
   tscvfs "github.com/microsoft/TypeScript/tsc/shim/vfs"
 )
 
+const BatchEnv = tsccompiler.BatchEnv
+
+func BeginBatch() (func(), func()) {
+  return tsccompiler.BeginBatch()
+}
+
+func BeginBatchOnce() func() {
+  return tsccompiler.BeginBatchOnce()
+}
+
 type CheckerPool = tsccompiler.CheckerPool
 
 func CombineEmitResults(p0 []*tsccompiler.EmitResult) *tsccompiler.EmitResult {

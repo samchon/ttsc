@@ -26,6 +26,8 @@ import (
 // Program's semantic project root.
 const SemanticConfigPathEnv = "TTSC_SEMANTIC_CONFIG_PATH"
 
+var beginBatchOnce = shimcompiler.BeginBatchOnce
+
 // Diagnostic is the compilation diagnostic shape ttsc passes around. Its public
 // data members use plain values; private native anchors support richer rendering.
 //
@@ -598,6 +600,15 @@ func forceSingleChecker(parsed *tsoptions.ParsedCommandLine) {
 // Relative cwd is resolved against the process cwd when filepath.Abs succeeds;
 // callers should provide an absolute anchor. tsconfigPath may be relative to it.
 //
+// When the process environment sets `TTSC_BATCH=1` (shim/compiler.BatchEnv),
+// LoadProgram delegates to shim/compiler.BeginBatchOnce before constructing the
+// Program, binds the created Program and calls the returned programBound
+// callback before returning so nothing has checked it yet. The compiler hook
+// begins at most once per process and its end callback is not called because
+// the marker states the process ends with its batch. Without the marker
+// BeginBatchOnce returns a no-op, and driver.NewSession never calls it even
+// when the marker is set.
+//
 // An enabled private compilation-snapshot document shares first-read text and
 // lookup answers across sequential native stages. This is not an atomic volume
 // snapshot. Program owns dirty publication through Close; the invocation
@@ -606,12 +617,16 @@ func forceSingleChecker(parsed *tsoptions.ParsedCommandLine) {
 // @evidence contracts/common.md#principled-implementation Plugin preambles enter before parsing, native CLI/config merging resolves options before Program creation, and the facade associates the observing VFS and borrowed checker with that generation; this is not a certificate of every filesystem access by plugins or their host.
 // @evidence contracts/common.md#clear-and-simple-design One loader orders plugin config, filesystem layers, config overrides and checker acquisition; an optional failure sink transfers only the rejected load's observed recovery inputs.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid configuration or CLI input returns before construction; an explicitly empty argument list does not fall through to an ancestor's flags.
-// @evidence contracts/common.md#meaningful-documentation Native prose and options document one-shot load, path anchoring, force overrides and checker ownership under documentation-skill guidance.
+// @evidence contracts/common.md#meaningful-documentation Native prose and options document one-shot load, path anchoring, batch hook behavior, force overrides and checker ownership under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation Native cwd resolution uses filepath/tspath and the chosen VFS provides actual case and path capabilities; semantic wrapper ownership uses an explicit config path.
 // @evidence contracts/performance.md#efficient-algorithms One load composes plugin/preamble work, config/CLI parsing, native Program processing and checker acquisition with VFS observation. A requested failed-load graph additionally snapshots, projects and sorts the observed predicate population and invokes the caller's sink. An enabled snapshot also parses the preceding full document and publishes its dirty complete captured population. Read-text hashing runs on each observed read, including repeated reads; config/source bytes, native resolution and directory work, plugin callbacks and retained observation maps govern cost rather than only facade construction.
 // @evidence contracts/performance.md#reuse-equivalent-work An enabled private document shares first-read answers only across sequential stages of its invocation; fresh invocations start empty. Session and resident hosts retain ownership of cross-request Program reuse.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Errors before checker acquisition return no lease; an optional synchronous sink receives call-owned recovery metadata once after observation starts. Successful loading transfers checker and mapper ownership plus input/plugin ledgers to Program; Close releases owned native resources and detaches snapshot publication; FS/caller reachability controls captured-memory lifetime, and the invocation coordinator removes transport storage.
 func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (program *Program, diagnostics []Diagnostic, loadError error) {
+  return loadProgram(cwd, tsconfigPath, options, true)
+}
+
+func loadProgram(cwd, tsconfigPath string, options LoadProgramOptions, allowBatch bool) (program *Program, diagnostics []Diagnostic, loadError error) {
   if !filepath.IsAbs(cwd) {
     if abs, err := filepath.Abs(cwd); err == nil {
       cwd = abs
@@ -739,7 +754,15 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (program 
   // Program's host is built only now, over the same filesystem.
   hosts := shimcompiler.NewProjectHosts(parsed)
   host = projectHost(hosts, cwd, fs)
+  var onProgramBound func()
+  if allowBatch {
+    onProgramBound = beginBatchOnce()
+  }
   tsProgram, _, _ := CreateProgramFromConfig(parsed, host)
+  if onProgramBound != nil && tsProgram != nil {
+    tsProgram.BindSourceFiles()
+    onProgramBound()
+  }
   mapperDependencies, mapperDependencyError := hosts.Dependencies()
 
   checker, done := tsProgram.GetTypeChecker(context.Background())

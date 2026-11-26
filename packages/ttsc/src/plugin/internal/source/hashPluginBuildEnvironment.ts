@@ -497,10 +497,11 @@ function normalizeGoBuildEnvValue(
     return resolveGoRootCacheIdentity(value, filesystem, witness, identities);
   }
   if (key === "GOFLAGS") {
-    // ttsc's compiler-target tag is not the caller's Go environment. Omitting
-    // it lets a reader holding the caller's environment reproduce a source
-    // state a 7.1 load reported; the build key separates targets through their
-    // overlay modules instead.
+    // ttsc's synthesized build tags (7.1 target and compiler batch hook) are
+    // not the caller's Go environment. Omitting them lets a reader holding the
+    // caller's environment reproduce a source state a load reported; the build
+    // key separates targets and compiler sources through their overlay modules
+    // instead.
     return CompilerTarget.withoutTag(value);
   }
   if (GO_BUILD_COMMAND_ENV_KEYS.has(key)) {
