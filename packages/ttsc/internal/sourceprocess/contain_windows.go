@@ -47,8 +47,8 @@ import (
 // termination, and observes zero active processes before releasing private
 // files. Kernel termination or accounting failure reports an unproven boundary
 // and retains its directory; job and control handles close on return.
-func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (completed result) {
-  dir, err := os.MkdirTemp("", "ttsc-source-process-")
+func runCommand(req request, protocolDir string, cancel <-chan struct{}, out, errOut io.Writer) (completed result) {
+  dir, err := os.MkdirTemp(protocolDir, "ttsc-source-process-")
   if err != nil {
     return failure("EIO", err.Error())
   }

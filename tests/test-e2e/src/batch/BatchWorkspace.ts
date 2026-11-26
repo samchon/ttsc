@@ -1464,8 +1464,14 @@ export namespace BatchWorkspace {
       if (process.platform !== "win32") fs.chmodSync(go, 0o755);
       const invocations = path.join(container, "go-invocations.jsonl");
       const buildTrace = path.join(container, "go-build-actions.jsonl");
+      const projectTemp = path.join(source, ".tmp");
+      fs.mkdirSync(projectTemp);
       const env: NodeJS.ProcessEnv = {
         ...process.env,
+        TEMP: projectTemp,
+        TMP: projectTemp,
+        TMPDIR: projectTemp,
+        GOTMPDIR: projectTemp,
         GOCACHE: "",
         TTSC_CACHE_DIR: "",
         TTSC_GO_CACHE_DIR: "",
@@ -1629,6 +1635,17 @@ export namespace BatchWorkspace {
       for (const [index, record] of coldActions.entries()) {
         assert.equal(record.status, 0, record.stderr);
         assert.equal(record.signal, null);
+        const work = /^WORK=(.+)$/m.exec(record.stderr)?.[1]?.trim();
+        assert.ok(
+          work && path.isAbsolute(work),
+          "Go must report its native work directory",
+        );
+        assert.equal(path.basename(path.dirname(work)), "go-build-output");
+        assert.equal(
+          fs.existsSync(work),
+          false,
+          "Go work must be gone after the command",
+        );
         assert.equal(
           changedToolchain(record),
           index !== coldActions.length - 1,
@@ -1640,6 +1657,7 @@ export namespace BatchWorkspace {
           "only the first epoch compiles the unique dependency; retries retain valid Go object reuse",
         );
       }
+      assert.deepEqual(fs.readdirSync(projectTemp), []);
       assert.ok(
         coldActions[0]!.stderr
           .split(/\r?\n/)

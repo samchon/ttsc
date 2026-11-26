@@ -1,8 +1,10 @@
 import type { SpawnSyncOptions, spawnSync } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parentPort } from "node:worker_threads";
+import {
+  MessageChannel,
+  parentPort,
+  receiveMessageOnPort,
+} from "node:worker_threads";
 
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../../internal/E2ETrace";
@@ -50,9 +52,7 @@ async function handle(request: Request): Promise<void> {
   let createdHandle: number | undefined;
   try {
     adoptEnvironment(request.env);
-    const scope = SourceNativeRetirement.createScope(
-      `${request.directory}:${request.id}`,
-    );
+    const scope = SourceNativeRetirement.createScope(request.taskToken);
     value = SourceNativeRetirement.run(scope, () =>
       OwnedSynchronousProcess.run(
         {
@@ -125,38 +125,40 @@ function commandRelay(
   options: SpawnSyncOptions,
 ): ReturnType<typeof spawnSync> {
   const done = new SharedArrayBuffer(4);
-  const responseFile = path.join(
-    request.directory,
-    `command-${++nextCommand}.bin`,
-  );
-  const boundary = `${request.id}:${nextCommand}`;
+  const { port1, port2 } = new MessageChannel();
+  const boundary = `${request.id}:${++nextCommand}`;
   SourceNativeRetirement.begin(boundary);
   let certified = false;
   try {
-    parentPort!.postMessage({
-      kind: "command",
-      id: request.id,
-      command,
-      args,
-      options: {
-        ...options,
-        ...(options.cwd instanceof URL
-          ? { cwd: fileURLToPath(options.cwd) }
-          : {}),
+    parentPort!.postMessage(
+      {
+        kind: "command",
+        id: request.id,
+        command,
+        args,
+        options: {
+          ...options,
+          ...(options.cwd instanceof URL
+            ? { cwd: fileURLToPath(options.cwd) }
+            : {}),
+        },
+        done,
+        boundary,
+        port: port2,
       },
-      done,
-      responseFile,
-    });
+      [port2],
+    );
     E2ETrace.capabilityResolution("command-relay-queued", {
       request: request.id,
       boundary,
-      responseFile,
+      taskToken: request.taskToken,
     });
     const state = new Int32Array(done);
     while (Atomics.load(state, 0) === 0) Atomics.wait(state, 0, 0);
-    const response = decodeCapabilityCommandReply(
-      fs.readFileSync(responseFile),
-    );
+    const reply = receiveMessageOnPort(port1);
+    if (reply === undefined)
+      throw new Error("ttsc: native relay did not publish its reply");
+    const response = decodeCapabilityCommandReply(reply.message);
     if (
       response.retirement !== "joined" &&
       response.retirement !== "not-started"
@@ -166,7 +168,6 @@ function commandRelay(
       });
     SourceNativeRetirement.settle(boundary, response.retirement);
     certified = true;
-    fs.rmSync(responseFile, { force: true });
     if (response.thrown !== undefined) {
       const failure = restoreCompilerError(response.thrown);
       if (failure.name !== "AbortError")
@@ -196,6 +197,9 @@ function commandRelay(
       }
     }
     throw error;
+  } finally {
+    port1.close();
+    port2.close();
   }
 }
 
@@ -209,7 +213,7 @@ interface Request {
   handle?: number;
   options?: { capability: string; cwd?: string; tsconfig?: string };
   cancel: SharedArrayBuffer;
-  directory: string;
+  taskToken: string;
   env: NodeJS.ProcessEnv;
 }
 

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
+import { systemTempOutsideProject } from "../../internal/systemTempOutsideProject";
 import { selectedRecordIdentityTempParent } from "../../plugin/internal/source/selectedRecordIdentityTempParent";
 import type { CapturedProcessOutput } from "./CapturedProcessOutput";
 import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
@@ -18,7 +19,7 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * its existing identities directory, keeping a project-root TEMP from changing
  * the missing-input proof during evaluation. A source-plugin build can instead
  * supply its own capture directory inside its held cache lock. Other callers
- * use system TEMP.
+ * use system temp outside the calling project's directory.
  *
  * This is not held-directory protection against namespace mutation. Descriptor
  * acquisition failures attempt rollback; cleanup failures are suppressed, and
@@ -40,6 +41,7 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 export function captureProcessOutput(
   env: NodeJS.ProcessEnv = process.env,
   ownedDirectory?: string,
+  projectRoot: string = process.cwd(),
 ): CapturedProcessOutput {
   const recordRoot =
     env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
@@ -49,7 +51,8 @@ export function captureProcessOutput(
     ownedDirectory ??
     createCanonicalTempDirectory(
       "ttsc-spawn-",
-      selectedRecordIdentityTempParent(recordRoot),
+      selectedRecordIdentityTempParent(recordRoot) ??
+        systemTempOutsideProject(projectRoot),
     );
   if (ownedDirectory !== undefined) fs.mkdirSync(ownedDirectory);
   const stdoutPath = path.join(directory, "stdout");

@@ -21,7 +21,8 @@ import (
 // Run executes the private source-process protocol. The first stdin line is a
 // JSON command; subsequent EOF cancels it. Child stdin is independent of this
 // control stream. Output streams carry only the child's bytes, while the
-// caller-owned result pathname receives an atomic completion record.
+// caller-owned result pathname receives an atomic completion record. Native
+// control storage has the same private parent as that result.
 //
 // @evidence contracts/common.md#principled-implementation Command decoding precedes acquisition; the OS owner returns only after its direct child and process boundary have been observed, and publication preserves failure instead of inventing successful completion.
 // @evidence contracts/common.md#clear-and-simple-design One entry separates control input, native execution and completion publication; platform adapters own containment and private inner dispatch.
@@ -54,7 +55,7 @@ func Run(args []string, in io.Reader, out, stderr io.Writer) int {
       _, _ = io.Copy(io.Discard, reader)
       close(cancel)
     }()
-    completed = runCommand(req, cancel, out, stderr)
+    completed = runCommand(req, filepath.Dir(args[1]), cancel, out, stderr)
   }
   if err := writeResult(args[1], completed); err != nil {
     fmt.Fprintf(stderr, "ttsc: source process completion publication failed: %v\n", err)

@@ -24,6 +24,7 @@ import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { RuntimeEmitProvenance } from "./runtime/RuntimeEmitProvenance";
 import { claimRuntimeProjectDirectory } from "./runtime/claimRuntimeProjectDirectory";
 import { runtimeRunKey } from "./runtime/runtimeRunKey";
+import { systemRuntimeCachePath } from "./runtime/systemRuntimeCachePath";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { runtimeEmitProfile } from "./runtimeEmitProfile";
@@ -400,8 +401,8 @@ function createProjectContext(
       : path.dirname(cacheDir);
   if (defaultCache?.collected === true)
     SourceBuildCacheLayout.pruneCacheFiles(cacheRoot);
-  // The `project` child can itself be a link. Pin its physical target, sweep
-  // abandoned runs, and publish this run's owner in one locked transaction.
+  // Validate the project index, sweep abandoned runs, and publish this run's
+  // owner in one locked transaction.
   // Clean can never observe a newly selected but still unowned index.
   const processDir = claimRuntimeProjectDirectory(cacheDir, runtimeCacheKey);
   const virtualRoot = path.join(processDir, "fs");
@@ -720,11 +721,7 @@ function defaultRuntimeCacheDir(
       throw error;
     }
   }
-  const fallback = path.join(
-    systemTempOutsideProject(root),
-    "ttsc-ttsx",
-    crypto.createHash("sha256").update(root).digest("hex").slice(0, 16),
-  );
+  const fallback = systemRuntimeCachePath(root, systemTempOutsideProject(root));
   return { collected: false, root: fallback, runtime: fallback };
 }
 

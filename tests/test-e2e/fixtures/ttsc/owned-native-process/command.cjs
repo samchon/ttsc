@@ -83,7 +83,8 @@ if (mode === "echo") {
     const withdrawn = finalEvents.filter(event => event.event === "capability-resolution" && event.data?.phase === "command-admission-withdrawn");
     assert.equal(withdrawn.length, 1);
     assert.equal(withdrawn[0].data.request, queued.data.request);
-    assert.equal(withdrawn[0].data.responseFile, queued.data.responseFile);
+    assert.equal(withdrawn[0].data.taskToken, queued.data.taskToken);
+    assert.equal(withdrawn[0].data.boundary, queued.data.boundary);
     assert.equal(withdrawn[0].data.explicitClose, true);
     assert.equal(withdrawn[0].data.retirement, "not-started");
     await assert.rejects(owner.resolve({ capability: "graph", cwd: root }), /closed/);

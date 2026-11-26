@@ -86,7 +86,7 @@ export function spawnNative(
       } as SpawnSyncReturns<string | Buffer>;
     }
   }
-  const capture = captureProcessOutput();
+  const capture = captureProcessOutput(process.env, undefined, options.cwd);
   try {
     const result = spawnSyncResilient(
       viaNode ? process.execPath : binary,

@@ -6,14 +6,15 @@ import path from "node:path";
  * Select an existing system temporary directory outside the current project. An
  * ambient TEMP can be a missing or redirected project path. Resolve both sides
  * before allocation and fall back to an existing platform temp directory. A Git
- * worktree or workspace declaration expands a nested project's boundary.
+ * worktree or workspace declaration expands a nested project's boundary. The
+ * temp path's ancestry also exposes projects outside the invocation directory.
  *
- * @evidence contracts/common.md#principled-implementation Both the project and the temp candidates are physically resolved; the containment check is applied to the project and observed enclosing workspace boundaries.
+ * @evidence contracts/common.md#principled-implementation Both sides are physically resolved. Explicit project/worktree boundaries and project markers along the temp ancestry block placement, even for callers that run from another project.
  * @evidence contracts/common.md#clear-and-simple-design Directory selection is read-only. Each caller owns any required mkdir, payload and cleanup below the returned physical path.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The function never creates a missing TEMP or selects a project directory as a fallback.
  * @evidence contracts/common.md#meaningful-documentation The prose states why ambient TEMP is insufficient and what expands the project boundary.
  * @evidence contracts/portability.md#os-neutral-implementation Native realpath resolves links and junctions; native relative paths distinguish descendants from separate volumes and sibling names.
- * @evidence contracts/performance.md#efficient-algorithms The bounded set of temp candidates is compared with two project ancestry walks and the workspace markers those walks find.
+ * @evidence contracts/performance.md#efficient-algorithms Bounded candidate and project ancestry walks use file-existence queries only, without enumerating directories or reading manifests.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A changed mount or TEMP setting requires a fresh observation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No filesystem state is created and no resource is retained.
  */
@@ -55,9 +56,29 @@ export function systemTempOutsideProject(projectRoot: string): string {
           !relative.startsWith(`..${path.sep}`))
       );
     });
-    if (!inside) return physical;
+    if (inside) continue;
+    let directory = physical;
+    for (;;) {
+      if (
+        PROJECT_MARKERS.some((marker) =>
+          fs.existsSync(path.join(directory, marker)),
+        )
+      )
+        break;
+      const parent = path.dirname(directory);
+      if (parent === directory) return physical;
+      directory = parent;
+    }
   }
   throw new Error(
     `ttsc: no existing system temporary directory outside ${projectRoot}`,
   );
 }
+
+const PROJECT_MARKERS = [
+  ".git",
+  "pnpm-workspace.yaml",
+  "tsconfig.json",
+  "package.json",
+  "go.mod",
+];

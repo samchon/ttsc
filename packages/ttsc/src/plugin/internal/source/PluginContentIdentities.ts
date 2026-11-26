@@ -1,10 +1,10 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../../../internal/E2ETrace";
+import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
 import type { IPluginSourceListing } from "./IPluginSourceListing";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 import { pluginSourceCovers } from "./pluginSourceCovers";
@@ -121,10 +121,10 @@ export namespace PluginContentIdentities {
    * default root is marked as selected before its first write, as every other
    * default writer does, so a later root search never mistakes the new payload
    * for an older orphan. One reference is minted in the root's identity
-   * directory, and the store exists only when that write succeeds. Another is
-   * minted in a private per-user directory below the system temporary
-   * directory, so an executable or SDK on the system volume is separable even
-   * when the project lives on another volume.
+   * directory, and the store exists only when that write succeeds. When the
+   * system temporary directory is safe and on another volume, a private
+   * per-user directory there supplies a second reference for executable or SDK
+   * files on that volume.
    *
    * A root inside any of `sources` is refused before anything is written: the
    * build rejects such a cache (`SourcePluginAdmission`), and a record written
@@ -139,7 +139,7 @@ export namespace PluginContentIdentities {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No wall clock or historical stamp substitutes for the minted reference.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs state root selection, the marker ordering and the undefined fallback.
    * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and the probe's device identity carry platform semantics; Windows environment names are read case-insensitively by the shared reader.
-   * @evidence contracts/performance.md#efficient-algorithms Root selection can walk ancestors and read manifests; each of the two probes performs one directory creation, one write, up to three lstats and one removal; the temporary one also checks its directory's ownership. No plugin source is read.
+   * @evidence contracts/performance.md#efficient-algorithms Root selection can walk ancestors and read manifests. The cache probe performs metadata checks, a directory creation if needed, a write and removal. The optional second probe checks the system temp device and owner first. No plugin source is read.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each load needs a freshly minted reference; reusing an older one would defeat the separation premise.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Each probe is removed in its owner's finally; the per-user temporary directory stays, empty, for later loads so the temporary directory itself does not move. The returned store retains at most two device references and two strings.
    */
@@ -165,10 +165,9 @@ export namespace PluginContentIdentities {
       );
       if (owned.references.size === 0) return undefined;
       // The cache root's device covers the project, its installed plugins and
-      // the toolchain bundled with them. A runtime or SDK installed elsewhere,
-      // typically on the system drive, is judged against a second reference
-      // minted in a per-user directory below the system temporary directory.
-      const temporary = temporaryReference();
+      // the toolchain bundled with them. A different system device can supply
+      // a second reference for a runtime or SDK installed there.
+      const temporary = temporaryReference(props.projectRoot, owned.references);
       const references = new Map([
         ...temporary.references,
         ...owned.references,
@@ -589,13 +588,22 @@ export namespace PluginContentIdentities {
       directory,
       `clock-${process.pid}-${crypto.randomUUID()}.probe`,
     );
+    let ownsProbe = false;
     try {
-      const created = fs.mkdirSync(directory, { recursive: true });
-      const parent =
-        created === undefined
-          ? fs.lstatSync(directory, { bigint: true })
-          : undefined;
-      fs.writeFileSync(probe, `${process.hrtime.bigint()}\n`);
+      const parent = fs.lstatSync(directory, {
+        bigint: true,
+        throwIfNoEntry: false,
+      });
+      if (parent !== undefined && !parent.isDirectory())
+        return { references, listings };
+      if (parent === undefined) fs.mkdirSync(directory, { recursive: true });
+      const fd = fs.openSync(probe, "wx");
+      ownsProbe = true;
+      try {
+        fs.writeFileSync(fd, `${process.hrtime.bigint()}\n`);
+      } finally {
+        fs.closeSync(fd);
+      }
       const stats = fs.lstatSync(probe, { bigint: true });
       references.set(stats.dev, stats.mtimeNs);
       if (parent !== undefined) {
@@ -612,7 +620,7 @@ export namespace PluginContentIdentities {
       listings.clear();
     } finally {
       try {
-        fs.rmSync(probe, { force: true });
+        if (ownsProbe) fs.rmSync(probe, { force: true });
       } catch {
         // A leftover probe contains this call's hrtime text, not source data.
       }
@@ -692,7 +700,10 @@ export namespace PluginContentIdentities {
   // there could be another user's, so the directory is named for this user,
   // created private, and used only while it is a real directory this user owns
   // that nobody else can write to.
-  function temporaryReference(): {
+  function temporaryReference(
+    projectRoot: string,
+    owned: ReadonlyMap<bigint, bigint>,
+  ): {
     references: ReadonlyMap<bigint, bigint>;
     listings: ReadonlySet<bigint>;
   } {
@@ -700,8 +711,10 @@ export namespace PluginContentIdentities {
     try {
       const uid =
         typeof process.getuid === "function" ? process.getuid() : undefined;
+      const parent = systemTempOutsideProject(projectRoot);
+      if (owned.has(fs.statSync(parent, { bigint: true }).dev)) return none;
       const directory = path.join(
-        os.tmpdir(),
+        parent,
         uid === undefined
           ? TEMPORARY_REFERENCE_DIRNAME
           : `${TEMPORARY_REFERENCE_DIRNAME}-${uid}`,

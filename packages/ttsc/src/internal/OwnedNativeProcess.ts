@@ -4,11 +4,12 @@ import {
   spawn,
 } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { resolveBinary } from "../compiler/internal/resolveBinary";
+import { createCanonicalTempDirectory } from "./createCanonicalTempDirectory";
+import { systemTempOutsideProject } from "./systemTempOutsideProject";
 
 /**
  * Execute one command under the platform helper's process-tree owner.
@@ -57,7 +58,7 @@ export namespace OwnedNativeProcess {
   export async function run(
     command: string,
     args: readonly string[],
-    options: SpawnSyncOptions,
+    options: SpawnSyncOptions & { projectRoot?: string },
     signal?: AbortSignal,
     observeRetirement?: (
       state: "joined" | "not-started" | "unknown",
@@ -140,25 +141,27 @@ export namespace OwnedNativeProcess {
         (entry): entry is [string, string] => entry[1] !== undefined,
       ),
     );
+    const cwd = path.resolve(
+      options.cwd === undefined
+        ? process.cwd()
+        : typeof options.cwd === "string"
+          ? options.cwd
+          : fileURLToPath(options.cwd),
+    );
     const payload = `${JSON.stringify({
       version: 1,
       command,
       args: [...args],
-      cwd: path.resolve(
-        options.cwd === undefined
-          ? process.cwd()
-          : typeof options.cwd === "string"
-            ? options.cwd
-            : fileURLToPath(options.cwd),
-      ),
+      cwd,
       env,
       ...(bytes === undefined ? {} : { inputBase64: bytes.toString("base64") }),
       windowsVerbatimArguments: options.windowsVerbatimArguments === true,
       ...(options.argv0 === undefined ? {} : { argv0: options.argv0 }),
       ...(options.timeout === undefined ? {} : { timeoutMs: options.timeout }),
     })}\n`;
-    const directory = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-owned-process-"),
+    const directory = createCanonicalTempDirectory(
+      "ttsc-owned-process-",
+      systemTempOutsideProject(options.projectRoot ?? cwd),
     );
     const resultFile = path.join(directory, "result.json");
     let retirement: "joined" | "not-started" | "unknown" = "not-started";

@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import util from "node:util";
 
 import { captureProcessOutput } from "../../../compiler/internal/captureProcessOutput";
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../../../internal/E2ETrace";
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { spawnSyncResilient } from "../../../internal/spawnSyncResilient";
@@ -24,7 +25,8 @@ import { windowsGoCommandArgs } from "./windowsGoCommandArgs";
  * wrapper is run through a generated shim with exact argument quoting; a
  * descriptor-exhaustion failure on POSIX is retried through the low-descriptor
  * broker. The lock-owning build can supply its capture location so waiters can
- * observe new compiler output.
+ * observe new compiler output. Go and its compiler children place transient
+ * files in that same owned capture directory.
  *
  * @evidence contracts/common.md#principled-implementation Child streams are routed to owned files and then reconstructed as the normal SpawnSyncReturns shape; Windows wrappers receive one-pass environment expansion and native argv quoting rather than unsafe shell concatenation.
  * @evidence contracts/common.md#clear-and-simple-design Output capture lifetime is separate from process selection and wrapper quoting; finally covers spawn failures and output-read failures alike.
@@ -40,16 +42,31 @@ import { windowsGoCommandArgs } from "./windowsGoCommandArgs";
 export function spawnGoTool(
   goBinary: string,
   args: readonly string[],
-  options: SpawnSyncOptionsWithStringEncoding,
+  options: SpawnSyncOptionsWithStringEncoding & { projectRoot?: string },
   captureDirectory?: string,
 ): SpawnSyncReturns<string> {
   // The child's streams go to files rather than pipes, so no output ceiling
   // applies: `spawnSync` only bounds what it must hold in this process's
   // memory, and a `go build` that says a great deal is not a failure to invent
   // a limit for. See `captureProcessOutput`.
-  const capture = captureProcessOutput(process.env, captureDirectory);
+  const projectRoot = options.projectRoot ?? spawnWorkingDirectory(options.cwd);
+  const capture = captureProcessOutput(
+    process.env,
+    captureDirectory,
+    projectRoot,
+  );
+  const temporary = path.dirname(capture.stdoutPath);
   const spawnOptions = {
     ...options,
+    // The relay may supervise a Go command with a neutral system-temp cwd.
+    // Its receipt still uses the actual project boundary.
+    projectRoot,
+    env: SidecarEnvironment.merge(options.env ?? process.env, {
+      GOTMPDIR: temporary,
+      TEMP: temporary,
+      TMP: temporary,
+      TMPDIR: temporary,
+    }),
     stdio: ["ignore", capture.stdoutFd, capture.stderrFd] as StdioOptions,
   };
   try {

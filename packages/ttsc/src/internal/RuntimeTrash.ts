@@ -41,7 +41,7 @@ export namespace RuntimeTrash {
    * @param parent The cache directory that holds `directory`: the runtime root
    *   for a run, or the runtime build store for a parked build.
    * @returns Whether the directory was moved; false leaves it in place.
-   * @evidence contracts/common.md#principled-implementation The trash is a child of the cache directory that holds the retired tree, so the rename stays in one directory tree; a rename across volumes fails and is reported.
+   * @evidence contracts/common.md#principled-implementation The ordinary trash child of the cache directory keeps the rename in one directory tree. An aliased trash entry or a rename across volumes is refused.
    * @evidence contracts/common.md#clear-and-simple-design One rename and a unique name; the caller decides what may be retired.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A refused rename, such as a file a lingering process holds open on Windows, is reported to the caller instead of being retried or forced.
    * @evidence contracts/common.md#meaningful-documentation Parameters state the ownership premise and the result's meaning.
@@ -53,6 +53,8 @@ export namespace RuntimeTrash {
   export function retire(directory: string, parent: string): boolean {
     try {
       const trash = path.join(parent, DIRNAME);
+      const entry = fs.lstatSync(trash, { throwIfNoEntry: false });
+      if (entry !== undefined && !entry.isDirectory()) return false;
       fs.mkdirSync(trash, { recursive: true });
       fs.renameSync(
         directory,
@@ -117,7 +119,13 @@ export namespace RuntimeTrash {
       }
       if (!stopped) await fs.promises.rmdir(directory).catch(() => undefined);
     };
-    void removeDirectory(path.join(parent, DIRNAME)).catch(() => undefined);
+    const trash = path.join(parent, DIRNAME);
+    void fs.promises
+      .lstat(trash)
+      .then(async (entry) => {
+        if (entry.isDirectory() && !stopped) await removeDirectory(trash);
+      })
+      .catch(() => undefined);
     return () => {
       stopped = true;
     };

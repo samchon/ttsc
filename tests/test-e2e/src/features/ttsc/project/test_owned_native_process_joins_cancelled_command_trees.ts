@@ -23,7 +23,7 @@ import { FixtureFiles } from "../../../internal/FixtureFiles";
  * 4. Cancel an actual resolver runtime probe and reject active/queued work after
  *    unknown proof.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual run calls exercise the Go helper and Node commands. Literal argv, environment, cwd, stdin hex, diagnostic text and status23 assert transport; ENOENT and ENOBUFS assert failure identity. A ready test observer enrolls each live command before effects or fast exit; product join must immediately yield retired on its original kernel lifetime. Parent and grandchild enrollment precedes cancellation, which must preserve original abort identity and prevent the unchanged 500ms late marker. Every command observes its joined, not-started or unknown classification. Recovery succeeds; incompatible and missing supervisors cannot admit the marker target. Null, unproved object and malformed nested receipt fields remain unknown and retained; literal diagnostic expectations require approved native fields or structure markers and exclude authored output/extra decoys. Original execution, verification and cleanup failures remain together rather than replacing one another.
+ * @evidence contracts/testing.md#behavioral-verification Actual run calls exercise the Go helper and Node commands. Literal argv, environment, cwd, stdin hex, diagnostic text and status23 assert transport; ENOENT and ENOBUFS assert failure identity. A ready test observer enrolls each live command before effects or fast exit; product join must immediately yield retired on its original kernel lifetime. Parent and grandchild enrollment precedes cancellation, which must preserve original abort identity and prevent the unchanged 500ms late marker. Every command observes its joined, not-started or unknown classification. A watcher and final listing observe project-local TEMP while the helpers and relay run under that environment. Recovery succeeds; incompatible and missing supervisors cannot admit the marker target. Null, unproved object and malformed nested receipt fields remain unknown and retained; literal diagnostic expectations require approved native fields or structure markers and exclude authored output/extra decoys. Original execution, verification and cleanup failures remain together rather than replacing one another.
  * @evidence contracts/testing.md#independent-expectations Authored Node inputs independently report argv/cwd/env/stdin and prescribe status23. Literal bytes distinguish DataView slices and latin1 encoding. Native retained Windows handles, Linux pidfds or Darwin knotes supply original lifetime authority, independent from SDK receipts and numeric PID reuse; wait uses zero timeout after product join. The grandchild's original publication clock and 500ms marker supply a separate effect oracle. An incompatible preload writes null, never a valid cleanup certificate. Actual retained directory/null receipt observations require preservation; unknown is lack of retirement authority, not an asserted OS refusal or reproduced PID reuse.
  * @evidence contracts/testing.md#distinguishing-cases Nonzero successful execution, binary DataView offset/length, latin1 string input, relative cwd, nonexistent target, bounded output overflow, active two-generation cancellation, recovery and legacy/invalid-receipt/missing supervisor refusal retain separate failure names. Resolver rows distinguish arbitrary cancellation during the real configured-JavaScript-plugin runtime probe from unknown helper retirement that must reject both later commands in the active request and the queued request. Portable pre-abort and unsupported-option refusal belong to the direct source unit.
  * @evidence contracts/testing.md#execution-ownership The runtime experiment admits this scenario, loads its installed SDK and executes its platform helper plus a separately prepared test-only native observer. The standalone observer fixture remains under the owning package's test tree. Explicit SDK/platform/observer paths allow separately reported workspace/private probes, which do not certify installed packaging. No TypeScript compiler or installation is added.
@@ -74,6 +74,8 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
     FixtureFiles.read("ttsc/owned-native-process"),
   );
   const root = TestProject.physicalPath(allocatedRoot);
+  const projectTemp = path.join(root, ".tmp");
+  fs.mkdirSync(projectTemp);
   const command = path.join(root, "command.cjs");
   const observer =
     options.observer ??
@@ -86,6 +88,9 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
   };
   const env = {
     ...process.env,
+    TEMP: projectTemp,
+    TMP: projectTemp,
+    TMPDIR: projectTemp,
     TTSC_BINARY: options.binary ?? TestProject.NATIVE_BINARY,
     TTSC_OWNED_VALUE: "authored environment",
     TTSC_LIFETIME_ROOT: root,
@@ -454,6 +459,11 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
       input,
     });
   };
+  const temporaryEntries = new Set<string>();
+  const projectTempWatch = fs.watch(projectTemp, (_event, name) => {
+    if (name !== null) temporaryEntries.add(name);
+  });
+  projectTempWatch.on("error", (error) => failures.push(error));
   try {
     await check("normal output and nonzero status", () =>
       echo({ input: "authored" }, "617574686f726564"),
@@ -823,6 +833,21 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
       assert.equal(fs.existsSync(path.join(root, "admitted-marker")), false);
     });
   } finally {
+    projectTempWatch.close();
+    try {
+      for (const name of fs.readdirSync(projectTemp))
+        temporaryEntries.add(name);
+    } catch (error) {
+      failures.push(
+        new Error("Read project TEMP after native work", { cause: error }),
+      );
+    }
+    if (temporaryEntries.size !== 0)
+      failures.push(
+        new Error(
+          `Native work reached project TEMP: ${[...temporaryEntries].join(", ")}`,
+        ),
+      );
     try {
       if (options.observer === undefined) await observer.close();
     } catch (cause) {

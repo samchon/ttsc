@@ -1,9 +1,8 @@
 import type { SpawnSyncOptions, SpawnSyncReturns } from "node:child_process";
-import fs from "node:fs";
-import os from "node:os";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { serialize } from "node:v8";
-import { Worker } from "node:worker_threads";
+import { type MessagePort, Worker } from "node:worker_threads";
 
 import { E2ETrace } from "../internal/E2ETrace";
 import { OwnedNativeProcess } from "../internal/OwnedNativeProcess";
@@ -16,8 +15,8 @@ import { receiveCapabilityFailure } from "./internal/receiveCapabilityFailure";
  * Own asynchronous capability discovery and its opaque freshness proofs. The
  * same worker executes the existing synchronous resolver and keeps each
  * original proof closure. Its native commands are relayed to a joined process
- * supervisor, so cancellation unwinds build cleanup rather than killing the
- * resolver thread while it holds a lease.
+ * supervisor, so cancellation unwinds build cleanup while the worker holds its
+ * lease. A per-command port and shared wake-up cell carry replies in memory.
  *
  * @evidence contracts/common.md#principled-implementation Serial worker requests preserve the original resolver and proof objects; command containment completes before cancellation resumes their synchronous stacks.
  * @evidence contracts/common.md#clear-and-simple-design This owner controls admission, worker RPC, opaque proof handles and shutdown; the worker owns synchronous discovery and the native owner controls process trees.
@@ -26,7 +25,7 @@ import { receiveCapabilityFailure } from "./internal/receiveCapabilityFailure";
  * @evidence contracts/portability.md#os-neutral-implementation The worker requires the SDK's CommonJS source or emitted entry through a supported module URL while Node retains inherited execution options and preload hooks; cloned environments and platform helper resolution remain native inputs.
  * @evidence contracts/performance.md#efficient-algorithms One worker serves serialized requests and retains original proof closures; command output serialization scales with returned bytes and request admission grows with submitted demand.
  * @evidence contracts/performance.md#reuse-equivalent-work Worker reuse retains validated SDK caches but every resolve and currentness request still calls its original authority; proof handles never transfer freshness between generations.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Explicit release drops proof handles. Close aborts admitted work, joins command supervisors and waits for worker exit; private command exchange storage is removed after its request settles.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Explicit release drops proof handles. Close aborts admitted work, joins command supervisors and waits for worker exit. Each reply port closes after publication.
  */
 export class CapabilityPluginResolver {
   private worker: Worker | undefined;
@@ -226,9 +225,7 @@ export class CapabilityPluginResolver {
     const generation = this.generation;
     const id = ++this.nextId;
     const cancel = new SharedArrayBuffer(4);
-    const directory = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-capability-rpc-"),
-    );
+    const taskToken = randomUUID();
     const commands = new Set<Promise<unknown>>();
     const nativeController = new AbortController();
     const stop = () => {
@@ -239,8 +236,6 @@ export class CapabilityPluginResolver {
     signal.addEventListener("abort", stop, { once: true });
     if (signal.aborted) stop();
     worker.ref();
-    let originalFailure: unknown;
-    let failed = false;
     try {
       return await new Promise<unknown>((resolve, reject) => {
         const clear = () => {
@@ -265,12 +260,13 @@ export class CapabilityPluginResolver {
               const explicitClose = this.closing !== undefined;
               E2ETrace.capabilityResolution("command-admission-withdrawn", {
                 request: id,
-                responseFile: reply.responseFile,
+                taskToken,
+                boundary: reply.boundary,
                 explicitClose,
                 retirement: "not-started",
               });
               const rejection = Promise.resolve().then(() =>
-                writeCommandReply(reply, {
+                publishCommandReply(reply, {
                   retirement: "not-started",
                   thrown: serializeCompilerError(
                     explicitClose
@@ -301,11 +297,9 @@ export class CapabilityPluginResolver {
                 retirement = state;
                 if (state === "unknown") this.closed = true;
                 if (process.env.TTSC_E2E_TRACE) {
-                  // The worker's existing command-relay-queued event binds
-                  // this response file to its original boundary token.
                   E2ETrace.capabilityResolution("native-command-retired", {
-                    taskToken: `${directory}:${id}`,
-                    responseFile: reply.responseFile,
+                    taskToken,
+                    boundary: reply.boundary,
                     retirement: state,
                     ...observation,
                   });
@@ -313,7 +307,7 @@ export class CapabilityPluginResolver {
               },
             ).then(
               (result) =>
-                writeCommandReply(reply, {
+                publishCommandReply(reply, {
                   retirement,
                   result: {
                     ...result,
@@ -329,7 +323,7 @@ export class CapabilityPluginResolver {
                 if (!cancelled) this.rememberFailure(error);
                 // The worker needs a cancellation classification, while the
                 // caller's arbitrary reason stays on its original main thread.
-                writeCommandReply(reply, {
+                publishCommandReply(reply, {
                   retirement,
                   thrown: serializeCompilerError(
                     cancelled
@@ -344,7 +338,7 @@ export class CapabilityPluginResolver {
             commands.add(operation);
             this.native.add(operation);
             // Keep every command in this request until its final join, including
-            // failed exchange writes after native retirement.
+            // failed reply publication after native retirement.
             void operation
               .finally(() => this.native.delete(operation))
               .catch(() => undefined);
@@ -397,33 +391,18 @@ export class CapabilityPluginResolver {
             ...body,
             id,
             cancel,
-            directory,
+            taskToken,
             env: { ...process.env },
           });
         } catch (error) {
           failed(error instanceof Error ? error : new Error(String(error)));
         }
       });
-    } catch (error) {
-      failed = true;
-      originalFailure = error;
-      throw error;
     } finally {
       signal.removeEventListener("abort", stop);
       await Promise.allSettled(commands);
       if (this.worker !== worker) await this.exits.get(worker);
       worker.unref();
-      try {
-        fs.rmSync(directory, { force: true, recursive: true });
-      } catch (error) {
-        this.rememberFailure(error);
-        throw failed
-          ? new AggregateError(
-              [originalFailure, error],
-              "ttsc: resolver request cleanup failed",
-            )
-          : error;
-      }
     }
   }
 
@@ -544,16 +523,18 @@ interface WorkerReply {
   ownershipFailed?: boolean;
   command: string;
   args: string[];
-  options: SpawnSyncOptions;
+  options: SpawnSyncOptions & { projectRoot?: string };
   done: SharedArrayBuffer;
-  responseFile: string;
+  boundary: string;
+  port: MessagePort;
 }
 
-function writeCommandReply(reply: WorkerReply, value: unknown): void {
+function publishCommandReply(reply: WorkerReply, value: unknown): void {
   try {
-    fs.writeFileSync(reply.responseFile, serialize(value));
+    reply.port.postMessage(serialize(value));
   } finally {
     Atomics.store(new Int32Array(reply.done), 0, 1);
     Atomics.notify(new Int32Array(reply.done), 0);
+    reply.port.close();
   }
 }

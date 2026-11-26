@@ -37,7 +37,7 @@ import {
  *    starting the worker; also compare the missing-config exceptions.
  *
  * @evidence contracts/testing.md#behavioral-verification Real native API calls apply configured and discovered plugins, stop at a nearer manifest, report the exact four consulted host inputs, distinguish scoped invalid temp from ambient success and compare sync/worker envelopes, call-time environment capture and event-loop progress; discovery calls leave dist absent.
- * @evidence contracts/testing.md#independent-expectations The authored goUpper source and uppercase contract fix PLUGIN and unchanged goUpper expectations; nearest-manifest discovery is independently specified. The four literal consulted paths exclude the unrelated notes asset, scoped temp failure names the physical regular file and a literal one-second hold sets the independent 500ms stall bound. Sync/async envelopes compare the public contracts rather than compiler internals.
+ * @evidence contracts/testing.md#independent-expectations The authored goUpper source and uppercase contract fix PLUGIN and unchanged goUpper expectations; nearest-manifest discovery is independently specified. The four literal consulted paths exclude the unrelated notes asset, the scoped temp file must retain its authored contents, and a literal one-second hold sets the independent 500ms stall bound. Sync/async envelopes compare the public contracts rather than compiler internals.
  * @evidence contracts/testing.md#distinguishing-cases Configured and package-discovered plugins, ancestor discovery and its nearest-manifest negative contrast with missing explicit config versus an unrelated asset, invalid scoped versus valid ambient temp parents and success versus missing-config worker envelopes. The one-second descriptor hold has an independent 500ms maximum caller stall.
  * @evidence contracts/testing.md#execution-ownership This ordinary test export is discovered by test-e2e src/index.ts and selected by evidence.config.json; it runs the native plugin loader and source producer through TtscCompiler, through the checkout built API and selected native compiler; manifest parsing units alone do not exercise this assembly. It is not packed installation or loaded-image certification.
  * @evidence contracts/e2e.md#necessary-boundary Native plugin discovery and API output publication, worker environment capture and the sampled descriptor-hold timer bound require actual native API and worker connections; direct manifest or envelope units cannot prove this assembly.
@@ -209,18 +209,8 @@ export async function test_ttsccompiler_source_plugin_discovery_shares_one_proje
                     TMPDIR: notADirectory,
                   },
                 }).transformAsync();
-                assert.equal(scoped.type, "exception");
-                if (scoped.type !== "exception") throw new Error("unreachable");
-                assert.match(
-                  (scoped.error as Error).message,
-                  /temporary directory parent is not a directory/,
-                );
-                assert.ok(
-                  (scoped.error as Error).message.includes(
-                    fs.realpathSync.native(notADirectory),
-                  ),
-                  (scoped.error as Error).message,
-                );
+                assert.equal(scoped.type, "success");
+                assert.equal(fs.readFileSync(notADirectory, "utf8"), "");
               },
             ],
             [

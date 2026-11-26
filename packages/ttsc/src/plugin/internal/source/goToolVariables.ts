@@ -4,18 +4,19 @@ import { runtimeBuildEnvironment } from "../../../compiler/internal/build/runtim
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 
 /**
- * Hash of every variable a Go tool receives, as the variable part of a Go
- * reading recorded for later processes.
+ * Hash of the caller environment, as the variable part of a Go reading recorded
+ * for later processes.
  *
- * A Go tool receives the whole environment, so all of it is keyed except ttsc's
- * own per-run channels and reporting switches
- * (`runtimeBuildEnvironment.unkeyed`): a ttsx program carries channels naming
- * its run's directories, which no Go tool reads, and keying them recorded every
- * reading of every run under a new name (samchon/ttsc#1852).
+ * The launcher forwards caller values and assigns its private scratch paths
+ * when it spawns Go. Input values are keyed except ttsc's per-run channels and
+ * reporting switches (`runtimeBuildEnvironment.unkeyed`): a ttsx program
+ * carries channels naming its run's directories, which no Go tool reads, and
+ * keying them recorded every reading of every run under a new name
+ * (samchon/ttsc#1852).
  *
  * @param env Effective environment of the Go invocation.
  * @returns Hex SHA-256 of the name-ordered variables.
- * @evidence contracts/common.md#principled-implementation Every variable the tool receives is keyed; only ttsc's own channels, which no Go tool reads, are left out.
+ * @evidence contracts/common.md#principled-implementation Caller variables enter the key except ttsc-only channels. The allocated scratch path is invocation storage rather than a reusable input.
  * @evidence contracts/common.md#clear-and-simple-design One projection serves every recorded Go reading.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No shell or package-manager variable is named to be skipped.
  * @evidence contracts/common.md#meaningful-documentation Native prose states what is keyed, what is left out and why.

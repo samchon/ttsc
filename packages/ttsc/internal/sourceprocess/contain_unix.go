@@ -30,7 +30,7 @@ import (
 // Cleanup polls the group at fixed intervals; adopted-child reaping is
 // proportional to exited descendants. Native refusal or a group that remains
 // after the cleanup budget yields an explicit unproved-cleanup error.
-func runCommand(req request, cancel <-chan struct{}, out, stderr io.Writer) (completed result) {
+func runCommand(req request, protocolDir string, cancel <-chan struct{}, out, stderr io.Writer) (completed result) {
   if req.WindowsVerbatimArguments {
     return failure("EINVAL", "Windows verbatim arguments are unavailable on POSIX")
   }
@@ -45,16 +45,7 @@ func runCommand(req request, cancel <-chan struct{}, out, stderr io.Writer) (com
     return value
   default:
   }
-  directory, err := os.MkdirTemp("", "ttsc-source-process-")
-  if err != nil {
-    return failure("EIO", err.Error())
-  }
-  defer func() {
-    if err := os.RemoveAll(directory); err != nil {
-      completed.Error = &processError{Code: "EIO", Message: fmt.Sprintf("source process private-directory cleanup failed: %v", err)}
-    }
-  }()
-  input, closeInput, err := openInput(req, directory)
+  input, closeInput, err := openInput(req, protocolDir)
   if err != nil {
     return failure("EINVAL", err.Error())
   }

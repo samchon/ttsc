@@ -89,6 +89,7 @@ export namespace GoEnvironmentReading {
     keys: readonly string[],
     witness: PluginBuildEnvironmentWitness.Record | undefined,
     identities?: PluginContentIdentities.Store,
+    projectRoot?: string,
   ): Record<string, unknown> | undefined {
     const memo = crypto.createHash("sha256").update(goBinary);
     for (const [key, value] of Object.entries(env).sort(([left], [right]) =>
@@ -113,6 +114,7 @@ export namespace GoEnvironmentReading {
         PluginBuildEnvironmentWitness.add(witness, named);
       const result = spawnGoTool(goBinary, ["env", "-json", ...keys, "GOENV"], {
         cwd,
+        projectRoot,
         encoding: "utf8",
         env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
         windowsHide: true,
@@ -204,6 +206,7 @@ export namespace GoEnvironmentReading {
     keys: readonly string[],
     witness: PluginBuildEnvironmentWitness.Record | undefined,
     identities: PluginContentIdentities.Store | undefined,
+    projectRoot?: string,
   ): Record<string, unknown> | undefined {
     const identity = [goBinary, path.resolve(cwd), keys, goToolVariables(env)];
     const kept = WitnessedLoadAnswers.read(
@@ -219,7 +222,15 @@ export namespace GoEnvironmentReading {
     }
     const observed: PluginBuildEnvironmentWitness.Record = new Map();
     witnessToolchain(goBinary, cwd, env, observed);
-    const values = read(goBinary, cwd, env, keys, observed, identities);
+    const values = read(
+      goBinary,
+      cwd,
+      env,
+      keys,
+      observed,
+      identities,
+      projectRoot,
+    );
     if (values === undefined) return undefined;
     if (typeof values.GOROOT === "string" && path.isAbsolute(values.GOROOT))
       PluginBuildEnvironmentWitness.add(

@@ -12,6 +12,7 @@ import (
   "net/url"
   "os"
   "path/filepath"
+  "runtime"
   "strings"
   "unicode/utf16"
   "unicode/utf8"
@@ -23,6 +24,7 @@ import (
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
+  "github.com/samchon/ttsc/packages/ttsc/driver/configloaderscratch"
 )
 
 const (
@@ -1275,7 +1277,21 @@ func workspaceEditForFullDocument(uri string, original string, next string) *lsp
 }
 
 func prepareLSPCommandWorkspace(cwd string, tsconfig string, target string) (string, string, string, func(), error) {
-  tempRoot, err := os.MkdirTemp("", "ttsc-lint-lsp-")
+  physicalCwd := realProjectPath(cwd)
+  project := filepath.Join(physicalCwd, "tsconfig.json")
+  tempBase := configloaderscratch.PrivateTempBase(project, os.TempDir())
+  if tempBase == "" {
+    fallback := "/tmp"
+    if runtime.GOOS == "windows" {
+      home, _ := os.UserHomeDir()
+      fallback = filepath.Join(home, "AppData", "Local", "Temp")
+    }
+    tempBase = configloaderscratch.PrivateTempBase(project, fallback)
+  }
+  if tempBase == "" {
+    return "", "", "", nil, fmt.Errorf("@ttsc/lint: no private LSP workspace outside %s", cwd)
+  }
+  tempRoot, err := os.MkdirTemp(tempBase, "ttsc-lint-lsp-")
   if err != nil {
     return "", "", "", nil, fmt.Errorf("@ttsc/lint: create LSP temp workspace: %w", err)
   }
@@ -1287,7 +1303,6 @@ func prepareLSPCommandWorkspace(cwd string, tsconfig string, target string) (str
   // Copy from the resolved (physical) cwd so a symlinked or short-name project
   // root still descends into the real tree; the copy reproduces the project's
   // LOGICAL layout, which tempPathFor above indexes into by the logical cwd.
-  physicalCwd := realProjectPath(cwd)
   if err := copyLSPCommandWorkspace(physicalCwd, tempRoot); err != nil {
     cleanup()
     return "", "", "", nil, err
