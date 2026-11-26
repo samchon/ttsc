@@ -272,10 +272,10 @@ export namespace PluginContentIdentities {
    * @param read The owning content reader; its result is the digest.
    * @evidence contracts/common.md#principled-implementation A record is used only when the current separable signature equals the recorded one; publication requires equal separable signatures before and after the actual content read. A recorded listing only shortens how the observer reaches the current signature, and a Nix store-path observation replaces the walk only for confined kinds whose real path lies inside a read-only owner-matched store directory.
    * @evidence contracts/common.md#clear-and-simple-design The caller keeps population selection and content hashing; this function owns lookup, confined Nix store-path admission, reuse and publication in one place.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Corrupt, foreign or unproved records cause the real read; the record cannot widen what the caller's reader covers, and unconfined kinds or look-alike store paths fall back to the caller's observer.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Corrupt or foreign records and unseparable observations cause the real read. Unconfined kinds and paths outside the admitted store layout use the caller's observer. The store path proof assumes the selected store preserves descendant contents.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the reuse condition, the self-containment exclusion, the Nix store-path premise and the `goroot` exclusion; parameters describe their roles.
    * @evidence contracts/portability.md#os-neutral-implementation Separability is the observer's per-device judgement or a POSIX realpath/lstat Nix store check; record files use native path joins and atomic same-directory replacement.
-   * @evidence contracts/performance.md#efficient-algorithms A Nix store hit costs one realpath, one lstat and one small record read without walking or reading the population; an ordinary hit costs one small record read and one population observation, which a held listing makes metadata-only; a miss adds the content read and a second observation. Record identity hashes fixed framing text.
+   * @evidence contracts/performance.md#efficient-algorithms A Nix store hit costs one realpath, one lstat and one small record read without walking or reading the population. An ordinary hit uses one population observation, which a held listing makes metadata-only. A miss adds the content read and checks again only when the initial observation was separable. Record identity hashes fixed framing text.
    * @evidence contracts/performance.md#reuse-equivalent-work Processes share a digest only for the same family, subject, version and current separable signature (or confined Nix store-path identity) that the producing read was bracketed by, and an observer's listing with it.
    * @evidence contracts/performance.md#bound-retention-and-release-resources One small file per subject is published atomically and aged out by the single-file collector; hits refresh its use time, or rewrite it once with the listing their walk read; nothing is retained in memory.
    */
@@ -334,8 +334,13 @@ export namespace PluginContentIdentities {
       }
     }
     const value = read();
+    // Only a separable pre-read observation can authorize publication; skip the
+    // post-read observation when the record cannot be written anyway.
     const after =
-      nixStoreObservation(store, kind, subject) ?? observe(store.references);
+      before?.separable === true
+        ? (nixStoreObservation(store, kind, subject) ??
+          observe(store.references))
+        : undefined;
     const recorded =
       before?.separable === true &&
       after?.separable === true &&
