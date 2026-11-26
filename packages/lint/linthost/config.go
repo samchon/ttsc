@@ -1989,8 +1989,27 @@ var (
 // plugin factory (packages/lint/src/index.ts) for cached lint configs.
 // Evaluating a .ts/.js config means spawning a ttsx/node subprocess; the
 // cache keeps every `ttsc` invocation after the first from re-paying it.
-func configCacheDir() string {
-  return filepath.Join(os.TempDir(), "ttsc-lint-config-cache")
+func configCacheDir(location string) string {
+  temporary := configloaderscratch.PrivateTempBase(location, os.TempDir())
+  if temporary == "" {
+    return ""
+  }
+  if cwd, err := os.Getwd(); err != nil ||
+    (filepath.Dir(cwd) != cwd && configloaderscratch.PrivateTempBase(filepath.Join(cwd, "tsconfig.json"), temporary) == "") {
+    return ""
+  }
+  dir := filepath.Join(temporary, "ttsc-lint-config-cache")
+  if entry, err := os.Lstat(dir); err == nil {
+    if !entry.IsDir() || entry.Mode()&os.ModeSymlink != 0 {
+      return ""
+    }
+    if _, err := os.Readlink(dir); err == nil {
+      return ""
+    }
+  } else if !os.IsNotExist(err) {
+    return ""
+  }
+  return dir
 }
 
 // configCacheDisabled reports whether the env opt-out is set — an escape
@@ -2100,7 +2119,7 @@ func loadCachedConfigEvaluationWithPolicy(
     })
     return evaluatedConfigFileFromCache(cached), nil
   }
-  if disk, hit := readConfigDiskCache(key); hit &&
+  if disk, hit := readConfigDiskCache(abs, key); hit &&
     disk.DependenciesTracked == dependenciesRequired &&
     cachedConfigEvaluationIsCurrent(disk) {
     configEvalCacheMu.Lock()
@@ -2147,10 +2166,10 @@ func loadCachedConfigEvaluationWithPolicy(
       configEvalCacheMu.Lock()
       configEvalCache[key] = cached
       configEvalCacheMu.Unlock()
-      writeConfigDiskCache(key, cached)
+      diskWriteAttempted := writeConfigDiskCache(abs, key, cached)
       evaluated.traceInvocation.record("config-cache-outcome", map[string]any{
         "location": location, "key": key, "attempt": attempt + 1,
-        "outcome": "memory-published", "diskWriteAttempted": true,
+        "outcome": "memory-published", "diskWriteAttempted": diskWriteAttempted,
         "dependencies": cached.Dependencies, "dependenciesTracked": cached.DependenciesTracked,
       })
       return evaluated, nil
@@ -2343,8 +2362,12 @@ func cachedConfigEvaluationIsCurrent(cached cachedConfigEvaluation) bool {
   return ok && configDependencyDigestsAreCurrent(normalized)
 }
 
-func readConfigDiskCache(key string) (cachedConfigEvaluation, bool) {
-  body, err := os.ReadFile(filepath.Join(configCacheDir(), key+".json"))
+func readConfigDiskCache(location, key string) (cachedConfigEvaluation, bool) {
+  dir := configCacheDir(location)
+  if dir == "" {
+    return cachedConfigEvaluation{}, false
+  }
+  body, err := os.ReadFile(filepath.Join(dir, key+".json"))
   if err != nil {
     return cachedConfigEvaluation{}, false
   }
@@ -2385,32 +2408,39 @@ func readConfigDiskCache(key string) (cachedConfigEvaluation, bool) {
 // (the next run re-evaluates) rather than failing the lint run. The write
 // goes through a temp file + rename so a concurrent reader in a sibling
 // `ttsc` process never observes a half-written entry.
-func writeConfigDiskCache(key string, cached cachedConfigEvaluation) {
+func writeConfigDiskCache(location, key string, cached cachedConfigEvaluation) bool {
+  dir := configCacheDir(location)
+  if dir == "" {
+    return false
+  }
   body, err := json.Marshal(cached)
   if err != nil {
-    return
+    return false
   }
-  dir := configCacheDir()
-  if err := os.MkdirAll(dir, 0o755); err != nil {
-    return
+  if err := os.Mkdir(dir, 0o755); err != nil && !os.IsExist(err) {
+    return true
+  }
+  if configCacheDir(location) != dir {
+    return true
   }
   tmp, err := os.CreateTemp(dir, key+".*.tmp")
   if err != nil {
-    return
+    return true
   }
   tmpName := tmp.Name()
   if _, err := tmp.Write(body); err != nil {
     tmp.Close()
     os.Remove(tmpName)
-    return
+    return true
   }
   if err := tmp.Close(); err != nil {
     os.Remove(tmpName)
-    return
+    return true
   }
   if err := os.Rename(tmpName, filepath.Join(dir, key+".json")); err != nil {
     os.Remove(tmpName)
   }
+  return true
 }
 
 // loadJSONConfigFile reads and JSON-parses a lint config file. A leading UTF-8
@@ -2714,7 +2744,27 @@ func loadScriptConfigEvaluationWithin(
   location string,
   resolutionRoot string,
 ) (evaluatedConfigFile, error) {
-  tempDir, err := os.MkdirTemp("", "ttsc-lint-script-config-")
+  base := configloaderscratch.PrivateTempBase(location, os.TempDir())
+  if resolutionRoot != "" && base != "" {
+    base = configloaderscratch.PrivateTempBase(filepath.Join(resolutionRoot, "tsconfig.json"), base)
+  }
+  if base == "" {
+    fallback := "/tmp"
+    if runtime.GOOS == "windows" {
+      home, err := os.UserHomeDir()
+      if err == nil {
+        fallback = filepath.Join(home, "AppData", "Local", "Temp")
+      }
+    }
+    base = configloaderscratch.PrivateTempBase(location, fallback)
+    if resolutionRoot != "" && base != "" {
+      base = configloaderscratch.PrivateTempBase(filepath.Join(resolutionRoot, "tsconfig.json"), base)
+    }
+  }
+  if base == "" {
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: no private temporary directory for script config %s", location)
+  }
+  tempDir, err := os.MkdirTemp(base, "ttsc-lint-script-config-")
   if err != nil {
     return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: create script config result directory: %w", err)
   }

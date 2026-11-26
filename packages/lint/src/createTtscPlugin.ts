@@ -1954,7 +1954,7 @@ function readTtsxConfigPlugins(
   const resolutionRoot = path.resolve(pluginConfigBaseDir(context));
   const cacheKey = configCacheKey(`plugins\0${resolutionRoot}`, configPath);
   if (cacheKey) {
-    const cached = readConfigPluginCache(cacheKey);
+    const cached = readConfigPluginCache(cacheKey, configPath, resolutionRoot);
     // Re-validate cached entries before trusting them: a contributor's
     // resolved `source` directory may have moved since the entry was
     // written. A stale entry falls through to a fresh evaluation rather
@@ -1975,7 +1975,13 @@ function readTtsxConfigPlugins(
   for (let attempt = 0; attempt < 3; attempt++) {
     evaluation = evaluateTtsxConfigPlugins(configPath, context);
     if (configDependenciesAreCurrent(evaluation.dependencies)) {
-      if (cacheKey) writeConfigPluginCache(cacheKey, evaluation);
+      if (cacheKey)
+        writeConfigPluginCache(
+          cacheKey,
+          evaluation,
+          configPath,
+          resolutionRoot,
+        );
       return evaluation;
     }
   }
@@ -2359,8 +2365,43 @@ const CONFIG_CACHE_VERSION = "v12";
  * The two write different files (the `kind` segment of the cache key keeps
  * their namespaces apart), so they coexist without collision.
  */
-function configCacheDir(): string {
-  return path.join(os.tmpdir(), "ttsc-lint-config-cache");
+function configCacheDir(
+  configPath: string,
+  resolutionRoot: string,
+): string | undefined {
+  try {
+    const temporary = fs.realpathSync.native(os.tmpdir());
+    if (!fs.lstatSync(temporary).isDirectory()) return undefined;
+    for (const root of [
+      path.dirname(configPath),
+      resolutionRoot,
+      process.cwd(),
+    ]) {
+      const project = fs.realpathSync.native(root);
+      for (let directory = project; ; directory = path.dirname(directory)) {
+        if (
+          directory === project ||
+          fs.existsSync(path.join(directory, ".git")) ||
+          fs.existsSync(path.join(directory, "pnpm-workspace.yaml"))
+        ) {
+          const relative = path.relative(directory, temporary);
+          if (
+            !path.isAbsolute(relative) &&
+            relative !== ".." &&
+            !relative.startsWith(`..${path.sep}`) &&
+            path.dirname(directory) !== directory
+          )
+            return undefined;
+        }
+        if (path.dirname(directory) === directory) break;
+      }
+    }
+    const dir = path.join(temporary, "ttsc-lint-config-cache");
+    const entry = fs.lstatSync(dir, { throwIfNoEntry: false });
+    return entry === undefined || entry.isDirectory() ? dir : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Env opt-out, mirroring the Go sidecar's `TTSC_LINT_DISABLE_CONFIG_CACHE`. */
@@ -2400,13 +2441,14 @@ function configCacheKey(kind: string, configPath: string): string {
  */
 function readConfigPluginCache(
   cacheKey: string,
+  configPath: string,
+  resolutionRoot: string,
 ): ConfigPluginEvaluation | undefined {
+  const dir = configCacheDir(configPath, resolutionRoot);
+  if (dir === undefined) return undefined;
   let body: string;
   try {
-    body = fs.readFileSync(
-      path.join(configCacheDir(), `${cacheKey}.json`),
-      "utf8",
-    );
+    body = fs.readFileSync(path.join(dir, `${cacheKey}.json`), "utf8");
   } catch {
     return undefined;
   }
@@ -2442,10 +2484,18 @@ function readConfigPluginCache(
 function writeConfigPluginCache(
   cacheKey: string,
   evaluation: ConfigPluginEvaluation,
+  configPath: string,
+  resolutionRoot: string,
 ): void {
   try {
-    const dir = configCacheDir();
-    fs.mkdirSync(dir, { recursive: true });
+    const dir = configCacheDir(configPath, resolutionRoot);
+    if (dir === undefined) return;
+    try {
+      fs.mkdirSync(dir);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
+    if (configCacheDir(configPath, resolutionRoot) !== dir) return;
     const tmp = path.join(
       dir,
       `${cacheKey}.${process.pid}.${randomUUID()}.tmp`,

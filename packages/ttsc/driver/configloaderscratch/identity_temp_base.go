@@ -93,6 +93,29 @@ func IdentityTempBase(location, systemTemp, recordRoot string) string {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each request checks live filesystem topology.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The read-only selector retains no file, handle or state.
 func SystemTempBase(location, systemTemp string) string {
+  base := PrivateTempBase(location, systemTemp)
+  if base == "" {
+    return ""
+  }
+  absolute, err := filepath.Abs(location)
+  if err != nil || !strings.EqualFold(filepath.VolumeName(base), filepath.VolumeName(absolute)) {
+    return ""
+  }
+  return base
+}
+
+// PrivateTempBase checks an existing temporary directory for optional state
+// that need not share the compiler's volume.
+//
+// @evidence contracts/common.md#principled-implementation The temporary directory and each protected directory resolve to native paths before containment is tested.
+// @evidence contracts/common.md#clear-and-simple-design Scratch selection adds its compiler-volume restriction separately to the same read-only containment check.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or unusable TEMP cannot be created by optional cache writers using this policy.
+// @evidence contracts/common.md#meaningful-documentation The comment identifies the optional state and its volume independence.
+// @evidence contracts/portability.md#os-neutral-implementation Native canonical paths support junction and symlink identities, and different Windows volumes cannot contain one another.
+// @evidence contracts/performance.md#efficient-algorithms One candidate check and one existing ancestry walk visit no directory payload.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call observes current pathname ownership.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The read-only selector acquires no retained state.
+func PrivateTempBase(location, systemTemp string) string {
   absolute, err := filepath.Abs(location)
   if err != nil || !filepath.IsAbs(systemTemp) {
     return ""
@@ -102,12 +125,15 @@ func SystemTempBase(location, systemTemp string) string {
     return ""
   }
   base, err := canonicalDirectory(systemTemp)
-  if err != nil || !strings.EqualFold(filepath.VolumeName(base), filepath.VolumeName(absolute)) {
+  if err != nil {
     return ""
   }
   entry, err := os.Stat(base)
   if err != nil || !entry.IsDir() {
     return ""
+  }
+  if !strings.EqualFold(filepath.VolumeName(base), filepath.VolumeName(config)) {
+    return base
   }
   for directory := config; ; directory = filepath.Dir(directory) {
     _, git := os.Lstat(filepath.Join(directory, ".git"))
