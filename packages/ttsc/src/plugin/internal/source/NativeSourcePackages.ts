@@ -99,6 +99,12 @@ export namespace NativeSourcePackages {
      * (`SourcePluginWorkspace.findTtscOverlayDirs`), found once for the load.
      */
     overlays?: readonly string[];
+
+    /**
+     * Current native witness observations shared only across one synchronous
+     * batch of package selections; never reused across yields or builds.
+     */
+    currentWitnessReadings?: Map<string, string>;
   }
 
   /**
@@ -293,6 +299,10 @@ export namespace NativeSourcePackages {
       groups.set(target.moduleRoot, group);
     });
     const output: Package[] = new Array(inputs.length);
+    const batchReadings: SelectionReadings | undefined =
+      readings === undefined
+        ? undefined
+        : { ...readings, currentWitnessReadings: new Map() };
     for (const group of groups.values()) {
       const first = inputs[group[0]!.index]!;
       const observations = inspect({
@@ -301,7 +311,7 @@ export namespace NativeSourcePackages {
         env,
         readers,
         identities,
-        readings,
+        readings: batchReadings,
         packages: group.map(({ entry }) => ({ entry })),
       });
       group.forEach(({ index }, offset) => {
@@ -350,6 +360,10 @@ export namespace NativeSourcePackages {
     });
     const output: Array<{ observation: Package; ownModule: boolean }> =
       new Array(inputs.length);
+    const batchReadings: SelectionReadings | undefined =
+      readings === undefined
+        ? undefined
+        : { ...readings, currentWitnessReadings: new Map() };
     for (const group of groups.values()) {
       const first = inputs[group[0]!.index]!;
       const observations = inspect({
@@ -358,7 +372,7 @@ export namespace NativeSourcePackages {
         env,
         readers,
         identities,
-        readings,
+        readings: batchReadings,
         proposal: !group[0]!.ownModule,
         packages: group.map(({ entry }) => ({ entry })),
       });
@@ -592,6 +606,7 @@ function selectionIdentity(
         env,
         witness,
         identities,
+        readings.currentWitnessReadings,
       );
       readings.environments?.set(resolvedRoot, environment);
       readings.witnesses?.set(resolvedRoot, witness);

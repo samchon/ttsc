@@ -232,7 +232,7 @@ export namespace PluginContentIdentities {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Corrupt, foreign or unproved records cause the real read; the record cannot widen what the caller's reader covers.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the reuse condition and the self-containment exclusion; parameters describe their roles.
    * @evidence contracts/portability.md#os-neutral-implementation Separability is the observer's per-device judgement; record files use native path joins and atomic same-directory replacement.
-   * @evidence contracts/performance.md#efficient-algorithms A hit costs one small record read and one population observation, which a held listing makes metadata-only; a miss adds the content read and a second observation. Record identity hashes fixed framing text.
+   * @evidence contracts/performance.md#efficient-algorithms A hit costs one small record read and one population observation, which a held listing makes metadata-only; a separable miss adds the content read and a post-read observation to bracket publication, while an unseparable or absent pre-read observation skips the post-read observation since no record can be written. Record identity hashes fixed framing text.
    * @evidence contracts/performance.md#reuse-equivalent-work Processes share a digest only for the same family, subject, version and current separable signature that the producing read was bracketed by, and an observer's listing with it.
    * @evidence contracts/performance.md#bound-retention-and-release-resources One small file per subject is published atomically and aged out by the single-file collector; hits refresh its use time, or rewrite it once with the listing their walk read; nothing is retained in memory.
    */
@@ -289,7 +289,10 @@ export namespace PluginContentIdentities {
       }
     }
     const value = read();
-    const after = observe(store.references);
+    // Only a separable pre-read observation can authorize publication; skip the
+    // post-read observation when the record cannot be written anyway.
+    const after =
+      before?.separable === true ? observe(store.references) : undefined;
     const recorded =
       before?.separable === true &&
       after?.separable === true &&

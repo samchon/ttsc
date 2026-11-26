@@ -7,6 +7,7 @@ import (
   innerast "github.com/microsoft/typescript-go/internal/ast"
   innercompiler "github.com/microsoft/typescript-go/internal/compiler"
   innercore "github.com/microsoft/typescript-go/internal/core"
+  innermodule "github.com/microsoft/typescript-go/internal/module"
   inneroutputpaths "github.com/microsoft/typescript-go/internal/outputpaths"
   innertsoptions "github.com/microsoft/typescript-go/internal/tsoptions"
   innertspath "github.com/microsoft/typescript-go/internal/tspath"
@@ -227,6 +228,43 @@ func EmitsWholeProgram(options innercompiler.EmitOptions) bool {
 // @evidence contracts/performance.md#bound-retention-and-release-resources The returned options reference the caller's config and host without copying them.
 func NewProgramOptions(config *innertsoptions.ParsedCommandLine, host innercompiler.CompilerHost, useSourceOfProjectReference bool) innercompiler.ProgramOptions {
   return innercompiler.ProgramOptions{Config: config, Host: host, UseSourceOfProjectReference: useSourceOfProjectReference}
+}
+
+// ResolveModuleName resolves moduleName as an import written in containingFile
+// under mode would resolve, whether or not containingFile imports it. The
+// Program's cached resolutions hold only the specifiers its files wrote, so a
+// plugin that needs the target of one no file wrote (a package its transform
+// introduces, a specifier the checker printed) resolves it here. The result is
+// never nil; an unresolved name answers false from IsResolved. TypeScript 7.0
+// resolves through the Program's own resolver.
+//
+// @evidence contracts/common.md#principled-implementation Calls 7.0's Program.ResolveModuleName with moduleName, containingFile and mode so resolution uses the Program's own resolver and options.
+// @evidence contracts/common.md#clear-and-simple-design One method call keeps the 7.0 and 7.1 module-resolution signature difference inside the shim.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Module resolution stays the compiler's; no specifier is special-cased or reimplemented here.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains why cached Program resolutions are insufficient, the non-nil result and IsResolved convention, and the 7.0 delegate.
+// @evidence contracts/portability.md#os-neutral-implementation The Program's host and filesystem own every path lookup, symlink check and case-policy decision; this call adds no native operation.
+// @evidence contracts/performance.md#efficient-algorithms The Program's resolver probes candidate extensions, paths mappings and node_modules ancestors according to module resolution rules; this wrapper adds no extra scan or allocation.
+// @evidence contracts/performance.md#reuse-equivalent-work On 7.0 the Program reuses its single resolver and its package.json and directory caches across calls on the same Program.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned ResolvedModule is caller-owned; the wrapper retains nothing and acquires no handle.
+func ResolveModuleName(program *innercompiler.Program, moduleName string, containingFile string, mode innercore.ResolutionMode) *innermodule.ResolvedModule {
+  return program.ResolveModuleName(moduleName, containingFile, mode)
+}
+
+// SourceFileForResolvedModule returns the Program's source file for resolved,
+// following a package redirect, or nil when the Program holds none. resolved
+// is a resolution IsResolved answers true for. TypeScript 7.0 looks the file up
+// by its resolved name.
+//
+// @evidence contracts/common.md#principled-implementation Calls 7.0's Program.GetSourceFileForResolvedModule with resolved.ResolvedFileName, preserving package-redirect lookup for a non-nil resolved module.
+// @evidence contracts/common.md#clear-and-simple-design One method call keeps the 7.0 filename versus 7.1 ResolvedModule parameter difference inside the shim.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Source-file lookup and redirect resolution stay the compiler's.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the redirect lookup, the nil result when unloaded, the IsResolved precondition and the 7.0 lookup key.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Lookup queries the Program's in-memory file and redirect maps without performing native filesystem operations.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Lookup delegates to the Program's map-indexed file and redirect lookup and chooses no separate algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The function coordinates no shared work beyond reading the Program's loaded file table.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned SourceFile remains owned by the Program; the function retains nothing.
+func SourceFileForResolvedModule(program *innercompiler.Program, resolved *innermodule.ResolvedModule) *innerast.SourceFile {
+  return program.GetSourceFileForResolvedModule(resolved.ResolvedFileName)
 }
 
 // BatchEnv is the environment variable that marks a process spawned to run one
