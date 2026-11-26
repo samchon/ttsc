@@ -1,9 +1,13 @@
 package compiler
 
 import (
+  "os"
+  "sync"
+
   innerast "github.com/microsoft/typescript-go/internal/ast"
   innercompiler "github.com/microsoft/typescript-go/internal/compiler"
   innercore "github.com/microsoft/typescript-go/internal/core"
+  innermodule "github.com/microsoft/typescript-go/internal/module"
   inneroutputpaths "github.com/microsoft/typescript-go/internal/outputpaths"
   innertsoptions "github.com/microsoft/typescript-go/internal/tsoptions"
   innertspath "github.com/microsoft/typescript-go/internal/tspath"
@@ -225,3 +229,110 @@ func EmitsWholeProgram(options innercompiler.EmitOptions) bool {
 func NewProgramOptions(config *innertsoptions.ParsedCommandLine, host innercompiler.CompilerHost, useSourceOfProjectReference bool) innercompiler.ProgramOptions {
   return innercompiler.ProgramOptions{Config: config, Host: host, UseSourceOfProjectReference: useSourceOfProjectReference}
 }
+
+// ResolveModuleName resolves moduleName as an import written in containingFile
+// under mode would resolve, whether or not containingFile imports it. The
+// Program's cached resolutions hold only the specifiers its files wrote, so a
+// plugin that needs the target of one no file wrote (a package its transform
+// introduces, a specifier the checker printed) resolves it here. The result is
+// never nil; an unresolved name answers false from IsResolved. TypeScript 7.0
+// resolves through the Program's own resolver.
+//
+// @evidence contracts/common.md#principled-implementation Calls 7.0's Program.ResolveModuleName with moduleName, containingFile and mode so resolution uses the Program's own resolver and options.
+// @evidence contracts/common.md#clear-and-simple-design One method call keeps the 7.0 and 7.1 module-resolution signature difference inside the shim.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Module resolution stays the compiler's; no specifier is special-cased or reimplemented here.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains why cached Program resolutions are insufficient, the non-nil result and IsResolved convention, and the 7.0 delegate.
+// @evidence contracts/portability.md#os-neutral-implementation The Program's host and filesystem own every path lookup, symlink check and case-policy decision; this call adds no native operation.
+// @evidence contracts/performance.md#efficient-algorithms The Program's resolver probes candidate extensions, paths mappings and node_modules ancestors according to module resolution rules; this wrapper adds no extra scan or allocation.
+// @evidence contracts/performance.md#reuse-equivalent-work On 7.0 the Program reuses its single resolver and its package.json and directory caches across calls on the same Program.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned ResolvedModule is caller-owned; the wrapper retains nothing and acquires no handle.
+func ResolveModuleName(program *innercompiler.Program, moduleName string, containingFile string, mode innercore.ResolutionMode) *innermodule.ResolvedModule {
+  return program.ResolveModuleName(moduleName, containingFile, mode)
+}
+
+// SourceFileForResolvedModule returns the Program's source file for resolved,
+// following a package redirect, or nil when the Program holds none. resolved
+// is a resolution IsResolved answers true for. TypeScript 7.0 looks the file up
+// by its resolved name.
+//
+// @evidence contracts/common.md#principled-implementation Calls 7.0's Program.GetSourceFileForResolvedModule with resolved.ResolvedFileName, preserving package-redirect lookup for a non-nil resolved module.
+// @evidence contracts/common.md#clear-and-simple-design One method call keeps the 7.0 filename versus 7.1 ResolvedModule parameter difference inside the shim.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Source-file lookup and redirect resolution stay the compiler's.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the redirect lookup, the nil result when unloaded, the IsResolved precondition and the 7.0 lookup key.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Lookup queries the Program's in-memory file and redirect maps without performing native filesystem operations.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Lookup delegates to the Program's map-indexed file and redirect lookup and chooses no separate algorithm.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The function coordinates no shared work beyond reading the Program's loaded file table.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned SourceFile remains owned by the Program; the function retains nothing.
+func SourceFileForResolvedModule(program *innercompiler.Program, resolved *innermodule.ResolvedModule) *innerast.SourceFile {
+  return program.GetSourceFileForResolvedModule(resolved.ResolvedFileName)
+}
+
+// BatchEnv is the environment variable that marks a process spawned to run one
+// batch command and exit (`TTSC_BATCH=1`). BeginBatchOnce activates the
+// compiler's batch-compilation hook only when this variable equals "1".
+const BatchEnv = "TTSC_BATCH"
+
+var (
+  batchMu           sync.Mutex
+  batchStarted      bool
+  batchProgramBound func()
+  batchHook         = beginBatch
+)
+
+// BeginBatch starts the compiler source's batch-compilation runtime policy
+// when built with the ttsc_compiler_batch tag, delegating to the compiler
+// module's internal/batch.Begin, and returns two no-op functions otherwise.
+// Call programBound once each Program is parsed and bound and before it is
+// checked, and call end to restore runtime settings when the process outlives
+// the batch.
+//
+// @evidence contracts/common.md#principled-implementation Delegates to internal/batch.Begin under ttsc_compiler_batch (which this shim module may import because its module path is rooted under the compiler module) and returns non-nil no-op callbacks when untagged so callers use one unconditional signature.
+// @evidence contracts/common.md#clear-and-simple-design One version-neutral exported entry forwards to build-constrained unexported helpers in batch.go and batch_noop.go, keeping the optional internal import isolated behind ttsc_compiler_batch.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No GC policy is invented or duplicated in ttsc; untagged builds perform no runtime tuning of their own.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the build-tag behavior, the no-op fallback and the lifecycle of both returned callbacks.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Performs no native filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One direct call with no local traversal or data structure; runtime tuning belongs to the compiler's internal/batch package when present.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Callers own per-process batch coordination; this wrapper forwards each call.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned callbacks transfer to the caller and this wrapper retains no state or handle.
+func BeginBatch() (programBound func(), end func()) {
+  return beginBatch()
+}
+
+// BeginBatchOnce starts the compiler's batch-compilation policy at most once
+// per process for a one-shot host when TTSC_BATCH=1 (BatchEnv) is set in the
+// process environment. Call it before creating a Program, bind the created
+// Program with BindSourceFiles, and call the returned programBound function
+// before checking or diagnostics.
+//
+// The hook's end callback is not called because the marker states the process
+// ends with its batch. When TTSC_BATCH is not "1", BeginBatchOnce does nothing
+// and returns a no-op function so callers need no nil check. Resident hosts
+// (serve, check-serve, LSP and driver.Session) must not call BeginBatchOnce.
+//
+// @evidence contracts/common.md#principled-implementation Checks BatchEnv for exact "1" and synchronizes a single process-wide call to the compiler's batch hook under batchMu, returning the hook's programBound callback or a non-nil no-op when inactive so every one-shot host shares one policy without nil checks.
+// @evidence contracts/common.md#clear-and-simple-design One neutral gate in the compiler shim serves driver.LoadProgram, linthost and any third-party host building its own Program without duplicating marker checks or mutex state above the shim.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Performs no runtime tuning of its own; delegates solely to the linked compiler's batch hook when TTSC_BATCH=1 and leaves untagged or unmarked processes untouched.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs state who calls BeginBatchOnce, the pre-create and post-bind/pre-check ordering, why end is not called, the no-op return without the marker and that resident hosts must not call it.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Reads one process environment variable via os.Getenv and invokes in-process Go callbacks with no filesystem, path or subprocess operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One environment lookup and a mutex-guarded boolean check with constant work.
+// @evidence contracts/performance.md#reuse-equivalent-work Process-wide batchStarted ensures the compiler's batch hook runs at most once across all one-shot hosts in the same process, reusing its programBound callback for subsequent batch loads.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Stores one process-lifetime callback reference when activated; the marker states the process ends with its batch, so end is never invoked and no handle is acquired.
+func BeginBatchOnce() (programBound func()) {
+  if os.Getenv(BatchEnv) != "1" {
+    return noopBatchBound
+  }
+  batchMu.Lock()
+  if !batchStarted {
+    bound, _ := batchHook()
+    if bound == nil {
+      bound = noopBatchBound
+    }
+    batchProgramBound = bound
+    batchStarted = true
+  }
+  bound := batchProgramBound
+  batchMu.Unlock()
+  return bound
+}
+
+func noopBatchBound() {}

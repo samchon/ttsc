@@ -9,60 +9,33 @@ import {
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { EmitOwnershipIndex } from "../../../compiler/internal/EmitOwnershipIndex";
-import { RuntimeBuildCache } from "../../../compiler/internal/build/RuntimeBuildCache";
-import { RuntimeBuildExplanation } from "../../../compiler/internal/build/RuntimeBuildExplanation";
-import { privateRuntimeRootDir } from "../../../compiler/internal/build/privateRuntimeRootDir";
-import { runBuild } from "../../../compiler/internal/build/runBuild";
-import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
-import { resolveOwningProjectConfig } from "../../../compiler/internal/project/resolveOwningProjectConfig";
-import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
-import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
-import { spawnNative } from "../../../compiler/internal/spawnNative";
+import type { EmitOwnershipIndex } from "../../../compiler/internal/EmitOwnershipIndex";
+import type { RuntimeBuildCache } from "../../../compiler/internal/build/RuntimeBuildCache";
+import type { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { E2ETrace } from "../../../internal/E2ETrace";
-import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
-import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
-import { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
-import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBuildCacheLayout";
-import { recordCacheFileUse } from "../../../plugin/internal/source/recordCacheFileUse";
-import { resolveSourceBuildCachePaths } from "../../../plugin/internal/source/resolveSourceBuildCachePaths";
-import { buildSingleRootProject } from "../buildSingleRootProject";
+import type { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
 import { inlineServedSourceMap } from "../inlineServedSourceMap";
-import { runtimeCompilerArgs } from "../runtimeCompilerArgs";
 import { CommonJsRuntimeSource } from "./CommonJsRuntimeSource";
-import { DependencyBuildAdmission } from "./DependencyBuildAdmission";
-import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
-import { OwnedProjectSource } from "./OwnedProjectSource";
+import type { DependencyBuildGeneration } from "./DependencyBuildGeneration";
 import type { OwningModuleOptions } from "./OwningModuleOptions";
 import { PluginDescriptorInputObservation } from "./PluginDescriptorInputObservation";
 import { PluginDescriptorInputObserver } from "./PluginDescriptorInputObserver";
 import { PluginDescriptorInputReport } from "./PluginDescriptorInputReport";
 import type { ResolveResult } from "./ResolveResult";
-import { RuntimeDependencyPrebuild } from "./RuntimeDependencyPrebuild";
-import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
-import { RuntimeEntrySources } from "./RuntimeEntrySources";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
 import type { RuntimeHookOptions } from "./RuntimeHookOptions";
-import { RuntimeIsolatedEmit } from "./RuntimeIsolatedEmit";
 import { RuntimeLoaderCapabilities } from "./RuntimeLoaderCapabilities";
 import type { RuntimeManifest } from "./RuntimeManifest";
-import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
-import { RuntimeModuleFormat } from "./RuntimeModuleFormat";
-import { RuntimeProjectOwnership } from "./RuntimeProjectOwnership";
+import type { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
 import { advertiseTypeScriptExtensions } from "./advertiseTypeScriptExtensions";
 import { checkNodeRuntimeSupport } from "./checkNodeRuntimeSupport";
 import { commonJsExportNames } from "./commonJsExportNames";
 import { commonJsImportFacade } from "./commonJsImportFacade";
-import { dependencyCacheKey } from "./dependencyCacheKey";
-import { dependencyCacheRoot } from "./dependencyCacheRoot";
 import { modulePhysicalPath } from "./modulePhysicalPath";
 import { observeMappedDescriptorResolution } from "./observeMappedDescriptorResolution";
-import { projectModuleOptions } from "./projectModuleOptions";
-import { readDependencyCache } from "./readDependencyCache";
 import { realPath } from "./realPath";
 import { restoreStrippedNodeBuiltinScheme } from "./restoreStrippedNodeBuiltinScheme";
-import { selectRuntimePluginPolicy } from "./selectRuntimePluginPolicy";
 
 /**
  * Install the source-loading hooks on the current (main) thread. Idempotent:
@@ -170,9 +143,20 @@ export namespace installRuntimeHooks {
    */
   export function prebuild(tsconfig: string): void {
     prebuilding = true;
-    RuntimeBuildExplanation.speculative();
+    runtimeBuildPath().RuntimeBuildExplanation.speculative();
     ensureProjectBuilt(tsconfig);
   }
+}
+
+let buildPath: typeof import("./RuntimeBuildPath") | undefined;
+
+/** Build and TypeScript-serving modules, loaded on first TypeScript demand. */
+function runtimeBuildPath(): typeof import("./RuntimeBuildPath") {
+  if (buildPath === undefined) {
+    const loaded: typeof import("./RuntimeBuildPath") = require("./RuntimeBuildPath");
+    buildPath = loaded;
+  }
+  return buildPath;
 }
 
 /**
@@ -845,7 +829,7 @@ function load(
     runtimeEntryUrls.delete(url) || isProcessEntry(real),
     real,
   );
-  const format = RuntimeModuleFormat.moduleFormat(
+  const format = runtimeBuildPath().RuntimeModuleFormat.moduleFormat(
     filename,
     served.moduleOptions,
   );
@@ -1089,8 +1073,8 @@ let processEntry: { spelling: string; physical: string } | undefined;
 function readPluginDescriptorProjectConfig(
   tsconfig: string,
 ): ReturnType<typeof readProjectConfig> {
-  const read = () =>
-    readProjectConfig({ cwd: path.dirname(tsconfig), tsconfig });
+  const { readProjectConfig: readConfig } = runtimeBuildPath();
+  const read = () => readConfig({ cwd: path.dirname(tsconfig), tsconfig });
   if (process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE !== "1") return read();
 
   const observed = new Set<string>([path.resolve(tsconfig)]);
@@ -1256,7 +1240,9 @@ function resolveServedSource(
   // prepared its one entry before the child started.
   const prepareEntry = prepareAsEntry ? prepareRuntimeEntry : undefined;
   if (prepareEntry !== undefined) {
-    RuntimeManifestRegistry.registerManifest(prepareEntry(real));
+    runtimeBuildPath().RuntimeManifestRegistry.registerManifest(
+      prepareEntry(real),
+    );
     served = serveInlinedEntryEmit(real, true);
     if (served === null) {
       throw new Error(`ttsx: prepared entry emit not found for ${filename}`);
@@ -1311,7 +1297,8 @@ function withInlineSourceMap(served: ServedSource): ServedSource {
  */
 function transformOrphanSource(filename: string, url: string): string {
   const format =
-    RuntimeModuleFormat.moduleFormat(filename, null) === "commonjs"
+    runtimeBuildPath().RuntimeModuleFormat.moduleFormat(filename, null) ===
+    "commonjs"
       ? "commonjs"
       : "module";
   const lowered = emitOrphanSource(filename, format);
@@ -1334,6 +1321,13 @@ function emitOrphanSource(
   filename: string,
   format: "commonjs" | "module",
 ): string | null {
+  const {
+    RuntimeIsolatedEmit,
+    createCanonicalTempDirectory,
+    recordCacheFileUse,
+    resolveTsgo,
+    spawnNative,
+  } = runtimeBuildPath();
   let tsgo: string;
   try {
     tsgo = resolveTsgo({ cwd: path.dirname(filename) }).binary;
@@ -1436,6 +1430,13 @@ function emitOrphanSource(
  * followed the edge.
  */
 function emitCommonJsForNameScan(real: string): string | null {
+  const {
+    RuntimeIsolatedEmit,
+    RuntimeModuleFormat,
+    createCanonicalTempDirectory,
+    resolveTsgo,
+    spawnNative,
+  } = runtimeBuildPath();
   const cached = commonJsNameScanSources.get(real);
   if (cached !== undefined) {
     return cached;
@@ -1509,6 +1510,7 @@ function emitCommonJsForNameScan(real: string): string | null {
  * that made them.
  */
 function orphanCacheRoot(): string {
+  const { RuntimeManifestRegistry, dependencyCacheRoot } = runtimeBuildPath();
   const owner = RuntimeManifestRegistry.runtimeManifests().find(
     (candidate) =>
       typeof candidate.orphanCacheDir === "string" &&
@@ -1533,8 +1535,10 @@ function orphanCacheRoot(): string {
  */
 function compilerIdentity(binary: string): string {
   return (
-    runtimeExecutableIdentity(binary, runtimeRecordStore()) ??
-    crypto.randomUUID()
+    runtimeBuildPath().runtimeExecutableIdentity(
+      binary,
+      runtimeRecordStore(),
+    ) ?? crypto.randomUUID()
   );
 }
 
@@ -1549,6 +1553,11 @@ function compilerIdentity(binary: string): string {
  * process with neither streams as before and never selects a root itself.
  */
 function runtimeRecordStore(): PluginContentIdentities.Store | undefined {
+  const {
+    PluginContentIdentities,
+    RuntimeManifestRegistry,
+    SidecarEnvironment,
+  } = runtimeBuildPath();
   const descriptorRoot =
     process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
       ? SidecarEnvironment.read(process.env, "TTSC_PLUGIN_RECORD_ROOT")
@@ -1646,7 +1655,7 @@ function orphanCacheFile(
     .update(`\0ttsc@${ownPackageVersion()}`)
     // The emit policy decides the lowering, so it is part of the key: a cache
     // filled under an earlier policy must not answer for the current one.
-    .update(`\0${RuntimeIsolatedEmit.policyKey()}`)
+    .update(`\0${runtimeBuildPath().RuntimeIsolatedEmit.policyKey()}`)
     .update("\0isolated-source-map-v1\0")
     .update(filename)
     .update("\0" + format)
@@ -1735,7 +1744,7 @@ function writeOrphanCache(cacheFile: string, lowered: string): void {
  * multiple executable outputs contradict this protocol and are an error.
  */
 function isolatedEmitOf(input: string, outDir: string): string | null {
-  const outputs = EmitOwnershipIndex.listOutputs(outDir);
+  const outputs = runtimeBuildPath().EmitOwnershipIndex.listOutputs(outDir);
   if (outputs.length === 0) return null;
   if (outputs.length !== 1) {
     throw new RuntimeEmitOwnershipError(
@@ -1758,7 +1767,7 @@ class RuntimeEmitOwnershipError extends Error {}
  * next lane and run something else.
  */
 function serveEntryEmit(real: string): ServedSource | null {
-  const owner = RuntimeManifestRegistry.findEntryEmit(real);
+  const owner = runtimeBuildPath().RuntimeManifestRegistry.findEntryEmit(real);
   return owner === null ? null : entryEmitSource(owner, real);
 }
 
@@ -1774,6 +1783,7 @@ function serveInlinedEntryEmit(
   real: string,
   entry: boolean,
 ): ServedSource | null {
+  const { RuntimeEntrySources, RuntimeManifestRegistry } = runtimeBuildPath();
   const owner = RuntimeManifestRegistry.findEntryEmit(real);
   if (owner === null) {
     return null;
@@ -1818,6 +1828,7 @@ function entryEmitSource(
  * package the project build already serves.
  */
 function serveProjectEmit(real: string): ServedSource | null {
+  const { OwnedProjectSource } = runtimeBuildPath();
   const operations = {
     owningTsconfig,
     ensureProjectBuilt,
@@ -1917,6 +1928,7 @@ function compiledSourceOf(
   if (candidates.length === 0) return undefined;
   let compiledBy: ((source: string) => boolean) | undefined;
   try {
+    const { RuntimeManifestRegistry } = runtimeBuildPath();
     const parentReal = modulePhysicalPath(parent);
     const entry = RuntimeManifestRegistry.findEntryEmit(parentReal);
     if (entry !== null)
@@ -1951,6 +1963,7 @@ function builtProjectIndex(
 ): EmitOwnershipIndex {
   let index = builtProjectIndexes.get(built);
   if (index === undefined) {
+    const { EmitOwnershipIndex } = runtimeBuildPath();
     index = new EmitOwnershipIndex({
       emitDir: built.emitDir,
       bundledOutputs: built.bundledOutputs,
@@ -1999,6 +2012,7 @@ function ensureRootBuilt(
   tsconfig: string,
   source: string,
 ): DependencyBuildGeneration.BuiltProject {
+  const { DependencyBuildAdmission, readDependencyCache } = runtimeBuildPath();
   const identity = `${source}\0${contentDigest(source)}`;
   const { cacheDir, lockDir, metaPath, root, compilerProof, plugins } =
     dependencyCachePaths(tsconfig, identity);
@@ -2065,6 +2079,13 @@ function buildRoot(
   compilerProof?: string,
   plugins?: false,
 ): DependencyBuildGeneration.BuiltProject {
+  const {
+    DependencyBuildGeneration,
+    EmitOwnershipIndex,
+    RuntimeEmitProvenance,
+    buildSingleRootProject,
+    projectModuleOptions,
+  } = runtimeBuildPath();
   // Read through the descriptor-input recorder, so a plugin descriptor that
   // reaches this root reports the config chain it was compiled under.
   const project = readPluginDescriptorProjectConfig(tsconfig);
@@ -2126,6 +2147,8 @@ function buildRoot(
  * --no-plugins`).
  */
 function runtimePluginPolicy(): false | undefined {
+  const { RuntimeManifestRegistry, selectRuntimePluginPolicy } =
+    runtimeBuildPath();
   return selectRuntimePluginPolicy(
     RuntimeManifestRegistry.runtimeManifests(),
     process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1",
@@ -2145,7 +2168,7 @@ function runtimePluginPolicy(): false | undefined {
 function rootIsChecked(real: string): boolean {
   return (
     process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD !== "1" &&
-    !RuntimeProjectOwnership.isInstalledPackageSource(real)
+    !runtimeBuildPath().RuntimeProjectOwnership.isInstalledPackageSource(real)
   );
 }
 
@@ -2190,7 +2213,7 @@ function ensureProjectBuilt(
       path.isAbsolute(runDir) &&
       process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD !== "1"
     )
-      RuntimeDependencyPrebuild.note(runDir, tsconfig);
+      runtimeBuildPath().RuntimeDependencyPrebuild.note(runDir, tsconfig);
     return built;
   } catch (error) {
     selectedProjects.set(selection, { error });
@@ -2214,6 +2237,7 @@ const selectedProjects = new Map<
 function buildSelectedProject(
   tsconfig: string,
 ): DependencyBuildGeneration.BuiltProject {
+  const { DependencyBuildAdmission, readDependencyCache } = runtimeBuildPath();
   const { cacheDir, lockDir, metaPath, root, compilerProof, plugins } =
     dependencyCachePaths(tsconfig);
   const cached = builtProjects.get(cacheDir);
@@ -2277,6 +2301,12 @@ function dependencyCachePaths(
   tsconfig: string,
   rootSource?: string,
 ): DependencyCachePaths {
+  const {
+    dependencyCacheKey,
+    dependencyCacheRoot,
+    resolveTsgo,
+    runtimeExecutableIdentity,
+  } = runtimeBuildPath();
   let compilerProof: string | undefined;
   try {
     compilerProof = runtimeExecutableIdentity(
@@ -2306,6 +2336,7 @@ function dependencyCachePaths(
 /** A runtime build may publish only under the compiler content that keyed it. */
 function assertCompilerStillCurrent(tsconfig: string, proof?: string): void {
   if (proof === undefined) return;
+  const { resolveTsgo, runtimeExecutableIdentity } = runtimeBuildPath();
   const binary = resolveTsgo({ cwd: path.dirname(tsconfig) }).binary;
   const current = runtimeExecutableIdentity(binary, runtimeRecordStore());
   if (current !== proof) {
@@ -2339,6 +2370,17 @@ function buildDependency(
   compilerProof?: string,
   plugins?: false,
 ): DependencyBuildGeneration.BuiltProject {
+  const {
+    DependencyBuildGeneration,
+    EmitOwnershipIndex,
+    RuntimeEmitProvenance,
+    SourceBuildCacheLayout,
+    privateRuntimeRootDir,
+    projectModuleOptions,
+    resolveSourceBuildCachePaths,
+    runBuild,
+    runtimeCompilerArgs,
+  } = runtimeBuildPath();
   const project = readPluginDescriptorProjectConfig(tsconfig);
   const generation = DependencyBuildGeneration.newDependencyGeneration();
   const emitDir = DependencyBuildGeneration.dependencyGenerationDir(
@@ -2526,7 +2568,10 @@ function deferDependencyPublication():
     const request = publication.request();
     if (request === undefined) return;
     try {
-      const parks = path.join(runDir, RuntimeBuildCache.PARKS_DIRNAME);
+      const parks = path.join(
+        runDir,
+        runtimeBuildPath().RuntimeBuildCache.PARKS_DIRNAME,
+      );
       const file = path.join(parks, `${process.pid}-${crypto.randomUUID()}`);
       fs.mkdirSync(parks, { recursive: true });
       // Renamed into place, so the launcher never reads a torn request.
@@ -2595,6 +2640,8 @@ class EmptyProjectEmitError extends Error {}
  * project that does. `null` when no config owns the file at all.
  */
 function owningTsconfig(real: string): string | null {
+  const { RuntimeProjectOwnership, resolveOwningProjectConfig } =
+    runtimeBuildPath();
   // The nearest config of a directory is looked up once per process, the
   // lifetime of the project build it selects; every module of a directory
   // asked again and stat-ed each candidate (samchon/ttsc#1852). A descriptor
@@ -2672,6 +2719,8 @@ function readFileOrNull(file: string | null): string | null {
 function resolveDependencySourceRoot(
   project: ReturnType<typeof readProjectConfig>,
 ): string {
+  const { DependencyBuildGeneration, privateRuntimeRootDir } =
+    runtimeBuildPath();
   const rootDir = project.compilerOptions.rootDir;
   return DependencyBuildGeneration.resolvePhysicalPath(
     privateRuntimeRootDir(

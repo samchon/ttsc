@@ -34,6 +34,8 @@ import (
 
 var programLifecycleSequence atomic.Uint64
 
+var beginBatchOnce = shimcompiler.BeginBatchOnce
+
 // semanticConfigPathEnv mirrors `driver.SemanticConfigPathEnv`: the internal
 // channel that identifies the user-authored config behind a generated wrapper.
 // This module cannot import the ttsc driver; see the package boundary above.
@@ -96,6 +98,10 @@ type loadProgramOptions struct {
   // transport base; an explicit array with no base retains cwd.
   tsgoArgsCwd     string
   projectIdentity publicrule.ProjectIdentity
+  // batch opts this load into the compiler's batch-compilation hook when
+  // TTSC_BATCH=1 is set. Only one-shot check sets this; resident paths leave it
+  // false.
+  batch bool
 }
 
 // loadProgram parses the given tsconfig and builds a Program. When
@@ -194,6 +200,11 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   hosts := shimcompiler.NewProjectHosts(parsed)
   host := hosts.Host(cwdDir, fs, shimtspath.RootedDirectoryPath(bundled.LibPath()))
 
+  var onProgramBound func()
+  if options.batch {
+    onProgramBound = beginBatchOnce()
+  }
+
   // Keep the user's checker pool intact for parallel semantic diagnostics.
   // Type-aware lint rules cannot borrow one member of that pool: they walk
   // every source file through a single Context.Checker, while TypeScript-Go
@@ -205,6 +216,10 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   tsProgram := shimcompiler.NewProgram(shimcompiler.NewProgramOptions(parsed, host, true))
   if tsProgram == nil {
     return nil, nil, errors.New("compiler.NewProgram returned nil")
+  }
+  if onProgramBound != nil {
+    tsProgram.BindSourceFiles()
+    onProgramBound()
   }
   var checker *shimchecker.Checker
   if options.needsRuleChecker {
