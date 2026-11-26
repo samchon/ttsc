@@ -92,7 +92,7 @@ export TTSC_TSGO_BINARY=/opt/typescript/tsc/bin/tsc
 export TTSC_TSGO_SOURCE=/opt/typescript/tsc
 ```
 
-The shims of a target are written for its pinned revision and are compiled against the declared source unchanged. A source whose internal API differs from the pinned revision fails the build with Go's own errors, so a fork should be based on the revision the target pins: the `require` line of `targets/7.1/bridge/*/go.mod` in the installed `ttsc`, or of `shim/*/go.mod` for 7.0. A directory that declares another module is refused before any build. The source is part of every binary's cache key, so editing it or pointing the variable elsewhere builds again, and it is watched like a plugin's own source.
+The shims of a target are written for its pinned revision and are compiled against the declared source unchanged. A source whose internal API differs from the pinned revision fails the build with Go's own errors, so a fork should be based on the revision the target pins: the `require` line of `targets/7.1/bridge/*/go.mod` in the installed `ttsc`, or of `shim/*/go.mod` for 7.0. A directory that declares another module is refused before any build. The source's content is part of every binary's cache key, so editing it, or declaring a directory with different content, builds again, while the same content at another path reuses the binary; the directory is watched like a plugin's own source.
 
 The two compilers differ in API shape. TypeScript 7.1 types every path, hides `ast.Symbol` state behind getters, and changes several compiler signatures. A plugin that must build on both targets uses only what both declare:
 
