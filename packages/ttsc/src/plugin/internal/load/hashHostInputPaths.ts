@@ -1,6 +1,6 @@
-import crypto from "node:crypto";
-import fs from "node:fs";
 import path from "node:path";
+
+import { HostInputObservationPhase } from "./HostInputObservationPhase";
 
 /**
  * Content hash of each host input, keyed by its resolved path; `null` for an
@@ -8,50 +8,62 @@ import path from "node:path";
  * the hashes it recorded to decide whether a descriptor must be evaluated
  * again.
  *
- * @evidence contracts/common.md#principled-implementation Resolved path keys pair readable content with SHA-256, directory kind with a domain marker, and unavailable input with null; consumers must pair this content projection with physical identity.
- * @evidence contracts/common.md#clear-and-simple-design The operation snapshots supplied inputs only, leaving discovery, read-time stability and cache acceptance with their respective owners.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The directory marker encodes type, not an expected answer; unreadability stays null rather than synthetic content or a known-path bypass.
- * @evidence contracts/common.md#meaningful-documentation Native JSDoc states null's unreadable meaning and downstream comparison purpose; descriptive and acknowledgment paragraphs are separated following the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve/stat/readFile preserve host path semantics and follow links; directory kind comes from actual stat rather than separators or platform-name inference.
- * @evidence contracts/performance.md#efficient-algorithms Each distinct resolved path incurs one native stat (or reuses an observation already recorded in an optional caller-owned phase map); a readable nondirectory allocates and hashes its full bytes, while directories hash a fixed kind marker without scanning children. Duplicate resolved keys skip repeated filesystem reads.
+ * When a caller supplies a {@link HostInputObservationPhase.Phase}, hashing and
+ * physical-path resolution share one `lstatSync` per candidate, skip
+ * descendants of already-observed missing or non-directory parents, and drop
+ * the phase memo when that synchronous phase ends.
  *
- * @evidence contracts/performance.md#reuse-equivalent-work An optional caller-owned phase map shares content hashes across overlapping checks within one synchronous verification phase and is dropped when that phase ends; without a map, each call rereads every distinct file anew.
+ * @evidence contracts/common.md#principled-implementation Resolved path keys pair readable content with SHA-256, directory kind with a domain marker, and unavailable input with null; consumers must pair this content projection with physical identity.
+ * @evidence contracts/common.md#clear-and-simple-design The operation snapshots supplied inputs only, delegating phase-scoped lstat, absent-parent and content hashing to HostInputObservationPhase while leaving discovery and cache acceptance with their respective owners.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The directory marker encodes type, not an expected answer; symlink parents never short-circuit descendants, and unreadability stays null rather than synthetic content or a known-path bypass.
+ * @evidence contracts/common.md#meaningful-documentation Native JSDoc states null's unreadable meaning, phase-scoped sharing and downstream comparison purpose; descriptive and acknowledgment paragraphs are separated following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve and delegated lstat/stat/readFile preserve host path semantics and follow links; directory kind comes from actual filesystem metadata rather than separators or platform-name inference.
+ * @evidence contracts/performance.md#efficient-algorithms Each independent resolved path incurs at most one lstatSync per phase (zero for descendants of an already-observed missing or non-directory parent or duplicate resolved keys); a readable nondirectory hashes its bytes without a separate statSync, directories return the fixed marker without scanning children, and symlinks follow statSync.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work An optional caller-owned phase memo shares lstat and content-hash observations across overlapping checks within one synchronous verification phase and is dropped when that phase ends; without a caller phase, a call-local phase serves only the current call and is dropped on return.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous file APIs close their own descriptors and the returned record is caller-owned; this snapshot keeps no global collection or acquired handle.
  */
 export function hashHostInputPaths(
   files: readonly string[],
-  observed?: Map<string, string | null>,
-  observe: (file: string) => string | null = hashHostInput,
+  observed?: Map<string, string | null> | HostInputObservationPhase.Phase,
+  observe?: (file: string) => string | null,
 ): Record<string, string | null> {
   const out: Record<string, string | null> = {};
+  if (observe !== undefined) {
+    const map = HostInputObservationPhase.isPhase(observed)
+      ? observed.hashes
+      : observed;
+    for (const file of files) {
+      const resolved = path.resolve(file);
+      if (Object.prototype.hasOwnProperty.call(out, resolved)) continue;
+      let digest: string | null;
+      if (map !== undefined && map.has(resolved)) {
+        digest = map.get(resolved)!;
+      } else {
+        digest = observe(resolved);
+        map?.set(resolved, digest);
+      }
+      out[resolved] = digest;
+    }
+    return out;
+  }
+  const phase = HostInputObservationPhase.isPhase(observed)
+    ? observed
+    : HostInputObservationPhase.create();
+  const legacyMap = HostInputObservationPhase.isPhase(observed)
+    ? undefined
+    : observed;
   for (const file of files) {
     const resolved = path.resolve(file);
     if (Object.prototype.hasOwnProperty.call(out, resolved)) continue;
     let digest: string | null;
-    if (observed !== undefined && observed.has(resolved)) {
-      digest = observed.get(resolved)!;
+    if (legacyMap !== undefined && legacyMap.has(resolved)) {
+      digest = legacyMap.get(resolved)!;
     } else {
-      digest = observe(resolved);
-      observed?.set(resolved, digest);
+      digest = HostInputObservationPhase.hash(resolved, phase);
+      legacyMap?.set(resolved, digest);
     }
     out[resolved] = digest;
   }
   return out;
-}
-
-function hashHostInput(file: string): string | null {
-  try {
-    if (fs.statSync(file).isDirectory()) {
-      return crypto
-        .createHash("sha256")
-        .update("ttsc:host-input:directory\0")
-        .digest("hex");
-    }
-    return crypto
-      .createHash("sha256")
-      .update(fs.readFileSync(file))
-      .digest("hex");
-  } catch {
-    return null;
-  }
 }

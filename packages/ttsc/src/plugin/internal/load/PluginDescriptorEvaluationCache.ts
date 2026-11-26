@@ -9,6 +9,7 @@ import type { PluginContentIdentities } from "../source/PluginContentIdentities"
 import { SourceBuildCacheLayout } from "../source/SourceBuildCacheLayout";
 import { recordCacheFileUse } from "../source/recordCacheFileUse";
 import { resolveSourceBuildCachePaths } from "../source/resolveSourceBuildCachePaths";
+import { HostInputObservationPhase } from "./HostInputObservationPhase";
 import { declaresHostInputReads } from "./declaresHostInputReads";
 import { hashHostInputPaths } from "./hashHostInputPaths";
 import { realpathHostInputPaths } from "./realpathHostInputPaths";
@@ -217,10 +218,12 @@ export namespace PluginDescriptorEvaluationCache {
    */
   export function read(
     file: string,
-    observed?: {
-      hashes: Map<string, string | null>;
-      realpaths: Map<string, string | null>;
-    },
+    observed?:
+      | HostInputObservationPhase.Phase
+      | {
+          hashes: Map<string, string | null>;
+          realpaths: Map<string, string | null>;
+        },
   ): IEvaluation | null {
     let entry: unknown;
     try {
@@ -230,19 +233,25 @@ export namespace PluginDescriptorEvaluationCache {
     }
     if (!isEntry(entry) || entry.format !== FORMAT) return null;
     const hashed = Object.keys(entry.proof.hashes);
+    if (hashed.length === 0) return null;
+    const phase = HostInputObservationPhase.isPhase(observed)
+      ? observed
+      : HostInputObservationPhase.create();
+    const currentHashes = hashHostInputPaths(hashed, phase);
+    const currentRealpaths = sameMap(entry.proof.hashes, currentHashes)
+      ? realpathHostInputPaths(Object.keys(entry.proof.realpaths), phase)
+      : null;
     if (
-      hashed.length === 0 ||
-      !sameMap(
-        entry.proof.hashes,
-        hashHostInputPaths(hashed, observed?.hashes),
-      ) ||
-      !sameMap(
-        entry.proof.realpaths,
-        realpathHostInputPaths(
-          Object.keys(entry.proof.realpaths),
-          observed?.realpaths,
-        ),
-      )
+      observed !== undefined &&
+      !HostInputObservationPhase.isPhase(observed)
+    ) {
+      for (const [key, value] of phase.hashes) observed.hashes.set(key, value);
+      for (const [key, value] of phase.realpaths)
+        observed.realpaths.set(key, value);
+    }
+    if (
+      currentRealpaths === null ||
+      !sameMap(entry.proof.realpaths, currentRealpaths)
     )
       return null;
     recordCacheFileUse(file);

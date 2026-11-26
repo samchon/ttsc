@@ -38,6 +38,7 @@ import { pluginSourceState } from "../source/pluginSourceState";
 import { resolvePluginGoModule } from "../source/resolvePluginGoModule";
 import { selectedRecordIdentityTempParent } from "../source/selectedRecordIdentityTempParent";
 import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE";
+import { HostInputObservationPhase } from "./HostInputObservationPhase";
 import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PluginDescriptorAdmission } from "./PluginDescriptorAdmission";
 import { PluginDescriptorEvaluationCache } from "./PluginDescriptorEvaluationCache";
@@ -50,7 +51,6 @@ import { descriptorRecordEnvironment } from "./descriptorRecordEnvironment";
 import { hashHostInputPaths } from "./hashHostInputPaths";
 import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
 import { pluginLabel } from "./pluginLabel";
-import { realpathHostInput } from "./realpathHostInput";
 import { realpathHostInputPaths } from "./realpathHostInputPaths";
 import { rejectJsTransformFunctions } from "./rejectJsTransformFunctions";
 import { requirePluginSource } from "./requirePluginSource";
@@ -267,16 +267,22 @@ export namespace loadProjectPlugins {
           ).filter((entry) => entry.config.enabled !== false);
     if (entries.length === 0) {
       yield options.onWatchInputs?.([]);
+      const finalPhase = HostInputObservationPhase.create();
       return {
         ...collectHostInputSnapshot(
           project,
           {},
           [],
           projectHostInputs,
-          revalidateHostInputHashes(projectHostInputHashes, projectHostInputs),
+          revalidateHostInputHashes(
+            projectHostInputHashes,
+            projectHostInputs,
+            finalPhase,
+          ),
           revalidateHostInputRealpaths(
             projectHostInputRealpaths,
             projectHostInputs,
+            finalPhase,
           ),
         ),
         descriptorReadsDeclared: true,
@@ -343,9 +349,15 @@ export namespace loadProjectPlugins {
           // Capture every candidate before resolution chooses the descriptor entry.
           // A post-resolution snapshot could bless a higher-priority file created
           // after the resolver had already selected the old entry.
-          const probedCandidateHashes = hashHostInputPaths(probedCandidates);
-          const probedCandidateRealpaths =
-            realpathHostInputPaths(probedCandidates);
+          const probedPhase = HostInputObservationPhase.create();
+          const probedCandidateHashes = hashHostInputPaths(
+            probedCandidates,
+            probedPhase,
+          );
+          const probedCandidateRealpaths = realpathHostInputPaths(
+            probedCandidates,
+            probedPhase,
+          );
           const request = PluginPackageResolution.resolvePluginRequest(
             specifier,
             entry.baseDir,
@@ -392,14 +404,14 @@ export namespace loadProjectPlugins {
             loaded.hostInputHashes,
             hashHostInputPaths(
               Object.keys(loaded.hostInputHashes),
-              loaded.verifiedHashes,
+              loaded.verifiedPhase,
             ),
           );
           const loadedHostInputRealpaths = mergeObservedHostInputRealpaths(
             loaded.hostInputRealpaths,
             realpathHostInputPaths(
               Object.keys(loaded.hostInputRealpaths),
-              loaded.verifiedRealpaths,
+              loaded.verifiedPhase,
             ),
           );
           const hostInputHashes = mergeObservedHostInputHashes(
@@ -864,16 +876,22 @@ export namespace loadProjectPlugins {
         stage: record.stage,
       };
     });
+    const finalPhase = HostInputObservationPhase.create();
     return {
       ...collectHostInputSnapshot(
         project,
         context,
         records,
         projectHostInputs,
-        revalidateHostInputHashes(projectHostInputHashes, projectHostInputs),
+        revalidateHostInputHashes(
+          projectHostInputHashes,
+          projectHostInputs,
+          finalPhase,
+        ),
         revalidateHostInputRealpaths(
           projectHostInputRealpaths,
           projectHostInputs,
+          finalPhase,
         ),
       ),
       descriptorReadsDeclared: loadedEntries.every(
@@ -1072,8 +1090,9 @@ function readProjectHostInputSnapshot(options: {
   );
   const observedInputs = new Set(hostInputs);
   for (let attempt = 0; attempt < 3; attempt++) {
-    const before = hashHostInputPaths(hostInputs);
-    const beforeRealpaths = realpathHostInputPaths(hostInputs);
+    const beforePhase = HostInputObservationPhase.create();
+    const before = hashHostInputPaths(hostInputs, beforePhase);
+    const beforeRealpaths = realpathHostInputPaths(hostInputs, beforePhase);
     const beforeSignatures = hostInputMetadataSignatures(hostInputs);
     const candidateProject = readProjectConfig(projectOptions);
     const discovered = includePluginDiscovery
@@ -1088,8 +1107,9 @@ function readProjectHostInputSnapshot(options: {
       discovered,
     );
     for (const input of candidateInputs) observedInputs.add(input);
-    const after = hashHostInputPaths(candidateInputs);
-    const afterRealpaths = realpathHostInputPaths(candidateInputs);
+    const afterPhase = HostInputObservationPhase.create();
+    const after = hashHostInputPaths(candidateInputs, afterPhase);
+    const afterRealpaths = realpathHostInputPaths(candidateInputs, afterPhase);
     const afterSignatures = hostInputMetadataSignatures(candidateInputs);
     if (
       equalHostInputLists(hostInputs, candidateInputs) &&
@@ -1149,8 +1169,9 @@ function equalHostInputHashes(
 function revalidateHostInputHashes(
   initial: Readonly<Record<string, string | null>>,
   inputs: readonly string[],
+  phase?: HostInputObservationPhase.Phase,
 ): Record<string, string | null> {
-  const current = hashHostInputPaths(inputs);
+  const current = hashHostInputPaths(inputs, phase);
   const output: Record<string, string | null> = {};
   for (const input of inputs) {
     const absolute = path.resolve(input);
@@ -1168,8 +1189,9 @@ function revalidateHostInputHashes(
 function revalidateHostInputRealpaths(
   initial: Readonly<Record<string, string | null>>,
   inputs: readonly string[],
+  phase?: HostInputObservationPhase.Phase,
 ): Record<string, string | null> {
-  const current = realpathHostInputPaths(inputs);
+  const current = realpathHostInputPaths(inputs, phase);
   return Object.fromEntries(
     inputs.flatMap((input) => {
       const absolute = path.resolve(input);
@@ -1432,8 +1454,7 @@ function loadPluginEntry(
   hostInputs: string[];
   observationsComplete: boolean;
   plugin: ITtscPlugin;
-  verifiedHashes?: Map<string, string | null>;
-  verifiedRealpaths?: Map<string, string | null>;
+  verifiedPhase?: HostInputObservationPhase.Phase;
 } {
   const specifier = entry.transform;
   if (typeof specifier !== "string" || specifier.length === 0) {
@@ -1467,8 +1488,7 @@ function loadPluginEntry(
     hostInputs: loaded.inputs,
     observationsComplete: loaded.observationsComplete,
     plugin,
-    verifiedHashes: loaded.verifiedHashes,
-    verifiedRealpaths: loaded.verifiedRealpaths,
+    verifiedPhase: loaded.verifiedPhase,
   };
 }
 
@@ -1542,8 +1562,7 @@ interface IsolatedPluginDescriptor {
   hostInputRealpaths: Record<string, string | null>;
   inputs: string[];
   observationsComplete: boolean;
-  verifiedHashes?: Map<string, string | null>;
-  verifiedRealpaths?: Map<string, string | null>;
+  verifiedPhase?: HostInputObservationPhase.Phase;
 }
 
 class CommonJsDescriptorLoadError extends Error {
@@ -1635,22 +1654,18 @@ function loadCommonJsDescriptor(
   } catch {
     // Unproved runtime identity still permits an uncached actual evaluation.
   }
-  const cachedObserved = {
-    hashes: new Map<string, string | null>(),
-    realpaths: new Map<string, string | null>(),
-  };
+  const cachedPhase = HostInputObservationPhase.create();
   const cached =
     cacheFile === null
       ? null
-      : PluginDescriptorEvaluationCache.read(cacheFile, cachedObserved);
+      : PluginDescriptorEvaluationCache.read(cacheFile, cachedPhase);
   if (
     cached !== null &&
     PluginDescriptorEvaluationCache.locate(cacheAuthority) === cacheFile
   )
     return {
       ...cached,
-      verifiedHashes: cachedObserved.hashes,
-      verifiedRealpaths: cachedObserved.realpaths,
+      verifiedPhase: cachedPhase,
     };
   const dir = createEvaluationTempDir(descriptorCache.identities);
   const out = path.join(dir, "descriptor.json");
@@ -1795,10 +1810,10 @@ function loadCommonJsDescriptor(
           ),
         )
       : {};
-    const postEvalRealpaths = new Map<string, string | null>();
+    const postEvalPhase = HostInputObservationPhase.create();
     const stableParsedRealpaths = mergeObservedHostInputRealpaths(
       parsedRealpaths,
-      realpathHostInputPaths(Object.keys(parsedRealpaths), postEvalRealpaths),
+      realpathHostInputPaths(Object.keys(parsedRealpaths), postEvalPhase),
     );
     for (const input of parsed.inputs) {
       const absolute = path.resolve(String(input));
@@ -1812,7 +1827,7 @@ function loadCommonJsDescriptor(
       inputsOut,
       request,
       parsed.observation,
-      postEvalRealpaths,
+      postEvalPhase,
     );
     const evaluation: IsolatedPluginDescriptor = {
       descriptor: parsed.descriptor,
@@ -1834,7 +1849,7 @@ function loadCommonJsDescriptor(
           ...runtimeInputs.inputs,
         ]),
       ].sort(),
-      verifiedRealpaths: postEvalRealpaths,
+      verifiedPhase: postEvalPhase,
     };
     // A hit replays no diagnostics, so only an evaluation with an empty
     // captured diagnostics file is kept.
@@ -2202,12 +2217,12 @@ ${reason}`);
       if (!PluginPackageResolution.isRecord(parsed)) {
         throw new Error("isolated output must contain a descriptor envelope");
       }
-      const postEvalRealpaths = new Map<string, string | null>();
+      const postEvalPhase = HostInputObservationPhase.create();
       const inputSnapshot = readTtsxDescriptorInputs(
         inputsOut,
         request,
         parsed.observation,
-        postEvalRealpaths,
+        postEvalPhase,
       );
       return {
         descriptor: parsed.descriptor,
@@ -2218,7 +2233,7 @@ ${reason}`);
         ),
         hostInputRealpaths: inputSnapshot.hostInputRealpaths,
         inputs: inputSnapshot.inputs,
-        verifiedRealpaths: postEvalRealpaths,
+        verifiedPhase: postEvalPhase,
       };
     } catch (error) {
       throw new Error(
@@ -2253,7 +2268,7 @@ function readTtsxDescriptorInputs(
   file: string,
   request: string,
   observation: unknown,
-  observedRealpaths?: Map<string, string | null>,
+  observedPhase: HostInputObservationPhase.Phase = HostInputObservationPhase.create(),
 ): {
   complete: boolean;
   hostInputHashes: Record<string, string | null>;
@@ -2390,13 +2405,10 @@ function readTtsxDescriptorInputs(
     }
   }
   for (const [resolved, observed] of realpaths) {
-    let currentRealpath: string | null;
-    if (observedRealpaths !== undefined && observedRealpaths.has(resolved)) {
-      currentRealpath = observedRealpaths.get(resolved)!;
-    } else {
-      currentRealpath = realpathHostInput(resolved);
-      observedRealpaths?.set(resolved, currentRealpath);
-    }
+    const currentRealpath = HostInputObservationPhase.realpath(
+      resolved,
+      observedPhase,
+    );
     if (
       currentRealpath === observed &&
       signatures.get(resolved) === hostInputMetadataSignature(resolved)
