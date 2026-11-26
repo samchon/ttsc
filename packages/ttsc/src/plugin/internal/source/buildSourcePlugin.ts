@@ -27,7 +27,6 @@ import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
 import { computeCacheKey } from "./computeCacheKey";
-import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
 import { createExternalSourceSnapshotLayout } from "./createExternalSourceSnapshotLayout";
 import { ensureExecutableGoToolchain } from "./ensureExecutableGoToolchain";
 import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
@@ -1037,10 +1036,7 @@ function mergeContributors(opts: {
           `contributor names must be unique within one plugin build`,
       );
     }
-    fs.cpSync(contributor.source, target, {
-      recursive: true,
-      filter: (src) => copiesPluginSourceEntry(contributor.source, src),
-    });
+    SourcePluginWorkspace.materialize(contributor.source, target);
     requireKeyedSource(
       contributor.source,
       target,
