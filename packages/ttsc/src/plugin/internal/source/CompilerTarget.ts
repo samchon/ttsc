@@ -18,10 +18,10 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
  * the 7.0 tree over `github.com/microsoft/typescript-go` and the 7.1 bridges
  * and facades over `github.com/microsoft/TypeScript/tsc`. A plugin, the
  * in-memory compiler host and the linked plugin host all build against the
- * target of the project's line. Their checker comes from the revision the
- * shipped target pins. A line newer than every target builds with the newest
- * one, after a warning; a version ttsc cannot read builds with the 7.0 target,
- * which every installation ships.
+ * target of the project's line. The target pins a default compiler revision. A
+ * project can supply compatible Go sources through `TTSC_TSGO_SOURCE`. A newer
+ * line uses the newest target after a warning. An unreadable version uses the
+ * 7.0 target shipped in every installation.
  *
  * @evidence contracts/common.md#principled-implementation The target follows the installed compiler's major.minor line, the unit at which the shim API is audited; a prerelease of a line such as 7.1.0-dev belongs to that line. A newer line falls back to the newest audited target rather than to an unaudited commit.
  * @evidence contracts/common.md#clear-and-simple-design One namespace owns line parsing, version reading and the target's build tag, leaving overlay discovery to SourcePluginWorkspace and builds to buildSourcePlugin.
