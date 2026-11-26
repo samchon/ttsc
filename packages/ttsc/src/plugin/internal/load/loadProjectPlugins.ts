@@ -112,7 +112,7 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains result provenance, environment and path options; helper comments explain input races, conservative proof omission, fallback authority and cleanup. Member/tag spacing and separated concepts follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path/file-URL conversion, createRequire and hidden spawn with explicit argv/environment implement OS-neutral selection and process execution. Physical identities are preserved separately from lexical candidates; Bun-specific differences are capability decisions, not OS guesses.
  * @evidence contracts/performance.md#efficient-algorithms Input merging and conflicts use Sets/maps and sorted path populations, with path/key/value byte costs. Discovery can repeat config/manifest/candidate reads and full hashes; descriptor work includes runtime probes, full observation/JSON processing and possibly synchronous evaluation. Watch-only preliminary publication can temporarily digest/watch the full admitted module as well as its package before kind is known; callbacks delegate topology reconciliation. Load-local replacement readings serve preliminary and final publication. Package selection groups equivalent module contexts and batches entries through Go list without dependency compilation; per-load selected-tool manifest readers share overlay readings. Builds delegate source/environment hashing, copying, cold materialized ownership admission and Go execution; per-load digest maps share selected work. Composition can be quadratic in configured plugins/aliases, and native lookup/file/output bytes are not bounded by plugin count alone.
- * @evidence contracts/performance.md#reuse-equivalent-work Descriptor hits require the cache's context/environment/runtime/version identity and matching recorded projections, subject to producer declarations and sequential-observation limits. Per-load source/environment maps share directory-keyed digests between package selection and builds, and one selected transform host serves linked contributors. Across processes, the record store opened here proves unchanged sources, toolchain and runtime from separable metadata and answers equal package selections and runtime probes (#1721, #1722, #1723); a store whose root lies inside a plugin source is withdrawn before any source is proven. These identities do not certify every undeclared read or atomic filesystem stability.
+ * @evidence contracts/performance.md#reuse-equivalent-work Descriptor hits require the cache's context/environment/runtime/version identity and matching recorded projections, subject to producer declarations and sequential-observation limits; post-evaluation verification shares one per-entry observation map across parsed, runtime and merged host-input checks (and reuses the cache reader's just-observed hashes and realpaths on a hit), dropped as soon as the entry settles. Bracketed project-host discovery shares its resolved direct-dependency manifests with the same load's entry resolver. Synchronous multi-directory package-selection and plugin-source loops share a loop-local witness observation map without crossing yields or builds. Per-load source/environment maps share directory-keyed digests between package selection and builds, and one selected transform host serves linked contributors. Across processes, the record store opened here proves unchanged sources, toolchain and runtime from separable metadata and answers equal package selections and runtime probes (#1721, #1722, #1723); a store whose root lies inside a plugin source is withdrawn before any source is proven. These identities do not certify every undeclared read or atomic filesystem stability.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Finally restores injected environment locators, attempts evaluator directory removal and closes direct-evaluator diagnostic descriptors. Close/removal can fail; synchronous completion concerns the selected evaluator and does not certify arbitrary descendants are gone. Generation maps/results scale with observed data, and disk diagnostics/result/observation files have no independent byte ceiling here. Default disk pruning has its own interval/protection/failure policy; explicit roots remain caller-owned.
  */
 export function loadProjectPlugins(options: {
@@ -263,6 +263,7 @@ export namespace loadProjectPlugins {
             project,
             options.entries,
             options.pluginConfigDir,
+            projectSnapshot.discovery,
           ).filter((entry) => entry.config.enabled !== false);
     if (entries.length === 0) {
       yield options.onWatchInputs?.([]);
@@ -389,11 +390,17 @@ export namespace loadProjectPlugins {
           );
           const loadedHostInputHashes = mergeObservedHostInputHashes(
             loaded.hostInputHashes,
-            hashHostInputPaths(Object.keys(loaded.hostInputHashes)),
+            hashHostInputPaths(
+              Object.keys(loaded.hostInputHashes),
+              loaded.verifiedHashes,
+            ),
           );
           const loadedHostInputRealpaths = mergeObservedHostInputRealpaths(
             loaded.hostInputRealpaths,
-            realpathHostInputPaths(Object.keys(loaded.hostInputRealpaths)),
+            realpathHostInputPaths(
+              Object.keys(loaded.hostInputRealpaths),
+              loaded.verifiedRealpaths,
+            ),
           );
           const hostInputHashes = mergeObservedHostInputHashes(
             entryCandidateHashes,
@@ -663,6 +670,7 @@ export namespace loadProjectPlugins {
       }
       for (const record of transformHosts)
         contexts.get(record.moduleRoot)!.records.push(record);
+      const hostWitnessReadings = new Map<string, string>();
       for (const host of contexts.values()) {
         const moduleHosts = host.records;
         const hostEntries = moduleHosts.map((record) => ({
@@ -674,7 +682,10 @@ export namespace loadProjectPlugins {
           env: effectiveEnv,
           readers: packageReaders,
           identities: sourceIdentities,
-          readings,
+          readings: {
+            ...readings,
+            currentWitnessReadings: hostWitnessReadings,
+          },
           packages: [
             ...hostEntries,
             ...linkedContributors.map((input) => ({
@@ -879,32 +890,39 @@ export namespace loadProjectPlugins {
       // read them. Package selection shares these readings and also reads a
       // linked plugin's module root, which no build keys on, so only the build
       // directories are reported.
-      pluginSources: Object.fromEntries(
-        [...sourceDigests]
-          .filter(([directory]) => keyedDirectories.has(directory))
-          .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
-          .map(([directory, sourceDigest]) => [
-            directory,
-            pluginSourceState(directory, {
-              env: effectiveEnv,
-              sourceDigest,
-              environment:
-                environmentDigests.get(directory) ??
-                pluginBuildEnvironment(
-                  directory,
-                  effectiveEnv,
-                  undefined,
-                  sourceIdentities,
-                ),
-            }),
-          ]),
-      ),
+      pluginSources: (() => {
+        const currentWitnessReadings = new Map<string, string>();
+        return Object.fromEntries(
+          [...sourceDigests]
+            .filter(([directory]) => keyedDirectories.has(directory))
+            .sort(([left], [right]) =>
+              left < right ? -1 : left > right ? 1 : 0,
+            )
+            .map(([directory, sourceDigest]) => [
+              directory,
+              pluginSourceState(directory, {
+                env: effectiveEnv,
+                sourceDigest,
+                environment:
+                  environmentDigests.get(directory) ??
+                  pluginBuildEnvironment(
+                    directory,
+                    effectiveEnv,
+                    undefined,
+                    sourceIdentities,
+                    currentWitnessReadings,
+                  ),
+              }),
+            ]),
+        );
+      })(),
       project,
     };
   }
 }
 
 type ProjectHostInputSnapshot = {
+  discovery?: ProjectPluginEntries.DiscoveryReadings;
   hostInputHashes: Record<string, string | null>;
   hostInputRealpaths: Record<string, string | null>;
   hostInputs: string[];
@@ -1058,10 +1076,16 @@ function readProjectHostInputSnapshot(options: {
     const beforeRealpaths = realpathHostInputPaths(hostInputs);
     const beforeSignatures = hostInputMetadataSignatures(hostInputs);
     const candidateProject = readProjectConfig(projectOptions);
+    const discovered = includePluginDiscovery
+      ? {
+          dependencyManifests: new Map<string, string | undefined>(),
+        }
+      : undefined;
     const candidateInputs = collectProjectHostInputs(
       candidateProject,
       includePluginDiscovery,
       pluginConfigDir,
+      discovered,
     );
     for (const input of candidateInputs) observedInputs.add(input);
     const after = hashHostInputPaths(candidateInputs);
@@ -1076,6 +1100,7 @@ function readProjectHostInputSnapshot(options: {
       equalHostInputHashes(beforeSignatures, afterSignatures)
     ) {
       return {
+        discovery: discovered,
         hostInputHashes: after,
         hostInputRealpaths: afterRealpaths,
         hostInputs: candidateInputs,
@@ -1407,6 +1432,8 @@ function loadPluginEntry(
   hostInputs: string[];
   observationsComplete: boolean;
   plugin: ITtscPlugin;
+  verifiedHashes?: Map<string, string | null>;
+  verifiedRealpaths?: Map<string, string | null>;
 } {
   const specifier = entry.transform;
   if (typeof specifier !== "string" || specifier.length === 0) {
@@ -1440,6 +1467,8 @@ function loadPluginEntry(
     hostInputs: loaded.inputs,
     observationsComplete: loaded.observationsComplete,
     plugin,
+    verifiedHashes: loaded.verifiedHashes,
+    verifiedRealpaths: loaded.verifiedRealpaths,
   };
 }
 
@@ -1513,6 +1542,8 @@ interface IsolatedPluginDescriptor {
   hostInputRealpaths: Record<string, string | null>;
   inputs: string[];
   observationsComplete: boolean;
+  verifiedHashes?: Map<string, string | null>;
+  verifiedRealpaths?: Map<string, string | null>;
 }
 
 class CommonJsDescriptorLoadError extends Error {
@@ -1604,13 +1635,23 @@ function loadCommonJsDescriptor(
   } catch {
     // Unproved runtime identity still permits an uncached actual evaluation.
   }
+  const cachedObserved = {
+    hashes: new Map<string, string | null>(),
+    realpaths: new Map<string, string | null>(),
+  };
   const cached =
-    cacheFile === null ? null : PluginDescriptorEvaluationCache.read(cacheFile);
+    cacheFile === null
+      ? null
+      : PluginDescriptorEvaluationCache.read(cacheFile, cachedObserved);
   if (
     cached !== null &&
     PluginDescriptorEvaluationCache.locate(cacheAuthority) === cacheFile
   )
-    return cached;
+    return {
+      ...cached,
+      verifiedHashes: cachedObserved.hashes,
+      verifiedRealpaths: cachedObserved.realpaths,
+    };
   const dir = createEvaluationTempDir(descriptorCache.identities);
   const out = path.join(dir, "descriptor.json");
   const inputsOut = path.join(dir, "descriptor-inputs.ndjson");
@@ -1754,9 +1795,10 @@ function loadCommonJsDescriptor(
           ),
         )
       : {};
+    const postEvalRealpaths = new Map<string, string | null>();
     const stableParsedRealpaths = mergeObservedHostInputRealpaths(
       parsedRealpaths,
-      realpathHostInputPaths(Object.keys(parsedRealpaths)),
+      realpathHostInputPaths(Object.keys(parsedRealpaths), postEvalRealpaths),
     );
     for (const input of parsed.inputs) {
       const absolute = path.resolve(String(input));
@@ -1770,6 +1812,7 @@ function loadCommonJsDescriptor(
       inputsOut,
       request,
       parsed.observation,
+      postEvalRealpaths,
     );
     const evaluation: IsolatedPluginDescriptor = {
       descriptor: parsed.descriptor,
@@ -1791,6 +1834,7 @@ function loadCommonJsDescriptor(
           ...runtimeInputs.inputs,
         ]),
       ].sort(),
+      verifiedRealpaths: postEvalRealpaths,
     };
     // A hit replays no diagnostics, so only an evaluation with an empty
     // captured diagnostics file is kept.
@@ -2158,10 +2202,12 @@ ${reason}`);
       if (!PluginPackageResolution.isRecord(parsed)) {
         throw new Error("isolated output must contain a descriptor envelope");
       }
+      const postEvalRealpaths = new Map<string, string | null>();
       const inputSnapshot = readTtsxDescriptorInputs(
         inputsOut,
         request,
         parsed.observation,
+        postEvalRealpaths,
       );
       return {
         descriptor: parsed.descriptor,
@@ -2172,6 +2218,7 @@ ${reason}`);
         ),
         hostInputRealpaths: inputSnapshot.hostInputRealpaths,
         inputs: inputSnapshot.inputs,
+        verifiedRealpaths: postEvalRealpaths,
       };
     } catch (error) {
       throw new Error(
@@ -2206,6 +2253,7 @@ function readTtsxDescriptorInputs(
   file: string,
   request: string,
   observation: unknown,
+  observedRealpaths?: Map<string, string | null>,
 ): {
   complete: boolean;
   hostInputHashes: Record<string, string | null>;
@@ -2342,8 +2390,15 @@ function readTtsxDescriptorInputs(
     }
   }
   for (const [resolved, observed] of realpaths) {
+    let currentRealpath: string | null;
+    if (observedRealpaths !== undefined && observedRealpaths.has(resolved)) {
+      currentRealpath = observedRealpaths.get(resolved)!;
+    } else {
+      currentRealpath = realpathHostInput(resolved);
+      observedRealpaths?.set(resolved, currentRealpath);
+    }
     if (
-      realpathHostInput(resolved) === observed &&
+      currentRealpath === observed &&
       signatures.get(resolved) === hostInputMetadataSignature(resolved)
     ) {
       continue;
