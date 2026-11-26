@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { HostInputObservationPhase } from "../../../plugin/internal/load/HostInputObservationPhase";
 import { hashHostInputPaths } from "../../../plugin/internal/load/hashHostInputPaths";
 import { realpathHostInputPaths } from "../../../plugin/internal/load/realpathHostInputPaths";
 import { GoSourceInputs } from "../../../plugin/internal/source/GoSourceInputs";
@@ -71,16 +72,20 @@ export function captureLSPPluginSelectionInputs(loaded: {
     for (const file of collectPluginSourceFiles(source))
       record(sourceFiles, path.resolve(file));
   }
+  const observationPhase = HostInputObservationPhase.create();
   const proven = descriptorInputs.filter((file) =>
     Object.prototype.hasOwnProperty.call(loaded.hostInputHashes, file),
   );
-  const current = hashHostInputPaths(proven);
+  const current = hashHostInputPaths(proven, observationPhase);
   if (proven.some((file) => current[file] !== loaded.hostInputHashes[file]))
     return undefined;
   const physicalInputs = descriptorInputs.filter((file) =>
     Object.prototype.hasOwnProperty.call(loaded.hostInputRealpaths, file),
   );
-  const currentRealpaths = realpathHostInputPaths(physicalInputs);
+  const currentRealpaths = realpathHostInputPaths(
+    physicalInputs,
+    observationPhase,
+  );
   if (
     physicalInputs.some(
       (file) => currentRealpaths[file] !== loaded.hostInputRealpaths[file],

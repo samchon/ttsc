@@ -24,14 +24,15 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 3. Give a file a stamp the reference cannot separate; the record must be neither
  *    trusted nor rewritten.
  * 4. Refuse a store whose root lies inside a plugin source.
- * 5. Reuse one private temporary-volume reference directory across stores, so
- *    opening a store never adds or removes an entry of the temporary directory,
- *    whose metadata signs every missing path below it.
+ * 5. Mint the temporary-volume reference lazily only when a proof meets a device
+ *    absent from the cache root's own references (at most once per store),
+ *    never touching `os.tmpdir()` on `open()` alone or same-device proofs, and
+ *    reuse one private temporary-volume reference directory across stores.
  *
- * @evidence contracts/testing.md#behavioral-verification PluginContentIdentities.open and sourceDirectory run against a real module directory and a real cache root; the observable result is the returned digest and the record file on disk.
- * @evidence contracts/testing.md#independent-expectations pluginSourceDigest called directly, with no store, is the independent oracle for every fresh reading; the corrupted literal digest is the oracle for a reused record.
- * @evidence contracts/testing.md#distinguishing-cases Unchanged separable metadata reuses; identical-byte rewrite, content edit, addition, rename and deletion reread; an unseparable stamp neither reuses nor records; a cache root inside the source refuses the store; a second store reuses the first one's private temporary-volume reference directory. Executable and GOROOT records share digest and are covered by their own units and the E2E warm-load budget.
- * @evidence contracts/testing.md#execution-ownership The named unit calls the owning source operations directly over a copied package fixture and a private cache root; no Go process, native build or product host runs.
+ * @evidence contracts/testing.md#behavioral-verification PluginContentIdentities.open, sourceDirectory and separable run against a real module directory and a real cache root; the observable result is the returned digest, the record file on disk, and whether a temporary-volume clock probe is written.
+ * @evidence contracts/testing.md#independent-expectations pluginSourceDigest called directly, with no store, is the independent oracle for every fresh reading; the corrupted literal digest is the oracle for a reused record; wrapped fs.writeFileSync counts under the temporary reference directory independently verify lazy once-per-store minting.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged separable metadata reuses; identical-byte rewrite, content edit, addition, rename and deletion reread; an unseparable stamp neither reuses nor records; a cache root inside the source refuses the store; open() alone and same-device proofs never write in os.tmpdir(), while a cross-device proof mints the temporary reference once per store, preserves owned precedence, and reuses the private directory across stores. Executable and GOROOT records share digest and are covered by their own units and the E2E warm-load budget.
+ * @evidence contracts/testing.md#execution-ownership The named unit calls the owning source operations directly over a copied package fixture and a private cache root, restoring wrapped fs.writeFileSync in finally; no Go process, native build or product host runs.
  */
 export function test_plugincontentidentities_reuses_a_digest_only_while_its_metadata_holds(): void {
   const root = TestProject.physicalPath(
@@ -169,23 +170,130 @@ export function test_plugincontentidentities_reuses_a_digest_only_while_its_meta
     assert.equal(fs.existsSync(path.join(module, "cache")), false);
   });
 
-  verify("the temporary-volume reference directory is reused", () => {
-    const uid =
-      typeof process.getuid === "function" ? process.getuid() : undefined;
-    const directory = path.join(
-      os.tmpdir(),
-      uid === undefined
-        ? "ttsc-clock-references"
-        : `ttsc-clock-references-${uid}`,
-    );
-    open();
-    const first = fs.lstatSync(directory, { bigint: true });
-    open();
-    const second = fs.lstatSync(directory, { bigint: true });
-    assert.equal(first.isDirectory(), true);
-    assert.equal(second.ino, first.ino, "the directory is not recreated");
-    if (uid !== undefined) assert.equal(first.mode & 0o077n, 0n);
-  });
+  verify(
+    "temporary-volume reference is minted lazily on cross-device proof and reuses its directory",
+    () => {
+      const uid =
+        typeof process.getuid === "function" ? process.getuid() : undefined;
+      const directory = path.join(
+        os.tmpdir(),
+        uid === undefined
+          ? "ttsc-clock-references"
+          : `ttsc-clock-references-${uid}`,
+      );
+      const countTemporaryProbes = <T>(
+        run: () => T,
+      ): { probes: string[]; value: T } => {
+        const probes: string[] = [];
+        const originalWriteFileSync = fs.writeFileSync;
+        fs.writeFileSync = ((
+          file: fs.PathOrFileDescriptor,
+          data: string | NodeJS.ArrayBufferView,
+          options?: fs.WriteFileOptions,
+        ) => {
+          if (
+            typeof file === "string" &&
+            path.dirname(path.resolve(file)) === path.resolve(directory)
+          ) {
+            probes.push(file);
+          }
+          return originalWriteFileSync(file, data, options);
+        }) as typeof fs.writeFileSync;
+        try {
+          return { probes, value: run() };
+        } finally {
+          fs.writeFileSync = originalWriteFileSync;
+        }
+      };
+
+      // open() alone and a same-device proof must not touch os.tmpdir().
+      const ownedDev = fs.lstatSync(cache, { bigint: true }).dev;
+      const { probes: openProbes, value: firstStore } = countTemporaryProbes(
+        () => {
+          const store = open();
+          const ownedStamp = store.references.get(ownedDev);
+          assert.notEqual(
+            ownedStamp,
+            undefined,
+            "cache root device must be covered by owned references",
+          );
+          PluginContentIdentities.sourceDirectory(store, module);
+          return store;
+        },
+      );
+      assert.deepEqual(
+        openProbes,
+        [],
+        `open() and same-device proofs must not write probes in os.tmpdir(), got ${JSON.stringify(openProbes)}`,
+      );
+      const ownedStampBefore = firstStore.references.get(ownedDev);
+
+      // A proof encountering a device absent from owned.references mints the
+      // temporary reference at most once per store, keeping owned precedence.
+      const sampleStats = fs.lstatSync(main, { bigint: true });
+      const foreignStats = (dev: bigint): fs.BigIntStats =>
+        ({
+          ...sampleStats,
+          dev,
+          mtimeNs: 0n,
+          ctimeNs: 0n,
+        }) as fs.BigIntStats;
+      const { probes: firstCrossProbes } = countTemporaryProbes(() => {
+        PluginContentIdentities.separable(
+          firstStore.references,
+          foreignStats(ownedDev + 1n),
+        );
+        PluginContentIdentities.separable(
+          firstStore.references,
+          foreignStats(ownedDev + 2n),
+        );
+      });
+      assert.equal(
+        firstCrossProbes.length,
+        1,
+        `expected 1 temporary probe across repeated cross-device proofs on one store, got ${firstCrossProbes.length}`,
+      );
+      assert.equal(
+        firstStore.references.get(ownedDev),
+        ownedStampBefore,
+        "owned reference must keep precedence over temporary reference on the same device",
+      );
+
+      const first = fs.lstatSync(directory, { bigint: true });
+      const { probes: secondCrossProbes } = countTemporaryProbes(() => {
+        const secondStore = open();
+        PluginContentIdentities.separable(
+          secondStore.references,
+          foreignStats(ownedDev + 1n),
+        );
+      });
+      assert.equal(
+        secondCrossProbes.length,
+        1,
+        "a fresh store must mint its own temporary reference when a cross-device proof needs one",
+      );
+      const second = fs.lstatSync(directory, { bigint: true });
+      assert.equal(first.isDirectory(), true);
+      assert.equal(second.ino, first.ino, "the directory is not recreated");
+      if (uid !== undefined) assert.equal(first.mode & 0o077n, 0n);
+
+      // Explicit pre-compile forcing mints once per store and stays idempotent.
+      const { probes: forcedProbes } = countTemporaryProbes(() => {
+        const thirdStore = open();
+        PluginContentIdentities.ensureTemporaryReference(thirdStore);
+        PluginContentIdentities.ensureTemporaryReference(thirdStore);
+        PluginContentIdentities.separable(
+          thirdStore.references,
+          foreignStats(ownedDev + 1n),
+        );
+      });
+      assert.equal(
+        forcedProbes.length,
+        1,
+        `expected 1 temporary probe for explicit ensureTemporaryReference plus later cross-device check, got ${forcedProbes.length}`,
+      );
+    },
+  );
 
   if (failures.length !== 0)
     throw new AggregateError(failures, "content identity matrix failed");
