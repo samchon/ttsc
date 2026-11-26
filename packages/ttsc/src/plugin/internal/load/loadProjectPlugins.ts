@@ -459,9 +459,13 @@ export namespace loadProjectPlugins {
       PluginBuildEnvironmentWitness.Record
     >();
     // The overlay modules every selection and build of this load uses, found
-    // once: each lookup walks the compiler line's shim tree.
-    const overlayDirs = SourcePluginWorkspace.findTtscOverlayDirs(
-      CompilerTarget.ofEnv(effectiveEnv),
+    // once: each lookup walks the compiler line's shim tree. A compiler source
+    // the project declares is one of them.
+    const overlayDirs = SourcePluginWorkspace.withCompilerSource(
+      SourcePluginWorkspace.findTtscOverlayDirs(
+        CompilerTarget.ofEnv(effectiveEnv),
+      ),
+      effectiveEnv,
     );
     const readings = {
       sources: sourceDigests,
@@ -498,6 +502,9 @@ export namespace loadProjectPlugins {
             candidate.packageDir,
             ...(candidate.contributors ?? []).map((input) => input.source),
           ])
+          .concat(
+            candidates.length === 0 ? [] : declaredCompilerSource(effectiveEnv),
+          )
           .filter(reportsPluginSource),
       );
       // WARNING (#1728): hand the watch owner this load's store with the roots.
@@ -2487,7 +2494,21 @@ function pluginBuildDirectories(
     for (const contributor of record.contributors ?? [])
       directories.add(path.resolve(contributor.source));
   }
+  // A compiler source the project declares is compiled into every build of the
+  // load, so it is reported and watched with the plugins' own sources.
+  if (records.length !== 0)
+    for (const directory of declaredCompilerSource(env))
+      directories.add(directory);
   return [...directories].filter(reportsPluginSource).sort();
+}
+
+/**
+ * The compiler source the project declares (`TTSC_TSGO_SOURCE`), as the list a
+ * watch or report adds: one directory, or none when undeclared.
+ */
+function declaredCompilerSource(env: NodeJS.ProcessEnv): string[] {
+  const source = SourcePluginWorkspace.compilerSource(env);
+  return source === undefined ? [] : [source];
 }
 
 /**

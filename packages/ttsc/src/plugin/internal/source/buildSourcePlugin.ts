@@ -212,7 +212,10 @@ function buildSourcePluginAttempt(
   const { dir, entry, source } = resolveSourceBuildTarget(opts);
   const overlayDirs = [
     ...(opts.overlayDirs ??
-      SourcePluginWorkspace.findTtscOverlayDirs(CompilerTarget.ofEnv(env))),
+      SourcePluginWorkspace.withCompilerSource(
+        SourcePluginWorkspace.findTtscOverlayDirs(CompilerTarget.ofEnv(env)),
+        env,
+      )),
   ].sort();
   const contributors = opts.contributors ?? [];
   const compiler = resolveGoCompiler(env);
@@ -576,6 +579,9 @@ function compileSourcePlugin(opts: {
         scratchDir,
       });
     }
+    // The compiler source the project declared is admitted as the copy the
+    // build compiles, never as the directory the variable names.
+    const compilerSource = SourcePluginWorkspace.compilerSource(opts.env);
     SourcePluginWorkspace.writeGoWork(
       scratchDir,
       opts.overlayDirs.map(
@@ -585,6 +591,7 @@ function compileSourcePlugin(opts: {
       opts.pluginName,
       opts.env,
       goModReader,
+      compilerSource === undefined ? undefined : external.get(compilerSource),
     );
     OwnedSynchronousProcess.checkpoint();
     const scratchBinaryName =

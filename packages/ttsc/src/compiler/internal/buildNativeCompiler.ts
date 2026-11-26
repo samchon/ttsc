@@ -52,8 +52,10 @@ export function buildNativeCompiler(options: {
     cacheDir: options.cacheDir,
     env: CompilerTarget.buildEnv(callerEnv, line, options.cacheBaseDir),
     label: "compiler host",
-    overlayDirs:
+    overlayDirs: SourcePluginWorkspace.withCompilerSource(
       line === "7.0" ? [] : SourcePluginWorkspace.findTtscOverlayDirs(line),
+      callerEnv,
+    ),
     pluginName: "ttsc",
     quiet: true,
     source: path.join(options.packageRoot, "cmd", "ttsc"),

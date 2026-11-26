@@ -218,11 +218,12 @@ export namespace NativeSourcePackages {
       );
       SourcePluginWorkspace.writeGoWork(
         scratch,
-        SourcePluginWorkspace.findTtscOverlayDirs(CompilerTarget.ofEnv(env)),
+        selectionOverlayDirs(env),
         goBinary,
         opts.pluginName,
         env,
         reader,
+        SourcePluginWorkspace.compilerSource(env),
       );
       const observed = read({
         cwd: scratch,
@@ -625,10 +626,7 @@ function selectionIdentity(
           : ["go.mod", "go.sum"].map((name) =>
               fileDigest(path.join(host, name)),
             ),
-      overlays: (
-        readings.overlays ??
-        SourcePluginWorkspace.findTtscOverlayDirs(CompilerTarget.ofEnv(env))
-      ).map(directory),
+      overlays: (readings.overlays ?? selectionOverlayDirs(env)).map(directory),
       entries: opts.packages.map((input) => [
         input.entry,
         input.name ?? null,
@@ -646,10 +644,20 @@ function overlayDigests(
   env: NodeJS.ProcessEnv,
   identities: PluginContentIdentities.Store | undefined,
 ): string[] {
-  return SourcePluginWorkspace.findTtscOverlayDirs(
-    CompilerTarget.ofEnv(env),
-  ).map((directory) =>
+  return selectionOverlayDirs(env).map((directory) =>
     PluginContentIdentities.sourceDirectory(identities, directory),
+  );
+}
+
+/**
+ * The overlay modules of a selection without a load's shared reading: the
+ * line's ttsc and shim modules and the compiler source the project declares,
+ * the same list the workspace, the identity and its proof read.
+ */
+function selectionOverlayDirs(env: NodeJS.ProcessEnv): readonly string[] {
+  return SourcePluginWorkspace.withCompilerSource(
+    SourcePluginWorkspace.findTtscOverlayDirs(CompilerTarget.ofEnv(env)),
+    env,
   );
 }
 

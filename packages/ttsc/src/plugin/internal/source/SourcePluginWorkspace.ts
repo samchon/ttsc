@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import type { CompilerTarget } from "./CompilerTarget";
@@ -68,6 +69,14 @@ export namespace SourcePluginWorkspace {
    * Write the native builder's generated workspace and let Go select its
    * version.
    *
+   * When `compilerSource` is given, it names the directory in `useDirs` (the
+   * build's proven copy, or the declared directory in a selection) of the
+   * compiler source the project declared. Go's reading of its `go.mod` must
+   * declare the compiler module of the workspace's line or the call throws
+   * ({@link SourcePluginAdmission.requireCompilerSource}), and the overlay
+   * declaring that compiler module is written as a workspace `replace`
+   * directive instead of a `use` entry.
+   *
    * @evidence contracts/common.md#principled-implementation Actual manifest records drive managed overlay filtering and replacement admission; Go work use supplies required directives.
    * @evidence contracts/common.md#clear-and-simple-design The writer shares one reader across source/overlay queries and delegates manifest interpretation to Go.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No ancestor workspace or fixed Go version substitutes for this generated workspace; Go errors propagate.
@@ -84,6 +93,7 @@ export namespace SourcePluginWorkspace {
     pluginName: string,
     env: NodeJS.ProcessEnv,
     goModReader: GoModReader = createGoModReader(goBinary, pluginName, env),
+    compilerSource?: string,
   ): void {
     validateSourceReplacements(scratchDir, useDirs, goModReader, pluginName);
     const sourceInfo = goModReader.read(scratchDir);
@@ -96,14 +106,31 @@ export namespace SourcePluginWorkspace {
         SourcePluginAdmission.BRIDGE_MODULE_PREFIX,
       ),
     );
+    // A project's own compiler source (`TTSC_TSGO_SOURCE`) is the module the
+    // bridges, shims and the ttsc module require at ttsc's pinned version. It
+    // becomes a workspace replacement as well, which overrides that version in
+    // every module of the build, the ttsc root's included.
+    const compilerModule = bridged
+      ? SourcePluginAdmission.COMPILER_MODULE_7_1
+      : SourcePluginAdmission.COMPILER_MODULE_7_0;
+    // Go reads the directory the build compiles, a proven copy in a build;
+    // the refusal names the directory the project declared.
+    if (compilerSource !== undefined)
+      SourcePluginAdmission.requireCompilerSource(
+        SourcePluginWorkspace.compilerSource(env) ?? compilerSource,
+        goModReader.read(compilerSource).modulePath,
+        compilerModule,
+        bridged ? "7.1" : "7.0",
+      );
     const shimReplaceLines: string[] = [];
     const effectiveUseDirs = useDirs.filter((dir) => {
       OwnedSynchronousProcess.checkpoint();
       const modulePath = goModReader.read(dir).modulePath;
       if (
-        bridged &&
-        modulePath !== null &&
-        SourcePluginAdmission.isManagedShimModule(modulePath)
+        modulePath === compilerModule ||
+        (bridged &&
+          modulePath !== null &&
+          SourcePluginAdmission.isManagedShimModule(modulePath))
       ) {
         shimReplaceLines.push(
           `replace ${modulePath} => ${formatGoWorkPath(dir)}`,
@@ -699,6 +726,64 @@ export namespace SourcePluginWorkspace {
       `Reinstall ttsc with optional dependencies so the bundled Go compiler is present, ` +
       `or set TTSC_GO_BINARY to an absolute path.`
     );
+  }
+
+  /**
+   * The directory `TTSC_TSGO_SOURCE` names in env: the source of the Go module
+   * the project's own compiler was built from, which plugin and compiler hosts
+   * then build against in place of the revision ttsc pins. Undefined when the
+   * variable is unset or empty. A relative path is refused, since the builds of
+   * one load run from different working directories.
+   *
+   * @evidence contracts/common.md#principled-implementation The variable is read from the load's effective environment, as TTSC_TSGO_BINARY is, so a programmatic env override declares the source for exactly the builds it selects the compiler for.
+   * @evidence contracts/common.md#clear-and-simple-design One accessor owns the variable's reading and its absolute-path rule; every overlay list and the workspace writer ask it.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A relative value is refused instead of being resolved against whichever working directory a caller happens to have.
+   * @evidence contracts/common.md#meaningful-documentation States what the directory is, the undefined result and why a relative path is refused.
+   * @evidence contracts/portability.md#os-neutral-implementation SidecarEnvironment.read applies the platform's variable-name policy, and path.isAbsolute and path.resolve apply the native path grammar; no OS name is consulted.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms One environment read and one path normalization own no population-processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The caller owns a mutable environment, so no earlier reading has a validity identity to reuse.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains no state, handle or task.
+   */
+  export function compilerSource(env: NodeJS.ProcessEnv): string | undefined {
+    const value = SidecarEnvironment.read(
+      env,
+      SourcePluginAdmission.COMPILER_SOURCE_ENV,
+    );
+    if (value === undefined || value === "") return undefined;
+    if (!path.isAbsolute(value))
+      throw new Error(
+        `ttsc: ${SourcePluginAdmission.COMPILER_SOURCE_ENV} must be an absolute ` +
+          `directory path, not ${JSON.stringify(value)}.`,
+      );
+    return path.resolve(value);
+  }
+
+  /**
+   * The overlay modules of a build or selection: base, the caller's ttsc and
+   * shim overlays, with the project's compiler source when env declares one. As
+   * an overlay the source is keyed, copied into the scratch tree and proven
+   * against its key exactly as ttsc's own modules are, and {@link writeGoWork}
+   * replaces the compiler module with it. Reporting among `pluginSources` and
+   * watching do not come from the overlay list because ttsc's own overlays are
+   * omitted from both; `loadProjectPlugins` adds the declared source to its
+   * watch interests and build directories separately because it lies outside
+   * the installed package. Without a declared source this is base itself.
+   *
+   * @evidence contracts/common.md#principled-implementation Overlays are the existing class of source outside the plugin that the builder keys, copies into the scratch tree and proves against its key, and writeGoWork replaces the compiler module with the declared overlay. Reporting among pluginSources and watching do not come from the overlay list because ttsc's own overlays are omitted from both; loadProjectPlugins adds the declared source to its watch interests and build directories because it lies outside the installed package. The premise is that every consumer of the overlay list calls this with the same environment, which the load's shared reading and the selection's helper provide.
+   * @evidence contracts/common.md#clear-and-simple-design The caller keeps its own base list, including the compiler host's empty 7.0 list, and this adds at most one directory to it.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Without a declared source the caller's list is returned itself, so no existing key, copy or watch changes.
+   * @evidence contracts/common.md#meaningful-documentation States what joining the overlays buys, who replaces the module, and the undeclared result.
+   * @evidence contracts/portability.md#os-neutral-implementation Delegates the variable and path reading to compilerSource; the sort is the code-unit order the other overlay lists use.
+   * @evidence contracts/performance.md#efficient-algorithms Copies and sorts the base list only when a source is declared; overlay lists hold tens of entries.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Recomputed from the current environment on each call; the load shares the resulting list through its readings.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The result is the caller's; nothing is retained.
+   */
+  export function withCompilerSource(
+    base: readonly string[],
+    env: NodeJS.ProcessEnv,
+  ): readonly string[] {
+    const source = compilerSource(env);
+    return source === undefined ? base : [...base, source].sort();
   }
 
   /**
