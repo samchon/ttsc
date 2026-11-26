@@ -12,7 +12,7 @@ import { userStateDirectory } from "../transform/filesystem/userStateDirectory";
  * own bytes alone: a watching session cannot tell the host that a type the
  * module's output consulted changed, and a persistent cache restores it
  * whatever its types did. A read-only checkout, a restricted sandbox, or a file
- * standing where `.ttsc` would be leaves the root unwritable, so the record
+ * occupying an ignored cache path can leave the root unwritable, so the record
  * then lives below this user's own directory under the system temporary
  * directory (`userStateDirectory`), one directory per host root.
  *

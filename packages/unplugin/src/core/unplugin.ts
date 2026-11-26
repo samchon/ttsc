@@ -113,10 +113,9 @@ const unpluginFactory: UnpluginFactory<
   // not.
   let farmWatching: boolean | undefined;
   // Farm's configured root, which Farm relates every watch file to and cannot
-  // relate one on another Windows drive to, so its record lives below it, as
-  // the Turbopack loader's lives below the root Turbopack resolved. Every other
-  // host this factory serves takes any path, and its record lives below the
-  // directory it runs in.
+  // relate one on another Windows drive to. Farm records use private storage
+  // on that drive. Other hosts normally record under the ignored cache of
+  // their selected root.
   let farmRoot: string | undefined;
   const hostRoot = (): string => selectBuildHostRoot(farmRoot);
   // Where a host that cannot write below its root keeps its records

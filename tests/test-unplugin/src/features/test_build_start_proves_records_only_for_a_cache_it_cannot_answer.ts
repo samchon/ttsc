@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { hostToolDirectory } from "../../../../packages/unplugin/src/core/bridge/hostToolDirectory";
 import { membershipRecordDigest } from "../../../../packages/unplugin/src/core/bridge/membershipRecordDigest";
 import { projectRecordDigest } from "../../../../packages/unplugin/src/core/bridge/projectRecordDigest";
 import { projectRecordFile } from "../../../../packages/unplugin/src/core/bridge/projectRecordFile";
 import { readProjectRecordFile } from "../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import { writeProjectRecordFile } from "../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { farmRecordFallback } from "../../../../packages/unplugin/src/core/farm/farmRecordFallback";
 import { resolveOptions } from "../../../../packages/unplugin/src/core/options/resolveOptions";
 import { rollupDeliveryOptions } from "../../../../packages/unplugin/src/core/rollup/rollupDeliveryOptions";
 import { createAliasPaths } from "../../../../packages/unplugin/src/core/transform/alias/createAliasPaths";
@@ -39,7 +41,7 @@ import { TestProject } from "../../../utils/src/TestProject";
  * 1. In a root of its own, write the records of two projects whose recorded
  *    declarations were edited since, and assert the build starts of Rollup and
  *    of a Vite dev server without a watcher leave both records where they are.
- * 2. Start Farm, and assert both records moved.
+ * 2. Seed both records in Farm's private directory and start its configured build.
  * 3. Write both records again, start Rollup, and ask whether a module of the first
  *    project it would serve from its cache must run; assert it must, its record
  *    moved and the other's did not, and asking for another module of the same
@@ -48,13 +50,18 @@ import { TestProject } from "../../../utils/src/TestProject";
  * @evidence contracts/testing.md#behavioral-verification unplugin.raw buildStart leaves two stale records untouched for Rollup/Vite serve, refreshes both for Farm, and Rollup cache lookup proves only its named project once.
  * @evidence contracts/testing.md#independent-expectations Literal signal zero/one expectations and independently edited declaration bytes specify which host must prove which record; no cached compiler output generates the oracle.
  * @evidence contracts/testing.md#distinguishing-cases Rollup, Vite serve with watch null and Farm differ by cache ownership; two projects distinguish global proof from per-module proof and repeated same-project lookup.
- * @evidence contracts/testing.md#execution-ownership Calls raw buildStart/configResolved/shouldTransformCachedModule against host doubles and temporary records, restoring cwd in finally; no bundler or compiler producer runs.
+ * @evidence contracts/testing.md#execution-ownership Calls raw buildStart/configResolved/shouldTransformCachedModule against host doubles and temporary records. Finally restores cwd and removes the unique Farm fixture storage. No bundler or compiler producer runs.
  */
 export async function test_build_start_proves_records_only_for_a_cache_it_cannot_answer(): Promise<void> {
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-unplugin-build-start-proof-"),
   );
-  const tool = path.join(root, ".ttsc");
+  const tool = hostToolDirectory(root);
+  const farmTool = farmRecordFallback(root);
+  assert.ok(
+    farmTool,
+    "the fixture needs an external same-volume Farm record root",
+  );
   const identities = createHostPathIdentityContext();
   const evidenced = (file: string) => ({
     identity: pathIdentityKey(file, identities),
@@ -72,11 +79,12 @@ export async function test_build_start_proves_records_only_for_a_cache_it_cannot
     const tsconfig = path.join(directory, "tsconfig.json");
     const declaration = path.join(directory, "src", "types.d.ts");
     const record = projectRecordFile(tool, tsconfig);
-    const write = () => {
+    const write = (target = tool) => {
+      const file = projectRecordFile(target, tsconfig);
       fs.writeFileSync(declaration, `declare const ${name}: 1;\n`);
       const policy = readProjectMembershipPolicy(tsconfig);
       const walked = walkProjectInputs(directory, undefined, policy);
-      writeProjectRecordFile(record, {
+      writeProjectRecordFile(file, {
         compilerArguments: captureCompilerArguments(
           resolveCompilerEnvironment(),
         ),
@@ -94,6 +102,7 @@ export async function test_build_start_proves_records_only_for_a_cache_it_cannot
         tsconfig,
       });
       fs.writeFileSync(declaration, `declare const ${name}: 2;\n`);
+      return file;
     };
     write();
     return { directory, record, write };
@@ -122,11 +131,21 @@ export async function test_build_start_proves_records_only_for_a_cache_it_cannot
     assert.equal(signal(second.record), 0);
 
     // 2. A host with a cache of its own.
-    await unplugin.raw(undefined, { framework: "farm" }).buildStart!.call({
+    const firstFarm = first.write(farmTool);
+    const secondFarm = second.write(farmTool);
+    const farm = unplugin.raw(undefined, { framework: "farm" });
+    (farm.farm!.configResolved as (config: unknown) => void)({ root });
+    await farm.buildStart!.call({
       getNativeBuildContext: () => ({ context: {}, framework: "farm" }),
     } as never);
-    assert.equal(signal(first.record), 1, "Farm proves every record");
-    assert.equal(signal(second.record), 1);
+    assert.equal(signal(firstFarm), 1, "Farm proves every record");
+    assert.equal(signal(secondFarm), 1);
+    assert.equal(
+      signal(first.record),
+      0,
+      "Farm leaves the Rollup record alone",
+    );
+    assert.equal(signal(second.record), 0);
 
     // 3. Rollup proves a record as it is about to serve its project's module.
     first.write();
@@ -165,5 +184,6 @@ export async function test_build_start_proves_records_only_for_a_cache_it_cannot
     assert.equal(signal(first.record), 1, "and is proven once per build");
   } finally {
     process.chdir(cwd);
+    fs.rmSync(farmTool, { recursive: true, force: true });
   }
 }

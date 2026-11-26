@@ -2970,6 +2970,11 @@ export function createConfigLoaderTempDirectory(
     const directory = createOnConfigVolume(physical);
     if (directory !== undefined) return directory;
   }
+  const cache = loaderTempBase(configPath);
+  if (cache !== undefined) {
+    const directory = createOnConfigVolume(cache);
+    if (directory !== undefined) return directory;
+  }
   if (
     independentEvaluation &&
     systemTempOnConfigVolume &&
@@ -2977,11 +2982,6 @@ export function createConfigLoaderTempDirectory(
     recordRoot
   ) {
     const directory = createOnConfigVolume(systemTemp);
-    if (directory !== undefined) return directory;
-  }
-  const cache = loaderTempBase(configPath);
-  if (cache !== undefined) {
-    const directory = createOnConfigVolume(cache);
     if (directory !== undefined) return directory;
   }
   throw new Error(

@@ -502,6 +502,9 @@ declare const process: {
 // see stripConfigToolAnchors. An already-open identity store can hold the
 // loader on a cross-volume TEMP setup without moving the config directory.
 func loadStripTypeScriptConfigFileWithInputs(location, resolutionRoot string) (stripLoadedConfig, error) {
+  if !filepath.IsAbs(location) {
+    return stripLoadedConfig{}, fmt.Errorf("@ttsc/strip: resolve relative config import %s: expected an absolute config path", location)
+  }
   tempDir, err := createStripConfigLoaderTempDir(location, os.TempDir(), os.Getenv("TTSC_NATIVE_PLUGIN_RECORD_ROOT"))
   if err != nil {
     return stripLoadedConfig{}, fmt.Errorf("@ttsc/strip: create config loader tempdir: %w", err)

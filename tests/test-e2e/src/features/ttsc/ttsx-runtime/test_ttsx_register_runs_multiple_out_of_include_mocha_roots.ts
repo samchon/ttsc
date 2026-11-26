@@ -62,7 +62,7 @@ export function test_ttsx_register_runs_multiple_out_of_include_mocha_roots() {
     ],
     { cwd: root, env: { TTSC_CACHE_DIR: "" } },
   );
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
   assert.match(result.stdout, /3 passing/);
   for (const suite of ["first", "second", "third"]) {
     assert.match(result.stdout, new RegExp(`\\b${suite}\\b`));

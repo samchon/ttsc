@@ -581,6 +581,9 @@ func decodeBannerConfigLoaderOutput(output []byte) (bannerLoadedConfig, error) {
 // configToolAnchors. When TEMP is on another volume, an already-open identity
 // store can hold the loader without changing the config directory's metadata.
 func loadBannerTypeScriptConfigFileWithInputs(location, resolutionRoot string) (bannerLoadedConfig, error) {
+  if !filepath.IsAbs(location) {
+    return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: resolve relative config import %s: expected an absolute config path", location)
+  }
   tempDir, err := createBannerConfigLoaderTempDir(location, os.TempDir(), os.Getenv("TTSC_NATIVE_PLUGIN_RECORD_ROOT"))
   if err != nil {
     return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: create config loader tempdir: %w", err)

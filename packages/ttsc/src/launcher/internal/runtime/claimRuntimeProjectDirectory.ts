@@ -18,9 +18,10 @@ import { withRuntimeDirectoryLock } from "./withRuntimeDirectoryLock";
  * default runtime-directory lock. Directory selection, abandoned-run sweeping,
  * replacement and claim publication all occur before that transaction ends.
  * Participants must preserve the selected physical namespace and share that
- * lock identity. Effects are not an atomic filesystem transaction: a failure
- * can leave created directories or a partially published record, and this
- * function does not roll them back. Caller cleanup owns those remaining
+ * lock identity. A linked index may target an ordinary directory inside the
+ * pinned runtime cache. Effects are not an atomic filesystem transaction: a
+ * failure can leave created directories or a partially published record, and
+ * this function does not roll them back. Caller cleanup owns those remaining
  * effects.
  *
  * @param runtimeRoot The already-pinned physical runtime cache root.
@@ -45,7 +46,7 @@ export function claimRuntimeProjectDirectory(
       runtimeRoot,
       SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME,
     );
-    const runsDir = SourceBuildCacheLayout.canonicalPluginCacheRoot(directory);
+    const runsDir = pinRuntimeProjectIndex(runtimeRoot, directory);
     const processDir = path.join(runsDir, runKey);
     // An abandoned run is retired by one rename into the runtime root's trash,
     // outside the run index, and deleted while this run's program executes,
@@ -60,4 +61,27 @@ export function claimRuntimeProjectDirectory(
     ProcessOwnedDirectory.claim(processDir);
     return processDir;
   });
+}
+
+/** Resolve an existing run index without admitting a link outside its cache. */
+function pinRuntimeProjectIndex(
+  runtimeRoot: string,
+  directory: string,
+): string {
+  if (!fs.lstatSync(directory, { throwIfNoEntry: false })?.isSymbolicLink())
+    return SourceBuildCacheLayout.canonicalPluginCacheRoot(directory);
+
+  const target = fs.realpathSync.native(directory);
+  const relative = path.relative(runtimeRoot, target);
+  if (
+    relative === "" ||
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative) ||
+    !fs.lstatSync(target).isDirectory()
+  )
+    throw new Error(
+      `ttsx: unsafe run index outside its runtime cache: ${directory}`,
+    );
+  return target;
 }

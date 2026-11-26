@@ -72,7 +72,12 @@ export function test_cache_paths_dispatch_preserves_schema_and_reported_roots():
       ],
       [
         ["--JSON", "--CWD", root, "-P", "tsconfig.json"],
-        path.join(root, "node_modules", ".cache", "ttsc"),
+        path.join(
+          fs.realpathSync.native(root),
+          "node_modules",
+          ".cache",
+          "ttsc",
+        ),
       ],
     ] as const) {
       stdout = stderr = "";
