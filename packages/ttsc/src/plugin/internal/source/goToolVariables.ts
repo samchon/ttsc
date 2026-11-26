@@ -7,17 +7,18 @@ import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/Sideca
  * Hash of every variable a Go tool receives, as the variable part of a Go
  * reading recorded for later processes.
  *
- * A Go tool receives the whole environment, so all of it is keyed except ttsc's
- * own per-run channels and reporting switches
- * (`runtimeBuildEnvironment.unkeyed`): a ttsx program carries channels naming
- * its run's directories, which no Go tool reads, and keying them recorded every
- * reading of every run under a new name (samchon/ttsc#1852).
+ * A Go tool receives the whole environment, so all of it is keyed except the
+ * per-launch non-build variables that `runtimeBuildEnvironment.unkeyed` names:
+ * ttsc's own per-run channels and reporting switches, and proven per-launch
+ * jobserver, cowshed, direnv, and shell variables that Go and cgo never read
+ * (samchon/ttsc#1852). Leaving every other variable in the hash keeps arbitrary
+ * wrapper-script inputs covered.
  *
  * @param env Effective environment of the Go invocation.
  * @returns Hex SHA-256 of the name-ordered variables.
- * @evidence contracts/common.md#principled-implementation Every variable the tool receives is keyed; only ttsc's own channels, which no Go tool reads, are left out.
- * @evidence contracts/common.md#clear-and-simple-design One projection serves every recorded Go reading.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts No shell or package-manager variable is named to be skipped.
+ * @evidence contracts/common.md#principled-implementation Every variable the tool receives is keyed except the per-launch non-build variables excluded by `runtimeBuildEnvironment.unkeyed`, which Go and cgo never read.
+ * @evidence contracts/common.md#clear-and-simple-design One projection serves every recorded Go reading and delegates non-build exclusions to `runtimeBuildEnvironment.unkeyed`.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Only the proven per-launch non-build variables owned by `runtimeBuildEnvironment.unkeyed` are skipped; no allowlist drops arbitrary variables a Go wrapper may read.
  * @evidence contracts/common.md#meaningful-documentation Native prose states what is keyed, what is left out and why.
  * @evidence contracts/portability.md#os-neutral-implementation Names pass through the shared native-name merger, and the exclusion matches case-insensitively only on Windows.
  * @evidence contracts/performance.md#efficient-algorithms One sort and one pass over the variables.

@@ -16,15 +16,14 @@ import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
  * A reading runs `go env` and `go version` and walks GOROOT, seconds a load,
  * and every launch is a new process (samchon/ttsc#1852). What a reading depends
  * on is two things. One is the variables the Go tool receives, which are all of
- * them, so the record is keyed by every variable except ttsc's own per-run
- * channels, which name one run's directories and which no Go tool reads
- * (`goToolVariables`). The other is the metadata of every path no variable
- * carries: the Go tool, the file `go env -w` writes, the executables the C
- * toolchain commands name and GOROOT (`PluginBuildEnvironmentWitness`). A
- * process keeps a reading under exactly that proof
- * (`processPluginBuildEnvironment`); the record carries the same proof to the
- * next process (`WitnessedLoadAnswers`). A recorded reading's witness joins the
- * caller's, so a build still compares it after it ran.
+ * them, so the record is keyed by every variable except the per-launch
+ * non-build variables that no Go tool reads (`goToolVariables`). The other is
+ * the metadata of every path no variable carries: the Go tool, the file `go env
+ * -w` writes, the executables the C toolchain commands name and GOROOT
+ * (`PluginBuildEnvironmentWitness`). A process keeps a reading under exactly
+ * that proof (`processPluginBuildEnvironment`); the record carries the same
+ * proof to the next process (`WitnessedLoadAnswers`). A recorded reading's
+ * witness joins the caller's, so a build still compares it after it ran.
  *
  * @param goBinary The Go tool the build runs, or `undefined` for none.
  * @param directory The directory a build runs `go` in.
