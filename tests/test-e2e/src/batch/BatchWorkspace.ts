@@ -1504,9 +1504,9 @@ export namespace BatchWorkspace {
         }
       };
       assertGoCommandExits();
-      // No changing attempt may populate the compiler memo or replace an
-      // earlier witness. The existing real Go launcher changes its own bytes
-      // during each version query, then returns to ordinary stable operation.
+      // No changing attempt may publish a reusable toolchain reading or replace
+      // an earlier witness. The launcher changes its own bytes during the
+      // environment query that reports GOVERSION, then resumes normal operation.
       for (let reading = 0; reading < 2; reading += 1) {
         const moving = new Map<string, string>();
         pluginBuildEnvironment(
@@ -1520,7 +1520,7 @@ export namespace BatchWorkspace {
         assert.equal(
           PluginBuildEnvironmentWitness.holds(moving),
           false,
-          "a compiler that changes during every version query must remain refused",
+          "a compiler that changes during every environment query must remain refused",
         );
       }
       const recovered = new Map<string, string>();
@@ -2330,7 +2330,7 @@ export namespace BatchWorkspace {
       });
       epochCase("moving-reader", (cache) => {
         const baseline = countBuilds();
-        // Reuse an actual already-published content key. Version observations
+        // Reuse an actual already-published content key. Environment queries
         // restore both launcher bytes and the independently fixed mtime, so
         // rejecting this read cannot rely on a different content key.
         const binary = epochRequest(expected, { TTSC_GO_CACHE_DIR: "" });
@@ -2367,10 +2367,12 @@ export namespace BatchWorkspace {
           .split(/\r?\n/)
           .slice(before)
           .map((line) => JSON.parse(line) as string[]);
-        assert.equal(
-          observed.filter((args) => args[0] === "version").length,
-          9,
-        );
+        // Three build attempts each query the selected toolchain. The first
+        // may also requery to witness the environment file named by Go.
+        const toolchainQueries = observed.filter(
+          (args) => args[0] === "env" && args.includes("GOVERSION"),
+        ).length;
+        assert.ok(toolchainQueries === 3 || toolchainQueries === 4);
         assert.equal(countBuilds(), baseline);
         assert.deepEqual([...sources], []);
         assert.deepEqual([...environments], []);

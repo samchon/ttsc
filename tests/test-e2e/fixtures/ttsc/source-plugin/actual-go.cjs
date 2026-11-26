@@ -4,14 +4,18 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 const args = process.argv.slice(2);
-if (args[0] === "version" && process.env.TTSC_TEST_GO_REWRITE_LAUNCHER) {
+if (
+  args[0] === "env" &&
+  args.includes("GOVERSION") &&
+  process.env.TTSC_TEST_GO_REWRITE_LAUNCHER
+) {
   const launcher = process.env.TTSC_TEST_GO_REWRITE_LAUNCHER;
   const restore = process.env.TTSC_TEST_GO_RESTORE_LAUNCHER_BYTES === "1";
   const original = restore ? fs.readFileSync(launcher) : undefined;
   const metadata = restore ? fs.statSync(launcher) : undefined;
   fs.appendFileSync(
     launcher,
-    process.platform === "win32" ? "\r\nrem changed during version\r\n" : "\n# changed during version\n",
+    process.platform === "win32" ? "\r\nrem changed during environment query\r\n" : "\n# changed during environment query\n",
   );
   if (restore) {
     fs.writeFileSync(launcher, original);
