@@ -85,6 +85,15 @@ Do not import `github.com/microsoft/typescript-go/internal/...` directly. The sh
 
 The installed `typescript` version picks the target by its major.minor line. `7.0.x` builds against 7.0. `7.1.x`, including the `7.1.0-dev.*` nightlies, builds against 7.1. When `TTSC_TSGO_BINARY` names a custom compiler, `ttsc` reads the line from that binary's `--version` output. A line newer than every target, such as 7.2, builds against 7.1, and `ttsc` warns once on stderr naming both versions. The in-memory compiler host behind the `TtscCompiler` API, `ttsx`, `@ttsc/unplugin` and `@ttsc/metro` follows the same choice. Each target keeps its own cache entry, so switching a project's TypeScript line never reuses the other line's binary.
 
+Within a line, a plugin builds against the compiler revision `ttsc` pins for that target. A project that runs a compiler built from another revision of the same line, such as a fork with checker changes, sets `TTSC_TSGO_SOURCE` to the absolute directory of that compiler's Go module: the directory whose `go.mod` declares `github.com/microsoft/TypeScript/tsc` for 7.1, or `github.com/microsoft/typescript-go` for 7.0. Plugins, the linked plugin host and the in-memory compiler host then compile that source in place of the pinned revision, so their checker is the one the project's `tsc` runs. Set it together with `TTSC_TSGO_BINARY`, to the source that binary was built from.
+
+```bash
+export TTSC_TSGO_BINARY=/opt/typescript/tsc/bin/tsc
+export TTSC_TSGO_SOURCE=/opt/typescript/tsc
+```
+
+The shims of a target are written for its pinned revision and are compiled against the declared source unchanged. A source whose internal API differs from the pinned revision fails the build with Go's own errors, so a fork should be based on the revision the target pins: the `require` line of `targets/7.1/bridge/*/go.mod` in the installed `ttsc`, or of `shim/*/go.mod` for 7.0. A directory that declares another module is refused before any build. The source's content is part of every binary's cache key, so editing it, or declaring a directory with different content, builds again, while the same content at another path reuses the binary; the directory is watched like a plugin's own source.
+
 The two compilers differ in API shape. TypeScript 7.1 types every path, hides `ast.Symbol` state behind getters, and changes several compiler signatures. A plugin that must build on both targets uses only what both declare:
 
 - Paths: `shim/tspath` declares 7.1's `RootedPath`, `RootedFilePath`, `RootedDirectoryPath`, `RelativePath`, `PathKey` and `CaseSensitivity` on 7.0 as aliases of the strings and booleans 7.0 uses. Convert a string with `shimtspath.RootedFilePath(name)` and a path back with `string(path)`. 7.1's path methods, such as `AsString()`, do not exist on 7.0.

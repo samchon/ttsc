@@ -57,6 +57,7 @@ import { test_ttscservice_answers_a_file_named_through_a_linked_project_root } f
 import { test_transform_apis_resolve_relative_node_binary_from_project_root } from "./ttsc/native-plugins/service/test_transform_apis_resolve_relative_node_binary_from_project_root";
 import { test_ttscservice_rejects_when_the_project_does_not_compile } from "./ttsc/native-plugins/service/test_ttscservice_rejects_when_the_project_does_not_compile";
 import { test_ttscservice_transforms_a_file_through_the_resident_host } from "./ttsc/native-plugins/service/test_ttscservice_transforms_a_file_through_the_resident_host";
+import { test_buildsourceplugin_builds_against_the_compiler_source_a_project_declares } from "./ttsc/native-plugins/source-plugin/test_buildsourceplugin_builds_against_the_compiler_source_a_project_declares";
 import { test_buildsourceplugin_reclaims_dead_legacy_plugin_lock } from "./ttsc/native-plugins/source-plugin/test_buildsourceplugin_reclaims_dead_legacy_plugin_lock";
 import { test_buildsourceplugin_waiter_recovers_when_holder_fails_and_releases } from "./ttsc/native-plugins/source-plugin/test_buildsourceplugin_waiter_recovers_when_holder_fails_and_releases";
 import { test_buildsourceplugin_waiter_reuses_binary_published_during_release } from "./ttsc/native-plugins/source-plugin/test_buildsourceplugin_waiter_reuses_binary_published_during_release";
@@ -526,6 +527,10 @@ const SCENARIOS: readonly (readonly [string, () => unknown])[] = [
   [
     "test_ttscservice_answers_a_file_named_through_a_linked_project_root",
     test_ttscservice_answers_a_file_named_through_a_linked_project_root,
+  ],
+  [
+    "test_buildsourceplugin_builds_against_the_compiler_source_a_project_declares",
+    test_buildsourceplugin_builds_against_the_compiler_source_a_project_declares,
   ],
   [
     "test_buildsourceplugin_reclaims_dead_legacy_plugin_lock",

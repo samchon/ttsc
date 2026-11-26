@@ -89,9 +89,52 @@ export namespace SourcePluginAdmission {
   export function isManagedModule(modulePath: string): boolean {
     return (
       modulePath === "github.com/samchon/ttsc/packages/ttsc" ||
-      modulePath === "github.com/microsoft/typescript-go" ||
-      modulePath === "github.com/microsoft/TypeScript/tsc" ||
+      modulePath === COMPILER_MODULE_7_0 ||
+      modulePath === COMPILER_MODULE_7_1 ||
       isManagedShimModule(modulePath)
+    );
+  }
+
+  /** The Go module of the TypeScript 7.0 compiler. */
+  export const COMPILER_MODULE_7_0 = "github.com/microsoft/typescript-go";
+
+  /** The Go module of the TypeScript 7.1 compiler. */
+  export const COMPILER_MODULE_7_1 = "github.com/microsoft/TypeScript/tsc";
+
+  /** The variable naming the source of the project's own compiler. */
+  export const COMPILER_SOURCE_ENV = "TTSC_TSGO_SOURCE";
+
+  /**
+   * Refuse a project compiler source that is not the compiler module of the
+   * line being built. `declared` is the module path Go read from the
+   * directory's `go.mod`, or null when it has none; the bridges and shims of
+   * the line compile against `expected` and nothing else.
+   *
+   * @evidence contracts/common.md#principled-implementation A Go workspace replacement takes effect only for the module path it names, so a directory declaring any other path would leave the pinned compiler in the build; equality with the line's compiler module is the whole premise.
+   * @evidence contracts/common.md#clear-and-simple-design Admission policy stays with the other source admissions; the caller supplies the module path Go read, so this function parses nothing.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The two compiler module paths are the supported compiler targets' own Go module paths, not a consumer or fixture; a mismatch is refused rather than built against the pin.
+   * @evidence contracts/common.md#meaningful-documentation States what declared and expected are, the null case and what the refusal protects.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares supplied Go module identifiers and formats a supplied path string; it touches no filesystem or process.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms One string comparison owns no population-processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Coordinates no work across requests.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains no state, handle or task.
+   */
+  export function requireCompilerSource(
+    directory: string,
+    declared: string | null,
+    expected: string,
+    line: string,
+  ): void {
+    if (declared === expected) return;
+    throw new Error(
+      `ttsc: ${COMPILER_SOURCE_ENV} names ${directory}, ` +
+        (declared === null
+          ? `which has no go.mod declaring a module. `
+          : `whose go.mod declares module ${JSON.stringify(declared)}. `) +
+        `The TypeScript ${line} compiler target builds against ` +
+        `${JSON.stringify(expected)}: name the directory of that module's ` +
+        `source, the one the project's compiler was built from, or unset ` +
+        `${COMPILER_SOURCE_ENV} to build against the revision ttsc pins.`,
     );
   }
 
