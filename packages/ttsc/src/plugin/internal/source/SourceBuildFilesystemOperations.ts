@@ -29,4 +29,20 @@ export interface SourceBuildFilesystemOperations {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature owns no file handle or retained value; synchronous implementations complete each read before returning.
    */
   readFile(location: string): Buffer;
+
+  /**
+   * Resolve a path to its physical target, as `fs.realpathSync.native` does.
+   * Omitted in production, which uses `fs.realpathSync.native`.
+   *
+   * @evidence contracts/common.md#principled-implementation Synchronous physical resolution preserves the exact link-expansion semantics that SDK topology hashing requires.
+   * @evidence contracts/common.md#clear-and-simple-design Optional injection extends the existing filesystem boundary without adding a separate parameter or patching fs globals.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Production defaults directly to fs.realpathSync.native without guessing physical paths.
+   * @evidence contracts/common.md#meaningful-documentation The method states its native realpath semantics and production default.
+   * @evidence contracts/portability.md#os-neutral-implementation The native path passes unchanged to the platform realpath implementation.
+   *
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This signature supplies physical-path lookup; the owning traversal decides when to invoke it.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The operation does not cache resolved paths itself.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous resolution retains no handle or population.
+   */
+  realpath?(location: string): string;
 }
