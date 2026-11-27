@@ -69,10 +69,15 @@ export function captureLSPPluginSelectionInputs(loaded: {
   // Record the links first. The fresh realpath check below rejects a target
   // already moved away from the selection that built the native plugin.
   const aliases = new Set<string>();
+  const inspected = new Set<string>();
   for (const file of descriptorInputs) {
     const physical = loaded.hostInputRealpaths[file];
-    if (physical == null || physical === file) continue;
-    for (const entry of pluginInputAliasEntries(file)) aliases.add(entry);
+    if (physical === undefined || physical === file) continue;
+    const input = physical === null ? path.dirname(file) : file;
+    if (inspected.has(input)) continue;
+    inspected.add(input);
+    for (const entry of pluginInputAliasEntries(input, false))
+      aliases.add(entry);
   }
   for (const entry of aliases) record(descriptorFiles, entry);
   const sourceFiles: Record<string, Record<string, string>> = {};

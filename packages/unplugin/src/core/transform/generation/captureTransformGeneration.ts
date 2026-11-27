@@ -511,11 +511,14 @@ export async function captureTransformGeneration(props: {
       temporaryTsconfig: envelopeTemporaryTsconfig,
     });
     if (result.type === "exception") {
-      const compilerSource = Object.entries(compilerEnvironment).find(
-        ([name]) =>
-          (process.platform === "win32" ? name.toUpperCase() : name) ===
-          "TTSC_TSGO_SOURCE",
-      )?.[1];
+      const name =
+        process.platform === "win32"
+          ? Object.keys(compilerEnvironment)
+              .filter((key) => key.toUpperCase() === "TTSC_TSGO_SOURCE")
+              .sort()[0]
+          : "TTSC_TSGO_SOURCE";
+      const compilerSource =
+        name === undefined ? undefined : compilerEnvironment[name];
       if (compilerSource && path.isAbsolute(compilerSource))
         externalInputPaths.push(path.normalize(compilerSource));
     }

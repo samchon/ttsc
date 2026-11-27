@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { PROJECT_RECORD_DIRECTORY } from "../../bridge/PROJECT_RECORD_DIRECTORY";
 import { prepareProjectRecordDirectory } from "../../bridge/prepareProjectRecordDirectory";
+import { FARM_PROJECT_RECORDS } from "../../farm/FARM_PROJECT_RECORDS";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 
 /**
@@ -37,6 +38,7 @@ export function prepareProjectRecordDirectories(
     try {
       prepareProjectRecordDirectory(
         path.join(directory, PROJECT_RECORD_DIRECTORY),
+        project[FARM_PROJECT_RECORDS] === true,
       );
       return;
     } catch {

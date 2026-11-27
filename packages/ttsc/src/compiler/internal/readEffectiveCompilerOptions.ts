@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { COMPILER_OPTIONS } from "../../flags/COMPILER_OPTIONS";
 import { normalizeCompilerEnumValue } from "../../flags/normalizeCompilerEnumValue";
 import { readCompilerOptionValues } from "../../flags/readCompilerOptionValues";
@@ -88,7 +90,12 @@ export function readEffectiveCompilerOptions(
     const result = spawnNative(
       tsgo.binary,
       ["-p", project.path, ...passthrough, "-p", project.path, "--showConfig"],
-      { cwd: compilerArgsCwd, env, encoding: "utf8" },
+      {
+        cwd: compilerArgsCwd,
+        env,
+        encoding: "utf8",
+        additionalProjectRoots: [project.root, path.dirname(project.path)],
+      },
     );
     if (result.status !== 0) return null;
     for (const [file, observation] of observations)

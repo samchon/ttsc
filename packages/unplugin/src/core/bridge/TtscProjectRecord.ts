@@ -50,6 +50,9 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  *   and independently imposes no population or byte bound.
  */
 export interface TtscProjectRecord {
+  /** Whether this record lives in Farm's automatically managed storage. */
+  privateStorage?: true;
+
   /** Captured invocation; older records without it require a fresh delivery. */
   compilerArguments?: TtscCompilerArgumentsWitness;
   /**

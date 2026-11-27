@@ -151,7 +151,7 @@ export namespace CompilerTarget {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Other GOFLAGS entries are kept unchanged and in order, the stored value comes from Go itself rather than a handwritten environment-file location, and a 7.0 build without a batch-hook compiler source returns env unchanged.
    * @evidence contracts/common.md#meaningful-documentation Native prose states when each tag applies, the merge behavior and why the stored value is read.
    * @evidence contracts/portability.md#os-neutral-implementation Go locates and reads its own environment file; resolveGoCompiler, GoToolResolution and GoEnvironmentReading own the native lookup and launch, and node:path/node:fs check whether the declared compiler source contains an internal/batch directory without platform path assumptions.
-   * @evidence contracts/performance.md#efficient-algorithms At most one directory stat for a declared compiler source and one pass over the GOFLAGS fields; only a tagged build whose env sets no GOFLAGS adds one go env process.
+   * @evidence contracts/performance.md#efficient-algorithms Observes a declared compiler source and scans the GOFLAGS fields once. Tagged builds that inherit stored flags use a qualified Go answer or run up to three probes to establish its SDK and environment file.
    * @evidence contracts/performance.md#reuse-equivalent-work With a record store the stored value is answered across loads while the file `go env -w` writes, the tool and the variables hold; without one it is read afresh.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned environment is a caller-owned copy, and the go env process is synchronous and released on return.
    */

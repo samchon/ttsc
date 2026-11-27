@@ -71,6 +71,9 @@ export function readProjectRecordFile(
       : { environmentInputs: candidate.environmentInputs }),
     inputs: candidate.inputs,
     membership: candidate.membership,
+    ...(candidate.privateStorage === true
+      ? { privateStorage: true as const }
+      : {}),
     root: candidate.root,
     signal: candidate.signal,
     tsconfig: candidate.tsconfig,

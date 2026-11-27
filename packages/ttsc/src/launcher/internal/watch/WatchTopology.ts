@@ -2405,6 +2405,7 @@ function listCompilerInputs(
     ],
     {
       cwd: options.compilerArgsCwd ?? project.root,
+      additionalProjectRoots: [project.root, path.dirname(project.path)],
       env,
       encoding: "utf8",
     },

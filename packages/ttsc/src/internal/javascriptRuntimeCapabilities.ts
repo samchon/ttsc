@@ -51,6 +51,7 @@ export function javascriptRuntimeCapabilities(
   env: NodeJS.ProcessEnv,
   cwd: string,
   identities?: PluginContentIdentities.Store,
+  onProof?: (proved: boolean) => void,
 ): IJavaScriptRuntimeCapabilities {
   // Inside a ttsx run this is the user's NODE_OPTIONS, not ttsx's preloads,
   // which would refuse the cache and run in the probe (#1740).
@@ -69,7 +70,10 @@ export function javascriptRuntimeCapabilities(
       : runtimeExecutableIdentity(runtime, identities);
   if (cacheKey !== undefined && beforeIdentity !== undefined) {
     const cached = runtimeCapabilityCache.get(cacheKey);
-    if (cached?.identity === beforeIdentity) return { ...cached.capabilities };
+    if (cached?.identity === beforeIdentity) {
+      onProof?.(true);
+      return { ...cached.capabilities };
+    }
     runtimeCapabilityCache.delete(cacheKey);
     // WARNING (#1723): a launch is a new process, so the memo above is empty
     // on every CLI run. The same proven executable answers the same probe; the
@@ -86,6 +90,7 @@ export function javascriptRuntimeCapabilities(
         capabilities: { ...recorded },
         identity: beforeIdentity,
       });
+      onProof?.(true);
       return recorded;
     }
   }
@@ -183,14 +188,14 @@ export function javascriptRuntimeCapabilities(
     cacheKey === undefined
       ? undefined
       : runtimeExecutableIdentity(runtime, identities);
-  if (
+  const proved =
     cacheKey !== undefined &&
     afterCacheKey === cacheKey &&
     capabilities.executable !== undefined &&
     beforeIdentity !== undefined &&
     beforeIdentity === afterIdentity &&
-    sameRuntimeExecutable(runtime, capabilities.executable)
-  ) {
+    sameRuntimeExecutable(runtime, capabilities.executable);
+  if (proved) {
     runtimeCapabilityCache.set(cacheKey, {
       capabilities: { ...capabilities },
       identity: afterIdentity,
@@ -202,6 +207,7 @@ export function javascriptRuntimeCapabilities(
       capabilities,
     );
   }
+  onProof?.(proved);
   return capabilities;
 }
 

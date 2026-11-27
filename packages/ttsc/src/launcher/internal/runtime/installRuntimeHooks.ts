@@ -1346,10 +1346,7 @@ function emitOrphanSource(
       return hit;
     }
   }
-  const outDir = createProjectTempDirectory(
-    "ttsx-orphan-",
-    path.dirname(filename),
-  );
+  const outDir = createProjectTempDirectory("ttsx-orphan-");
   try {
     spawnNative(
       tsgo,
@@ -1471,10 +1468,7 @@ function emitCommonJsForNameScan(real: string): string | null {
     commonJsNameScanSources.set(real, null);
     return null;
   }
-  const outDir = createProjectTempDirectory(
-    "ttsx-export-scan-",
-    path.dirname(real),
-  );
+  const outDir = createProjectTempDirectory("ttsx-export-scan-");
   try {
     // Compile the owned JavaScript, not the original TypeScript whose project
     // may already have erased or transformed declarations. No source executes.

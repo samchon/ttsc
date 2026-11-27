@@ -1,10 +1,13 @@
 import fs from "node:fs";
+import path from "node:path";
 
 import type { TtscProjectRecord } from "../../bridge/TtscProjectRecord";
+import { fallbackRecordStorage } from "../../bridge/fallbackRecordStorage";
 import { membershipRecordDigest } from "../../bridge/membershipRecordDigest";
 import { projectRecordFile } from "../../bridge/projectRecordFile";
 import { warnUnwritableProjectRecord } from "../../bridge/warnUnwritableProjectRecord";
 import { writeProjectRecordFile } from "../../bridge/writeProjectRecordFile";
+import { FARM_PROJECT_RECORDS } from "../../farm/FARM_PROJECT_RECORDS";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { TtscProjectRecordUnwritableError } from "../errors/TtscProjectRecordUnwritableError";
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
@@ -162,11 +165,16 @@ export function notifyProjectRecord(
       ? []
       : [project.fallbackToolDirectory]),
   ].map((directory) => projectRecordFile(directory, cached.tsconfig));
+  const privateStorage = project[FARM_PROJECT_RECORDS] === true;
+  const available = (file: string): boolean =>
+    (!privateStorage ||
+      fallbackRecordStorage(path.dirname(file), false) === true) &&
+    recordAvailable(file);
   let record: string | undefined;
   let refused: unknown;
   for (const candidate of records) {
     if (handed.written.get(candidate)?.revision === handed.revision) {
-      if (recordAvailable(candidate)) {
+      if (available(candidate)) {
         record = candidate;
         break;
       }
@@ -174,10 +182,10 @@ export function notifyProjectRecord(
     }
     try {
       handed.written.set(candidate, {
-        digest: writeProjectRecordFile(
-          candidate,
-          recordOf(cached, handed.evidenced),
-        ),
+        digest: writeProjectRecordFile(candidate, {
+          ...recordOf(cached, handed.evidenced),
+          ...(privateStorage ? { privateStorage: true as const } : {}),
+        }),
         revision: handed.revision,
       });
       record = candidate;
@@ -186,7 +194,7 @@ export function notifyProjectRecord(
       refused ??= error;
     }
   }
-  record ??= records.find(recordAvailable);
+  record ??= records.find(available);
   if (record === undefined) {
     warnUnwritableProjectRecord(records[0]!, refused);
     if (project.watching === true && !failed) {

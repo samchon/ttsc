@@ -117,6 +117,7 @@ export async function test_farm_turns_its_persistent_cache_off_without_records()
         () =>
           prepareProjectRecordDirectory(
             path.join(usable, PROJECT_RECORD_DIRECTORY),
+            true,
           ),
         /unsafe private project record directory/,
       );
@@ -145,7 +146,7 @@ export async function test_farm_turns_its_persistent_cache_off_without_records()
             { compilation: { persistentCache: false }, root: withFallback },
           );
           assert.throws(
-            () => prepareProjectRecordDirectory(records),
+            () => prepareProjectRecordDirectory(records, true),
             /unsafe private project record directory/,
           );
         }

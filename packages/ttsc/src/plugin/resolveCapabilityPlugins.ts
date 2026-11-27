@@ -319,14 +319,19 @@ function capabilityRuntimeAuthorityComplete(
     return false;
   }
   try {
+    let runtimeProved = false;
     const capabilities = javascriptRuntimeCapabilities(
       runtime,
       process.env,
       cwd,
       identities(),
+      (proved) => {
+        runtimeProved = proved;
+      },
     );
     let executableMatches: boolean | undefined;
     const proved =
+      runtimeProved &&
       !capabilities.bun &&
       capabilities.registerHooks &&
       capabilities.executable !== undefined &&

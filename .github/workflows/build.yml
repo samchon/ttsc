@@ -58,3 +58,9 @@ jobs:
         env:
           EVID_CACHE_DIR: ${{ runner.temp }}/evidence-cache
       - run: pnpm run build
+      - name: Type-check compiler and adapter test fixtures
+        shell: pwsh
+        run: |
+          pnpm exec tsc --noEmit -p tests/test-ttsc/tsconfig.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm exec tsc --noEmit -p tests/test-unplugin/tsconfig.json

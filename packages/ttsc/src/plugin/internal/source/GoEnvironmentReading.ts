@@ -72,6 +72,7 @@ export namespace GoEnvironmentReading {
    * `go env` once only to learn the name.
    *
    * @param identities Optional record store carrying the hint across processes.
+   * @param projectRoot Consumer boundary for child output and scratch.
    * @returns The parsed object, or `undefined` when native acquisition or JSON
    *   object decoding failed.
    * @evidence contracts/common.md#principled-implementation Actual Go supplies values and the environment-file path; pre-read metadata and bounded rediscovery preserve the earliest file witness instead of attaching a later state to an earlier read.
@@ -229,13 +230,14 @@ export namespace GoEnvironmentReading {
    * @param keys Requested `go env` keys.
    * @param witness Receives the paths the answer depends on.
    * @param identities Optional record store; without it every call runs Go.
+   * @param projectRoot Consumer boundary for child output and scratch.
    * @returns The parsed object, or `undefined` when Go could not answer.
    * @evidence contracts/common.md#principled-implementation A recorded answer is served only under every variable the tool receives and the metadata of every file that selects its toolchain or environment; Go answers whenever either moved.
    * @evidence contracts/common.md#clear-and-simple-design The shared witnessed-answer owner carries the proof; this member only names what Go reads.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No handwritten Go value or path is assumed: the values and the environment-file location still come from Go.
    * @evidence contracts/common.md#meaningful-documentation Native prose lists each witnessed dependency and why it can change the answer.
    * @evidence contracts/portability.md#os-neutral-implementation Native path ancestry and stat identity; Go reports its own GOROOT and GOENV.
-   * @evidence contracts/performance.md#efficient-algorithms A hit hashes the variables and stats the witnessed paths, one per ancestor directory pair; a miss adds the Go run it replaces.
+   * @evidence contracts/performance.md#efficient-algorithms A hit hashes the variables and observes the physical and possible PWD ancestry, SDK and delegated PATH evidence recorded at the miss. A miss runs Go up to three times to establish the active SDK and environment file.
    * @evidence contracts/performance.md#reuse-equivalent-work Equal tool, directory, keys and variables share one Go run across processes while the witness holds.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Records belong to the answer store's collector; nothing is retained in memory.
    */
@@ -295,16 +297,15 @@ export namespace GoEnvironmentReading {
   }
 
   /**
-   * Qualify persistent settings reuse with the SDK reported by the same probe.
-   * A delegated choice can change through Go's independent toolchain search, so
-   * its readings stay current to a single invocation.
+   * Identify whether Go reported the SDK that launched it. Reuse of a delegated
+   * choice requires an additional probe bracketed by its SDK and lookup paths.
    *
    * @evidence contracts/common.md#principled-implementation Compares the launcher SDK observed before Go started with the active root Go actually reported.
    * @evidence contracts/common.md#clear-and-simple-design Both environment answer families share this reuse boundary.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown, relative or delegated roots decline persistence without replacing Go's search or settings.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A different, unknown or relative root does not qualify as local. Only an observed delegated selection can obtain its own reuse witness.
    * @evidence contracts/common.md#meaningful-documentation Describes current results separately from eligibility for persistent reuse.
    * @evidence contracts/portability.md#os-neutral-implementation Native absolute paths and physical identity resolve SDK links and junctions.
-   * @evidence contracts/performance.md#efficient-algorithms Ordinary equal spellings require no additional process or SDK scan, and a spelling mismatch needs at most two native realpaths.
+   * @evidence contracts/performance.md#efficient-algorithms The launcher layout lookup and comparison use a fixed number of native filesystem operations, without another process or SDK scan.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The predicate has no memo of its own.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate retains no handle or history.
    */
@@ -372,6 +373,8 @@ export namespace GoEnvironmentReading {
       try {
         const physical = fs.realpathSync.native(cwd);
         roots.add(physical);
+        if (physical !== path.resolve(cwd))
+          PluginBuildEnvironmentWitness.add(witness, path.resolve(cwd));
         if (pwd && path.isAbsolute(pwd) && pwd !== physical) {
           PluginBuildEnvironmentWitness.add(witness, pwd);
           if (fs.realpathSync.native(pwd) === physical) roots.add(pwd);

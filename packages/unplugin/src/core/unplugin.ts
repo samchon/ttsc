@@ -18,6 +18,7 @@ import { openHostWatchBridge } from "./bridge/openHostWatchBridge";
 import { refreshProjectRecordFiles } from "./bridge/refreshProjectRecordFiles";
 import { registerProjectRecord } from "./bridge/registerProjectRecord";
 import { createEsbuildOptions } from "./esbuild/createEsbuildOptions";
+import { FARM_PROJECT_RECORDS } from "./farm/FARM_PROJECT_RECORDS";
 import { farmPersistentCacheWithoutRecords } from "./farm/farmPersistentCacheWithoutRecords";
 import { farmRecordFallback } from "./farm/farmRecordFallback";
 import { isTransformTarget } from "./isTransformTarget";
@@ -652,6 +653,9 @@ const unpluginFactory: UnpluginFactory<
                         };
                     },
                     toolDirectory,
+                    ...(farmRoot === undefined
+                      ? {}
+                      : { [FARM_PROJECT_RECORDS]: true as const }),
                     ...recordFallback(),
                     watching: bridge !== undefined,
                   },

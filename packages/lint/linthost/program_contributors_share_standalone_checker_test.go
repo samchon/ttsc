@@ -66,15 +66,25 @@ func TestProgramContributorsShareStandaloneChecker(t *testing.T) {
   }
   direct := &directCheckerObserver{}
   verify(direct, &direct.standaloneCheckerObserver)
+  retired := &standaloneCheckerObserver{name: "solid/jsx-uses-vars"}
+  metadata, err := inspectContributor(retired)
+  if err != nil {
+    t.Fatal(err)
+  }
+  verify(newContributorAdapter(metadata), retired)
 }
 
 type standaloneCheckerObserver struct {
   mu     sync.Mutex
   format bool
   seen   []*shimchecker.Checker
+  name   string
 }
 
 func (r *standaloneCheckerObserver) Name() string {
+  if r.name != "" {
+    return r.name
+  }
   if r.format {
     return "demo/standalone-format-checker"
   }

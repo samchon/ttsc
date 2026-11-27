@@ -22,6 +22,7 @@ import (
   "errors"
   "fmt"
   "os"
+  "reflect"
   "runtime"
   "sort"
   "sync"
@@ -868,6 +869,23 @@ func AllRuleNames() []string {
   return names
 }
 
+// The diagnostic ledger retains retired names. A built-in must be implemented
+// in this package, and the two public extension adapters are never built-ins.
+func isBuiltInFileRule(name string, rule Rule) bool {
+  if _, known := builtInRuleCodes[name]; !known {
+    return false
+  }
+  switch rule.(type) {
+  case contributorAdapter, formatContributorAdapter:
+    return false
+  }
+  implementation := reflect.TypeOf(rule)
+  if implementation.Kind() == reflect.Pointer {
+    implementation = implementation.Elem()
+  }
+  return implementation.PkgPath() == reflect.TypeFor[Engine]().PkgPath()
+}
+
 // Engine binds a rule configuration to a Program and walks the AST once
 // per source file, dispatching each visited node to its interested rules.
 //
@@ -1059,8 +1077,7 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
     if _, invalid := invalidRuleOptions[name]; invalid {
       continue
     }
-    _, builtIn := builtInRuleCodes[name]
-    isContributor := !builtIn
+    isContributor := !isBuiltInFileRule(name, rule)
     eng.hasFileContributor = eng.hasFileContributor || isContributor
     if ruleNeedsTypeChecker(rule) {
       eng.needsTypeChecker = true

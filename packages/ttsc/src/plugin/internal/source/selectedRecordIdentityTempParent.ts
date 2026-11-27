@@ -16,7 +16,7 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The function neither creates a cache root nor accepts a linked identities entry as evidence of an owned child; failed observations retain the ordinary caller path.
  * @evidence contracts/common.md#meaningful-documentation The comment states the selected-root premise, returned physical path and remaining namespace race without claiming held-directory protection.
  * @evidence contracts/portability.md#os-neutral-implementation Node native path and filesystem APIs observe the actual root and child without assuming case policy or a fixed temporary volume; a junctioned selected root can resolve to its physical directory, while the identities entry itself must be ordinary.
- * @evidence contracts/performance.md#efficient-algorithms A fixed number of native path observations and path-text operations selects the parent without enumeration; lookup depth and path length determine their underlying cost.
+ * @evidence contracts/performance.md#efficient-algorithms A fixed number of native observations selects the managed parent. Other candidates add one realpath per consumer root, without enumeration. Lookup depth and path length affect the cost.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A record root or identities entry can be replaced between calls, so each allocation needs current observations instead of a remembered parent.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The selector acquires no handle or directory and retains no state; its returned path is caller-owned text.
  */

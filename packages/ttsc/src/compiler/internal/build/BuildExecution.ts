@@ -922,6 +922,10 @@ export namespace BuildExecution {
       }),
       binary: execution.tsgo.binary,
       cwd: execution.compilerSelection.compilerArgsCwd,
+      additionalProjectRoots: [
+        execution.projectRoot,
+        path.dirname(execution.tsconfig),
+      ],
       env: compilerEnv(options.env),
       run: () => {
         const result = run();
@@ -1110,6 +1114,10 @@ export namespace BuildExecution {
       ],
       {
         cwd: execution.compilerSelection.compilerArgsCwd,
+        additionalProjectRoots: [
+          execution.projectRoot,
+          path.dirname(execution.tsconfig),
+        ],
         env: compilerEnv(options.env),
         encoding: "utf8",
         pipe: execution.tsgo.packageJson !== "",
@@ -1254,6 +1262,12 @@ export namespace BuildExecution {
       cacheDir: options.cacheDir,
     });
     const emittedFiles: string[] = [];
+    if (
+      SidecarEnvironment.read(options.env, PRIVATE_CONFIG_OVERLAY_ENV) &&
+      options.skipDiagnosticsCheck !== true &&
+      compiled.result.status !== 0
+    )
+      return { ...compiled.result, emittedFiles };
     for (const [name, text] of Object.entries(compiled.output)) {
       const output = path.resolve(execution.projectRoot, name);
       fs.mkdirSync(path.dirname(output), { recursive: true });
@@ -1308,6 +1322,10 @@ export namespace BuildExecution {
             : commandArgs,
         {
           cwd: execution.compilerSelection.compilerArgsCwd,
+          additionalProjectRoots: [
+            execution.projectRoot,
+            path.dirname(execution.tsconfig),
+          ],
           env,
           encoding: "utf8",
           // The installed compiler starts no process of its own; a custom
@@ -1361,6 +1379,10 @@ export namespace BuildExecution {
             args,
             binary: execution.tsgo.binary,
             cwd: execution.compilerSelection.compilerArgsCwd,
+            additionalProjectRoots: [
+              execution.projectRoot,
+              path.dirname(execution.tsconfig),
+            ],
             env,
             pipe: execution.tsgo.packageJson !== "",
             run,

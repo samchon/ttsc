@@ -54,36 +54,19 @@ export function fallbackToolDirectory(root: string): string | undefined {
     // other platforms rely on native temporary-directory access policy.
     // The directories below are created by the first write.
     const state = userStateDirectory(undefined, key, false);
-    const directory =
+    FALLBACKS.set(
+      key,
       state === undefined
         ? undefined
         : path.join(
             state,
             "hosts",
             crypto.createHash("sha256").update(key).digest("hex").slice(0, 32),
-          );
-    FALLBACKS.set(key, directory);
-    if (directory !== undefined) GENERATED_DIRECTORIES.add(directory);
+          ),
+    );
   }
   return FALLBACKS.get(key);
 }
 
 /** Each host root's fallback, established once per process. */
 const FALLBACKS = new Map<string, string | undefined>();
-const GENERATED_DIRECTORIES = new Set<string>();
-
-/**
- * Whether this process named the path for an automatic record fallback.
- *
- * @evidence contracts/common.md#principled-implementation Tests exact membership in the set populated by automatic fallback naming.
- * @evidence contracts/common.md#clear-and-simple-design Naming owns provenance while record acquisition owns live directory qualification.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts An explicit path with a matching basename pattern does not gain automatic provenance.
- * @evidence contracts/common.md#meaningful-documentation Identifies the naming owner and process lifetime.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Receives an already named path without native lookup.
- * @evidence contracts/performance.md#efficient-algorithms One set membership query over the path string.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The query reads naming state and performs no reusable computation.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No state is retained by this query.
- */
-export function isGeneratedFallbackToolDirectory(directory: string): boolean {
-  return GENERATED_DIRECTORIES.has(directory);
-}

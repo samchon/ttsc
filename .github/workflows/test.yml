@@ -78,8 +78,19 @@ jobs:
         if: ${{ !cancelled() && steps.native-build.outcome == 'success' && runner.os == 'Linux' }}
         env:
           CGO_ENABLED: "1"
+      - name: Prepare a second Go SDK for the delegation regression
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $env:GOTOOLCHAIN = 'local'
+          $installed = go env GOVERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:GOTOOLCHAIN = if ($installed -eq 'go1.27.4') { 'go1.27.3' } else { 'go1.27.4' }
+          go version
       - run: pnpm run test:units
         if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
+        env:
+          TTSC_TEST_REQUIRE_GO_DELEGATION: "1"
       - name: Save Completed Native Go Caches
         if: ${{ !cancelled() && steps.native-build.outcome == 'success' && steps.go-tests.outcome == 'success' && steps.go-objects.outputs.cache-primary-key != '' && steps.go-objects.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4

@@ -133,6 +133,11 @@ function verifyDelegatedEnvironment(props: {
         )
     : undefined;
   if (alternate === undefined) {
+    assert.notEqual(
+      process.env.TTSC_TEST_REQUIRE_GO_DELEGATION,
+      "1",
+      "CI must prepare the comparison SDK",
+    );
     process.stdout.write(
       "Go delegation control requires a second installed toolchain\n",
     );
@@ -164,7 +169,11 @@ function verifyDelegatedEnvironment(props: {
   const delegated = SidecarEnvironment.merge(env, {
     GOTOOLCHAIN: `${version}+path`,
     PATH: [early, late]
-      .map((sdk) => path.join(sdk, "bin"))
+      .map((sdk) =>
+        process.platform === "win32"
+          ? `"${path.join(sdk, "bin")}"`
+          : path.join(sdk, "bin"),
+      )
       .join(path.delimiter),
     ...(process.platform === "win32" ? { PATHEXT: "EXE" } : {}),
   });

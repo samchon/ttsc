@@ -79,6 +79,9 @@ export function runExternalEmitProvenance(options: {
   /** Native working directory shared by probes and the emitting command. */
   cwd: string;
 
+  /** Consumer and configuration roots distinct from the invocation cwd. */
+  additionalProjectRoots?: readonly string[];
+
   /** Same child environment used by the emitting command. */
   env: NodeJS.ProcessEnv;
 

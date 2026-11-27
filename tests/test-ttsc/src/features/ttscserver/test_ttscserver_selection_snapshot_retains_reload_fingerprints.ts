@@ -408,9 +408,29 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
               digest,
             );
           }
+          const missing = path.join(source, "later.cjs");
+          const missingInput = {
+            ...input,
+            hostInputs: [missing],
+            hostInputHashes: { [missing]: null },
+            hostInputRealpaths: { [missing]: null },
+          };
+          assert.ok(
+            captureLSPPluginSelectionInputs(missingInput)?.descriptorFiles[
+              root
+            ]?.["source-middle"],
+          );
+          fs.writeFileSync(
+            path.join(replacement, "nested", "src", "later.cjs"),
+            "module.exports = {};\n",
+          );
           fs.unlinkSync(middle);
           fs.symlinkSync(replacement, middle, kind);
           assert.equal(captureLSPPluginSelectionInputs(input), undefined);
+          assert.equal(
+            captureLSPPluginSelectionInputs(missingInput),
+            undefined,
+          );
         } finally {
           fs.unlinkSync(link);
           fs.unlinkSync(middle);

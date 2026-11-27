@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
-import { systemTempOutsideProject } from "../../internal/systemTempOutsideProject";
+import { createProjectTempDirectory } from "../../internal/createProjectTempDirectory";
 import { selectedRecordIdentityTempParent } from "../../plugin/internal/source/selectedRecordIdentityTempParent";
 import type { CapturedProcessOutput } from "./CapturedProcessOutput";
 import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
@@ -48,16 +48,23 @@ export function captureProcessOutput(
     env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
       ? SidecarEnvironment.read(env, "TTSC_PLUGIN_RECORD_ROOT")
       : undefined;
+  const recordParent =
+    ownedDirectory === undefined
+      ? selectedRecordIdentityTempParent(recordRoot, [
+          projectRoot,
+          ...additionalProjectRoots,
+          process.cwd(),
+        ])
+      : undefined;
   const directory =
     ownedDirectory ??
-    createCanonicalTempDirectory(
-      "ttsc-spawn-",
-      selectedRecordIdentityTempParent(recordRoot, [
-        projectRoot,
-        ...additionalProjectRoots,
-        process.cwd(),
-      ]) ?? systemTempOutsideProject(projectRoot, additionalProjectRoots),
-    );
+    (recordParent === undefined
+      ? createProjectTempDirectory(
+          "ttsc-spawn-",
+          projectRoot,
+          additionalProjectRoots,
+        )
+      : createCanonicalTempDirectory("ttsc-spawn-", recordParent));
   if (ownedDirectory !== undefined) fs.mkdirSync(ownedDirectory);
   const stdoutPath = path.join(directory, "stdout");
   const stderrPath = path.join(directory, "stderr");

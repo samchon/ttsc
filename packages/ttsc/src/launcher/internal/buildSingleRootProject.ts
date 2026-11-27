@@ -179,22 +179,23 @@ export function buildSingleRootProject(props: {
         binary: options.binary,
         env: SidecarEnvironment.merge(process.env, options.env),
       });
-      if (BuildExecution.isProjectCompiler(original.root, tsgo, options.env)) {
-        // The native overlay reads this file at the original config location,
-        // so unrelated node_modules ancestors cannot enter type resolution.
-        fallbackDirectory = createCanonicalTempDirectory(
-          ".ttsx-config-",
-          privateDirectory,
-        );
-        placement = acquire(fallbackDirectory);
-      } else {
-        const owners = configAncestors(configDir);
-        fallbackDirectory = allocatePrivateConfigDirectory(
-          privateDirectory,
-          owners,
-        );
-        placement = acquire(mirrorTypeSearchPath(owners, fallbackDirectory));
-      }
+      const native = BuildExecution.isProjectCompiler(
+        original.root,
+        tsgo,
+        options.env,
+      );
+      const owners = native ? undefined : configAncestors(configDir);
+      fallbackDirectory = allocatePrivateConfigDirectory(
+        privateDirectory,
+        original.root,
+        configDir,
+        owners,
+      );
+      placement = acquire(
+        owners === undefined
+          ? fallbackDirectory
+          : mirrorTypeSearchPath(owners, fallbackDirectory),
+      );
     } catch (fallbackError) {
       removePrivateConfigDirectory(fallbackDirectory);
       throw unwritableConfigDirectory(fallbackError, props, privateDirectory);
@@ -298,7 +299,21 @@ export function buildSingleRootProject(props: {
           props.checked
             ? `ttsx: ${props.role} check failed for ${props.source}`
             : `ttsx: ${props.role} build produced no output for ${props.source}`,
-          result.stderr || result.stdout,
+          result.stderr ||
+            result.stdout ||
+            result.diagnostics
+              .map((diagnostic) => {
+                const code =
+                  typeof diagnostic.code === "number"
+                    ? `TS${diagnostic.code}`
+                    : diagnostic.code;
+                const position =
+                  diagnostic.file === null
+                    ? ""
+                    : `${diagnostic.file}${diagnostic.line === undefined ? "" : `(${diagnostic.line},${diagnostic.character ?? 1})`}: `;
+                return `${position}${diagnostic.category} ${code}: ${diagnostic.messageText}`;
+              })
+              .join("\n"),
         ]
           .filter((line) => line.trim().length !== 0)
           .join("\n"),
@@ -364,26 +379,45 @@ function mirrorTypeSearchPath(
 /** Choose a private parent whose ancestors introduce no new dependencies. */
 function allocatePrivateConfigDirectory(
   runDirectory: string,
-  owners: readonly string[],
+  projectRoot: string,
+  configDir: string,
+  owners: readonly string[] | undefined,
 ): string {
   const original = new Set(owners);
   const accepts = (directory: string): boolean =>
+    owners === undefined ||
     configAncestors(directory).every(
       (ancestor) =>
         original.has(ancestor) || dependencyDirectory(ancestor) === undefined,
     );
   const prefix = ".ttsx-config-";
   const run = fs.realpathSync.native(runDirectory);
-  if (accepts(run)) return createCanonicalTempDirectory(prefix, run);
-  const configDir = owners.at(-1)!;
-  for (const { directory } of systemTempOutsideProject.candidates(configDir, [
+  let refusal: unknown;
+  const allocate = (directory: string): string | undefined => {
+    if (!accepts(directory)) return undefined;
+    try {
+      return createCanonicalTempDirectory(prefix, directory);
+    } catch (error) {
+      if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
+      refusal ??= error;
+      return undefined;
+    }
+  };
+  const local = allocate(run);
+  if (local !== undefined) return local;
+  for (const { directory } of systemTempOutsideProject.candidates(projectRoot, [
+    configDir,
     process.cwd(),
   ])) {
-    if (accepts(directory))
-      return createCanonicalTempDirectory(prefix, directory);
+    if (directory === run) continue;
+    const fallback = allocate(directory);
+    if (fallback !== undefined) return fallback;
   }
-  throw new Error(
-    `ttsx: no private config directory preserves the type search of ${configDir}`,
+  throw (
+    refusal ??
+    new Error(
+      `ttsx: no private config directory preserves the type search of ${configDir}`,
+    )
   );
 }
 
