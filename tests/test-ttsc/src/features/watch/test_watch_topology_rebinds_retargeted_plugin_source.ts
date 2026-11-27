@@ -5,11 +5,7 @@ import path from "node:path";
 import type { WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
 import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
 import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
-import {
-  deliverWatchEvent,
-  recordWatchers,
-  settleWatchEvents,
-} from "../../../../utils/src/RecordedWatchers";
+import { recordWatchers } from "../../../../utils/src/RecordedWatchers";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -24,7 +20,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    subsequent edit below a target whose path contains invalid UTF-8.
  *
  * @evidence contracts/testing.md#behavioral-verification The maintained WatchTopology reconciles a native directory junction or symlink while a supplied observer records the physical subscriptions and delivers events.
- * @evidence contracts/testing.md#independent-expectations The authored link and two separate physical trees establish expected registration ownership independently of the topology.
+ * @evidence contracts/testing.md#independent-expectations The actual link target and the missing selected directory are checked before delivering their event. Exact registration handles establish which watch receives it and which must retire.
  * @evidence contracts/testing.md#distinguishing-cases An intermediate-link target change with identical source contents differs from the later edit through the new watcher and recovery when a missing target appears. Raw POSIX registration and delivery preserve exact bytes. The stale registration has to close.
  * @evidence contracts/testing.md#execution-ownership The test owns all fixture paths and closes the topology. Event delivery is controlled through the public observer dependency without replacing native filesystem operations.
  */
@@ -90,45 +86,66 @@ export async function test_watch_topology_rebinds_retargeted_plugin_source(): Pr
     fs.readdirSync,
     () => assert.fail("a positional build does not need a compiler listing"),
   );
-  const active = (directory: string): boolean =>
-    watchers.some(
-      (watcher) => watcher.active && watcher.location === directory,
+  const watchAt = (directory: string, from = 0) => {
+    const matches = watchers
+      .slice(from)
+      .filter((watcher) => watcher.active && watcher.location === directory);
+    assert.equal(matches.length, 1, `active watches at ${directory}`);
+    return matches[0]!;
+  };
+  const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
+  const retarget = (target: string): void => {
+    fs.unlinkSync(link);
+    select(target);
+    assert.equal(
+      path.resolve(path.dirname(link), fs.readlinkSync(link)),
+      path.dirname(target),
     );
+  };
   let byteFixture: { root: Buffer; source: Buffer; file: Buffer } | undefined;
   try {
+    const beforePluginWatches = watchers.length;
     topology.setExtraInputs([alias]);
-    assert.equal(active(first), true);
-    fs.unlinkSync(link);
-    select(second);
-    deliverWatchEvent(watchers, link, "rename");
-    await settleWatchEvents();
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    assert.equal(active(first), false);
-    assert.equal(active(second), true);
+    const firstWatch = watchAt(first, beforePluginWatches);
+    const linkWatch = watchAt(root, beforePluginWatches);
+    retarget(second);
+    linkWatch.listener("rename", path.basename(link));
+    await flush();
+    assert.equal(firstWatch.active, false);
+    const secondWatch = watchAt(second);
     assert.ok(changes.some(({ kind }) => kind === "plugin"));
     changes.length = 0;
     const edited = path.join(second, "compiler.go");
     fs.appendFileSync(edited, "var Edited = true\n");
-    deliverWatchEvent(watchers, edited, "change");
-    await settleWatchEvents();
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    secondWatch.listener("change", path.basename(edited));
+    await flush();
     assert.deepEqual(changes, [
       { kind: "plugin", path: path.join(alias, "compiler.go") },
     ]);
 
     const missing = path.join(root, "missing", "src");
-    fs.unlinkSync(link);
-    select(missing);
-    deliverWatchEvent(watchers, link, "rename");
-    await settleWatchEvents();
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    assert.equal(active(second), false);
+    retarget(missing);
+    assert.equal(fs.statSync(alias, { throwIfNoEntry: false }), undefined);
+    assert.ok(linkWatch.active);
+    const beforeMissingWatch = watchers.length;
+    linkWatch.listener("rename", path.basename(link));
+    await flush();
+    assert.equal(
+      secondWatch.active,
+      false,
+      "the previous target handle closes",
+    );
+    assert.equal(
+      watchers.some((watcher) => watcher.active && watcher.location === second),
+      false,
+      "no replacement handle watches the previous target",
+    );
+    const missingWatch = watchAt(root, beforeMissingWatch);
     changes.length = 0;
     fs.mkdirSync(missing, { recursive: true });
-    deliverWatchEvent(watchers, path.dirname(missing), "rename");
-    await settleWatchEvents();
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    assert.equal(active(missing), true);
+    missingWatch.listener("rename", path.basename(path.dirname(missing)));
+    await flush();
+    const recoveredWatch = watchAt(missing);
     assert.ok(changes.some(({ kind }) => kind === "plugin"));
 
     if (process.platform === "win32") return;
@@ -148,9 +165,10 @@ export async function test_watch_topology_rebinds_retargeted_plugin_source(): Pr
     };
     fs.unlinkSync(link);
     fs.symlinkSync(rawParent, link, "dir");
-    deliverWatchEvent(watchers, link, "rename");
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    assert.equal(active(missing), false);
+    assert.ok(linkWatch.active);
+    linkWatch.listener("rename", path.basename(link));
+    await flush();
+    assert.equal(recoveredWatch.active, false);
     const waiting = byteWatches.find(
       (watcher) => watcher.active && watcher.location.equals(rawParent),
     );
@@ -158,7 +176,7 @@ export async function test_watch_topology_rebinds_retargeted_plugin_source(): Pr
     changes.length = 0;
     fs.mkdirSync(rawSource);
     waiting.listener("rename", Buffer.from("src"));
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    await flush();
     const recovered = byteWatches.find(
       (watcher) => watcher.active && watcher.location.equals(rawSource),
     );
@@ -167,7 +185,7 @@ export async function test_watch_topology_rebinds_retargeted_plugin_source(): Pr
     changes.length = 0;
     fs.writeFileSync(path.join(alias, "compiler.go"), "package compiler\n");
     recovered.listener("change", Buffer.from("compiler.go"));
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    await flush();
     assert.deepEqual(changes, [
       { kind: "plugin", path: path.join(alias, "compiler.go") },
     ]);

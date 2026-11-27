@@ -61,7 +61,7 @@ interface IActorReport {
  *
  * @evidence contracts/testing.md#behavioral-verification Real Node launches run the descriptor evaluator shim, PluginDescriptorEvaluationCache.locate/read/write, javascriptRuntimeCapabilities and resolveCapabilityPluginResolution with real preloads, local dependencies and runtimeHookPreload.
  * @evidence contracts/testing.md#independent-expectations Expected hits, misses, probe counts, recorded input graphs and null refusals follow directly from the observed-graph preload contract and real child execution.
- * @evidence contracts/testing.md#distinguishing-cases Covers trusted preload hits, untrusted and glob refusal, startup graph disagreement, preload and helper edits, a new resolution candidate with previous files unchanged, before-read invalidation, ttsx-like graph isolation, relative and package lookup, NODE_PATH and home directory mismatches, missing roots, unsupported flags and empty options.
+ * @evidence contracts/testing.md#distinguishing-cases Covers trusted preload hits, untrusted and glob refusal, startup graph disagreement, preload and helper edits, a new resolution candidate with previous files unchanged, before-read invalidation, ttsx-like graph isolation, relative and package lookup, the fixture's package-scope boundary, NODE_PATH and home directory mismatches, missing roots, unsupported flags and empty options.
  * @evidence contracts/testing.md#execution-ownership Unit test owning temp files and fresh Node source actors through register-unit-loader.mjs without building native artifacts, installing consumers or starting a product host.
  */
 export function test_descriptor_and_capability_caches_accept_only_trusted_builtin_preloads(): void {
@@ -73,6 +73,11 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   const preloadDir = path.join(root, "preloads");
   fs.mkdirSync(projectDir, { recursive: true });
   fs.mkdirSync(preloadDir, { recursive: true });
+  // The preload helper's type is determined by this owned scope. Proving a
+  // missing manifest in the shared system temp directory would depend on
+  // metadata changed by any other process creating a temporary file there.
+  const fixtureManifest = path.join(root, "package.json");
+  fs.writeFileSync(fixtureManifest, '{"type":"commonjs"}');
 
   const tsconfig = "tsconfig.json";
   const pluginFile = path.join(projectDir, "plugin.cjs");
@@ -355,6 +360,11 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   assert.ok(
     local1.descriptorInputs.includes(localHelperReal),
     "descriptor inputs must include transitive local modules required by the preload",
+  );
+  assert.ok(local1.descriptorInputs.includes(fixtureManifest));
+  assert.ok(
+    !local1.descriptorInputs.includes(path.resolve(root, "..", "package.json")),
+    "the fixture's package scope must end the preload's manifest search",
   );
   assert.equal(local1.capabilityProbes, 1);
   assert.equal(local1.runtimeProved, true);

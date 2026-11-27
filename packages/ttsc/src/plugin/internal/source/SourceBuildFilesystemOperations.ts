@@ -2,7 +2,7 @@
  * Synchronous filesystem reads used to fingerprint external Go toolchains.
  *
  * The key accepts a byte reader so external toolchain fingerprinting has one
- * explicit filesystem dependency. Production supplies `fs.readFileSync`.
+ * explicit filesystem dependency. Production reads only regular files.
  *
  * @evidence contracts/common.md#principled-implementation The synchronous Buffer-returning method preserves the exact file bytes used for the Go root content identity, including ordinary read failures.
  * @evidence contracts/common.md#clear-and-simple-design The boundary contains only the byte-read operation that hashing consumes; metadata and enumeration remain with native identity validation.

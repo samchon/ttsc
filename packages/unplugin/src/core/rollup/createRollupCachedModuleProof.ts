@@ -36,8 +36,9 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
  * bytes and invalidate the other policy's digest. A later judgment need not
  * reread a record moved by another process in mid-build; the next pass observes
  * it. A changed proves callback can invalidate an already read digest within
- * this pass. If a managed record cannot be invalidated, its saved digest
- * remains unavailable for this pass unless a later delivery updates it.
+ * this pass. A failed managed invalidation prevents reuse for the rest of the
+ * pass unless a delivery under that policy updates the record. Reading the same
+ * path under another policy leaves this refusal in place.
  *
  * @param name The plugin's name, the key of its entry in a module's `meta`.
  * @param includes Whether the adapter transforms a module id.
@@ -73,7 +74,7 @@ export function createRollupCachedModuleProof(
   options: () => string,
   proves: () => boolean,
 ): RollupCachedModuleProof {
-  const proven = new Set<string>();
+  const proven = new Map<string, boolean>();
   const digests = new Map<string, string | undefined>();
   const keyOf = (file: string, privateStorage: boolean | undefined): string =>
     (privateStorage === true ? "1" : "0") + file;
@@ -85,7 +86,9 @@ export function createRollupCachedModuleProof(
     deliver: (delivery) => {
       if (delivery?.record !== undefined) {
         const { file, digest, privateStorage } = delivery.record;
-        digests.set(keyOf(file, privateStorage), digest);
+        const key = keyOf(file, privateStorage);
+        if (proven.get(key) === false) proven.set(key, true);
+        digests.set(key, digest);
         digests.delete(keyOf(file, privateStorage !== true));
       }
       return { [name]: delivery };
@@ -102,8 +105,9 @@ export function createRollupCachedModuleProof(
         {}) as Partial<NonNullable<NonNullable<TtscRollupDelivery>["record"]>>;
       if (typeof file !== "string" || typeof digest !== "string") return true;
       const key = keyOf(file, privateStorage);
+      if (proven.get(key) === false) return true;
       if (proves() && !proven.has(key)) {
-        proven.add(key);
+        proven.set(key, true);
         // What a delivery of this build wrote is what the proof ran over, and
         // a move it made is read from the file.
         digests.delete(key);
@@ -121,7 +125,7 @@ export function createRollupCachedModuleProof(
           if (privateStorage !== true) throw error;
           // A failed managed signal can leave exactly the stale digest the
           // host cached. Refuse that record for this pass.
-          digests.set(key, undefined);
+          proven.set(key, false);
           return true;
         }
       }

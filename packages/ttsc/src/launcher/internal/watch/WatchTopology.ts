@@ -1039,12 +1039,13 @@ export class WatchTopology {
    * cannot be represented as a string. Scoped native subscriptions keep those
    * paths as buffers and feed the same batched plugin decision.
    */
-  private syncExtraWatchers(): void {
+  private syncExtraWatchers(retryRacedAlias = true): void {
     const directories = new Map<string, string>();
     const registrations = new Map<string, string>();
     const topologyEntries = new Map<string, string>();
     const byteWatches = new Map<string, { directory: Buffer; name?: Buffer }>();
     const appeared: [string, string][] = [];
+    let racedAlias = false;
     for (const input of this.extraInputs) {
       const inputKey = this.pathKey(input);
       const watchByteEntry = (entry: Buffer): void => {
@@ -1080,18 +1081,26 @@ export class WatchTopology {
           endpoint === undefined ? input : watcherRegistrationPath(endpoint);
         if (endpoint === input && physical !== input) {
           byteRoot = pluginWatchBytePath(input);
-          if (byteRoot !== undefined) {
-            physical = input;
-            watchByteEntry(byteRoot);
-          }
+          if (byteRoot !== undefined) physical = input;
         }
         identity =
           endpoint === undefined
             ? undefined
             : pluginWatchRootIdentity(byteRoot ?? physical);
       }
-      const targets =
+      let targets =
         identity === undefined ? [] : collectInputDirectories(physical);
+      if (
+        identity !== undefined &&
+        (physical !== input || byteRoot !== undefined) &&
+        pluginWatchRootIdentity(input) !== identity
+      ) {
+        // The scanned tree can stay intact while the declaration retargets.
+        // Keep the topology subscriptions and give the new target one fresh
+        // reconciliation after those subscriptions are live.
+        targets = [];
+        racedAlias = true;
+      }
       for (const target of targets) {
         const directory =
           physical === input
@@ -1121,12 +1130,10 @@ export class WatchTopology {
           appeared.push([key, directory]);
         }
       }
-      if (
-        byteRoot === undefined &&
-        targets.length !== 0 &&
-        path.dirname(physical) !== physical
-      )
-        entries.add(physical);
+      if (targets.length !== 0) {
+        if (byteRoot !== undefined) watchByteEntry(byteRoot);
+        else if (path.dirname(physical) !== physical) entries.add(physical);
+      }
       for (const entry of entries) {
         const parent = watcherRegistrationPath(path.dirname(entry));
         const name = path.basename(entry);
@@ -1215,6 +1222,12 @@ export class WatchTopology {
         if (this.isPluginInput(entry)) this.notePluginNotification(entry);
       }
     }
+    if (racedAlias && retryRacedAlias)
+      setImmediate(() => {
+        if (this.closed) return;
+        this.beginLexicalTransaction();
+        this.syncExtraWatchers(false);
+      });
   }
 
   private syncProjectInputWatchers(

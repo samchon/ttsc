@@ -54,23 +54,24 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * CLI callers omit it and inherit `process.env`, so ambient behavior is
  * unchanged.
  *
- * The cache key includes source and toolchain readings. Before publication the
- * scratch inputs are compared with their recorded digests and the external
- * toolchain witness is checked. Caller-supplied digests must describe the
- * intended inputs; metadata-based witnesses and sequential observations do not
- * pin files against concurrent changes. Detected differences fail publication.
- * A changed toolchain discards the owned attempt, then takes a new reading and
- * executes or admits under its new key, for at most three epochs. Source
- * readings and request variables stay fixed; native, source and cleanup
- * failures do not retry. Only the successful epoch publishes caller digests.
- * The Go-owned object cache retains Go's tool/action identity semantics; these
- * attempts discard ttsc's failed binary and scratch, not Go's object entries.
- * Optional loader-required package ownership enters the key. Its cold producer
- * admits the entry and linked sources through Go metadata in the actual
- * materialized workspace before compilation; legacy cache artifacts have a
- * different key. Existing binary hits trust the cache producer and key rather
- * than rehashing executable bytes. Default caches are managed locally, while
- * explicit roots retain caller-managed pruning policy; a managed cache is
+ * The cache key includes source and toolchain readings. The toolchain witness
+ * must hold before Go reads replacement metadata during keying. Before
+ * publication the scratch inputs are compared with their recorded digests and
+ * the external toolchain witness is checked. Caller-supplied digests must
+ * describe the intended inputs. Metadata-based witnesses and sequential
+ * observations do not pin files against concurrent changes. Detected
+ * differences fail publication. A changed toolchain discards the owned attempt,
+ * then takes a new reading and executes or admits under its new key, for at
+ * most three epochs. Source readings and request variables stay fixed; native,
+ * source and cleanup failures do not retry. Only the successful epoch publishes
+ * caller digests. The Go-owned object cache retains Go's tool/action identity
+ * semantics; these attempts discard ttsc's failed binary and scratch, not Go's
+ * object entries. Optional loader-required package ownership enters the key.
+ * Its cold producer admits the entry and linked sources through Go metadata in
+ * the actual materialized workspace before compilation; legacy cache artifacts
+ * have a different key. Existing binary hits trust the cache producer and key
+ * rather than rehashing executable bytes. Default caches are managed locally,
+ * while explicit roots retain caller-managed pruning policy; a managed cache is
  * size-pruned after a binary this process compiled, never after adopting one
  * another process published. Every returned cache key registers a reader token
  * retained by this process until exit; registration shares the
@@ -88,7 +89,7 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * hashing can delay observation; these checkpoints do not impose a hard
  * execution deadline.
  *
- * @evidence contracts/common.md#principled-implementation Each of at most three toolchain epochs compares materialized source digests and checks its own pre-read witness before build, publication or cache adoption. A changed epoch publishes nothing and starts again only after its scratch and key lease finish; first source readings and request variables remain fixed. Caller digest maps receive only successful authority. Opted-in cancellation guards stage, copy-entry, native-command, reader and publication admission, while cleanup still finishes. Metadata observations are not an atomic snapshot, and existing executable bytes remain trusted cache-producer output.
+ * @evidence contracts/common.md#principled-implementation Each of at most three toolchain epochs compares materialized source digests and checks its own pre-read witness before Go reads replacement metadata, before build or publication, and before cache adoption. A changed epoch publishes nothing and starts again only after its scratch and key lease finish; first source readings and request variables remain fixed. Caller digest maps receive only successful authority. Opted-in cancellation guards stage, copy-entry, native-command, reader and publication admission, while cleanup still finishes. Metadata observations are not an atomic snapshot, and existing executable bytes remain trusted cache-producer output.
  * @evidence contracts/common.md#clear-and-simple-design One owner sequences target resolution, key creation, cache selection and fenced build coordination; private helpers own scratch materialization, Go workspace semantics and publication cleanup.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A changed witness is never overwritten or accepted. A fresh epoch takes a new toolchain reading and performs the actual build or qualified adoption; source, native and cleanup failures stay terminal. No selected SDK tool is warmed by a special command, and no foreign environment or memo is rebased. Shared Go objects retain their owner's toolID/actionID contract; same-version custom tool semantics beyond that contract are not newly guaranteed.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain effective environment, recorded-input comparisons and their trust/observation limits, reader registration and managed versus explicit roots; option-map comments state their reading provenance with blank member separation.
@@ -255,7 +256,19 @@ function buildSourcePluginAttempt(
     entry,
     env,
     environmentWitness,
-    goModReader,
+    goModReader: {
+      read: (directory, diagnosticPlugin) => {
+        // Keying reads the environment before asking Go to interpret local
+        // replacements. A moved toolchain ends the epoch before that second
+        // Go read can observe a different launcher.
+        requireBuildEnvironment(
+          environmentWitness,
+          opts.pluginName,
+          "key-module-reading",
+        );
+        return goModReader.read(directory, diagnosticPlugin);
+      },
+    },
     filesystem: opts.filesystem,
     goBinary,
     identities,

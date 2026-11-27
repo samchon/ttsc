@@ -58,6 +58,31 @@ function existingFile(file) {
   }
 }
 
+/** Read an observed regular file without waiting on a substituted POSIX FIFO. */
+function readObservedRegularFile(file) {
+  if (process.platform === "win32") return fs.readFileSync(file);
+  const descriptor = fs.openSync(
+    file,
+    fs.constants.O_RDONLY | fs.constants.O_NONBLOCK,
+  );
+  try {
+    return fs.fstatSync(descriptor).isFile()
+      ? fs.readFileSync(descriptor)
+      : undefined;
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
+/** Parse a regular package manifest, preserving the resolver's BOM handling. */
+function readPackageManifest(file) {
+  if (!existingFile(file)) return undefined;
+  const bytes = readObservedRegularFile(file);
+  return bytes === undefined
+    ? undefined
+    : JSON.parse(bytes.toString("utf8").replace(/^﻿/, ""));
+}
+
 function missingPathError(error) {
   return !!error && (error.code === "ENOENT" || error.code === "ENOTDIR");
 }
@@ -333,11 +358,10 @@ function visitModuleCandidates(base, extensions, visit, bases) {
     visit(candidate);
   }
   try {
-    const manifest = JSON.parse(
-      fs
-        .readFileSync(path.join(resolvedBase, "package.json"), "utf8")
-        .replace(/^﻿/, ""),
+    const manifest = readPackageManifest(
+      path.join(resolvedBase, "package.json"),
     );
+    if (manifest === undefined) return;
     visitManifestTargets(
       manifest.exports,
       resolvedBase,
@@ -729,12 +753,10 @@ function visitImportTargetCandidates(specifier, parent, extensions, visit) {
   visitPackageManifests(parentFile, (manifest) => {
     manifestPath = manifest;
   });
-  if (manifestPath === undefined || !existingFile(manifestPath)) return;
+  if (manifestPath === undefined) return;
   let imports;
   try {
-    imports = JSON.parse(
-      fs.readFileSync(manifestPath, "utf8").replace(/^﻿/, ""),
-    ).imports;
+    imports = readPackageManifest(manifestPath)?.imports;
   } catch {
     return;
   }
@@ -842,12 +864,15 @@ function createResolutionInputRecorder(options) {
         realpath = null;
       }
       try {
-        hash = fs.statSync(file).isDirectory()
+        const target = fs.statSync(file);
+        const bytes = target.isFile()
+          ? readObservedRegularFile(file)
+          : undefined;
+        hash = target.isDirectory()
           ? DIRECTORY_STATE
-          : crypto
-              .createHash("sha256")
-              .update(fs.readFileSync(file))
-              .digest("hex");
+          : bytes === undefined
+            ? null
+            : crypto.createHash("sha256").update(bytes).digest("hex");
       } catch {
         hash = null;
       }

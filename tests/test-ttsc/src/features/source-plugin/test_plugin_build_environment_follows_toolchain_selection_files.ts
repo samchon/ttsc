@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/SidecarEnvironment";
 import { GoEnvironmentReading } from "../../../../../packages/ttsc/src/plugin/internal/source/GoEnvironmentReading";
+import { PluginBuildEnvironmentReadings } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentReadings";
 import { PluginBuildEnvironmentWitness } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginContentIdentities";
 import { readPluginBuildEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/readPluginBuildEnvironment";
@@ -18,15 +19,15 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 1. Record the usable toolchain in a child module and reread it unchanged.
  * 2. Add and remove an ancestor workspace that selects an unavailable version.
  * 3. Edit the module to select that version, then restore the working version.
- * 4. Exercise delegation within and across SDK roots and native working-directory
- *    aliases, including a symlink before a dot-parent component on POSIX.
+ * 4. Exercise delegation within and across SDK roots, working-directory aliases on
+ *    POSIX, and relative cache and worker requests across a cwd change.
  *
  * @evidence contracts/testing.md#behavioral-verification The direct answer reader over a real Go SDK and private store returns the working digest while selection holds, then produces a different digest and refuses the preceding witness whenever Go's selection files move.
  * @evidence contracts/testing.md#independent-expectations Go's toolchain selection rules give the ancestor workspace precedence and reject the authored higher requirement with path-only lookup. Restoring the original requirement restores the original build inputs.
- * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selection files, native link retargeting and a dot-parent alias whose normalized spelling would select a different workspace. With a second SDK, an earlier PATH candidate displaces a different Go release even when it shares the launcher's SDK root. The packaged identity unit owns shipped SDK metadata.
- * @evidence contracts/testing.md#execution-ownership The unit runs native Go queries with local and PATH selection in its temporary module, workspace and answer store. It copies already installed executables and runs no plugin build or installed ttsc host.
+ * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selectors, native link retargeting and a dot-parent alias whose normalized spelling would select a different workspace. Relative cache and pending requests start under two bases, and editing just one workspace invalidates only that worker's reading. With a second SDK, an earlier PATH candidate displaces a different Go release in a shared SDK root.
+ * @evidence contracts/testing.md#execution-ownership The unit runs native Go queries in temporary modules including through the real preparation worker. It restores cwd without changing environment variables, copies already installed executables and runs no plugin build or installed ttsc host.
  */
-export function test_plugin_build_environment_follows_toolchain_selection_files(): void {
+export async function test_plugin_build_environment_follows_toolchain_selection_files(): Promise<void> {
   const root = TestProject.physicalPath(
     TestProject.tmpdir("ttsc-go-selection-"),
   );
@@ -110,6 +111,57 @@ export function test_plugin_build_environment_follows_toolchain_selection_files(
   }
   if (process.platform !== "win32")
     verifyNativeDotParentDirectory(binary, root, env, store());
+  await verifyRelativeDirectoryRequests(root);
+}
+
+/** Use the same input spelling at two successive native working directories. */
+async function verifyRelativeDirectoryRequests(root: string): Promise<void> {
+  const first = path.join(root, "relative-a");
+  const second = path.join(root, "relative-b");
+  for (const base of [first, second]) {
+    fs.mkdirSync(path.join(base, "module"), { recursive: true });
+    fs.writeFileSync(
+      path.join(base, "module", "go.mod"),
+      "module example.com/module\n\ngo 1.23.0\n",
+    );
+  }
+  const original = process.cwd();
+  try {
+    process.chdir(first);
+    const initial = PluginBuildEnvironmentReadings.read("module", false, root);
+    assert.equal(PluginBuildEnvironmentReadings.cached("module"), initial);
+    process.chdir(second);
+    assert.equal(PluginBuildEnvironmentReadings.cached("module"), undefined);
+    assert.equal(
+      PluginBuildEnvironmentReadings.cachedAll(["module"]).get("module"),
+      undefined,
+    );
+    process.chdir(first);
+    const requestA = PluginBuildEnvironmentReadings.prepare(
+      "module",
+      true,
+      root,
+    );
+    process.chdir(second);
+    const requestB = PluginBuildEnvironmentReadings.prepare(
+      "module",
+      true,
+      root,
+    );
+    process.chdir(original);
+    const [observedA, observedB] = await Promise.all([requestA, requestB]);
+    process.chdir(first);
+    assert.equal(PluginBuildEnvironmentReadings.cached("module"), observedA);
+    fs.writeFileSync(path.join(first, "module", "go.work"), "go 1.23.0\n");
+    assert.equal(PluginBuildEnvironmentReadings.cached("module"), undefined);
+    process.chdir(second);
+    assert.equal(
+      PluginBuildEnvironmentReadings.cachedAll(["module"]).get("module"),
+      observedB,
+    );
+  } finally {
+    process.chdir(original);
+  }
 }
 
 /** Compare cached reads against Go's native cwd selection across a path alias. */

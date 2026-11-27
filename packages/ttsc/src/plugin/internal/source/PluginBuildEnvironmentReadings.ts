@@ -16,7 +16,8 @@ import { pluginBuildEnvironment } from "./pluginBuildEnvironment";
  * Cold asynchronous reads run in an exclusively owned worker. Its complete
  * environment snapshot is passed explicitly to the native reader. Publication
  * rechecks both current host variables and external witnesses after transfer.
- * The worker reads the parent's shared environment for native fallback rules;
+ * Each request anchors relative paths before it enters the cache or queue. The
+ * worker reads the parent's shared environment for native fallback rules;
  * neither it nor this owner writes that environment. Explicit reader inputs
  * still use the request snapshot and publication still qualifies that
  * snapshot.
@@ -69,7 +70,7 @@ export namespace PluginBuildEnvironmentReadings {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The operation borrows a process-owned record and retains no request history.
    */
   export function cached(directory: string): string | undefined {
-    const known = readings.get(key(directory, process.env));
+    const known = readings.get(key(anchorDirectory(directory), process.env));
     return known !== undefined &&
       PluginBuildEnvironmentWitness.reusable(known.witness)
       ? known.environment
@@ -105,7 +106,7 @@ export namespace PluginBuildEnvironmentReadings {
     for (const directory of directories) {
       if (result.has(directory)) continue;
       const known = readings.get(
-        directory + (variables ??= key("", process.env)),
+        anchorDirectory(directory) + (variables ??= key("", process.env)),
       );
       result.set(
         directory,
@@ -146,9 +147,11 @@ export namespace PluginBuildEnvironmentReadings {
     refresh = false,
     projectRoot?: string,
   ): string {
+    directory = anchorDirectory(directory);
     const known = refresh ? undefined : cached(directory);
     if (known !== undefined) return known;
     const env = SidecarEnvironment.merge(process.env);
+    if (projectRoot !== undefined) projectRoot = anchorDirectory(projectRoot);
     const witness: PluginBuildEnvironmentWitness.Record = new Map();
     const environment = pluginBuildEnvironment(
       directory,
@@ -199,12 +202,14 @@ export namespace PluginBuildEnvironmentReadings {
     refresh = false,
     projectRoot?: string,
   ): Promise<string> {
+    directory = anchorDirectory(directory);
     const known = refresh ? undefined : cached(directory);
     if (known !== undefined) return known;
     const env = SidecarEnvironment.merge(process.env);
     const identity = key(directory, env);
     const existing = pending.get(identity);
     if (existing !== undefined) return existing;
+    if (projectRoot !== undefined) projectRoot = anchorDirectory(projectRoot);
     const request = (async () => {
       const reading = await observe(directory, env, projectRoot);
       if (
@@ -223,6 +228,23 @@ export namespace PluginBuildEnvironmentReadings {
     } finally {
       if (pending.get(identity) === request) pending.delete(identity);
     }
+  }
+
+  /**
+   * Anchor before queuing while preserving native POSIX traversal through
+   * links.
+   */
+  function anchorDirectory(directory: string): string {
+    if (process.platform === "win32") {
+      const root = path.parse(directory).root;
+      // Win32 resolution supplies the drive for rooted and drive-relative names.
+      return path.isAbsolute(directory) && root.length > 1
+        ? directory
+        : path.resolve(directory);
+    }
+    return path.isAbsolute(directory)
+      ? directory
+      : `${process.cwd()}${path.sep}${directory}`;
   }
 
   function key(directory: string, env: NodeJS.ProcessEnv): string {

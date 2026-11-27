@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -23,13 +24,14 @@ interface Recorder {
   finish(): Observation;
 }
 
-const { createResolutionInputRecorder } = createRequire(import.meta.url)(
-  fileURLToPath(
-    new URL(
-      "../../../../../packages/ttsc/driver/resolutioninputs/recorder.cjs",
-      import.meta.url,
-    ),
+const RECORDER_PATH = fileURLToPath(
+  new URL(
+    "../../../../../packages/ttsc/driver/resolutioninputs/recorder.cjs",
+    import.meta.url,
   ),
+);
+const { createResolutionInputRecorder } = createRequire(import.meta.url)(
+  RECORDER_PATH,
 ) as {
   createResolutionInputRecorder(options: { extensions: string[] }): Recorder;
 };
@@ -45,11 +47,13 @@ const { createResolutionInputRecorder } = createRequire(import.meta.url)(
  *    files are absent or removed.
  * 2. Compare a present selected file, a failed lookup and a non-file URL.
  * 3. Assert only the absent selected files lose reusable proof in both caches.
+ * 4. On POSIX, prove that file and manifest FIFO candidates do not block a
+ *    resolution that selects a regular file.
  *
  * @evidence contracts/testing.md#behavioral-verification Exercises the production recorder's begin/end/finish seam with a custom resolver's possible selected values, then passes its exact observations to the real descriptor and capability cache writers/readers: vanished selections never replay while stable selections do.
  * @evidence contracts/testing.md#independent-expectations Literal selected paths outside the ordinary package candidates and native file existence define the oracle; SHA-256 over authored bytes and native realpath define the healthy proof independently of the recorder.
- * @evidence contracts/testing.md#distinguishing-cases Covers an absent path selection, an existing file removed before settlement, a present file, a failed resolution's legitimate null candidate, and a non-file builtin URL. Both caches refuse the absent selection but replay the stable selection; actual hook ordering belongs to runtime integration tests.
- * @evidence contracts/testing.md#execution-ownership This discoverable unit directly calls the shared recorder over one owned temporary tree, without installing a global resolver hook, starting a native host, or running a full transform. Finally removes its tree.
+ * @evidence contracts/testing.md#distinguishing-cases Covers an absent path selection, an existing file removed before settlement, a present file, a failed resolution's legitimate null candidate, a non-file builtin URL, and POSIX FIFO file and manifest candidates with no writer. Both caches refuse the absent selection but replay the stable selection; actual hook ordering belongs to runtime integration tests.
+ * @evidence contracts/testing.md#execution-ownership This discoverable unit calls the shared recorder over one owned temporary tree. The POSIX case uses bounded direct mkfifo and Node children. It installs no global resolver hook and starts no compiler; finally removes its tree.
  */
 export function test_resolution_input_recorder_requires_positive_selected_file_proof(): void {
   const root = fs.realpathSync.native(
@@ -57,6 +61,7 @@ export function test_resolution_input_recorder_requires_positive_selected_file_p
   );
   const parent = path.join(root, "entry.cjs");
   fs.writeFileSync(parent, "// importer\n");
+  fs.writeFileSync(path.join(root, "package.json"), "{}");
   const recorder = (): Recorder =>
     createResolutionInputRecorder({ extensions: [".cjs", ".js"] });
   const refused = (result: Observation, selected: string): void => {
@@ -69,7 +74,7 @@ export function test_resolution_input_recorder_requires_positive_selected_file_p
     const absent = path.join(root, "external", "virtual.cjs");
     const missingPath = recorder();
     missingPath.endResolution(
-      missingPath.beginResolution("virtual", parent),
+      missingPath.beginResolution("./virtual", parent),
       absent,
     );
     const vanished = missingPath.finish();
@@ -81,7 +86,7 @@ export function test_resolution_input_recorder_requires_positive_selected_file_p
     const removed = path.join(root, "external", "removed.cjs");
     fs.writeFileSync(removed, "module.exports=2;\n");
     const removedFile = recorder();
-    const removedToken = removedFile.beginResolution("removed", parent);
+    const removedToken = removedFile.beginResolution("./removed", parent);
     fs.rmSync(removed);
     removedFile.endResolution(removedToken, pathToFileURL(removed).href);
     refused(removedFile.finish(), removed);
@@ -91,7 +96,7 @@ export function test_resolution_input_recorder_requires_positive_selected_file_p
     fs.writeFileSync(present, contents);
     const presentFile = recorder();
     presentFile.endResolution(
-      presentFile.beginResolution("present", parent),
+      presentFile.beginResolution("./present", parent),
       present,
     );
     const proven = presentFile.finish();
@@ -172,6 +177,50 @@ export function test_resolution_input_recorder_requires_positive_selected_file_p
       builtin.finish().inputs.includes(path.resolve("node:fs")),
       false,
     );
+
+    if (process.platform !== "win32") {
+      const base = path.join(root, "fifo-candidate");
+      const manifest = path.join(base, "package.json");
+      const candidate = `${base}.js`;
+      const selection = path.join(base, "index.cjs");
+      fs.mkdirSync(base);
+      fs.writeFileSync(selection, contents);
+      const created = spawnSync("mkfifo", [manifest, candidate], {
+        encoding: "utf8",
+        timeout: 5_000,
+      });
+      assert.equal(created.error, undefined);
+      assert.equal(created.status, 0, created.stderr);
+      const observed = spawnSync(
+        process.execPath,
+        [
+          "-e",
+          `const [recorder, parent, selected] = process.argv.slice(1);
+           const { createResolutionInputRecorder } = require(recorder);
+           const inputs = createResolutionInputRecorder({ extensions: [".cjs", ".js"] });
+           inputs.endResolution(inputs.beginResolution("./fifo-candidate", parent), selected);
+           process.stdout.write(JSON.stringify(inputs.finish()));`,
+          RECORDER_PATH,
+          parent,
+          selection,
+        ],
+        { encoding: "utf8", timeout: 5_000 },
+      );
+      assert.equal(observed.error, undefined);
+      assert.equal(observed.status, 0, observed.stderr);
+      const result = JSON.parse(observed.stdout) as Observation;
+      assert.equal(result.complete, true);
+      for (const fifo of [manifest, candidate]) {
+        assert.ok(result.inputs.includes(fifo), fifo);
+        assert.equal(result.hashes[fifo], null, fifo);
+        assert.equal(result.realpaths[fifo], fs.realpathSync.native(fifo));
+      }
+      assert.equal(result.hashes[selection], proven.hashes[present]);
+      assert.equal(
+        result.realpaths[selection],
+        fs.realpathSync.native(selection),
+      );
+    }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

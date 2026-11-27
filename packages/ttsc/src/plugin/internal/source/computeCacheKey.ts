@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import fs from "node:fs";
 import path from "node:path";
 
 import { GoToolResolution } from "./GoToolResolution";
@@ -11,6 +10,7 @@ import type { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
 import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
 import { readPluginBuildEnvironment } from "./readPluginBuildEnvironment";
+import { readSourceBuildFile } from "./readSourceBuildFile";
 
 /**
  * Compute a 32-character lowercase key from a plugin build's SHA-256 digest.
@@ -260,7 +260,7 @@ export function computeCacheKey(inputs: {
 
 const DEFAULT_SOURCE_BUILD_FILESYSTEM: SourceBuildFilesystemOperations =
   Object.freeze({
-    readFile: (location: string) => fs.readFileSync(location),
+    readFile: readSourceBuildFile,
   });
 
 function hashSourceDirectory(

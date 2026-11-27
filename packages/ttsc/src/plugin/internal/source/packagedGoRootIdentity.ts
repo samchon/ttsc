@@ -30,12 +30,21 @@ export function packagedGoRootIdentity(
   witness: PluginBuildEnvironmentWitness.Record | undefined,
 ): string | undefined {
   const expected = path.join(path.dirname(packageManifest), "bin", "go");
+  const versionFile = path.join(goRoot, "VERSION");
   try {
     if (fs.realpathSync.native(goRoot) !== expected) return undefined;
-    const versionFile = path.join(goRoot, "VERSION");
     PluginBuildEnvironmentWitness.add(witness, goRoot);
-    PluginBuildEnvironmentWitness.add(witness, packageManifest);
-    PluginBuildEnvironmentWitness.add(witness, versionFile);
+    const manifestStat = fs.statSync(packageManifest, {
+      bigint: true,
+      throwIfNoEntry: false,
+    });
+    const versionStat = fs.statSync(versionFile, {
+      bigint: true,
+      throwIfNoEntry: false,
+    });
+    PluginBuildEnvironmentWitness.add(witness, packageManifest, manifestStat);
+    PluginBuildEnvironmentWitness.add(witness, versionFile, versionStat);
+    if (!manifestStat?.isFile() || !versionStat?.isFile()) return undefined;
     const { name, version } = JSON.parse(
       filesystem.readFile(packageManifest).toString("utf8"),
     );
@@ -50,6 +59,8 @@ export function packagedGoRootIdentity(
     PluginBuildEnvironmentWitness.add(witness, path.join(goRoot, "go.env"));
     return `packaged:${JSON.stringify([name, version, sdkVersion])}`;
   } catch {
+    PluginBuildEnvironmentWitness.add(witness, packageManifest);
+    PluginBuildEnvironmentWitness.add(witness, versionFile);
     return undefined;
   }
 }

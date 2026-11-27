@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import fs from "node:fs";
 import path from "node:path";
 
 import type { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
@@ -7,6 +6,7 @@ import type { PluginContentIdentities } from "./PluginContentIdentities";
 import { WitnessedLoadAnswers } from "./WitnessedLoadAnswers";
 import { goToolVariables } from "./goToolVariables";
 import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
+import { readSourceBuildFile } from "./readSourceBuildFile";
 
 /**
  * The digest of the environment a plugin build in `directory` is keyed on
@@ -51,8 +51,8 @@ export function readPluginBuildEnvironment(
   projectRoot?: string,
 ): string {
   const identity = [
-    // Older answers could come from a delegated SDK selected by a mutable search.
-    3,
+    // Older answers do not carry the current native cwd and delegation proof.
+    6,
     goBinary ?? null,
     directory,
     path.isAbsolute(directory) ? null : process.cwd(),
@@ -76,7 +76,7 @@ export function readPluginBuildEnvironment(
     goBinary,
     directory,
     env,
-    { readFile: (location) => fs.readFileSync(location) },
+    { readFile: readSourceBuildFile },
     observed,
     identities,
     projectRoot,
@@ -88,4 +88,4 @@ export function readPluginBuildEnvironment(
 }
 
 /** Answer family of build-environment readings (`WitnessedLoadAnswers`). */
-const KIND = "plugin-build-environment-v5";
+const KIND = "plugin-build-environment";

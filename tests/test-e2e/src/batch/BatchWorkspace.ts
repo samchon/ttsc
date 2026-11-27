@@ -2385,7 +2385,14 @@ export namespace BatchWorkspace {
         const toolchainQueries = observed.filter(
           (args) => args[0] === "env" && args.includes("GOVERSION"),
         ).length;
-        assert.ok(toolchainQueries === 3 || toolchainQueries === 4);
+        assert.ok(
+          toolchainQueries === 3 || toolchainQueries === 4,
+          `expected three toolchain queries, plus one possible GOENV query, got ${toolchainQueries}: ${JSON.stringify(observed)}`,
+        );
+        assert.ok(
+          !observed.some((args) => args[0] === "mod"),
+          `a rejected toolchain epoch must stop before reading Go module metadata: ${JSON.stringify(observed)}`,
+        );
         assert.equal(countBuilds(), baseline);
         assert.deepEqual([...sources], []);
         assert.deepEqual([...environments], []);

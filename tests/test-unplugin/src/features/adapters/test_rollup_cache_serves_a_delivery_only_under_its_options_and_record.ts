@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { fallbackToolDirectoryLocation } from "../../../../../packages/unplugin/src/core/bridge/fallbackToolDirectoryLocation";
 import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/bridge/openHostWatchBridge";
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
 import { createRollupCachedModuleProof } from "../../../../../packages/unplugin/src/core/rollup/createRollupCachedModuleProof";
@@ -84,54 +85,64 @@ export async function test_rollup_cache_serves_a_delivery_only_under_its_options
     "managed refusal cannot affect ordinary storage",
   );
   if (process.platform === "win32" || process.getuid?.() !== 0) {
-    const toolDirectory = path.join(root, "managed-tool");
-    const records = path.join(toolDirectory, "records");
-    fs.mkdirSync(toolDirectory, { mode: 0o700 });
-    fs.mkdirSync(records, { mode: 0o700 });
-    const managedFile = path.join(records, "restored.json");
+    const toolDirectory = fallbackToolDirectoryLocation(root);
+    assert.ok(toolDirectory);
+    const managedFile = path.join(toolDirectory, "records", "restored.json");
     const tsconfig = path.join(root, "tsconfig.json");
     const compiler = path.join(root, "repaired-compiler");
     fs.writeFileSync(tsconfig, '{"files":[]}');
-    writeProjectRecordFile(
-      managedFile,
-      {
+    try {
+      writeProjectRecordFile(managedFile, {
         compilerArguments: captureCompilerArguments(
           resolveCompilerEnvironment(),
         ),
         inputs: {},
         membership: null,
+        privateStorage: true,
         recoveryTree: { file: compiler, digest: null },
         root,
         signal: 0,
         tsconfig,
-      },
-      true,
-    );
-    const previous = fs.readFileSync(managedFile);
-    const detached = createRollupCachedModuleProof(
-      "ttsc-unplugin",
-      () => true,
-      () => options,
-      () => true,
-    );
-    const meta = detached.deliver({
-      options,
-      record: {
-        digest: createHash("sha256").update(previous).digest("hex"),
-        file: managedFile,
-        privateStorage: true,
-      },
-    });
-    assert.equal(detached.moved({ id: "main.ts", meta }), false);
-    fs.mkdirSync(compiler);
-    fs.chmodSync(managedFile, 0o444);
-    try {
-      detached.begin();
-      assert.equal(detached.moved({ id: "main.ts", meta }), true);
-      assert.equal(detached.moved({ id: "sibling.ts", meta }), true);
-      assert.deepEqual(fs.readFileSync(managedFile), previous);
+      });
+      const previous = fs.readFileSync(managedFile);
+      const restoredDigest = createHash("sha256")
+        .update(previous)
+        .digest("hex");
+      const detached = createRollupCachedModuleProof(
+        "ttsc-unplugin",
+        () => true,
+        () => options,
+        () => true,
+      );
+      const meta = detached.deliver({
+        options,
+        record: {
+          digest: restoredDigest,
+          file: managedFile,
+          privateStorage: true,
+        },
+      });
+      const ordinaryMeta = {
+        "ttsc-unplugin": {
+          options,
+          record: { digest: restoredDigest, file: managedFile },
+        },
+      };
+      assert.equal(detached.moved({ id: "main.ts", meta }), false);
+      fs.mkdirSync(compiler);
+      fs.chmodSync(managedFile, 0o444);
+      try {
+        detached.begin();
+        assert.equal(detached.moved({ id: "main.ts", meta }), true);
+        detached.moved({ id: "explicit.ts", meta: ordinaryMeta });
+        assert.equal(detached.moved({ id: "sibling.ts", meta }), true);
+        assert.deepEqual(fs.readFileSync(managedFile), previous);
+      } finally {
+        fs.chmodSync(managedFile, 0o600);
+      }
     } finally {
-      fs.chmodSync(managedFile, 0o600);
+      if (fs.existsSync(toolDirectory))
+        fs.rmSync(toolDirectory, { recursive: true });
     }
   }
 
