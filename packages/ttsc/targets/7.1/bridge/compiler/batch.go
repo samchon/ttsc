@@ -11,5 +11,5 @@ func beginBatch() (programBound func(), end func()) {
 }
 
 func beginBatchForProgram() (programBound func(), end func()) {
-	return beginBatch()
+  return beginBatch()
 }

@@ -2,13 +2,13 @@
 package configoverlay
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
+  "encoding/json"
+  "fmt"
+  "os"
+  "path/filepath"
 
-	"github.com/microsoft/typescript-go/shim/tspath"
-	"github.com/microsoft/typescript-go/shim/vfs"
+  "github.com/microsoft/typescript-go/shim/tspath"
+  "github.com/microsoft/typescript-go/shim/vfs"
 )
 
 const overlayEnv = "TTSC_PRIVATE_CONFIG_OVERLAY"
@@ -26,48 +26,48 @@ const overlayEnv = "TTSC_PRIVATE_CONFIG_OVERLAY"
 // @evidence contracts/performance.md#reuse-equivalent-work Repeated reads within one overlay use its captured config text. Each new request observes current paths and config bytes.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The returned filesystem holds one config string for the compiler invocation. Open acquires no handle and creates no disk entry.
 func Open(fs vfs.FS, cwd, request string) (vfs.FS, string, error) {
-	encoded := os.Getenv(overlayEnv)
-	if encoded == "" {
-		return fs, request, nil
-	}
-	var paths [2]string
-	if err := json.Unmarshal([]byte(encoded), &paths); err != nil {
-		return nil, "", fmt.Errorf("private config overlay: %w", err)
-	}
-	physical, owner := paths[0], paths[1]
-	if !filepath.IsAbs(physical) || !filepath.IsAbs(owner) {
-		return nil, "", fmt.Errorf("private config overlay paths must be absolute")
-	}
-	caseSensitivity := vfs.CaseSensitivityOf(fs)
-	config := tspath.RootedFilePathFromAbsolute(physical)
-	requested := tspath.ToRootedFilePath(request, tspath.RootedDirectoryPath(cwd))
-	if tspath.CompareFilePaths(caseSensitivity, requested, config) != 0 {
-		return fs, request, nil
-	}
-	virtual := tspath.RootedFilePathFromAbsolute(filepath.Join(filepath.Dir(owner), filepath.Base(physical)))
-	if fs.FileExists(virtual) || fs.DirectoryExists(tspath.RootedDirectoryPath(virtual)) {
-		return nil, "", fmt.Errorf("private config overlay path is occupied: %s", virtual)
-	}
-	text, ok := fs.ReadFile(config)
-	if !ok {
-		return nil, "", fmt.Errorf("cannot read private config overlay: %s", config)
-	}
-	return overlayFS{FS: fs, path: virtual, text: text}, string(virtual), nil
+  encoded := os.Getenv(overlayEnv)
+  if encoded == "" {
+    return fs, request, nil
+  }
+  var paths [2]string
+  if err := json.Unmarshal([]byte(encoded), &paths); err != nil {
+    return nil, "", fmt.Errorf("private config overlay: %w", err)
+  }
+  physical, owner := paths[0], paths[1]
+  if !filepath.IsAbs(physical) || !filepath.IsAbs(owner) {
+    return nil, "", fmt.Errorf("private config overlay paths must be absolute")
+  }
+  caseSensitivity := vfs.CaseSensitivityOf(fs)
+  config := tspath.RootedFilePathFromAbsolute(physical)
+  requested := tspath.ToRootedFilePath(request, tspath.RootedDirectoryPath(cwd))
+  if tspath.CompareFilePaths(caseSensitivity, requested, config) != 0 {
+    return fs, request, nil
+  }
+  virtual := tspath.RootedFilePathFromAbsolute(filepath.Join(filepath.Dir(owner), filepath.Base(physical)))
+  if fs.FileExists(virtual) || fs.DirectoryExists(tspath.RootedDirectoryPath(virtual)) {
+    return nil, "", fmt.Errorf("private config overlay path is occupied: %s", virtual)
+  }
+  text, ok := fs.ReadFile(config)
+  if !ok {
+    return nil, "", fmt.Errorf("cannot read private config overlay: %s", config)
+  }
+  return overlayFS{FS: fs, path: virtual, text: text}, string(virtual), nil
 }
 
 type overlayFS struct {
-	vfs.FS
-	path tspath.RootedFilePath
-	text string
+  vfs.FS
+  path tspath.RootedFilePath
+  text string
 }
 
 func (f overlayFS) FileExists(path tspath.RootedFilePath) bool {
-	return path == f.path || f.FS.FileExists(path)
+  return path == f.path || f.FS.FileExists(path)
 }
 
 func (f overlayFS) ReadFile(path tspath.RootedFilePath) (string, bool) {
-	if path == f.path {
-		return f.text, true
-	}
-	return f.FS.ReadFile(path)
+  if path == f.path {
+    return f.text, true
+  }
+  return f.FS.ReadFile(path)
 }
