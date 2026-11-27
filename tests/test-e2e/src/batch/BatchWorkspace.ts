@@ -775,8 +775,23 @@ export namespace BatchWorkspace {
       observe: (event) =>
         console.info("TTSC_COMPILER_ARCHIVE_COST " + JSON.stringify(event)),
     });
-    const authoredManifest = JSON.parse(
+    const { pnpm: authoredSettings, ...authoredManifest } = JSON.parse(
       fs.readFileSync(path.join(root, "package.json"), "utf8"),
+    );
+    const platformArchive = `file:./.compiler-archives/ttsc-${target}.tgz`;
+    fs.writeFileSync(
+      path.join(root, "pnpm-workspace.yaml"),
+      JSON.stringify(
+        {
+          ...authoredSettings,
+          overrides: {
+            ...authoredSettings?.overrides,
+            [`@ttsc/${target}`]: platformArchive,
+          },
+        },
+        null,
+        2,
+      ),
     );
     fs.writeFileSync(
       path.join(root, "package.json"),
@@ -786,7 +801,7 @@ export namespace BatchWorkspace {
         type: "commonjs",
         dependencies: {
           ttsc: "file:./.compiler-archives/ttsc.tgz",
-          [`@ttsc/${target}`]: `file:./.compiler-archives/ttsc-${target}.tgz`,
+          [`@ttsc/${target}`]: platformArchive,
           // The workspace's own TypeScript, so a lane that installs another
           // line, such as the 7.1 E2E lane, tests that line's compiler target.
           typescript: (
@@ -794,13 +809,6 @@ export namespace BatchWorkspace {
               path.join(TestProject.WORKSPACE_ROOT, "package.json"),
             )("typescript/package.json") as { version: string }
           ).version,
-        },
-        pnpm: {
-          ...authoredManifest.pnpm,
-          overrides: {
-            ...authoredManifest.pnpm?.overrides,
-            [`@ttsc/${target}`]: `file:./.compiler-archives/ttsc-${target}.tgz`,
-          },
         },
       }),
     );
@@ -815,15 +823,7 @@ export namespace BatchWorkspace {
       },
       "installation dependencies must preserve the authored descriptor import map",
     );
-    pnpm(
-      [
-        "install",
-        "--ignore-workspace",
-        "--ignore-scripts",
-        "--no-frozen-lockfile",
-      ],
-      root,
-    );
+    pnpm(["install", "--ignore-scripts", "--no-frozen-lockfile"], root);
     const installed = createRequire(path.join(root, "package.json"));
     const sdk = path.dirname(installed.resolve("ttsc/package.json"));
     // Root and nested optional edges must select the same packed candidate.
