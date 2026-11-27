@@ -1,4 +1,8 @@
+import path from "node:path";
+
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
+import { derivationIdentity } from "../envelope/derivationIdentity";
+import { deriveWatchInputs } from "../envelope/deriveWatchInputs";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { hostSpelling } from "../envelope/hostSpelling";
 import { selectWatchInputs } from "../envelope/selectWatchInputs";
@@ -29,7 +33,10 @@ import { selectionInputs } from "./selectionInputs";
  *
  * A project hook receives the generation's record through notifyProjectRecord.
  * When both project and module hooks are present, both receive their respective
- * registrations; without module hooks, delivery stops after project handoff.
+ * registrations; without module hooks, delivery stops after project handoff. A
+ * serve hook can register the generation union once and use the exact module
+ * dependency selection when an observed input changes. Routing and membership
+ * remain per delivery.
  *
  * @evidence contracts/common.md#principled-implementation Module delivery derives the selected file's dependency set, while project delivery records the full generation plus the known selected config and consulted routing configs. Optional producer input lists need not supply that selection-owned recovery input; membership remains an explicitly requested additional input.
  * @evidence contracts/common.md#clear-and-simple-design Both host models share one routing observation batch, with dependency selection, evidence mapping and record persistence delegated to their actual owners.
@@ -81,6 +88,33 @@ export function notifyWatchInputs(
     return;
   }
   const spell = hostSpelling(state.project, file);
+  const local: TtscWatchInput[] = [];
+  const membership =
+    hooks.membership === true ? projectMembershipInput(cached) : undefined;
+  if (membership !== undefined) local.push(membership);
+  for (const input of routedInputs)
+    local.push({ ...input, file: spell(input.file) });
+  // Across a linked root the delivered spelling can change the observation
+  // path, so each importer keeps its own registration there.
+  if (
+    hooks.watchGeneration !== undefined &&
+    cached.result.type === "success" &&
+    cached.scratchDirectory !== undefined &&
+    state.project.physical === state.project.spelling &&
+    hooks.watchGeneration(
+      cached.scratchDirectory,
+      generationWatchInputs(cached),
+      local,
+      (changed) =>
+        deriveWatchInputs(
+          state,
+          { ...cached, file },
+          derivationIdentity(state, file),
+        ).some((input) => changed.has(path.resolve(input))),
+    )
+  )
+    return;
+
   const inputs: TtscWatchInput[] = selectWatchInputs({
     file,
     projectRoot: cached.projectRoot,
@@ -88,19 +122,9 @@ export function notifyWatchInputs(
     scratchDirectory: cached.scratchDirectory,
     temporaryTsconfig: cached.temporaryTsconfig,
   }).map((input) => evidencedWatchInput(cached, state, input, spell));
-  // The root files are the adapter's own decision rather than a compiler
-  // input, so a host that asked for them gets them beside the derived ones.
-  const membership =
-    hooks.membership === true ? projectMembershipInput(cached) : undefined;
-  if (membership !== undefined) inputs.push(membership);
-  for (const entryToAppend of routedInputs.map((input) => ({
-    ...input,
-    file: spell(input.file),
-  })))
-    inputs.push(entryToAppend);
   handWatchInputs(
     hooks,
-    inputs,
+    [...inputs, ...local],
     undefined,
     cached.result.type === "exception"
       ? undefined

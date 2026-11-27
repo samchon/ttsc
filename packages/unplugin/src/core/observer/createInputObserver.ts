@@ -178,6 +178,8 @@ import { someSet } from "./someSet";
 export function createInputObserver(
   onChanged: (change: InputObserverChange) => void,
   operations: Partial<InputObserverOperations> = {},
+  /** Include exact changed input spellings when owners group importers. */
+  includeReloadInputs = false,
 ): InputObserver {
   const entries = new Map<string, InputEntry>();
   const aliases = new Map<string, Set<InputEntry>>();
@@ -492,6 +494,9 @@ export function createInputObserver(
     );
     const reloaded = new Set<string>();
     const invalidated = new Set<string>();
+    const reloadInputs = includeReloadInputs
+      ? new Map<string, Set<string>>()
+      : undefined;
     // Minted before the first plugin source this check proves, as a delivery
     // mints before its reads: the source's file metadata stands for its bytes
     // only against a reference minted since any rollback. The observer holds no
@@ -547,7 +552,14 @@ export function createInputObserver(
                 JSON.stringify(baseline));
         }
         if (!changed) continue;
-        for (const owner of condition.owners) reloaded.add(owner);
+        for (const owner of condition.owners) {
+          reloaded.add(owner);
+          if (reloadInputs === undefined) continue;
+          const files = reloadInputs.get(owner);
+          if (files === undefined)
+            reloadInputs.set(owner, new Set([entry.file]));
+          else files.add(entry.file);
+        }
         entry.conditions.delete(key);
         removedCondition = true;
       }
@@ -561,7 +573,11 @@ export function createInputObserver(
     updatePoller();
     for (const owner of reloaded) invalidated.delete(owner);
     if (reloaded.size !== 0 || invalidated.size !== 0) {
-      report({ invalidate: invalidated, reload: reloaded });
+      report({
+        invalidate: invalidated,
+        reload: reloaded,
+        ...(reloadInputs === undefined ? {} : { reloadInputs }),
+      });
     }
   };
 
@@ -870,6 +886,9 @@ export function createInputObserver(
     let selected: InputEntry[] | undefined;
     const reload = new Map<string, object>();
     const invalidate = new Map<string, object>();
+    const reloadInputs = includeReloadInputs
+      ? new Map<string, Set<string>>()
+      : undefined;
     let offset = 0;
     const flush = (): void => {
       if (selected === undefined) {
@@ -881,7 +900,17 @@ export function createInputObserver(
       check(chunk, (change) => {
         for (const owner of change.reload) {
           const registration = ownerRegistrations.get(owner);
-          if (registration !== undefined) reload.set(owner, registration);
+          if (registration === undefined) continue;
+          if (reloadInputs !== undefined) {
+            let files = reloadInputs.get(owner);
+            if (files === undefined || reload.get(owner) !== registration) {
+              files = new Set();
+              reloadInputs.set(owner, files);
+            }
+            for (const file of change.reloadInputs?.get(owner) ?? [])
+              files.add(file);
+          }
+          reload.set(owner, registration);
         }
         for (const owner of change.invalidate) {
           const registration = ownerRegistrations.get(owner);
@@ -897,8 +926,10 @@ export function createInputObserver(
       // A replacement can answer the old registration while this wave yields.
       // Only its own still-current registration may receive a delayed effect.
       for (const [owner, registration] of reload) {
-        if (ownerRegistrations.get(owner) !== registration)
+        if (ownerRegistrations.get(owner) !== registration) {
           reload.delete(owner);
+          reloadInputs?.delete(owner);
+        }
       }
       for (const [owner, registration] of invalidate)
         if (ownerRegistrations.get(owner) !== registration || reload.has(owner))
@@ -907,6 +938,7 @@ export function createInputObserver(
         onChanged({
           invalidate: new Set(invalidate.keys()),
           reload: new Set(reload.keys()),
+          ...(reloadInputs === undefined ? {} : { reloadInputs }),
         });
       scheduleFlush();
     };

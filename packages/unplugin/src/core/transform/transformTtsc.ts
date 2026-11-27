@@ -258,13 +258,20 @@ async function runTransformTtsc(
           continue;
         }
       }
-      await TtscGenerationProof.prepare(cached, file, epoch);
-      if (cache?.get(key) !== transformed) {
-        if (preparing) return undefined;
-        continue;
+      const grouped = hooks?.watchGeneration !== undefined;
+      let proof =
+        grouped && epoch === undefined
+          ? TtscGenerationProof.currentWatch(cached, file)
+          : undefined;
+      if (proof === undefined) {
+        await TtscGenerationProof.prepare(cached, file, epoch);
+        if (cache?.get(key) !== transformed) {
+          if (preparing) return undefined;
+          continue;
+        }
+        proof = TtscGenerationProof.create(cached, file, epoch, grouped);
       }
       // No await between this observation and synchronous admission.
-      const proof = TtscGenerationProof.create(cached, file, epoch);
       const action = selectCachedGenerationAction({
         proof,
         cache,

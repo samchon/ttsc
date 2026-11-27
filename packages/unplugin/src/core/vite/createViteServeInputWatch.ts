@@ -1,6 +1,9 @@
+import path from "node:path";
+
 import type { InputObserverOperations } from "../observer/InputObserverOperations";
 import { createInputObserver } from "../observer/createInputObserver";
 import { hostDeclaresPolling } from "../transform/tracker/hostDeclaresPolling";
+import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
 import type { ViteDevServerLike } from "./ViteDevServerLike";
 import type { ViteServeInputWatch } from "./ViteServeInputWatch";
 import { invalidateImporters } from "./invalidateImporters";
@@ -19,6 +22,11 @@ import { reloadImporters } from "./reloadImporters";
  * client effects. A remaining membership invalidation verdict only invalidates
  * graph nodes (`invalidateImporters`, samchon/ttsc#1419), without proving that
  * the actual root set changed or requesting an HMR update.
+ *
+ * Each compiler generation can share one set of recorded inputs. Changed input
+ * spellings are matched against the joined importers' dependency selections.
+ * Each importer independently registers routing and membership, and the last
+ * one to leave releases the generation registration.
  *
  * A watching server opens the observer on its root before compilation begins. A
  * watcherless server (`server.watch: null`) registers no notification inputs
@@ -69,11 +77,62 @@ export function createViteServeInputWatch(
 ): ViteServeInputWatch {
   let server: ViteDevServerLike | undefined;
   let watching = false;
-  const observer = createInputObserver(({ invalidate, reload }) => {
-    if (server === undefined) return;
-    if (reload.size !== 0) reloadImporters(server, reload);
-    if (invalidate.size !== 0) invalidateImporters(server, invalidate);
-  }, operations);
+  const groupByImporter = new Map<string, string>();
+  const groups = new Map<
+    string,
+    {
+      inputs: readonly TtscWatchInput[];
+      importers: Map<string, (changed: ReadonlySet<string>) => boolean>;
+      needsRegistration: boolean;
+    }
+  >();
+  const observer = createInputObserver(
+    ({ invalidate, reload, reloadInputs }) => {
+      if (server === undefined) return;
+      const affected = new Set<string>();
+      for (const owner of reload) {
+        const group = groups.get(owner);
+        if (group === undefined) {
+          affected.add(owner);
+          continue;
+        }
+        group.needsRegistration = true;
+        const files = reloadInputs?.get(owner);
+        for (const [importer, dependsOn] of group.importers) {
+          try {
+            if (files === undefined || dependsOn(files)) affected.add(importer);
+          } catch {
+            // Dependency selection could not rule out this importer after a change.
+            affected.add(importer);
+          }
+        }
+      }
+      if (affected.size !== 0) reloadImporters(server, affected);
+      if (invalidate.size !== 0)
+        invalidateImporters(
+          server,
+          new Set([...invalidate].filter((owner) => !affected.has(owner))),
+        );
+    },
+    operations,
+    true,
+  );
+  const forgetGroup = (importer: string) => {
+    const key = groupByImporter.get(importer);
+    if (key === undefined) return;
+    groupByImporter.delete(importer);
+    const group = groups.get(key)!;
+    group.importers.delete(importer);
+    if (group.importers.size === 0) {
+      groups.delete(key);
+      observer.forget(key);
+    }
+  };
+  const dispose = () => {
+    groupByImporter.clear();
+    groups.clear();
+    return observer.dispose();
+  };
   return {
     attach(next) {
       server = next;
@@ -81,7 +140,7 @@ export function createViteServeInputWatch(
       if (!watching) {
         // dispose clears registrations and closes handles synchronously; its
         // Promise exposes the common observer lifecycle to asynchronous owners.
-        void observer.dispose();
+        void dispose();
         return;
       }
       observer.open(
@@ -94,10 +153,40 @@ export function createViteServeInputWatch(
     },
     begin: () => observer.begin(),
     // The attached server is kept across overlapping Vite restart containers.
-    dispose: () => observer.dispose(),
-    forget: (importer) => observer.forget(importer),
+    dispose,
+    forget: (importer) => {
+      forgetGroup(path.resolve(importer));
+      observer.forget(importer);
+    },
     replace: (importer, inputs, failed, startedAt) => {
-      if (watching) observer.replace(importer, inputs, failed, startedAt);
+      if (!watching) return;
+      if (!failed) forgetGroup(path.resolve(importer));
+      observer.replace(importer, inputs, failed, startedAt);
+    },
+    replaceGeneration(importer, startedAt, owner, inputs, local, affected) {
+      if (!watching) return false;
+      importer = path.resolve(importer);
+      owner = path.resolve(owner);
+      let group = groups.get(owner);
+      if (
+        inputs.length === 0 ||
+        importer === owner ||
+        (group !== undefined && group.inputs !== inputs)
+      )
+        return false;
+      if (groupByImporter.get(importer) !== owner) forgetGroup(importer);
+      if (group === undefined) {
+        group = { inputs, importers: new Map(), needsRegistration: true };
+        groups.set(owner, group);
+      }
+      groupByImporter.set(importer, owner);
+      group.importers.set(importer, affected);
+      if (group.needsRegistration) {
+        group.needsRegistration = false;
+        observer.replace(owner, inputs, false, startedAt);
+      }
+      observer.replace(importer, local, false, startedAt);
+      return true;
     },
   };
 }

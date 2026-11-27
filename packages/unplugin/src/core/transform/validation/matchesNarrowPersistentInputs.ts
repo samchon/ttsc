@@ -3,11 +3,22 @@ import path from "node:path";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { selectWatchInputs } from "../envelope/selectWatchInputs";
+import type { TtscProjectMutationTracker } from "../tracker/TtscProjectMutationTracker";
 import { notificationsProveMembership } from "../tracker/notificationsProveMembership";
 import { reportsMembershipChange } from "../tracker/reportsMembershipChange";
+import { generationWatchInputs } from "../watch/generationWatchInputs";
 import type { TtscGenerationProof } from "./TtscGenerationProof";
 import { matchesProvenInput } from "./matchesProvenInput";
 import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
+
+const uncoveredInputs = new WeakMap<
+  TtscCachedProjectTransform,
+  {
+    project: ReadonlySet<string> | undefined;
+    host: ReadonlySet<string> | undefined;
+    complete: boolean;
+  }
+>();
 
 /**
  * Validate one graph-bearing cached output against only the inputs that can
@@ -39,8 +50,10 @@ import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Immutable envelope selections, universal manifests and currently qualified
  *   per-input signatures serve sibling deliveries. Universal validation is
- *   invoked on each call; covered lexical spellings skip only the second input
- *   proof, and memoized dependency lists do not themselves prove fresh content.
+ *   invoked on each call. Quiet authoritative scopes let sibling deliveries
+ *   share the exact covered set difference. Inputs outside those scopes still
+ *   need current proof, and a failed wider proof returns to the module's own
+ *   selection.
  */
 export function matchesNarrowPersistentInputs(
   /**
@@ -66,6 +79,37 @@ export function matchesNarrowPersistentInputs(
   if (!matchesUniversalHostInputs(cached, hostValidation, proof)) {
     return false;
   }
+  const verified =
+    proof?.cached === cached &&
+    proof.groupedWatchInputs === true &&
+    proof.locations !== undefined;
+  const project = verified
+    ? quietCoverage(cached.projectMutationTracker)
+    : undefined;
+  const host = verified
+    ? quietCoverage(cached.hostInputMutationTracker)
+    : undefined;
+  if (project !== undefined || host !== undefined) {
+    let uncovered = uncoveredInputs.get(cached);
+    if (
+      uncovered === undefined ||
+      uncovered.project !== project ||
+      uncovered.host !== host
+    ) {
+      uncovered = {
+        project,
+        host,
+        complete: generationWatchInputs(cached).every(
+          ({ file }) =>
+            hostValidation.covered.has(file) ||
+            project?.has(file) ||
+            host?.has(file),
+        ),
+      };
+      uncoveredInputs.set(cached, uncovered);
+    }
+    if (uncovered.complete) return true;
+  }
   const inputs = selectWatchInputs({
     file,
     projectRoot: cached.projectRoot,
@@ -85,4 +129,22 @@ export function matchesNarrowPersistentInputs(
     }
   }
   return true;
+}
+
+/**
+ * Covered spellings can stand for the whole quiet scope after its current
+ * location and notification checks.
+ */
+function quietCoverage(
+  tracker: TtscProjectMutationTracker | undefined,
+): ReadonlySet<string> | undefined {
+  return tracker?.contentAuthoritative === true &&
+    !tracker.failed &&
+    !tracker.unverified &&
+    !tracker.changesOmitted &&
+    !tracker.membershipChanged &&
+    tracker.changes.size === 0 &&
+    (tracker.unproven?.size ?? 0) === 0
+    ? tracker.covered
+    : undefined;
 }

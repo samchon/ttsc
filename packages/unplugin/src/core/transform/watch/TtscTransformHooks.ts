@@ -31,6 +31,17 @@ import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
  */
 export interface TtscTransformHooks {
   /**
+   * Register a shared compiler generation and this module's local routing
+   * inputs. A refusal keeps the ordinary per-module registration.
+   */
+  watchGeneration?: (
+    owner: string,
+    inputs: readonly TtscWatchInput[],
+    local: readonly TtscWatchInput[],
+    affected: (changed: ReadonlySet<string>) => boolean,
+  ) => boolean;
+
+  /**
    * Native config already selected by the host for this delivered module.
    *
    * A host that freezes routing and its discovery inputs in one transaction

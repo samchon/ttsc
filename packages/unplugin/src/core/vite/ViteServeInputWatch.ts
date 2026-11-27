@@ -1,3 +1,4 @@
+import type { TtscTransformHooks } from "../transform/watch/TtscTransformHooks";
 import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
 import type { ViteDevServerLike } from "./ViteDevServerLike";
 
@@ -31,6 +32,18 @@ import type { ViteDevServerLike } from "./ViteDevServerLike";
  *   its observer implementation owns release and retained restart association.
  */
 export interface ViteServeInputWatch {
+  /**
+   * Join an observed generation while keeping this importer's local inputs and
+   * invalidation predicate.
+   */
+  replaceGeneration?(
+    importer: string,
+    startedAt: number,
+    ...registration: Parameters<
+      NonNullable<TtscTransformHooks["watchGeneration"]>
+    >
+  ): boolean;
+
   /**
    * Bind the dev server whose graphs are invalidated. A watching server opens
    * the pinned project-root scope; null watching releases prior registrations

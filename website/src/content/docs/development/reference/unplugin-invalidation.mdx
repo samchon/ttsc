@@ -28,7 +28,9 @@ Five principles decide every case, and each names its owner:
 
   Pinned and external subscriptions retain authority only while their physical directory matches the configured spelling. Registration verifies each native location before lending coverage, and one shared poll verifies occupied locations between events. A moved, missing or replaced root releases its native authority and sends its inputs to the bounded fallback poll. Attaching again at the same spelling rebuilds failed project coverage, retains the importers' recorded conditions and checks them after the new subscription opens. Retired native callbacks and poll callbacks cannot act on the new attachment.
 
-  It tells its owner which owners' inputs changed, `reload` for a changed input and `invalidate` for a project that only gained or lost a root file, and nothing else. It has two owners, the Vite dev server (`vite/createViteServeInputWatch.ts`), whose owners are importers, and the bridge, whose owners are records.
+  A changed input requests `reload`. A change only to root-file membership requests `invalidate`. The build bridge observes inputs by record. Watching Vite observes common compiler inputs once per generation and routes the changed spellings to the importers that depend on them. Each importer keeps its own config selection and membership registration.
+
+  When current native observers cover unchanged inputs, deliveries prove only the remaining inputs. Typed config predicates and any input outside authoritative coverage still get a current comparison. If a wider comparison cannot prove reuse, the adapter checks the requested importer's dependency selection.
 
   A Vite server with `server.watch: null` owns no serve notification observer or fallback poller. Attaching one releases previous importer registrations. Watching servers still open their root scope before compilation so registration can detect changes during the compile; generation capture and freshness validation keep their own observation lifetimes in both modes.
 

@@ -34,4 +34,7 @@ export interface InputObserverChange {
 
   /** Native owners with a changed or unproved non-membership input state. */
   reload: ReadonlySet<string>;
+
+  /** Changed non-membership inputs, when requested by a grouped observer. */
+  reloadInputs?: ReadonlyMap<string, ReadonlySet<string>>;
 }
