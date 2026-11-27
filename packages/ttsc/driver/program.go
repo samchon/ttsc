@@ -26,7 +26,7 @@ import (
 // Program's semantic project root.
 const SemanticConfigPathEnv = "TTSC_SEMANTIC_CONFIG_PATH"
 
-var beginBatchOnce = shimcompiler.BeginBatchOnce
+var beginBatchOnce = shimcompiler.BeginBatchOnceForProgram
 
 // Diagnostic is the compilation diagnostic shape ttsc passes around. Its public
 // data members use plain values; private native anchors support richer rendering.
@@ -625,17 +625,15 @@ func (p *Program) requireSingleCheckerForEmit() error {
 // callers should provide an absolute anchor. tsconfigPath may be relative to it.
 //
 // When the process environment sets `TTSC_BATCH=1` (shim/compiler.BatchEnv),
-// LoadProgram delegates to shim/compiler.BeginBatchOnce before constructing the
-// Program, binds the created Program and calls the returned programBound
-// callback before returning so nothing has checked it yet. The compiler hook
-// begins at most once per process and its end callback is not called because
-// the marker states the process ends with its batch. When effective noEmit is
+// LoadProgram asks shim/compiler.BeginBatchOnceForProgram for a callback before
+// Program construction. Only an active callback needs explicit binding, which
+// finishes before the callback and any check. The process exits after the
+// batch, so no end callback is needed. When effective noEmit is
 // also true (after ForceNoEmit and ForceEmit) and the load is not
 // single-threaded, LoadProgram leaves TypeScript-Go's checker pool unpinned so
 // diagnostics can run in parallel while prog.Checker stays on
-// TSProgram.GetTypeChecker(). Without the marker BeginBatchOnce returns a
-// no-op, the pool stays pinned to one checker, and driver.NewSession never
-// enables batch mode or pooling even when the marker is set.
+// TSProgram.GetTypeChecker(). Without the marker the pool stays pinned.
+// driver.NewSession uses neither batch binding nor the unpinned pool.
 //
 // An enabled private compilation-snapshot document shares first-read text and
 // lookup answers across sequential native stages. This is not an atomic volume

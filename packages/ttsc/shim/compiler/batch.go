@@ -9,3 +9,7 @@ import (
 func beginBatch() (programBound func(), end func()) {
   return innerbatch.Begin()
 }
+
+func beginBatchForProgram() (programBound func(), end func()) {
+	return beginBatch()
+}

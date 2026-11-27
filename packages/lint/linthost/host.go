@@ -34,7 +34,7 @@ import (
 
 var programLifecycleSequence atomic.Uint64
 
-var beginBatchOnce = shimcompiler.BeginBatchOnce
+var beginBatchOnce = shimcompiler.BeginBatchOnceForProgram
 
 // semanticConfigPathEnv mirrors `driver.SemanticConfigPathEnv`: the internal
 // channel that identifies the user-authored config behind a generated wrapper.
