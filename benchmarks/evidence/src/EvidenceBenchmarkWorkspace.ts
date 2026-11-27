@@ -8,6 +8,7 @@ import YAML from "yaml";
 
 import { EvidenceBenchmarkLayout } from "./EvidenceBenchmarkLayout";
 import { EvidenceBenchmarkRuntime } from "./EvidenceBenchmarkRuntime";
+import { EvidenceBenchmarkToolchain } from "./EvidenceBenchmarkToolchain";
 import type { ITtscEvidenceBenchmarkWorkspaceArtifact } from "./structures/ITtscEvidenceBenchmarkWorkspaceArtifact";
 import type { ITtscEvidenceBenchmarkWorkspaceRequest } from "./structures/ITtscEvidenceBenchmarkWorkspaceRequest";
 import type { ITtscEvidenceBenchmarkWorkspaceResult } from "./structures/ITtscEvidenceBenchmarkWorkspaceResult";
@@ -87,7 +88,7 @@ export namespace EvidenceBenchmarkWorkspace {
    * @evidence contracts/performance.md#efficient-algorithms Copies and filters the environment once; dependency graph and byte costs belong to pnpm, whose retained store and lockfile remain available rather than being deleted for every recovery.
    * @evidence contracts/performance.md#reuse-equivalent-work Recovery reuses the workspace's installed/store artifacts when pnpm permits, while each invocation revalidates the restored manifests because a checkpoint can change dependency inputs.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The run adapter owns one child until close or spawn failure, with inherited streams and no retained output buffer; the restored tree stays with its recovery caller. No cancellation signal is exposed by this API, so an abandoned caller must await its child.
-   * @evidence contracts/portability.md#os-neutral-implementation Starts process.execPath with npm_execpath as a separate argv element and shell:false, avoiding platform shell quoting and .cmd execution differences; cwd is a native resolved path.
+   * @evidence contracts/portability.md#os-neutral-implementation The actual pnpm entry is invoked with separate argv and shell:false, through Node only for JavaScript; cwd is a native resolved path.
    */
   export async function installDependencies(workspace: string): Promise<void> {
     const environment: NodeJS.ProcessEnv = { ...process.env };
@@ -578,15 +579,8 @@ export namespace EvidenceBenchmarkWorkspace {
     workspace: string,
     environment: NodeJS.ProcessEnv,
   ): Promise<void> {
-    const entrypoint: string | undefined = process.env.npm_execpath;
-    if (entrypoint === undefined)
-      throw new Error("prepareWorkspace must be launched through pnpm.");
-    return run(
-      process.execPath,
-      [entrypoint, ...arguments_],
-      workspace,
-      environment,
-    );
+    const invocation = EvidenceBenchmarkToolchain.pnpmInvocation(arguments_);
+    return run(invocation.binary, invocation.args, workspace, environment);
   }
   async function run(
     command: string,

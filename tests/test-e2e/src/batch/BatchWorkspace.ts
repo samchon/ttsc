@@ -26,6 +26,7 @@ import { CompilerArchives } from "../../../utils/src/CompilerArchives";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { prepareEvidenceDependencies } from "../../../utils/src/evidence/prepareEvidenceDependencies";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
+import { pnpmInvocation } from "../internal/pnpmInvocation";
 import { shellQuote } from "../internal/ttsc/internal/source-build";
 
 /**
@@ -747,16 +748,13 @@ export namespace BatchWorkspace {
     const installationOnly = process.argv.includes("--installation");
     const target = `${process.platform}-${process.arch}`;
     const pnpm = (args: string[], cwd: string): void => {
-      execFileSync("pnpm", args, {
+      const invocation = pnpmInvocation(args);
+      E2eProcessTrace.execFileSync(invocation.binary, invocation.args, {
         cwd,
-        shell: process.platform === "win32",
         stdio: "inherit",
+        windowsHide: true,
       });
     };
-    assert.ok(
-      process.env.npm_execpath,
-      "The E2E runner must be launched through pnpm",
-    );
     const compilerDirectories = ["packages/ttsc", `packages/ttsc-${target}`];
     // Runtime layouts mirror root files through hardlinks. Keep immutable
     // archives inside an opaque directory so those links cannot change their
@@ -769,14 +767,9 @@ export namespace BatchWorkspace {
       allocation: root,
       directories: compilerDirectories,
       produce: (directory, archive) =>
-        E2eProcessTrace.execFileSync(
-          process.execPath,
-          [process.env.npm_execpath!, "pack", "--out", archive],
-          {
-            cwd: path.join(TestProject.WORKSPACE_ROOT, directory),
-            stdio: "inherit",
-            windowsHide: true,
-          },
+        pnpm(
+          ["pack", "--out", archive],
+          path.join(TestProject.WORKSPACE_ROOT, directory),
         ),
       retain,
       observe: (event) =>

@@ -11,6 +11,7 @@ import { CompilerArtifactPreparation } from "../../../../../utils/src/CompilerAr
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { EvidenceProcessOwnership } from "../../../../../utils/src/evidence/EvidenceProcessOwnership";
 import { BackendActivation } from "../../../internal/evidence/BackendActivation";
+import { pnpmInvocation } from "../../../internal/pnpmInvocation";
 
 /**
  * Verifies all staged backend claims demand their generated populations.
@@ -85,7 +86,12 @@ export async function case_evidence_backend_claims_activate_after_generation(
   const observations: unknown[] = [];
   const passedClaims: string[] = [];
   let sequence = 0;
-  const run = (cwd: string, arguments_: string[], label: string) => {
+  const run = (
+    cwd: string,
+    arguments_: string[],
+    label: string,
+    binary = process.execPath,
+  ) => {
     ownership.assertAvailable(root);
     const prefix = path.join(logs, `${++sequence}-${label}`);
     let stdout: number | undefined;
@@ -95,7 +101,7 @@ export async function case_evidence_backend_claims_activate_after_generation(
     try {
       stdout = fs.openSync(prefix + ".stdout", "wx");
       stderr = fs.openSync(prefix + ".stderr", "wx");
-      result = E2eProcessTrace.spawnSync(process.execPath, arguments_, {
+      result = E2eProcessTrace.spawnSync(binary, arguments_, {
         cwd,
         env: environment,
         stdio: ["ignore", stdout, stderr],
@@ -114,6 +120,7 @@ export async function case_evidence_backend_claims_activate_after_generation(
     observations.push({
       label,
       cwd,
+      binary,
       arguments: arguments_,
       status: result.status,
       signal: result.signal,
@@ -138,11 +145,8 @@ export async function case_evidence_backend_claims_activate_after_generation(
     return { status: result.status, output };
   };
   const script = (directory: string, name: string, label: string) => {
-    assert.ok(
-      process.env.npm_execpath,
-      "The E2E runner must be launched through pnpm",
-    );
-    return run(directory, [process.env.npm_execpath, "run", name], label);
+    const invocation = pnpmInvocation(["run", name]);
+    return run(directory, invocation.args, label, invocation.binary);
   };
   try {
     if (!artifacts && compilerArchives) borrowed = compilerArchives.borrow();

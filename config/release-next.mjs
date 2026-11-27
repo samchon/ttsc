@@ -54,8 +54,9 @@ if (existingTag.status !== 1)
 
 const pnpm = process.env.npm_execpath;
 if (!pnpm) throw new Error("Run this script through pnpm release:next.");
-run(process.execPath, [
-  pnpm,
+const pnpmScript = /\.[cm]?js$/i.test(pnpm);
+run(pnpmScript ? process.execPath : pnpm, [
+  ...(pnpmScript ? [pnpm] : []),
   "exec",
   "bumpp",
   version,
