@@ -392,8 +392,8 @@ func BeginBatchOnce() (programBound func()) {
   if bound := BeginBatchOnceForProgram(); bound != nil {
     return bound
   }
-    return noopBatchBound
-  }
+  return noopBatchBound
+}
 
 // BeginBatchOnceForProgram returns a post-bind callback only when a compiler
 // hook needs it. Call it before Program creation and bind the Program before
