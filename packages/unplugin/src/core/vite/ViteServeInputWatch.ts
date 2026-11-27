@@ -34,7 +34,18 @@ import type { ViteDevServerLike } from "./ViteDevServerLike";
 export interface ViteServeInputWatch {
   /**
    * Join an observed generation while keeping this importer's local inputs and
-   * invalidation predicate.
+   * invalidation predicate. `startedAt` is the capture token for replaying
+   * changes before registration. Returning false leaves registration with the
+   * per-importer path.
+   *
+   * @evidence contracts/common.md#principled-implementation The method joins a generation input set under the importer's capture token while preserving its local inputs and affected predicate.
+   * @evidence contracts/common.md#clear-and-simple-design One method transports the same grouped registration defined by the transform hook and adds Vite's importer and sequence.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Refusal leaves the existing per-importer registration available. The grouped shape requires the exact dependency predicate for a module.
+   * @evidence contracts/common.md#meaningful-documentation The comment identifies the capture token, preserved inputs and return value.
+   * @evidence contracts/portability.md#os-neutral-implementation The importer and input spellings are native paths. The sequence expresses observer ordering rather than a native timestamp.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms The signature specifies the handoff. The observer implementation owns its costs.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The observer implementation owns generation registration reuse.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature retains no group state or resources. The observer owns their lifetime.
    */
   replaceGeneration?(
     importer: string,
