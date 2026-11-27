@@ -2103,7 +2103,10 @@ function buildRoot(
       checked: rootIsChecked(source),
       emitDir,
       key: `${process.pid}-${generation}`,
-      options: { plugins },
+      options: {
+        plugins,
+        cacheDir: dependencyCompilerCache(project.root, cacheDir),
+      },
       projectRoot: project.root,
       role: "root",
       source,
@@ -2336,6 +2339,29 @@ function dependencyCachePaths(
   };
 }
 
+/**
+ * Keep the normal compiler cache when available. A refused default gets storage
+ * owned by this runtime dependency build.
+ */
+function dependencyCompilerCache(
+  projectRoot: string,
+  runCache: string,
+): string | undefined {
+  const {
+    SidecarEnvironment,
+    SourceBuildCacheLayout,
+    resolveSourceBuildCachePaths,
+  } = runtimeBuildPath();
+  if (SidecarEnvironment.read(process.env, "TTSC_CACHE_DIR")) return undefined;
+  try {
+    resolveSourceBuildCachePaths(projectRoot);
+    return undefined;
+  } catch (error) {
+    if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
+    return path.join(runCache, "compiler");
+  }
+}
+
 /** A runtime build may publish only under the compiler content that keyed it. */
 function assertCompilerStillCurrent(tsconfig: string, proof?: string): void {
   if (proof === undefined) return;
@@ -2385,6 +2411,7 @@ function buildDependency(
     runtimeCompilerArgs,
   } = runtimeBuildPath();
   const project = readPluginDescriptorProjectConfig(tsconfig);
+  const compilerCacheDir = dependencyCompilerCache(project.root, cacheDir);
   const generation = DependencyBuildGeneration.newDependencyGeneration();
   const emitDir = DependencyBuildGeneration.dependencyGenerationDir(
     cacheDir,
@@ -2395,6 +2422,7 @@ function buildDependency(
     fs.mkdirSync(emitDir, { recursive: true });
     const result = runBuild({
       cwd: project.root,
+      cacheDir: compilerCacheDir,
       bundleRuntimeOutputs: true,
       runtimeCacheDir:
         process.env.TTSX_DISABLE_CACHE === "1" ||
@@ -2402,6 +2430,7 @@ function buildDependency(
           ? undefined
           : path.join(
               runtimeRecordStore()?.root ??
+                compilerCacheDir ??
                 resolveSourceBuildCachePaths(project.root).root,
               SourceBuildCacheLayout.RUNTIME_BUILD_CACHE_DIRNAME,
             ),

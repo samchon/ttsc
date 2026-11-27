@@ -24,6 +24,7 @@ import { resolveBinary } from "../resolveBinary";
 import { resolveTsgo } from "../resolveTsgo";
 import { runNativeCheckWithObservations } from "../runNativeCheckWithObservations";
 import { BATCH_ENV } from "../sharedHost/BATCH_ENV";
+import { PRIVATE_CONFIG_OVERLAY_ENV } from "../sharedHost/PRIVATE_CONFIG_OVERLAY_ENV";
 import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
 import { TSGO_ARGS_CWD_ENV } from "../sharedHost/TSGO_ARGS_CWD_ENV";
 import { TSGO_ARGS_ENV } from "../sharedHost/TSGO_ARGS_ENV";
@@ -558,6 +559,18 @@ export namespace BuildExecution {
         stdout: "",
         stderr: "",
       };
+    }
+
+    if (
+      buildOptions.emit === true &&
+      buildOptions.forceEmitProvenance === true &&
+      SidecarEnvironment.read(buildOptions.env, PRIVATE_CONFIG_OVERLAY_ENV) &&
+      isProjectCompiler(execution, buildOptions) &&
+      !PassthroughFlags.forwardsTerminalTsgoFlag(buildOptions)
+    ) {
+      // The CLI only sees the physical wrapper. The selected compiler target
+      // needs its native VFS to read it at the original config's directory.
+      return runSnapshotCompilerBuild(execution, buildOptions);
     }
 
     const args = TsgoArguments.createTsgoBuildArgs(execution, buildOptions, {

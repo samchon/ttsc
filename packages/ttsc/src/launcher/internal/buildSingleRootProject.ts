@@ -4,6 +4,7 @@ import path from "node:path";
 import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
+import { PRIVATE_CONFIG_OVERLAY_ENV } from "../../compiler/internal/sharedHost/PRIVATE_CONFIG_OVERLAY_ENV";
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
@@ -34,11 +35,11 @@ import { singleRootProjectConfig } from "./singleRootProjectConfig";
  * `buildSingleRootInMemory` takes that route first. The command-line fallback
  * needs a config file to combine an exact file list with project options. For a
  * checked root it uses the owning config's dependency installation when present
- * or the existing workspace cache policy. Ancestor lookup for `types` still
- * reaches that installation. The emit-only lane uses its private output
- * directory. In both lanes inherited `${configDir}` compiler paths retain their
- * owning directory. The temporary file is created exclusively and removed after
- * the build.
+ * or the existing workspace cache policy. If that location cannot hold a write,
+ * native hosts read the wrapper from run-owned storage through a VFS view
+ * beside the original config. The emit-only lane uses its private output
+ * directory. Inherited `${configDir}` compiler paths retain their owner, and
+ * the temporary file is created exclusively and removed after the build.
  *
  * `rootDir` is the root of the source's volume. The layout of this emit is
  * private, so `rootDir` decides nothing here but whether a file of the program
@@ -142,13 +143,21 @@ export function buildSingleRootProject(props: {
   );
   const configDir = path.dirname(original.path);
   const localModules = path.join(configDir, "node_modules");
-  const overlayDirectory = props.checked
-    ? fs.lstatSync(localModules, { throwIfNoEntry: false }) === undefined
-      ? resolveSourceBuildCachePaths(configDir, undefined, {}).root
-      : SourceBuildCacheLayout.defaultWorkspaceCachePath(
-          path.join(localModules, ".cache", "ttsc"),
-        )
-    : path.dirname(props.emitDir);
+  let overlayDirectory = path.dirname(props.emitDir);
+  let ownerInNativeView = false;
+  if (props.checked) {
+    try {
+      overlayDirectory =
+        fs.lstatSync(localModules, { throwIfNoEntry: false }) === undefined
+          ? resolveSourceBuildCachePaths(configDir, undefined, {}).root
+          : SourceBuildCacheLayout.defaultWorkspaceCachePath(
+              path.join(localModules, ".cache", "ttsc"),
+            );
+    } catch (error) {
+      if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
+      ownerInNativeView = true;
+    }
+  }
   const tsconfig = path.join(
     overlayDirectory,
     `.ttsx-${props.role}.${props.key}.tsconfig.json`,
@@ -200,9 +209,14 @@ export function buildSingleRootProject(props: {
       checkers: options.checkers,
       cwd: props.projectRoot,
       emit: true,
-      // The overlay owns the exact file list. The native semantic-config
-      // channel reparses its owner and would reload the original file set.
-      env: options.env,
+      env: ownerInNativeView
+        ? SidecarEnvironment.merge(options.env, {
+            [PRIVATE_CONFIG_OVERLAY_ENV]: JSON.stringify([
+              project.path,
+              original.path,
+            ]),
+          })
+        : options.env,
       cacheDir: options.cacheDir,
       outDir: props.emitDir,
       // Every output this build writes stays in ttsx's private directory: a

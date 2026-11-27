@@ -18,6 +18,7 @@ import (
   "github.com/microsoft/typescript-go/shim/tsoptions"
   "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/microsoft/typescript-go/shim/vfs"
+  "github.com/samchon/ttsc/packages/ttsc/driver/configoverlay"
   "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
@@ -677,6 +678,10 @@ func loadProgram(cwd, tsconfigPath string, options LoadProgramOptions, allowBatc
   fs := options.FS
   if fs == nil {
     fs = DefaultFS()
+  }
+  fs, tsconfigPath, err = configoverlay.Open(fs, cwd, tsconfigPath)
+  if err != nil {
+    return nil, nil, err
   }
   var snapshot *compilationSnapshotFS
   if filename := os.Getenv("TTSC_COMPILATION_SNAPSHOT"); filename != "" {

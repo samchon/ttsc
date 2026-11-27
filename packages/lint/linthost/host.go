@@ -30,6 +30,7 @@ import (
   "github.com/microsoft/typescript-go/shim/vfs/osvfs"
 
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
+  "github.com/samchon/ttsc/packages/ttsc/driver/configoverlay"
 )
 
 var programLifecycleSequence atomic.Uint64
@@ -124,6 +125,11 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   if !filepath.IsAbs(resolved) {
     resolved = filepath.Join(cwd, resolved)
   }
+  var fs vfs.FS = bundled.WrapFS(cachedvfs.From(osvfs.FS()))
+  fs, resolved, err := configoverlay.Open(fs, cwd, resolved)
+  if err != nil {
+    return nil, nil, err
+  }
   configFile, ok := shimtspath.TryRootedFilePathFromAbsolute(resolved)
   if !ok {
     return nil, nil, fmt.Errorf("loadProgram: tsconfig path is not absolute: %s", resolved)
@@ -133,7 +139,6 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     return nil, nil, fmt.Errorf("loadProgram: cwd is not absolute: %s", cwd)
   }
 
-  var fs vfs.FS = bundled.WrapFS(cachedvfs.From(osvfs.FS()))
   var observer *inputObservationFS
   var reader *projectInputReader
   if options.observeInputs {

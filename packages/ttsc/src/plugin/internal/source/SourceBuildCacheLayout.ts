@@ -33,6 +33,29 @@ import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The namespace has no acquired state; its maintenance operations own reclamation decisions.
  */
 export namespace SourceBuildCacheLayout {
+  /**
+   * Whether the automatic cache refused a path this caller can replace with
+   * owned storage.
+   *
+   * @evidence contracts/common.md#principled-implementation Only permission, read-only filesystem, and unsafe default placement errors request an owned fallback.
+   * @evidence contracts/common.md#clear-and-simple-design Runtime callers share error classification while retaining storage ownership.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Other failures propagate and explicit cache owners still control their paths.
+   * @evidence contracts/common.md#meaningful-documentation The predicate's result identifies the default placement failure it recognizes.
+   * @evidence contracts/portability.md#os-neutral-implementation Node error codes carry native failures alongside the layout's own refusal code.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms One field access and a fixed set of comparisons.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work No observation or work is shared by this predicate.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No retained state or handle.
+   */
+  export function refusesDefaultPath(error: unknown): boolean {
+    const code = (error as NodeJS.ErrnoException | null)?.code;
+    return (
+      code === "EACCES" ||
+      code === "EPERM" ||
+      code === "EROFS" ||
+      code === "TTSC_UNSAFE_NODE_MODULES_CACHE"
+    );
+  }
+
   const DEFAULT_WORKSPACE_CACHE_MARKER = ".workspace-root";
 
   /** Directory name the workspace-local cache is placed under. */

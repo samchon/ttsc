@@ -717,13 +717,9 @@ function defaultRuntimeCacheDir(
       runtime,
     };
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
     if (
       env.TTSC_CACHE_DIR ||
-      (code !== "EACCES" &&
-        code !== "EPERM" &&
-        code !== "EROFS" &&
-        code !== "TTSC_UNSAFE_NODE_MODULES_CACHE")
+      !SourceBuildCacheLayout.refusesDefaultPath(error)
     ) {
       throw error;
     }
