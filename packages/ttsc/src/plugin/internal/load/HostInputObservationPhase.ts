@@ -24,26 +24,25 @@ import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFil
  * phase memo when that phase ends so later phases observe filesystem changes
  * afresh.
  *
- * For present non-symlink leaves, each ancestor directory is resolved once per
- * phase with `fs.realpathSync.native` and listed once per phase with
- * `fs.readdirSync` so the leaf keeps its exact on-disk spelling, byte-identical
- * to `fs.realpathSync.native` including case on case-insensitive volumes. Exact
- * entry matches resolve directly; case-folded matches apply only when both the
- * lexical name and the matched entry are entirely ASCII and unambiguous.
- * Symlink leaves, non-ASCII or ambiguous folds, and unreadable directory
- * listings fall back to `fs.realpathSync.native`.
+ * A few positive leaves resolve directly with `fs.realpathSync.native`. Larger
+ * selections can share a physical parent and a directory scan bounded by the
+ * number of known leaves. Recovering case aliases requires a complete listing.
  *
  * @evidence contracts/common.md#principled-implementation Absent paths map ENOENT and ENOTDIR from one lstat to null hash and null realpath; present files, directories and symlinks preserve exact content-hash and native physical-path semantics, only confirmed non-symlink non-directory or missing ancestors short-circuit descendants within one phase, and case folding applies only to unambiguous ASCII-to-ASCII matches.
  * @evidence contracts/common.md#clear-and-simple-design One phase owner coordinates lstat kind, content hashes, physical targets, ancestor realpaths and directory listings so hashHostInputPaths and realpathHostInputPaths share observations without duplicating filesystem rules.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Symlink parents never short-circuit descendants, lexical leaf basenames never replace on-disk spelling, non-ASCII or ambiguous folds and unreadable listings fall back to native realpathSync.native, and nothing is cached in module state across phases.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the lstat-sharing rule, absent-parent short-circuit boundary, one-consistent-phase premise, phase-end drop requirement and exact on-disk casing protocol.
- * @evidence contracts/portability.md#os-neutral-implementation Native path.dirname/join/resolve, portable ENOENT/ENOTDIR classification, fs.lstatSync/statSync, fs.readdirSync and fs.realpathSync.native handle POSIX and Windows links, case-insensitive volumes and fallback spellings without platform-name branching.
- * @evidence contracts/performance.md#efficient-algorithms Each independent absent candidate incurs one lstatSync and zero statSync/realpath calls; descendants of already-observed missing or non-directory parents incur zero syscalls; present non-symlink files reuse their lstat kind and share one realpathSync.native and one readdirSync per parent directory per phase.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path and fs operations handle POSIX and Windows links, case aliases, lookup failures and directory streams.
+ * @evidence contracts/performance.md#efficient-algorithms Absent paths reuse lstat and ancestor evidence. Sparse positive paths resolve directly. A batch shares parent realpath and scans at most four entries per known leaf plus a completeness probe before falling back.
  * @evidence contracts/performance.md#reuse-equivalent-work Observations are shared only through an explicit caller-owned Phase instance within one synchronous load or verification phase and are dropped when that phase ends; separate phases observe the filesystem afresh.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Maps belong strictly to the caller-owned Phase object and are reclaimed when the phase ends; synchronous filesystem calls retain no open descriptors or global state.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Maps belong to the phase, partial names are discarded, and the directory handle is closed in every case.
  */
 export namespace HostInputObservationPhase {
   const PHASE_BRAND = Symbol("ttsc.HostInputObservationPhase");
+
+  // A listing pays off only when several observed leaves can share it.
+  const MIN_SHARED_LEAVES = 3;
+  const MAX_ENTRIES_PER_LEAF = 4;
 
   const DIRECTORY_HASH = crypto
     .createHash("sha256")
@@ -59,7 +58,7 @@ export namespace HostInputObservationPhase {
 
   interface DirectoryListing {
     readonly exact: ReadonlySet<string>;
-    readonly lower: ReadonlyMap<string, string | null>;
+    lower?: ReadonlyMap<string, string | null>;
   }
 
   /**
@@ -84,6 +83,7 @@ export namespace HostInputObservationPhase {
     readonly lstats: Map<string, LstatKind>;
     readonly directoryRealpaths: Map<string, string | null>;
     readonly directoryEntries: Map<string, DirectoryListing | null>;
+    readonly ordinaryLeaves: Map<string, number>;
   }
 
   /**
@@ -94,7 +94,7 @@ export namespace HostInputObservationPhase {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Allocates fresh per-phase maps rather than returning shared module state.
    * @evidence contracts/common.md#meaningful-documentation States single-phase factory purpose.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation Allocates JavaScript Maps with no native boundary.
-   * @evidence contracts/performance.md#efficient-algorithms Constant-time allocation of five empty Maps.
+   * @evidence contracts/performance.md#efficient-algorithms Constant-time allocation of empty phase maps.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Creates a fresh empty phase; sharing happens across calls given this instance.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Returned object is caller-owned and holds no handles.
    */
@@ -106,6 +106,7 @@ export namespace HostInputObservationPhase {
       lstats: new Map(),
       directoryRealpaths: new Map(),
       directoryEntries: new Map(),
+      ordinaryLeaves: new Map(),
     };
   }
 
@@ -185,12 +186,12 @@ export namespace HostInputObservationPhase {
    * Observe and memoize the physical path of a resolved path within `phase`,
    * byte-identical to `fs.realpathSync.native`.
    *
-   * @evidence contracts/common.md#principled-implementation Absent paths short-circuit to null from one lstat, symlink leaves resolve with native realpathSync.native, and non-symlink leaves join their cached physical parent directory with the exact on-disk entry name from a memoized readdirSync listing, falling back to realpathSync.native whenever the listing is unreadable or ambiguous.
+   * @evidence contracts/common.md#principled-implementation Proved absences return null, native realpath resolves unqualified leaves, and a complete listing supplies exact on-disk names for ordinary leaves in a qualifying batch.
    * @evidence contracts/common.md#clear-and-simple-design Shares lstat classification and absent-parent short-circuiting with hash observation while caching ancestor realpaths and directory listings per phase.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Never constructs a physical path from the lexical leaf basename; symlink leaves and unreadable or ambiguous listings always delegate to fs.realpathSync.native.
    * @evidence contracts/common.md#meaningful-documentation States byte-identical native realpath semantics and phase-scoped memoization.
-   * @evidence contracts/portability.md#os-neutral-implementation Uses fs.realpathSync.native for ancestor canonicalization and symlink/fallback resolution and fs.readdirSync for exact on-disk leaf casing on case-insensitive volumes without platform-name assumptions.
-   * @evidence contracts/performance.md#efficient-algorithms Zero syscalls on repeat lookup, already-observed absent path or absent/non-directory ancestor; present non-symlink files share one realpathSync.native and one readdirSync per parent directory per phase.
+   * @evidence contracts/portability.md#os-neutral-implementation Native canonicalization and directory entries preserve link behavior and physical spelling on each host.
+   * @evidence contracts/performance.md#efficient-algorithms Repeated or proved-absent lookups issue no syscall; sparse positives use one native realpath after lstat, and shared parents have a listing budget proportional to observed leaves.
    * @evidence contracts/performance.md#reuse-equivalent-work Shares lstat, realpath, ancestor realpath and directory listing results only within the caller-owned phase.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Retained maps belong to the caller-owned Phase and are dropped when the phase ends; synchronous filesystem calls hold no open handles.
    */
@@ -219,31 +220,37 @@ export namespace HostInputObservationPhase {
     if (existing !== undefined) {
       return existing;
     }
-    if (hasAbsentOrNonDirectoryAncestor(resolved, phase)) {
-      phase.lstats.set(resolved, "missing");
-      phase.hashes.set(resolved, null);
-      phase.realpaths.set(resolved, null);
-      return "missing";
-    }
+    const parent = path.dirname(resolved);
+    if (parent !== resolved && hasAbsentOrNonDirectoryAncestor(parent, phase))
+      return rememberMissing(resolved, phase);
     try {
-      const stats = fs.lstatSync(resolved);
+      const stats = fs.lstatSync(resolved, { throwIfNoEntry: false });
+      if (stats === undefined) return rememberMissing(resolved, phase);
       const kind: LstatKind = stats.isSymbolicLink()
         ? "symlink"
         : stats.isDirectory()
           ? "directory"
           : "non-directory";
       phase.lstats.set(resolved, kind);
+      if (kind === "non-directory")
+        phase.ordinaryLeaves.set(
+          parent,
+          (phase.ordinaryLeaves.get(parent) ?? 0) + 1,
+        );
       return kind;
     } catch (error) {
-      if (RuntimeFilesystem.isMissingPathError(error)) {
-        phase.lstats.set(resolved, "missing");
-        phase.hashes.set(resolved, null);
-        phase.realpaths.set(resolved, null);
-        return "missing";
-      }
+      if (RuntimeFilesystem.isMissingPathError(error))
+        return rememberMissing(resolved, phase);
       phase.lstats.set(resolved, "error");
       return "error";
     }
+  }
+
+  function rememberMissing(resolved: string, phase: Phase): "missing" {
+    phase.lstats.set(resolved, "missing");
+    phase.hashes.set(resolved, null);
+    phase.realpaths.set(resolved, null);
+    return "missing";
   }
 
   /**
@@ -252,11 +259,11 @@ export namespace HostInputObservationPhase {
    * parents never short-circuit descendants.
    */
   function hasAbsentOrNonDirectoryAncestor(
-    resolved: string,
+    parent: string,
     phase: Phase,
   ): boolean {
-    let current = path.dirname(resolved);
-    while (current !== resolved) {
+    let current = parent;
+    for (;;) {
       const ancestor = phase.lstats.get(current);
       if (ancestor === "missing" || ancestor === "non-directory") {
         return true;
@@ -275,14 +282,15 @@ export namespace HostInputObservationPhase {
     phase: Phase,
   ): string | null {
     const parent = path.dirname(resolved);
-    if (parent === resolved) {
+    const requested = phase.ordinaryLeaves.get(parent) ?? 0;
+    if (parent === resolved || requested < MIN_SHARED_LEAVES) {
       return nativeRealpath(resolved);
     }
     const physicalParent = resolveDirectoryRealpath(parent, phase);
     if (physicalParent === null) {
       return nativeRealpath(resolved);
     }
-    const listing = listDirectory(physicalParent, phase);
+    const listing = listDirectory(physicalParent, requested, phase);
     if (listing !== null) {
       const exactLeaf = lookupEntry(listing, path.basename(resolved));
       if (exactLeaf !== undefined) {
@@ -328,29 +336,35 @@ export namespace HostInputObservationPhase {
 
   function listDirectory(
     physicalDirectory: string,
+    requested: number,
     phase: Phase,
   ): DirectoryListing | null {
     if (phase.directoryEntries.has(physicalDirectory)) {
       return phase.directoryEntries.get(physicalDirectory)!;
     }
-    let names: string[];
+    let listing: DirectoryListing | null = null;
+    const budget = requested * MAX_ENTRIES_PER_LEAF;
+    const exact = new Set<string>();
     try {
-      names = fs.readdirSync(physicalDirectory);
-    } catch {
-      phase.directoryEntries.set(physicalDirectory, null);
-      return null;
-    }
-    const exact = new Set<string>(names);
-    const lower = new Map<string, string | null>();
-    for (const name of names) {
-      const folded = name.toLowerCase();
-      if (!isAscii(name) || lower.has(folded)) {
-        lower.set(folded, null);
-      } else {
-        lower.set(folded, name);
+      const directory = fs.opendirSync(physicalDirectory, {
+        bufferSize: Math.min(budget + 1, 256),
+      });
+      try {
+        for (let count = 0; count <= budget; count++) {
+          const entry = directory.readSync();
+          if (entry === null) {
+            listing = { exact };
+            break;
+          }
+          if (count === budget) break;
+          exact.add(entry.name);
+        }
+      } finally {
+        directory.closeSync();
       }
+    } catch {
+      listing = null;
     }
-    const listing: DirectoryListing = { exact, lower };
     phase.directoryEntries.set(physicalDirectory, listing);
     return listing;
   }
@@ -364,6 +378,14 @@ export namespace HostInputObservationPhase {
     }
     if (!isAscii(lexicalName)) {
       return undefined;
+    }
+    if (listing.lower === undefined) {
+      const lower = new Map<string, string | null>();
+      for (const name of listing.exact) {
+        const folded = name.toLowerCase();
+        lower.set(folded, isAscii(name) && !lower.has(folded) ? name : null);
+      }
+      listing.lower = lower;
     }
     const folded = listing.lower.get(lexicalName.toLowerCase());
     return folded === undefined || folded === null ? undefined : folded;

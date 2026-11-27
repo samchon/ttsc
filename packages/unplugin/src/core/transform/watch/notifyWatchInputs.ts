@@ -1,10 +1,13 @@
 import path from "node:path";
 
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
+import type { TtscEnvelopeDerivation } from "../envelope/TtscEnvelopeDerivation";
 import { derivationIdentity } from "../envelope/derivationIdentity";
 import { deriveWatchInputs } from "../envelope/deriveWatchInputs";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
+import { envelopeGraphIndexes } from "../envelope/envelopeGraphIndexes";
 import { hostSpelling } from "../envelope/hostSpelling";
+import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
 import { selectWatchInputs } from "../envelope/selectWatchInputs";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
@@ -105,12 +108,7 @@ export function notifyWatchInputs(
       cached.scratchDirectory,
       generationWatchInputs(cached),
       local,
-      (changed) =>
-        deriveWatchInputs(
-          state,
-          { ...cached, file },
-          derivationIdentity(state, file),
-        ).some((input) => changed.has(path.resolve(input))),
+      bindWatchMatcher(groupedWatchMatcher(cached, cached.result, state), file),
     )
   )
     return;
@@ -130,4 +128,86 @@ export function notifyWatchInputs(
       ? undefined
       : cached.result.environmentInputs,
   );
+}
+
+type WatchMatcher = (file: string, changed: ReadonlySet<string>) => boolean;
+
+const GROUPED_MATCHERS = new WeakMap<
+  TtscCachedProjectTransform,
+  WatchMatcher
+>();
+
+/**
+ * Share a generation's routing inputs among Vite importers. Importers can keep
+ * this matcher after eviction, so its closure takes no cached transform or
+ * compiler result.
+ *
+ * @evidence contracts/common.md#principled-implementation Each importer still derives its own dependencies from its delivered generation's graph and declarations.
+ * @evidence contracts/common.md#clear-and-simple-design Copy routing fields once and build the escaping function in a scope with only routing inputs.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The matcher neither keeps the compiler output nor replaces exact selection with a generation-wide invalidation.
+ * @evidence contracts/common.md#meaningful-documentation States why the watcher lifetime can outlast the compile cache and names the retained data.
+ * @evidence contracts/portability.md#os-neutral-implementation Reuses the generation's native path identity context and absolute spellings.
+ * @evidence contracts/performance.md#efficient-algorithms A weak lookup reuses the matcher on delivery. It performs per-importer traversal only on input changes.
+ * @evidence contracts/performance.md#reuse-equivalent-work All importers of this generation share one matcher, existing graph indexes and parsed plugin source paths.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Watchers borrow graph indexes, paths and dependency declarations. Emitted sources, raw graph records and cache snapshots can leave with the cache owner.
+ */
+function groupedWatchMatcher(
+  cached: TtscCachedProjectTransform,
+  result: Extract<TtscCachedProjectTransform["result"], { type: "success" }>,
+  state: TtscEnvelopeDerivation,
+): WatchMatcher {
+  const prior = GROUPED_MATCHERS.get(cached);
+  if (prior !== undefined) return prior;
+  const { edges, spellings, candidates, globals, configs, resolutionInputs } =
+    envelopeGraphIndexes(state, cached);
+  const matcher = makeWatchMatcher(
+    {
+      identities: state.identities,
+      identityContext: state.identityContext,
+      selection: state.selection,
+    },
+    { edges, spellings, candidates, globals, configs, resolutionInputs },
+    {
+      projectRoot: cached.projectRoot,
+      scratchDirectory: cached.scratchDirectory,
+      temporaryTsconfig: cached.temporaryTsconfig,
+    },
+    {
+      type: result.type,
+      dependencies: result.dependencies,
+      dependenciesComplete: result.dependenciesComplete,
+      hostInputs: result.hostInputs,
+      volatile: result.volatile,
+    },
+    selectPluginSourceInputs(result),
+  );
+  GROUPED_MATCHERS.set(cached, matcher);
+  return matcher;
+}
+
+function makeWatchMatcher(
+  state: Parameters<typeof deriveWatchInputs.fromIndexes>[0],
+  graph: Parameters<typeof deriveWatchInputs.fromIndexes>[1],
+  options: Omit<Parameters<typeof deriveWatchInputs.fromIndexes>[2], "file">,
+  dependencies: Parameters<typeof deriveWatchInputs.fromIndexes>[3],
+  pluginSources: ReadonlyMap<string, string>,
+): WatchMatcher {
+  return (file, changed) =>
+    deriveWatchInputs
+      .fromIndexes(
+        state,
+        graph,
+        { ...options, file },
+        dependencies,
+        pluginSources.keys(),
+        derivationIdentity(state, file),
+      )
+      .some((input) => changed.has(path.resolve(input)));
+}
+
+function bindWatchMatcher(
+  match: WatchMatcher,
+  file: string,
+): (changed: ReadonlySet<string>) => boolean {
+  return (changed) => match(file, changed);
 }

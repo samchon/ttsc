@@ -5,6 +5,7 @@ import path from "node:path";
 import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
 import { createTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/createTtscTransformCache";
 import { transformFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/transformFilesystem";
+import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/TtscProjectMutationTracker";
 import { TtscGenerationProof } from "../../../../../packages/unplugin/src/core/transform/validation/TtscGenerationProof";
 import { matchesCompleteInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/matchesCompleteInputSnapshot";
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
@@ -45,13 +46,13 @@ export function test_complete_snapshot_reuses_independent_host_watch_proof(): vo
   );
   const result = {
     ...fixture.good.result,
-    graph: { edges: { "src/main.ts": [external] } },
+    graph: { edges: { "src/main.ts": [external] }, configs: [], globals: [] },
   };
   TRANSFORM_RESULT_FILESYSTEM.set(result, filesystem);
   try {
     const cached = observeValidationUnitGeneration(root, result);
     assert.ok(cached.externalInputPaths?.includes(external));
-    const host = (cached.hostInputMutationTracker = {
+    const host: TtscProjectMutationTracker = {
       changes: new Set<string>(),
       changesOmitted: false,
       close: () => undefined,
@@ -60,7 +61,8 @@ export function test_complete_snapshot_reuses_independent_host_watch_proof(): vo
       failed: false,
       membershipChanged: false,
       unverified: false,
-    });
+    };
+    cached.hostInputMutationTracker = host;
     const verify = (grouped: boolean) =>
       matchesCompleteInputSnapshot(
         cached,

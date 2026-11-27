@@ -96,6 +96,8 @@ The shims of a target are written for its pinned revision and are compiled again
 
 A compiler source declared with `TTSC_TSGO_SOURCE` may also provide the `internal/batch` package (`<declared dir>/internal/batch`, import path `<compiler module>/internal/batch`) exporting `func Begin() (programBound func(), end func())`. `Begin` tunes the Go runtime for one batch compilation, `programBound` is called once a Program is parsed and bound and before it is checked (once per Program of the batch), and `end` restores the runtime's settings.
 
+When either compiler mode needs a build tag, ttsc adds it to the last `-tags` setting Go would use. This works with Go's quoted space-separated tags and comma-separated tags, including settings stored with `go env -w GOFLAGS`.
+
 When that directory is present, the build uses the `ttsc_compiler_batch` Go tag and connects `shim/compiler.BeginBatch` to `<compiler module>/internal/batch.Begin`. Without the tag, `BeginBatch` supplies callable no-ops. Native hosts receive `TTSC_BATCH=1` for one-shot commands. `driver.LoadProgram` and `@ttsc/lint check` request a callback from `BeginBatchOnceForProgram` before creating a Program. When that callback exists, they bind the Program and run the callback before checking. Resident hosts keep the ordinary binding schedule.
 
 The two compilers differ in API shape. TypeScript 7.1 types every path, hides `ast.Symbol` state behind getters, and changes several compiler signatures. A plugin that must build on both targets uses only what both declare:

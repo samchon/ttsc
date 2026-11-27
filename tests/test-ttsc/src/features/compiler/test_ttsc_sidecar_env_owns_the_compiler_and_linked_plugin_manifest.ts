@@ -138,6 +138,7 @@ export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest 
           identities: {
             root: "/selected/cache",
             references: new Map<bigint, bigint>(),
+            listings: new Set<bigint>(),
             version: "test",
           },
         },

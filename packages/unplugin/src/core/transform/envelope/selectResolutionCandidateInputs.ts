@@ -1,5 +1,3 @@
-import type { ITtscCompilerTransformation } from "ttsc";
-
 import type { TtscEnvelopeDerivation } from "./TtscEnvelopeDerivation";
 import type { TtscEnvelopeGraphIndexes } from "./TtscEnvelopeGraphIndexes";
 import { derivationIdentity } from "./derivationIdentity";
@@ -26,24 +24,20 @@ import { selectReachableSources } from "./selectReachableSources";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This selector owns no request memo; shared candidate parsing belongs to envelopeGraphIndexes and final per-module list reuse belongs to selectWatchInputs.
  */
 export function selectResolutionCandidateInputs(
-  graph: TtscEnvelopeGraphIndexes,
-  state: TtscEnvelopeDerivation,
-  props: {
-    file: string;
-    projectRoot: string;
-    result: ITtscCompilerTransformation;
-  },
+  graph: Pick<
+    TtscEnvelopeGraphIndexes,
+    "edges" | "spellings" | "candidates" | "resolutionInputs"
+  >,
+  state: Pick<TtscEnvelopeDerivation, "identityContext" | "identities">,
+  file: string,
 ): string[] {
-  if (props.result.type === "exception" || props.result.graph === undefined) {
-    return [];
-  }
+  const output: string[] = [...graph.resolutionInputs];
+  if (graph.candidates.length === 0) return output;
   const reachable = new Set(
-    selectReachableSources(graph, state, props.file).map((source) =>
+    selectReachableSources(graph, state, file).map((source) =>
       derivationIdentity(state, source),
     ),
   );
-  const output: string[] = [...graph.resolutionInputs];
-  if (props.result.graph.candidates === undefined) return output;
   for (const entry of graph.candidates) {
     if (!reachable.has(entry.source)) {
       continue;

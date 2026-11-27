@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { HostInputObservationPhase } from "../../../../../packages/ttsc/src/plugin/internal/load/HostInputObservationPhase";
 import { PluginDescriptorEvaluationCache } from "../../../../../packages/ttsc/src/plugin/internal/load/PluginDescriptorEvaluationCache";
 import { hashHostInputPaths } from "../../../../../packages/ttsc/src/plugin/internal/load/hashHostInputPaths";
 import { realpathHostInputPaths } from "../../../../../packages/ttsc/src/plugin/internal/load/realpathHostInputPaths";
@@ -27,7 +28,6 @@ const DIRECTORY_HASH = crypto
 
 interface SyscallCounts {
   lstatPaths: string[];
-  readdirPaths: string[];
   realpathNativePaths: string[];
   realpathPaths: string[];
   statPaths: string[];
@@ -36,14 +36,12 @@ interface SyscallCounts {
 function withCountedFs<T>(run: (counts: SyscallCounts) => T): T {
   const counts: SyscallCounts = {
     lstatPaths: [],
-    readdirPaths: [],
     realpathNativePaths: [],
     realpathPaths: [],
     statPaths: [],
   };
   const originalLstat = fs.lstatSync;
   const originalStat = fs.statSync;
-  const originalReaddir = fs.readdirSync;
   const originalRealpath = fs.realpathSync;
   const originalRealpathNative = fs.realpathSync.native;
 
@@ -67,13 +65,6 @@ function withCountedFs<T>(run: (counts: SyscallCounts) => T): T {
     counts.statPaths.push(String(file));
     return originalStat(file, options);
   }) as typeof fs.statSync;
-  fs.readdirSync = ((
-    file: fs.PathLike,
-    options?: Parameters<typeof fs.readdirSync>[1],
-  ) => {
-    counts.readdirPaths.push(String(file));
-    return originalReaddir(file, options as never);
-  }) as typeof fs.readdirSync;
   fs.realpathSync = wrappedRealpath;
 
   try {
@@ -81,7 +72,6 @@ function withCountedFs<T>(run: (counts: SyscallCounts) => T): T {
   } finally {
     fs.lstatSync = originalLstat;
     fs.statSync = originalStat;
-    fs.readdirSync = originalReaddir;
     fs.realpathSync = originalRealpath;
     fs.realpathSync.native = originalRealpathNative;
   }
@@ -104,16 +94,14 @@ function withCountedFs<T>(run: (counts: SyscallCounts) => T): T {
  *    fs syscalls.
  * 2. Verify absent candidates pay one lstatSync and zero statSync, descendants of
  *    missing or non-directory parents pay zero syscalls, symlink parents never
- *    short-circuit, and shared directories pay one realpathSync.native and one
- *    readdirSync per phase.
- * 3. Verify exact on-disk casing on case-insensitive volumes for ASCII names,
- *    fallback to realpathSync.native for non-ASCII lexical names, non-ASCII
- *    fold targets (such as Kelvin sign) and unreadable listings, and fresh
- *    invalidation when a previously absent path is created in a later phase.
+ *    short-circuit, and a dense batch shares the directory's native realpath.
+ * 3. Compare native spellings for case and Unicode variants. Verify sparse inputs
+ *    skip listing, wide directories fall back and fresh phases see newly
+ *    created paths.
  *
- * @evidence contracts/testing.md#behavioral-verification Exercises PluginDescriptorEvaluationCache.write/read, hashHostInputPaths and realpathHostInputPaths against real files, directories, symlinks and absent candidates while counting in-process fs syscalls, plus wrapped fs mocks for Unicode normalization and Kelvin-sign fallback cases.
- * @evidence contracts/testing.md#independent-expectations Expected hashes come from independent SHA-256 over authored bytes and expected physical paths come from direct fs.realpathSync.native calls; exact syscall budgets verify one lstat per independent absent candidate, zero syscalls for absent-parent descendants, one directory realpath/readdir per phase, and native fallback on non-ASCII folds.
- * @evidence contracts/testing.md#distinguishing-cases Contrasts present files, directories, file/directory/broken symlinks, independent absent candidates, children under regular files, children under missing directories, children under symlinks, differing-case ASCII spellings on case-insensitive volumes, NFC/NFD non-ASCII normalization fallback, Kelvin-sign fold fallback, unreadable directory listings, and post-phase file creation.
+ * @evidence contracts/testing.md#behavioral-verification Calls the descriptor cache and host input helpers with native files, directories, links, absent candidates and Unicode names. Observes direct native probes and whether phases keep a complete listing, skip the listing or discard it as too wide.
+ * @evidence contracts/testing.md#independent-expectations Computes SHA-256 from authored bytes and physical paths with direct native realpath; call counters and phase observations distinguish absent, dense, sparse and wide work.
+ * @evidence contracts/testing.md#distinguishing-cases Contrasts file, directory, symlink and absent ancestry cases with case variants, normalized names, a Kelvin-sign alias, sparse versus wide batches, a searchable directory with unreadable entries on unprivileged POSIX, and post-phase creation.
  * @evidence contracts/testing.md#execution-ownership Calls maintained cache and host-input helpers directly over an owned temporary directory removed in finally, restoring every wrapped fs property in finally without starting a compiler, Go tool or subprocess.
  */
 export function test_host_input_warm_descriptor_load_syscall_budget(): void {
@@ -317,8 +305,7 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
           "child under file symlink must not be short-circuited by symlink parent",
         );
 
-      // (c) Present non-symlink files in dist/ share one realpathSync.native
-      // and one readdirSync for dist/ instead of calling realpathSync.native per file.
+      // (c) Non-symlink files in dist/ share the physical parent and listing.
       const distRealpathCalls = counts.realpathNativePaths.filter(
         (file) => file === dist,
       );
@@ -335,257 +322,108 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
         [],
         `expected 0 realpathSync.native calls on non-symlink leaf files in dist/, got ${JSON.stringify(leafFileRealpathCalls)}`,
       );
-      const distReaddirCalls = counts.readdirPaths.filter(
-        (file) => file === dist,
-      );
-      assert.equal(
-        distReaddirCalls.length,
-        1,
-        `expected 1 readdirSync for dist/, got ${distReaddirCalls.length}`,
-      );
     });
 
     check(
-      "case-insensitive volume returns exact on-disk leaf spelling from listing",
+      "small batches preserve native casing and Unicode normalization",
       () => {
-        const lowerAlias = path.join(dist, "mixedcase.js");
-        const caseInsensitive = fs.existsSync(lowerAlias);
-        if (!caseInsensitive) {
-          // Skipped on case-sensitive filesystem: lowercase spelling does not
-          // resolve to MixedCase.js on this volume.
-          return;
-        }
-        const upperAlias = path.join(dist, "MIXEDCASE.JS");
-        const expectedPhysical = fs.realpathSync.native(lowerAlias);
-        assert.equal(expectedPhysical, mixedCase);
+        const unicode = path.join(dist, "\u00c9.js");
+        const kelvin = path.join(dist, "\u212a.js");
+        const unicodeDir = path.join(dist, "\u00c9-dir");
+        fs.writeFileSync(unicode, "");
+        fs.writeFileSync(kelvin, "");
+        fs.mkdirSync(unicodeDir);
+        const paths = [
+          ...presentFiles,
+          mixedCase,
+          path.join(dist, "mixedcase.js"),
+          path.join(dist, "MIXEDCASE.JS"),
+          unicode,
+          path.join(dist, "e\u0301.js"),
+          path.join(dist, "\u00e9.js"),
+          kelvin,
+          path.join(dist, "k.js"),
+          unicodeDir,
+          path.join(dist, "e\u0301-dir"),
+        ];
+        const expected = Object.fromEntries(
+          paths.map((file) => {
+            try {
+              return [file, fs.realpathSync.native(file)];
+            } catch (error) {
+              assert.equal((error as NodeJS.ErrnoException).code, "ENOENT");
+              return [file, null];
+            }
+          }),
+        );
+        const phase = HostInputObservationPhase.create();
+        hashHostInputPaths(paths, phase);
+        assert.deepEqual(realpathHostInputPaths(paths, phase), expected);
+        assert.ok(phase.directoryEntries.get(dist), "finished small listing");
+      },
+    );
 
-        const { counts, resolved } = withCountedFs((counts) => ({
-          counts,
-          resolved: realpathHostInputPaths([lowerAlias, upperAlias]),
-        }));
-        assert.equal(
-          resolved[lowerAlias],
-          expectedPhysical,
-          "lowercase alias must canonicalize to exact on-disk casing",
+    check(
+      "sparse selections and wide directories use native leaf paths",
+      () => {
+        const wide = path.join(root, "wide");
+        fs.mkdirSync(wide);
+        for (let i = 0; i < 256; i++)
+          fs.writeFileSync(path.join(wide, `other-${i}`), "");
+        const files = ["One.js", "Two.js", "Three.js"].map((name) =>
+          path.join(wide, name),
         );
-        assert.equal(
-          resolved[upperAlias],
-          expectedPhysical,
-          "uppercase alias must canonicalize to exact on-disk casing",
-        );
+        for (const file of files) fs.writeFileSync(file, "");
+        const single = HostInputObservationPhase.create();
+        hashHostInputPaths(files.slice(0, 1), single);
+        assert.deepEqual(realpathHostInputPaths(files.slice(0, 1), single), {
+          [files[0]!]: fs.realpathSync.native(files[0]!),
+        });
+        assert.equal(single.directoryEntries.size, 0);
+        assert.equal(single.directoryRealpaths.size, 0);
+
+        const batch = HostInputObservationPhase.create();
+        hashHostInputPaths(files, batch);
         assert.deepEqual(
-          counts.realpathNativePaths.filter(
-            (file) => file === lowerAlias || file === upperAlias,
+          realpathHostInputPaths(files, batch),
+          Object.fromEntries(
+            files.map((file) => [file, fs.realpathSync.native(file)]),
           ),
-          [],
-          "non-symlink leaf aliases must resolve via parent directory realpath + listing",
         );
-        assert.equal(
-          counts.readdirPaths.filter((file) => file === dist).length,
-          1,
-          "parent directory listing must be read once per phase",
-        );
+        assert.deepEqual([...batch.directoryEntries], [[wide, null]]);
       },
     );
 
-    check(
-      "non-ASCII NFC/NFD lexical lookup falls back to realpathSync.native",
-      () => {
-        const mockDir = path.join(root, "unicode-norm-dir");
-        const nfcUpper = "\u00c9.js"; // 'É.js' (NFC uppercase)
-        const nfdLower = "e\u0301.js"; // 'e\u0301.js' (NFD lowercase)
-        const nfcLower = "\u00e9.js"; // 'é.js' (NFC lowercase)
-        const dirNfcUpper = "\u00c9-dir";
-        const dirNfdLower = "e\u0301-dir";
-        const dirNfcLower = "\u00e9-dir";
-        const seedFile = path.join(mockDir, "seed.js");
-        const lexicalFile = path.join(mockDir, nfcLower);
-        const expectedFile = path.join(mockDir, nfdLower);
-        const lexicalSubdir = path.join(mockDir, dirNfcLower);
-        const expectedSubdir = path.join(mockDir, dirNfdLower);
-
-        const originalLstat = fs.lstatSync;
-        const originalReaddir = fs.readdirSync;
-        const originalRealpathNative = fs.realpathSync.native;
-        const sampleFileStat = originalLstat(presentFiles[0]!);
-        const sampleDirStat = originalLstat(dist);
-        const nativeCalls: string[] = [];
-
-        fs.readdirSync = ((
-          file: fs.PathLike,
-          options?: Parameters<typeof fs.readdirSync>[1],
-        ) => {
-          if (path.resolve(String(file)) === mockDir) {
-            return [
-              "seed.js",
-              nfcUpper,
-              nfdLower,
-              dirNfcUpper,
-              dirNfdLower,
-            ] as unknown as ReturnType<typeof fs.readdirSync>;
+    if (process.platform !== "win32" && process.getuid?.() !== 0)
+      check(
+        "native fallback can traverse a directory without listing it",
+        () => {
+          const privateDirectory = path.join(root, "search-only");
+          fs.mkdirSync(privateDirectory);
+          const files = ["first", "second", "third"].map((name) =>
+            path.join(privateDirectory, name),
+          );
+          for (const file of files) fs.writeFileSync(file, "");
+          const expected = Object.fromEntries(
+            files.map((file) => [file, fs.realpathSync.native(file)]),
+          );
+          fs.chmodSync(privateDirectory, 0o111);
+          try {
+            assert.throws(() => fs.opendirSync(privateDirectory).closeSync(), {
+              code: "EACCES",
+            });
+            const phase = HostInputObservationPhase.create();
+            hashHostInputPaths(files, phase);
+            assert.deepEqual(realpathHostInputPaths(files, phase), expected);
+            assert.deepEqual(
+              [...phase.directoryEntries],
+              [[privateDirectory, null]],
+            );
+          } finally {
+            fs.chmodSync(privateDirectory, 0o700);
           }
-          return originalReaddir(file, options as never);
-        }) as typeof fs.readdirSync;
-        fs.lstatSync = ((file: fs.PathLike, options?: fs.StatSyncOptions) => {
-          const resolved = path.resolve(String(file));
-          if (resolved === seedFile || resolved === lexicalFile) {
-            return sampleFileStat as ReturnType<typeof fs.lstatSync>;
-          }
-          if (resolved === mockDir || resolved === lexicalSubdir) {
-            return sampleDirStat as ReturnType<typeof fs.lstatSync>;
-          }
-          return originalLstat(file, options);
-        }) as typeof fs.lstatSync;
-        fs.realpathSync.native = ((
-          file: fs.PathLike,
-          options?: fs.EncodingOption,
-        ) => {
-          const resolved = path.resolve(String(file));
-          nativeCalls.push(resolved);
-          if (resolved === mockDir) return mockDir;
-          if (resolved === lexicalFile) return expectedFile;
-          if (resolved === lexicalSubdir) return expectedSubdir;
-          return originalRealpathNative(file, options);
-        }) as typeof fs.realpathSync.native;
-
-        try {
-          const result = realpathHostInputPaths([
-            seedFile,
-            lexicalFile,
-            lexicalSubdir,
-          ]);
-          assert.equal(
-            result[lexicalFile],
-            expectedFile,
-            "NFC lowercase lookup must match native NFD answer instead of folding to NFC uppercase",
-          );
-          assert.ok(
-            nativeCalls.includes(lexicalFile),
-            "non-ASCII lexical name must fall back to realpathSync.native",
-          );
-          assert.equal(
-            result[lexicalSubdir],
-            expectedSubdir,
-            "non-ASCII directory lookup must match native NFD answer",
-          );
-          assert.ok(
-            nativeCalls.includes(lexicalSubdir),
-            "non-ASCII directory name must fall back to realpathSync.native",
-          );
-        } finally {
-          fs.lstatSync = originalLstat;
-          fs.readdirSync = originalReaddir;
-          fs.realpathSync.native = originalRealpathNative;
-        }
-      },
-    );
-
-    check(
-      "ASCII lexical name folding to non-ASCII Kelvin-sign entry falls back to realpathSync.native",
-      () => {
-        const mockDir = path.join(root, "kelvin-dir");
-        const kelvinEntry = "\u212a.js"; // Kelvin sign 'K' whose .toLowerCase() is 'k'
-        const lexicalK = path.join(mockDir, "k.js");
-        const expectedPhysical = path.join(mockDir, kelvinEntry);
-
-        const originalLstat = fs.lstatSync;
-        const originalReaddir = fs.readdirSync;
-        const originalRealpathNative = fs.realpathSync.native;
-        const sampleFileStat = originalLstat(presentFiles[0]!);
-        const nativeCalls: string[] = [];
-
-        fs.readdirSync = ((
-          file: fs.PathLike,
-          options?: Parameters<typeof fs.readdirSync>[1],
-        ) => {
-          if (path.resolve(String(file)) === mockDir) {
-            return [kelvinEntry] as unknown as ReturnType<
-              typeof fs.readdirSync
-            >;
-          }
-          return originalReaddir(file, options as never);
-        }) as typeof fs.readdirSync;
-        fs.lstatSync = ((file: fs.PathLike, options?: fs.StatSyncOptions) => {
-          if (path.resolve(String(file)) === lexicalK) {
-            return sampleFileStat as ReturnType<typeof fs.lstatSync>;
-          }
-          return originalLstat(file, options);
-        }) as typeof fs.lstatSync;
-        fs.realpathSync.native = ((
-          file: fs.PathLike,
-          options?: fs.EncodingOption,
-        ) => {
-          const resolved = path.resolve(String(file));
-          nativeCalls.push(resolved);
-          if (resolved === mockDir) return mockDir;
-          if (resolved === lexicalK) return expectedPhysical;
-          return originalRealpathNative(file, options);
-        }) as typeof fs.realpathSync.native;
-
-        try {
-          const result = realpathHostInputPaths([lexicalK]);
-          assert.equal(
-            result[lexicalK],
-            expectedPhysical,
-            "Kelvin-sign lookup must match realpathSync.native",
-          );
-          assert.ok(
-            nativeCalls.includes(lexicalK),
-            "fold landing on non-ASCII Kelvin-sign entry must fall back to realpathSync.native",
-          );
-        } finally {
-          fs.lstatSync = originalLstat;
-          fs.readdirSync = originalReaddir;
-          fs.realpathSync.native = originalRealpathNative;
-        }
-      },
-    );
-
-    check(
-      "unreadable directory listing falls back to realpathSync.native",
-      () => {
-        const originalReaddir = fs.readdirSync;
-        const realpathCalls: string[] = [];
-        const originalRealpathNative = fs.realpathSync.native;
-        fs.readdirSync = ((
-          file: fs.PathLike,
-          options?: Parameters<typeof fs.readdirSync>[1],
-        ) => {
-          if (path.resolve(String(file)) === dist) {
-            const error = new Error("EACCES: permission denied");
-            (error as NodeJS.ErrnoException).code = "EACCES";
-            throw error;
-          }
-          return originalReaddir(file, options as never);
-        }) as typeof fs.readdirSync;
-        fs.realpathSync.native = ((
-          file: fs.PathLike,
-          options?: fs.EncodingOption,
-        ) => {
-          realpathCalls.push(String(file));
-          return originalRealpathNative(file, options);
-        }) as typeof fs.realpathSync.native;
-        try {
-          const result = realpathHostInputPaths([presentFiles[0]!, mixedCase]);
-          assert.equal(
-            result[presentFiles[0]!],
-            expectedRealpaths[presentFiles[0]!]!,
-          );
-          assert.equal(result[mixedCase], expectedRealpaths[mixedCase]!);
-          assert.ok(
-            realpathCalls.includes(presentFiles[0]!),
-            "unreadable listing must fall back to realpathSync.native for leaf",
-          );
-          assert.ok(
-            realpathCalls.includes(mixedCase),
-            "unreadable listing must fall back to realpathSync.native for each leaf",
-          );
-        } finally {
-          fs.readdirSync = originalReaddir;
-          fs.realpathSync.native = originalRealpathNative;
-        }
-      },
-    );
+        },
+      );
 
     check("fresh phase observes newly created parent and child", () => {
       const appearedDir = path.join(dist, "absent0");

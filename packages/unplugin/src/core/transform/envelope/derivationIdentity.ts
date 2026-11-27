@@ -18,7 +18,7 @@ import type { TtscEnvelopeDerivation } from "./TtscEnvelopeDerivation";
  */
 export function derivationIdentity(
   /** Generation state retaining one qualified identity observation lifetime. */
-  state: TtscEnvelopeDerivation,
+  state: Pick<TtscEnvelopeDerivation, "identityContext" | "identities">,
   /** Already-resolved native absolute spelling used unchanged as the memo key. */
   file: string,
 ): string {

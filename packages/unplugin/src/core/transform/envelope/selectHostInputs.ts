@@ -26,7 +26,13 @@ import { selectListedFiles } from "./selectListedFiles";
  */
 export function selectHostInputs(props: {
   projectRoot: string;
-  result: ITtscCompilerTransformation;
+  result:
+    | Pick<
+        | ITtscCompilerTransformation.ISuccess
+        | ITtscCompilerTransformation.IFailure,
+        "type" | "hostInputs"
+      >
+    | Pick<ITtscCompilerTransformation.IException, "type">;
 }): string[] {
   return props.result.type === "exception"
     ? []

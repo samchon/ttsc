@@ -82,6 +82,7 @@ export function test_transformttsc_bounds_watch_derivation_probes_per_module(): 
   const state: TtscEnvelopeDerivation = {
     identityContext,
     identities: new Map(),
+    selection: {},
     project: { physical: identityContext.resolve(root).path, spelling: root },
     watchInputs: new Map(),
   };

@@ -28,7 +28,7 @@ import { derivationIdentity } from "./derivationIdentity";
  */
 export function createEnvelopeKeyIndex<T>(
   /** Generation state whose identity observation memo qualifies producer keys. */
-  state: TtscEnvelopeDerivation,
+  state: Pick<TtscEnvelopeDerivation, "identityContext" | "identities">,
   /** Stable native root used to expand this producer's relative keys. */
   projectRoot: string,
   /**

@@ -46,6 +46,7 @@ export function envelopeDerivation(props: {
   const created: TtscEnvelopeDerivation = {
     identityContext,
     identities: new Map(),
+    selection: {},
     project: {
       physical: identityContext.resolve(spelling).path,
       spelling,
