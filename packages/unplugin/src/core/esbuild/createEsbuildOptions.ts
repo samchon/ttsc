@@ -3,6 +3,7 @@ import path from "node:path";
 import type { UnpluginOptions } from "unplugin";
 
 import type { HostWatchBridge } from "../bridge/HostWatchBridge";
+import { MANAGED_PROJECT_RECORDS } from "../bridge/MANAGED_PROJECT_RECORDS";
 import { fallbackToolDirectory } from "../bridge/fallbackToolDirectory";
 import { hostToolDirectory } from "../bridge/hostToolDirectory";
 import { openHostWatchBridge } from "../bridge/openHostWatchBridge";
@@ -128,6 +129,7 @@ export function createEsbuildOptions(
             let errors;
             try {
               const source = await fs.promises.readFile(file, "utf8");
+              const fallback = fallbackToolDirectory(root);
               const result = await transformTtsc(
                 file,
                 source,
@@ -142,7 +144,12 @@ export function createEsbuildOptions(
                     toolDirectory: hostToolDirectory(root),
                     // esbuild takes a record anywhere, and cannot say whether
                     // it watches (samchon/ttsc#1480).
-                    ...fallbackRecordDirectory(root),
+                    ...(fallback === undefined
+                      ? {}
+                      : {
+                          [MANAGED_PROJECT_RECORDS]: "fallbackToolDirectory",
+                          fallbackToolDirectory: fallback,
+                        }),
                   },
                 },
               );
@@ -175,12 +182,4 @@ export function createEsbuildOptions(
       },
     },
   };
-}
-
-/** The fallback record directory of a root, spread into a project hook. */
-function fallbackRecordDirectory(root: string): {
-  fallbackToolDirectory?: string;
-} {
-  const fallback = fallbackToolDirectory(root);
-  return fallback === undefined ? {} : { fallbackToolDirectory: fallback };
 }

@@ -246,6 +246,8 @@ export namespace HostInputObservationPhase {
       const file = path.resolve(input);
       if (phase.lstats.has(file)) continue;
       const name = path.basename(file);
+      // A string dirent can decode an invalid native byte sequence to U+FFFD.
+      if (name.includes("\ufffd")) continue;
       if (file !== target && name !== path.basename(target)) continue;
       const parent = path.dirname(file);
       let files = groups.get(parent);
@@ -437,6 +439,7 @@ export namespace HostInputObservationPhase {
     listing: DirectoryListing,
     lexicalName: string,
   ): string | undefined {
+    if (lexicalName.includes("\ufffd")) return undefined;
     if (listing.exact.has(lexicalName)) {
       return lexicalName;
     }

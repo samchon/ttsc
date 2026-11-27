@@ -1044,9 +1044,29 @@ export class WatchTopology {
     const appeared: [string, string][] = [];
     for (const input of this.extraInputs) {
       const watchedBefore = this.watchedExtraInputs.has(this.pathKey(input));
-      const physical = watcherRegistrationPath(input);
-      const targets = collectInputDirectories(physical);
-      const identity = pluginWatchRootIdentity(physical);
+      let physical = watcherRegistrationPath(input);
+      let identity = pluginWatchRootIdentity(physical);
+      let entries = new Set<string>();
+      if (physical !== input || identity === undefined) {
+        let endpoint: string | undefined;
+        entries = new Set(
+          pluginInputAliasEntries([input], {
+            directory: (target) => {
+              endpoint = target;
+            },
+          }),
+        );
+        // The same link traversal owns the watched entries and the current
+        // target. A dangling replacement must retire the previous tree.
+        physical =
+          endpoint === undefined ? input : watcherRegistrationPath(endpoint);
+        identity =
+          endpoint === undefined
+            ? undefined
+            : pluginWatchRootIdentity(physical);
+      }
+      const targets =
+        identity === undefined ? [] : collectInputDirectories(physical);
       for (const target of targets) {
         const directory =
           physical === input
@@ -1060,10 +1080,6 @@ export class WatchTopology {
           appeared.push([key, directory]);
         }
       }
-      const entries =
-        physical === input && targets.length !== 0
-          ? new Set<string>()
-          : new Set(pluginInputAliasEntries(input));
       if (targets.length !== 0 && path.dirname(physical) !== physical)
         entries.add(physical);
       for (const entry of entries) {
@@ -2767,6 +2783,7 @@ function isVanishedFilesystemEntry(error: unknown): boolean {
 function pluginWatchRootIdentity(directory: string): string | undefined {
   try {
     const stat = fs.statSync(directory, { bigint: true });
+    if (!stat.isDirectory()) return undefined;
     return `${stat.dev}:${stat.ino}:${stat.birthtimeNs}`;
   } catch {
     return undefined;

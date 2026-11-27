@@ -111,6 +111,16 @@ func (s *NativePluginSource) ProjectInputReloadFingerprintsAreCurrent() bool {
   return projectInputReloadFingerprintsAreCurrent(snapshot) && selection.current()
 }
 
+func (s *NativePluginSource) rawPluginSelectionCheck() func() bool {
+  s.projectInputsMu.RLock()
+  selection := s.selection
+  s.projectInputsMu.RUnlock()
+  if len(selection.rawFiles) == 0 {
+    return nil
+  }
+  return selection.rawFilesCurrent
+}
+
 // ProjectInputMatchesURI tests a watched URI against retained dependency/glob
 // declarations for invalidation routing. Native resolution can fall back to
 // lexical spelling; unknown Windows glob case capability admits both spellings.

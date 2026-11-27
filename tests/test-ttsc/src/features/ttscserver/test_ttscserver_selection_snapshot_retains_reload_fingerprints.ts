@@ -32,9 +32,11 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    frame an empty existing directory and a missing directory independently,
  *    and prove each captured baseline is current. Windows missing-suffix casing
  *    follows the observed directory authority, not a platform-default guess.
- * 5. Carry an intermediate link to the native host under its own parent.
+ * 5. Carry intermediate links and reachable or missing physical endpoints to the
+ *    native host under their own parents, including a representable POSIX raw
+ *    link.
  *
- * @evidence contracts/testing.md#behavioral-verification Snapshot operations distinguish child-content edits from reload-file, immediate-topology and link-identity drift and preserve framed raw identities; manifest transport carries 8192 inputs and disposes its directory twice safely.
+ * @evidence contracts/testing.md#behavioral-verification Snapshot operations distinguish child-content edits from reload-file, immediate-topology and link-identity drift and preserve framed raw identities. Selection capture records the raw intermediate link fingerprint independently of its unchanged reached bytes. Manifest transport carries 8192 inputs and disposes its directory twice safely.
  * @evidence contracts/testing.md#independent-expectations Authored file and directory mutations define whether each snapshot must stay current or become stale; link, raw directory, empty-directory and missing-directory digests use independent sha256 framing (`symlink\0`/`directory\0`, target or native physical path bytes, NUL, `missing\0` or the empty-topology hash). Missing Windows suffix casing uses the supported authority observation without certifying that classifier itself. The test cannot prove agreement with the Go validator or startup host, only with this written framing; the manifest expectation is the literal count 8192 and a size above 64 KiB.
  * @evidence contracts/testing.md#distinguishing-cases Child contents remain current while exact-file edits and immediate topology invalidate. Exact-entry retarget uses a Windows leaf junction or POSIX leaf file symlink: both own link identity, but junction framing has missing content while the POSIX link reaches file bytes. POSIX preserves original different-content and added same-content retargets; Windows empty-directory retarget isolates identity. Native directory-link retarget is mandatory. POSIX raw bytes/backslash names and Windows Unicode junction bytes retain their distinct native input domains. Only an observed EILSEQ creation refusal selects UTF-8 recovery after an unchanged directory/link assertion; other preparation errors fail; manifest contents and repeated disposal are asserted separately.
  * @evidence contracts/testing.md#execution-ownership This matching src/features/ttscserver entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
@@ -371,7 +373,9 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
       });
       verify("plugin selection watches every link in the source path", () => {
         const link = path.join(root, "source-link");
-        const middle = path.join(root, "source-middle");
+        const middleName =
+          process.platform === "win32" ? "source-middle" : "source\\middle";
+        const middle = path.join(root, middleName);
         const physical = path.join(root, "physical-source");
         const replacement = path.join(root, "replacement-source");
         const source = path.join(link, "nested", "src");
@@ -385,18 +389,29 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
         fs.symlinkSync(physical, middle, kind);
         fs.symlinkSync(middle, link, kind);
         try {
+          const descriptorName = "config.cjs";
+          const descriptor = path.join(source, descriptorName);
+          const actualDirectory = path.join(physical, "nested", "src");
+          const actualFile = path.join(actualDirectory, descriptorName);
+          const bytes = "module.exports = {};\n";
+          fs.writeFileSync(actualFile, bytes);
           const hostInputRealpaths = {
             [source]: fs.realpathSync.native(source),
+            [descriptor]: fs.realpathSync.native(descriptor),
           };
           const input = {
             deferredHostInputs: [],
             hostInputHashes: {},
             hostInputRealpaths,
-            hostInputs: [source],
+            hostInputs: [source, descriptor],
             pluginSources: {},
           };
           const snapshot = captureLSPPluginSelectionInputs(input);
           assert.ok(snapshot);
+          assert.equal(
+            snapshot.descriptorFiles[actualDirectory]?.[descriptorName],
+            createHash("sha256").update("file\0").update(bytes).digest("hex"),
+          );
           for (const entry of [link, middle]) {
             const digest = createHash("sha256")
               .update("symlink\0")
@@ -418,7 +433,7 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
           assert.ok(
             captureLSPPluginSelectionInputs(missingInput)?.descriptorFiles[
               root
-            ]?.["source-middle"],
+            ]?.[middleName],
           );
           fs.writeFileSync(
             path.join(replacement, "nested", "src", "later.cjs"),
@@ -436,6 +451,36 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
           fs.unlinkSync(middle);
         }
       });
+      verify(
+        "plugin selection watches a dangling final link's external endpoint",
+        () => {
+          const directory = path.join(root, "unavailable-descriptor-parent");
+          const link = path.join(root, "dangling-descriptor");
+          fs.symlinkSync(
+            directory,
+            link,
+            process.platform === "win32" ? "junction" : "dir",
+          );
+          try {
+            const input = {
+              deferredHostInputs: [],
+              hostInputHashes: { [link]: null },
+              hostInputRealpaths: { [link]: null },
+              hostInputs: [link],
+              pluginSources: {},
+            };
+            const snapshot = captureLSPPluginSelectionInputs(input);
+            assert.equal(
+              snapshot?.descriptorFiles[root]?.[path.basename(directory)],
+              createHash("sha256").update("missing\0").digest("hex"),
+            );
+            fs.mkdirSync(directory);
+            assert.equal(captureLSPPluginSelectionInputs(input), undefined);
+          } finally {
+            fs.unlinkSync(link);
+          }
+        },
+      );
       if (failures.length !== 0)
         throw new AggregateError(
           failures,
@@ -533,5 +578,38 @@ function verifyRawDirectoryIdentity(
       "physical directory identity lost the native target bytes",
     );
     assert.equal(initialLSPProjectInputSnapshotIsCurrent(rawSnapshot), true);
+    if (!target.equals(rawTarget)) return;
+    const middle = Buffer.concat([rawTarget, Buffer.from("/middle")]);
+    const first = path.join(root, "raw-descriptor-first");
+    const second = path.join(root, "raw-descriptor-second");
+    const alias = path.join(root, "raw-descriptor-alias");
+    const contents = "module.exports = {};";
+    fs.writeFileSync(first, contents);
+    fs.writeFileSync(second, contents);
+    fs.symlinkSync(first, middle, "file");
+    fs.symlinkSync(middle, alias, "file");
+    const input = {
+      deferredHostInputs: [],
+      hostInputHashes: {},
+      hostInputRealpaths: { [alias]: first },
+      hostInputs: [alias],
+      pluginSources: {},
+    };
+    const selection = captureLSPPluginSelectionInputs(input);
+    const expectedMiddle = createHash("sha256")
+      .update("symlink\0")
+      .update(first)
+      .update("\0file\0")
+      .update(contents)
+      .digest("hex");
+    assert.deepEqual(selection?.rawDescriptorFiles, {
+      [middle.toString("base64")]: expectedMiddle,
+    });
+    fs.unlinkSync(middle);
+    fs.symlinkSync(second, middle, "file");
+    assert.equal(fs.readFileSync(alias, "utf8"), contents);
+    assert.equal(captureLSPPluginSelectionInputs(input), undefined);
+    fs.unlinkSync(alias);
+    fs.unlinkSync(middle);
   });
 }

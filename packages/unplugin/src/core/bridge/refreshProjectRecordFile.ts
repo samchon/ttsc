@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../transform/filesystem/TtscTransformFilesystemOperations";
 import type { HostWatchBridge } from "./HostWatchBridge";
+import { privateProjectRecordAvailable } from "./privateProjectRecordAvailable";
 import { projectRecordArgumentsMatch } from "./projectRecordArgumentsMatch";
 import { projectRecordMoved } from "./projectRecordMoved";
 import { projectRecordWatchInputs } from "./projectRecordWatchInputs";
@@ -72,7 +73,9 @@ export function refreshProjectRecordFile(
   bridge?: HostWatchBridge,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
   compilerArgumentsIdentity?: string,
+  privateStorage = false,
 ): void {
+  if (privateStorage && !privateProjectRecordAvailable(file)) return;
   const record = readProjectRecordFile(file);
   // A record that cannot be read proves nothing, and is moved as a proof that
   // found a change is. A host may hold exactly these bytes: a signal that could
@@ -84,7 +87,7 @@ export function refreshProjectRecordFile(
   // writer caught mid-write loses its bytes to the move, which its own host
   // hears and runs on, and a record another process removed stays removed.
   if (record === undefined) {
-    signalProjectRecordFile(file);
+    signalProjectRecordFile(file, privateStorage);
     return;
   }
   // Nothing will write this project again: the record's own rule, that it
@@ -102,10 +105,16 @@ export function refreshProjectRecordFile(
   }
   if (bridge !== undefined) {
     if (!projectRecordArgumentsMatch(record, compilerArgumentsIdentity)) {
-      signalProjectRecordFile(file);
+      signalProjectRecordFile(file, privateStorage);
       return;
     }
-    bridge.register(file, projectRecordWatchInputs(record));
+    bridge.register(
+      file,
+      projectRecordWatchInputs(record),
+      undefined,
+      undefined,
+      privateStorage || record.privateStorage === true,
+    );
     return;
   }
   // A proof that cannot run proves nothing, and the record is moved as if it
@@ -117,5 +126,5 @@ export function refreshProjectRecordFile(
   } catch {
     moved = record.root;
   }
-  if (moved !== undefined) signalProjectRecordFile(file);
+  if (moved !== undefined) signalProjectRecordFile(file, privateStorage);
 }

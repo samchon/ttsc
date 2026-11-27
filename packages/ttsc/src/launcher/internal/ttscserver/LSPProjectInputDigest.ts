@@ -234,13 +234,13 @@ export namespace LSPProjectInputDigest {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This produces a current observation, not a cached selection; a prior digest cannot be reused without separately proving the file and link remained unchanged.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Supported synchronous APIs own their handles; this helper retains only local content/framing buffers during the call and returns digest text. It owns no cross-call history, persistent handle or running task.
    */
-  export function lspProjectInputFileDigest(location: string): string {
+  export function lspProjectInputFileDigest(location: string | Buffer): string {
     try {
       const info = fs.lstatSync(location);
       if (info.isSymbolicLink()) {
         let target = Buffer.from("<unreadable>");
         try {
-          target = fs.readlinkSync(Buffer.from(location), {
+          target = fs.readlinkSync(location, {
             encoding: "buffer",
           });
         } catch {

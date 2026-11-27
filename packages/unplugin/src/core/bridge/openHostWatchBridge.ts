@@ -128,7 +128,11 @@ export function openHostWatchBridge(
   // What each record was last registered with.
   const registered = new Map<
     string,
-    { inputs: readonly TtscWatchInput[]; startedAt: number | undefined }
+    {
+      inputs: readonly TtscWatchInput[];
+      startedAt: number | undefined;
+      privateStorage: boolean;
+    }
   >();
   // The records signalled since they last registered.
   const owed = new Set<string>();
@@ -158,7 +162,7 @@ export function openHostWatchBridge(
     // A signal already owed keeps its schedule, which still lands a move
     // after whatever baseline the host takes next.
     if (pending.has(record)) return;
-    signalProjectRecordFile(record);
+    signalProjectRecordFile(record, registered.get(record)?.privateStorage);
     // The later moves defend a watcher's baseline, and no watcher of this host
     // observes the record: a compile that comes to depend on it reads this
     // move through its cache's snapshot, and `compiled` resumes the schedule
@@ -167,7 +171,7 @@ export function openHostWatchBridge(
     const moveAfter = (delay: number): void => {
       const timer = setTimeout(() => {
         if (pending.get(record) !== timer) return;
-        signalProjectRecordFile(record);
+        signalProjectRecordFile(record, registered.get(record)?.privateStorage);
         moveAfter(Math.min(delay * 4, MAX_TIMER_DELAY_MS));
       }, delay).unref();
       pending.set(record, timer);
@@ -209,7 +213,7 @@ export function openHostWatchBridge(
     owes: (record) =>
       (answeredIn !== undefined && pass <= answeredIn + 1) ||
       (record === undefined ? owed.size !== 0 : owed.has(path.resolve(record))),
-    register(file, inputs, failed, startedAt) {
+    register(file, inputs, failed, startedAt, privateStorage = false) {
       const record = path.resolve(file);
       // Deliveries with the same immutable input population and pass reuse
       // the established observation. A generation whose later module adds
@@ -220,11 +224,12 @@ export function openHostWatchBridge(
         last !== undefined &&
         last.inputs === inputs &&
         last.startedAt === startedAt &&
+        last.privateStorage === privateStorage &&
         failed !== true
       ) {
         return;
       }
-      registered.set(record, { inputs, startedAt });
+      registered.set(record, { inputs, startedAt, privateStorage });
       if (
         owed.has(record) &&
         startedAt !== undefined &&

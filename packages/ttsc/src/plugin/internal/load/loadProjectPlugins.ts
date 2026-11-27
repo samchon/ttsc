@@ -30,6 +30,7 @@ import { CompilerTarget } from "../source/CompilerTarget";
 import { NativeSourcePackages } from "../source/NativeSourcePackages";
 import type { PluginBuildEnvironmentWitness } from "../source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../source/PluginContentIdentities";
+import { SourceBuildCacheLayout } from "../source/SourceBuildCacheLayout";
 import { SourcePluginWorkspace } from "../source/SourcePluginWorkspace";
 import { buildSourcePlugin } from "../source/buildSourcePlugin";
 import { isPathWithin } from "../source/isPathWithin";
@@ -2714,7 +2715,8 @@ function ttscPackageRoot(): string {
 /**
  * Prefer system temporary storage for the typed evaluator. A same-volume
  * identities directory can keep the generated TypeScript entry on the
- * descriptor's volume when the available system temp is on another drive.
+ * descriptor's volume when same-volume system temp is unavailable. A parent
+ * that refuses allocation leaves the remaining qualified parents eligible.
  */
 function createTypedEvaluationTempDir(
   cache: DescriptorCacheOptions,
@@ -2734,21 +2736,42 @@ function createTypedEvaluationTempDir(
     cache.projectRoot,
     roots,
   );
-  let first: string | undefined;
-  for (const { directory } of candidates) {
-    first ??= directory;
-    if (sameVolume(directory))
+  let refusal: unknown;
+  const allocate = (directory: string): string | undefined => {
+    try {
       return createCanonicalTempDirectory(prefix, directory);
+    } catch (error) {
+      if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
+      refusal ??= error;
+      return undefined;
+    }
+  };
+  const otherVolumes = new Set<string>();
+  for (const { directory } of candidates) {
+    if (!sameVolume(directory)) {
+      otherVolumes.add(directory);
+      continue;
+    }
+    const allocated = allocate(directory);
+    if (allocated !== undefined) return allocated;
   }
   const parent = selectedRecordIdentityTempParent(cache.identities?.root, [
     cache.projectRoot,
     ...roots,
   ]);
-  if (parent !== undefined && sameVolume(parent))
-    return createCanonicalTempDirectory(prefix, parent);
-  if (first !== undefined) return createCanonicalTempDirectory(prefix, first);
-  throw new Error(
-    `ttsc: no existing system temporary directory outside ${cache.projectRoot}`,
+  if (parent !== undefined && sameVolume(parent)) {
+    const allocated = allocate(parent);
+    if (allocated !== undefined) return allocated;
+  }
+  for (const directory of otherVolumes) {
+    const allocated = allocate(directory);
+    if (allocated !== undefined) return allocated;
+  }
+  throw (
+    refusal ??
+    new Error(
+      `ttsc: no existing system temporary directory outside ${cache.projectRoot}`,
+    )
   );
 }
 

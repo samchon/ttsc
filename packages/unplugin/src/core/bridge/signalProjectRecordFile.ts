@@ -1,5 +1,6 @@
 import fs from "node:fs";
 
+import { privateProjectRecordAvailable } from "./privateProjectRecordAvailable";
 import { readProjectRecordFile } from "./readProjectRecordFile";
 import { writeProjectRecordFile } from "./writeProjectRecordFile";
 
@@ -35,7 +36,11 @@ let bare = 0;
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call requests a new invalidation effect, so equal return values would not permit suppressing the write as shared work.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The bare descriptor has a finally close attempt after write or truncate failure; the process marker occupies one scalar. Decoded records and serialized bytes are call-owned, and persisted record removal belongs to project refresh.
  */
-export function signalProjectRecordFile(file: string): void {
+export function signalProjectRecordFile(
+  file: string,
+  privateStorage = false,
+): void {
+  if (privateStorage && !privateProjectRecordAvailable(file)) return;
   const record = readProjectRecordFile(file);
   try {
     if (record === undefined) {
@@ -55,6 +60,7 @@ export function signalProjectRecordFile(file: string): void {
     const next = record.signal + 1;
     writeProjectRecordFile(file, {
       ...record,
+      ...(privateStorage ? { privateStorage: true as const } : {}),
       signal: Number.isFinite(next) && next !== record.signal ? next : 0,
     });
   } catch {

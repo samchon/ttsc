@@ -22,6 +22,9 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * failure propagates on success and is aggregated with an earlier operation
  * failure rather than replacing it.
  *
+ * Temporary placement excludes the selected project and invocation roots. The
+ * source path supplies output identity and can lie outside those roots.
+ *
  * A launcher-supplied selection shares its project and original compiler
  * argument cwd with public output planning. Response freshness is checked
  * before native work and publication; these sequential checks do not pin bytes
@@ -121,7 +124,7 @@ export namespace runSingleFileEmit {
     const outDir = createProjectTempDirectory(
       "ttsc-single-file-",
       project.root,
-      [cwd, path.dirname(tsconfig), path.dirname(sourceFile)],
+      [cwd, path.dirname(tsconfig)],
     );
     let failed = false;
     let failure: unknown;

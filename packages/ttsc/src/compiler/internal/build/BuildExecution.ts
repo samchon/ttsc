@@ -1550,6 +1550,7 @@ export namespace BuildExecution {
         plugin.binary,
         NativePluginArguments.createNativeProjectInputsArgs(execution, plugin),
         {
+          additionalProjectRoots: [path.dirname(execution.tsconfig)],
           cwd: execution.projectRoot,
           env: nativePluginEnv(options.env, execution, plugin, undefined, true),
           encoding: "utf8",
@@ -1627,6 +1628,7 @@ export namespace BuildExecution {
       SidecarEnvironment.write(env, "TTSC_WATCH_WRITE_IF_CHANGED", "1");
     }
     const res = spawnNative(plugin.binary, args, {
+      additionalProjectRoots: [path.dirname(execution.tsconfig)],
       cwd: execution.projectRoot,
       env,
       encoding: "utf8",

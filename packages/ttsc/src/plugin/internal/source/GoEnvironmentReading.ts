@@ -151,6 +151,10 @@ export namespace GoEnvironmentReading {
         !provesLocalToolchain(goBinary, env, parsed)
       ) {
         if (delegated === undefined) {
+          // A delegated reread can qualify a stable launcher only. Preserve
+          // the first witness so its owner can reject a changed toolchain
+          // without starting an extra process for this attempt.
+          if (!PluginBuildEnvironmentWitness.holds(witness)) return parsed;
           delegated = [activeRoot, activeVersion];
           witnessDelegatedToolchain(
             cwd,
@@ -367,21 +371,34 @@ export namespace GoEnvironmentReading {
         witness,
         path.join(initialRoot, "go.env"),
       );
-    const roots = new Set([path.resolve(cwd)]);
-    if (process.platform !== "win32") {
-      const pwd = SidecarEnvironment.read(env, "PWD");
-      try {
-        const physical = fs.realpathSync.native(cwd);
+    const lexical = path.resolve(cwd);
+    const roots = new Set([lexical]);
+    try {
+      const physical = fs.realpathSync.native(cwd);
+      const current = fs.statSync(physical, { bigint: true });
+      PluginBuildEnvironmentWitness.addDirectoryIdentity(
+        witness,
+        lexical,
+        current,
+        physical,
+      );
+      if (process.platform !== "win32") {
         roots.add(physical);
-        if (physical !== path.resolve(cwd))
-          PluginBuildEnvironmentWitness.add(witness, path.resolve(cwd));
+        const pwd = SidecarEnvironment.read(env, "PWD");
         if (pwd && path.isAbsolute(pwd) && pwd !== physical) {
-          PluginBuildEnvironmentWitness.add(witness, pwd);
-          if (fs.realpathSync.native(pwd) === physical) roots.add(pwd);
+          PluginBuildEnvironmentWitness.addDirectoryIdentity(witness, pwd);
+          const alias = fs.statSync(pwd, {
+            bigint: true,
+            throwIfNoEntry: false,
+          });
+          // os.Getwd on POSIX honors PWD when os.SameFile confirms it.
+          if (alias?.dev === current.dev && alias.ino === current.ino)
+            roots.add(pwd);
         }
-      } catch {
-        // The actual Go invocation still owns cwd and PWD validation.
       }
+    } catch {
+      // The actual Go invocation still owns cwd and PWD validation.
+      PluginBuildEnvironmentWitness.addDirectoryIdentity(witness, lexical);
     }
     for (const root of roots) witnessWorkspaceAncestors(root, witness);
   }
@@ -443,11 +460,23 @@ export namespace GoEnvironmentReading {
             extension.startsWith(".") ? extension : "." + extension,
           )
       : [];
+    let searchRoot = cwd;
+    if (!windows) {
+      try {
+        searchRoot = fs.realpathSync.native(cwd);
+      } catch {
+        // The actual Go invocation reports an unusable working directory.
+      }
+    }
+    const observe = (file: string): void => {
+      PluginBuildEnvironmentWitness.add(witness, file);
+      // Windows compares the link entries themselves for ErrDot.
+      if (windows) PluginBuildEnvironmentWitness.addLink(witness, file);
+    };
     for (const directory of directories) {
-      const candidate = path.resolve(cwd, directory, version);
-      PluginBuildEnvironmentWitness.add(witness, candidate);
-      for (const extension of extensions)
-        PluginBuildEnvironmentWitness.add(witness, candidate + extension);
+      const candidate = path.resolve(searchRoot, directory, version);
+      observe(candidate);
+      for (const extension of extensions) observe(candidate + extension);
     }
   }
 
@@ -468,7 +497,7 @@ export namespace GoEnvironmentReading {
   }
 
   /** Answer family of {@link recorded} (`WitnessedLoadAnswers`). */
-  const RECORDED_READING = "go-environment-reading";
+  const RECORDED_READING = "go-environment-reading-v2";
 
   // A wrong hint is safe: the reading compares it with the `GOENV` Go reports
   // and runs again with the reported file witnessed.

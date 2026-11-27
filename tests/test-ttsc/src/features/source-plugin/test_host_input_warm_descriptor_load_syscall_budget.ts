@@ -101,7 +101,7 @@ function withCountedFs<T>(run: (counts: SyscallCounts) => T): T {
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the descriptor cache and host input helpers with native files, directories, links, absent candidates and Unicode names. Observes direct native probes and whether phases keep a complete listing, skip the listing or discard it as too wide.
  * @evidence contracts/testing.md#independent-expectations Computes SHA-256 from authored bytes and physical paths with direct native realpath; call counters and phase observations distinguish absent, dense, sparse and wide work.
- * @evidence contracts/testing.md#distinguishing-cases Contrasts file, directory, symlink and absent ancestry cases with case variants, normalized names, a Kelvin-sign alias, sparse versus wide batches, opposite listing and search permissions on unprivileged POSIX, and post-phase creation.
+ * @evidence contracts/testing.md#distinguishing-cases Contrasts file, directory, symlink and absent ancestry cases with case variants, normalized names, a Kelvin-sign alias, a Linux invalid filename byte beside a valid replacement character, sparse versus wide batches, opposite listing and search permissions on unprivileged POSIX, and post-phase creation.
  * @evidence contracts/testing.md#execution-ownership Calls maintained cache and host-input helpers directly over an owned temporary directory removed in finally, restoring every wrapped fs property in finally without starting a compiler, Go tool or subprocess.
  */
 export function test_host_input_warm_descriptor_load_syscall_budget(): void {
@@ -435,6 +435,42 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
             );
           } finally {
             fs.chmodSync(privateDirectory, 0o700);
+          }
+        },
+      );
+
+    if (process.platform === "linux")
+      check(
+        "decoded dirent names cannot stand in for native replacement characters",
+        () => {
+          const directory = path.join(root, "byte-names");
+          fs.mkdirSync(directory);
+          const ordinary = ["first.cjs", "second.cjs", "third.cjs"].map(
+            (name) => path.join(directory, name),
+          );
+          for (const file of ordinary) fs.writeFileSync(file, "");
+          const rawName = Buffer.concat([
+            Buffer.from(directory + path.sep),
+            Buffer.from([0xff]),
+          ]);
+          fs.writeFileSync(rawName, "");
+          try {
+            const target = path.join(directory, "\ufffd");
+            fs.symlinkSync(ordinary[0]!, target, "file");
+            const inputs = [...ordinary, target];
+            const phase = HostInputObservationPhase.create();
+            HostInputObservationPhase.observeRecordedFiles(
+              Object.fromEntries(inputs.map((input) => [input, input])),
+              Object.fromEntries(inputs.map((input) => [input, digest("")])),
+              phase,
+            );
+            assert.ok(phase.directoryEntries.get(directory));
+            assert.equal(
+              realpathHostInputPaths(inputs, phase)[target],
+              ordinary[0],
+            );
+          } finally {
+            fs.unlinkSync(rawName);
           }
         },
       );

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { BuildExecution } from "../../compiler/internal/build/BuildExecution";
+import { PassthroughFlags } from "../../compiler/internal/build/PassthroughFlags";
 import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
@@ -11,7 +12,9 @@ import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEn
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { systemTempOutsideProject } from "../../internal/systemTempOutsideProject";
+import { hasProjectPluginEntries } from "../../plugin/internal/load/hasProjectPluginEntries";
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
+import { isPathWithin } from "../../plugin/internal/source/isPathWithin";
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
@@ -38,12 +41,14 @@ import { singleRootProjectConfig } from "./singleRootProjectConfig";
  * TypeScript 7.1 can hold the overlay beside the real config in memory.
  * `buildSingleRootInMemory` takes that route first. The command-line fallback
  * needs a config file to combine an exact file list with project options. For a
- * checked root it uses the owning config's dependency installation when present
- * or the existing workspace cache policy. If that location cannot hold a write,
- * native hosts read the wrapper from run-owned storage through a VFS view
- * beside the original config. The emit-only lane uses its private output
- * directory. Inherited `${configDir}` compiler paths retain their owner, and
- * the temporary file is created exclusively and removed after the build.
+ * checked root it uses a cache below the owning config directory, preserving
+ * the original dependency search. If the selected cache sits outside that
+ * directory or refuses the write, the project compiler can read the wrapper
+ * through a VFS view beside the original config on its plugin-free snapshot
+ * route. Other compilers use a private mirror of the original dependency
+ * search. The emit-only lane uses its private output directory. Inherited
+ * `${configDir}` compiler paths retain their owner, and the temporary file is
+ * created exclusively and removed after the build.
  *
  * `rootDir` is the root of the source's volume. The layout of this emit is
  * private, so `rootDir` decides nothing here but whether a file of the program
@@ -71,14 +76,14 @@ import { singleRootProjectConfig } from "./singleRootProjectConfig";
  *   synthesized from maps.
  * @throws When the build fails. A checked build fails on any diagnostic; an
  *   emit-only build fails only when it produced no JavaScript at all.
- * @evidence contracts/common.md#principled-implementation The in-memory API route is tried first and owns its own admission; otherwise a transient extends overlay changes only roots and runtime output constraints, while preserving configDir-sensitive anchors; effective rootDir is returned for output ownership rather than inferred from emitted filenames.
+ * @evidence contracts/common.md#principled-implementation The in-memory API route is tried first and owns its own admission. The transient extends overlay keeps configDir-sensitive anchors and starts its type search below the owning directory, through the plugin-free native VFS, or through a private mirror of the original ancestor dependencies. Effective rootDir is returned for output ownership rather than inferred from emitted filenames.
  * @evidence contracts/common.md#clear-and-simple-design This boundary selects the in-memory route when it is available and otherwise owns single-root overlay construction and cleanup, delegates project parsing/building, and isolates writable-directory diagnostics in a private helper.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Private emit layout, disabled declaration/composite products and checked versus installed-package diagnostics are runtime contract distinctions, not source patches or tests-only compiler modes.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the in-memory route and when it is unavailable, overlay placement, wide rootDir, diagnostics and cleanup, while separately documented input members preserve their ownership facts.
- * @evidence contracts/portability.md#os-neutral-implementation Shared filesystem identity selects the source volume from resolved native identity when available and retained spelling otherwise; overlay JSON converts only native separators, preserving literal POSIX backslashes. Public exclusive creation refuses an occupied overlay name without overwriting it; explicit compiler paths avoid shell interpolation and blanket case folding.
- * @evidence contracts/performance.md#efficient-algorithms An admitted in-memory build uses one API session. The command-line route parses the original chain and restates the path options before parsing its overlay. Identity, serialization, effective-options preparation and compilation contribute path/input/output byte costs.
+ * @evidence contracts/portability.md#os-neutral-implementation Shared filesystem identity selects the source volume from resolved native identity when available and retained spelling otherwise. Normal overlay placement compares a physical cache path against the physically resolved config directory. Overlay JSON converts only native separators, preserving literal POSIX backslashes. Exclusive creation refuses occupied names, and explicit compiler paths avoid shell interpolation.
+ * @evidence contracts/performance.md#efficient-algorithms An admitted in-memory build uses one API session. The command-line route parses the original chain and restates the path options before parsing its overlay. The mirror checks original and candidate ancestry for dependency directories, then allocates one directory and at most one dependency link per original ancestor. Identity, serialization, effective-options preparation and compilation contribute path/input/output byte costs.
  * @evidence contracts/performance.md#reuse-equivalent-work One effective-options reader for this overlay and exact forwarded tokens is shared by runtime lowering, emit classification and rootDir selection, avoiding duplicate response-file compiler queries. Callers own sharing of completed build generations.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Exclusive open establishes ownership of one transient tsconfig and descriptor. The descriptor is closed before parsing; finally attempts any remaining close and removal after write, close, parse or build failure, without removing a failed-acquisition entry. Native cleanup failures may retain the overlay; caller owns emit storage and delegated build lifetimes.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Exclusive open establishes ownership of one transient tsconfig and descriptor. The descriptor is closed before parsing. Failure and final cleanup attempt to retire the acquired overlay or its owning private mirror and links, including on partial mirror creation. Cleanup errors can leave those artifacts; the caller owns emit storage and delegated build lifetimes.
  */
 export function buildSingleRootProject(props: {
   /** The root, in the physical spelling the runtime loads it by. */
@@ -149,6 +154,7 @@ export function buildSingleRootProject(props: {
   const localModules = path.join(configDir, "node_modules");
   const privateDirectory = path.dirname(props.emitDir);
   let fallbackDirectory: string | undefined;
+  let virtualConfig = false;
   const acquire = (directory: string) => {
     fs.mkdirSync(directory, { recursive: true });
     const file = path.join(
@@ -157,7 +163,7 @@ export function buildSingleRootProject(props: {
     );
     return { file, descriptor: fs.openSync(file, "wx") };
   };
-  let placement: ReturnType<typeof acquire>;
+  let placement: ReturnType<typeof acquire> | undefined;
   let attemptedDirectory = privateDirectory;
   try {
     if (props.checked) {
@@ -168,10 +174,16 @@ export function buildSingleRootProject(props: {
               path.join(localModules, ".cache", "ttsc"),
             );
     }
-    placement = acquire(attemptedDirectory);
+    if (
+      !props.checked ||
+      isPathWithin(attemptedDirectory, fs.realpathSync.native(configDir))
+    )
+      placement = acquire(attemptedDirectory);
   } catch (error) {
     if (!props.checked || !SourceBuildCacheLayout.refusesDefaultPath(error))
       throw unwritableConfigDirectory(error, props, attemptedDirectory);
+  }
+  if (placement === undefined) {
     try {
       fs.mkdirSync(privateDirectory, { recursive: true });
       const tsgo = resolveTsgo({
@@ -179,12 +191,15 @@ export function buildSingleRootProject(props: {
         binary: options.binary,
         env: SidecarEnvironment.merge(process.env, options.env),
       });
-      const native = BuildExecution.isProjectCompiler(
-        original.root,
-        tsgo,
-        options.env,
-      );
-      const owners = native ? undefined : configAncestors(configDir);
+      virtualConfig =
+        BuildExecution.isProjectCompiler(original.root, tsgo, options.env) &&
+        !PassthroughFlags.forwardsTerminalTsgoFlag(options) &&
+        !hasProjectPluginEntries(
+          original,
+          options.plugins,
+          options.pluginConfigDir,
+        );
+      const owners = virtualConfig ? undefined : configAncestors(configDir);
       fallbackDirectory = allocatePrivateConfigDirectory(
         privateDirectory,
         original.root,
@@ -245,15 +260,14 @@ export function buildSingleRootProject(props: {
       checkers: options.checkers,
       cwd: props.projectRoot,
       emit: true,
-      env:
-        fallbackDirectory !== undefined
-          ? SidecarEnvironment.merge(options.env, {
-              [PRIVATE_CONFIG_OVERLAY_ENV]: JSON.stringify([
-                project.path,
-                original.path,
-              ]),
-            })
-          : options.env,
+      env: virtualConfig
+        ? SidecarEnvironment.merge(options.env, {
+            [PRIVATE_CONFIG_OVERLAY_ENV]: JSON.stringify([
+              project.path,
+              original.path,
+            ]),
+          })
+        : options.env,
       cacheDir: options.cacheDir,
       outDir: props.emitDir,
       // Every output this build writes stays in ttsx's private directory: a
@@ -352,10 +366,10 @@ export function buildSingleRootProject(props: {
 }
 
 /**
- * Give an external compiler the owning config's node_modules search order. The
- * private config inherits the original options. Native type discovery follows
- * the mirrored dependency directories for both automatic @types and explicitly
- * named packages.
+ * Give a compiler reading from disk the owning config's node_modules search
+ * order. The private config inherits the original options. Native type
+ * discovery follows the mirrored dependency directories for automatic discovery
+ * of `@types` and explicitly named packages.
  */
 function mirrorTypeSearchPath(
   owners: readonly string[],

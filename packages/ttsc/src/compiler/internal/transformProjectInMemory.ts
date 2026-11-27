@@ -234,6 +234,7 @@ function transformProjectWithNativeHost(
     binary,
     ["api-transform", "--cwd", project.root, "--tsconfig", project.path],
     {
+      additionalProjectRoots: [path.dirname(project.path)],
       cwd: project.root,
       env: SidecarEnvironment.merge(env, { [BATCH_ENV]: "1" }),
     },
@@ -459,6 +460,7 @@ function transformProjectWithPlugins(
       resolvePluginConfigDir(options),
     ),
     {
+      additionalProjectRoots: [path.dirname(project.path)],
       cwd: project.root,
       env: nativePluginEnv(
         options,
@@ -777,6 +779,7 @@ function runNativeChecks(
             ...extraArgs,
           ],
           {
+            additionalProjectRoots: [path.dirname(project.path)],
             cwd: project.root,
             env: nativePluginEnv(
               options,

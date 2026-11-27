@@ -50,7 +50,7 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  *   and independently imposes no population or byte bound.
  */
 export interface TtscProjectRecord {
-  /** Whether this record lives in Farm's automatically managed storage. */
+  /** Whether the adapter selected this record from generated private storage. */
   privateStorage?: true;
 
   /** Captured invocation; older records without it require a fresh delivery. */

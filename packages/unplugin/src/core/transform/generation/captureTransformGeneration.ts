@@ -49,6 +49,7 @@ import { compilerGraphInputProofFailures } from "../validation/compilerGraphInpu
 import { restrictNotificationCoverageToProvenInputs } from "../validation/restrictNotificationCoverageToProvenInputs";
 import { walkSnapshotComplete } from "../validation/walkSnapshotComplete";
 import { witnessExternalDependencies } from "../validation/witnessExternalDependencies";
+import { captureRecoveryTreeDigest } from "../watch/captureRecoveryTreeDigest";
 import { TRANSFORM_FAILED_GENERATION_VALIDATIONS } from "./TRANSFORM_FAILED_GENERATION_VALIDATIONS";
 import { TRANSFORM_GENERATION_FAILURES } from "./TRANSFORM_GENERATION_FAILURES";
 import type { TtscCompilerMembershipHint } from "./TtscCompilerMembershipHint";
@@ -510,6 +511,7 @@ export async function captureTransformGeneration(props: {
       scratchDirectory: envelopeScratchDirectory,
       temporaryTsconfig: envelopeTemporaryTsconfig,
     });
+    let failedCompilerSource: string | undefined;
     if (result.type === "exception") {
       const name =
         process.platform === "win32"
@@ -519,8 +521,10 @@ export async function captureTransformGeneration(props: {
           : "TTSC_TSGO_SOURCE";
       const compilerSource =
         name === undefined ? undefined : compilerEnvironment[name];
-      if (compilerSource && path.isAbsolute(compilerSource))
-        externalInputPaths.push(path.normalize(compilerSource));
+      if (compilerSource && path.isAbsolute(compilerSource)) {
+        failedCompilerSource = path.resolve(compilerSource);
+        externalInputPaths.push(failedCompilerSource);
+      }
     }
     // A plugin's Go source is as universal an input as any host input, and the
     // tracker watches it as a whole subtree (samchon/ttsc#1487).
@@ -726,6 +730,17 @@ export async function captureTransformGeneration(props: {
       externalInputHashes: {},
       externalInputRealpaths: {},
       externalInputPaths,
+      ...(failedCompilerSource === undefined
+        ? {}
+        : {
+            failedCompilerSource: {
+              file: failedCompilerSource,
+              digest: captureRecoveryTreeDigest(
+                failedCompilerSource,
+                props.filesystem,
+              ),
+            },
+          }),
       directExternalInputs,
       configStateComplete: configStable,
       projectHeldStill: walkStable,

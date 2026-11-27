@@ -74,6 +74,30 @@ export namespace PluginBuildEnvironmentWitness {
   }
 
   /**
+   * Record a directory's current target without treating changes to unrelated
+   * children as a new working directory.
+   *
+   * @evidence contracts/common.md#principled-implementation Physical spelling and native device, inode and access-related metadata qualify the directory used for Go lookup.
+   * @evidence contracts/common.md#clear-and-simple-design A separate key distinguishes directory identity from a file or link signature.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Directory content changes have their own witnesses. Full directory timestamps would refuse otherwise equivalent lookups.
+   * @evidence contracts/common.md#meaningful-documentation The prose states which changes this witness leaves to other inputs.
+   * @evidence contracts/portability.md#os-neutral-implementation Native stat and realpath follow directory aliases across supported platforms, with a common unavailable marker.
+   * @evidence contracts/performance.md#efficient-algorithms One unseen key needs metadata and physical spelling unless the caller already observed them. No contents are read.
+   * @evidence contracts/performance.md#reuse-equivalent-work The first observation for the directory survives repeats in one caller-owned record.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The witness owner retains the serialized identity and no native handles are acquired.
+   */
+  export function addDirectoryIdentity(
+    witness: Record,
+    directory: string,
+    observed?: fs.BigIntStats,
+    physical?: string,
+  ): void {
+    const key = DIRECTORY_PREFIX + directory;
+    if (!witness.has(key))
+      witness.set(key, directorySignature(directory, observed, physical));
+  }
+
+  /**
    * Witness a link itself before following it, including a missing target.
    * Target metadata remains a separate observation through add.
    *
@@ -210,7 +234,9 @@ export namespace PluginBuildEnvironmentWitness {
           ? environmentSignature(file.slice(ENVIRONMENT_PREFIX.length))
           : file.startsWith(LINK_PREFIX)
             ? linkSignature(file.slice(LINK_PREFIX.length))
-            : signature(file);
+            : file.startsWith(DIRECTORY_PREFIX)
+              ? directorySignature(file.slice(DIRECTORY_PREFIX.length))
+              : signature(file);
         currentReadings?.set(file, current);
       }
       if (current !== recorded) {
@@ -234,6 +260,7 @@ export namespace PluginBuildEnvironmentWitness {
   const UNWITNESSABLE = "unwitnessable";
   /** NUL cannot occur in a native pathname, so this qualification is disjoint. */
   const LINK_PREFIX = "\0link:";
+  const DIRECTORY_PREFIX = "\0directory:";
   const ENVIRONMENT_PREFIX = "\0environment:";
   const TOOLCHAIN_PROBE = "\0requires-toolchain-probe";
 
@@ -260,6 +287,27 @@ export namespace PluginBuildEnvironmentWitness {
         stat.mtimeNs.toString(),
         stat.ctimeNs.toString(),
         fs.readlinkSync(file),
+      ]);
+    } catch {
+      return "missing";
+    }
+  }
+
+  function directorySignature(
+    directory: string,
+    observed?: fs.BigIntStats,
+    physical?: string,
+  ): string {
+    try {
+      const stat = observed ?? fs.statSync(directory, { bigint: true });
+      if (!stat.isDirectory()) return "missing";
+      return JSON.stringify([
+        physical ?? fs.realpathSync.native(directory),
+        stat.dev.toString(),
+        stat.ino.toString(),
+        stat.mode.toString(),
+        stat.uid.toString(),
+        stat.gid.toString(),
       ]);
     } catch {
       return "missing";

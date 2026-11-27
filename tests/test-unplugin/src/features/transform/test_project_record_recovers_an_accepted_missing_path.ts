@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { MANAGED_PROJECT_RECORDS } from "../../../../../packages/unplugin/src/core/bridge/MANAGED_PROJECT_RECORDS";
 import { projectRecordDigest } from "../../../../../packages/unplugin/src/core/bridge/projectRecordDigest";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import { refreshProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/refreshProjectRecordFile";
@@ -23,12 +24,12 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
  * 3. Block removed primary/fallback locations with ordinary files and require
  *    fallback recovery, watching refusal or unchanged failed/one-shot
  *    semantics.
- * 4. Replace an accepted file with a directory or dangling link, then restore a
- *    regular target and retain the host's lexical record spelling.
+ * 4. Compare ordinary and managed record availability at linked paths, then
+ *    restore a regular target and verify the selected storage policy.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual notifyProjectRecord and refreshProjectRecordFile calls must hand over existing regular records with matching written digests after removal. Repeated callbacks, one input derivation, stable snapshot, corrupt-existing bytes, fallback repair and typed watching refusal distinguish persistence recovery from generation recapture and content proof.
  * @evidence contracts/testing.md#independent-expectations Exact fixture config bytes and the public handoff contract require a usable file before success. Literal registration counts, original snapshot identity, original corrupt bytes, independently hashed persisted bytes and the typed error distinguish unavailable paths from accepted records.
- * @evidence contracts/testing.md#distinguishing-cases Existing versus removed, same versus fresh generation, primary versus fallback, both blocked versus repaired, success versus failed/one-shot, directory versus regular target and dangling versus resolved link retain separate assertions. Each scenario runs even after another fails; a failed prerequisite blocks only its scenario.
+ * @evidence contracts/testing.md#distinguishing-cases Existing versus removed, same versus fresh generation, primary versus fallback, ordinary versus managed storage at the same path, both blocked versus repaired, success versus failed/one-shot, directory versus regular target and dangling versus resolved link retain separate assertions. Each scenario runs even after another fails; a failed prerequisite blocks only its scenario.
  * @evidence contracts/testing.md#execution-ownership The named unit directly runs persistence, refresh and digest operations in process over a private fixture root. It starts no compiler, installed consumer or product host. The selected webpack batch separately owns actual native generation reuse and independent host opening.
  */
 export function test_project_record_recovers_an_accepted_missing_path(): void {
@@ -55,7 +56,10 @@ export function test_project_record_recovers_an_accepted_missing_path(): void {
       },
     };
     const deliver = (
-      options: { fallbackToolDirectory?: string; watching?: boolean } = {},
+      options: Partial<typeof project> & {
+        fallbackToolDirectory?: string;
+        [MANAGED_PROJECT_RECORDS]?: "toolDirectory" | "fallbackToolDirectory";
+      } = {},
       failed = false,
     ): boolean =>
       notifyProjectRecord({ ...project, ...options }, cached, failed, () => {
@@ -144,6 +148,56 @@ export function test_project_record_recovers_an_accepted_missing_path(): void {
       fs.unlinkSync(fallback);
       assert.equal(state.deliver({ fallbackToolDirectory }), true);
       state.verify();
+      assert.equal(state.reads(), 1);
+    });
+    run("managed storage belongs to the selected candidate", () => {
+      const state = scenario("managed");
+      const user = process.getuid?.();
+      const dir = path.join(
+        fs.realpathSync.native(root),
+        `ttsc-unplugin-sessions${user === undefined ? "" : `-${user}`}`,
+        "hosts",
+        "0".repeat(32),
+      );
+      const managed = {
+        [MANAGED_PROJECT_RECORDS]: "fallbackToolDirectory" as const,
+        fallbackToolDirectory: dir,
+      };
+      assert.equal(state.deliver(managed), true);
+      assert.equal(state.handed.at(-1)!.record, state.record);
+      assert.equal(
+        readProjectRecordFile(state.record)?.privateStorage,
+        undefined,
+      );
+
+      const parent = path.dirname(state.record);
+      fs.unlinkSync(state.record);
+      fs.rmdirSync(parent);
+      fs.writeFileSync(parent, "blocked primary");
+      assert.equal(state.deliver(managed), true);
+      state.verify();
+      const record = state.handed.at(-1)!.record;
+      assert.equal(path.dirname(path.dirname(record)), dir);
+      assert.equal(readProjectRecordFile(record)?.privateStorage, true);
+
+      assert.equal(state.deliver({ fallbackToolDirectory: dir }), true);
+      assert.equal(readProjectRecordFile(record)?.privateStorage, undefined);
+      const directory = path.dirname(record);
+      const moved = path.join(root, "moved-managed-records");
+      fs.renameSync(directory, moved);
+      fs.symlinkSync(moved, directory, "junction");
+      try {
+        assert.equal(state.deliver({ fallbackToolDirectory: dir }), true);
+        assert.equal(state.handed.at(-1)!.record, record);
+        assert.equal(state.deliver({ ...managed, watching: false }), false);
+        assert.equal(readProjectRecordFile(record)?.privateStorage, undefined);
+      } finally {
+        fs.unlinkSync(directory);
+        fs.renameSync(moved, directory);
+      }
+      assert.equal(state.deliver(managed), true);
+      state.verify();
+      assert.equal(readProjectRecordFile(record)?.privateStorage, true);
       assert.equal(state.reads(), 1);
     });
     run("unavailable accepted records preserve delivery failure policy", () => {

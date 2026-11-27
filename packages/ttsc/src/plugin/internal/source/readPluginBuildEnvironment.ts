@@ -87,4 +87,4 @@ export function readPluginBuildEnvironment(
 }
 
 /** Answer family of build-environment readings (`WitnessedLoadAnswers`). */
-const KIND = "plugin-build-environment";
+const KIND = "plugin-build-environment-v2";

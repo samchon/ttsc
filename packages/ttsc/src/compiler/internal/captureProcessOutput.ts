@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
 import { createProjectTempDirectory } from "../../internal/createProjectTempDirectory";
+import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { selectedRecordIdentityTempParent } from "../../plugin/internal/source/selectedRecordIdentityTempParent";
 import type { CapturedProcessOutput } from "./CapturedProcessOutput";
 import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
@@ -19,7 +20,10 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * its existing identities directory, keeping a project-root TEMP from changing
  * the missing-input proof during evaluation. A source-plugin build can instead
  * supply its own capture directory inside its held cache lock. Other callers
- * use system temp outside the calling project's directory.
+ * use system temp outside project boundaries. A refused descriptor record
+ * parent falls back to system temp, while a lock-owned directory must succeed.
+ * A null project root identifies a command that reads no project. Marked
+ * project directories are still excluded from system temp selection.
  *
  * This is not held-directory protection against namespace mutation. Descriptor
  * acquisition failures attempt rollback; cleanup failures are suppressed, and
@@ -27,12 +31,12 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * owns the returned capture and must dispose it after reading; read failures
  * propagate, while disposal is idempotent and cleanup is best effort.
  *
- * @evidence contracts/common.md#principled-implementation Precreated files receive exact child stream bytes through inherited descriptors. An explicit directory is exclusively created within the calling build's held cache lock; other captures use the descriptor's identities directory or system TEMP. Decoding happens on read, and I/O errors cannot masquerade as empty successful output.
+ * @evidence contracts/common.md#principled-implementation Precreated files receive exact child stream bytes through inherited descriptors. An explicit directory is exclusively created within the calling build's held cache lock and has no fallback. A refusal at the descriptor's automatic identities directory can fall back to qualified system temp. Decoding happens on read, and I/O errors cannot masquerade as empty successful output.
  * @evidence contracts/common.md#clear-and-simple-design One capture owns two descriptors and their private directory. The shared record-parent selector checks the descriptor's existing cache before allocation; acquisition rollback and disposal share cleanup helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported Node filesystem and descriptor APIs capture diagnostics without foreign mutation, expected-output substitution or an arbitrary output ceiling; an absent or invalid private root does not invent a cache.
  * @evidence contracts/common.md#meaningful-documentation Separate purpose, placement, limits and ownership paragraphs explain the descriptor-only placement and actual failure effects rather than claiming unlimited output.
  * @evidence contracts/portability.md#os-neutral-implementation The shared selector confirms an ordinary physical identities child through native realpath and link-preserving stat; canonical temporary-directory ownership and path.join represent native paths. Removal remains best effort because inherited Windows handles may keep files live.
- * @evidence contracts/performance.md#efficient-algorithms Descriptor selection adds a fixed number of native path observations before the fixed capture filesystem calls. Parent/path text and native lookup are not constant-cost; reading B bytes and optional decoding allocate complete raw/output text in O(B) storage. No output-byte quota is imposed by this capture owner.
+ * @evidence contracts/performance.md#efficient-algorithms Record and system parent qualification inspect the supplied roots and candidate ancestors. A permission refusal can try another qualified location before opening the two capture files. Parent/path text and native lookups contribute cost. Reading B bytes and optional decoding allocate complete raw/output text in O(B) storage, with no output-byte quota.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each child requires independent effectful output destinations; sharing prior captures would mix bytes and ownership rather than reuse equivalent work.
  *
@@ -41,31 +45,40 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 export function captureProcessOutput(
   env: NodeJS.ProcessEnv = process.env,
   ownedDirectory?: string,
-  projectRoot: string = process.cwd(),
+  projectRoot: string | null = process.cwd(),
   additionalProjectRoots: readonly string[] = [],
 ): CapturedProcessOutput {
+  if (ownedDirectory !== undefined) {
+    fs.mkdirSync(ownedDirectory);
+    return openCapture(ownedDirectory);
+  }
   const recordRoot =
     env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
       ? SidecarEnvironment.read(env, "TTSC_PLUGIN_RECORD_ROOT")
       : undefined;
-  const recordParent =
-    ownedDirectory === undefined
-      ? selectedRecordIdentityTempParent(recordRoot, [
-          projectRoot,
-          ...additionalProjectRoots,
-          process.cwd(),
-        ])
-      : undefined;
-  const directory =
-    ownedDirectory ??
-    (recordParent === undefined
-      ? createProjectTempDirectory(
-          "ttsc-spawn-",
-          projectRoot,
-          additionalProjectRoots,
-        )
-      : createCanonicalTempDirectory("ttsc-spawn-", recordParent));
-  if (ownedDirectory !== undefined) fs.mkdirSync(ownedDirectory);
+  const recordParent = selectedRecordIdentityTempParent(recordRoot, [
+    ...additionalProjectRoots,
+    ...(projectRoot === null ? [] : [projectRoot, process.cwd()]),
+  ]);
+  const prefix = "ttsc-spawn-";
+  if (recordParent !== undefined) {
+    try {
+      return openCapture(createCanonicalTempDirectory(prefix, recordParent));
+    } catch (error) {
+      if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
+    }
+  }
+  return openCapture(
+    createProjectTempDirectory(
+      prefix,
+      projectRoot ?? undefined,
+      additionalProjectRoots,
+    ),
+  );
+}
+
+/** Open the output files and take responsibility for the acquired directory. */
+function openCapture(directory: string): CapturedProcessOutput {
   const stdoutPath = path.join(directory, "stdout");
   const stderrPath = path.join(directory, "stderr");
   let stdoutFd: number;

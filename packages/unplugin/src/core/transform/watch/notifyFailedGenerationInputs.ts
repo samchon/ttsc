@@ -2,11 +2,13 @@ import path from "node:path";
 
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { formatUnknownError } from "../diagnostics/formatUnknownError";
+import { derivationIdentity } from "../envelope/derivationIdentity";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { hostSpelling } from "../envelope/hostSpelling";
 import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
+import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
 import type { TtscWatchSelection } from "./TtscWatchSelection";
 import { evidencedWatchInput } from "./evidencedWatchInput";
 import { handWatchInputs } from "./handWatchInputs";
@@ -33,6 +35,9 @@ import { selectionInputs } from "./selectionInputs";
  * standard diagnostic lines provide only the paths they actually name. The cost
  * is paid only on a failure, and only until the next compile succeeds and
  * narrows the set back to the derived inputs.
+ *
+ * An exception also retains the declared compiler source's filesystem state.
+ * The observer and project record can detect repairs anywhere in that source.
  *
  * @param file The delivered module, as the host spelled it, which decides the
  *   spelling every input is handed under (`hostSpelling`).
@@ -64,9 +69,17 @@ export function notifyFailedGenerationInputs(
   const state = envelopeDerivation(cached);
   const spell = hostSpelling(state.project, file);
   const inputs: TtscWatchInput[] = [];
-  // The same paths as the compiler spelled them, for the record: what the
-  // failed generation did record of each, its walk hash or external state, is
-  // what the record holds, read again only where it recorded nothing.
+  const compilerSource = cached.failedCompilerSource;
+  const recoveryTree: TtscWatchInputEvidence | undefined =
+    compilerSource === undefined
+      ? undefined
+      : {
+          identity: derivationIdentity(state, compilerSource.file),
+          missing: compilerSource.digest === null,
+          state: { codec: "recovery-tree", digest: compilerSource.digest },
+        };
+  // Keep the compiler's spellings for the record and use its retained state
+  // where available.
   const recorded: string[] = [];
   const seen = new Set<string>();
   const append = (input: string): void => {
@@ -78,10 +91,12 @@ export function notifyFailedGenerationInputs(
       return;
     }
     seen.add(spelling);
-    // No evidence, deliberately. A failed generation is replayed for the rest
-    // of its pass without re-proving its inputs, so the adapter must observe
-    // the current availability itself.
-    inputs.push({ file: spell(spelling) });
+    // The adapter reads current availability for ordinary inputs because
+    // failure replay does not re-prove them.
+    inputs.push({
+      file: spell(spelling),
+      ...(spelling !== compilerSource?.file ? {} : { evidence: recoveryTree }),
+    });
     recorded.push(spelling);
   };
   for (const key of Object.keys(cached.inputHashes)) {
@@ -129,7 +144,9 @@ export function notifyFailedGenerationInputs(
       true,
       () =>
         recorded.map((input) =>
-          evidencedWatchInput(cached, state, input, (spelling) => spelling),
+          input === compilerSource?.file
+            ? { file: input, evidence: recoveryTree }
+            : evidencedWatchInput(cached, state, input, (spelling) => spelling),
         ),
       routedInputs,
     )

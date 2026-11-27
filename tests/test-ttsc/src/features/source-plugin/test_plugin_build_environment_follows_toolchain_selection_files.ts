@@ -20,10 +20,12 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 3. Edit the module to select that version, then restore the working version.
  * 4. With another installed Go SDK, change its defaults and add a preceding
  *    executable for the same delegated version.
+ * 5. Distinguish an unrelated directory-entry edit from replacing the directory
+ *    selected through the Go working-directory alias.
  *
  * @evidence contracts/testing.md#behavioral-verification The direct answer reader over a real Go SDK and private store returns the working digest while selection holds, then produces a different digest and refuses the preceding witness whenever Go's selection files move.
  * @evidence contracts/testing.md#independent-expectations Go's toolchain selection rules give the ancestor workspace precedence and reject the authored higher requirement with path-only lookup. Restoring the original requirement restores the original build inputs.
- * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selection files. Where a second cached SDK is installed, actual Go compares a stable delegation, edited SDK defaults and an earlier PATH candidate at the same version. The separate packaged identity unit owns shipped SDK metadata.
+ * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selection files. A native link preserves working-directory authority across an unrelated sibling entry but loses it on retarget. Where a second cached SDK is installed, actual Go compares a stable delegation, edited SDK defaults and an earlier PATH candidate at the same version. The separate packaged identity unit owns shipped SDK metadata.
  * @evidence contracts/testing.md#execution-ownership The unit probes an installed Go tool directly using local-only selection. It owns the temporary module, workspace and answer store, and runs no plugin build or installed ttsc host.
  */
 export function test_plugin_build_environment_follows_toolchain_selection_files(): void {
@@ -57,11 +59,11 @@ export function test_plugin_build_environment_follows_toolchain_selection_files(
       cacheDir: path.join(root, "cache"),
       env,
     });
-  const read = () => {
+  const read = (directory = module) => {
     const witness: PluginBuildEnvironmentWitness.Record = new Map();
     const digest = readPluginBuildEnvironment(
       binary,
-      module,
+      directory,
       env,
       witness,
       store(),
@@ -91,6 +93,23 @@ export function test_plugin_build_environment_follows_toolchain_selection_files(
   fs.writeFileSync(manifest, goodModule);
   assert.equal(read().digest, previous.digest);
   verifyDelegatedEnvironment({ binary, module, root, env, store: store() });
+  const alias = path.join(root, "module-link");
+  const replacement = path.join(root, "replacement");
+  const linkKind = process.platform === "win32" ? "junction" : "dir";
+  fs.mkdirSync(replacement);
+  fs.writeFileSync(path.join(replacement, "go.mod"), goodModule);
+  fs.symlinkSync(module, alias, linkKind);
+  try {
+    const linked = read(alias);
+    fs.writeFileSync(path.join(module, "unrelated.txt"), "entry edit");
+    assert.equal(PluginBuildEnvironmentWitness.holds(linked.witness), true);
+    fs.unlinkSync(alias);
+    fs.symlinkSync(replacement, alias, linkKind);
+    assert.equal(PluginBuildEnvironmentWitness.holds(linked.witness), false);
+  } finally {
+    if (fs.lstatSync(alias, { throwIfNoEntry: false })?.isSymbolicLink())
+      fs.unlinkSync(alias);
+  }
 }
 
 /** Exercise real Go dispatch without downloading a test-only toolchain. */
@@ -178,6 +197,9 @@ function verifyDelegatedEnvironment(props: {
     ...(process.platform === "win32" ? { PATHEXT: "EXE" } : {}),
   });
   const read = (tags: string) => {
+    // Start the copied SDK before capturing its reusable metadata. Windows
+    // can update the executable's change time on its first native load.
+    const native = launch(["env", "-json", "GOFLAGS", "GOROOT"], delegated);
     const witness: PluginBuildEnvironmentWitness.Record = new Map();
     const actual = GoEnvironmentReading.recorded(
       binary,
@@ -187,7 +209,6 @@ function verifyDelegatedEnvironment(props: {
       witness,
       store,
     );
-    const native = launch(["env", "-json", "GOFLAGS", "GOROOT"], delegated);
     assert.equal(native.GOFLAGS, `-tags=${tags}`);
     assert.equal(actual?.GOFLAGS, native.GOFLAGS);
     assert.equal(actual?.GOROOT, native.GOROOT);

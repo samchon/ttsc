@@ -13,6 +13,7 @@ import { validateGraphInputObservation } from "../transform/inputs/validateGraph
 import { isProjectWalkDirectory } from "../transform/project/isProjectWalkDirectory";
 import { projectMembershipMatches } from "../transform/project/projectMembershipMatches";
 import { watchLocationIdentity } from "../transform/tracker/watchLocationIdentity";
+import { captureRecoveryTreeDigest } from "../transform/watch/captureRecoveryTreeDigest";
 import { captureWatchInputBaseline } from "../transform/watch/captureWatchInputBaseline";
 import { captureWatchInputBaselines } from "../transform/watch/captureWatchInputBaselines";
 import { watchInputEvidenceMatchesBaseline } from "../transform/watch/watchInputEvidenceMatchesBaseline";
@@ -389,13 +390,20 @@ export function createInputObserver(
   const refreshConditionCoverage = (entry: InputEntry): void => {
     let membership = false;
     let tree = false;
+    let unresolvedTree = false;
     for (const condition of entry.conditions.values()) {
-      membership ||= condition.evidence?.state?.codec === "membership";
-      tree ||= condition.evidence?.state?.codec === "tree";
-      if (membership && tree) break;
+      const state = condition.evidence?.state;
+      membership ||= state?.codec === "membership";
+      tree ||= state?.codec === "tree" || state?.codec === "recovery-tree";
+      unresolvedTree ||=
+        state?.codec === "recovery-tree" && state.digest === null;
     }
     if (!membership) memberships.delete(entry);
     if (!tree) trees.delete(entry);
+    if (!entry.fallback && !unresolvedTree) {
+      polled.delete(entry);
+      if (polled.size === 0) pollIterator = undefined;
+    }
     for (const scope of entry.scopes) scopesToPrune.add(scope);
   };
 
@@ -486,6 +494,7 @@ export function createInputObserver(
             return (
               codec !== "membership" &&
               codec !== "tree" &&
+              codec !== "recovery-tree" &&
               codec !== "predicates"
             );
           }),
@@ -506,6 +515,7 @@ export function createInputObserver(
       if (entries.get(entry.file) !== entry) continue;
       const baseline = baselines.get(entry.file);
       let removedCondition = false;
+      let recoveryDigest: string | null | undefined;
       for (const [key, condition] of entry.conditions) {
         const state = condition.evidence?.state;
         let changed: boolean;
@@ -539,6 +549,10 @@ export function createInputObserver(
             undefined,
             projectRoot,
           );
+        } else if (state?.codec === "recovery-tree") {
+          if (recoveryDigest === undefined)
+            recoveryDigest = captureRecoveryTreeDigest(entry.file);
+          changed = recoveryDigest !== state.digest;
         } else if (state?.codec === "predicates") {
           changed =
             validateGraphInputObservation(entry.file, state.observation)
@@ -1187,14 +1201,23 @@ export function createInputObserver(
         entry.fallback = false;
         entry.physical = undefined;
         entries.set(entry.file, entry);
+        let recoveryTree = false;
         for (const condition of entry.conditions.values()) {
-          if (condition.evidence?.state?.codec === "membership")
-            memberships.add(entry);
-          if (condition.evidence?.state?.codec === "tree") trees.add(entry);
+          const state = condition.evidence?.state;
+          if (state?.codec === "membership") memberships.add(entry);
+          if (state?.codec === "tree" || state?.codec === "recovery-tree")
+            trees.add(entry);
+          if (state?.codec === "recovery-tree") {
+            recoveryTree = true;
+            if (state.digest === null) polled.add(entry);
+          }
         }
         if (memberships.has(entry) || trees.has(entry))
           entry.physical = realpath(entry.file) ?? entry.file;
         observe(entry);
+        if (recoveryTree)
+          for (const scope of entry.scopes)
+            scope.watcher?.track?.(entry.physical ?? entry.file, true);
       }
       updatePoller();
       // A reattachment can replace physical coverage without producing a
@@ -1336,15 +1359,27 @@ export function createInputObserver(
             for (const scope of entry.scopes) {
               scope.watcher?.track?.(entry.file, true);
             }
-          } else if (state?.codec === "tree") {
+          } else if (
+            state?.codec === "tree" ||
+            state?.codec === "recovery-tree"
+          ) {
             // A plugin's source is proven at once, as a membership is: a file
             // below it can have moved after the capture proved its state, and
             // its scope now admits the directories below it (samchon/ttsc#1487).
             trees.add(entry);
             entry.physical ??= realpath(entry.file) ?? entry.file;
             recorded.add(entry);
+            // A dangling directory link can become usable without an event
+            // at its lexical spelling. Probe this root until it resolves.
+            if (state.codec === "recovery-tree" && state.digest === null)
+              polled.add(entry);
             for (const scope of entry.scopes) {
               scope.watcher?.track?.(entry.file, true);
+              if (
+                state.codec === "recovery-tree" &&
+                entry.physical !== entry.file
+              )
+                scope.watcher?.track?.(entry.physical, true);
             }
           }
         }

@@ -23,6 +23,7 @@ const { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } = createRequire(
 
 interface ITraceRow {
   event: string;
+  writerPid: number;
   data: {
     authority?: string | null;
     cacheHit?: boolean;
@@ -55,7 +56,10 @@ const readTraceRows = (): ITraceRow[] =>
         .split("\n")
         .filter(Boolean)
         .map((line) => JSON.parse(line) as ITraceRow),
-    );
+    )
+    // Synchronous probe and lookup rows are written by this actor. Child
+    // writers may sort before it on one filesystem and after it on another.
+    .filter((row) => row.writerPid === process.pid);
 
 const store = PluginContentIdentities.open({
   projectRoot: projectDir!,

@@ -150,6 +150,7 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
     envOverrides: NodeJS.ProcessEnv,
     mode: "check" | "evaluate" | "seed-capability" | "seed-all" = "check",
     alternateHome?: string,
+    actorDirectory = projectDir,
   ): IActorReport => {
     fs.rmSync(traceDir, { recursive: true, force: true });
     fs.mkdirSync(traceDir, { recursive: true });
@@ -175,7 +176,7 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
         ...(alternateHome === undefined ? [] : [alternateHome]),
       ],
       {
-        cwd: projectDir,
+        cwd: actorDirectory,
         encoding: "utf8",
         env,
         windowsHide: true,
@@ -607,6 +608,37 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   assert.equal(relativeSearch.descriptorLocation, null);
   assert.equal(relativeSearch.capabilities.bun, true);
   assert.equal(relativeSearch.alternateCapabilities?.bun, false);
+
+  // Both Node processes have the same initialized global search paths. The
+  // absolute preload itself chooses a different child from the working dir.
+  const cwdPreload = path.join(preloadDir, "with-cwd.cjs");
+  fs.writeFileSync(
+    cwdPreload,
+    'require(require("node:path").join(process.cwd(), "cwd-helper.cjs"));\n',
+  );
+  fs.writeFileSync(
+    path.join(projectDir, "cwd-helper.cjs"),
+    "module.exports = 1;",
+  );
+  fs.writeFileSync(
+    path.join(alternate, "cwd-helper.cjs"),
+    "module.exports = 2;",
+  );
+  const differentChildGraph = runLaunch(
+    {
+      NODE_OPTIONS: `--require=${cwdPreload}`,
+      TTSC_CACHE_TRUSTED_PRELOADS: fs.realpathSync.native(cwdPreload),
+      NODE_PATH: undefined,
+    },
+    "check",
+    undefined,
+    alternate,
+  );
+  assert.notEqual(differentChildGraph.resolutionFile, null);
+  assert.equal(differentChildGraph.capabilityProbes, 1);
+  assert.equal(differentChildGraph.capabilities.registerHooks, true);
+  assert.equal(differentChildGraph.runtimeProved, false);
+  assert.equal(differentChildGraph.capabilityAuthority, null);
 
   // Non-preload flags and nonexistent paths refuse.
   for (const nodeOptions of [

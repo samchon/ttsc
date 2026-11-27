@@ -17,6 +17,10 @@ import { ensureExecutable } from "./ensureExecutable";
  * report one line per system call; a pipe that cannot be created falls back to
  * the files.
  *
+ * File placement excludes the working directory and any additional project
+ * roots. A projectless child uses the system temp marker checks without
+ * treating its private working directory as a project.
+ *
  * When `options.encoding` is omitted it defaults to `"utf8"`. Pass `"buffer"`
  * when the caller needs raw bytes.
  *
@@ -40,6 +44,9 @@ export function spawnNative(
     encoding?: BufferEncoding | "buffer";
     /** Selected configuration roots distinct from the child cwd. */
     additionalProjectRoots?: readonly string[];
+
+    /** The child reads no project and runs in a private working directory. */
+    projectless?: boolean;
 
     /**
      * Capture through pipes instead of files. Only for a command that starts no
@@ -91,7 +98,7 @@ export function spawnNative(
   const capture = captureProcessOutput(
     process.env,
     undefined,
-    options.cwd,
+    options.projectless === true ? null : options.cwd,
     options.additionalProjectRoots,
   );
   try {

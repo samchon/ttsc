@@ -45,5 +45,7 @@ export type TtscRollupDelivery = {
   record?: {
     digest: string;
     file: string;
+    /** Whether the adapter selected its generated private fallback. */
+    privateStorage?: true;
   };
 } | null;

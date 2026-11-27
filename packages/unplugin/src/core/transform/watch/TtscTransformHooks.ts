@@ -1,4 +1,4 @@
-import { FARM_PROJECT_RECORDS } from "../../farm/FARM_PROJECT_RECORDS";
+import { MANAGED_PROJECT_RECORDS } from "../../bridge/MANAGED_PROJECT_RECORDS";
 import type { TtscProjectRegistration } from "./TtscProjectRegistration";
 import type { TtscWatchInput } from "./TtscWatchInput";
 import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
@@ -127,8 +127,8 @@ export interface TtscTransformHooks {
    * watching session's bridge (`registerProjectRecord`).
    */
   project?: {
-    /** Farm's own managed record storage, set by the built-in adapter. */
-    [FARM_PROJECT_RECORDS]?: true;
+    /** The directory generated under private storage by the built-in adapter. */
+    [MANAGED_PROJECT_RECORDS]?: "toolDirectory" | "fallbackToolDirectory";
     /** Called once per delivery, failed deliveries included. */
     register: TtscRegisterWatchProject;
 

@@ -64,22 +64,31 @@ export function captureLSPPluginSelectionInputs(loaded: {
   const descriptorInputs = loaded.hostInputs
     .map((file) => path.resolve(file))
     .filter((file) => !excluded.has(file));
-  const descriptorFiles: Record<string, Record<string, string>> = {};
-  for (const file of descriptorInputs) record(descriptorFiles, file);
-  // Record the links first. The fresh realpath check below rejects a target
-  // already moved away from the selection that built the native plugin.
-  const aliases = new Set<string>();
-  const inspected = new Set<string>();
-  for (const file of descriptorInputs) {
+  // Native watches need both spellings: directory notifications can be
+  // reported at the physical target, and replacing a link changes selection
+  // even when the old target still has the same contents.
+  const files = new Set(descriptorInputs);
+  const aliases: string[] = [];
+  const targets = new Set<string>();
+  for (const file of files) {
     const physical = loaded.hostInputRealpaths[file];
     if (physical === undefined || physical === file) continue;
-    const input = physical === null ? path.dirname(file) : file;
-    if (inspected.has(input)) continue;
-    inspected.add(input);
-    for (const entry of pluginInputAliasEntries(input, false))
-      aliases.add(entry);
+    if (physical !== null && !physical.includes("\ufffd"))
+      targets.add(physical);
+    aliases.push(file);
   }
-  for (const entry of aliases) record(descriptorFiles, entry);
+  for (const target of targets) files.add(target);
+  const rawDescriptorFiles: Record<string, string> = {};
+  for (const entry of pluginInputAliasEntries(aliases, {
+    endpoint: "linked",
+    rawEntry: (file) => {
+      rawDescriptorFiles[file.toString("base64")] =
+        LSPProjectInputDigest.lspProjectInputFileDigest(file);
+    },
+  }))
+    files.add(entry);
+  const descriptorFiles: Record<string, Record<string, string>> = {};
+  for (const file of files) record(descriptorFiles, file);
   const sourceFiles: Record<string, Record<string, string>> = {};
   for (const source of Object.keys(loaded.pluginSources)) {
     for (const directory of collectPluginSourceDirectories(source))
@@ -121,6 +130,7 @@ export function captureLSPPluginSelectionInputs(loaded: {
     omittedSuffixes: GoSourceInputs.OMITTED_SOURCE_FILE_SUFFIXES,
     prunedDirectoryNames: GoSourceInputs.PRUNED_SOURCE_DIRECTORY_NAMES,
     descriptorFiles,
+    ...(Object.keys(rawDescriptorFiles).length !== 0 && { rawDescriptorFiles }),
     sourceFiles,
   };
 }

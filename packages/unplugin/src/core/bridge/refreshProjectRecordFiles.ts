@@ -5,6 +5,7 @@ import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_F
 import type { TtscTransformFilesystemOperations } from "../transform/filesystem/TtscTransformFilesystemOperations";
 import type { HostWatchBridge } from "./HostWatchBridge";
 import { PROJECT_RECORD_DIRECTORY } from "./PROJECT_RECORD_DIRECTORY";
+import { fallbackRecordStorage } from "./fallbackRecordStorage";
 import { refreshProjectRecordFile } from "./refreshProjectRecordFile";
 
 /**
@@ -59,8 +60,11 @@ export function refreshProjectRecordFiles(
   bridge?: HostWatchBridge,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
   compilerArgumentsIdentity?: string,
+  privateStorage = false,
 ): void {
   const directory = path.join(toolDirectory, PROJECT_RECORD_DIRECTORY);
+  if (privateStorage && fallbackRecordStorage(directory, false) !== true)
+    return;
   let names: string[];
   try {
     names = fs.readdirSync(directory);
@@ -74,6 +78,7 @@ export function refreshProjectRecordFiles(
         bridge,
         filesystem,
         compilerArgumentsIdentity,
+        privateStorage,
       );
   }
 }

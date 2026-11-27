@@ -37,6 +37,8 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  * @param env Caller environment merged over this process's.
  * @param cwd Working directory of the probe.
  * @param identities Optional record store of the caller's plugin cache.
+ * @param onProof Receives whether the returned answer qualifies for reuse by
+ *   the surrounding runtime resolution.
  * @evidence contracts/common.md#principled-implementation A child reports its own feature availability and executable; byte-aware before/after identity and same-executable proof authorize reuse only for a stable absolute runtime with empty NODE_OPTIONS or trusted `--require` preloads keyed by their observed module-graph digests, in process or through an answer recorded under that identity.
  * @evidence contracts/common.md#clear-and-simple-design One probe owner coordinates identity, spawning and parsing; the shared fingerprint helper owns file-content proof and the low-descriptor helper owns the POSIX launch distinction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Feature availability comes from the actual interpreter rather than its name; descriptor fallback handles a supported kernel constraint and failures produce unsupported capabilities, not fabricated success.

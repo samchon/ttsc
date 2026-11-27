@@ -61,6 +61,13 @@ export type TtscWatchInputState =
       digest: string;
     }
   | {
+      /** A failed compiler's declared source directory, observed for recovery. */
+      codec: "recovery-tree";
+
+      /** Digest of the physical target and source, or null for no directory. */
+      digest: string | null;
+    }
+  | {
       /**
        * The project's root-file membership, which the adapter's project walk
        * decides rather than the compiler (samchon/ttsc#1419). The input's path

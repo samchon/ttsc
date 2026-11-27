@@ -119,6 +119,7 @@ export function next(
       undefined,
       undefined,
       compilerArguments,
+      true,
     );
   return {
     ...nextConfig,

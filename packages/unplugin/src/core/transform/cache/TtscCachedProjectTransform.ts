@@ -118,6 +118,9 @@ export interface TtscCachedProjectTransform {
    */
   externalInputPaths?: string[];
 
+  /** The declared compiler source from the invocation that threw. */
+  failedCompilerSource?: { file: string; digest: string | null };
+
   /** Absent external names replayed directly instead of watching their parents. */
   directExternalInputs?: readonly string[];
 

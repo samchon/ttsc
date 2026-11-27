@@ -1,11 +1,13 @@
 package lspserver
 
 import (
+  "encoding/base64"
   "fmt"
   "os"
   "path/filepath"
   "runtime"
   "strings"
+  "unicode/utf8"
 )
 
 // NativePluginSelectionInputs carries the launcher-declared selection baseline
@@ -25,7 +27,7 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design Build-owned omission and pruning rules travel as data rather than duplicated host build policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Launcher-observed inputs and source rules supply the baseline instead of a fixed package-specific list. The wire shape does not prove producer completeness or capture freshness; host normalization and comparisons own its admission.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain directory grouping, missing candidates and listing ownership, with separated member prose under the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation The host validates absolute local directories and recorded file-entry names (rejecting separators, NUL and dot-parent entries), then attempts native directory identity with lexical/unknown-case fallback. Policy-name lists remain literal entry filters; protocol URLs are not used as native paths. Supplied hash syntax and sequential comparisons are not an atomic filesystem capture.
+// @evidence contracts/portability.md#os-neutral-implementation The host validates absolute local directories and recorded file-entry names, then attempts native directory identity with lexical/unknown-case fallback. Base64 preserves POSIX entry bytes outside UTF-8 for direct native checks. Policy-name lists remain literal entry filters, and sequential comparisons are not an atomic filesystem capture.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
 // @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
@@ -36,6 +38,10 @@ type NativePluginSelectionInputs struct {
   // what they resolved. Only those files count; the rest of the directory is
   // not an input.
   DescriptorFiles map[string]map[string]string `json:"descriptorFiles,omitempty"`
+
+  // RawDescriptorFiles maps base64-encoded POSIX paths that contain non-UTF-8
+  // bytes to their entry fingerprints.
+  RawDescriptorFiles map[string]string `json:"rawDescriptorFiles,omitempty"`
 
   // SourceFiles maps every plugin source directory to the name of every file
   // directly inside it that the build keys on, with its digest. A directory
@@ -56,6 +62,7 @@ type NativePluginSelectionInputs struct {
 // repeated lane groups can perform native queries before sharing the record.
 type pluginSelectionInputs struct {
   directories     map[string]*pluginSelectionDirectory
+  rawFiles        map[string]string
   omittedNames    []string
   omittedSuffixes []string
   prunedNames     []string
@@ -104,7 +111,8 @@ func newPluginSelectionInputs(
       }
       entry.listing = entry.listing || listing
       for name, digest := range files {
-        if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\\x00") {
+        if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\x00") ||
+          (runtime.GOOS == "windows" && strings.ContainsRune(name, '\\')) {
           return fmt.Errorf(
             "plugin selection file %q in %q is not a file name",
             name,
@@ -129,6 +137,20 @@ func newPluginSelectionInputs(
   if err := add(inputs.SourceFiles, true); err != nil {
     return pluginSelectionInputs{}, err
   }
+  if len(inputs.RawDescriptorFiles) != 0 {
+    out.rawFiles = make(map[string]string, len(inputs.RawDescriptorFiles))
+  }
+  for encoded, digest := range inputs.RawDescriptorFiles {
+    bytes, err := base64.StdEncoding.DecodeString(encoded)
+    location := string(bytes)
+    if err != nil || base64.StdEncoding.EncodeToString(bytes) != encoded ||
+      runtime.GOOS == "windows" || utf8.ValidString(location) ||
+      !isAbsoluteLocalLSPProjectInputPath(location, runtime.GOOS) ||
+      filepath.Clean(location) != location || !validProjectInputFingerprint(digest) {
+      return pluginSelectionInputs{}, fmt.Errorf("invalid raw plugin selection fingerprint for %q", encoded)
+    }
+    out.rawFiles[location] = digest
+  }
   return out, nil
 }
 
@@ -137,7 +159,9 @@ func newPluginSelectionInputs(
 func (inputs pluginSelectionInputs) watchDirectories() []string {
   out := make([]string, 0, len(inputs.directories))
   for _, directory := range inputs.directories {
-    out = append(out, directory.path)
+    if utf8.ValidString(directory.path) {
+      out = append(out, directory.path)
+    }
   }
   return out
 }
@@ -147,6 +171,17 @@ func (inputs pluginSelectionInputs) watchDirectories() []string {
 func (inputs pluginSelectionInputs) current() bool {
   for _, directory := range inputs.directories {
     if !inputs.directoryCurrent(directory) {
+      return false
+    }
+  }
+  return inputs.rawFilesCurrent()
+}
+
+// rawFilesCurrent rechecks POSIX byte paths that may not reach the host
+// through Unicode LSP watcher notifications.
+func (inputs pluginSelectionInputs) rawFilesCurrent() bool {
+  for location, digest := range inputs.rawFiles {
+    if projectInputReloadFileDigest(location) != digest {
       return false
     }
   }

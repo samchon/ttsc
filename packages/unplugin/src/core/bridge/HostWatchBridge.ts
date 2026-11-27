@@ -216,5 +216,6 @@ export interface HostWatchBridge {
     inputs: readonly TtscWatchInput[],
     failed?: boolean,
     startedAt?: number,
+    privateStorage?: boolean,
   ): void;
 }

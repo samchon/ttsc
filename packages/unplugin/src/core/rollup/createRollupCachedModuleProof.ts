@@ -1,5 +1,6 @@
 import fs from "node:fs";
 
+import { privateProjectRecordAvailable } from "../bridge/privateProjectRecordAvailable";
 import { projectRecordDigest } from "../bridge/projectRecordDigest";
 import { refreshProjectRecordFile } from "../bridge/refreshProjectRecordFile";
 import type { RollupCachedModuleProof } from "./RollupCachedModuleProof";
@@ -71,11 +72,15 @@ export function createRollupCachedModuleProof(
 ): RollupCachedModuleProof {
   const proven = new Set<string>();
   const digests = new Map<string, string | undefined>();
-  const read = (record: string): string | undefined => {
+  const read = (
+    record: string,
+    privateStorage: boolean,
+  ): string | undefined => {
     if (digests.has(record)) return digests.get(record);
     let digest: string | undefined;
     try {
-      digest = projectRecordDigest(fs.readFileSync(record));
+      if (!privateStorage || privateProjectRecordAvailable(record))
+        digest = projectRecordDigest(fs.readFileSync(record));
     } catch {
       // A record that cannot be read proves nothing.
     }
@@ -100,18 +105,23 @@ export function createRollupCachedModuleProof(
         | undefined;
       if (delivery?.options !== options()) return true;
       if (delivery.record === undefined) return false;
-      const { digest, file } = (delivery.record ?? {}) as Partial<
-        NonNullable<NonNullable<TtscRollupDelivery>["record"]>
-      >;
+      const { digest, file, privateStorage } = (delivery.record ??
+        {}) as Partial<NonNullable<NonNullable<TtscRollupDelivery>["record"]>>;
       if (typeof file !== "string" || typeof digest !== "string") return true;
       if (proves() && !proven.has(file)) {
         proven.add(file);
-        refreshProjectRecordFile(file);
+        refreshProjectRecordFile(
+          file,
+          undefined,
+          undefined,
+          undefined,
+          privateStorage === true,
+        );
         // What a delivery of this build wrote is what the proof ran over, and
         // a move it made is read from the file.
         digests.delete(file);
       }
-      return read(file) !== digest;
+      return read(file, privateStorage === true) !== digest;
     },
   };
 }

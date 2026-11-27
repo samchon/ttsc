@@ -179,6 +179,8 @@ function isInputState(value: unknown): boolean {
       return normalizeGraphInputObservation(value.observation) !== undefined;
     case "tree":
       return typeof value.digest === "string";
+    case "recovery-tree":
+      return value.digest === null || typeof value.digest === "string";
     case "membership":
       return isMembership(value);
     default:

@@ -1355,7 +1355,7 @@ function emitOrphanSource(
       // runs from its own output directory rather than from a dependency's,
       // which below `node_modules` can pass Windows' MAX_PATH for a working
       // directory.
-      { cwd: outDir, encoding: "utf8" },
+      { cwd: outDir, encoding: "utf8", projectless: true },
     );
     const emitted = isolatedEmitOf(filename, outDir);
     const source = emitted === null ? null : readFileOrNull(emitted);
@@ -1482,7 +1482,7 @@ function emitCommonJsForNameScan(real: string): string | null {
         "commonjs",
         "export-scan",
       ),
-      { cwd: outDir, encoding: "utf8" },
+      { cwd: outDir, encoding: "utf8", projectless: true },
     );
     const emitted = isolatedEmitOf(input, outDir);
     const lowered = emitted === null ? null : readFileOrNull(emitted);
