@@ -16,6 +16,7 @@ const uncoveredInputs = new WeakMap<
   {
     project: ReadonlySet<string> | undefined;
     host: ReadonlySet<string> | undefined;
+    candidate: ReadonlySet<string> | undefined;
     complete: boolean;
   }
 >();
@@ -51,9 +52,10 @@ const uncoveredInputs = new WeakMap<
  *   Immutable envelope selections, universal manifests and currently qualified
  *   per-input signatures serve sibling deliveries. Universal validation is
  *   invoked on each call. Quiet authoritative scopes let sibling deliveries
- *   share the exact covered set difference. Inputs outside those scopes still
- *   need current proof, and a failed wider proof returns to the module's own
- *   selection.
+ *   share the exact coverage decision. A candidate watcher only proves a
+ *   recorded file-unavailability predicate. The native gate has already
+ *   replayed direct external inputs. Other unproven inputs need the module's
+ *   own selection.
  */
 export function matchesNarrowPersistentInputs(
   /**
@@ -89,22 +91,37 @@ export function matchesNarrowPersistentInputs(
   const host = verified
     ? quietCoverage(cached.hostInputMutationTracker)
     : undefined;
-  if (project !== undefined || host !== undefined) {
+  const candidate = verified
+    ? quietCoverage(cached.candidateMutationTracker)
+    : undefined;
+  if (project !== undefined || host !== undefined || candidate !== undefined) {
     let uncovered = uncoveredInputs.get(cached);
     if (
       uncovered === undefined ||
       uncovered.project !== project ||
-      uncovered.host !== host
+      uncovered.host !== host ||
+      uncovered.candidate !== candidate
     ) {
+      const direct = new Set(cached.directExternalInputs);
       uncovered = {
         project,
         host,
-        complete: generationWatchInputs(cached).every(
-          ({ file }) =>
+        candidate,
+        complete: generationWatchInputs(cached).every(({ file }) => {
+          if (
             hostValidation.covered.has(file) ||
             project?.has(file) ||
-            host?.has(file),
-        ),
+            host?.has(file) ||
+            direct.has(file)
+          )
+            return true;
+          const observation = cached.externalInputObservations?.[file];
+          return (
+            candidate?.has(file) === true &&
+            observation?.fileExists === false &&
+            Object.keys(observation).length === 1
+          );
+        }),
       };
       uncoveredInputs.set(cached, uncovered);
     }

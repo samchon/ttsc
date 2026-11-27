@@ -11,7 +11,8 @@ import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
  * Re-check graph-owned physical identities in complete-snapshot fallback.
  *
  * Predicate-bearing spellings are already replayed by their owning validator;
- * this pass handles only the legacy graph realpath witnesses.
+ * this pass handles only legacy graph realpath witnesses outside the caller's
+ * verified host tracker coverage.
  *
  * @evidence contracts/common.md#principled-implementation Each recorded legacy physical target must still match under the generation's identity context; predicate observations retain their independent native semantics.
  * @evidence contracts/common.md#clear-and-simple-design This pass owns only the physical half of legacy external snapshot fallback rather than duplicating predicate replay.
@@ -21,8 +22,8 @@ import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The pass borrows generation records and retains no map, handle or historical result.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Materializes recorded target keys for the empty check, then scans external
- *   spellings until a mismatch. Predicate spellings skip legacy proof; other
- *   entries pay native identity lookup and selected realpath observation/key
+ *   spellings until a mismatch. Predicate and currently proven spellings skip
+ *   legacy proof. Other entries pay native identity and realpath observation
  *   comparison, including uncached native components/case and path text.
  *   No source content or recursive directory enumeration is performed here.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Complete snapshot admission owns shared proof and adoption; this pass contributes one physical-target verdict.
@@ -33,12 +34,15 @@ export function matchesExternalInputRealpaths(
    * predicates.
    */
   cached: TtscCachedProjectTransform,
+  /** Whether this delivery's verified watcher proves this exact spelling. */
+  provenByWatch?: (file: string) => boolean,
 ): boolean {
   const expected = cached.externalInputRealpaths;
   if (expected === undefined || Object.keys(expected).length === 0) return true;
   const state = envelopeDerivation(cached);
   const filesystem = resultFilesystem(cached.result);
   for (const input of cached.externalInputPaths ?? []) {
+    if (provenByWatch?.(input) === true) continue;
     if (cached.externalInputObservations?.[path.resolve(input)] !== undefined) {
       continue;
     }

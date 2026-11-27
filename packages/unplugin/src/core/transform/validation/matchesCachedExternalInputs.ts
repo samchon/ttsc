@@ -14,6 +14,7 @@ import { MISSING_INPUT_STATE } from "./MISSING_INPUT_STATE";
 
 /**
  * Re-check a cached mixed graph/dependency input set with its owning codec,
+ * accepting exact current notification coverage where the caller has it and
  * reusing the recorded hash of any input whose metadata signature still holds
  * under a freshly minted same-device reference and reporting the signatures
  * this pass captured.
@@ -29,7 +30,8 @@ import { MISSING_INPUT_STATE } from "./MISSING_INPUT_STATE";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned signature DTO transfers to the generation owner; this pass retains no independent cache or native resource.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Scans the recorded spelling population, including later entries after a
- *   mismatch. Each input pays path/identity and initial native metadata work;
+ *   mismatch. Exact notification proof can settle an input immediately. Each
+ *   remaining input pays path/identity and initial native metadata work;
  *   a qualified signature skips replay and recapture. Formatting follows
  *   path/bigint text. Replay hashes selected bytes or collects predicate
  *   failures/listings, then recaptures metadata for earned signatures.
@@ -40,6 +42,8 @@ import { MISSING_INPUT_STATE } from "./MISSING_INPUT_STATE";
 export function matchesCachedExternalInputs(
   /** Generation recording lexical inputs, distinct codecs and earned signatures. */
   cached: TtscCachedProjectTransform,
+  /** Whether this delivery's verified watcher proves this exact spelling. */
+  provenByWatch?: (file: string) => boolean,
 ): {
   /** Whether every recorded external spelling still matches its authority. */
   matches: boolean;
@@ -64,6 +68,7 @@ export function matchesCachedExternalInputs(
   // whichever came first decide.
   for (const file of cached.externalInputPaths ??
     Object.keys(cached.externalInputHashes ?? {})) {
+    if (provenByWatch?.(file) === true) continue;
     const identity = derivationIdentity(state, file);
     const spelling = path.resolve(file);
     const observation = cached.externalInputObservations?.[spelling];

@@ -7,6 +7,7 @@ import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/sr
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import { TtscGenerationProof } from "../../../../../packages/unplugin/src/core/transform/validation/TtscGenerationProof";
 import { nativeInputPredicatesHold } from "../../../../../packages/unplugin/src/core/transform/validation/nativeInputPredicatesHold";
+import { TestProject } from "../../../../utils/src/TestProject";
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
 
 /**
@@ -18,10 +19,11 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
  * 1. Replay one native config predicate twice inside one admission transaction.
  * 2. Change its bytes, open a new transaction and require refusal.
  * 3. Restore bytes and reject borrowing another generation's verdict.
+ * 4. Replay an absent external directory and reject reuse after it appears.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual nativeInputPredicatesHold reads config bytes once for two synchronous gates, then reads changed bytes in a fresh transaction and refuses; restoration succeeds and a foreign owner cannot lend its verdict.
  * @evidence contracts/testing.md#independent-expectations Literal config bytes and their SHA-256 establish the producer input; one/two/three native reads and true/false outcomes follow the synchronous lifetime rather than a production counter or expected-output helper.
- * @evidence contracts/testing.md#distinguishing-cases Nested versus fresh transaction, changed/restored bytes, same versus foreign owner and absent transaction distinguish valid sharing from stale positive/negative verdict caching.
+ * @evidence contracts/testing.md#distinguishing-cases Nested versus fresh transaction, changed/restored bytes, same versus foreign owner and absent transaction distinguish valid sharing from stale positive/negative verdict caching. A real external directory that appears invalidates its absent predicate even within the same pass.
  * @evidence contracts/testing.md#execution-ownership Direct source unit uses real fixture bytes and a supported filesystem read counter. No compiler, worker or watcher is substituted or started; finally resets its fixture cache.
  */
 export function test_native_predicate_proof_is_shared_only_synchronously(): void {
@@ -86,6 +88,21 @@ export function test_native_predicate_proof_is_shared_only_synchronously(): void
     assert.equal(reads, 4);
     assert.equal(nativeInputPredicatesHold(fixture.good), false);
     assert.equal(reads, 5);
+
+    fs.writeFileSync(file, original);
+    const external = path.join(
+      TestProject.tmpdir("ttsc-direct-external-input-"),
+      "node_modules",
+    );
+    fixture.good.directExternalInputs = [external];
+    fixture.good.externalInputObservations = {
+      [external]: { directoryExists: false },
+    };
+    const current = () =>
+      TtscGenerationProof.create(fixture.good, fixture.file, 1);
+    assert.equal(nativeInputPredicatesHold(fixture.good, current()), true);
+    fs.mkdirSync(external);
+    assert.equal(nativeInputPredicatesHold(fixture.good, current()), false);
   } finally {
     fixture.dispose();
   }

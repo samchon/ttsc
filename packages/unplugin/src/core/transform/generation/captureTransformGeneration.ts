@@ -21,6 +21,7 @@ import { selectNotifiableAbsentInputs } from "../envelope/selectNotifiableAbsent
 import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
+import { relativeToProject } from "../filesystem/relativeToProject";
 import { preparePluginBuildEnvironments } from "../inputs/preparePluginBuildEnvironments";
 import { collectProjectInputSnapshot } from "../project/collectProjectInputSnapshot";
 import { toProjectKey } from "../project/toProjectKey";
@@ -536,28 +537,40 @@ export async function captureTransformGeneration(props: {
             temporaryTsconfig: envelopeTemporaryTsconfig,
           })
         : { candidates: [], watched: [] };
-    hostInputTracker =
-      props.retainProjectMembership && props.retainNotifications
-        ? await createHostInputMutationTracker(
-            persistentValidationInputs,
-            props.filesystem,
-            // A universal input never reaches the per-input loop that consults a
-            // coverage claim: absent inputs use native candidate probes instead,
-            // re-resolving the recorded spelling on every required validation.
-            new Set(
-              persistentValidationInputs.map((input) => path.resolve(input)),
-            ),
-            "all",
-            projectRoot,
-            trackedInputScopes({
-              filesystem: props.filesystem,
-              inputs: persistentValidationInputs,
-              projectRoot,
-              result,
-            }),
-            generationCase,
-          )
-        : undefined;
+    const directExternalInputs: string[] = [];
+    if (props.retainProjectMembership && props.retainNotifications) {
+      const scopes = trackedInputScopes({
+        filesystem: props.filesystem,
+        inputs: persistentValidationInputs,
+        projectRoot,
+        result,
+      });
+      const { project } = envelopeDerivation({ projectRoot, result });
+      const observed = new Set(externalInputPaths);
+      const watched = persistentValidationInputs.filter((input) => {
+        if (
+          !observed.has(input) ||
+          scopes.get(input) !== "presence" ||
+          relativeToProject(input, project, props.filesystem.platform) !==
+            undefined ||
+          props.filesystem.exists(input)
+        )
+          return true;
+        // An absent lookup such as a parent node_modules would otherwise open
+        // a watch on a machine directory. Replay this predicate on delivery.
+        directExternalInputs.push(input);
+        return false;
+      });
+      hostInputTracker = await createHostInputMutationTracker(
+        watched,
+        props.filesystem,
+        new Set(watched.map((input) => path.resolve(input))),
+        "all",
+        projectRoot,
+        scopes,
+        generationCase,
+      );
+    }
     compileTrace?.("bridge-tracker-lifecycle", {
       pid: process.pid,
       cwd: projectRoot,
@@ -701,6 +714,7 @@ export async function captureTransformGeneration(props: {
       externalInputHashes: {},
       externalInputRealpaths: {},
       externalInputPaths,
+      directExternalInputs,
       configStateComplete: configStable,
       projectHeldStill: walkStable,
       inputHashes: inputSnapshot.hashes,

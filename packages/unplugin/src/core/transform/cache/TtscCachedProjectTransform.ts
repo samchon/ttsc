@@ -118,6 +118,9 @@ export interface TtscCachedProjectTransform {
    */
   externalInputPaths?: string[];
 
+  /** Absent external names replayed directly instead of watching their parents. */
+  directExternalInputs?: readonly string[];
+
   /**
    * Optional metadata signature earned around a successful external content or
    * predicate comparison and recorded only once the observed filesystem's clock
