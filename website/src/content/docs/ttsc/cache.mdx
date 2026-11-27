@@ -24,6 +24,8 @@ A launch whose plugin binary is already cached still has to prove that its input
 
 A recorded digest is reused while each file keeps its recorded identity, size and timestamps, and its modification time is older than a reference on the same drive. A changed file or a file still in the same clock tick is read again. The launch writes one reference in the cache. If private system temp is on another drive, the launch writes a second reference in a per-user `ttsc-clock-references` directory there. Files on drives without a reference are read again. A source directory's identity also records its listing and the directory's modification and change times before that listing. The next launch can skip an unchanged listing on a drive where writing the reference advanced the containing directory's timestamps.
 
+The same checks apply to binaries and plugin sources in package stores, including Nix. A read-only package directory can still contain files whose bytes change in place.
+
 Native tools use private storage for command receipts and Go compiler work files. A project-local or missing system temp directory is skipped. The capability worker exchanges native results in memory.
 
 `ttsx` and `ttsc/register` also keep the TypeScript they lower for a package that no tsconfig owns, such as one shipping raw `.ts` under `node_modules`, under `<root>/ttsx-orphan`, keyed by the source bytes and the compiler that lowered them.
