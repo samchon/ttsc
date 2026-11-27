@@ -5,9 +5,11 @@ import path from "node:path";
 
 import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/SidecarEnvironment";
 import { GoEnvironmentReading } from "../../../../../packages/ttsc/src/plugin/internal/source/GoEnvironmentReading";
+import { GoToolResolution } from "../../../../../packages/ttsc/src/plugin/internal/source/GoToolResolution";
 import { PluginBuildEnvironmentReadings } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentReadings";
 import { PluginBuildEnvironmentWitness } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginContentIdentities";
+import { pluginBuildEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginBuildEnvironment";
 import { readPluginBuildEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/readPluginBuildEnvironment";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -19,13 +21,13 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 1. Record the usable toolchain in a child module and reread it unchanged.
  * 2. Add and remove an ancestor workspace that selects an unavailable version.
  * 3. Edit the module to select that version, then restore the working version.
- * 4. Exercise delegation within and across SDK roots, working-directory aliases on
+ * 4. Exercise delegation across SDK roots, native launcher and capture paths on
  *    POSIX, and relative cache and worker requests across a cwd change.
  *
  * @evidence contracts/testing.md#behavioral-verification The direct answer reader over a real Go SDK and private store returns the working digest while selection holds, then produces a different digest and refuses the preceding witness whenever Go's selection files move.
  * @evidence contracts/testing.md#independent-expectations Go's toolchain selection rules give the ancestor workspace precedence and reject the authored higher requirement with path-only lookup. Restoring the original requirement restores the original build inputs.
- * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selectors, native link retargeting and a dot-parent alias whose normalized spelling would select a different workspace. Relative cache and pending requests start under two bases, and editing just one workspace invalidates only that worker's reading. With a second SDK, an earlier PATH candidate displaces a different Go release in a shared SDK root.
- * @evidence contracts/testing.md#execution-ownership The unit runs native Go queries in temporary modules including through the real preparation worker. It restores cwd without changing environment variables, copies already installed executables and runs no plugin build or installed ttsc host.
+ * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selectors, native link retargeting and a dot-parent alias whose normalized spelling would select a different workspace, Go launcher and capture boundary. Relative cache and pending requests start under two bases, and editing just one workspace invalidates only that worker's reading. With a second SDK, an earlier PATH candidate displaces a different Go release in a shared SDK root.
+ * @evidence contracts/testing.md#execution-ownership The unit runs native Go queries in temporary modules, through the real preparation worker and a bounded POSIX Node child with its own temp environment. It restores cwd without changing environment variables, copies already installed executables and runs no plugin build or installed ttsc host.
  */
 export async function test_plugin_build_environment_follows_toolchain_selection_files(): Promise<void> {
   const root = TestProject.physicalPath(
@@ -212,6 +214,87 @@ function verifyNativeDotParentDirectory(
   fs.unlinkSync(invalidWorkspace);
   assert.ok(recorded(aliased)?.GOROOT);
   assert.equal(digest(aliased), ordinaryDigest);
+  verifyDotParentLaunch(
+    binary,
+    ordinary,
+    aliased,
+    path.join(physical, "module"),
+    effective,
+    store,
+  );
+}
+
+/** Check initial executable selection and the Go child's private temp root. */
+function verifyDotParentLaunch(
+  binary: string,
+  lexical: string,
+  cwd: string,
+  physical: string,
+  env: NodeJS.ProcessEnv,
+  store: PluginContentIdentities.Store | undefined,
+): void {
+  const toolName = "dot-parent-go";
+  const actual = path.join(physical, "bin", toolName);
+  fs.mkdirSync(path.dirname(actual));
+  fs.symlinkSync(binary, actual);
+  fs.mkdirSync(path.join(lexical, "bin"));
+  fs.symlinkSync(process.execPath, path.join(lexical, "bin", toolName));
+  for (const requested of [`./bin/${toolName}`, toolName]) {
+    const toolEnv = SidecarEnvironment.merge(env, {
+      PATH: "bin",
+      TTSC_GO_BINARY: requested,
+    });
+    assert.equal(
+      GoToolResolution.resolveGoToolForBuild(requested, toolEnv, cwd),
+      actual,
+    );
+    assert.equal(
+      pluginBuildEnvironment(cwd, toolEnv, undefined, store),
+      readPluginBuildEnvironment(actual, cwd, toolEnv, undefined, store),
+    );
+  }
+
+  const temporary = path.join(physical, "inside-tmp");
+  fs.mkdirSync(temporary);
+  const loader = new URL(
+    "../../../../../config/register-unit-loader.mjs",
+    import.meta.url,
+  );
+  const spawnModule = new URL(
+    "../../../../../packages/ttsc/src/plugin/internal/source/spawnGoTool.ts",
+    import.meta.url,
+  );
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      loader.href,
+      "--input-type=module",
+      "--eval",
+      `
+      import { spawnGoTool } from ${JSON.stringify(spawnModule.href)};
+      const result = spawnGoTool(${JSON.stringify(binary)}, ["env", "-json", "GOTMPDIR"], {
+        cwd: ${JSON.stringify(cwd)}, encoding: "utf8"
+      });
+      if (result.status !== 0) throw result.error ?? new Error(result.stderr);
+      process.stdout.write(result.stdout);
+      `,
+    ],
+    {
+      env: SidecarEnvironment.merge(env, {
+        GOTOOLCHAIN: "local",
+        TMPDIR: temporary,
+        NODE_OPTIONS: undefined,
+      }),
+      encoding: "utf8",
+      timeout: 30_000,
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const captured: string = JSON.parse(result.stdout).GOTMPDIR;
+  assert.ok(captured);
+  assert.notEqual(path.dirname(captured), temporary);
+  assert.deepEqual(fs.readdirSync(temporary), []);
 }
 
 /** Exercise real Go dispatch without downloading a test-only toolchain. */

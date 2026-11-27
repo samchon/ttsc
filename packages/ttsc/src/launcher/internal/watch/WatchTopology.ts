@@ -1045,7 +1045,7 @@ export class WatchTopology {
     const topologyEntries = new Map<string, string>();
     const byteWatches = new Map<string, { directory: Buffer; name?: Buffer }>();
     const appeared: [string, string][] = [];
-    let racedAlias = false;
+    let racedAliases: Set<string> | undefined;
     for (const input of this.extraInputs) {
       const inputKey = this.pathKey(input);
       const watchByteEntry = (entry: Buffer): void => {
@@ -1099,7 +1099,7 @@ export class WatchTopology {
         // Keep the topology subscriptions and give the new target one fresh
         // reconciliation after those subscriptions are live.
         targets = [];
-        racedAlias = true;
+        (racedAliases ??= new Set()).add(input);
       }
       for (const target of targets) {
         const directory =
@@ -1222,11 +1222,23 @@ export class WatchTopology {
         if (this.isPluginInput(entry)) this.notePluginNotification(entry);
       }
     }
-    if (racedAlias && retryRacedAlias)
+    const aliasesToRetry = racedAliases;
+    if (aliasesToRetry !== undefined && retryRacedAlias)
       setImmediate(() => {
         if (this.closed) return;
         this.beginLexicalTransaction();
-        this.syncExtraWatchers(false);
+        // A link move can precede the new subscription and leave no child
+        // entries to replay. Compare the declaration against its old state.
+        for (const input of this.extraInputs)
+          if (aliasesToRetry.has(input))
+            this.recordPluginNotification(input, input);
+        if (
+          this.pluginNotificationsScheduled ||
+          this.pendingPluginNotifications.size === 0
+        )
+          return;
+        this.pluginNotificationsScheduled = true;
+        this.decidePluginNotifications(false);
       });
   }
 
@@ -2134,17 +2146,21 @@ export class WatchTopology {
     const covering = this.extraInputs.filter((input) =>
       pluginSourceCovers(input, resolved, "entry"),
     );
-    for (const input of covering.length === 0 ? this.extraInputs : covering) {
-      const key = this.pathKey(input);
-      const locations = this.pendingPluginNotifications.get(key) ?? new Set();
-      locations.add(location);
-      this.pendingPluginNotifications.set(key, locations);
-    }
+    for (const input of covering.length === 0 ? this.extraInputs : covering)
+      this.recordPluginNotification(input, location);
     if (this.pluginNotificationsScheduled) return;
     this.pluginNotificationsScheduled = true;
     // A watcher backend hands one delivery to its listeners within one turn
     // of the event loop, so the check phase after that turn holds all of it.
     setImmediate(() => this.decidePluginNotifications());
+  }
+
+  /** Retain one reportable location for an input's pending comparison. */
+  private recordPluginNotification(input: string, location: string): void {
+    const key = this.pathKey(input);
+    const locations = this.pendingPluginNotifications.get(key) ?? new Set();
+    locations.add(location);
+    this.pendingPluginNotifications.set(key, locations);
   }
 
   /**
@@ -2160,7 +2176,7 @@ export class WatchTopology {
    * synced first, and what a directory they start watching already holds is
    * noted into this same decision (`syncExtraWatchers`).
    */
-  private decidePluginNotifications(): void {
+  private decidePluginNotifications(retryRacedAlias = true): void {
     if (this.closed) {
       this.pendingPluginNotifications = new Map();
       this.pluginNotificationsScheduled = false;
@@ -2169,7 +2185,7 @@ export class WatchTopology {
     this.beginLexicalTransaction();
     // Still scheduled while syncing, so what the sync notes joins this decision
     // instead of scheduling another.
-    this.syncExtraWatchers();
+    this.syncExtraWatchers(retryRacedAlias);
     this.pluginNotificationsScheduled = false;
     const pending = this.pendingPluginNotifications;
     this.pendingPluginNotifications = new Map();

@@ -56,14 +56,19 @@ export namespace GoToolResolution {
         if (!isExecutableFile(candidate)) continue;
         try {
           fs.accessSync(candidate, fs.constants.X_OK);
-          return candidate;
+          if (!hasParentComponent(candidate)) return candidate;
+          // Resolve the parent natively before Go infers GOROOT from the
+          // executable's directory. Keep the final executable alias intact.
+          const directory = fs.realpathSync.native(path.dirname(candidate));
+          PluginBuildEnvironmentWitness.add(witness, candidate);
+          return path.join(directory, path.basename(candidate));
         } catch {
           // A non-executable PATH entry must not shadow a later usable tool.
         }
       }
       return path.isAbsolute(binary) || !hasPathQualifier(binary)
         ? binary
-        : path.resolve(cwd, binary);
+        : workingPath(cwd, binary);
     }
     return resolveWindowsGoTool(binary, env, cwd, witness).location ?? binary;
   }
@@ -137,7 +142,7 @@ export namespace GoToolResolution {
    * @evidence contracts/common.md#clear-and-simple-design Base construction is independent of executable-extension probing, allowing Go and external-command identity readers to share it.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Search fallback uses the native POSIX default or Windows inherited PATH semantics, not a privileged compiler directory.
    * @evidence contracts/common.md#meaningful-documentation The prose states absolute/qualified handling, current-directory precedence and the disabling switch.
-   * @evidence contracts/portability.md#os-neutral-implementation Node's delimiter and native paths govern POSIX search; Windows semicolon quoting and case-insensitive PATH retrieval are explicit boundaries.
+   * @evidence contracts/portability.md#os-neutral-implementation Node's delimiter and native paths govern POSIX search. Parent components stay available to native lookup. Windows semicolon quoting and case-insensitive PATH retrieval are explicit boundaries.
    * @evidence contracts/performance.md#efficient-algorithms Absolute/qualified inputs take native path checks; bare names split complete PATH text and map directories to full resolved strings. Windows also filters/unquotes entries, can enumerate/casefold environment names and witnesses the ambient cwd-search switch. Path/name/environment bytes and intermediate arrays contribute processing/storage beyond candidate count.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This constructs bases from current arguments and owns no cross-request search cache.
@@ -150,7 +155,7 @@ export namespace GoToolResolution {
     witness?: PluginBuildEnvironmentWitness.Record,
   ): string[] {
     if (path.isAbsolute(binary)) return [binary];
-    if (hasPathQualifier(binary)) return [path.resolve(cwd, binary)];
+    if (hasPathQualifier(binary)) return [workingPath(cwd, binary)];
 
     const directories =
       process.platform === "win32"
@@ -179,7 +184,37 @@ export namespace GoToolResolution {
     ) {
       directories.unshift(cwd);
     }
-    return directories.map((dir) => path.resolve(cwd, dir, binary));
+    return process.platform === "win32"
+      ? directories.map((dir) => path.resolve(cwd, dir, binary))
+      : directories.map((dir) => workingPath(workingPath(cwd, dir), binary));
+  }
+
+  /**
+   * Make a cwd-relative path absolute while retaining POSIX parent traversal.
+   * The kernel must follow a symbolic link before it reads a following `..`.
+   *
+   * @evidence contracts/common.md#principled-implementation An absolute base anchors relative lookups. POSIX parent components remain in the lookup spelling, while Win32 uses Node's native resolution rules.
+   * @evidence contracts/common.md#clear-and-simple-design Go launcher selection and capture share the same cwd path construction.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The helper does not guess a symlink's physical target or modify the parent environment.
+   * @evidence contracts/common.md#meaningful-documentation States why POSIX parent components survive and what result the caller receives.
+   * @evidence contracts/portability.md#os-neutral-implementation Native path APIs establish absolute input and Windows drive resolution. POSIX retains the spelling for native filesystem lookup.
+   * @evidence contracts/performance.md#efficient-algorithms One bounded pass over the path components and optional normalizing pass, with no filesystem metadata read.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Path construction does not retain completed lookups.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No native resource or retained state is acquired.
+   */
+  export function workingPath(cwd: string, location = ""): string {
+    if (process.platform === "win32") return path.resolve(cwd, location);
+    const base = path.isAbsolute(cwd) ? cwd : `${process.cwd()}/${cwd}`;
+    const absolute = path.isAbsolute(location)
+      ? location
+      : location === ""
+        ? base
+        : `${base}/${location}`;
+    return hasParentComponent(absolute) ? absolute : path.normalize(absolute);
+  }
+
+  function hasParentComponent(location: string): boolean {
+    return /(?:^|\/)\.\.(?:\/|$)/.test(location);
   }
 
   /**
