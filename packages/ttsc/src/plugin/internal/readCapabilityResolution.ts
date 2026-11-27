@@ -4,6 +4,7 @@ import path from "node:path";
 import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
 import type { ITtscCapabilityPluginSource } from "./ITtscCapabilityPluginSource";
 import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
+import { HostInputObservationPhase } from "./load/HostInputObservationPhase";
 import { hashHostInputPaths } from "./load/hashHostInputPaths";
 import { realpathHostInputPaths } from "./load/realpathHostInputPaths";
 import { PluginContentIdentities } from "./source/PluginContentIdentities";
@@ -80,9 +81,16 @@ export function readCapabilityResolution(options: {
   // the project's own manifest, so an empty input set is a malformed entry
   // rather than a project with no inputs.
   if (entry.hostInputs.length === 0) return null;
+  const observationPhase = HostInputObservationPhase.create();
   if (
-    !sameMap(entry.hostInputHashes, hashHostInputPaths(entry.hostInputs)) ||
-    !sameMap(entry.hostInputRealpaths, realpathHostInputPaths(entry.hostInputs))
+    !sameMap(
+      entry.hostInputHashes,
+      hashHostInputPaths(entry.hostInputs, observationPhase),
+    ) ||
+    !sameMap(
+      entry.hostInputRealpaths,
+      realpathHostInputPaths(entry.hostInputs, observationPhase),
+    )
   )
     return null;
   // What each binary path was keyed on, proven by the build's own rule: a

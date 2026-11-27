@@ -3,6 +3,7 @@ package compiler
 import (
   "context"
   "errors"
+  "os"
   "path/filepath"
   "sort"
   "sync"
@@ -336,3 +337,73 @@ func programNewResolver(program *innercompiler.Program) *innermodule.DefaultReso
 func SourceFileForResolvedModule(program *innercompiler.Program, resolved *innermodule.ResolvedModule) *innerast.SourceFile {
   return program.GetSourceFileForResolvedModule(resolved)
 }
+
+// BatchEnv is the environment variable that marks a process spawned to run one
+// batch command and exit (`TTSC_BATCH=1`). BeginBatchOnce activates the
+// compiler's batch-compilation hook only when this variable equals "1".
+const BatchEnv = "TTSC_BATCH"
+
+var (
+  batchMu           sync.Mutex
+  batchStarted      bool
+  batchProgramBound func()
+  batchHook         = beginBatch
+)
+
+// BeginBatch starts the compiler source's batch-compilation runtime policy
+// when built with the ttsc_compiler_batch tag, delegating to the compiler
+// module's internal/batch.Begin, and returns two no-op functions otherwise.
+// Call programBound once each Program is parsed and bound and before it is
+// checked, and call end to restore runtime settings when the process outlives
+// the batch.
+//
+// @evidence contracts/common.md#principled-implementation Delegates to internal/batch.Begin under ttsc_compiler_batch (which this shim module may import because its module path is rooted under the compiler module) and returns non-nil no-op callbacks when untagged so callers use one unconditional signature.
+// @evidence contracts/common.md#clear-and-simple-design One version-neutral exported entry forwards to build-constrained unexported helpers in batch.go and batch_noop.go, keeping the optional internal import isolated behind ttsc_compiler_batch.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No GC policy is invented or duplicated in ttsc; untagged builds perform no runtime tuning of their own.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the build-tag behavior, the no-op fallback and the lifecycle of both returned callbacks.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Performs no native filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One direct call with no local traversal or data structure; runtime tuning belongs to the compiler's internal/batch package when present.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Callers own per-process batch coordination; this wrapper forwards each call.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned callbacks transfer to the caller and this wrapper retains no state or handle.
+func BeginBatch() (programBound func(), end func()) {
+  return beginBatch()
+}
+
+// BeginBatchOnce starts the compiler's batch-compilation policy at most once
+// per process for a one-shot host when TTSC_BATCH=1 (BatchEnv) is set in the
+// process environment. Call it before creating a Program, bind the created
+// Program with BindSourceFiles, and call the returned programBound function
+// before checking or diagnostics.
+//
+// The hook's end callback is not called because the marker states the process
+// ends with its batch. When TTSC_BATCH is not "1", BeginBatchOnce does nothing
+// and returns a no-op function so callers need no nil check. Resident hosts
+// (serve, check-serve, LSP and driver.Session) must not call BeginBatchOnce.
+//
+// @evidence contracts/common.md#principled-implementation Checks BatchEnv for exact "1" and synchronizes a single process-wide call to the compiler's batch hook under batchMu, returning the hook's programBound callback or a non-nil no-op when inactive so every one-shot host shares one policy without nil checks.
+// @evidence contracts/common.md#clear-and-simple-design One neutral gate in the compiler shim serves driver.LoadProgram, linthost and any third-party host building its own Program without duplicating marker checks or mutex state above the shim.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Performs no runtime tuning of its own; delegates solely to the linked compiler's batch hook when TTSC_BATCH=1 and leaves untagged or unmarked processes untouched.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs state who calls BeginBatchOnce, the pre-create and post-bind/pre-check ordering, why end is not called, the no-op return without the marker and that resident hosts must not call it.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Reads one process environment variable via os.Getenv and invokes in-process Go callbacks with no filesystem, path or subprocess operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One environment lookup and a mutex-guarded boolean check with constant work.
+// @evidence contracts/performance.md#reuse-equivalent-work Process-wide batchStarted ensures the compiler's batch hook runs at most once across all one-shot hosts in the same process, reusing its programBound callback for subsequent batch loads.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Stores one process-lifetime callback reference when activated; the marker states the process ends with its batch, so end is never invoked and no handle is acquired.
+func BeginBatchOnce() (programBound func()) {
+  if os.Getenv(BatchEnv) != "1" {
+    return noopBatchBound
+  }
+  batchMu.Lock()
+  if !batchStarted {
+    bound, _ := batchHook()
+    if bound == nil {
+      bound = noopBatchBound
+    }
+    batchProgramBound = bound
+    batchStarted = true
+  }
+  bound := batchProgramBound
+  batchMu.Unlock()
+  return bound
+}
+
+func noopBatchBound() {}

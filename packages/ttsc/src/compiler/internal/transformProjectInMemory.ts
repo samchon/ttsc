@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { resolveNodeBinary } from "../../internal/resolveNodeBinary";
+import { HostInputObservationPhase } from "../../plugin/internal/load/HostInputObservationPhase";
 import { collectProjectHostInputs } from "../../plugin/internal/load/collectProjectHostInputs";
 import { hashHostInputPaths } from "../../plugin/internal/load/hashHostInputPaths";
 import { loadProjectPlugins } from "../../plugin/internal/load/loadProjectPlugins";
@@ -23,6 +24,7 @@ import { createNativeProjectContextArgs } from "./project/createNativeProjectCon
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
 import { runNativeCheckWithObservations } from "./runNativeCheckWithObservations";
+import { BATCH_ENV } from "./sharedHost/BATCH_ENV";
 import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 import { assertSharedHostCompatibility } from "./sharedHost/assertSharedHostCompatibility";
 import { clearInheritedSemanticConfigPath } from "./sharedHost/clearInheritedSemanticConfigPath";
@@ -191,8 +193,15 @@ function transformProjectWithNativeHost(
   // consumes the resolved config chain here, so dependency package manifests
   // must not become per-project universal inputs a second time.
   const projectHostInputs = collectProjectHostInputs(project, false);
-  const projectHostInputHashes = hashHostInputPaths(projectHostInputs);
-  const projectHostInputRealpaths = realpathHostInputPaths(projectHostInputs);
+  const projectInputPhase = HostInputObservationPhase.create();
+  const projectHostInputHashes = hashHostInputPaths(
+    projectHostInputs,
+    projectInputPhase,
+  );
+  const projectHostInputRealpaths = realpathHostInputPaths(
+    projectHostInputs,
+    projectInputPhase,
+  );
   const observedHostInputs = mergeHostInputs(
     baseline?.hostInputs,
     projectHostInputs,
@@ -223,7 +232,7 @@ function transformProjectWithNativeHost(
     ["api-transform", "--cwd", project.root, "--tsconfig", project.path],
     {
       cwd: project.root,
-      env,
+      env: SidecarEnvironment.merge(env, { [BATCH_ENV]: "1" }),
     },
   );
   if (res.error) {
@@ -473,21 +482,26 @@ function transformProjectWithPlugins(
     stdout: "",
     stderr: outputText(res.stderr),
   };
+  const revalidationPhase = HostInputObservationPhase.create();
   const finalLoadedHostInputHashes = revalidateHostInputHashes(
     checkedHostInputHashes,
     checkedHostInputs,
+    revalidationPhase,
   );
   const finalOutputHostInputHashes = revalidateHostInputHashes(
     output.hostInputHashes ?? {},
     output.hostInputs ?? [],
+    revalidationPhase,
   );
   const finalLoadedHostInputRealpaths = revalidateHostInputRealpaths(
     checkedHostInputRealpaths,
     checkedHostInputs,
+    revalidationPhase,
   );
   const finalOutputHostInputRealpaths = revalidateHostInputRealpaths(
     output.hostInputRealpaths ?? {},
     output.hostInputs ?? [],
+    revalidationPhase,
   );
   const hostInputHashes = mergeCompatibleHostInputHashes(
     finalLoadedHostInputHashes,
@@ -528,8 +542,9 @@ function transformProjectWithPlugins(
 function revalidateHostInputHashes(
   initial: Readonly<Record<string, string | null>>,
   inputs: readonly string[],
+  phase?: HostInputObservationPhase.Phase,
 ): Record<string, string | null> {
-  const current = hashHostInputPaths(inputs);
+  const current = hashHostInputPaths(inputs, phase);
   return Object.fromEntries(
     inputs.flatMap((input) => {
       const absolute = path.resolve(input);
@@ -545,8 +560,9 @@ function revalidateHostInputHashes(
 function revalidateHostInputRealpaths(
   initial: Readonly<Record<string, string | null>>,
   inputs: readonly string[],
+  phase?: HostInputObservationPhase.Phase,
 ): Record<string, string | null> {
-  const current = realpathHostInputPaths(inputs);
+  const current = realpathHostInputPaths(inputs, phase);
   return Object.fromEntries(
     inputs.flatMap((input) => {
       const absolute = path.resolve(input);
@@ -887,6 +903,7 @@ function nativePluginEnv(
     { TTSC_TSGO_BINARY: tsgoBinary },
   );
   const node = resolveNodeBinary(env, projectRoot, identities);
+  SidecarEnvironment.write(env, BATCH_ENV, "1");
   SidecarEnvironment.write(env, "TTSC_NODE_BINARY", node);
   SidecarEnvironment.write(
     env,

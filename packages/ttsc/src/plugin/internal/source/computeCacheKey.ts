@@ -111,6 +111,9 @@ export function computeCacheKey(inputs: {
   const filesystem: SourceBuildFilesystemOperations = {
     readFile:
       inputs.filesystem?.readFile ?? DEFAULT_SOURCE_BUILD_FILESYSTEM.readFile,
+    ...(inputs.filesystem?.realpath === undefined
+      ? {}
+      : { realpath: inputs.filesystem.realpath }),
   };
   const goBinary =
     inputs.goBinary === undefined

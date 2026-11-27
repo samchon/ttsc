@@ -39,8 +39,9 @@ import (
 // rewrite file paths to project-relative keys uniformly across all queries.
 //
 // `mu` serializes Checker-touching paths. driver.LoadProgram pins one
-// Checker via forceSingleChecker, and TypeScript-Go's Checker is not
-// documented thread-safe. On js/wasm cooperative scheduling normally
+// Checker via forceSingleChecker (except on one-shot no-emit batch loads under
+// TTSC_BATCH=1, which never apply to this resident host), and TypeScript-Go's
+// Checker is not documented thread-safe. On js/wasm cooperative scheduling normally
 // prevents two goroutines from running concurrently, but any Go→JS bridge
 // call (file read, Promise await) can yield mid-operation; without `mu`
 // two fountain verbs invoked in the same frame could land their Checker
@@ -510,7 +511,8 @@ func jsGetSymbolAtPosition(this js.Value, args []js.Value) any {
 //     the entry's prog isn't Close()d under the caller. Closes the prior
 //     TOCTOU between "found the entry" and "used entry.prog".
 //   - entry.mu: serializes Checker-touching paths. TS-Go's Checker is
-//     single-instance (forceSingleChecker) and not documented
+//     single-instance on resident loads (forceSingleChecker; only one-shot
+//     no-emit batch loads under TTSC_BATCH=1 pool diagnostics) and not documented
 //     thread-safe; two fountain verbs invoked in the same frame could
 //     otherwise interleave Checker state mutations.
 func withSnapshot(args []js.Value, fn func(*snapshotEntry, js.Value) any) any {

@@ -9,6 +9,7 @@ import type { PluginContentIdentities } from "../source/PluginContentIdentities"
 import { SourceBuildCacheLayout } from "../source/SourceBuildCacheLayout";
 import { recordCacheFileUse } from "../source/recordCacheFileUse";
 import { resolveSourceBuildCachePaths } from "../source/resolveSourceBuildCachePaths";
+import { HostInputObservationPhase } from "./HostInputObservationPhase";
 import { declaresHostInputReads } from "./declaresHostInputReads";
 import { hashHostInputPaths } from "./hashHostInputPaths";
 import { realpathHostInputPaths } from "./realpathHostInputPaths";
@@ -212,10 +213,18 @@ export namespace PluginDescriptorEvaluationCache {
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states the exact observation-state condition and null fallback, with separate acknowledgment prose under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Current native hash/realpath observations preserve content and physical selection independently, including symlink/junction retargeting.
    * @evidence contracts/performance.md#efficient-algorithms Complete UTF-8 entry read/JSON parse and state-map validation precede key/value comparisons, current full file hashing and native realpath queries. Entry/key/path/file bytes and native lookup contribute processing and transient storage; a valid hit also performs usage metadata queries and avoids actual child evaluation.
-   * @evidence contracts/performance.md#reuse-equivalent-work Recorded content and physical-path projections must match current observations and the content map must be nonempty. External declarations can contribute content without separate physical observations; this is the existing proof scope, not atomic or complete-world equivalence.
+   * @evidence contracts/performance.md#reuse-equivalent-work Recorded content and physical-path projections must match current observations and the content map must be nonempty. An optional caller-owned phase map receives the just-observed content hashes and realpaths so the caller's immediate post-evaluation merge does not re-observe the same paths; the map is never retained here. External declarations can contribute content without separate physical observations; this is the existing proof scope, not atomic or complete-world equivalence.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The returned parsed data belongs to the caller; recordCacheFileUse attempts disk-entry last-use refresh for pruning and can skip or fail, with no global in-memory answer map.
    */
-  export function read(file: string): IEvaluation | null {
+  export function read(
+    file: string,
+    observed?:
+      | HostInputObservationPhase.Phase
+      | {
+          hashes: Map<string, string | null>;
+          realpaths: Map<string, string | null>;
+        },
+  ): IEvaluation | null {
     let entry: unknown;
     try {
       entry = JSON.parse(fs.readFileSync(file, "utf8"));
@@ -224,13 +233,25 @@ export namespace PluginDescriptorEvaluationCache {
     }
     if (!isEntry(entry) || entry.format !== FORMAT) return null;
     const hashed = Object.keys(entry.proof.hashes);
+    if (hashed.length === 0) return null;
+    const phase = HostInputObservationPhase.isPhase(observed)
+      ? observed
+      : HostInputObservationPhase.create();
+    const currentHashes = hashHostInputPaths(hashed, phase);
+    const currentRealpaths = sameMap(entry.proof.hashes, currentHashes)
+      ? realpathHostInputPaths(Object.keys(entry.proof.realpaths), phase)
+      : null;
     if (
-      hashed.length === 0 ||
-      !sameMap(entry.proof.hashes, hashHostInputPaths(hashed)) ||
-      !sameMap(
-        entry.proof.realpaths,
-        realpathHostInputPaths(Object.keys(entry.proof.realpaths)),
-      )
+      observed !== undefined &&
+      !HostInputObservationPhase.isPhase(observed)
+    ) {
+      for (const [key, value] of phase.hashes) observed.hashes.set(key, value);
+      for (const [key, value] of phase.realpaths)
+        observed.realpaths.set(key, value);
+    }
+    if (
+      currentRealpaths === null ||
+      !sameMap(entry.proof.realpaths, currentRealpaths)
     )
       return null;
     recordCacheFileUse(file);

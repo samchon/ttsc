@@ -17,15 +17,17 @@ import { packUnpluginPackage } from "../../../../internal/unplugin/internal/pack
  *
  * 1. Pack and extract the package consumers would receive.
  * 2. Install the extracted package into a consumer beside its real dependencies.
- * 3. Compile NodeNext and Bundler consumers with TypeScript-Go, and NodeNext and
+ * 3. Load the runtime adapter as ESM and CommonJS using the published peer export
+ *    map for ttsc.
+ * 4. Compile NodeNext and Bundler consumers with TypeScript-Go, and NodeNext and
  *    Node10 consumers with the legacy compiler, and assert every one succeeds.
  *
- * @evidence contracts/testing.md#behavioral-verification Extracted package consumers compile with TypeScript-Go NodeNext/Bundler and legacy NodeNext/Node10, covering ESM/CJS adapter imports and deep options type.
+ * @evidence contracts/testing.md#behavioral-verification Node loads the packed Rolldown adapter in both module kinds using the published peer export map. Extracted package consumers compile with TypeScript-Go NodeNext/Bundler and legacy NodeNext/Node10.
  * @evidence contracts/testing.md#independent-expectations Independent compiler acceptance against installed declarations is behavioral oracle; skipLibCheck limits library-body checking.
  * @evidence contracts/testing.md#distinguishing-cases ESM/CJS consumers, two compiler families, modern resolver conditions and Node10 deep import.
  * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_packaged_entrypoints_publish_module_faithful_declarations is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Actual packed/extracted artifact and consumer compiler processes detect export/type publication mismatch hidden by workspace imports.
- * @evidence contracts/e2e.md#shared-execution One pack/extraction and consumer installation serve all four compiler/config runs; resolver and compiler changes require separate invocations.
+ * @evidence contracts/e2e.md#shared-execution One pack/extraction and consumer installation serve both runtime module modes and all four compiler/config runs.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Child completion is awaited or collected synchronously; sessions and consumers have private tracked roots. Abrupt cancellation is not explicitly verified.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: extracted package consumers compile with TypeScript-Go NodeNext/Bundler and legacy NodeNext/Node10, covering ESM/CJS adapter imports and deep options type. No portable assertion is transferred or waived; manifest-shape and file-existence helper is removed as arrangement-only, while all real consumer compiler assertions remain.
  */
@@ -96,6 +98,24 @@ const options: TtscUnpluginOptions = {};
 void options;
 `,
   });
+
+  for (const [moduleKind, program] of [
+    [
+      "module",
+      'import adapter from "@ttsc/unplugin/rolldown"; if (typeof adapter !== "function") process.exitCode = 1;',
+    ],
+    [
+      "commonjs",
+      'const adapter = require("@ttsc/unplugin/rolldown"); if (typeof (adapter.default ?? adapter) !== "function") process.exitCode = 1;',
+    ],
+  ] as const) {
+    const result = TestProject.spawn(
+      process.execPath,
+      [`--input-type=${moduleKind}`, "--eval", program],
+      { cwd: consumer },
+    );
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  }
 
   for (const config of ["tsconfig.nodenext.json", "tsconfig.bundler.json"]) {
     const result = TestProject.spawn(

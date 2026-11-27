@@ -50,13 +50,13 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
  * @param identities Record store that lets a new process prove the GOROOT
  *   corpus and executable bytes from their metadata (`PluginContentIdentities`,
  *   #1722); without it every process reads them.
- * @evidence contracts/common.md#principled-implementation Fixed artifact flags, observed compiler bytes/version, selected reported-or-fallback build values, named command executables and selected SDK files enter the same framed identity used by source-state reporting. Fallback values and metadata-qualified reuse are explicit premises, not complete observation of arbitrary toolchain inputs. GOFLAGS enters without ttsc's own compiler-target tag, so the caller's environment reproduces a 7.1 load's digest; targets are separated by their overlay modules in the build key.
+ * @evidence contracts/common.md#principled-implementation Fixed artifact flags, observed compiler bytes/version, selected reported-or-fallback build values, named command executables and selected SDK files enter the same framed identity used by source-state reporting. Fallback values and metadata-qualified reuse are explicit premises, not complete observation of arbitrary toolchain inputs. GOFLAGS enters without ttsc's own build tags, so the caller's environment reproduces a 7.1 or compiler-batch load's digest; targets and compiler sources are separated by their overlay modules in the build key.
  * @evidence contracts/common.md#clear-and-simple-design Private helpers separate compiler identity, Go-reported settings, external variables and SDK content while sharing one hash sink and optional pre-read witness.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache signatures use observed metadata and effective Go settings. Only a matched installed platform package can stand for its SDK tree. The mutable-SDK fallback needs a complete content witness for reuse.
  * @evidence contracts/common.md#meaningful-documentation Native documentation names the input classes and witness purpose; private comments explain context-sensitive compiler memoization and SDK exclusions without treating a passing check as proof.
  * @evidence contracts/portability.md#os-neutral-implementation Node path/stat/process APIs resolve native tool identities; platform-specific executable suffixes and environment lookup are isolated in GoToolResolution, and Go supplies its own effective build settings.
- * @evidence contracts/performance.md#efficient-algorithms Packaged SDK identity reads two small files and uses a fixed set of path observations. Mutable SDK traversal sorts names and selected paths, performs native stat/realpath/link queries and serializes topology. Changes read all selected files. Executable misses retry a moving byte reading up to three attempts. Go env probes bracket environment-file selection, and C command tokens can perform executable searches and byte reads. Input text and native lookup costs also contribute.
- * @evidence contracts/performance.md#reuse-equivalent-work The compiler digest memo matches physical path/file metadata. Mutable SDK aggregates require complete matching metadata/topology. With a record store, a new process may reuse aggregates and executable bytes under separable matching signatures. The enclosing recorded Go reading reuses GOVERSION and GOROOT under its complete witness. These proofs rely on distinguishable native metadata and sequential observation.
+ * @evidence contracts/performance.md#efficient-algorithms A packaged SDK uses two small files and a fixed set of path observations. A mutable SDK walk resolves the root and link targets, inherits physical paths for ordinary descendants, sorts and observes its topology, and reads selected bytes when the aggregate misses. Compiler byte observations retry movement up to three times. Go environment queries and external command resolution add process, path and byte costs.
+ * @evidence contracts/performance.md#reuse-equivalent-work Compiler bytes reuse proven native metadata. Mutable SDK aggregates use their complete topology and content witness and reuse physical paths within each walk. Cross-process reuse requires matching separable signatures. The enclosing Go reading reuses GOVERSION and GOROOT under its complete toolchain selection witness.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Compiler, Go-environment-path and SDK maps retain historical distinct tool/context/root keys without eviction; persisted records belong to the single-file collector. SDK population/topology and full individual file reads contribute transient bytes; synchronous probes delegate process/capture lifetime to their owner and do not certify arbitrary descendants are gone. No independent entry/record/file/output byte ceiling is imposed here.
  */
 export function hashPluginBuildEnvironment(
@@ -311,9 +311,12 @@ function findExecutableCandidate(
   return null;
 }
 
-function resolveRealPath(location: string): string {
+function resolveRealPath(
+  location: string,
+  realpath: (file: string) => string = fs.realpathSync.native,
+): string {
   try {
-    return fs.realpathSync.native(location);
+    return realpath(location);
   } catch {
     return location;
   }
@@ -444,10 +447,11 @@ function normalizeGoBuildEnvValue(
     return resolveGoRootCacheIdentity(value, filesystem, witness, identities);
   }
   if (key === "GOFLAGS") {
-    // ttsc's compiler-target tag is not the caller's Go environment. Omitting
-    // it lets a reader holding the caller's environment reproduce a source
-    // state a 7.1 load reported; the build key separates targets through their
-    // overlay modules instead.
+    // ttsc's synthesized build tags (7.1 target and compiler batch hook) are
+    // not the caller's Go environment. Omitting them lets a reader holding the
+    // caller's environment reproduce a source state a load reported; the build
+    // key separates targets and compiler sources through their overlay modules
+    // instead.
     return CompilerTarget.withoutTag(value);
   }
   if (GO_BUILD_COMMAND_ENV_KEYS.has(key)) {
@@ -599,7 +603,21 @@ function resolveGoRootCacheIdentity(
   witness: PluginBuildEnvironmentWitness.Record | undefined,
   identities: PluginContentIdentities.Store | undefined,
 ): string {
-  const resolved = resolveRealPath(goRoot);
+  const realpath = filesystem.realpath ?? fs.realpathSync.native;
+  // `root` was already resolved by `resolveRealPath(goRoot)` (or falls back to
+  // `realpath` once if not yet canonicalized). Ordinary subdirectories inherit
+  // `path.join(physical, entry.name)` because Dirent distinguishes symlinks and
+  // junctions, and symlinked directories pass their already-resolved target so
+  // `realpathSync.native` runs once for the root and once per actual link.
+  let rootPhysical: string | undefined;
+  const resolved = (() => {
+    try {
+      rootPhysical = realpath(goRoot);
+      return rootPhysical;
+    } catch {
+      return goRoot;
+    }
+  })();
   if (!fs.existsSync(resolved)) {
     return `missing:${goRoot}`;
   }
@@ -607,6 +625,8 @@ function resolveGoRootCacheIdentity(
     resolved,
     witness,
     identities?.references,
+    realpath,
+    rootPhysical,
   );
   if (!snapshot.complete)
     PluginBuildEnvironmentWitness.refuse(witness, resolved);
@@ -627,7 +647,12 @@ function resolveGoRootCacheIdentity(
       const current =
         observed++ === 0
           ? snapshot
-          : collectGoRootIdentitySnapshot(resolved, undefined, references);
+          : collectGoRootIdentitySnapshot(
+              resolved,
+              undefined,
+              references,
+              realpath,
+            );
       return current.complete
         ? { separable: current.separable, signature: current.signature }
         : undefined;
@@ -660,11 +685,21 @@ function collectGoRootIdentitySnapshot(
   root: string,
   witness?: PluginBuildEnvironmentWitness.Record,
   references?: ReadonlyMap<bigint, bigint>,
+  realpath: (file: string) => string = fs.realpathSync.native,
+  rootPhysical?: string,
 ): GoRootIdentitySnapshot {
   const out: string[] = [];
   const state = { complete: true, separable: references !== undefined };
   const topology: string[] = [];
-  walkGoRootIdentity(root, out, topology, state, witness);
+  walkGoRootIdentity(
+    root,
+    out,
+    topology,
+    state,
+    witness,
+    realpath,
+    rootPhysical,
+  );
   out.sort();
   const signature = crypto.createHash("sha256");
   signature.update(JSON.stringify(topology));
@@ -713,20 +748,25 @@ function walkGoRootIdentity(
   topology: string[],
   state: { complete: boolean },
   witness?: PluginBuildEnvironmentWitness.Record,
+  realpath: (file: string) => string = fs.realpathSync.native,
+  rootPhysical?: string,
 ): void {
   // Go follows SDK junctions and file links. Observe the same target, including
   // link topology, rather than certifying an incomplete ordinary-file tree.
   // A physical directory is expanded once per selection policy; repeated
   // aliases and cycles remain explicit edges without unbounded recursion.
-  const pending = [root];
+  const pending: Array<{ dir: string; physical?: string }> = [
+    { dir: root, physical: rootPhysical },
+  ];
   const visited = new Set<string>();
   while (pending.length !== 0) {
-    const dir = pending.pop()!;
+    const { dir, physical: knownPhysical } = pending.pop()!;
     const relative = path.relative(root, dir).split(path.sep).join("/");
     PluginBuildEnvironmentWitness.add(witness, dir);
     let entries: fs.Dirent[];
+    let physical: string;
     try {
-      const physical = fs.realpathSync.native(dir);
+      physical = knownPhysical ?? realpath(dir);
       const target = path.relative(root, physical).split(path.sep).join("/");
       topology.push(JSON.stringify([relative, target]));
       // The SDK root selects compiler/source regions. Within any selected
@@ -747,6 +787,9 @@ function walkGoRootIdentity(
       const rel = path.relative(root, file).split(path.sep).join("/");
       let directory = entry.isDirectory();
       let regular = entry.isFile();
+      let entryPhysical: string | undefined = directory
+        ? path.join(physical, entry.name)
+        : undefined;
       if (entry.isSymbolicLink()) {
         if (
           !shouldHashGoRootPath(rel, true) &&
@@ -760,13 +803,12 @@ function walkGoRootIdentity(
           const stats = fs.statSync(file, { bigint: true });
           directory = stats.isDirectory();
           regular = stats.isFile();
+          const linkTarget = realpath(file);
+          entryPhysical = linkTarget;
           topology.push(
             JSON.stringify([
               rel,
-              path
-                .relative(root, fs.realpathSync.native(file))
-                .split(path.sep)
-                .join("/"),
+              path.relative(root, linkTarget).split(path.sep).join("/"),
             ]),
           );
         } catch (error) {
@@ -787,7 +829,8 @@ function walkGoRootIdentity(
           continue;
         }
       }
-      if (directory && shouldHashGoRootPath(rel, true)) pending.push(file);
+      if (directory && shouldHashGoRootPath(rel, true))
+        pending.push({ dir: file, physical: entryPhysical });
       else if (regular && shouldHashGoRootPath(rel, false)) out.push(file);
     }
   }

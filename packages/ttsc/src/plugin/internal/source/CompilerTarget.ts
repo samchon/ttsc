@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import { outputText } from "../../../compiler/internal/outputText";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
@@ -8,6 +11,7 @@ import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
 import { PluginLoadAnswers } from "./PluginLoadAnswers";
+import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { resolveGoCompiler } from "./resolveGoCompiler";
 
 /**
@@ -56,6 +60,14 @@ export namespace CompilerTarget {
    * marked `!ttsc_typescript_7_1` is the 7.0 side.
    */
   export const TYPESCRIPT_7_1_TAG = "ttsc_typescript_7_1";
+
+  /**
+   * The build tag a build compiles with when the compiler source declared in
+   * `TTSC_TSGO_SOURCE` contains an `internal/batch` directory; builds without
+   * that package carry none, so a file marked `!ttsc_compiler_batch` is the
+   * no-op side.
+   */
+  export const COMPILER_BATCH_TAG = "ttsc_compiler_batch";
 
   /**
    * The line a compiler version belongs to, and whether that version is newer
@@ -123,20 +135,23 @@ export namespace CompilerTarget {
   }
 
   /**
-   * The environment a build of line runs Go with: env itself for 7.0, and for
-   * 7.1 env with the 7.1 build tag added to the GOFLAGS Go would use, merged
+   * The environment a build of line runs Go with: env itself when neither the
+   * 7.1 target tag nor the compiler-batch tag applies, and otherwise env with
+   * the applicable ttsc build tags added to the GOFLAGS Go would use, merged
    * into any -tags already set there.
    *
-   * A GOFLAGS variable replaces the value `go env -w` stored rather than adding
-   * to it, so when env sets no GOFLAGS the stored value is asked of Go from cwd
-   * and the tag joins that.
+   * `ttsc_typescript_7_1` applies for line 7.1. `ttsc_compiler_batch` applies
+   * when the compiler source declared by `TTSC_TSGO_SOURCE` contains an
+   * `internal/batch` directory. A GOFLAGS variable replaces the value `go env
+   * -w` stored rather than adding to it, so when env sets no GOFLAGS the stored
+   * value is asked of Go from cwd and the tags join that.
    *
-   * @evidence contracts/common.md#principled-implementation GOFLAGS reaches every go command a build runs, so go list, the package-artifact probe and go build select the same tagged files; an existing -tags list gains the tag instead of being replaced, and flags stored by go env -w survive because Go reports them before the variable is set.
-   * @evidence contracts/common.md#clear-and-simple-design One environment transform per target replaces threading tags through each command.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Other GOFLAGS entries are kept unchanged and in order, and the stored value comes from Go itself rather than a handwritten environment-file location.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states the per-line result, the merge and why the stored value is read.
-   * @evidence contracts/portability.md#os-neutral-implementation Go locates and reads its own environment file; resolveGoCompiler, GoToolResolution and GoEnvironmentReading own the native lookup and launch.
-   * @evidence contracts/performance.md#efficient-algorithms One pass over the GOFLAGS fields; only a 7.1 build whose env sets no GOFLAGS adds one go env process.
+   * @evidence contracts/common.md#principled-implementation GOFLAGS reaches every go command a build runs, so go list, the package-artifact probe and go build select the same tagged files; an existing -tags list gains the needed tags instead of being replaced, and flags stored by go env -w survive because Go reports them before the variable is set.
+   * @evidence contracts/common.md#clear-and-simple-design One environment transform owns both ttsc build tags instead of threading tags through each Go command.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Other GOFLAGS entries are kept unchanged and in order, the stored value comes from Go itself rather than a handwritten environment-file location, and a 7.0 build without a batch-hook compiler source returns env unchanged.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states when each tag applies, the merge behavior and why the stored value is read.
+   * @evidence contracts/portability.md#os-neutral-implementation Go locates and reads its own environment file; resolveGoCompiler, GoToolResolution and GoEnvironmentReading own the native lookup and launch, and node:path/node:fs check whether the declared compiler source contains an internal/batch directory without platform path assumptions.
+   * @evidence contracts/performance.md#efficient-algorithms At most one directory stat for a declared compiler source and one pass over the GOFLAGS fields; only a tagged build whose env sets no GOFLAGS adds one go env process.
    * @evidence contracts/performance.md#reuse-equivalent-work With a record store the stored value is answered across loads while the file `go env -w` writes, the tool and the variables hold; without one it is read afresh.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned environment is a caller-owned copy, and the go env process is synchronous and released on return.
    */
@@ -146,7 +161,10 @@ export namespace CompilerTarget {
     cwd: string,
     identities?: PluginContentIdentities.Store,
   ): NodeJS.ProcessEnv {
-    if (line !== "7.1") return env;
+    const additions: string[] = [];
+    if (line === "7.1") additions.push(TYPESCRIPT_7_1_TAG);
+    if (hasCompilerBatchPackage(env)) additions.push(COMPILER_BATCH_TAG);
+    if (additions.length === 0) return env;
     const current =
       SidecarEnvironment.read(env, "GOFLAGS") ||
       storedGoFlags(env, cwd, identities);
@@ -157,10 +175,11 @@ export namespace CompilerTarget {
       if (match === null) return field;
       tagged = true;
       const tags = match[2]!.split(",").filter((tag) => tag !== "");
-      if (!tags.includes(TYPESCRIPT_7_1_TAG)) tags.push(TYPESCRIPT_7_1_TAG);
+      for (const addition of additions)
+        if (!tags.includes(addition)) tags.push(addition);
       return `${match[1]}${tags.join(",")}`;
     });
-    if (!tagged) next.push(`-tags=${TYPESCRIPT_7_1_TAG}`);
+    if (!tagged) next.push(`-tags=${additions.join(",")}`);
     const result = SidecarEnvironment.merge(env);
     SidecarEnvironment.write(result, "GOFLAGS", next.join(" "));
     return result;
@@ -191,13 +210,13 @@ export namespace CompilerTarget {
   }
 
   /**
-   * GOFLAGS without the 7.1 build tag ttsc adds: the tag leaves every -tags
-   * list, an emptied list leaves the flags, and every other field stays in
-   * order.
+   * GOFLAGS without the build tags ttsc adds (`ttsc_typescript_7_1` and
+   * `ttsc_compiler_batch`): each tag leaves every -tags list, an emptied list
+   * leaves the flags, and every other field stays in order.
    *
-   * @evidence contracts/common.md#principled-implementation The target tag is ttsc's own selection, not the caller's Go environment; the environment digest of a source state omits it so a reader with the caller's environment reproduces the state, while the build key still separates targets through their overlay modules.
-   * @evidence contracts/common.md#clear-and-simple-design The inverse of buildEnv's merge lives beside it, so the two cannot disagree on the tag or the -tags syntax.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Only the exact ttsc tag is removed; every other tag and flag is kept.
+   * @evidence contracts/common.md#principled-implementation Both build tags are ttsc's own selection, not the caller's Go environment; the environment digest of a source state omits them so a reader with the caller's environment reproduces the state, while the build key still separates targets and compiler-batch builds through their overlay modules.
+   * @evidence contracts/common.md#clear-and-simple-design The inverse of buildEnv's merge lives beside it, so the two cannot disagree on the tags or the -tags syntax.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Only the exact ttsc tags are removed; every other tag and flag is kept.
    * @evidence contracts/common.md#meaningful-documentation Native prose states what is removed and what is kept.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation GOFLAGS is a Go-defined space-separated value; the transform touches no native resource.
    * @evidence contracts/performance.md#efficient-algorithms One pass over the GOFLAGS fields.
@@ -213,10 +232,30 @@ export namespace CompilerTarget {
         if (match === null) return [field];
         const tags = match[2]!
           .split(",")
-          .filter((tag) => tag !== "" && tag !== TYPESCRIPT_7_1_TAG);
+          .filter(
+            (tag) =>
+              tag !== "" &&
+              tag !== TYPESCRIPT_7_1_TAG &&
+              tag !== COMPILER_BATCH_TAG,
+          );
         return tags.length === 0 ? [] : [`${match[1]}${tags.join(",")}`];
       })
       .join(" ");
+  }
+
+  /**
+   * Whether the compiler source declared in `TTSC_TSGO_SOURCE` contains an
+   * `internal/batch` directory providing the compiler's batch-compilation
+   * hook.
+   */
+  function hasCompilerBatchPackage(env: NodeJS.ProcessEnv): boolean {
+    const source = SourcePluginWorkspace.compilerSource(env);
+    if (source === undefined) return false;
+    try {
+      return fs.statSync(path.join(source, "internal", "batch")).isDirectory();
+    } catch {
+      return false;
+    }
   }
 
   /**

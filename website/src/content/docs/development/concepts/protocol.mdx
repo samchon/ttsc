@@ -735,8 +735,9 @@ Some payloads reach a sidecar through the environment rather than argv, because 
 | `TTSC_LINKED_PLUGINS_JSON` | JSON manifest of the linked transform packages compiled into this host binary. `driver.ApplyLinkedPlugins` consumes it; hosts that emit through the driver need no special handling. |
 | `TTSC_PLUGIN_CONFIG_DIR` | Directory that plugin config-file discovery and relative `configFile` resolution anchor at, when the compiled tsconfig is a generated wrapper outside the project. Read it through `driver.PluginConfigBaseDir`. |
 | `TTSC_TSGO_BINARY`, `TTSC_TTSX_BINARY` | Absolute paths to the compiler and runner this invocation resolved, for a plugin that has to shell out to either. |
+| `TTSC_BATCH` | Set to `"1"` on native plugin and compiler host processes spawned to run one batch command and exit (`build`, `check`, `fix`, `format`, `transform`, `project-inputs`, `api-compile`, `api-transform`), and cleared on every resident spawn (`serve`, `check-serve`, `ttscserver`). When set to `"1"`, `shim/compiler.BeginBatchOnce` invokes `shim/compiler.BeginBatch` once per process and returns `programBound` for one-shot hosts (`driver.LoadProgram` and `@ttsc/lint check`) to call after binding each Program; resident hosts and `driver.Session` never call it. |
 
-`TTSC_TSGO_ARGS`, its `TTSC_TSGO_ARGS_CWD` companion and `TTSC_PLUGIN_CONFIG_DIR` describe one invocation, so a spawn that has nothing to say clears whatever an ancestor `ttsc` process left behind rather than passing it on: a nested build never inherits the outer run's forwarded flags or project anchor.
+`TTSC_TSGO_ARGS`, its `TTSC_TSGO_ARGS_CWD` companion, `TTSC_PLUGIN_CONFIG_DIR` and `TTSC_BATCH` describe one invocation, so a spawn that has nothing to say clears whatever an ancestor `ttsc` process left behind rather than passing it on: a nested build never inherits the outer run's forwarded flags or project anchor, and a resident child never inherits a one-shot batch marker.
 
 For the two binary paths, an inherited value wins, because it is how an embedder pins the toolchain for a whole process tree.
 
