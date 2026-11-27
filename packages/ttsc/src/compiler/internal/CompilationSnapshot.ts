@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../internal/createProjectTempDirectory";
 import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 
 /**
@@ -39,9 +39,15 @@ export namespace CompilationSnapshot {
    */
   export function run<T>(
     environment: NodeJS.ProcessEnv | undefined,
+    projectRoot: string,
+    additionalProjectRoots: readonly string[],
     operation: (environment: NodeJS.ProcessEnv) => T,
   ): T {
-    const directory = createCanonicalTempDirectory("ttsc-input-snapshot-");
+    const directory = createProjectTempDirectory(
+      "ttsc-input-snapshot-",
+      projectRoot,
+      additionalProjectRoots,
+    );
     const ownership = fs.lstatSync(directory);
     let completed: T | undefined;
     let failed = false;

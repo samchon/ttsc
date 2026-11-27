@@ -1322,7 +1322,7 @@ function emitOrphanSource(
 ): string | null {
   const {
     RuntimeIsolatedEmit,
-    createCanonicalTempDirectory,
+    createProjectTempDirectory,
     recordCacheFileUse,
     resolveTsgo,
     spawnNative,
@@ -1346,7 +1346,10 @@ function emitOrphanSource(
       return hit;
     }
   }
-  const outDir = createCanonicalTempDirectory("ttsx-orphan-");
+  const outDir = createProjectTempDirectory(
+    "ttsx-orphan-",
+    path.dirname(filename),
+  );
   try {
     spawnNative(
       tsgo,
@@ -1432,7 +1435,7 @@ function emitCommonJsForNameScan(real: string): string | null {
   const {
     RuntimeIsolatedEmit,
     RuntimeModuleFormat,
-    createCanonicalTempDirectory,
+    createProjectTempDirectory,
     resolveTsgo,
     spawnNative,
   } = runtimeBuildPath();
@@ -1468,7 +1471,10 @@ function emitCommonJsForNameScan(real: string): string | null {
     commonJsNameScanSources.set(real, null);
     return null;
   }
-  const outDir = createCanonicalTempDirectory("ttsx-export-scan-");
+  const outDir = createProjectTempDirectory(
+    "ttsx-export-scan-",
+    path.dirname(real),
+  );
   try {
     // Compile the owned JavaScript, not the original TypeScript whose project
     // may already have erased or transformed declarations. No source executes.

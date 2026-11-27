@@ -187,6 +187,16 @@ const capabilityProbes = probeRows.filter(
     row.event === "process-result" &&
     row.data.origin === "runtime-capability-probe",
 ).length;
+const alternateCwd = process.env.TTSC_TEST_PRELOAD_ALTERNATE_CWD;
+const alternateCapabilities =
+  alternateCwd === undefined
+    ? undefined
+    : javascriptRuntimeCapabilities(
+        process.execPath,
+        process.env,
+        alternateCwd,
+        store,
+      );
 
 const resolutionFile = CapabilityResolutionFormat.resolutionFile({
   cwd: projectDir!,
@@ -255,6 +265,7 @@ process.stdout.write(
     descriptorDifferentGraphRefused,
     descriptorDifferentNodePathRefused,
     capabilities,
+    alternateCapabilities,
     capabilityProbes,
     resolutionFile,
     runtimeProved: lookupEvent?.data.runtimeProved ?? null,

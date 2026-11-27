@@ -224,23 +224,27 @@ function resolveTtscserverEnv(launch: LSPLaunchOptions): TtscserverEnvironment {
     // No transport is needed without plugins or observed selection inputs.
     return { args: [], dispose() {}, env };
   }
-  const transport = materializeLSPPluginManifest({
-    initialProjectInputs: Object.fromEntries(context.initialProjectInputs),
-    plugins: serializeNativePlugins(context.nativePlugins),
-    projectContext: context.projectContext,
-    ...(selectionInputs === undefined ? {} : { selectionInputs }),
-    lspPlugins: lspPlugins.map((plugin) => ({
-      binary: plugin.binary,
-      ...(plugin.capabilities?.projectInputs === true
-        ? { initialProjectInputKey: lspPluginTransportKey(plugin) }
-        : {}),
-      name: plugin.name,
-      projectDiagnostics: plugin.capabilities?.projectDiagnostics === true,
-      projectInputs: plugin.capabilities?.projectInputs === true,
-      projectContextArgs: plugin.capabilities?.projectContextArgs === true,
-      stage: plugin.stage,
-    })),
-  });
+  const transport = materializeLSPPluginManifest(
+    {
+      initialProjectInputs: Object.fromEntries(context.initialProjectInputs),
+      plugins: serializeNativePlugins(context.nativePlugins),
+      projectContext: context.projectContext,
+      ...(selectionInputs === undefined ? {} : { selectionInputs }),
+      lspPlugins: lspPlugins.map((plugin) => ({
+        binary: plugin.binary,
+        ...(plugin.capabilities?.projectInputs === true
+          ? { initialProjectInputKey: lspPluginTransportKey(plugin) }
+          : {}),
+        name: plugin.name,
+        projectDiagnostics: plugin.capabilities?.projectDiagnostics === true,
+        projectInputs: plugin.capabilities?.projectInputs === true,
+        projectContextArgs: plugin.capabilities?.projectContextArgs === true,
+        stage: plugin.stage,
+      })),
+    },
+    context.projectContext?.logicalProjectRoot ?? path.resolve(launch.cwd),
+    [path.resolve(launch.cwd)],
+  );
   // Deliver the manifest as an explicit flag rather than an inherited variable.
   // A native host that predates the flag rejects the invocation instead of
   // starting without the plugins this project declared, and nothing downstream

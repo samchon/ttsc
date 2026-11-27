@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
 
 /**
  * Write the language server's plugin manifest to a private file the Go host can
@@ -25,11 +25,19 @@ import { createCanonicalTempDirectory } from "../../../internal/createCanonicalT
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources One directory and file are owned by the returned disposer; acquisition rollback preserves both errors when removal also fails, and successful disposal marks completion only after removal so a failed cleanup remains retryable.
  */
-export function materializeLSPPluginManifest(manifest: unknown): {
+export function materializeLSPPluginManifest(
+  manifest: unknown,
+  projectRoot: string = process.cwd(),
+  additionalProjectRoots?: readonly string[],
+): {
   dispose(): void;
   path: string;
 } {
-  const directory = createCanonicalTempDirectory("ttsc-lsp-");
+  const directory = createProjectTempDirectory(
+    "ttsc-lsp-",
+    projectRoot,
+    additionalProjectRoots,
+  );
   const location = path.join(directory, "plugins.json");
   try {
     fs.writeFileSync(location, JSON.stringify(manifest), {

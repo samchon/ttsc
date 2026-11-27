@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
 import { touchPluginCacheEntryInUse } from "../../../plugin/internal/source/touchPluginCacheEntryInUse";
 import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
@@ -229,7 +229,10 @@ export class ResidentCheckWatchSession {
         BuildExecution.runWatchTypeCheck(
           execution,
           buildOptions,
-          this.buildInfoFile(),
+          this.buildInfoFile(execution.projectRoot, [
+            path.dirname(execution.tsconfig),
+            options.cwd ?? process.cwd(),
+          ]),
         ),
       );
     }
@@ -243,10 +246,17 @@ export class ResidentCheckWatchSession {
    * state, and the project and its cache stay untouched (#1866). Allocation
    * failure leaves the check non-incremental.
    */
-  private buildInfoFile(): string | undefined {
+  private buildInfoFile(
+    projectRoot: string,
+    additionalProjectRoots: readonly string[],
+  ): string | undefined {
     if (this.buildInfo === undefined) {
       try {
-        const directory = createCanonicalTempDirectory("ttsc-watch-check-");
+        const directory = createProjectTempDirectory(
+          "ttsc-watch-check-",
+          projectRoot,
+          additionalProjectRoots,
+        );
         this.buildInfo = { directory, ownership: fs.lstatSync(directory) };
         if (process.env.TTSC_WATCH_DEBUG_INPUTS)
           process.stdout.write(

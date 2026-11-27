@@ -1038,26 +1038,66 @@ export class WatchTopology {
    */
   private syncExtraWatchers(): void {
     const directories = new Map<string, string>();
-    const appeared: string[] = [];
+    const registrations = new Map<string, string>();
+    const topologyEntries = new Map<string, string>();
+    const appeared: [string, string][] = [];
     for (const input of this.extraInputs) {
       const watchedBefore = this.watchedExtraInputs.has(this.pathKey(input));
-      for (const directory of collectInputDirectories(input)) {
-        const key = this.pathKey(directory);
+      const physical = watcherRegistrationPath(input);
+      const targets = collectInputDirectories(physical);
+      for (const target of targets) {
+        const directory =
+          physical === input
+            ? target
+            : path.resolve(input, path.relative(physical, target));
+        const lexicalKey = this.pathKey(directory);
+        const key =
+          directory === target
+            ? lexicalKey
+            : JSON.stringify([lexicalKey, target]);
         directories.set(key, directory);
+        registrations.set(key, target);
         if (watchedBefore && !this.extraWatchers.has(key)) {
-          appeared.push(directory);
+          appeared.push([key, directory]);
         }
+      }
+      if (physical === input && targets.length !== 0) continue;
+      for (const entry of pluginInputAliasEntries(input)) {
+        const parent = watcherRegistrationPath(path.dirname(entry));
+        const name = path.basename(entry);
+        const key = JSON.stringify([
+          "entry",
+          this.pathKey(input),
+          parent,
+          name,
+        ]);
+        directories.set(key, input);
+        registrations.set(key, parent);
+        topologyEntries.set(key, name);
       }
     }
     syncWatchers(
       this.extraWatchers,
       directories,
-      (location) =>
-        this.openDirectoryWatch(
-          watcherRegistrationPath(location),
+      (location, key) => {
+        const registration = registrations.get(key)!;
+        const topologyEntry = topologyEntries.get(key);
+        return this.openDirectoryWatch(
+          registration,
           false,
           (_event, filename) => {
             this.beginLexicalTransaction();
+            if (topologyEntry !== undefined) {
+              if (
+                filename === null ||
+                this.lexicalIdentities.lexicalMatches(
+                  path.join(registration, topologyEntry),
+                  path.join(registration, filename),
+                )
+              )
+                this.notePluginNotification(location);
+              return;
+            }
             const changed =
               filename === null ? undefined : path.resolve(location, filename);
             // The one decision every watcher that hears a plugin path shares;
@@ -1065,17 +1105,18 @@ export class WatchTopology {
             if (changed !== undefined && !this.isPluginInput(changed)) return;
             this.notePluginNotification(changed ?? location);
           },
-        ),
+        );
+      },
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
     );
     this.watchedExtraInputs = new Set(
       this.extraInputs.map((input) => this.pathKey(input)),
     );
-    for (const directory of appeared) {
+    for (const [key, directory] of appeared) {
       // Only a directory now watched: one whose registration failed was
       // reported through `onError`, and one gone meanwhile holds nothing.
-      if (!this.extraWatchers.has(this.pathKey(directory))) continue;
+      if (!this.extraWatchers.has(key)) continue;
       let entries: string[];
       try {
         entries = fs.readdirSync(directory);
@@ -2709,6 +2750,48 @@ function collectInputDirectories(input: string): string[] {
   return collectPluginSourceDirectories(input);
 }
 
+/**
+ * Find link entries and the first missing component along the selected source.
+ * A directory subscription below a link cannot report a replacement of the link
+ * itself.
+ */
+function pluginInputAliasEntries(input: string): string[] {
+  const entries = new Set<string>();
+  let location = input;
+  for (;;) {
+    const root = path.parse(location).root;
+    const names = location.slice(root.length).split(path.sep).filter(Boolean);
+    let parent = root;
+    let followed = false;
+    for (let index = 0; index < names.length; index++) {
+      const entry = path.join(parent, names[index]!);
+      try {
+        const stat = fs.lstatSync(entry, { throwIfNoEntry: false });
+        if (stat === undefined) {
+          entries.add(entry);
+          return [...entries];
+        }
+        if (stat.isSymbolicLink()) {
+          if (entries.has(entry)) return [...entries];
+          entries.add(entry);
+          location = path.resolve(
+            parent,
+            fs.readlinkSync(entry),
+            ...names.slice(index + 1),
+          );
+          followed = true;
+          break;
+        }
+        if (!stat.isDirectory()) return [...entries];
+      } catch {
+        return [...entries];
+      }
+      parent = entry;
+    }
+    if (!followed) return [...entries];
+  }
+}
+
 function isVanishedFilesystemEntry(error: unknown): boolean {
   return (
     error instanceof Error &&
@@ -3200,9 +3283,14 @@ function pluginInputState(
   identities: PluginContentIdentities.Store | undefined,
 ): string {
   try {
-    return WatchPaths.isDirectory(input)
-      ? `directory:${PluginContentIdentities.sourceDirectory(identities, input)}`
-      : `file:${fingerprintProjectInputFile(input)}`;
+    if (!WatchPaths.isDirectory(input))
+      return `file:${fingerprintProjectInputFile(input)}`;
+    const physical = fs.realpathSync.native(input);
+    return JSON.stringify([
+      "directory",
+      physical,
+      PluginContentIdentities.sourceDirectory(identities, physical),
+    ]);
   } catch (error) {
     return `unreadable:${error instanceof Error ? error.message : String(error)}`;
   }

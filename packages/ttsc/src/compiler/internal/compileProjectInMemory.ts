@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../internal/createProjectTempDirectory";
 import { hasProjectPluginEntries } from "../../plugin/internal/load/hasProjectPluginEntries";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
@@ -156,7 +156,11 @@ function compileProjectWithPlugins(
   /** Compiler diagnostics, process status and textual failure context. */
   result: TtscBuildResult;
 } {
-  const tempRoot = createCanonicalTempDirectory("ttsc-api-output-");
+  const tempRoot = createProjectTempDirectory(
+    "ttsc-api-output-",
+    project.root,
+    [cwd, path.dirname(project.path)],
+  );
   let outcome: ReturnType<typeof compileProjectInMemory> | undefined;
   let failed = false;
   let failure: unknown;

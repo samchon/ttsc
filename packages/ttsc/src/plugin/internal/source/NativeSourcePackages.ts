@@ -5,7 +5,7 @@ import path from "node:path";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
-import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
 import { CompilerTarget } from "./CompilerTarget";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
@@ -122,6 +122,7 @@ export namespace NativeSourcePackages {
   export function inspect(opts: {
     source: string;
     pluginName: string;
+    projectRoot?: string;
     env?: NodeJS.ProcessEnv;
     packages: readonly { entry: string; source?: string; name?: string }[];
     readers?: Map<string, SourcePluginWorkspace.GoModReader>;
@@ -164,7 +165,16 @@ export namespace NativeSourcePackages {
       );
       if (recalled !== undefined) return recalled;
     }
-    const scratch = createCanonicalTempDirectory("ttsc-package-selection-");
+    const scratch = createProjectTempDirectory(
+      "ttsc-package-selection-",
+      opts.projectRoot ?? moduleRoot,
+      [
+        moduleRoot,
+        ...opts.packages.flatMap(({ source }) =>
+          source === undefined ? [] : [source],
+        ),
+      ],
+    );
     let taskFailure: { error: unknown } | undefined;
     try {
       SourceNativeRetirement.register({
@@ -345,6 +355,7 @@ export namespace NativeSourcePackages {
     readers = new Map<string, SourcePluginWorkspace.GoModReader>(),
     identities?: PluginContentIdentities.Store,
     readings?: SelectionReadings,
+    projectRoot?: string,
   ): Array<{ observation: Package; ownModule: boolean }> {
     const groups = new Map<
       string,
@@ -369,6 +380,7 @@ export namespace NativeSourcePackages {
       const observations = inspect({
         source: first.source,
         pluginName: first.label,
+        projectRoot,
         env,
         readers,
         identities,

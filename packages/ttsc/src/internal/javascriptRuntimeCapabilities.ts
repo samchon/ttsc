@@ -23,8 +23,9 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  * wrapper candidates are probed anew because those inputs can select mutable
  * behavior. Trusted `--require`/`-r` preloads (`TrustedNodeOptions`) enter the
  * key by the observed `require.cache` `module.children` graph's content
- * digests, `NODE_OPTIONS`, and `TTSC_CACHE_TRUSTED_PRELOADS`. The caller
- * vouches for stability during execution and for inputs outside that graph.
+ * digests, startup options and the child lookup context. The child must report
+ * the same graph before the probe can publish an answer. The caller vouches for
+ * stability during execution and for inputs outside that graph.
  * Cache-ineligible candidates do not acquire executable proofs used only by
  * cache lookup and publication.
  *
@@ -88,9 +89,16 @@ export function javascriptRuntimeCapabilities(
       return recorded;
     }
   }
+  const observePreloads = cacheKey?.includes("\0") === true;
+  const preloadProbe = observePreloads
+    ? `try {
+        const fs = require("node:fs");
+        answer.preloadGraph = [...new Set(Object.keys(require.cache).map(file => fs.realpathSync.native(file)))].sort();
+      } catch {}`
+    : "";
   const args = [
     "-e",
-    `const Module = require("node:module"); process.stdout.write(JSON.stringify({ bun: typeof globalThis.Bun === "object", executable: process.execPath, registerHooks: typeof Module.registerHooks === "function" }));`,
+    `const Module = require("node:module"); const answer = { bun: typeof globalThis.Bun === "object", executable: process.execPath, registerHooks: typeof Module.registerHooks === "function" }; ${preloadProbe} process.stdout.write(JSON.stringify(answer));`,
   ];
   const options = {
     cwd,
@@ -131,11 +139,14 @@ export function javascriptRuntimeCapabilities(
     bun: false,
     registerHooks: false,
   };
+  let observedPreloadGraph: readonly unknown[] | undefined;
   if (result.status === 0) {
     try {
       const parsed = JSON.parse(
         result.stdout,
-      ) as Partial<IJavaScriptRuntimeCapabilities>;
+      ) as Partial<IJavaScriptRuntimeCapabilities> & { preloadGraph?: unknown };
+      if (Array.isArray(parsed.preloadGraph))
+        observedPreloadGraph = parsed.preloadGraph;
       capabilities = {
         bun: parsed.bun === true,
         ...(typeof parsed.executable === "string" &&
@@ -158,9 +169,16 @@ export function javascriptRuntimeCapabilities(
   // This removes a process spawn from the common path without
   // authorizing a replaced or redirected runtime in a long-lived host.
   const afterCacheKey =
-    cacheKey === undefined
+    cacheKey === undefined ||
+    (observePreloads && observedPreloadGraph === undefined)
       ? undefined
-      : runtimeCapabilityCacheKey(runtime, effectiveEnv, cwd, identities);
+      : runtimeCapabilityCacheKey(
+          runtime,
+          effectiveEnv,
+          cwd,
+          identities,
+          observedPreloadGraph,
+        );
   const afterIdentity =
     cacheKey === undefined
       ? undefined
@@ -247,9 +265,15 @@ function runtimeCapabilityCacheKey(
   env: NodeJS.ProcessEnv,
   cwd: string,
   identities: PluginContentIdentities.Store | undefined,
+  expectedPreloadGraph?: readonly unknown[],
 ): string | undefined {
   if (!path.isAbsolute(runtime)) return undefined;
-  const preloadKey = TrustedNodeOptions.key({ cwd, env, identities });
+  const preloadKey = TrustedNodeOptions.key({
+    cwd,
+    env,
+    identities,
+    expectedPreloadGraph,
+  });
   if (preloadKey === null) return undefined;
   const resolved = path.resolve(runtime);
   return preloadKey === "" ? resolved : `${resolved}\0${preloadKey}`;

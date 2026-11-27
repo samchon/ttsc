@@ -71,7 +71,7 @@ export namespace PluginBuildEnvironmentReadings {
   export function cached(directory: string): string | undefined {
     const known = readings.get(key(directory, process.env));
     return known !== undefined &&
-      PluginBuildEnvironmentWitness.holds(known.witness)
+      PluginBuildEnvironmentWitness.reusable(known.witness)
       ? known.environment
       : undefined;
   }
@@ -110,7 +110,7 @@ export namespace PluginBuildEnvironmentReadings {
       result.set(
         directory,
         known !== undefined &&
-          PluginBuildEnvironmentWitness.holds(known.witness, undefined, current)
+          PluginBuildEnvironmentWitness.reusable(known.witness, current)
           ? known.environment
           : undefined,
       );

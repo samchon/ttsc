@@ -12,6 +12,7 @@ import { E2ETrace } from "../../../internal/E2ETrace";
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { TtsxNodeOptions } from "../../../internal/TtsxNodeOptions";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
 import { javascriptRuntimeCapabilities } from "../../../internal/javascriptRuntimeCapabilities";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { spawnSyncResilient } from "../../../internal/spawnSyncResilient";
@@ -477,6 +478,39 @@ export namespace loadProjectPlugins {
       string,
       PluginBuildEnvironmentWitness.Record
     >();
+    const compilerDeclaration =
+      candidates.length === 0
+        ? undefined
+        : SourcePluginWorkspace.compilerSourceDeclaration(effectiveEnv);
+    if (
+      compilerDeclaration !== undefined &&
+      !projectHostInputs.includes(compilerDeclaration)
+    ) {
+      projectHostInputs.push(compilerDeclaration);
+      const phase = HostInputObservationPhase.create();
+      Object.assign(
+        projectHostInputHashes,
+        hashHostInputPaths([compilerDeclaration], phase),
+      );
+      Object.assign(
+        projectHostInputRealpaths,
+        realpathHostInputPaths([compilerDeclaration], phase),
+      );
+    }
+    const sourceWatchInputs = (
+      directories: readonly string[],
+    ): readonly string[] => {
+      if (compilerDeclaration === undefined) return directories;
+      const physical = projectHostInputRealpaths[compilerDeclaration];
+      // Read the compiler tree once through the declaration. The address of
+      // the declaration also lets the watch owner see a link replacement.
+      return [
+        ...new Set([
+          ...directories.filter((directory) => directory !== physical),
+          compilerDeclaration,
+        ]),
+      ].sort();
+    };
     // The overlay modules every selection and build of this load uses, found
     // once: each lookup walks the compiler line's shim tree. A compiler source
     // the project declares is one of them.
@@ -531,7 +565,10 @@ export namespace loadProjectPlugins {
       // read every source the load proves from records a moment later.
       // A worker owns the watch baseline now. Complete this handoff before Go
       // metadata or source proof consumes the roots, preserving #1728 (#1758).
-      yield options.onWatchInputs([...interests].sort(), sourceIdentities);
+      yield options.onWatchInputs(
+        sourceWatchInputs([...interests].sort()),
+        sourceIdentities,
+      );
       const initialSize = interests.size;
       for (const candidate of candidates) {
         // Nested source-only proposals replace the outer root manifests. Do not
@@ -548,7 +585,10 @@ export namespace loadProjectPlugins {
           if (reportsPluginSource(directory)) interests.add(directory);
       }
       if (interests.size !== initialSize)
-        yield options.onWatchInputs([...interests].sort(), sourceIdentities);
+        yield options.onWatchInputs(
+          sourceWatchInputs([...interests].sort()),
+          sourceIdentities,
+        );
     }
     const proposals = NativeSourcePackages.propose(
       candidates.map((candidate) => ({
@@ -559,6 +599,7 @@ export namespace loadProjectPlugins {
       packageReaders,
       sourceIdentities,
       readings,
+      project.root,
     );
     const records = candidates.map(
       ({ plugin, index, stage, contributors, source, packageDir }) => {
@@ -637,7 +678,10 @@ export namespace loadProjectPlugins {
     );
     // Admission can now narrow the provisional interests without restamping the
     // retained package/module baselines. Final host errors still keep these roots.
-    yield options.onWatchInputs?.(buildDirectories, sourceIdentities);
+    yield options.onWatchInputs?.(
+      sourceWatchInputs(buildDirectories),
+      sourceIdentities,
+    );
     const keyedDirectories = new Set(buildDirectories);
     const linkedContributors = records
       .filter((record) => record.stage === "transform")
@@ -691,6 +735,7 @@ export namespace loadProjectPlugins {
         const observations = NativeSourcePackages.inspect({
           source: host.source,
           pluginName: host.label,
+          projectRoot: project.root,
           env: effectiveEnv,
           readers: packageReaders,
           identities: sourceIdentities,
@@ -1667,7 +1712,7 @@ function loadCommonJsDescriptor(
       ...cached,
       verifiedPhase: cachedPhase,
     };
-  const dir = createEvaluationTempDir(descriptorCache.identities);
+  const dir = createEvaluationTempDir(descriptorCache, context);
   const out = path.join(dir, "descriptor.json");
   const inputsOut = path.join(dir, "descriptor-inputs.ndjson");
   const diagnostics = path.join(dir, "descriptor.stderr");
@@ -2135,7 +2180,7 @@ function loadDescriptorViaTtsx(
   if (node === undefined || ttsx === undefined || ttsx.length === 0) {
     return undefined;
   }
-  const dir = createEvaluationTempDir(descriptorCache.identities);
+  const dir = createEvaluationTempDir(descriptorCache, context);
   const out = path.join(dir, "descriptor.json");
   const inputsOut = path.join(dir, "descriptor-inputs.ndjson");
   const shim = path.join(dir, "load-descriptor.mts");
@@ -2631,12 +2676,17 @@ function ttscPackageRoot(): string {
  * cleanup path; an absent or unproved store retains system TEMP.
  */
 function createEvaluationTempDir(
-  identities: PluginContentIdentities.Store | undefined,
+  cache: DescriptorCacheOptions,
+  context: ITtscPluginFactoryContext,
 ): string {
-  return createCanonicalTempDirectory(
-    "ttsc-plugin-descriptor-",
-    selectedRecordIdentityTempParent(identities?.root),
-  );
+  const prefix = "ttsc-plugin-descriptor-";
+  const parent = selectedRecordIdentityTempParent(cache.identities?.root);
+  return parent === undefined
+    ? createProjectTempDirectory(prefix, cache.projectRoot, [
+        context.cwd,
+        path.dirname(context.tsconfig),
+      ])
+    : createCanonicalTempDirectory(prefix, parent);
 }
 
 /**

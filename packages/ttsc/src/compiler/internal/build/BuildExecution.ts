@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { hasProjectPluginEntries } from "../../../plugin/internal/load/hasProjectPluginEntries";
 import { loadProjectPlugins } from "../../../plugin/internal/load/loadProjectPlugins";
@@ -416,11 +416,15 @@ export namespace BuildExecution {
       buildOptions.forceEmitProvenance === true &&
       execution.nativePlugins.length !== 0
     )
-      return CompilationSnapshot.run(buildOptions.env, (env) =>
-        runPreparedSnapshotBuild(options, timing, execution, {
-          ...buildOptions,
-          env,
-        }),
+      return CompilationSnapshot.run(
+        buildOptions.env,
+        execution.projectRoot,
+        [path.dirname(execution.tsconfig), options.cwd ?? process.cwd()],
+        (env) =>
+          runPreparedSnapshotBuild(options, timing, execution, {
+            ...buildOptions,
+            env,
+          }),
       );
     return runPreparedSnapshotBuild(options, timing, execution, buildOptions);
   }
@@ -880,10 +884,15 @@ export namespace BuildExecution {
             TsgoArguments.createNativeBuildTsgoArgs(execution, options),
           ),
         "build",
+        execution.projectRoot,
+        [path.dirname(execution.tsconfig), options.cwd ?? process.cwd()],
       );
     if (options.forceEmitProvenance !== true) return run();
     if (host.capabilities?.emitProvenance === true)
-      return captureNativeEmitProvenance(run);
+      return captureNativeEmitProvenance(run, execution.projectRoot, [
+        path.dirname(execution.tsconfig),
+        options.cwd ?? process.cwd(),
+      ]);
     // WARNING: NEVER reject a compiler host for lacking `emitProvenance`.
     //
     // Plugin libraries such as typia ship their own Go executable host with its
@@ -929,8 +938,14 @@ export namespace BuildExecution {
    */
   function captureNativeEmitProvenance(
     run: (provenancePath: string) => TtscBuildResult,
+    projectRoot: string,
+    additionalProjectRoots: readonly string[],
   ): TtscBuildResult {
-    const directory = createCanonicalTempDirectory("ttsc-emit-provenance-");
+    const directory = createProjectTempDirectory(
+      "ttsc-emit-provenance-",
+      projectRoot,
+      additionalProjectRoots,
+    );
     const ownership = fs.lstatSync(directory);
     const provenancePath = path.join(directory, "emitted-sources.json");
     let completed: TtscBuildResult | undefined;
@@ -1451,6 +1466,8 @@ export namespace BuildExecution {
             TsgoArguments.createNativeCheckTsgoArgs(execution, options),
           ),
         args[0],
+        execution.projectRoot,
+        [path.dirname(execution.tsconfig), options.cwd ?? process.cwd()],
       );
       out = appendBuildOutput(out, result);
       if (result.status !== 0) {

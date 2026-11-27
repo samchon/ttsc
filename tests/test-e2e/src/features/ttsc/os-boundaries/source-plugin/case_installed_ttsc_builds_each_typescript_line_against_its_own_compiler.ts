@@ -263,8 +263,11 @@ export function case_installed_ttsc_builds_each_typescript_line_against_its_own_
     },
   }).transform();
   assert.equal(result.type, "exception");
+  const error = result.error;
+  assert.ok(error !== null && typeof error === "object" && "message" in error);
+  assert.ok(typeof error.message === "string");
   assert.match(
-    result.error.message,
+    error.message,
     /TypeScript 7\.1 compiler target builds against "github\.com\/microsoft\/TypeScript\/tsc"/,
   );
   return projects;

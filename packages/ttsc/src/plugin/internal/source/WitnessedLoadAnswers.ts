@@ -70,11 +70,7 @@ export namespace WitnessedLoadAnswers {
     const record: PluginBuildEnvironmentWitness.Record = new Map(
       witness as [string, string][],
     );
-    return PluginBuildEnvironmentWitness.holds(
-      record,
-      undefined,
-      currentReadings,
-    )
+    return PluginBuildEnvironmentWitness.reusable(record, currentReadings)
       ? { value, witness: record }
       : undefined;
   }
@@ -103,7 +99,7 @@ export namespace WitnessedLoadAnswers {
     value: unknown,
     witness: PluginBuildEnvironmentWitness.Record,
   ): void {
-    if (store === undefined || !PluginBuildEnvironmentWitness.holds(witness))
+    if (store === undefined || !PluginBuildEnvironmentWitness.reusable(witness))
       return;
     PluginLoadAnswers.write(store, kind, identity, {
       value,

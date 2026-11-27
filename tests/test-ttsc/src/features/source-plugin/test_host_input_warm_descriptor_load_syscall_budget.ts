@@ -306,6 +306,11 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
         );
 
       // (c) Non-symlink files in dist/ share the physical parent and listing.
+      assert.deepEqual(
+        presentFiles.filter((file) => lstatByPath.has(file)),
+        [],
+        "regular directory entries replace per-file lstat calls",
+      );
       const distRealpathCalls = counts.realpathNativePaths.filter(
         (file) => file === dist,
       );
@@ -359,7 +364,7 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
         const phase = HostInputObservationPhase.create();
         hashHostInputPaths(paths, phase);
         assert.deepEqual(realpathHostInputPaths(paths, phase), expected);
-        assert.ok(phase.directoryEntries.get(dist), "finished small listing");
+        assert.ok(phase.directoryEntries.get(dist), "qualified small listing");
       },
     );
 
@@ -370,10 +375,19 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
         fs.mkdirSync(wide);
         for (let i = 0; i < 256; i++)
           fs.writeFileSync(path.join(wide, `other-${i}`), "");
-        const files = ["One.js", "Two.js", "Three.js"].map((name) =>
-          path.join(wide, name),
-        );
-        for (const file of files) fs.writeFileSync(file, "");
+        const nativeOrder: string[] = [];
+        const directory = fs.opendirSync(wide);
+        try {
+          for (
+            let entry = directory.readSync();
+            entry !== null;
+            entry = directory.readSync()
+          )
+            nativeOrder.push(path.join(wide, entry.name));
+        } finally {
+          directory.closeSync();
+        }
+        const files = nativeOrder.slice(-3);
         const single = HostInputObservationPhase.create();
         hashHostInputPaths(files.slice(0, 1), single);
         assert.deepEqual(realpathHostInputPaths(files.slice(0, 1), single), {

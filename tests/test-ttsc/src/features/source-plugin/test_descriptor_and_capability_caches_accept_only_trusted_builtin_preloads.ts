@@ -24,6 +24,7 @@ interface IActorReport {
     registerHooks: boolean;
   };
   capabilityProbes: number;
+  alternateCapabilities?: IActorReport["capabilities"];
   resolutionFile: string | null;
   runtimeProved: boolean | null;
   capabilityAuthority: string | null;
@@ -50,6 +51,8 @@ interface IActorReport {
  *    launches and misses when its bytes or resolution change. Verify `--import`
  *    refuses, and verify a `ttsx`-like child with `runtimeHookPreload` records
  *    only the user graph.
+ * 4. Resolve the same relative NODE_PATH in two child working directories and
+ *    verify that each child's actual capability wins.
  *
  * @evidence contracts/testing.md#behavioral-verification Real Node launches run the descriptor evaluator shim, PluginDescriptorEvaluationCache.locate/read/write, javascriptRuntimeCapabilities and resolveCapabilityPluginResolution with real preloads, local dependencies and runtimeHookPreload.
  * @evidence contracts/testing.md#independent-expectations Expected hits, misses, probe counts, recorded input graphs and null refusals follow directly from the observed-graph preload contract and real child execution.
@@ -567,6 +570,31 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   });
   assert.notEqual(packageLaunch.descriptorLocation, null);
   assert.equal(packageLaunch.descriptorDifferentNodePathRefused, true);
+
+  // A relative NODE_PATH names a different dependency in a different cwd.
+  const alternate = path.join(root, "alternate");
+  for (const [directory, bun] of [
+    [projectDir, true],
+    [alternate, false],
+  ] as const) {
+    const search = path.join(directory, "nodepath");
+    fs.mkdirSync(search, { recursive: true });
+    fs.writeFileSync(
+      path.join(search, "runtime-capability-marker.js"),
+      bun ? "globalThis.Bun = {};" : "module.exports = {};",
+    );
+  }
+  const barePreload = path.join(preloadDir, "with-node-path.cjs");
+  fs.writeFileSync(barePreload, 'require("runtime-capability-marker");');
+  const relativeSearch = runLaunch({
+    NODE_OPTIONS: `--require=${barePreload}`,
+    TTSC_CACHE_TRUSTED_PRELOADS: barePreload,
+    NODE_PATH: "nodepath",
+    TTSC_TEST_PRELOAD_ALTERNATE_CWD: alternate,
+  });
+  assert.equal(relativeSearch.descriptorLocation, null);
+  assert.equal(relativeSearch.capabilities.bun, true);
+  assert.equal(relativeSearch.alternateCapabilities?.bun, false);
 
   // Non-preload flags and nonexistent paths refuse.
   for (const nodeOptions of [

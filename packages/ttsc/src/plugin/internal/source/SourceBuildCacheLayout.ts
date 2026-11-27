@@ -244,14 +244,21 @@ export namespace SourceBuildCacheLayout {
     let modules = path.join(workspace, NODE_MODULES_DIRNAME);
     const installed = fs.lstatSync(modules, { throwIfNoEntry: false });
     if (installed !== undefined) {
-      modules = fs.realpathSync.native(modules);
+      try {
+        modules = fs.realpathSync.native(modules);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== "ENOENT" && code !== "ENOTDIR") throw error;
+        throw unsafeWorkspaceCache(
+          `ttsc: unsafe node_modules cache owner: ${installation}`,
+        );
+      }
       if (
         path.basename(modules) !== NODE_MODULES_DIRNAME ||
         !fs.lstatSync(modules).isDirectory()
       )
-        throw Object.assign(
-          new Error(`ttsc: unsafe node_modules cache owner: ${installation}`),
-          { code: "TTSC_UNSAFE_NODE_MODULES_CACHE" },
+        throw unsafeWorkspaceCache(
+          `ttsc: unsafe node_modules cache owner: ${installation}`,
         );
     }
     const parent = path.join(modules, ".cache");
@@ -259,11 +266,17 @@ export namespace SourceBuildCacheLayout {
     for (const component of [parent, cache]) {
       const stat = fs.lstatSync(component, { throwIfNoEntry: false });
       if (stat !== undefined && !stat.isDirectory())
-        throw new Error(
+        throw unsafeWorkspaceCache(
           `ttsc: unsafe default workspace cache directory: ${component}`,
         );
     }
     return cache;
+  }
+
+  function unsafeWorkspaceCache(message: string): NodeJS.ErrnoException {
+    return Object.assign(new Error(message), {
+      code: "TTSC_UNSAFE_NODE_MODULES_CACHE",
+    });
   }
 
   /**

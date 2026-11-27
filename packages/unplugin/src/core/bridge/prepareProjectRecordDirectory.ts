@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { PROJECT_RECORD_DIRECTORY } from "./PROJECT_RECORD_DIRECTORY";
+import { fallbackRecordStorage } from "./fallbackRecordStorage";
 import { hostToolDirectory } from "./hostToolDirectory";
 
 /**
@@ -20,6 +21,12 @@ import { hostToolDirectory } from "./hostToolDirectory";
  * @evidence contracts/performance.md#bound-retention-and-release-resources Created directories belong to the persistent record protocol. No additional scratch or open handle survives preparation.
  */
 export function prepareProjectRecordDirectory(directory: string): string {
+  const privateStorage = fallbackRecordStorage(directory, true);
+  if (privateStorage === true) return directory;
+  if (privateStorage === false)
+    throw new Error(
+      `@ttsc/unplugin: unsafe private project record directory: ${directory}`,
+    );
   const tool = path.dirname(directory);
   const workspace = path.resolve(tool, "../../../..");
   if (

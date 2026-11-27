@@ -6,7 +6,9 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
 import { PRIVATE_CONFIG_OVERLAY_ENV } from "../../compiler/internal/sharedHost/PRIVATE_CONFIG_OVERLAY_ENV";
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
+import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
+import { systemTempOutsideProject } from "../../internal/systemTempOutsideProject";
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
@@ -143,32 +145,48 @@ export function buildSingleRootProject(props: {
   );
   const configDir = path.dirname(original.path);
   const localModules = path.join(configDir, "node_modules");
-  let overlayDirectory = path.dirname(props.emitDir);
-  let ownerInNativeView = false;
-  if (props.checked) {
-    try {
-      overlayDirectory =
+  const privateDirectory = path.dirname(props.emitDir);
+  let fallbackDirectory: string | undefined;
+  const acquire = (directory: string) => {
+    fs.mkdirSync(directory, { recursive: true });
+    const file = path.join(
+      directory,
+      `.ttsx-${props.role}.${props.key}.tsconfig.json`,
+    );
+    return { file, descriptor: fs.openSync(file, "wx") };
+  };
+  let placement: ReturnType<typeof acquire>;
+  let attemptedDirectory = privateDirectory;
+  try {
+    if (props.checked) {
+      attemptedDirectory =
         fs.lstatSync(localModules, { throwIfNoEntry: false }) === undefined
           ? resolveSourceBuildCachePaths(configDir, undefined, {}).root
           : SourceBuildCacheLayout.defaultWorkspaceCachePath(
               path.join(localModules, ".cache", "ttsc"),
             );
-    } catch (error) {
-      if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
-      ownerInNativeView = true;
+    }
+    placement = acquire(attemptedDirectory);
+  } catch (error) {
+    if (!props.checked || !SourceBuildCacheLayout.refusesDefaultPath(error))
+      throw unwritableConfigDirectory(error, props, attemptedDirectory);
+    try {
+      fs.mkdirSync(privateDirectory, { recursive: true });
+      const owners = configAncestors(configDir);
+      fallbackDirectory = allocatePrivateConfigDirectory(
+        privateDirectory,
+        owners,
+      );
+      placement = acquire(mirrorTypeSearchPath(owners, fallbackDirectory));
+    } catch (fallbackError) {
+      removePrivateConfigDirectory(fallbackDirectory);
+      throw unwritableConfigDirectory(fallbackError, props, privateDirectory);
     }
   }
-  const tsconfig = path.join(
-    overlayDirectory,
-    `.ttsx-${props.role}.${props.key}.tsconfig.json`,
-  );
-  let configDescriptor: number | undefined;
-  let ownsConfig = false;
+  const tsconfig = placement.file;
+  let configDescriptor: number | undefined = placement.descriptor;
   try {
     try {
-      fs.mkdirSync(overlayDirectory, { recursive: true });
-      configDescriptor = fs.openSync(tsconfig, "wx");
-      ownsConfig = true;
       const config = singleRootProjectConfig({
         tsconfig: original.path,
         source: props.source,
@@ -209,14 +227,15 @@ export function buildSingleRootProject(props: {
       checkers: options.checkers,
       cwd: props.projectRoot,
       emit: true,
-      env: ownerInNativeView
-        ? SidecarEnvironment.merge(options.env, {
-            [PRIVATE_CONFIG_OVERLAY_ENV]: JSON.stringify([
-              project.path,
-              original.path,
-            ]),
-          })
-        : options.env,
+      env:
+        fallbackDirectory !== undefined
+          ? SidecarEnvironment.merge(options.env, {
+              [PRIVATE_CONFIG_OVERLAY_ENV]: JSON.stringify([
+                project.path,
+                original.path,
+              ]),
+            })
+          : options.env,
       cacheDir: options.cacheDir,
       outDir: props.emitDir,
       // Every output this build writes stays in ttsx's private directory: a
@@ -288,13 +307,100 @@ export function buildSingleRootProject(props: {
         // Preserve the write or close failure that reached this cleanup.
       }
     }
-    if (ownsConfig) {
+    if (fallbackDirectory !== undefined)
+      removePrivateConfigDirectory(fallbackDirectory);
+    else {
       try {
-        fs.rmSync(tsconfig, { force: true });
+        fs.unlinkSync(tsconfig);
       } catch {
-        // Best effort: native cleanup failure can leave this overlay behind.
+        // Preserve the result when cleanup of the acquired overlay fails.
       }
     }
+  }
+}
+
+/**
+ * Give an external compiler the owning config's node_modules search order. The
+ * private config inherits the original options. Native type discovery follows
+ * the mirrored dependency directories for both automatic @types and explicitly
+ * named packages.
+ */
+function mirrorTypeSearchPath(
+  owners: readonly string[],
+  privateRoot: string,
+): string {
+  let mirror = privateRoot;
+  for (const ancestor of owners) {
+    mirror = path.join(mirror, "p");
+    fs.mkdirSync(mirror);
+    const target = dependencyDirectory(ancestor);
+    if (target !== undefined)
+      fs.symlinkSync(
+        target,
+        path.join(mirror, "node_modules"),
+        process.platform === "win32" ? "junction" : "dir",
+      );
+  }
+  return mirror;
+}
+
+/** Choose a private parent whose ancestors introduce no new dependencies. */
+function allocatePrivateConfigDirectory(
+  runDirectory: string,
+  owners: readonly string[],
+): string {
+  const original = new Set(owners);
+  const accepts = (directory: string): boolean =>
+    configAncestors(directory).every(
+      (ancestor) =>
+        original.has(ancestor) || dependencyDirectory(ancestor) === undefined,
+    );
+  const prefix = ".ttsx-config-";
+  const run = fs.realpathSync.native(runDirectory);
+  if (accepts(run)) return createCanonicalTempDirectory(prefix, run);
+  const configDir = owners.at(-1)!;
+  for (const { directory } of systemTempOutsideProject.candidates(configDir, [
+    process.cwd(),
+  ])) {
+    if (accepts(directory))
+      return createCanonicalTempDirectory(prefix, directory);
+  }
+  throw new Error(
+    `ttsx: no private config directory preserves the type search of ${configDir}`,
+  );
+}
+
+/** The native dependency search starts at the config and walks to its root. */
+function configAncestors(configDir: string): string[] {
+  const ancestors: string[] = [];
+  for (let directory = configDir; ; ) {
+    ancestors.push(directory);
+    const parent = path.dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
+  return ancestors.reverse();
+}
+
+/** Resolve a present dependency directory without creating one. */
+function dependencyDirectory(ancestor: string): string | undefined {
+  try {
+    const target = fs.realpathSync.native(path.join(ancestor, "node_modules"));
+    return fs.statSync(target).isDirectory() ? target : undefined;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT" && code !== "ENOTDIR") throw error;
+    return undefined;
+  }
+}
+
+/** Retire the owned mirror and its directory links after compilation. */
+function removePrivateConfigDirectory(directory: string | undefined): void {
+  if (directory === undefined) return;
+  try {
+    fs.rmSync(directory, { recursive: true });
+  } catch {
+    // Preserve the compiler result or acquisition failure.
   }
 }
 

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../internal/createProjectTempDirectory";
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { EmitOwnershipIndex } from "./EmitOwnershipIndex";
 import { WatchInputPublication } from "./build/WatchInputPublication";
@@ -118,7 +118,11 @@ export namespace runSingleFileEmit {
         : project.root;
     if (selection !== undefined)
       CompilerProjectSelection.assertCurrent(selection);
-    const outDir = createCanonicalTempDirectory("ttsc-single-file-");
+    const outDir = createProjectTempDirectory(
+      "ttsc-single-file-",
+      project.root,
+      [cwd, path.dirname(tsconfig), path.dirname(sourceFile)],
+    );
     let failed = false;
     let failure: unknown;
     try {

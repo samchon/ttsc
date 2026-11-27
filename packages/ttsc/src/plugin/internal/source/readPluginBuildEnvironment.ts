@@ -48,9 +48,8 @@ export function readPluginBuildEnvironment(
   currentReadings?: Map<string, string>,
 ): string {
   const identity = [
-    // Older answers have no toolchain-selection witness and may walk a
-    // complete packaged SDK snapshot during validation.
-    2,
+    // Older answers could come from a delegated SDK selected by a mutable search.
+    3,
     goBinary ?? null,
     path.resolve(directory),
     goToolVariables(env),

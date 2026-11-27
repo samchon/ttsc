@@ -140,6 +140,45 @@ export namespace PluginBuildEnvironmentWitness {
   }
 
   /**
+   * Require Go to select the toolchain again before this reading can be reused.
+   * The current build can still validate the paths it actually observed.
+   *
+   * @evidence contracts/common.md#principled-implementation Marks unproved delegated toolchain selection separately from a changed input in the current build.
+   * @evidence contracts/common.md#clear-and-simple-design The marker follows the same witness through worker transfer and composed readings.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not treat the observed SDK as proof of future Go dispatch.
+   * @evidence contracts/common.md#meaningful-documentation Distinguishes observation validation from permission to reuse.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Writes a private map key and performs no native observation.
+   * @evidence contracts/performance.md#efficient-algorithms Adds one fixed map entry.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Withdraws historical reuse.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the witness map.
+   */
+  export function requireToolchainProbe(witness: Record | undefined): void {
+    witness?.set(TOOLCHAIN_PROBE, "");
+  }
+
+  /**
+   * Whether a recorded answer can replace a fresh native reading.
+   *
+   * @evidence contracts/common.md#principled-implementation Requires proved dispatch as well as unchanged path and environment observations.
+   * @evidence contracts/common.md#clear-and-simple-design Stored answers and process-local lookups share the same boundary.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No witness with unproved selection returns a cache hit.
+   * @evidence contracts/common.md#meaningful-documentation States when a record can replace a native reading.
+   * @evidence contracts/portability.md#os-neutral-implementation Native path and environment observations stay with holds.
+   * @evidence contracts/performance.md#efficient-algorithms One map check rejects delegated readings before a validation walk.
+   * @evidence contracts/performance.md#reuse-equivalent-work Qualified readings share the caller's synchronous observations through holds.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains no witness or results.
+   */
+  export function reusable(
+    witness: Record,
+    currentReadings?: Map<string, string>,
+  ): boolean {
+    return (
+      !witness.has(TOOLCHAIN_PROBE) &&
+      holds(witness, undefined, currentReadings)
+    );
+  }
+
+  /**
    * Whether every native path and ambient variable still matches its
    * observation. The existing private opt-in trace retains the first actual
    * mismatch without repeating its lookup or changing the refusal. An optional
@@ -164,6 +203,7 @@ export namespace PluginBuildEnvironmentWitness {
     currentReadings?: Map<string, string>,
   ): boolean {
     for (const [file, recorded] of witness) {
+      if (file === TOOLCHAIN_PROBE) continue;
       let current = currentReadings?.get(file);
       if (current === undefined) {
         current = file.startsWith(ENVIRONMENT_PREFIX)
@@ -195,6 +235,7 @@ export namespace PluginBuildEnvironmentWitness {
   /** NUL cannot occur in a native pathname, so this qualification is disjoint. */
   const LINK_PREFIX = "\0link:";
   const ENVIRONMENT_PREFIX = "\0environment:";
+  const TOOLCHAIN_PROBE = "\0requires-toolchain-probe";
 
   function environmentSignature(name: string): string {
     const actualName =

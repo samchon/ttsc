@@ -6,7 +6,7 @@ import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/Sideca
 import { E2ETrace } from "../../../internal/E2ETrace";
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
-import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
 import { runHoldingLock } from "../../../internal/runHoldingLock";
 import { CompilerTarget } from "./CompilerTarget";
 import { GoSourceInputs } from "./GoSourceInputs";
@@ -372,6 +372,7 @@ function buildSourcePluginAttempt(
       else fs.mkdirSync(cacheDir, { recursive: true });
       return compileSourcePlugin({
         binaryPath,
+        projectRoot: opts.baseDir,
         cacheDir,
         captureDirectory,
         contributors,
@@ -466,6 +467,7 @@ const CONTRIB_DIRNAME = "contrib";
 function compileSourcePlugin(opts: {
   artifactRoot: string;
   binaryPath: string;
+  projectRoot: string;
   cacheDir: string;
   captureDirectory: string;
   contributors: readonly ITtscBuildContributor[];
@@ -512,7 +514,15 @@ function compileSourcePlugin(opts: {
     );
   }
 
-  const scratchDir = createCanonicalTempDirectory(`ttsc-plugin-${opts.key}-`);
+  const scratchDir = createProjectTempDirectory(
+    `ttsc-plugin-${opts.key}-`,
+    opts.projectRoot,
+    [
+      opts.dir,
+      ...opts.overlayDirs,
+      ...opts.contributors.map((input) => input.source),
+    ],
+  );
   let taskFailure: { error: unknown } | undefined;
   try {
     SourceNativeRetirement.register({

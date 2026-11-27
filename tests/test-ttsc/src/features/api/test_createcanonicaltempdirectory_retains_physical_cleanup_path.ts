@@ -1,5 +1,6 @@
 import { type CanonicalTempDirectoryOperations } from "../../../../../packages/ttsc/src/internal/CanonicalTempDirectoryOperations";
 import { createCanonicalTempDirectory } from "../../../../../packages/ttsc/src/internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../../../../packages/ttsc/src/internal/createProjectTempDirectory";
 import { assert, fs, path } from "../../internal/script-unit";
 
 /**
@@ -22,7 +23,10 @@ import { assert, fs, path } from "../../internal/script-unit";
  * @evidence contracts/testing.md#execution-ownership Calls createCanonicalTempDirectory directly with real fs operations and a private junction fixture, plus supported injected operations for failure cases. No process, native build or ttsc host runs, and finally removes the accepted fixture root.
  */
 export function test_createcanonicaltempdirectory_retains_physical_cleanup_path() {
-  const root = createCanonicalTempDirectory("ttsc-canonical-temp-test-");
+  const root = createProjectTempDirectory(
+    "ttsc-canonical-temp-test-",
+    process.cwd(),
+  );
   const safeParent = path.join(root, "safe");
   const project = path.join(root, "project");
   const alias = path.join(root, "temp-alias");

@@ -14,7 +14,7 @@ export { resolveOwningProjectConfig } from "../../../compiler/internal/project/r
 export { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 export { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 export { spawnNative } from "../../../compiler/internal/spawnNative";
-export { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+export { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
 export { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 export { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
 export { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBuildCacheLayout";

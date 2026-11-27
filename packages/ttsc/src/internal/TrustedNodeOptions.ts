@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 
 import { SidecarEnvironment } from "../compiler/internal/sharedHost/SidecarEnvironment";
 import { PluginContentIdentities } from "../plugin/internal/source/PluginContentIdentities";
@@ -43,8 +44,9 @@ export namespace TrustedNodeOptions {
    * `Module` in `require.cache` (excluding builtins), and hashes every file in
    * that graph through `PluginContentIdentities.digest`. A different child
    * `NODE_PATH` can redirect transitive imports even for an absolute root.
-   * Descriptor publication also checks the evaluator's initial graph against
-   * the graph used by the parent.
+   * Relative search entries cannot reuse the parent's graph. The child cwd and
+   * absolute search entries enter the key. Publication compares the child's
+   * initial graph with the graph used by the parent.
    *
    * @param props.cwd Working directory of the child process that receives
    *   `NODE_OPTIONS`, used to resolve `-r` targets as Node would.
@@ -79,7 +81,7 @@ export namespace TrustedNodeOptions {
     /** Optional module cache map; defaults to the live `require.cache`. */
     cache?: NodeJS.Dict<NodeJS.Module>;
 
-    /** Sorted physical paths observed in the descriptor evaluator at startup. */
+    /** Sorted physical paths observed in the child at startup. */
     expectedPreloadGraph?: readonly unknown[];
   }): string | null {
     const rawOptions = SidecarEnvironment.read(props.env, "NODE_OPTIONS");
@@ -88,9 +90,18 @@ export namespace TrustedNodeOptions {
 
     const rawTrusted = SidecarEnvironment.read(props.env, TRUSTED_PRELOADS_ENV);
     if (rawTrusted === undefined || rawTrusted === "") return null;
+    const nodePath = SidecarEnvironment.read(props.env, "NODE_PATH") ?? "";
     if (
-      (SidecarEnvironment.read(props.env, "NODE_PATH") ?? "") !==
-      (SidecarEnvironment.read(process.env, "NODE_PATH") ?? "")
+      nodePath !== (SidecarEnvironment.read(process.env, "NODE_PATH") ?? "") ||
+      nodePath
+        .split(path.delimiter)
+        .some(
+          (entry) =>
+            entry !== "" &&
+            (!path.isAbsolute(entry) ||
+              (process.platform === "win32" &&
+                path.parse(entry).root.length === 1)),
+        )
     )
       return null;
 
@@ -122,7 +133,14 @@ export namespace TrustedNodeOptions {
       if (digest === null) return null;
       digests.push([physical, digest]);
     }
-    return JSON.stringify([rawOptions, rawTrusted, roots, digests]);
+    return JSON.stringify([
+      rawOptions,
+      rawTrusted,
+      path.resolve(props.cwd),
+      nodePath,
+      roots,
+      digests,
+    ]);
   }
 
   /** Environment variable listing exact trusted preload physical paths. */

@@ -378,6 +378,11 @@ function resolveGoBuildEnvironment(
       witness,
       identities,
     );
+    const local =
+      parsed !== undefined &&
+      GoEnvironmentReading.provesLocalToolchain(goBinary, env, parsed);
+    if (parsed === undefined)
+      PluginBuildEnvironmentWitness.requireToolchainProbe(witness);
     if (parsed !== undefined) {
       try {
         for (const key of GO_BUILD_ENV_KEYS) {
@@ -392,7 +397,7 @@ function resolveGoBuildEnvironment(
                 filesystem,
                 witness,
                 identities,
-                packageManifest,
+                local ? packageManifest : undefined,
               ),
             );
           }

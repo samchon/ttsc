@@ -3,7 +3,7 @@ import path from "node:path";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import type { TtscEnvelopeDerivation } from "../envelope/TtscEnvelopeDerivation";
 import { derivationIdentity } from "../envelope/derivationIdentity";
-import { deriveWatchInputs } from "../envelope/deriveWatchInputs";
+import { deriveWatchInputsFromIndexes } from "../envelope/deriveWatchInputsFromIndexes";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { envelopeGraphIndexes } from "../envelope/envelopeGraphIndexes";
 import { hostSpelling } from "../envelope/hostSpelling";
@@ -41,14 +41,14 @@ import { selectionInputs } from "./selectionInputs";
  * dependency selection when an observed input changes. Routing and membership
  * remain per delivery.
  *
- * @evidence contracts/common.md#principled-implementation Module delivery derives the selected file's dependency set, while project delivery records the full generation plus the known selected config and consulted routing configs. Optional producer input lists need not supply that selection-owned recovery input; membership remains an explicitly requested additional input.
+ * @evidence contracts/common.md#principled-implementation Module delivery derives the selected file's dependency set. Grouped importers still match only their file's dependencies from the delivered graph and declarations. Project delivery records the full generation plus the selected config and consulted routing configs. Membership remains an explicitly requested additional input.
  * @evidence contracts/common.md#clear-and-simple-design Both host models share one routing observation batch, with dependency selection, evidence mapping and record persistence delegated to their actual owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Generation derivation removes disposed scratch inputs. A refused project record requests volatility through a supplied markVolatile callback instead of inventing a record; host-owned cache withdrawal remains that callback's responsibility, not an effect fabricated by this orchestrator.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish module and project dependencies, scratch exclusion and routing, followed by separated tags under documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Generation-owned identity and hostSpelling keep native physical identity separate from adapter spelling; routing observations use the delivery's filesystem capability.
  * @evidence contracts/performance.md#efficient-algorithms No consuming hooks short-circuit all work. Otherwise every routing occurrence is observed once for this delivery, then shared between record and module branches. A project branch delegates full generation/record costs; a module branch delegates selected closure/index/native identity work, maps fresh evidence carriers, copies/spells routed entries and performs final keyed handoff. Costs include bytes, key/path text, cold native observations, membership encoding and callback effects, with call-local arrays sized by these populations even when some underlying generation lists are memoized.
  * @evidence contracts/performance.md#reuse-equivalent-work Generation lists, identities and membership use their owners' qualified immutable/root/options/native-view memos. Routing evidence is observed once here and shared between current branches; actual callbacks still run for each delivery, and new routing spellings extend the record snapshot rather than being dropped because a generation is reused.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This orchestrator owns call-local batches; generation snapshots, persistent records and watchers have separate retention owners.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Grouped importers can retain a matcher past generation eviction. Its separate closure captures only routing metadata, graph indexes and path identities. Emitted output, raw compiler graph records and validation state remain with the compiler cache.
  */
 export function notifyWatchInputs(
   hooks: TtscTransformHooks | undefined,
@@ -141,15 +141,6 @@ const GROUPED_MATCHERS = new WeakMap<
  * Share a generation's routing inputs among Vite importers. Importers can keep
  * this matcher after eviction, so its closure takes no cached transform or
  * compiler result.
- *
- * @evidence contracts/common.md#principled-implementation Each importer still derives its own dependencies from its delivered generation's graph and declarations.
- * @evidence contracts/common.md#clear-and-simple-design Copy routing fields once and build the escaping function in a scope with only routing inputs.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The matcher neither keeps the compiler output nor replaces exact selection with a generation-wide invalidation.
- * @evidence contracts/common.md#meaningful-documentation States why the watcher lifetime can outlast the compile cache and names the retained data.
- * @evidence contracts/portability.md#os-neutral-implementation Reuses the generation's native path identity context and absolute spellings.
- * @evidence contracts/performance.md#efficient-algorithms A weak lookup reuses the matcher on delivery. It performs per-importer traversal only on input changes.
- * @evidence contracts/performance.md#reuse-equivalent-work All importers of this generation share one matcher, existing graph indexes and parsed plugin source paths.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Watchers borrow graph indexes, paths and dependency declarations. Emitted sources, raw graph records and cache snapshots can leave with the cache owner.
  */
 function groupedWatchMatcher(
   cached: TtscCachedProjectTransform,
@@ -185,24 +176,26 @@ function groupedWatchMatcher(
   return matcher;
 }
 
+/**
+ * Match a changed path against one importer's dependency selection using only
+ * the routing data borrowed from its generation.
+ */
 function makeWatchMatcher(
-  state: Parameters<typeof deriveWatchInputs.fromIndexes>[0],
-  graph: Parameters<typeof deriveWatchInputs.fromIndexes>[1],
-  options: Omit<Parameters<typeof deriveWatchInputs.fromIndexes>[2], "file">,
-  dependencies: Parameters<typeof deriveWatchInputs.fromIndexes>[3],
+  state: Parameters<typeof deriveWatchInputsFromIndexes>[0],
+  graph: Parameters<typeof deriveWatchInputsFromIndexes>[1],
+  options: Omit<Parameters<typeof deriveWatchInputsFromIndexes>[2], "file">,
+  dependencies: Parameters<typeof deriveWatchInputsFromIndexes>[3],
   pluginSources: ReadonlyMap<string, string>,
 ): WatchMatcher {
   return (file, changed) =>
-    deriveWatchInputs
-      .fromIndexes(
-        state,
-        graph,
-        { ...options, file },
-        dependencies,
-        pluginSources.keys(),
-        derivationIdentity(state, file),
-      )
-      .some((input) => changed.has(path.resolve(input)));
+    deriveWatchInputsFromIndexes(
+      state,
+      graph,
+      { ...options, file },
+      dependencies,
+      pluginSources.keys(),
+      derivationIdentity(state, file),
+    ).some((input) => changed.has(path.resolve(input)));
 }
 
 function bindWatchMatcher(

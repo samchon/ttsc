@@ -1,8 +1,10 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { GoSourceInputs } from "./GoSourceInputs";
+import { GoToolResolution } from "./GoToolResolution";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
 import { PluginLoadAnswers } from "./PluginLoadAnswers";
@@ -109,10 +111,16 @@ export namespace GoEnvironmentReading {
       if (hinted === null || typeof hinted === "string") named = hinted;
     }
     const remembered = named;
+    const args = [
+      "env",
+      "-json",
+      ...new Set([...keys, "GOROOT", "GOVERSION", "GOENV"]),
+    ];
+    let delegated: readonly [root: string, version: string] | undefined;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       if (named !== undefined && named !== null)
         PluginBuildEnvironmentWitness.add(witness, named);
-      const result = spawnGoTool(goBinary, ["env", "-json", ...keys, "GOENV"], {
+      const result = spawnGoTool(goBinary, args, {
         cwd,
         projectRoot,
         encoding: "utf8",
@@ -133,6 +141,38 @@ export namespace GoEnvironmentReading {
       } catch {
         return undefined;
       }
+      const activeRoot = parsed.GOROOT;
+      const activeVersion = parsed.GOVERSION;
+      let repeatForToolchain = false;
+      if (
+        witness !== undefined &&
+        typeof activeRoot === "string" &&
+        typeof activeVersion === "string" &&
+        !provesLocalToolchain(goBinary, env, parsed)
+      ) {
+        if (delegated === undefined) {
+          delegated = [activeRoot, activeVersion];
+          witnessDelegatedToolchain(
+            cwd,
+            env,
+            activeRoot,
+            activeVersion,
+            witness,
+          );
+          repeatForToolchain = true;
+        } else if (
+          delegated[0] !== activeRoot ||
+          delegated[1] !== activeVersion
+        ) {
+          PluginBuildEnvironmentWitness.refuse(witness, goBinary);
+          return parsed;
+        }
+      } else if (delegated !== undefined) {
+        PluginBuildEnvironmentWitness.refuse(witness, goBinary);
+        return parsed;
+      } else if (!provesLocalToolchain(goBinary, env, parsed)) {
+        PluginBuildEnvironmentWitness.requireToolchainProbe(witness);
+      }
       const reported =
         typeof parsed.GOENV === "string" &&
         parsed.GOENV !== "" &&
@@ -148,13 +188,14 @@ export namespace GoEnvironmentReading {
             hintKey(goBinary, env),
             named,
           );
+        if (repeatForToolchain) continue;
         return parsed;
       }
       if (named !== undefined && named !== null) witness?.delete(named);
       named = reported;
       goEnvironmentFiles.set(memoKey, named);
       // No file to witness: the reading depends on none.
-      if (named === null || witness === undefined) {
+      if ((named === null || witness === undefined) && !repeatForToolchain) {
         if (named !== remembered)
           PluginLoadAnswers.write(
             identities,
@@ -208,7 +249,13 @@ export namespace GoEnvironmentReading {
     identities: PluginContentIdentities.Store | undefined,
     projectRoot?: string,
   ): Record<string, unknown> | undefined {
-    const identity = [goBinary, path.resolve(cwd), keys, goToolVariables(env)];
+    const identity = [
+      1,
+      goBinary,
+      path.resolve(cwd),
+      keys,
+      goToolVariables(env),
+    ];
     const kept = WitnessedLoadAnswers.read(
       identities,
       RECORDED_READING,
@@ -246,6 +293,48 @@ export namespace GoEnvironmentReading {
       observed,
     );
     return values;
+  }
+
+  /**
+   * Qualify persistent settings reuse with the SDK reported by the same probe.
+   * A delegated choice can change through Go's independent toolchain search, so
+   * its readings stay current to a single invocation.
+   *
+   * @evidence contracts/common.md#principled-implementation Compares the launcher SDK observed before Go started with the active root Go actually reported.
+   * @evidence contracts/common.md#clear-and-simple-design Both environment answer families share this reuse boundary.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown, relative or delegated roots decline persistence without replacing Go's search or settings.
+   * @evidence contracts/common.md#meaningful-documentation Describes current results separately from eligibility for persistent reuse.
+   * @evidence contracts/portability.md#os-neutral-implementation Native absolute paths and physical identity resolve SDK links and junctions.
+   * @evidence contracts/performance.md#efficient-algorithms Ordinary equal spellings require no additional process or SDK scan, and a spelling mismatch needs at most two native realpaths.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The predicate has no memo of its own.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate retains no handle or history.
+   */
+  export function provesLocalToolchain(
+    goBinary: string,
+    env: NodeJS.ProcessEnv,
+    values: Record<string, unknown>,
+  ): boolean {
+    const active = values.GOROOT;
+    const launcher =
+      SidecarEnvironment.read(env, "GOTOOLCHAIN") === "local"
+        ? SidecarEnvironment.read(env, "GOROOT") ||
+          GoSourceInputs.inferGoRoot(goBinary)
+        : GoSourceInputs.inferGoRoot(goBinary);
+    if (
+      typeof active !== "string" ||
+      launcher === null ||
+      !path.isAbsolute(active) ||
+      !path.isAbsolute(launcher)
+    )
+      return false;
+    if (path.resolve(active) === path.resolve(launcher)) return true;
+    try {
+      return (
+        fs.realpathSync.native(active) === fs.realpathSync.native(launcher)
+      );
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -290,6 +379,38 @@ export namespace GoEnvironmentReading {
       const parent = path.dirname(directory);
       if (parent === directory) break;
       directory = parent;
+    }
+  }
+
+  /**
+   * Record the selected SDK and the ordered lookup population before reading a
+   * delegated answer again. Each candidate's native presence and metadata
+   * expose additions, removals and replacements at the selected version name.
+   */
+  function witnessDelegatedToolchain(
+    cwd: string,
+    env: NodeJS.ProcessEnv,
+    root: string,
+    version: string,
+    witness: PluginBuildEnvironmentWitness.Record,
+  ): void {
+    PluginBuildEnvironmentWitness.add(witness, path.join(root, "go.env"));
+    PluginBuildEnvironmentWitness.add(
+      witness,
+      path.join(root, "bin", process.platform === "win32" ? "go.exe" : "go"),
+    );
+    const extensions =
+      process.platform === "win32"
+        ? ["", ...GoToolResolution.windowsExecutableExtensions(env)]
+        : [""];
+    for (const candidate of GoToolResolution.executableSearchBases(
+      version,
+      env,
+      cwd,
+      witness,
+    )) {
+      for (const extension of extensions)
+        PluginBuildEnvironmentWitness.add(witness, candidate + extension);
     }
   }
 

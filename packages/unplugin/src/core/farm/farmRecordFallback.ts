@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { PROJECT_RECORD_DIRECTORY } from "../bridge/PROJECT_RECORD_DIRECTORY";
+import { fallbackRecordStorage } from "../bridge/fallbackRecordStorage";
 import { fallbackToolDirectory } from "../bridge/fallbackToolDirectory";
 
 /**
@@ -35,7 +37,11 @@ export function farmRecordFallback(root: string): string | undefined {
   const fallback = fallbackToolDirectory(root);
   if (fallback === undefined) return undefined;
   if (path.isAbsolute(path.relative(root, fallback))) return undefined;
-  return fallback.split(path.sep).includes("node_modules")
-    ? undefined
-    : fallback;
+  if (fallback.split(path.sep).includes("node_modules")) return undefined;
+  return fallbackRecordStorage(
+    path.join(fallback, PROJECT_RECORD_DIRECTORY),
+    false,
+  )
+    ? fallback
+    : undefined;
 }

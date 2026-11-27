@@ -382,7 +382,7 @@ export namespace SourcePluginWorkspace {
         }
         if (
           toolWitness === undefined ||
-          !PluginBuildEnvironmentWitness.holds(toolWitness)
+          !PluginBuildEnvironmentWitness.reusable(toolWitness)
         ) {
           cache.clear();
           const witness: PluginBuildEnvironmentWitness.Record = new Map();
@@ -778,6 +778,25 @@ export namespace SourcePluginWorkspace {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains no state, handle or task.
    */
   export function compilerSource(env: NodeJS.ProcessEnv): string | undefined {
+    const declaration = compilerSourceDeclaration(env);
+    return declaration === undefined ? undefined : realPath(declaration);
+  }
+
+  /**
+   * Read the lexical compiler source declaration before resolving its links.
+   *
+   * @evidence contracts/common.md#principled-implementation Preserves the absolute address whose current target selects the compiler.
+   * @evidence contracts/common.md#clear-and-simple-design The physical source accessor and watch input selection share the environment read and validation.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A relative declaration fails under the existing working-directory contract.
+   * @evidence contracts/common.md#meaningful-documentation Separates the reported declaration from the physical build root.
+   * @evidence contracts/portability.md#os-neutral-implementation Uses native path grammar and environment-name identity.
+   * @evidence contracts/performance.md#efficient-algorithms Performs one environment lookup and lexical normalization without reading the source tree.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Reads the caller's current environment each time.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains no state or handle.
+   */
+  export function compilerSourceDeclaration(
+    env: NodeJS.ProcessEnv,
+  ): string | undefined {
     const value = SidecarEnvironment.read(
       env,
       SourcePluginAdmission.COMPILER_SOURCE_ENV,
@@ -788,7 +807,7 @@ export namespace SourcePluginWorkspace {
         `ttsc: ${SourcePluginAdmission.COMPILER_SOURCE_ENV} must be an absolute ` +
           `directory path, not ${JSON.stringify(value)}.`,
       );
-    return realPath(path.resolve(value));
+    return path.resolve(value);
   }
 
   /**

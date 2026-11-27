@@ -1,4 +1,6 @@
-import { inspect } from "node:util";
+import { TestProject } from "@ttsc/testing";
+import { execFile } from "node:child_process";
+import { inspect, promisify } from "node:util";
 
 import { Scenarios } from "../../../internal/Scenarios";
 import { CompilerApiWorkspace } from "../../../internal/ttsc/internal/CompilerApiWorkspace";
@@ -24,8 +26,9 @@ import {
  * discovery. Each way is asserted for the in-memory records and for writing
  * nothing to disk.
  *
- * 1. Configure the plugin in tsconfig; compile and transform and assert the plugin
- *    output without a `dist` directory.
+ * 1. Compile a markerless project by its custom config from another directory,
+ *    with ambient temp inside the selected project. Observe the temp directory
+ *    during compilation, then restore the normal config and transform.
  * 2. Declare it only through a dependency package; compile and transform.
  * 3. Place the project below a workspace manifest and assert it is discovered,
  *    then add a manifest beside the project and assert it no longer is.
@@ -36,7 +39,7 @@ import {
  *    second, sample event-loop progress and change ambient temp variables after
  *    starting the worker; also compare the missing-config exceptions.
  *
- * @evidence contracts/testing.md#behavioral-verification Real native API calls apply configured and discovered plugins, stop at a nearer manifest, report the exact four consulted host inputs, distinguish scoped invalid temp from ambient success and compare sync/worker envelopes, call-time environment capture and event-loop progress; discovery calls leave dist absent.
+ * @evidence contracts/testing.md#behavioral-verification Real native API calls apply configured and discovered plugins, stop at a nearer manifest, report the exact consulted host inputs and compare sync/worker envelopes. A separate process executes the selected markerless project while a real directory watcher observes its ambient temp.
  * @evidence contracts/testing.md#independent-expectations The authored goUpper source and uppercase contract fix PLUGIN and unchanged goUpper expectations; nearest-manifest discovery is independently specified. The four literal consulted paths exclude the unrelated notes asset, the scoped temp file must retain its authored contents, and a literal one-second hold sets the independent 500ms stall bound. Sync/async envelopes compare the public contracts rather than compiler internals.
  * @evidence contracts/testing.md#distinguishing-cases Configured and package-discovered plugins, ancestor discovery and its nearest-manifest negative contrast with missing explicit config versus an unrelated asset, invalid scoped versus valid ambient temp parents and success versus missing-config worker envelopes. The one-second descriptor hold has an independent 500ms maximum caller stall.
  * @evidence contracts/testing.md#execution-ownership This ordinary test export is discovered by test-e2e src/index.ts and selected by evidence.config.json; it runs the native plugin loader and source producer through TtscCompiler, through the checkout built API and selected native compiler; manifest parsing units alone do not exercise this assembly. It is not packed installation or loaded-image certification.
@@ -75,11 +78,11 @@ export async function test_ttsccompiler_source_plugin_discovery_shares_one_proje
     await Scenarios.collect("compiler source plugins", [
       [
         "configured_plugin",
-        () => {
+        async () => {
           enter("goupper-configured");
           writeSharedCompilerPlugin(root);
           const compiler = compilerFor(root);
-          const compiled = compiler.compile();
+          const compiled = await compileWithProjectLocalAmbientTemp(root);
           assert.equal(compiled.type, "success", describe(compiled));
           assert.match(
             expectRecordValue(compiled.output, "dist/main.js"),
@@ -325,6 +328,82 @@ export async function test_ttsccompiler_source_plugin_discovery_shares_one_proje
       failures,
       "Compiler source plugin states and cleanup failed.",
     );
+}
+
+/**
+ * Compile the same source fixture under a custom config with no conventional
+ * project marker, observing transient as well as persistent temp outputs.
+ */
+async function compileWithProjectLocalAmbientTemp(
+  projectRoot: string,
+): Promise<ReturnType<TtscCompiler["compile"]>> {
+  const root = fs.realpathSync.native(projectRoot);
+  const config = path.join(root, "tsconfig.json");
+  const custom = path.join(root, "compiler.json");
+  const manifest = path.join(root, "package.json");
+  const savedManifest = path.join(root, "fixture-package.json");
+  const temporary = path.join(root, "ambient-temp");
+  fs.mkdirSync(temporary);
+  fs.renameSync(config, custom);
+  fs.renameSync(manifest, savedManifest);
+  const observed = new Set<string | null>();
+  const watcher = fs.watch(temporary, (_, name) => observed.add(name));
+  const verifyObserver = (name: string): Promise<void> =>
+    new Promise((resolve, reject) => {
+      const listener = (_event: string, actual: string | null): void => {
+        if (actual !== name) return;
+        clearTimeout(timeout);
+        watcher.off("change", listener);
+        resolve();
+      };
+      const timeout = setTimeout(() => {
+        watcher.off("change", listener);
+        reject(new Error(`The temp watcher did not observe ${name}`));
+      }, 5000);
+      watcher.on("change", listener);
+      fs.writeFileSync(path.join(temporary, name), "");
+    });
+  try {
+    await verifyObserver("before-compile");
+    const result = await promisify(execFile)(
+      process.execPath,
+      [
+        "--input-type=module",
+        "--eval",
+        `
+          const [api, binary, tsconfig] = process.argv.slice(1);
+          const { TtscCompiler } = await import(api);
+          const compiled = new TtscCompiler({ binary, cwd: process.cwd(), tsconfig }).compile();
+          process.stdout.write(JSON.stringify(compiled));
+        `,
+        import.meta.resolve("ttsc"),
+        tsgo,
+        custom,
+      ],
+      {
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          TTSC_CACHE_DIR: TestProject.sharedPluginCache(),
+          TEMP: temporary,
+          TMP: temporary,
+          TMPDIR: temporary,
+        },
+        encoding: "utf8",
+        windowsHide: true,
+      },
+    );
+    await verifyObserver("after-compile");
+    observed.delete("before-compile");
+    observed.delete("after-compile");
+    assert.deepEqual([...observed], []);
+    return JSON.parse(result.stdout) as ReturnType<TtscCompiler["compile"]>;
+  } finally {
+    watcher.close();
+    fs.renameSync(custom, config);
+    fs.renameSync(savedManifest, manifest);
+    fs.rmSync(temporary, { recursive: true });
+  }
 }
 
 /** Names a native exception in a failed type assertion so its cause is not lost. */
