@@ -29,7 +29,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Calls readTransformTsconfigState/createAliasPaths/createTransformTsconfig/resolveOptions over real JSONC and package-manifest presets. Actual wrapper JSON must extend the selected config, preserve inherited and inline mappings, add absolute bundler exact/subtree mappings, avoid invented baseUrl and anchor plugin config/configFile/transform paths at the project rather than scratch.
  * @evidence contracts/testing.md#independent-expectations Literal inherited #lib/#preset, inline #inline and bundler @lib mappings identify expected addresses. Authored prefix/upper/suffix entries and untouched payload fields fix order and preservation independently; expected values never call the materializer, paths reader or normalization under test. File extends keep authored lexical anchors; package-preset anchors use independently observed Node realpath spelling, preserving Windows short-name semantics.
- * @evidence contracts/testing.md#distinguishing-cases JSONC inheritance and package.json tsconfig selection contrast with an unchanged no-overlay config. Relative path-typed plugin fields contrast with opaque payload and package specifiers; top-level ordered plugin options contrast with inline compilerOptions plugins. Top-level-only caller props keep the original config; combined caller props materialize only the normalized inline list and leave the separate native override channel unchanged. Find-only trailing slash retains its distinct grammar while both-sided trailing slashes normalize together. Actual allocator rows contrast direct/aliased project temp parents with an outside native alias; independently observed realpaths prove physical refusal and canonical returned ownership without compiler capture. Saved temp environment and owned empty children are restored/released in finally.
+ * @evidence contracts/testing.md#distinguishing-cases JSONC inheritance and package.json tsconfig selection contrast with an unchanged no-overlay config. Relative path-typed plugin fields contrast with opaque payload and package specifiers; top-level ordered plugin options contrast with inline compilerOptions plugins. Top-level-only caller props keep the original config; combined caller props materialize only the normalized inline list and leave the separate native override channel unchanged. Find-only trailing slash retains its distinct grammar while both-sided trailing slashes normalize together. Actual allocator rows contrast direct and aliased temporary parents in both the active and an unrelated project with an outside native alias. Independently observed realpaths prove physical refusal and canonical returned ownership without compiler capture. Saved temp environment and owned empty children are restored/released in finally.
  * @evidence contracts/testing.md#execution-ownership One discoverable source unit owns these actual filesystem/configuration operations in process. It installs nothing and starts no compiler, Go peer, plugin binary or host. Native type errors, banner output, plugin execution order and forwarded configFile evidence remain E2E producer/consumer connections; JSON preparation is not their certificate.
  */
 export function test_generated_tsconfig_preserves_alias_and_plugin_option_boundaries(): void {
@@ -291,6 +291,13 @@ export function test_generated_tsconfig_preserves_alias_and_plugin_option_bounda
     TestProject.tmpdir("ttsc-scratch-policy-outside-"),
   );
   const outsideAlias = path.join(aliases, "outside");
+  const otherProject = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-scratch-policy-other-project-"),
+  );
+  const otherTemp = path.join(otherProject, "tmp");
+  const otherAlias = path.join(aliases, "other");
+  fs.writeFileSync(path.join(otherProject, "package.json"), '{"private":true}');
+  fs.mkdirSync(otherTemp);
   fs.mkdirSync(inside);
   fs.symlinkSync(
     inside,
@@ -302,8 +309,14 @@ export function test_generated_tsconfig_preserves_alias_and_plugin_option_bounda
     outsideAlias,
     process.platform === "win32" ? "junction" : "dir",
   );
+  fs.symlinkSync(
+    otherTemp,
+    otherAlias,
+    process.platform === "win32" ? "junction" : "dir",
+  );
   assert.equal(fs.realpathSync.native(insideAlias), inside);
   assert.equal(fs.realpathSync.native(outsideAlias), outside);
+  assert.equal(fs.realpathSync.native(otherAlias), otherTemp);
   const previous = {
     TEMP: process.env.TEMP,
     TMP: process.env.TMP,
@@ -314,6 +327,8 @@ export function test_generated_tsconfig_preserves_alias_and_plugin_option_bounda
       ["inside", inside],
       ["inside alias", insideAlias],
       ["outside alias", outsideAlias],
+      ["other project", otherTemp],
+      ["other project alias", otherAlias],
     ] as const) {
       process.env.TEMP = candidate;
       process.env.TMP = candidate;
@@ -339,6 +354,11 @@ export function test_generated_tsconfig_preserves_alias_and_plugin_option_bounda
             "the native temporary parent alias resolves before allocation",
           );
         assert.deepEqual(
+          fs.readdirSync(otherTemp),
+          [],
+          label + ": scratch must stay outside the unrelated project",
+        );
+        assert.deepEqual(
           fs.readdirSync(scratch),
           [],
           "the caller owns one new empty directory",
@@ -358,5 +378,6 @@ export function test_generated_tsconfig_preserves_alias_and_plugin_option_bounda
     }
     fs.unlinkSync(insideAlias);
     fs.unlinkSync(outsideAlias);
+    fs.unlinkSync(otherAlias);
   }
 }

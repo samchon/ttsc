@@ -25,58 +25,88 @@ export function systemTempOutsideProject(
   projectRoot: string,
   additionalProjectRoots: readonly string[] = [],
 ): string {
-  const roots = new Set<string>();
-  for (const input of [projectRoot, ...additionalProjectRoots, process.cwd()]) {
-    let directory = fs.realpathSync.native(input);
-    if (path.dirname(directory) !== directory) roots.add(directory);
-    for (;;) {
-      if (
-        fs.existsSync(path.join(directory, ".git")) ||
-        fs.existsSync(path.join(directory, "pnpm-workspace.yaml"))
-      )
-        roots.add(directory);
-      const parent = path.dirname(directory);
-      if (parent === directory) break;
-      directory = parent;
-    }
-  }
-  const seen = new Set<string>();
-  for (const candidate of temporaryCandidates()) {
-    if (!path.isAbsolute(candidate) || seen.has(candidate)) continue;
-    seen.add(candidate);
-    let physical: string;
-    try {
-      physical = fs.realpathSync.native(candidate);
-      if (!fs.lstatSync(physical).isDirectory()) continue;
-    } catch {
-      continue;
-    }
-    const inside = [...roots].some((root) => {
-      const relative = path.relative(root, physical);
-      return (
-        relative === "" ||
-        (!path.isAbsolute(relative) &&
-          relative !== ".." &&
-          !relative.startsWith(`..${path.sep}`))
-      );
-    });
-    if (inside) continue;
-    let directory = physical;
-    for (;;) {
-      if (
-        PROJECT_MARKERS.some((marker) =>
-          fs.existsSync(path.join(directory, marker)),
-        )
-      )
-        break;
-      const parent = path.dirname(directory);
-      if (parent === directory) return physical;
-      directory = parent;
-    }
-  }
+  for (const candidate of systemTempOutsideProject.candidates(projectRoot, [
+    ...additionalProjectRoots,
+    process.cwd(),
+  ]))
+    return candidate.directory;
   throw new Error(
     `ttsc: no existing system temporary directory outside ${projectRoot}`,
   );
+}
+
+/**
+ * Find verified system temp parents in preference order. Each caller owns
+ * allocation and can advance past a parent that refuses its write.
+ *
+ * @evidence contracts/common.md#principled-implementation Each candidate is an existing native directory outside the given project boundaries and any project found in the candidate's ancestry.
+ * @evidence contracts/common.md#clear-and-simple-design Both first-choice selection and callers that retry allocation share the same read-only policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Rejected or missing parents are skipped without creating them or assuming their aliases are safe.
+ * @evidence contracts/common.md#meaningful-documentation The comment states the preference order and who owns allocation.
+ * @evidence contracts/portability.md#os-neutral-implementation Native platform candidates, realpath, and path-relative checks establish the physical parent. The requested spelling is available for lexical boundaries.
+ * @evidence contracts/performance.md#efficient-algorithms A bounded candidate list and ancestor walks use metadata lookups. Later candidates are observed only on demand.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each iteration qualifies the current layout independently.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Traversal-local path sets are released when iteration ends. No handles or directories are acquired.
+ */
+export namespace systemTempOutsideProject {
+  /** Yield each verified parent and the spelling supplied by its source. */
+  export function* candidates(
+    projectRoot: string,
+    additionalProjectRoots: readonly string[] = [],
+  ): Generator<{ spelling: string; directory: string }> {
+    const roots = new Set<string>();
+    for (const input of new Set([projectRoot, ...additionalProjectRoots])) {
+      let directory = fs.realpathSync.native(input);
+      if (path.dirname(directory) !== directory) roots.add(directory);
+      for (;;) {
+        if (
+          fs.existsSync(path.join(directory, ".git")) ||
+          fs.existsSync(path.join(directory, "pnpm-workspace.yaml"))
+        )
+          roots.add(directory);
+        const parent = path.dirname(directory);
+        if (parent === directory) break;
+        directory = parent;
+      }
+    }
+    const seen = new Set<string>();
+    for (const candidate of temporaryCandidates()) {
+      if (!path.isAbsolute(candidate) || seen.has(candidate)) continue;
+      seen.add(candidate);
+      let physical: string;
+      try {
+        physical = fs.realpathSync.native(candidate);
+        if (!fs.lstatSync(physical).isDirectory()) continue;
+      } catch {
+        continue;
+      }
+      const inside = [...roots].some((root) => {
+        const relative = path.relative(root, physical);
+        return (
+          relative === "" ||
+          (!path.isAbsolute(relative) &&
+            relative !== ".." &&
+            !relative.startsWith(`..${path.sep}`))
+        );
+      });
+      if (inside) continue;
+      let directory = physical;
+      for (;;) {
+        if (
+          PROJECT_MARKERS.some((marker) =>
+            fs.existsSync(path.join(directory, marker)),
+          )
+        )
+          break;
+        const parent = path.dirname(directory);
+        if (parent === directory) {
+          yield { spelling: candidate, directory: physical };
+          break;
+        }
+        directory = parent;
+      }
+    }
+  }
 }
 
 function* temporaryCandidates(): Generator<string> {

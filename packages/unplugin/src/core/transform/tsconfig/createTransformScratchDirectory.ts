@@ -1,6 +1,6 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { systemTempOutsideProject } from "ttsc/internal/system-temp";
 
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
@@ -9,8 +9,8 @@ import { pathIsWithin } from "../filesystem/pathIsWithin";
 /**
  * Create compiler scratch storage outside the project snapshot and watchers.
  *
- * Candidate parents are checked lexically and physically against the project
- * and enclosing Git or pnpm workspace roots before creation. The created
+ * The SDK qualifies system temporary parents against project ancestry. The
+ * adapter also checks the current project's lexical worktree. The created
  * child's postflight physical address is checked again and returned, avoiding
  * reuse of the candidate's known lexical parent alias. These path observations
  * do not pin directory handles or rule out later native replacement. Failed
@@ -20,9 +20,9 @@ import { pathIsWithin } from "../filesystem/pathIsWithin";
  * @evidence contracts/common.md#clear-and-simple-design One bounded candidate loop owns creation and immediate rejection cleanup, while the capturing generation owns the lifetime of an accepted directory.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed outside-project check never falls back to project scratch, and rejected child cleanup failures propagate instead of being hidden as another candidate miss.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain both identity checks, the returned physical spelling and the ownership condition on skipping a failed candidate; inline comments justify postflight removal.
- * @evidence contracts/portability.md#os-neutral-implementation Node os and path provide system temporary candidates and containment; physical checks use the injected view, while actual random-child creation and removal use native fs without shell commands or blanket case folding.
+ * @evidence contracts/portability.md#os-neutral-implementation The shared SDK selector qualifies native system temporary parents. Adapter containment checks retain their injected project view, and the native filesystem creates and removes the random child.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Rejected random empty children receive synchronous removal attempts; failure propagates and can leave an artifact rather than silently skipping it. Accepted directory ownership transfers to capture's finally cleanup or its separately retained clock owner. No native directory handle pins these path identities against later replacement.
- * @evidence contracts/performance.md#efficient-algorithms Two ancestor walks observe workspace markers without enumerating their contents. At most two candidate spellings are deduplicated and subjected to native realpath and containment checks before allocation.
+ * @evidence contracts/performance.md#efficient-algorithms Two adapter ancestor walks and a bounded SDK candidate scan observe workspace markers without enumerating directory contents. Allocation tries each accepted physical parent at most once.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Scratch allocation is an ownership-bearing effect for one capture and must not be shared merely because two generations select the same candidate parent.
  */
 export function createTransformScratchDirectory(
@@ -44,23 +44,14 @@ export function createTransformScratchDirectory(
   }
   const isProtected = (candidate: string): boolean =>
     [...protectedRoots].some((directory) => pathIsWithin(candidate, directory));
-  const platformTemp =
-    process.platform === "win32"
-      ? path.join(os.homedir(), "AppData", "Local", "Temp")
-      : "/tmp";
-  const candidates = [os.tmpdir(), platformTemp];
   const canonicalCandidates = new Set<string>();
   let failure: unknown;
-  for (const candidate of new Set(candidates.map((dir) => path.resolve(dir)))) {
-    if (isProtected(candidate)) continue;
-    let canonicalCandidate: string;
-    try {
-      canonicalCandidate = filesystem.realpath(candidate);
-    } catch (error) {
-      failure = error;
-      continue;
-    }
+  for (const {
+    spelling,
+    directory: canonicalCandidate,
+  } of systemTempOutsideProject.candidates(root)) {
     if (
+      isProtected(spelling) ||
       isProtected(canonicalCandidate) ||
       canonicalCandidates.has(canonicalCandidate)
     ) {
