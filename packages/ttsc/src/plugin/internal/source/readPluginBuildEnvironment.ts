@@ -15,16 +15,14 @@ import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
  *
  * A reading runs `go env` and `go version` and walks GOROOT, seconds a load,
  * and every launch is a new process (samchon/ttsc#1852). What a reading depends
- * on is two things. One is the variables the Go tool receives, which are all of
- * them, so the record is keyed by every variable except ttsc's own per-run
- * channels, which name one run's directories and which no Go tool reads
- * (`goToolVariables`). The other is the metadata of every path no variable
- * carries: the Go tool, the file `go env -w` writes, the executables the C
- * toolchain commands name and GOROOT (`PluginBuildEnvironmentWitness`). A
- * process keeps a reading under exactly that proof
- * (`processPluginBuildEnvironment`); the record carries the same proof to the
- * next process (`WitnessedLoadAnswers`). A recorded reading's witness joins the
- * caller's, so a build still compares it after it ran.
+ * on is two things. One is the variables the Go tool receives, keyed by
+ * `goToolVariables` with its optional launch-environment exclusion. The other
+ * is the metadata of every path no variable carries: the Go tool, the file `go
+ * env -w` writes, the executables the C toolchain commands name and GOROOT
+ * (`PluginBuildEnvironmentWitness`). A process keeps a reading under exactly
+ * that proof (`processPluginBuildEnvironment`); the record carries the same
+ * proof to the next process (`WitnessedLoadAnswers`). A recorded reading's
+ * witness joins the caller's, so a build still compares it after it ran.
  *
  * @param goBinary The Go tool the build runs, or `undefined` for none.
  * @param directory The directory a build runs `go` in.
@@ -35,7 +33,7 @@ import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
  * @param currentReadings Optional caller-owned map sharing current native
  *   witness readings across one synchronous batch of recorded-answer checks.
  * @returns The environment digest.
- * @evidence contracts/common.md#principled-implementation A recorded digest is served only under the variables the Go tool receives and the pre-read metadata witness of every path no variable carries, the same proof under which a process already keeps a reading; a reading is recorded only after its witness held around it.
+ * @evidence contracts/common.md#principled-implementation The Go tool environment projection and the pre-read metadata witness qualify a recorded digest. A reading is recorded only after its witness held around it.
  * @evidence contracts/common.md#clear-and-simple-design One function owns the record family, so package selection, the binary key and the source state read the environment the same way.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No Go value is assumed: a missing, malformed or moved record reads Go again, and an unwitnessable reading is never recorded.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the two dependencies, the excluded variables and the admission rule.

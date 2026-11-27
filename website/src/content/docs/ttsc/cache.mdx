@@ -54,6 +54,8 @@ A cached binary is reused only when a key computed from the build inputs matches
 
 **The key you give `actions/cache` affects your hit rate, never your correctness.** A restored cache that does not match misses on the internal key and rebuilds. A cache keyed too narrowly costs you a rebuild you did not need; one keyed too broadly costs you a rebuild you did not avoid. Neither can hand you a binary built from different inputs than the ones you are building with.
 
+Set `TTSC_CACHE_IGNORE_GO_LAUNCH_ENV=1` to reuse recorded Go tool queries across changes to `MAKEFLAGS`, `CARGO_MAKEFLAGS`, `COWSHED_INSTALL_OBSERVED`, `DIRENV_DIFF`, `DIRENV_WATCHES`, `OLDPWD`, and `SHLVL`. Enable it when your Go toolchain, wrappers and tools they invoke produce the same answers as these values change. Go subprocesses still receive these variables, and JavaScript plugin descriptors still key on them.
+
 ### It is specific to OS and architecture
 
 The cached artifact is a native executable, and the key reflects that twice: `platform=${process.platform}/${process.arch}` is a direct input, and `GOOS` and `GOARCH` enter through the Go build environment. A binary built on `linux/x64` is never served to a `linux/arm64` run.
