@@ -80,7 +80,8 @@ try {
   assert.equal(seed.error, undefined);
   assert.equal(seed.signal, null);
   assert.equal(seed.status, 1, seed.stderr);
-  assert.equal(seed.stdout.trim(), "FIRST\nholder-acquired");
+  assert.equal(seed.stdout.trim(), "FIRST\nholder-acquired", seed.stderr);
+  assert.deepEqual(fs.readdirSync(temporary), [], "the project-local TEMP stays empty");
   assert.deepEqual(JSON.parse(fs.readFileSync(registerDiagnostics, "utf8")), {
     includedRejected: true, firstExecuted: true, excludedRejected: true, markersAbsent: true,
   });
