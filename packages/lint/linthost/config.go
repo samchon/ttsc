@@ -22,6 +22,7 @@ import (
   "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver/compileraliases"
+  "github.com/samchon/ttsc/packages/ttsc/driver/configloaderscratch"
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
@@ -1988,8 +1989,31 @@ var (
 // plugin factory (packages/lint/src/index.ts) for cached lint configs.
 // Evaluating a .ts/.js config means spawning a ttsx/node subprocess; the
 // cache keeps every `ttsc` invocation after the first from re-paying it.
-func configCacheDir() string {
-  return filepath.Join(os.TempDir(), "ttsc-lint-config-cache")
+func configCacheDir(location string) string {
+  cwd, err := os.Getwd()
+  if err != nil {
+    return ""
+  }
+  for _, candidate := range []string{os.TempDir(), configloaderscratch.PlatformTempDir()} {
+    temporary := configloaderscratch.PrivateTempBase(location, candidate)
+    if temporary == "" || (filepath.Dir(cwd) != cwd &&
+      configloaderscratch.PrivateTempBase(filepath.Join(cwd, "tsconfig.json"), temporary) == "") {
+      continue
+    }
+    dir := filepath.Join(temporary, "ttsc-lint-config-cache")
+    if entry, err := os.Lstat(dir); err == nil {
+      if !entry.IsDir() || entry.Mode()&os.ModeSymlink != 0 {
+        return ""
+      }
+      if _, err := os.Readlink(dir); err == nil {
+        return ""
+      }
+    } else if !os.IsNotExist(err) {
+      return ""
+    }
+    return dir
+  }
+  return ""
 }
 
 // configCacheDisabled reports whether the env opt-out is set — an escape
@@ -2099,7 +2123,7 @@ func loadCachedConfigEvaluationWithPolicy(
     })
     return evaluatedConfigFileFromCache(cached), nil
   }
-  if disk, hit := readConfigDiskCache(key); hit &&
+  if disk, hit := readConfigDiskCache(abs, key); hit &&
     disk.DependenciesTracked == dependenciesRequired &&
     cachedConfigEvaluationIsCurrent(disk) {
     configEvalCacheMu.Lock()
@@ -2146,10 +2170,10 @@ func loadCachedConfigEvaluationWithPolicy(
       configEvalCacheMu.Lock()
       configEvalCache[key] = cached
       configEvalCacheMu.Unlock()
-      writeConfigDiskCache(key, cached)
+      diskWriteAttempted := writeConfigDiskCache(abs, key, cached)
       evaluated.traceInvocation.record("config-cache-outcome", map[string]any{
         "location": location, "key": key, "attempt": attempt + 1,
-        "outcome": "memory-published", "diskWriteAttempted": true,
+        "outcome": "memory-published", "diskWriteAttempted": diskWriteAttempted,
         "dependencies": cached.Dependencies, "dependenciesTracked": cached.DependenciesTracked,
       })
       return evaluated, nil
@@ -2342,8 +2366,12 @@ func cachedConfigEvaluationIsCurrent(cached cachedConfigEvaluation) bool {
   return ok && configDependencyDigestsAreCurrent(normalized)
 }
 
-func readConfigDiskCache(key string) (cachedConfigEvaluation, bool) {
-  body, err := os.ReadFile(filepath.Join(configCacheDir(), key+".json"))
+func readConfigDiskCache(location, key string) (cachedConfigEvaluation, bool) {
+  dir := configCacheDir(location)
+  if dir == "" {
+    return cachedConfigEvaluation{}, false
+  }
+  body, err := os.ReadFile(filepath.Join(dir, key+".json"))
   if err != nil {
     return cachedConfigEvaluation{}, false
   }
@@ -2384,32 +2412,39 @@ func readConfigDiskCache(key string) (cachedConfigEvaluation, bool) {
 // (the next run re-evaluates) rather than failing the lint run. The write
 // goes through a temp file + rename so a concurrent reader in a sibling
 // `ttsc` process never observes a half-written entry.
-func writeConfigDiskCache(key string, cached cachedConfigEvaluation) {
+func writeConfigDiskCache(location, key string, cached cachedConfigEvaluation) bool {
+  dir := configCacheDir(location)
+  if dir == "" {
+    return false
+  }
   body, err := json.Marshal(cached)
   if err != nil {
-    return
+    return false
   }
-  dir := configCacheDir()
-  if err := os.MkdirAll(dir, 0o755); err != nil {
-    return
+  if err := os.Mkdir(dir, 0o755); err != nil && !os.IsExist(err) {
+    return true
+  }
+  if configCacheDir(location) != dir {
+    return true
   }
   tmp, err := os.CreateTemp(dir, key+".*.tmp")
   if err != nil {
-    return
+    return true
   }
   tmpName := tmp.Name()
   if _, err := tmp.Write(body); err != nil {
     tmp.Close()
     os.Remove(tmpName)
-    return
+    return true
   }
   if err := tmp.Close(); err != nil {
     os.Remove(tmpName)
-    return
+    return true
   }
   if err := os.Rename(tmpName, filepath.Join(dir, key+".json")); err != nil {
     os.Remove(tmpName)
   }
+  return true
 }
 
 // loadJSONConfigFile reads and JSON-parses a lint config file. A leading UTF-8
@@ -2713,7 +2748,27 @@ func loadScriptConfigEvaluationWithin(
   location string,
   resolutionRoot string,
 ) (evaluatedConfigFile, error) {
-  tempDir, err := os.MkdirTemp("", "ttsc-lint-script-config-")
+  base := configloaderscratch.PrivateTempBase(location, os.TempDir())
+  if resolutionRoot != "" && base != "" {
+    base = configloaderscratch.PrivateTempBase(filepath.Join(resolutionRoot, "tsconfig.json"), base)
+  }
+  if base == "" {
+    fallback := "/tmp"
+    if runtime.GOOS == "windows" {
+      home, err := os.UserHomeDir()
+      if err == nil {
+        fallback = filepath.Join(home, "AppData", "Local", "Temp")
+      }
+    }
+    base = configloaderscratch.PrivateTempBase(location, fallback)
+    if resolutionRoot != "" && base != "" {
+      base = configloaderscratch.PrivateTempBase(filepath.Join(resolutionRoot, "tsconfig.json"), base)
+    }
+  }
+  if base == "" {
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: no private temporary directory for script config %s", location)
+  }
+  tempDir, err := os.MkdirTemp(base, "ttsc-lint-script-config-")
   if err != nil {
     return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: create script config result directory: %w", err)
   }
@@ -3874,7 +3929,18 @@ func loadTypeScriptConfigEvaluationWithin(
   if preferred == "" || (err != nil &&
     (os.IsPermission(err) || os.IsNotExist(err) ||
       errors.Is(err, syscall.ENOTDIR) || errors.Is(err, syscall.EROFS))) {
-    tempDir, err = os.MkdirTemp(loaderTempBase(location, systemTemp), "ttsc-lint-config-")
+    base := configloaderscratch.SystemTempBase(location, systemTemp)
+    if base == "" {
+      base = configloaderscratch.SystemTempBase(location, configloaderscratch.PlatformTempDir())
+    }
+    if base == "" {
+      base = loaderTempBase(location, systemTemp)
+    }
+    if base == "" {
+      err = fmt.Errorf("no writable private temporary directory on the volume of %s", location)
+    } else {
+      tempDir, err = os.MkdirTemp(base, "ttsc-lint-config-")
+    }
   }
   if err != nil {
     return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: create config loader tempdir: %w", err)
@@ -5423,44 +5489,13 @@ func loaderIdentityTempBase(location, systemTemp, recordRoot string) string {
   return physicalIdentity
 }
 
-// loaderTempBase picks the parent directory for the ephemeral config-loader
-// tree. The system temp dir is the default, but when it sits on a different
-// volume than the config file (Windows: TEMP on `C:`, project on `D:`) the
-// loader cannot work from there — no single tsconfig rootDir spans two
-// volumes and filepath.Rel cannot produce a relative import across drives
-// (#305) — so the tree is created under the config's nearest
-// node_modules/.cache instead, falling back to the config's own directory
-// when no node_modules exists (or its .cache cannot be created): any location
-// on the config's volume beats the system temp dir, which is guaranteed to
-// fail. Returns "" (the os.MkdirTemp default) when the volumes already match.
+// loaderTempBase selects the existing installation's private cache when the
+// system temporary directory cannot support a same-volume config import.
 func loaderTempBase(location, systemTemp string) string {
-  // A relative location has no volume; "" must not be read as "a volume
-  // other than the system temp's" — it keeps the historical default (and
-  // the Rel-failure contract for relative config paths).
-  vol := filepath.VolumeName(location)
-  if vol == "" || strings.EqualFold(filepath.VolumeName(systemTemp), vol) {
+  if !filepath.IsAbs(location) || configloaderscratch.SystemTempBase(location, systemTemp) != "" {
     return ""
   }
-  nodeModules := findNearestNodeModules(filepath.Dir(location))
-  if nodeModules == "" {
-    return filepath.Dir(location)
-  }
-  // Resolve a linked node_modules (junction/symlink — common in managed
-  // setups) before descending into it: the ESM runtime realpaths the loader
-  // module at import time, and a relative config specifier computed from the
-  // link-form path would resolve against the wrong directory. NTFS junctions
-  // defeat filepath.EvalSymlinks, so the link component is chased by hand
-  // first. Realpathing may also land on another volume, which defeats the
-  // whole point — fall back to the config's directory then.
-  base := filepath.Join(resolveDirLink(nodeModules), ".cache")
-  if err := os.MkdirAll(base, 0o755); err != nil {
-    return filepath.Dir(location)
-  }
-  real, err := filepath.EvalSymlinks(base)
-  if err != nil || !strings.EqualFold(filepath.VolumeName(real), filepath.VolumeName(location)) {
-    return filepath.Dir(location)
-  }
-  return real
+  return configloaderscratch.CacheTempBase(location, findNearestNodeModules(filepath.Dir(location)))
 }
 
 func realpathIfPossible(location string) string {

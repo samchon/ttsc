@@ -8,10 +8,14 @@ import { resultFilesystem } from "../cache/resultFilesystem";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
 import { pathIdentityKey } from "../filesystem/pathIdentityKey";
-import { preparePluginBuildEnvironments } from "../inputs/preparePluginBuildEnvironments";
+import {
+  preparePluginBuildEnvironments,
+  usesPreparedPluginBuildEnvironments,
+} from "../inputs/preparePluginBuildEnvironments";
 import { toProjectKey } from "../project/toProjectKey";
 import { verifyGenerationLocations } from "../tracker/verifyGenerationLocations";
 import type { TtscTransformHooks } from "../watch/TtscTransformHooks";
+import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
 
 /**
  * The shared ownership boundary for generation reuse in every adapter.
@@ -67,6 +71,9 @@ export namespace TtscGenerationProof {
      * one now; an absent or undefined entry proves nothing.
      */
     readonly locations?: ReadonlyMap<string, string | undefined>;
+
+    /** Whether the adapter uses one generation-wide watch input set. */
+    readonly groupedWatchInputs?: boolean;
   }
 
   /**
@@ -75,7 +82,7 @@ export namespace TtscGenerationProof {
    *
    * @evidence contracts/common.md#principled-implementation A qualified first-delivery pass already owns environment proof; all other requests prepare actual authority before synchronous admission.
    * @evidence contracts/common.md#clear-and-simple-design One branch delegates native preparation rather than repeating it in adapters.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Only the existing explicit pass contract permits skipping preparation; no watcher silence or process lifetime substitutes for it.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The pass may supply its own qualified readings. Persistent callers use this route whenever currentWatch cannot establish current native and source-tree authority.
    * @evidence contracts/common.md#meaningful-documentation Prose states preparation versus transaction ordering.
    * @evidence contracts/portability.md#os-neutral-implementation Preparation uses the actual generation filesystem and native toolchain reader.
    * @evidence contracts/performance.md#efficient-algorithms Qualified first deliveries perform baseline/identity lookups; other deliveries delegate one preparation per unique plugin directory.
@@ -114,9 +121,11 @@ export namespace TtscGenerationProof {
     cached: TtscCachedProjectTransform,
     file: string,
     epoch: number | undefined,
+    groupedWatchInputs = false,
   ): Transaction {
     return {
       cached,
+      ...(groupedWatchInputs ? { groupedWatchInputs } : {}),
       // A persistent delivery rechecks its watched directories here, after
       // its last await, so a directory replaced while it prepared withdraws
       // its tracker before admission reads it.
@@ -131,6 +140,52 @@ export namespace TtscGenerationProof {
             ),
           }),
     };
+  }
+
+  /**
+   * Admit a watching delivery that already has a proof for its source trees.
+   * Capture fresh native environment readings after the last await and share
+   * them with synchronous admission.
+   *
+   * @evidence contracts/common.md#principled-implementation Exact watcher coverage and the recorded digest qualify each tree, and current environment readings must equal the environment that earned that proof.
+   * @evidence contracts/common.md#clear-and-simple-design Current admission can avoid asynchronous work only when its native readings and watched trees already suffice; the normal preparation owns every refusal.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No prior delivery or unobserved source tree grants permission to reuse the current environment.
+   * @evidence contracts/common.md#meaningful-documentation The prose states the qualification and the synchronous lifetime.
+   * @evidence contracts/portability.md#os-neutral-implementation The existing tracker and environment reader establish native scope and path identity.
+   * @evidence contracts/performance.md#efficient-algorithms Healthy deliveries perform one current environment batch and two bounded tree-coverage checks instead of a preparation batch followed by another native witness scan.
+   * @evidence contracts/performance.md#reuse-equivalent-work Source-tree evidence serves sibling deliveries only alongside current exact coverage and environment qualification.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned transaction belongs to the following synchronous admission and acquires no handles.
+   */
+  export function currentWatch(
+    cached: TtscCachedProjectTransform,
+    file: string,
+  ): Transaction | undefined {
+    const sources = selectPluginSourceInputs(cached.result);
+    if (sources.size === 0) return create(cached, file, undefined, true);
+    const validation = cached.hostInputValidation;
+    const tracker = cached.hostInputMutationTracker;
+    if (
+      validation === undefined ||
+      !usesPreparedPluginBuildEnvironments(cached.result)
+    )
+      return undefined;
+    for (const [directory, state] of sources)
+      if (
+        validation.trees.get(directory) !== state ||
+        validation.treeEnvironments?.get(directory) === undefined ||
+        !trackerProvesInputUnchanged(tracker, directory)
+      )
+        return undefined;
+
+    const proof = create(cached, file, undefined, true);
+    for (const directory of sources.keys())
+      if (
+        proof.environments?.get(directory) !==
+          validation.treeEnvironments?.get(directory) ||
+        !trackerProvesInputUnchanged(tracker, directory)
+      )
+        return undefined;
+    return proof;
   }
 
   /**

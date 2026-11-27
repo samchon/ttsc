@@ -35,6 +35,7 @@ export function test_hashpluginbuildenvironment_resolves_goroot_realpath_once_pe
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-goroot-realpath-")),
   );
+  const links: string[] = [];
   try {
     const sdk = path.join(root, "go");
     const externalDir = path.join(root, "ext-dir");
@@ -75,12 +76,23 @@ export function test_hashpluginbuildenvironment_resolves_goroot_realpath_once_pe
       dirLink,
       process.platform === "win32" ? "junction" : "dir",
     );
-    fs.symlinkSync(externalFile, fileLink, "file");
+    links.push(dirLink);
+    try {
+      fs.symlinkSync(externalFile, fileLink, "file");
+      links.push(fileLink);
+    } catch (cause) {
+      if (
+        process.platform !== "win32" ||
+        (cause as NodeJS.ErrnoException).code !== "EPERM"
+      )
+        throw cause;
+    }
     fs.symlinkSync(
       sdk,
       cycleLink,
       process.platform === "win32" ? "junction" : "dir",
     );
+    links.push(cycleLink);
 
     const calls: string[] = [];
     const hashWithCounter = (): string => {
@@ -139,11 +151,12 @@ export function test_hashpluginbuildenvironment_resolves_goroot_realpath_once_pe
       1,
       "symlinked directory must call realpath once, not twice",
     );
-    assert.equal(
-      calls.filter((entry) => entry === fileLink).length,
-      1,
-      "symlinked file must call realpath once",
-    );
+    if (links.includes(fileLink))
+      assert.equal(
+        calls.filter((entry) => entry === fileLink).length,
+        1,
+        "symlinked file must call realpath once",
+      );
     assert.equal(
       calls.filter((entry) => entry === cycleLink).length,
       1,
@@ -155,7 +168,7 @@ export function test_hashpluginbuildenvironment_resolves_goroot_realpath_once_pe
     );
 
     // Retargeting the directory link must be observed on the next call and change the digest.
-    fs.rmSync(dirLink, { force: true });
+    fs.unlinkSync(dirLink);
     fs.symlinkSync(
       externalDir2,
       dirLink,
@@ -180,6 +193,9 @@ export function test_hashpluginbuildenvironment_resolves_goroot_realpath_once_pe
       "editing a file under an ordinary subdirectory must invalidate the digest",
     );
   } finally {
-    fs.rmSync(root, { recursive: true, force: true });
+    for (const link of links)
+      if (fs.lstatSync(link, { throwIfNoEntry: false })?.isSymbolicLink())
+        fs.unlinkSync(link);
+    fs.rmSync(root, { recursive: true });
   }
 }

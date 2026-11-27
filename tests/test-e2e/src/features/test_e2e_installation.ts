@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { GoBoundary } from "../internal/GoBoundary";
+import { pnpmInvocation } from "../internal/pnpmInvocation";
 
 const cp = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
@@ -48,33 +49,35 @@ export async function test_e2e_installation(): Promise<void> {
   const failures: Error[] = [];
   try {
     const target = `${process.platform}-${process.arch}`;
-    const pnpm = (args: string[], cwd: string) =>
-      cp.execFileSync("pnpm", args, {
+    const pnpm = (args: string[], cwd: string) => {
+      const invocation = pnpmInvocation(args);
+      return cp.execFileSync(invocation.binary, invocation.args, {
         cwd,
-        shell: process.platform === "win32",
         stdio: "inherit",
       });
+    };
+    const overrides = {
+      [`@ttsc/${target}`]: `file:./ttsc-${target}.tgz`,
+      [`@ttsc/graph-${target}`]: `file:./graph-${target}.tgz`,
+    };
     for (const name of ["ttsc", `ttsc-${target}`, "graph", `graph-${target}`])
       pnpm(
         ["pack", "--out", path.join(consumer, `${name}.tgz`)],
         path.join(repository, "packages", name),
       );
     fs.writeFileSync(
+      path.join(consumer, "pnpm-workspace.yaml"),
+      JSON.stringify({ overrides }, null, 2),
+    );
+    fs.writeFileSync(
       path.join(consumer, "package.json"),
       JSON.stringify({
         private: true,
         dependencies: {
           ttsc: "file:./ttsc.tgz",
-          [`@ttsc/${target}`]: `file:./ttsc-${target}.tgz`,
+          ...overrides,
           "@ttsc/graph": "file:./graph.tgz",
-          [`@ttsc/graph-${target}`]: `file:./graph-${target}.tgz`,
           typescript: "7.0.2",
-        },
-        pnpm: {
-          overrides: {
-            [`@ttsc/${target}`]: `file:./ttsc-${target}.tgz`,
-            [`@ttsc/graph-${target}`]: `file:./graph-${target}.tgz`,
-          },
         },
       }),
     );

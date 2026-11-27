@@ -45,7 +45,7 @@ func TestConfigCachePortableDependencyPolicies(t *testing.T) {
       `module.exports = require("./selection.cjs"); // unstable`,
     } {
       key := configCacheKey("config-graph", config, []byte(content))
-      if err := os.Remove(filepath.Join(configCacheDir(), key+".json")); err != nil && !os.IsNotExist(err) {
+      if err := os.Remove(filepath.Join(configCacheDir(config), key+".json")); err != nil && !os.IsNotExist(err) {
         t.Errorf("remove owned cache entry: %v", err)
       }
     }
@@ -401,7 +401,7 @@ func TestConfigCachePortableDependencyPolicies(t *testing.T) {
   t.Cleanup(func() {
     for _, contextRoot := range []string{rootA, rootB} {
       key := configCacheKey("config-graph\x00"+contextRoot, config, rootContent)
-      if err := os.Remove(filepath.Join(configCacheDir(), key+".json")); err != nil && !os.IsNotExist(err) {
+      if err := os.Remove(filepath.Join(configCacheDir(config), key+".json")); err != nil && !os.IsNotExist(err) {
         t.Errorf("remove root-owned cache entry: %v", err)
       }
     }

@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { EvidenceBenchmarkToolchain } from "./EvidenceBenchmarkToolchain";
 import type { ITtscEvidenceBenchmarkGoalRecord } from "./structures/ITtscEvidenceBenchmarkGoalRecord";
 import type {
   ITtscEvidenceBenchmarkReviewCalibration,
@@ -1344,28 +1345,23 @@ export namespace EvidenceBenchmarkReviewLedger {
     onStarted: (processId: number) => void | Promise<void>,
     signal?: AbortSignal,
   ): Promise<ICommandResult> => {
-    const entrypoint: string | undefined = process.env.npm_execpath;
-    if (entrypoint === undefined)
-      throw new Error(
-        "Runner-owned backend commands require the pnpm npm_execpath.",
-      );
+    const invocation = EvidenceBenchmarkToolchain.pnpmInvocation([
+      "run",
+      commandScript(command),
+    ]);
     const backend: string = path.join(cwd, "packages", "backend");
     const timeoutMs: number =
       command === "build-sdk" ? 10 * 60_000 : 5 * 60_000;
     const outputLimit: number = 4 * 1024 * 1024;
     return new Promise<ICommandResult>((resolve, reject) => {
-      const child = spawn(
-        process.execPath,
-        [entrypoint, "run", commandScript(command)],
-        {
-          cwd: backend,
-          env: process.env,
-          detached: process.platform !== "win32",
-          shell: false,
-          stdio: ["ignore", "pipe", "pipe"],
-          windowsHide: true,
-        },
-      );
+      const child = spawn(invocation.binary, invocation.args, {
+        cwd: backend,
+        env: process.env,
+        detached: process.platform !== "win32",
+        shell: false,
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+      });
       if (child.pid === undefined) {
         reject(new Error("Runner-owned backend command omitted its PID."));
         return;

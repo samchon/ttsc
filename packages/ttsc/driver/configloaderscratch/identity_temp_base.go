@@ -3,8 +3,31 @@ package configloaderscratch
 import (
   "os"
   "path/filepath"
+  "runtime"
   "strings"
 )
+
+// PlatformTempDir returns the platform's conventional system temporary path
+// to try after an unavailable ambient TEMP. Callers validate it before use.
+//
+// @evidence contracts/common.md#principled-implementation The default is chosen by the platform's directory convention, with the user's actual home supplying the Windows prefix.
+// @evidence contracts/common.md#clear-and-simple-design One naming function is shared by callers with and without a same-volume requirement.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts A returned path supplies no directory authority and this function creates nothing.
+// @evidence contracts/common.md#meaningful-documentation The prose explains candidate order and the caller's validation obligation.
+// @evidence contracts/portability.md#os-neutral-implementation Native pathname semantics supply the Windows path. The POSIX candidate is absolute.
+// @evidence contracts/performance.md#efficient-algorithms The selection uses one platform decision and at most one home lookup and pathname join.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Callers observe the current setting and candidate independently.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned string owns no handle, task or storage.
+func PlatformTempDir() string {
+  if runtime.GOOS != "windows" {
+    return "/tmp"
+  }
+  home, err := os.UserHomeDir()
+  if err != nil {
+    return ""
+  }
+  return filepath.Join(home, "AppData", "Local", "Temp")
+}
 
 // IdentityTempBase selects the existing identities directory in the current
 // invocation's record store when Windows TEMP is on another drive or TEMP
@@ -78,4 +101,120 @@ func IdentityTempBase(location, systemTemp, recordRoot string) string {
     }
   }
   return physicalIdentity
+}
+
+// SystemTempBase returns an existing same-volume temp directory outside the
+// config directory and any enclosing worktree or pnpm workspace. An empty
+// result leaves selection to the caller and authorizes no write.
+//
+// @evidence contracts/common.md#principled-implementation Resolved config and temporary directory identities are compared on the required compiler volume and against concrete ancestry markers before allocation.
+// @evidence contracts/common.md#clear-and-simple-design The selector only checks a candidate; callers retain fallback order and own actual allocation and cleanup.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No directory is created to make an unavailable TEMP usable.
+// @evidence contracts/common.md#meaningful-documentation The prose states the volume, protected project roots and empty result.
+// @evidence contracts/portability.md#os-neutral-implementation Native canonicalDirectory and containsDirectory use real native aliases, while filepath supplies volume and parent semantics.
+// @evidence contracts/performance.md#efficient-algorithms Two directory identity observations precede one ancestor walk and its marker probes.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each request checks live filesystem topology.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The read-only selector retains no file, handle or state.
+func SystemTempBase(location, systemTemp string) string {
+  base := PrivateTempBase(location, systemTemp)
+  if base == "" {
+    return ""
+  }
+  absolute, err := filepath.Abs(location)
+  if err != nil || !strings.EqualFold(filepath.VolumeName(base), filepath.VolumeName(absolute)) {
+    return ""
+  }
+  return base
+}
+
+// PrivateTempBase checks an existing temporary directory for optional state
+// that need not share the compiler's volume.
+//
+// @evidence contracts/common.md#principled-implementation The temporary directory and each protected directory resolve to native paths before containment is tested.
+// @evidence contracts/common.md#clear-and-simple-design Scratch selection adds its compiler-volume restriction separately to the same read-only containment check.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or unusable TEMP cannot be created by optional cache writers using this policy.
+// @evidence contracts/common.md#meaningful-documentation The comment identifies the optional state and its volume independence.
+// @evidence contracts/portability.md#os-neutral-implementation Native canonical paths support junction and symlink identities, and different Windows volumes cannot contain one another.
+// @evidence contracts/performance.md#efficient-algorithms The candidate and project ancestry walks check a fixed set of markers per ancestor without reading a directory listing.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call observes current pathname ownership.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The read-only selector acquires no retained state.
+func PrivateTempBase(location, systemTemp string) string {
+  absolute, err := filepath.Abs(location)
+  if err != nil || !filepath.IsAbs(systemTemp) {
+    return ""
+  }
+  config, err := canonicalDirectory(filepath.Dir(absolute))
+  if err != nil {
+    return ""
+  }
+  base, err := canonicalDirectory(systemTemp)
+  if err != nil {
+    return ""
+  }
+  entry, err := os.Stat(base)
+  if err != nil || !entry.IsDir() {
+    return ""
+  }
+  for directory := base; ; directory = filepath.Dir(directory) {
+    for _, marker := range []string{".git", "pnpm-workspace.yaml", "tsconfig.json", "package.json", "go.mod"} {
+      if _, err := os.Lstat(filepath.Join(directory, marker)); err == nil {
+        return ""
+      }
+    }
+    if filepath.Dir(directory) == directory {
+      break
+    }
+  }
+  if !strings.EqualFold(filepath.VolumeName(base), filepath.VolumeName(config)) {
+    return base
+  }
+  for directory := config; ; directory = filepath.Dir(directory) {
+    _, git := os.Lstat(filepath.Join(directory, ".git"))
+    _, workspace := os.Lstat(filepath.Join(directory, "pnpm-workspace.yaml"))
+    if directory == config || git == nil || workspace == nil {
+      inside, err := containsDirectory(directory, base)
+      if err != nil || inside {
+        return ""
+      }
+    }
+    if filepath.Dir(directory) == directory {
+      return base
+    }
+  }
+}
+
+// CacheTempBase selects the physical node_modules cache on the config volume.
+// Its destination is checked before allocation and aliases at .cache are
+// refused. The caller owns the actual temporary child.
+//
+// @evidence contracts/common.md#principled-implementation The physical node_modules directory must have its own ignored installation name and the config volume before an ordinary cache child can be created.
+// @evidence contracts/common.md#clear-and-simple-design Three config loaders share the path admission; their callers own nearest-installation discovery and scratch lifetime.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts A linked cache or absent installation yields no candidate, without falling back to a directory beside the config.
+// @evidence contracts/common.md#meaningful-documentation The native comment identifies the selected root and child ownership.
+// @evidence contracts/portability.md#os-neutral-implementation Native directory canonicalization observes NTFS junctions as well as POSIX aliases; filepath.VolumeName provides the compiler-volume constraint.
+// @evidence contracts/performance.md#efficient-algorithms A bounded set of canonicalization, stat, link and mkdir calls checks one installation and its cache child without walking their payload.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Mutable path aliases are observed separately on each call.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The ordinary cache directory may remain, while actual scratch allocations belong to the caller.
+func CacheTempBase(location, nodeModules string) string {
+  if nodeModules == "" {
+    return ""
+  }
+  modules, err := canonicalDirectory(nodeModules)
+  if err != nil || filepath.Base(modules) != "node_modules" ||
+    !strings.EqualFold(filepath.VolumeName(modules), filepath.VolumeName(location)) {
+    return ""
+  }
+  cache := filepath.Join(modules, ".cache")
+  if err := os.Mkdir(cache, 0o755); err != nil && !os.IsExist(err) {
+    return ""
+  }
+  entry, err := os.Lstat(cache)
+  if err != nil || !entry.IsDir() || entry.Mode()&os.ModeSymlink != 0 {
+    return ""
+  }
+  physical, err := canonicalDirectory(cache)
+  if err != nil || physical != cache {
+    return ""
+  }
+  return physical
 }

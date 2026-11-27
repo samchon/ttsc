@@ -13,15 +13,15 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
  * The compiler is resolved as the build resolves it (`resolveGoCompiler`, then
  * the toolchain `directory` selects), so for a plugin's own module root this is
  * the selected identity used by its binary key; it does not certify arbitrary
- * unobserved tool/launcher inputs. A normal reading probes `go env` and walks
- * GOROOT metadata. Witnessing a newly selected environment file can repeat the
- * probe to observe it before reading. Compiler identity reuses a
- * metadata-and-context memo; a changed SDK manifest rehashes all contributing
- * content rather than only edited files. A supplied record store lets a new
- * process take the whole reading from the record a previous process left while
- * everything it depended on still holds (`readPluginBuildEnvironment`), and
- * otherwise the SDK and executable digests from records instead of their
- * bytes.
+ * unobserved tool/launcher inputs. A normal reading probes `go env` and reads
+ * the packaged SDK identity or walks external GOROOT metadata. Witnessing a
+ * newly selected environment file can repeat the probe to observe it before
+ * reading. Compiler identity reuses a path-and-metadata memo; a changed
+ * external SDK manifest rehashes all contributing content rather than only
+ * edited files. A supplied record store lets a new process take the whole
+ * reading from the record a previous process left while everything it depended
+ * on still holds (`readPluginBuildEnvironment`), and otherwise the SDK and
+ * executable digests from records instead of their bytes.
  *
  * @param directory The directory a build runs `go` in.
  * @param env The effective environment, `process.env` by default.

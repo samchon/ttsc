@@ -63,7 +63,9 @@ export namespace RuntimeBuildCache {
    * the output root that producer actually used. Cache IO or cache-admission
    * failure costs reuse only. Errors thrown by the original build retain their
    * normal failure policy. With `defer`, a fresh or adopted build returns
-   * before it is stored and the caller owns its publication.
+   * before it is stored and the caller owns its publication. With `parkIn`, the
+   * run owner receives the park request through the private run directory,
+   * before any adoption takes a build from the store.
    *
    * @evidence contracts/common.md#principled-implementation Lookup proves the stored result once, by an equal input snapshot or by replaying the observations it carries, and publication brackets its build with a second proof, preserving the actual producer result and require explicit extra-input admission; files or a run-owned checksummed bundle are established before the result is rebased.
    * @evidence contracts/common.md#clear-and-simple-design Snapshot, proof and build callbacks expose their independent responsibilities while the operation alone owns storage and restore cleanup.
@@ -124,6 +126,8 @@ export namespace RuntimeBuildCache {
      * the program ends first.
      */
     defer?: (publication: Publication) => void;
+    /** Owned run directory whose launcher parks this process's builds. */
+    parkIn?: string;
     /** What publishing a parked build needs from this request, serializable. */
     parked?: () => unknown;
     /** `record` for a parked build, from the state `parked` returned. */
@@ -335,6 +339,11 @@ export namespace RuntimeBuildCache {
       bodies: path.join(directory, key + ".bundle"),
       parked: path.join(directory, key + ".pending"),
     });
+    const parkDestination = (key: string): string =>
+      path.join(
+        documentOf(key).parked,
+        `${Date.now()}-${process.pid}-${crypto.randomUUID()}`,
+      );
     movedFile = path.join(directory, identity + ".moved.json");
     try {
       const recorded: unknown = JSON.parse(fs.readFileSync(movedFile, "utf8"));
@@ -666,7 +675,7 @@ export namespace RuntimeBuildCache {
         parallel: true,
       });
       let settled = false;
-      props.defer!({
+      const pending: Publication = {
         step: () => {
           if (settled) return true;
           try {
@@ -696,10 +705,7 @@ export namespace RuntimeBuildCache {
           const key = keyOf(reads);
           register(reads);
           report("parked", undefined, key);
-          const parked = path.join(
-            documentOf(key).parked,
-            `${Date.now()}-${process.pid}-${crypto.randomUUID()}`,
-          );
+          const parked = parkDestination(key);
           return carried !== undefined
             ? {
                 outputs: props.emitDir,
@@ -729,7 +735,19 @@ export namespace RuntimeBuildCache {
               keyOf(readNames(result)),
             );
         },
-      });
+      };
+      if (props.parkIn === undefined) props.defer!(pending);
+      else
+        try {
+          const request = pending.request();
+          if (request !== undefined) saveParkRequest(props.parkIn, request);
+        } catch {
+          report(
+            "not-recorded",
+            "cache-publication-io-or-output-failure",
+            keyOf(readNames(result)),
+          );
+        }
     };
     /** Remove one parked build by a rename into the store's trash. */
     const discard = (parked: string): void => {
@@ -797,7 +815,7 @@ export namespace RuntimeBuildCache {
           }
           try {
             const outputs = path.join(parked, "outputs");
-            if (props.defer === undefined) {
+            if (props.defer === undefined && props.parkIn === undefined) {
               published = finish(
                 job.result,
                 publication(job.result, job.emitDir, outputs, (result) =>
@@ -832,20 +850,35 @@ export namespace RuntimeBuildCache {
             // parked directory moves into the run whole, its outputs take the
             // output directory's place, and parking again moves both back
             // without rewriting the job, unless this adoption recorded the
-            // observations it lacked.
-            const moved = `${props.emitDir}.parked`;
-            fs.rmdirSync(props.emitDir);
-            fs.renameSync(parked, moved);
-            fs.renameSync(path.join(moved, "outputs"), props.emitDir);
-            carried = {
+            // observations it lacked. Each attempt owns a separate carried
+            // path, so a lost claim cannot recover a later attempt's outputs.
+            const moved = `${props.emitDir}.parked-${crypto.randomUUID()}`;
+            const carry = {
               directory: moved,
               job:
                 job.recorded === true
                   ? undefined
                   : { ...job, result, recorded: true, state: undefined },
             };
-            adopted = relocate(result, job.emitDir, props.emitDir);
+            const relocated = relocate(result, job.emitDir, props.emitDir);
+            if (!fs.lstatSync(outputs).isDirectory()) continue;
+            if (props.parkIn !== undefined) {
+              // If this process is stopped after taking the directory, the
+              // run owner must be able to return it even before outputs move.
+              saveParkRequest(props.parkIn, {
+                outputs: props.emitDir,
+                parked: parkDestination(key),
+                carried: moved,
+                job: carry.job,
+              });
+            }
+            fs.rmdirSync(props.emitDir);
+            fs.renameSync(parked, moved);
+            fs.renameSync(path.join(moved, "outputs"), props.emitDir);
+            carried = carry;
+            adopted = relocated;
             report("reused", "parked", key);
+            if (props.parkIn !== undefined) report("parked", undefined, key);
           } catch {
             /* Taken by a concurrent run, or unreadable: this run builds. */
             fs.mkdirSync(props.emitDir, { recursive: true });
@@ -853,7 +886,8 @@ export namespace RuntimeBuildCache {
         }
       }
       if (adopted !== undefined) {
-        defer(adopted, lift, undefined, true, carried);
+        if (props.parkIn === undefined)
+          defer(adopted, lift, undefined, true, carried);
         return adopted;
       }
     }
@@ -883,7 +917,7 @@ export namespace RuntimeBuildCache {
     const record =
       props.recordSteps ??
       ((fresh: TtscBuildResult) => lift(props.record?.(fresh) ?? fresh));
-    if (props.defer === undefined) {
+    if (props.defer === undefined && props.parkIn === undefined) {
       finish(result, publication(result, props.emitDir, props.emitDir, record));
       return result;
     }
@@ -994,7 +1028,20 @@ export namespace RuntimeBuildCache {
    * Directory of a ttsx run where its processes leave park requests
    * ({@link Publication.request}) for the launcher.
    */
-  export const PARKS_DIRNAME = "parks";
+  const PARKS_DIRNAME = "parks";
+
+  /** Record a move before the run owner can clean up this process's outputs. */
+  function saveParkRequest(runDir: string, request: ParkRequest): void {
+    const parks = path.join(runDir, PARKS_DIRNAME);
+    fs.mkdirSync(parks, { recursive: true });
+    // The owner reads requests only after this process stops. A torn write
+    // leaves the store untouched because adoption requires this write first.
+    fs.writeFileSync(
+      path.join(parks, `${process.pid}-${crypto.randomUUID()}.json`),
+      JSON.stringify(request),
+      { flag: "wx" },
+    );
+  }
 
   /**
    * Perform every park request the processes of a run left in it. The run's
@@ -1037,17 +1084,18 @@ export namespace RuntimeBuildCache {
   }
 
   /**
-   * Perform a park request: write its job, then move its outputs beside it by
-   * one rename. A failure removes the partial parked directory.
+   * Perform a park request. A fresh build moves its outputs beside its job. An
+   * adopted build already carries a job and moves back to the store whole. A
+   * failed move of a fresh build removes its partial parked directory.
    *
    * @param request A request from {@link Publication.request}.
    * @returns Whether the build was parked.
-   * @evidence contracts/common.md#principled-implementation The job is written before the outputs arrive, and a reader takes only a directory with both; a rename keeps the move O(1).
+   * @evidence contracts/common.md#principled-implementation Fresh parking writes the job before moving the outputs. Adoption recovery keeps any outputs still in the carried directory, or moves them back there before returning that directory to the store.
    * @evidence contracts/common.md#clear-and-simple-design One function serves the launcher's own publication and requests left by its program's processes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed move leaves nothing parked and reports false; the outputs then go with their run.
    * @evidence contracts/common.md#meaningful-documentation The prose states the order and the failure effect.
    * @evidence contracts/portability.md#os-neutral-implementation Native mkdir, write and rename within the cache root's volume.
-   * @evidence contracts/performance.md#efficient-algorithms One job write and one rename, independent of the number of outputs.
+   * @evidence contracts/performance.md#efficient-algorithms One job write for a fresh or newly recorded job, and a bounded number of native moves independent of the number of outputs.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Parking is an effect.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The parked directory lives in the store until a request adopts or discards it, or collection removes it.
    */
@@ -1056,12 +1104,14 @@ export namespace RuntimeBuildCache {
       if (request.carried !== undefined) {
         // The adopted directory goes back whole; its job is rewritten only
         // when the adoption recorded what the job lacked.
+        const outputs = path.join(request.carried, "outputs");
+        if (fs.lstatSync(outputs, { throwIfNoEntry: false }) === undefined)
+          fs.renameSync(request.outputs, outputs);
         if (request.job !== undefined)
           fs.writeFileSync(
             path.join(request.carried, "job.json"),
             JSON.stringify(request.job),
           );
-        fs.renameSync(request.outputs, path.join(request.carried, "outputs"));
         fs.mkdirSync(path.dirname(request.parked), { recursive: true });
         fs.renameSync(request.carried, request.parked);
         return true;

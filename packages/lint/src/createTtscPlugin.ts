@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveTsgo } from "ttsc/binary";
+import { systemTempOutsideProject } from "ttsc/internal/system-temp";
 
 import {
   configEvaluatorFailureReason,
@@ -1954,7 +1955,7 @@ function readTtsxConfigPlugins(
   const resolutionRoot = path.resolve(pluginConfigBaseDir(context));
   const cacheKey = configCacheKey(`plugins\0${resolutionRoot}`, configPath);
   if (cacheKey) {
-    const cached = readConfigPluginCache(cacheKey);
+    const cached = readConfigPluginCache(cacheKey, configPath, resolutionRoot);
     // Re-validate cached entries before trusting them: a contributor's
     // resolved `source` directory may have moved since the entry was
     // written. A stale entry falls through to a fresh evaluation rather
@@ -1975,7 +1976,13 @@ function readTtsxConfigPlugins(
   for (let attempt = 0; attempt < 3; attempt++) {
     evaluation = evaluateTtsxConfigPlugins(configPath, context);
     if (configDependenciesAreCurrent(evaluation.dependencies)) {
-      if (cacheKey) writeConfigPluginCache(cacheKey, evaluation);
+      if (cacheKey)
+        writeConfigPluginCache(
+          cacheKey,
+          evaluation,
+          configPath,
+          resolutionRoot,
+        );
       return evaluation;
     }
   }
@@ -2359,8 +2366,20 @@ const CONFIG_CACHE_VERSION = "v12";
  * The two write different files (the `kind` segment of the cache key keeps
  * their namespaces apart), so they coexist without collision.
  */
-function configCacheDir(): string {
-  return path.join(os.tmpdir(), "ttsc-lint-config-cache");
+function configCacheDir(
+  configPath: string,
+  resolutionRoot: string,
+): string | undefined {
+  try {
+    const temporary = systemTempOutsideProject(path.dirname(configPath), [
+      resolutionRoot,
+    ]);
+    const dir = path.join(temporary, "ttsc-lint-config-cache");
+    const entry = fs.lstatSync(dir, { throwIfNoEntry: false });
+    return entry === undefined || entry.isDirectory() ? dir : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Env opt-out, mirroring the Go sidecar's `TTSC_LINT_DISABLE_CONFIG_CACHE`. */
@@ -2400,13 +2419,14 @@ function configCacheKey(kind: string, configPath: string): string {
  */
 function readConfigPluginCache(
   cacheKey: string,
+  configPath: string,
+  resolutionRoot: string,
 ): ConfigPluginEvaluation | undefined {
+  const dir = configCacheDir(configPath, resolutionRoot);
+  if (dir === undefined) return undefined;
   let body: string;
   try {
-    body = fs.readFileSync(
-      path.join(configCacheDir(), `${cacheKey}.json`),
-      "utf8",
-    );
+    body = fs.readFileSync(path.join(dir, `${cacheKey}.json`), "utf8");
   } catch {
     return undefined;
   }
@@ -2442,10 +2462,18 @@ function readConfigPluginCache(
 function writeConfigPluginCache(
   cacheKey: string,
   evaluation: ConfigPluginEvaluation,
+  configPath: string,
+  resolutionRoot: string,
 ): void {
   try {
-    const dir = configCacheDir();
-    fs.mkdirSync(dir, { recursive: true });
+    const dir = configCacheDir(configPath, resolutionRoot);
+    if (dir === undefined) return;
+    try {
+      fs.mkdirSync(dir);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
+    if (configCacheDir(configPath, resolutionRoot) !== dir) return;
     const tmp = path.join(
       dir,
       `${cacheKey}.${process.pid}.${randomUUID()}.tmp`,
@@ -2887,7 +2915,6 @@ export function createConfigLoaderTempDirectory(
     if (directory !== undefined) return directory;
   }
 
-  const nearest = loaderTempBase(configPath);
   const ambient = [
     process.env.TMPDIR,
     process.env.TMP,
@@ -2896,9 +2923,8 @@ export function createConfigLoaderTempDirectory(
       ? path.join(process.env.LOCALAPPDATA, "Temp")
       : undefined,
   ];
-  const candidates = nearest === configDir ? ambient : [nearest, ...ambient];
   const seen = new Set<string>();
-  for (const candidate of candidates) {
+  for (const candidate of ambient) {
     if (!candidate || !path.isAbsolute(candidate)) continue;
     let physical: string;
     try {
@@ -2912,13 +2938,19 @@ export function createConfigLoaderTempDirectory(
     if (path.parse(physical).root.toLowerCase() !== configVolume.toLowerCase())
       continue;
     if (
-      (nearest === configDir || candidate !== nearest) &&
-      (contains(physical, physicalConfigDir) ||
-        contains(physicalConfigDir, physical))
+      contains(physical, physicalConfigDir) ||
+      contains(physicalConfigDir, physical) ||
+      (physicalProjectRoot !== undefined &&
+        contains(physicalProjectRoot, physical))
     ) {
       continue;
     }
     const directory = createOnConfigVolume(physical);
+    if (directory !== undefined) return directory;
+  }
+  const cache = loaderTempBase(configPath);
+  if (cache !== undefined) {
+    const directory = createOnConfigVolume(cache);
     if (directory !== undefined) return directory;
   }
   if (
@@ -2930,43 +2962,36 @@ export function createConfigLoaderTempDirectory(
     const directory = createOnConfigVolume(systemTemp);
     if (directory !== undefined) return directory;
   }
-  if (
-    path.parse(physicalConfigDir).root.toLowerCase() ===
-    configVolume.toLowerCase()
-  ) {
-    const directory = createOnConfigVolume(configDir);
-    if (directory !== undefined) return directory;
-  }
   throw new Error(
     `@ttsc/lint: no writable temporary directory on ${configVolume} for config ${configPath}; set TEMP, TMP, or TMPDIR to an existing directory on that drive or enable a same-drive ttsc cache`,
   );
 }
 
-/**
- * Finds the nearest node_modules cache, falling back to the config directory.
- * The caller checks the canonical drive before using either path because a
- * config junction can place that directory on another drive (#305).
- */
-function loaderTempBase(configPath: string): string {
+/** Admit a same-volume cache only inside the physical node_modules directory. */
+function loaderTempBase(configPath: string): string | undefined {
   const configRoot = path.parse(configPath).root;
   const nodeModules = findNearestNodeModules(path.dirname(configPath));
-  if (!nodeModules) return path.dirname(configPath);
-  const base = path.join(nodeModules, ".cache");
+  if (!nodeModules) return undefined;
   try {
-    fs.mkdirSync(base, { recursive: true });
-    // Resolve symlinks/junctions now (a linked node_modules is common):
-    // Node's ESM loader realpaths the loader module at import time, and a
-    // relative config specifier computed from the link-form path would
-    // resolve against the wrong directory. Realpathing may also land on
-    // another volume, which defeats the whole point — fall through then.
-    const real = fs.realpathSync(base);
-    if (path.parse(real).root.toLowerCase() === configRoot.toLowerCase()) {
-      return real;
+    const physical = fs.realpathSync.native(nodeModules);
+    if (
+      path.basename(physical) !== "node_modules" ||
+      path.parse(physical).root.toLowerCase() !== configRoot.toLowerCase()
+    )
+      return undefined;
+    const base = path.join(physical, ".cache");
+    try {
+      fs.mkdirSync(base);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
     }
+    const stat = fs.lstatSync(base);
+    if (!stat.isDirectory() || fs.realpathSync.native(base) !== base)
+      return undefined;
+    return base;
   } catch {
-    // fall through to the config's own directory
+    return undefined;
   }
-  return path.dirname(configPath);
 }
 
 function nodeConfigLoaderEnv(configPath: string): NodeJS.ProcessEnv {

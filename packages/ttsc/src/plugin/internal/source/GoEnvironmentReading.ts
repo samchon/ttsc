@@ -89,6 +89,7 @@ export namespace GoEnvironmentReading {
     keys: readonly string[],
     witness: PluginBuildEnvironmentWitness.Record | undefined,
     identities?: PluginContentIdentities.Store,
+    projectRoot?: string,
   ): Record<string, unknown> | undefined {
     const memo = crypto.createHash("sha256").update(goBinary);
     for (const [key, value] of Object.entries(env).sort(([left], [right]) =>
@@ -113,6 +114,7 @@ export namespace GoEnvironmentReading {
         PluginBuildEnvironmentWitness.add(witness, named);
       const result = spawnGoTool(goBinary, ["env", "-json", ...keys, "GOENV"], {
         cwd,
+        projectRoot,
         encoding: "utf8",
         env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
         windowsHide: true,
@@ -204,6 +206,7 @@ export namespace GoEnvironmentReading {
     keys: readonly string[],
     witness: PluginBuildEnvironmentWitness.Record | undefined,
     identities: PluginContentIdentities.Store | undefined,
+    projectRoot?: string,
   ): Record<string, unknown> | undefined {
     const identity = [goBinary, path.resolve(cwd), keys, goToolVariables(env)];
     const kept = WitnessedLoadAnswers.read(
@@ -218,21 +221,16 @@ export namespace GoEnvironmentReading {
       return kept.value;
     }
     const observed: PluginBuildEnvironmentWitness.Record = new Map();
-    PluginBuildEnvironmentWitness.add(observed, goBinary);
-    for (let directory = path.resolve(cwd); ; ) {
-      PluginBuildEnvironmentWitness.add(
-        observed,
-        path.join(directory, "go.mod"),
-      );
-      PluginBuildEnvironmentWitness.add(
-        observed,
-        path.join(directory, "go.work"),
-      );
-      const parent = path.dirname(directory);
-      if (parent === directory) break;
-      directory = parent;
-    }
-    const values = read(goBinary, cwd, env, keys, observed, identities);
+    witnessToolchain(goBinary, cwd, env, observed);
+    const values = read(
+      goBinary,
+      cwd,
+      env,
+      keys,
+      observed,
+      identities,
+      projectRoot,
+    );
     if (values === undefined) return undefined;
     if (typeof values.GOROOT === "string" && path.isAbsolute(values.GOROOT))
       PluginBuildEnvironmentWitness.add(
@@ -248,6 +246,51 @@ export namespace GoEnvironmentReading {
       observed,
     );
     return values;
+  }
+
+  /**
+   * Observe the launcher and Go's toolchain selection inputs before probing. An
+   * ancestor file can start selecting a toolchain when it is created, so the
+   * observation includes absent go.mod and go.work files.
+   *
+   * @evidence contracts/common.md#principled-implementation Capture the launcher, ancestors and initial SDK defaults before Go reads them. This covers toolchain directives under GOWORK=auto and the initial root set by goBuildEnv; externally selected toolchains are governed separately by their reported root.
+   * @evidence contracts/common.md#clear-and-simple-design Both Go answer families reuse the same pre-probe observations and retain their own reported values.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Native ancestor and SDK paths provide the selection evidence, including absent files. The probe still supplies all Go values.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains when to observe and why missing files matter.
+   * @evidence contracts/portability.md#os-neutral-implementation Node native paths find the ancestors and Go's own distribution layout supplies go.env; environment names use SidecarEnvironment's native policy.
+   * @evidence contracts/performance.md#efficient-algorithms Two witness lookups per ancestor plus a fixed set for the launcher and inferred SDK. Directory/path length and native stat costs contribute to the traversal.
+   * @evidence contracts/performance.md#reuse-equivalent-work The first observation of a path stays in the caller's witness. The two answer families reuse the mechanics of capturing it, with their own freshness checks.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the caller's witness retains these observations.
+   */
+  export function witnessToolchain(
+    goBinary: string,
+    cwd: string,
+    env: NodeJS.ProcessEnv,
+    witness: PluginBuildEnvironmentWitness.Record | undefined,
+  ): void {
+    if (witness === undefined) return;
+    if (path.isAbsolute(goBinary))
+      PluginBuildEnvironmentWitness.add(witness, goBinary);
+    const configured = SidecarEnvironment.read(env, "GOROOT");
+    const initialRoot = configured || GoSourceInputs.inferGoRoot(goBinary);
+    if (initialRoot && path.isAbsolute(initialRoot))
+      PluginBuildEnvironmentWitness.add(
+        witness,
+        path.join(initialRoot, "go.env"),
+      );
+    for (let directory = path.resolve(cwd); ; ) {
+      PluginBuildEnvironmentWitness.add(
+        witness,
+        path.join(directory, "go.mod"),
+      );
+      PluginBuildEnvironmentWitness.add(
+        witness,
+        path.join(directory, "go.work"),
+      );
+      const parent = path.dirname(directory);
+      if (parent === directory) break;
+      directory = parent;
+    }
   }
 
   /** Answer family of {@link recorded} (`WitnessedLoadAnswers`). */

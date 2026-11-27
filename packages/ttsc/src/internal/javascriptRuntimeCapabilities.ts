@@ -109,7 +109,7 @@ export function javascriptRuntimeCapabilities(
       childProcess.spawnSync(runtime, args, options),
   );
   if (process.platform !== "win32" && isSpawnSyncFdExhaustion(result.error)) {
-    const capture = captureProcessOutput();
+    const capture = captureProcessOutput(process.env, undefined, cwd);
     try {
       const retried = spawnSyncWithLowDescriptors(runtime, args, options, {
         stderr: capture.stderrPath,

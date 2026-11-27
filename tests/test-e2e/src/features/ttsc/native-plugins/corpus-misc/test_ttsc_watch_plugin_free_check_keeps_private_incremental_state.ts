@@ -15,20 +15,21 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  *
  * 1. Start two `ttsc --noEmit --watch` sessions on one plugin-free project whose
  *    source has a type error.
- * 2. Fix the error, then reintroduce it, waiting for both sessions each time.
+ * 2. Wait for startup reconciliation, then fix and reintroduce the error. Let both
+ *    sessions settle after each save.
  * 3. Require each session's own build-info directory outside the project, no
  *    listing after the first build, and the error reported again as a cold
  *    `ttsc --noEmit` reports it.
  * 4. Close both and require both directories gone and nothing new in the project.
  *
  * @evidence contracts/testing.md#behavioral-verification Two real watches must each name a distinct existing private directory holding upstream build info outside the project, start no listing per cycle, report the reintroduced error identically to a cold check, and remove the directories on close; a shared, leaked or project-local state, a per-cycle listing or a changed diagnostic each fails an assertion.
- * @evidence contracts/testing.md#independent-expectations The expected diagnostic is the cold one-shot compiler's own line for the same source, and the expected project contents are the files the test wrote; startup lists the project, and no save after the first build may list it again.
+ * @evidence contracts/testing.md#independent-expectations The expected diagnostic is the cold one-shot compiler's own line for the same source, and the expected project contents are the files the test wrote. The launcher idle receipt separates startup reconciliation from the two saves, neither of which may list the project again.
  * @evidence contracts/testing.md#distinguishing-cases Owns the plugin-free analysis lane with concurrent sessions, a failing, passing and failing-again sequence; test_plugin_corpus_check_watch_keeps_resident_checks_beside_a_transform_plugin owns the plugin lanes.
  * @evidence contracts/testing.md#execution-ownership The E2E scenarios batch registers this named export; both WatchSessions are joined before the final assertions.
  * @evidence contracts/e2e.md#necessary-boundary Incremental state, membership reporting and temporary-directory ownership cross the real launcher, the installed tsgo and the topology worker; a unit cannot show two processes keeping separate state.
  * @evidence contracts/e2e.md#shared-execution Two sessions share one temporary project for the concurrency case and one cold control run; no plugin cache is involved.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The temporary project belongs to this test; each session's state directory is asserted removed after close.
- * @evidence contracts/e2e.md#preserved-coverage A new case; no existing assertion changes.
+ * @evidence contracts/e2e.md#preserved-coverage The idle boundary isolates the original per-save listing assertion. Both sessions, all diagnostics and private-state cleanup remain covered.
  */
 export async function test_ttsc_watch_plugin_free_check_keeps_private_incremental_state(): Promise<void> {
   const failing = "export const value: number = 'text';\n";
@@ -46,10 +47,18 @@ export async function test_ttsc_watch_plugin_free_check_keeps_private_incrementa
       }),
   );
   const directories: string[] = [];
+  const startupOffsets: number[] = [];
   try {
     await Promise.all(sessions.map((session) => session.waitForBuilds(1)));
+    // The build marker precedes asynchronous topology reconciliation. Keep
+    // startup listings outside the interval where we measure save work.
+    await Promise.all(sessions.map((session) => session.waitForIdle()));
+    startupOffsets.push(
+      ...sessions.map((session) => session.transcript().length),
+    );
     fs.writeFileSync(source, "export const value: number = 1;\n");
     await Promise.all(sessions.map((session) => session.waitForBuilds(2)));
+    await Promise.all(sessions.map((session) => session.waitForIdle()));
     for (const session of sessions) {
       const match = /\[ttsc:debug\] incremental check state (".*")/.exec(
         session.transcript(),
@@ -79,15 +88,14 @@ export async function test_ttsc_watch_plugin_free_check_keeps_private_incrementa
     .split(/\r?\n/)
     .find((line) => line.includes("TS2322"));
   assert.ok(expected, `${cold.stdout}\n${cold.stderr}`);
-  for (const session of sessions) {
+  for (const [index, session] of sessions.entries()) {
     const transcript = session.transcript();
     const lastCycle = transcript.slice(
       transcript.lastIndexOf("[ttsc] rebuilding at"),
     );
     assert.ok(lastCycle.includes(expected!.trim()), transcript);
-    // Startup lists the project; no save may list it again.
     assert.doesNotMatch(
-      transcript.slice(transcript.indexOf("[ttsc] watch build ")),
+      transcript.slice(startupOffsets[index]!),
       /\[ttsc:debug\] compiler listing /,
       transcript,
     );

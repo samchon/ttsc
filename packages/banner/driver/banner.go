@@ -581,6 +581,9 @@ func decodeBannerConfigLoaderOutput(output []byte) (bannerLoadedConfig, error) {
 // configToolAnchors. When TEMP is on another volume, an already-open identity
 // store can hold the loader without changing the config directory's metadata.
 func loadBannerTypeScriptConfigFileWithInputs(location, resolutionRoot string) (bannerLoadedConfig, error) {
+  if !filepath.IsAbs(location) {
+    return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: resolve relative config import %s: expected an absolute config path", location)
+  }
   tempDir, err := createBannerConfigLoaderTempDir(location, os.TempDir(), os.Getenv("TTSC_NATIVE_PLUGIN_RECORD_ROOT"))
   if err != nil {
     return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: create config loader tempdir: %w", err)
@@ -646,7 +649,15 @@ func createBannerConfigLoaderTempDir(location, systemTemp, recordRoot string) (s
   if preferred == "" || (err != nil &&
     (os.IsPermission(err) || os.IsNotExist(err) ||
       errors.Is(err, syscall.ENOTDIR) || errors.Is(err, syscall.EROFS))) {
-    tempDir, err = os.MkdirTemp(loaderTempBase(location, systemTemp), "ttsc-banner-config-")
+    base := configloaderscratch.SystemTempBase(location, systemTemp)
+    if base == "" {
+      base = loaderTempBase(location, systemTemp)
+    }
+    if base == "" {
+      err = fmt.Errorf("no writable private temporary directory on the volume of %s", location)
+    } else {
+      tempDir, err = os.MkdirTemp(base, "ttsc-banner-config-")
+    }
   }
   return tempDir, err
 }
@@ -909,44 +920,13 @@ func loaderRootDir(outDir string) string {
   return filepath.ToSlash(vol + `\`)
 }
 
-// loaderTempBase picks the parent directory for the ephemeral config-loader
-// tree. The system temp dir is the default, but when it sits on a different
-// volume than the config file (Windows: TEMP on `C:`, project on `D:`) the
-// loader cannot work from there — no single tsconfig rootDir spans two
-// volumes and filepath.Rel cannot produce a relative import across drives
-// (#305) — so the tree is created under the config's nearest
-// node_modules/.cache instead, falling back to the config's own directory
-// when no node_modules exists (or its .cache cannot be created): any location
-// on the config's volume beats the system temp dir, which is guaranteed to
-// fail. Returns "" (the os.MkdirTemp default) when the volumes already match.
+// loaderTempBase selects the existing installation's private cache when the
+// system temporary directory cannot support a same-volume config import.
 func loaderTempBase(location, systemTemp string) string {
-  // A relative location has no volume; "" must not be read as "a volume
-  // other than the system temp's" — it keeps the historical default (and
-  // the Rel-failure contract for relative config paths).
-  vol := filepath.VolumeName(location)
-  if vol == "" || strings.EqualFold(filepath.VolumeName(systemTemp), vol) {
+  if !filepath.IsAbs(location) || configloaderscratch.SystemTempBase(location, systemTemp) != "" {
     return ""
   }
-  nodeModules := findNearestNodeModules(filepath.Dir(location))
-  if nodeModules == "" {
-    return filepath.Dir(location)
-  }
-  // Resolve a linked node_modules (junction/symlink — common in managed
-  // setups) before descending into it: the ESM runtime realpaths the loader
-  // module at import time, and a relative config specifier computed from the
-  // link-form path would resolve against the wrong directory. NTFS junctions
-  // defeat filepath.EvalSymlinks, so the link component is chased by hand
-  // first. Realpathing may also land on another volume, which defeats the
-  // whole point — fall back to the config's directory then.
-  base := filepath.Join(resolveDirLink(nodeModules), ".cache")
-  if err := os.MkdirAll(base, 0o755); err != nil {
-    return filepath.Dir(location)
-  }
-  real, err := filepath.EvalSymlinks(base)
-  if err != nil || !strings.EqualFold(filepath.VolumeName(real), filepath.VolumeName(location)) {
-    return filepath.Dir(location)
-  }
-  return real
+  return configloaderscratch.CacheTempBase(location, findNearestNodeModules(filepath.Dir(location)))
 }
 
 // resolveDirLink chases a directory that is itself a symlink or NTFS junction

@@ -218,7 +218,7 @@ function transformProjectWithNativeHost(
     baseline?.hostInputs ?? [],
     projectHostInputs,
   );
-  const env = inheritedSidecarEnv(options.env);
+  const env = inheritedSidecarEnv(options.env, options.binary);
   const binary = buildNativeCompiler({
     cacheBaseDir: project.root,
     cacheDir:

@@ -67,7 +67,10 @@ export function test_ttsccompiler_clean_preserves_native_environment_layers(): v
         fs.writeFileSync(source, "export const intact = 42;\n");
         const ambient = path.join(project, "ambient");
         const selected = path.join(project, "selected");
-        const defaults = path.join(project, "node_modules/.cache/ttsc");
+        const defaults = path.join(
+          fs.realpathSync.native(project),
+          "node_modules/.cache/ttsc",
+        );
         const ambientGo = path.join(project, "ambient-go");
         const selectedGo = path.join(project, "selected-go");
         const ambientUser = path.join(project, "ambient-user");

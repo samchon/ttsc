@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { CompilerTarget } from "./CompilerTarget";
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
@@ -9,14 +10,16 @@ import { GoToolResolution } from "./GoToolResolution";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "./PluginContentIdentities";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
-import { spawnGoTool } from "./spawnGoTool";
+import { packagedGoRootIdentity } from "./packagedGoRootIdentity";
+import { resolveGoCompiler } from "./resolveGoCompiler";
 
 /**
  * Hash the environment a plugin build is keyed on into `hash`: the Go
- * compiler's identity (its `go version` and the bytes of the binary), the Go
- * build environment `go env` reports for the build's directory (target, build
- * tags, cgo, FIPS, the C toolchain's commands by content, and GOROOT by
- * content), and the external toolchain environment cgo reads. Fixed
+ * compiler's executable bytes, the Go build environment `go env` reports for
+ * the build's directory (including the selected toolchain version, target, cgo,
+ * FIPS, C toolchain commands and SDK identity), and the external toolchain
+ * environment cgo reads. Installed ttsc SDKs use their package version and SDK
+ * version file. Out-of-package SDKs are identified by their content. Fixed
  * source-build flags enter this same identity, so its binary key and reported
  * source state both distinguish the artifact policy used by native
  * compilation.
@@ -49,11 +52,11 @@ import { spawnGoTool } from "./spawnGoTool";
  *   #1722); without it every process reads them.
  * @evidence contracts/common.md#principled-implementation Fixed artifact flags, observed compiler bytes/version, selected reported-or-fallback build values, named command executables and selected SDK files enter the same framed identity used by source-state reporting. Fallback values and metadata-qualified reuse are explicit premises, not complete observation of arbitrary toolchain inputs. GOFLAGS enters without ttsc's own build tags, so the caller's environment reproduces a 7.1 or compiler-batch load's digest; targets and compiler sources are separated by their overlay modules in the build key.
  * @evidence contracts/common.md#clear-and-simple-design Private helpers separate compiler identity, Go-reported settings, external variables and SDK content while sharing one hash sink and optional pre-read witness.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache signatures include real identity/change metadata and effective invocation context; failed SDK witnessing refuses reuse rather than accepting a VERSION-only proxy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache signatures use observed metadata and effective Go settings. Only a matched installed platform package can stand for its SDK tree. The mutable-SDK fallback needs a complete content witness for reuse.
  * @evidence contracts/common.md#meaningful-documentation Native documentation names the input classes and witness purpose; private comments explain context-sensitive compiler memoization and SDK exclusions without treating a passing check as proof.
  * @evidence contracts/portability.md#os-neutral-implementation Node path/stat/process APIs resolve native tool identities; platform-specific executable suffixes and environment lookup are isolated in GoToolResolution, and Go supplies its own effective build settings.
- * @evidence contracts/performance.md#efficient-algorithms SDK traversal sorts reached entry names and selected file paths, performs native stat/link queries, resolves physical paths once for the SDK root and once per symbolic link (deriving ordinary subdirectories from their parent's physical path), and serializes topology/metadata/path text. Matching manifests share aggregate hashes; changes read full selected files via the caller adapter, retaining file buffers with population/topology data. Compiler misses capture at most three complete version/byte readings when native metadata moves during a reading; only a stable attempt enters the memo. Go env can run up to three times for its file witness, and command tokens can each perform executable searches/full reads. Environment sorting/framing and command substring parsing also process name/value/command bytes; E/D/F/B alone do not capture native lookup or text comparison costs.
- * @evidence contracts/performance.md#reuse-equivalent-work Compiler memo identity includes selected path/file metadata and invocation cwd/environment; SDK aggregate reuse requires matching complete ordered metadata/topology. With a record store, a new process reuses the SDK aggregate and executable digests only while their signatures match the recorded ones and every stamp is separable from a freshly minted reference (#1722); `go version` and `go env` stay live because they report toolchain selection no file metadata shows. Within one SDK walk, each ordinary subdirectory inherits its parent's resolved physical path and each symlinked directory reuses the physical target already resolved while inspecting the link, dropped when the walk finishes. All of this relies on native metadata distinguishability and sequential observation premises. Physical directories expand once per selection policy while aliases retain edges; optional caller witnesses receive reached selected dependencies.
+ * @evidence contracts/performance.md#efficient-algorithms A packaged SDK uses two small files and a fixed set of path observations. A mutable SDK walk resolves the root and link targets, inherits physical paths for ordinary descendants, sorts and observes its topology, and reads selected bytes when the aggregate misses. Compiler byte observations retry movement up to three times. Go environment queries and external command resolution add process, path and byte costs.
+ * @evidence contracts/performance.md#reuse-equivalent-work Compiler bytes reuse proven native metadata. Mutable SDK aggregates use their complete topology and content witness and reuse physical paths within each walk. Cross-process reuse requires matching separable signatures. The enclosing Go reading reuses GOVERSION and GOROOT under its complete toolchain selection witness.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Compiler, Go-environment-path and SDK maps retain historical distinct tool/context/root keys without eviction; persisted records belong to the single-file collector. SDK population/topology and full individual file reads contribute transient bytes; synchronous probes delegate process/capture lifetime to their owner and do not certify arbitrary descendants are gone. No independent entry/record/file/output byte ceiling is imposed here.
  */
 export function hashPluginBuildEnvironment(
@@ -71,6 +74,7 @@ export function hashPluginBuildEnvironment(
     JSON.stringify(["source-build-flags", GoSourceInputs.BUILD_FLAGS]),
   );
   if (goBinary !== undefined) {
+    GoEnvironmentReading.witnessToolchain(goBinary, directory, env, witness);
     hash.update(
       JSON.stringify([
         "go",
@@ -139,6 +143,7 @@ const GO_BUILD_ENV_KEYS: readonly string[] = [
   "CGO_LDFLAGS_ALLOW",
   "CGO_LDFLAGS_DISALLOW",
   "GOTOOLCHAIN",
+  "GOVERSION",
   "GOROOT",
 ];
 
@@ -172,20 +177,9 @@ const EXTERNAL_GO_BUILD_ENV_KEYS: readonly string[] = [
   "SDKROOT",
 ];
 
-// Per-process memo for the Go compiler identity. `computeCacheKey` runs once
-// per source plugin, so an N-plugin project that points every plugin at the
-// same toolchain would otherwise repeat version probes and compiler-byte
-// hashes. Identity includes the selected binary and version result under its
-// invocation context; the memo key mixes resolved path with a native
-// content signature (filesystem identity, mode, byte size, and nanosecond
-// change/modify times). That signature changes if a long-lived host rewrites
-// or atomically replaces the binary between calls, so the memo re-derives the
-// identity under the metadata-distinguishability premise. A hit does not
-// independently reread binary content. The selected compiler
-// path is shared by every build subprocess, while `go version` uses
-// the same effective cwd and environment as the cache-key `go env` query. The
-// memo key includes that context so an environment-sensitive wrapper cannot
-// lend its version result to another compiler invocation.
+// This memo shares only the launcher's bytes across environments and working
+// directories. Go reports the selected toolchain's GOVERSION with GOROOT in
+// the same probe so a module edit cannot inherit the previous version.
 const goCompilerIdentityCache = new Map<string, string>();
 
 function resolveGoCompilerIdentity(
@@ -205,15 +199,9 @@ function resolveGoCompilerIdentity(
     process.platform === "win32"
       ? resolveRealPath(selected)
       : resolveExecutableIdentityPath(selected, env, cwd);
-  const compilerEnv = GoSourceInputs.goBuildEnv(selected, undefined, env);
   const candidateWitness: PluginBuildEnvironmentWitness.Record = new Map();
   PluginBuildEnvironmentWitness.add(candidateWitness, resolved);
-  const candidateKey = goCompilerIdentityMemoKey(
-    goBinary,
-    resolved,
-    compilerEnv,
-    cwd,
-  );
+  const candidateKey = goCompilerIdentityMemoKey(resolved);
   if (candidateKey !== null) {
     const cached = goCompilerIdentityCache.get(candidateKey);
     if (cached !== undefined) {
@@ -223,28 +211,15 @@ function resolveGoCompilerIdentity(
       return cached;
     }
   }
-  // Executing a fresh native image can move its metadata, even across more
-  // than one execution. Discard that whole reading and start with new pre-read
-  // evidence; never bless it by overwriting the witness after execution.
-  // The bound limits active observation, not how many metadata changes are
-  // accepted: an executable that keeps moving leaves the reading refused.
+  // Bracket the byte reading; an executable that keeps moving refuses reuse.
   let identity = "missing";
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const observed: PluginBuildEnvironmentWitness.Record = new Map();
     PluginBuildEnvironmentWitness.add(observed, resolved);
-    const memoKey = goCompilerIdentityMemoKey(
-      goBinary,
-      resolved,
-      compilerEnv,
-      cwd,
-    );
-    identity = computeGoCompilerIdentity(
-      selected,
-      resolved,
-      compilerEnv,
-      cwd,
-      identities,
-    );
+    const memoKey = goCompilerIdentityMemoKey(resolved);
+    identity = fs.existsSync(resolved)
+      ? `sha256:${hashExecutable(resolved, identities)}`
+      : "missing";
     if (!PluginBuildEnvironmentWitness.holds(observed)) continue;
     for (const [file, signature] of observed)
       if (witness !== undefined && !witness.has(file))
@@ -256,27 +231,11 @@ function resolveGoCompilerIdentity(
   return identity;
 }
 
-// Build a memo key from resolved path, native metadata and invocation context,
-// not a retained handle or fresh content hash. Unavailable stat returns null
-// and skips memo reuse.
-function goCompilerIdentityMemoKey(
-  goBinary: string,
-  resolved: string,
-  env: NodeJS.ProcessEnv,
-  cwd: string,
-): string | null {
+// A missing stat skips memo reuse. Metadata must describe the physical image.
+function goCompilerIdentityMemoKey(resolved: string): string | null {
   try {
     const stat = fs.statSync(resolved, { bigint: true });
-    const context = crypto.createHash("sha256");
-    context.update(cwd);
-    for (const [key, value] of Object.entries(env).sort(([left], [right]) =>
-      left === right ? 0 : left < right ? -1 : 1,
-    )) {
-      if (value === undefined) continue;
-      context.update(`\0${key.length}:${key}${value.length}:${value}`);
-    }
     return [
-      goBinary,
       resolved,
       stat.dev,
       stat.ino,
@@ -284,37 +243,10 @@ function goCompilerIdentityMemoKey(
       stat.size,
       stat.mtimeNs,
       stat.ctimeNs,
-      context.digest("hex"),
     ].join("\0");
   } catch {
     return null;
   }
-}
-
-function computeGoCompilerIdentity(
-  goBinary: string,
-  resolved: string,
-  env: NodeJS.ProcessEnv,
-  cwd: string,
-  identities: PluginContentIdentities.Store | undefined,
-): string {
-  if (!fs.existsSync(resolved)) {
-    return "missing";
-  }
-  // `go version` stays a live probe: it answers which toolchain the effective
-  // environment selects (GOTOOLCHAIN, go.mod), which no file metadata shows.
-  const version = spawnGoTool(goBinary, ["version"], {
-    cwd,
-    encoding: "utf8",
-    env,
-    windowsHide: true,
-  });
-  const versionText =
-    version.error !== undefined
-      ? ((version.error as NodeJS.ErrnoException).code ?? version.error.message)
-      : `${version.status ?? 0}:${version.stdout}${version.stderr}`;
-  const binaryHash = hashExecutable(resolved, identities);
-  return `sha256:${binaryHash}:${versionText}`;
 }
 
 /**
@@ -431,6 +363,13 @@ function resolveGoBuildEnvironment(
 ): Map<string, string> {
   const values = new Map<string, string>();
   if (goBinary !== undefined) {
+    const compiler = SidecarEnvironment.read(env, "GOROOT")
+      ? undefined
+      : resolveGoCompiler(env);
+    const packageManifest =
+      compiler?.binary === goBinary ? compiler.packageManifest : undefined;
+    if (packageManifest !== undefined)
+      PluginBuildEnvironmentWitness.add(witness, packageManifest);
     const parsed = GoEnvironmentReading.read(
       goBinary,
       cwd,
@@ -453,6 +392,7 @@ function resolveGoBuildEnvironment(
                 filesystem,
                 witness,
                 identities,
+                packageManifest,
               ),
             );
           }
@@ -490,13 +430,20 @@ function normalizeGoBuildEnvValue(
   filesystem: SourceBuildFilesystemOperations,
   witness: PluginBuildEnvironmentWitness.Record | undefined,
   identities: PluginContentIdentities.Store | undefined,
+  packageManifest?: string,
 ): string {
   if (key === "GOROOT") {
-    // Root/version observations also cover a missing SDK. The complete SDK
-    // manifest below witnesses contributing files and directories, including
-    // nested content changes that do not move the root or VERSION metadata.
     PluginBuildEnvironmentWitness.add(witness, value);
     PluginBuildEnvironmentWitness.add(witness, path.join(value, "VERSION"));
+    if (packageManifest !== undefined) {
+      const packaged = packagedGoRootIdentity(
+        packageManifest,
+        value,
+        filesystem,
+        witness,
+      );
+      if (packaged !== undefined) return packaged;
+    }
     return resolveGoRootCacheIdentity(value, filesystem, witness, identities);
   }
   if (key === "GOFLAGS") {

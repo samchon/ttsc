@@ -31,6 +31,27 @@ import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
  */
 export interface TtscTransformHooks {
   /**
+   * Join a shared compiler generation with this module's routing and membership
+   * inputs. The callback can use `affected` to decide if changed paths reach
+   * the module. Returning false requests ordinary per-module registration.
+   *
+   * @evidence contracts/common.md#principled-implementation The callback receives the generation owner and its input set, the module's input set, and the module's own invalidation predicate.
+   * @evidence contracts/common.md#clear-and-simple-design The callback separates group registration from module dependency selection and reports whether it accepted the handoff.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Refusal keeps the flat dependency handoff. Joining a group still supplies module-local inputs and the affected predicate.
+   * @evidence contracts/common.md#meaningful-documentation The comment explains the two input sets, the predicate and the return value.
+   * @evidence contracts/portability.md#os-neutral-implementation Both input sets carry native watch spellings, and the predicate receives native spellings reported by the observer.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms The declaration supplies a callback shape. Its implementation owns registration costs.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The host decides whether its generation registrations can be shared.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The declaration retains no input set or native watcher.
+   */
+  watchGeneration?: (
+    owner: string,
+    inputs: readonly TtscWatchInput[],
+    local: readonly TtscWatchInput[],
+    affected: (changed: ReadonlySet<string>) => boolean,
+  ) => boolean;
+
+  /**
    * Native config already selected by the host for this delivered module.
    *
    * A host that freezes routing and its discovery inputs in one transaction
@@ -57,13 +78,13 @@ export interface TtscTransformHooks {
   addWatchFile?: TtscAddWatchFile;
 
   /**
-   * Batched form of {@link addWatchFile}. When supplied, the transform calls it
-   * once per delivered module and does not call `addWatchFile` for that module.
-   * `failed` marks a recovery batch: a failed compiler can omit inputs from its
-   * previous successful result, so replacing hosts should retain those
-   * spellings until the next successful delivery. The third argument carries
-   * the generation's environment reads for hosts that include non-file inputs
-   * in their persistent keys.
+   * Batched form of {@link addWatchFile}. For a flat delivery, this callback
+   * receives one batch in place of individual calls to `addWatchFile`. `failed`
+   * marks a recovery batch: a failed compiler can omit inputs from its previous
+   * successful result, so replacing hosts should retain those spellings until
+   * the next successful delivery. The third argument carries the generation's
+   * environment reads for hosts that include non-file inputs in their
+   * persistent keys.
    */
   addWatchFiles?: TtscAddWatchFiles;
 

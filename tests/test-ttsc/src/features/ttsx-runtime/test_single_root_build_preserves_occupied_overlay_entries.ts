@@ -44,10 +44,9 @@ export function test_single_root_build_preserves_occupied_overlay_entries(): voi
           path.join(projectRoot, "included.ts"),
           "export const included = 2;\n",
         );
-        const overlay = path.join(
-          projectRoot,
-          ".ttsx-entry.occupied.tsconfig.json",
-        );
+        const cache = path.join(projectRoot, "node_modules", ".cache", "ttsc");
+        fs.mkdirSync(cache, { recursive: true });
+        const overlay = path.join(cache, ".ttsx-entry.occupied.tsconfig.json");
         const sentinelBytes = "existing overlay owner\n";
         const sentinel =
           kind === "file" ? overlay : path.join(overlay, "keep.txt");
@@ -87,6 +86,10 @@ export function test_single_root_build_preserves_occupied_overlay_entries(): voi
         observe(`${kind} owned project inputs survive`, () => {
           assert.equal(fs.readFileSync(tsconfig, "utf8"), configBytes);
           assert.equal(fs.readFileSync(source, "utf8"), sourceBytes);
+          assert.equal(
+            fs.existsSync(path.join(projectRoot, path.basename(overlay))),
+            false,
+          );
         });
         observe(`${kind} collision produces no emit directory`, () => {
           assert.equal(fs.existsSync(emitDir), false);

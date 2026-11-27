@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/SidecarEnvironment";
 import { PluginDescriptorEvaluationCache } from "../../../../../packages/ttsc/src/plugin/internal/load/PluginDescriptorEvaluationCache";
+import { CompilerTarget } from "../../../../../packages/ttsc/src/plugin/internal/source/CompilerTarget";
 import { PluginBuildEnvironmentWitness } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginContentIdentities";
 import { SourceBuildCacheLayout } from "../../../../../packages/ttsc/src/plugin/internal/source/SourceBuildCacheLayout";
@@ -27,14 +28,14 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    served. Write the compiler file: the record moves and a fresh reading
  *    replaces it.
  * 2. Resolve a custom compiler's line in a new process, mark the recorded version,
- *    resolve again in another process, then rewrite the compiler and resolve
- *    once more.
+ *    resolve again in another process, then replace the compiler at the same
+ *    path and resolve in one process. Retry a probe that first failed.
  * 3. Locate a descriptor evaluation under environments that differ only in a ttsx
  *    per-run channel, a reporting switch, or an ordinary variable.
  *
  * @evidence contracts/testing.md#behavioral-verification The production reader, compiler-target resolution and descriptor locator run over real files and real record stores; a marked record coming back is the observable proof that it, not a fresh reading, answered, and a fresh answer after a change proves the witness or identity refused it.
  * @evidence contracts/testing.md#independent-expectations The fixture C compiler is a file the environment digest hashes and the witness stats; the custom compiler reports 7.1 by construction, so 7.0 can only come from the marked record; per-run channels name directories no evaluation reads, while any other variable reaches the evaluator.
- * @evidence contracts/testing.md#distinguishing-cases Unchanged inputs against a written compiler file; an unchanged compiler binary against rewritten bytes; a per-run channel and a reporting switch against an ordinary variable.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged inputs against a written C compiler; an unchanged custom TypeScript binary against rewritten bytes across launches and within a live process after success or failure; a per-run channel and a reporting switch against an ordinary variable.
  * @evidence contracts/testing.md#execution-ownership The unit owns a temporary project and cache; the build environment runs without a Go tool, the compiler-target cases start two-plus-one ordinary Node source actors with NODE_OPTIONS cleared, and the descriptor locator runs no evaluation.
  */
 export function test_plugin_load_answers_hold_only_while_their_inputs_do(): void {
@@ -136,6 +137,14 @@ export function test_plugin_load_answers_hold_only_while_their_inputs_do(): void
   assert.equal(resolve(), "7.0", "an unchanged binary serves its record");
   fs.appendFileSync(binary, "// rebuilt\n");
   assert.equal(resolve(), "7.1", "new bytes are asked again");
+  const targetEnv = { PATH: process.env.PATH, TTSC_TSGO_BINARY: binary };
+  assert.equal(CompilerTarget.resolve(root, targetEnv, store()), "7.1");
+  fs.writeFileSync(binary, 'process.stdout.write("Version 7.0.0\\n");\n');
+  assert.equal(CompilerTarget.resolve(root, targetEnv, store()), "7.0");
+  fs.writeFileSync(binary, "process.exitCode = 1;\n");
+  assert.equal(CompilerTarget.resolve(root, targetEnv), "7.0");
+  fs.writeFileSync(binary, 'process.stdout.write("Version 7.1.0\\n");\n');
+  assert.equal(CompilerTarget.resolve(root, targetEnv), "7.1");
 
   // 3. Descriptor evaluations under a ttsx run's channels.
   const base = SidecarEnvironment.merge(process.env, {

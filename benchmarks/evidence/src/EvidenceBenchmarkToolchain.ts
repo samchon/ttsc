@@ -19,6 +19,21 @@ import type { ITtscEvidenceBenchmarkWorkspaceArtifact } from "./structures/ITtsc
  * again could agree with itself while disagreeing with what a cell installs.
  */
 export namespace EvidenceBenchmarkToolchain {
+  /** Construct argv for the benchmark runner's JavaScript or standalone pnpm. */
+  export function pnpmInvocation(args: readonly string[]): {
+    binary: string;
+    args: readonly string[];
+  } {
+    const entry = process.env.npm_execpath;
+    if (!entry)
+      throw new Error(
+        "The benchmark command line must be launched through pnpm.",
+      );
+    return /\.[cm]?js$/i.test(entry)
+      ? { binary: process.execPath, args: [entry, ...args] }
+      : { binary: entry, args };
+  }
+
   /**
    * Workspace package directories a launch packs for both arms.
    *
@@ -84,23 +99,15 @@ export namespace EvidenceBenchmarkToolchain {
     directory: string,
     archive: string,
   ): Promise<void> {
-    const entrypoint: string | undefined = process.env.npm_execpath;
-    if (entrypoint === undefined)
-      throw new Error(
-        "The benchmark command line must be launched through pnpm.",
-      );
+    const invocation = pnpmInvocation(["pack", "--out", archive]);
     await new Promise<void>((resolve, reject) => {
-      const child = spawn(
-        process.execPath,
-        [entrypoint, "pack", "--out", archive],
-        {
-          cwd: path.join(repository, ...directory.split("/")),
-          env: process.env,
-          shell: false,
-          windowsHide: true,
-          stdio: "inherit",
-        },
-      );
+      const child = spawn(invocation.binary, invocation.args, {
+        cwd: path.join(repository, ...directory.split("/")),
+        env: process.env,
+        shell: false,
+        windowsHide: true,
+        stdio: "inherit",
+      });
       child.once("error", reject);
       child.once("close", (exitCode, signal) => {
         if (exitCode === 0 && signal === null) resolve();

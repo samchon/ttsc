@@ -6,12 +6,12 @@ import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/Sideca
 /**
  * Environment fingerprint of a Go reading recorded for later processes.
  *
- * By default every variable the Go tool can receive enters the fingerprint,
- * except ttsc's per-run channels and reporting switches. Setting
- * `TTSC_CACHE_IGNORE_GO_LAUNCH_ENV=1` excludes the listed launch variables from
- * recorded Go tool queries. Use it when the Go tool, wrappers and downstream
- * toolchains return the same answers as those variables change. The subprocess
- * receives the caller's environment in either mode.
+ * The fingerprint uses the caller's environment before the launcher assigns
+ * Go's private scratch paths. It excludes ttsc's per-run channels and reporting
+ * switches. Setting `TTSC_CACHE_IGNORE_GO_LAUNCH_ENV=1` excludes the listed
+ * launch variables from recorded Go tool queries. Use it when the Go tool,
+ * wrappers and downstream toolchains return the same answers as those variables
+ * change. The opt-in only changes the cache key.
  *
  * @param env Effective environment of the Go invocation.
  * @returns Hex SHA-256 of the name-ordered variables.

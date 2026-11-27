@@ -12,16 +12,17 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * `transformProjectInMemory`).
  *
  * The host is the `cmd/ttsc` Go entrypoint compiled with `buildSourcePlugin`
- * against the compiler target of the project's TypeScript line. The 7.0 host
- * builds from the ttsc module alone, whose own go.mod replaces the 7.0 shims;
- * the 7.1 host overlays its bridges and facades and carries the 7.1 build tag.
- * The cache key incorporates the ttsc package version and the full `go.mod`
- * contents as supplemental cache tokens. Actual source and selected toolchain
- * identity are established by the owning builder; metadata labels alone do not
- * certify every toolchain upgrade.
+ * against the compiler target of the project's TypeScript line. By default the
+ * 7.0 host builds from the ttsc module alone, whose own go.mod replaces the 7.0
+ * shims; the 7.1 host overlays its bridges and facades and carries the 7.1
+ * build tag. A declared `TTSC_TSGO_SOURCE` adds the project's compiler module
+ * to either target. The cache key incorporates the ttsc package version and the
+ * full `go.mod` contents as supplemental cache tokens. Actual source and
+ * selected toolchain identity are established by the owning builder; metadata
+ * labels alone do not certify every toolchain upgrade.
  *
  * @returns Absolute path to the compiled host executable.
- * @evidence contracts/common.md#principled-implementation The compiler host is the package's cmd/ttsc Go source built by the same source-plugin artifact owner against the project's compiler target, so in-memory compilation checks with the compiler the project's tsc runs; package version and full module text supplement that owner's source and environment identity, and the target's tag and overlays enter it.
+ * @evidence contracts/common.md#principled-implementation The source-plugin artifact owner builds cmd/ttsc against the selected line and its configured compiler source. It keys the target tag and overlay content, with the package version and module text as supplemental inputs.
  * @evidence contracts/common.md#clear-and-simple-design This adapter supplies the host source, cache anchor and version tokens while buildSourcePlugin owns compilation, locking and artifact admission.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Version read fallbacks label unavailable metadata; they do not replace the owning builder's actual source/environment proof or synthesize a binary path.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies the compiler consumers and version-token inputs; separated option members distinguish project cache base, optional override and package source root.

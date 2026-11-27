@@ -12,11 +12,13 @@ import { matchesUniversalHostInputTrees } from "./matchesUniversalHostInputTrees
 import { nativeInputPredicatesHold } from "./nativeInputPredicatesHold";
 import { sameHashes } from "./sameHashes";
 import { sameProjectDirectories } from "./sameProjectDirectories";
+import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
 import { walkSnapshotComplete } from "./walkSnapshotComplete";
 
 /**
- * Prove one generation from its own recorded snapshot, with no help from live
- * notifications.
+ * Prove one generation against its entire recorded snapshot. A verified Vite
+ * delivery can keep exact external-input proof from its healthy host tracker
+ * while it checks the rest of the snapshot directly.
  *
  * This is the fallback for a graph-free envelope and for a generation whose
  * watchers could not be opened or have since failed: losing the notification
@@ -31,7 +33,7 @@ import { walkSnapshotComplete } from "./walkSnapshotComplete";
  * native clock reference before this operation; this validator does not mint a
  * reference itself.
  *
- * @evidence contracts/common.md#principled-implementation Universal authority, declared project membership, content hashes and external physical targets must all match before project/external signatures and directory observations are adopted. Universal entry validators may independently refresh already qualified entry witnesses along the way.
+ * @evidence contracts/common.md#principled-implementation Universal authority, project membership, and external content and targets must all be proven before adoption. A grouped delivery accepts exact external watch coverage only after checking current tracker health and directory location.
  * @evidence contracts/common.md#clear-and-simple-design One complete-proof boundary composes domain validators and adopts aggregate project/external witnesses after combined success, while universal entry qualification stays with its owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed notifications neither prove unchanged state nor force recompilation when direct recorded-state validation can establish the same generation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain lost-notification fallback, membership authority, disk-source comparison and the reason signatures are re-earned.
@@ -40,10 +42,10 @@ import { walkSnapshotComplete } from "./walkSnapshotComplete";
  * @evidence contracts/performance.md#efficient-algorithms Every admission first replays all generation-owned typed config predicates; this mandatory cost includes native queries, file bytes or directory membership independently of watcher/epoch qualification.
  *   Universal entries/probes/tree environments precede a native membership
  *   walk. Declared keys avoid irrelevant byte hashes but do not skip directory
- *   enumeration. Directory/hash comparisons, external spelling and physical
- *   target scans, signature entry materialization/adoption and native identity
- *   work add population/path/digit costs; unresolved content and predicate
- *   replay add bytes/listings. Early rejection skips subsequent domains.
+ *   enumeration. The external scans check exact watch coverage before direct
+ *   metadata, content, and identity work. Costs follow the native paths,
+ *   adopted signatures, and any remaining bytes or listings. Early rejection
+ *   skips subsequent domains.
  * @evidence contracts/performance.md#reuse-equivalent-work Typed config predicates remain mandatory on every delivery. An exact-generation synchronous transaction may share their current replay across nested validators, but no pass or notification shortcut authorizes a later delivery to skip them.  Qualified separable signatures avoid repeated content reads under the caller's refreshed clock. Successful aggregate proof adopts earned project/external signatures and clears unverified flags; it neither clears recorded changes/failed flags nor makes later quiet notifications sufficient without their other admission conditions.
  */
 export function matchesCompleteInputSnapshot(
@@ -115,8 +117,20 @@ export function matchesCompleteInputSnapshot(
   // edge requires editing an in-walk source, and a new global or config file
   // requires a tsconfig or package manifest change, both of which the project
   // walk above already detects.
-  const externalCurrent = matchesCachedExternalInputs(cached);
-  if (!externalCurrent.matches || !matchesExternalInputRealpaths(cached)) {
+  // A loss of project or candidate coverage can require the full comparison
+  // while the independently drained host tracker still proves exact inputs.
+  const provenExternal =
+    proof?.cached === cached &&
+    proof.groupedWatchInputs === true &&
+    proof.locations !== undefined
+      ? (file: string) =>
+          trackerProvesInputUnchanged(cached.hostInputMutationTracker, file)
+      : undefined;
+  const externalCurrent = matchesCachedExternalInputs(cached, provenExternal);
+  if (
+    !externalCurrent.matches ||
+    !matchesExternalInputRealpaths(cached, provenExternal)
+  ) {
     return false;
   }
   adoptProvenSignatures(cached, {

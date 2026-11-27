@@ -25,7 +25,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the authored claimRuntimeProjectDirectory with a declared lock operation that actually executes withRuntimeDirectoryLock, then runs the real default-clean target decision immediately after its first completed transaction. It then asserts the handoff ran, the clean target list is empty, the claimed run directory exists, and it is reachable through the linked project index.
  * @evidence contracts/testing.md#independent-expectations A published live owner must prevent default clean from selecting its index. The literal empty target list, existence and physical reachability are independent fixture observations; neither the claim result nor clean classification supplies an expected snapshot.
- * @evidence contracts/testing.md#distinguishing-cases The project index actually links to an external fixture directory, pinning the create-before-claim race. An intervening clean after the first transaction would select an unclaimed empty index, so the four assertions (handoff ran, no clean targets, run exists, run reachable) distinguish a split publication transaction from an atomic claim. This case does not claim scheduler-level concurrent clean execution.
+ * @evidence contracts/testing.md#distinguishing-cases A link outside the runtime cache is refused without writing to its target. A link inside the cache still exercises the create-before-claim race. The observed clean handoff distinguishes an atomic claim from split publication without claiming scheduler-level concurrency.
  * @evidence contracts/testing.md#execution-ownership This named source unit exercises actual filesystem pinning, process-owned records, runtime lock acquisition/release and cleanup classification in process. Its supplied lock operation delegates to the real lock and performs the observation after release; it patches no compiled export, builds no compiler and launches no worker. Finally relinquishes the live claim under the real lock and removes only the owned fixture.
  */
 export function test_runtime_claim_precedes_clean(): void {
@@ -33,7 +33,8 @@ export function test_runtime_claim_precedes_clean(): void {
   const project = path.join(root, "project");
   const cacheRoot = path.join(root, "cache", "ttsc");
   const runtime = path.join(cacheRoot, "ttsx");
-  const physicalRuns = path.join(root, "external-runs");
+  const physicalRuns = path.join(runtime, "physical-runs");
+  const alias = path.join(runtime, "project");
   TestProject.writeFiles(project, {
     "package.json": JSON.stringify({ private: true }),
     "tsconfig.json": JSON.stringify({
@@ -49,13 +50,32 @@ export function test_runtime_claim_precedes_clean(): void {
   });
   fs.mkdirSync(runtime, { recursive: true });
   fs.mkdirSync(physicalRuns);
+  const pinnedRuntime = fs.realpathSync.native(runtime);
+  fs.symlinkSync(
+    project,
+    alias,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  try {
+    assert.throws(
+      () => claimRuntimeProjectDirectory(pinnedRuntime, runtimeRunKey()),
+      /unsafe run index outside its runtime cache/,
+    );
+    assert.deepEqual(fs.readdirSync(project).sort(), [
+      "package.json",
+      "src",
+      "tsconfig.json",
+    ]);
+  } finally {
+    if (process.platform === "win32") fs.rmdirSync(alias);
+    else fs.unlinkSync(alias);
+  }
   fs.symlinkSync(
     physicalRuns,
-    path.join(runtime, "project"),
+    alias,
     process.platform === "win32" ? "junction" : "dir",
   );
 
-  const pinnedRuntime = fs.realpathSync.native(runtime);
   let claimed: string | undefined;
   let injected = false;
   let cleanTargets: string[] = [];

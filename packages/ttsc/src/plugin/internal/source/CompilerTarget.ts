@@ -22,10 +22,10 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
  * the 7.0 tree over `github.com/microsoft/typescript-go` and the 7.1 bridges
  * and facades over `github.com/microsoft/TypeScript/tsc`. A plugin, the
  * in-memory compiler host and the linked plugin host all build against the
- * target of the project's line, so their checker is the compiler the project's
- * own `tsc` runs. A line newer than every target builds with the newest one,
- * after a warning; a version ttsc cannot read builds with the 7.0 target, which
- * every installation ships.
+ * target of the project's line. The target pins a default compiler revision. A
+ * project can supply compatible Go sources through `TTSC_TSGO_SOURCE`. A newer
+ * line uses the newest target after a warning. An unreadable version uses the
+ * 7.0 target shipped in every installation.
  *
  * @evidence contracts/common.md#principled-implementation The target follows the installed compiler's major.minor line, the unit at which the shim API is audited; a prerelease of a line such as 7.1.0-dev belongs to that line. A newer line falls back to the newest audited target rather than to an unaudited commit.
  * @evidence contracts/common.md#clear-and-simple-design One namespace owns line parsing, version reading and the target's build tag, leaving overlay discovery to SourcePluginWorkspace and builds to buildSourcePlugin.
@@ -114,8 +114,8 @@ export namespace CompilerTarget {
    * @evidence contracts/common.md#meaningful-documentation Native prose states the two version sources and the warning.
    * @evidence contracts/portability.md#os-neutral-implementation resolveTsgo and spawnNative own the native lookup and process launch; the version text is read without shell interpretation.
    * @evidence contracts/performance.md#efficient-algorithms A manifest version costs resolveTsgo's lookup; only a custom binary adds one --version process.
-   * @evidence contracts/performance.md#reuse-equivalent-work Custom-binary versions are remembered per binary path for the process, and with a record store across processes under the binary's content identity, since equal bytes answer `--version` equally; manifest versions are read afresh because projects differ.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The remembered map grows with distinct custom binary paths and the warned set with distinct newer versions, both for the process lifetime; the spawned process is synchronous and released on return.
+   * @evidence contracts/performance.md#reuse-equivalent-work With a record store, a currently proven executable identity reuses its successful --version answer within and across processes. An unproven identity or failed probe supplies no reusable answer. Installed manifest versions are resolved afresh.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The warned set grows with distinct newer versions for the process lifetime. Version records belong to the disk collector, and synchronous native probes release their process on return.
    */
   export function resolve(
     projectRoot: string,
@@ -288,7 +288,6 @@ export namespace CompilerTarget {
   const COMPILER_VERSION = "compiler-version";
 
   const warned = new Set<string>();
-  const customVersions = new Map<string, string>();
 
   function installedVersion(
     projectRoot: string,
@@ -302,8 +301,6 @@ export namespace CompilerTarget {
       return "unknown";
     }
     if (tsgo.version !== "custom") return tsgo.version;
-    const known = customVersions.get(tsgo.binary);
-    if (known !== undefined) return known;
     const before =
       identities === undefined
         ? undefined
@@ -313,10 +310,7 @@ export namespace CompilerTarget {
         tsgo.binary,
         before,
       ]);
-      if (typeof recorded === "string") {
-        customVersions.set(tsgo.binary, recorded);
-        return recorded;
-      }
+      if (typeof recorded === "string") return recorded;
     }
     const result = spawnNative(tsgo.binary, ["--version"], {
       cwd: projectRoot,
@@ -324,7 +318,6 @@ export namespace CompilerTarget {
     });
     const answered = result.error === undefined && result.status === 0;
     const version = answered ? outputText(result.stdout).trim() : "unknown";
-    customVersions.set(tsgo.binary, version);
     // Recorded only for the bytes that answered: unchanged around the run.
     if (
       answered &&

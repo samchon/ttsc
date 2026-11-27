@@ -24,6 +24,7 @@ import { resolveBinary } from "../resolveBinary";
 import { resolveTsgo } from "../resolveTsgo";
 import { runNativeCheckWithObservations } from "../runNativeCheckWithObservations";
 import { BATCH_ENV } from "../sharedHost/BATCH_ENV";
+import { PRIVATE_CONFIG_OVERLAY_ENV } from "../sharedHost/PRIVATE_CONFIG_OVERLAY_ENV";
 import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
 import { TSGO_ARGS_CWD_ENV } from "../sharedHost/TSGO_ARGS_CWD_ENV";
 import { TSGO_ARGS_ENV } from "../sharedHost/TSGO_ARGS_ENV";
@@ -448,6 +449,11 @@ export namespace BuildExecution {
       );
       const checked = runNativeCheckPlugins(buildOptions, execution, timing);
       if (checked.status !== 0) {
+        if (
+          checked.processCompletedNormally === true &&
+          checked.typeScriptDiagnosticsReported === true
+        )
+          return checked;
         return appendTypeScriptDiagnosticsAfterPluginFailure(
           checked,
           buildOptions,
@@ -553,6 +559,18 @@ export namespace BuildExecution {
         stdout: "",
         stderr: "",
       };
+    }
+
+    if (
+      buildOptions.emit === true &&
+      buildOptions.forceEmitProvenance === true &&
+      SidecarEnvironment.read(buildOptions.env, PRIVATE_CONFIG_OVERLAY_ENV) &&
+      isProjectCompiler(execution, buildOptions) &&
+      !PassthroughFlags.forwardsTerminalTsgoFlag(buildOptions)
+    ) {
+      // The CLI only sees the physical wrapper. The selected compiler target
+      // needs its native VFS to read it at the original config's directory.
+      return runSnapshotCompilerBuild(execution, buildOptions);
     }
 
     const args = TsgoArguments.createTsgoBuildArgs(execution, buildOptions, {
@@ -763,7 +781,7 @@ export namespace BuildExecution {
    * can propagate before that result merge. NoEmit prevents compiler emission,
    * not unrelated native/cache effects or incremental metadata writes.
    *
-   * Transform-host sites skip this pass only after the host acknowledges its
+   * Check and transform hosts can skip this pass after acknowledging their
    * complete Program report with this invocation's private token. Error output
    * alone can precede Program loading. The acknowledgement avoids checking a
    * different Program without linked plugins and with each referenced project
@@ -1536,7 +1554,7 @@ export namespace BuildExecution {
     const startedAt = process.hrtime.bigint();
     const env = nativePluginEnv(options.env, execution, plugin, tsgoArgs, true);
     const diagnosticsToken =
-      label === "ttsc.build"
+      label === "ttsc.build" || (label === "ttsc.check" && args[0] === "check")
         ? `ttsc:diagnostics-complete:${randomUUID()}`
         : undefined;
     SidecarEnvironment.write(
@@ -1571,7 +1589,7 @@ export namespace BuildExecution {
     const result =
       diagnosticsToken === undefined
         ? captured
-        : PluginFailureDiagnostics.consumeTransformHostReport(
+        : PluginFailureDiagnostics.consumeHostReport(
             captured,
             diagnosticsToken,
             {

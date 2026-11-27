@@ -238,7 +238,7 @@ func (s *residentCheckState) run(
   engine.SetSerial(opts.singleThreaded)
   engine.SetCurrentDirectory(opts.cwd)
 
-  if s.program == nil || (engine.NeedsTypeChecker() && s.program.checker == nil) {
+  if s.program == nil || (engine.needsStandalone && s.program.checker == nil) {
     if s.program != nil {
       s.close()
       reused = false
@@ -249,7 +249,7 @@ func (s *residentCheckState) run(
       loadProgramOptions{
         forceNoEmit:        true,
         semanticConfigPath: opts.semanticConfigPath,
-        needsRuleChecker:   engine.NeedsTypeChecker(),
+        needsRuleChecker:   engine.needsStandalone,
         singleThreaded:     opts.singleThreaded,
         checkers:           opts.checkers,
         tsgoArgs:           opts.tsgoArgs,

@@ -111,6 +111,14 @@ export async function nativeWatchCorpus(
       { pid, programLoads: loads, programUpdates: updates, reused },
       session.transcript(),
     );
+  const countSamples = (count: number, stage: string): void => {
+    const transcript = session.transcript();
+    assert.equal(
+      samples(transcript).length,
+      count,
+      `Unexpected resident check count after ${stage}.\n${transcript}`,
+    );
+  };
   const cycle = async (count: number) => {
     // The original thirteen semantic stages follow one failed metadata cycle.
     await session.waitForBuilds(count + 1);
@@ -138,26 +146,26 @@ export async function nativeWatchCorpus(
       samples(session.transcript().slice(recoveryBoundary)).length > 0,
       "repairing only the external Go package must start the real resident",
     );
-    assert.equal(samples(session.transcript()).length, 1, session.transcript());
+    countSamples(1, "Go package recovery");
     const pid = samples(session.transcript())[0]!.pid;
     assert.ok(Number.isSafeInteger(pid) && pid > 0 && pid !== process.pid);
     sample(0, pid, 1, 0, false);
     fs.mkdirSync(path.dirname(json), { recursive: true });
     fs.writeFileSync(json, '{"name":"created"}\n');
     await cycle(2);
-    assert.equal(samples(session.transcript()).length, 2);
+    countSamples(2, "JSON creation");
     sample(1, pid, 2, 0, false);
     fs.writeFileSync(json, '{"name":"edited"}\n');
     await cycle(3);
-    assert.equal(samples(session.transcript()).length, 3);
+    countSamples(3, "JSON edit");
     sample(2, pid, 2, 1, true);
     fs.writeFileSync(markdown, "# Revised contract\n");
     await cycle(4);
-    assert.equal(samples(session.transcript()).length, 4);
+    countSamples(4, "Markdown edit");
     sample(3, pid, 2, 1, true);
     fs.unlinkSync(json);
     await cycle(5);
-    assert.equal(samples(session.transcript()).length, 5);
+    countSamples(5, "JSON removal");
     sample(4, pid, 3, 1, false);
     const project = JSON.parse(originals.get(config)!.toString());
     project.compilerOptions.plugins = [

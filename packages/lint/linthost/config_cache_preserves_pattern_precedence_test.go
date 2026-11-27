@@ -19,7 +19,7 @@ import (
 // 2. Load cold, reuse memory, then evict only this entry and reuse disk.
 // 3. Execute each returned config and compare its full fixed file with a literal.
 //
-// @evidence contracts/testing.md#behavioral-verification loadCachedConfigFile evaluates an ordered JSON fixture once and serves memory and disk hits. Each value is folded into a ConfigStore and run through the real string-content engine and fix applier; all three complete files must contain the authored first replacement and unchanged unmatched literal.
+// @evidence contracts/testing.md#behavioral-verification loadCachedConfigFile evaluates an ordered JSON fixture once and serves memory and disk hits. Each value is folded into a ConfigStore and run through the real string-content engine and fix applier. A repository-local TEMP stays absent while subsequent loads share one safe fallback result.
 // @evidence contracts/testing.md#independent-expectations The literal first output follows Unicorn's first matching non-integer pattern policy. Exactly one evaluator call across cold/memory/disk phases follows cache reuse, independently of the cache-key computation used only to evict this test's entry.
 // @evidence contracts/testing.md#distinguishing-cases Cold evaluation contrasts with the unchanged memory hit and the hit after only this entry is removed from memory. The latter must reuse disk without evaluating and preserve option order; each phase also requires an active error rule, exactly one finding/edit and an unchanged nonmatching literal.
 // @evidence contracts/testing.md#execution-ownership This selected Go entry owns three named phases. JSON loading, cache policy, ConfigStore folding, parsing, engine execution and file rewriting occur directly in one Go process; the callback does not execute a config script, install a consumer or start a product host. Cleanup removes only the unique temporary project's cache entry.
@@ -32,11 +32,12 @@ func TestConfigCachePreservesPatternPrecedence(t *testing.T) {
   payload := filepath.Join(root, "payload.json")
   writeFile(t, payload, `{"rules":{"unicorn/string-content":["error",{"patterns":{"foo$":"first","foo":"second"}}]}}`)
   key := configCacheKey("config-value", location, []byte(content))
+  originalCache := configCacheDir(location)
   t.Cleanup(func() {
     configEvalCacheMu.Lock()
     delete(configEvalCache, key)
     configEvalCacheMu.Unlock()
-    if err := os.Remove(filepath.Join(configCacheDir(), key+".json")); err != nil && !os.IsNotExist(err) {
+    if err := os.Remove(filepath.Join(originalCache, key+".json")); err != nil && !os.IsNotExist(err) {
       t.Errorf("remove owned cache entry: %v", err)
     }
   })
@@ -93,4 +94,36 @@ func TestConfigCachePreservesPatternPrecedence(t *testing.T) {
       }
     })
   }
+  t.Run("project TEMP", func(t *testing.T) {
+    forbidden := filepath.Join(root, ".tmp")
+    for _, name := range []string{"TMPDIR", "TEMP", "TMP"} {
+      t.Setenv(name, forbidden)
+    }
+    fallback := configCacheDir(location)
+    expectedCalls := 1
+    if fallback != originalCache {
+      expectedCalls++
+      if fallback != "" {
+        t.Cleanup(func() {
+          if err := os.Remove(filepath.Join(fallback, key+".json")); err != nil && !os.IsNotExist(err) {
+            t.Errorf("remove owned fallback cache entry: %v", err)
+          }
+        })
+      }
+    }
+    configEvalCacheMu.Lock()
+    delete(configEvalCache, key)
+    configEvalCacheMu.Unlock()
+    for range 2 {
+      if _, err := loadCachedConfigFile(location, evaluate); err != nil {
+        t.Fatal(err)
+      }
+    }
+    if calls != expectedCalls {
+      t.Fatalf("want %d total evaluations across both cache locations, got %d", expectedCalls, calls)
+    }
+    if _, err := os.Lstat(forbidden); !os.IsNotExist(err) {
+      t.Fatalf("project-local TEMP appeared or could not be checked: %v", err)
+    }
+  })
 }

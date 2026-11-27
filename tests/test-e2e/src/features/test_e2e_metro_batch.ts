@@ -3373,21 +3373,17 @@ async function runResidentLoaderPool(): Promise<void> {
                 "original OS assertion line 421",
               );
               collectOsAssertion(
-                () => assert.equal(captured.length, expectedArgs.length + 4),
+                () => assert.equal(captured.length, expectedArgs.length + 2),
                 "original OS assertion line 425",
               );
               for (
                 let index = expectedArgs.length;
                 index < captured.length;
-                index += 2
+                ++index
               ) {
                 collectOsAssertion(
-                  () => assert.deepEqual(captured[index]?.args, ["version"]),
-                  "original OS assertion line 427",
-                );
-                collectOsAssertion(
                   () =>
-                    assert.deepEqual(captured[index + 1]?.args.slice(0, 2), [
+                    assert.deepEqual(captured[index]?.args.slice(0, 2), [
                       "env",
                       "-json",
                     ]),
@@ -4664,7 +4660,14 @@ async function runResidentLoaderPool(): Promise<void> {
       const projectRecordFile = turbopack.dependencies[0]!;
       assert.equal(
         path.dirname(projectRecordFile),
-        path.join(workspace.root, ".ttsc", "records"),
+        path.join(
+          workspace.root,
+          "node_modules",
+          ".cache",
+          "ttsc",
+          "unplugin",
+          "records",
+        ),
       );
       const record = JSON.parse(fs.readFileSync(projectRecordFile, "utf8"));
       assert.equal(record.root, fs.realpathSync.native(workspace.root));

@@ -1,6 +1,5 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { EmitOwnershipIndex } from "../../compiler/internal/EmitOwnershipIndex";
@@ -13,6 +12,7 @@ import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffect
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { RuntimeTrash } from "../../internal/RuntimeTrash";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
+import { systemTempOutsideProject } from "../../internal/systemTempOutsideProject";
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
@@ -24,6 +24,7 @@ import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { RuntimeEmitProvenance } from "./runtime/RuntimeEmitProvenance";
 import { claimRuntimeProjectDirectory } from "./runtime/claimRuntimeProjectDirectory";
 import { runtimeRunKey } from "./runtime/runtimeRunKey";
+import { systemRuntimeCachePath } from "./runtime/systemRuntimeCachePath";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { runtimeEmitProfile } from "./runtimeEmitProfile";
@@ -400,8 +401,8 @@ function createProjectContext(
       : path.dirname(cacheDir);
   if (defaultCache?.collected === true)
     SourceBuildCacheLayout.pruneCacheFiles(cacheRoot);
-  // The `project` child can itself be a link. Pin its physical target, sweep
-  // abandoned runs, and publish this run's owner in one locked transaction.
+  // Validate the project index, sweep abandoned runs, and publish this run's
+  // owner in one locked transaction.
   // Clean can never observe a newly selected but still unowned index.
   const processDir = claimRuntimeProjectDirectory(cacheDir, runtimeCacheKey);
   const virtualRoot = path.join(processDir, "fs");
@@ -419,7 +420,10 @@ function createProjectContext(
     cacheDir,
     runtimeCacheKey,
     processDir,
-    pluginCacheDir: explicitCacheDir === undefined ? undefined : cacheDir,
+    pluginCacheDir:
+      explicitCacheDir !== undefined || defaultCache?.systemFallback === true
+        ? cacheDir
+        : undefined,
     runtimeBuildCacheDir:
       options.runtimeCache === false ||
       env.TTSX_DISABLE_CACHE === "1" ||
@@ -692,37 +696,41 @@ function defaultRuntimeCacheDir(
 
   /** The runtime's own directory. */
   runtime: string;
+  systemFallback?: true;
 } {
-  const paths = resolveSourceBuildCachePaths(root, undefined, env);
-  const local = path.join(
-    paths.root,
-    SourceBuildCacheLayout.RUNTIME_CACHE_DIRNAME,
-  );
   try {
+    const paths = resolveSourceBuildCachePaths(root, undefined, env);
+    const local = path.join(
+      paths.root,
+      SourceBuildCacheLayout.RUNTIME_CACHE_DIRNAME,
+    );
     if (!env.TTSC_CACHE_DIR) {
       SourceBuildCacheLayout.markDefaultWorkspaceCacheRoot(paths.root);
     }
-    fs.mkdirSync(local, { recursive: true });
+    const runtime = !env.TTSC_CACHE_DIR
+      ? SourceBuildCacheLayout.canonicalPluginCacheRoot(local)
+      : local;
+    if (env.TTSC_CACHE_DIR) fs.mkdirSync(local, { recursive: true });
     return {
       collected: !env.TTSC_CACHE_DIR,
       root: paths.root,
-      runtime: local,
+      runtime,
     };
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
     if (
       env.TTSC_CACHE_DIR ||
-      (code !== "EACCES" && code !== "EPERM" && code !== "EROFS")
+      !SourceBuildCacheLayout.refusesDefaultPath(error)
     ) {
       throw error;
     }
   }
-  const fallback = path.join(
-    os.tmpdir(),
-    "ttsc-ttsx",
-    crypto.createHash("sha256").update(root).digest("hex").slice(0, 16),
-  );
-  return { collected: false, root: fallback, runtime: fallback };
+  const fallback = systemRuntimeCachePath(root, systemTempOutsideProject(root));
+  return {
+    collected: false,
+    root: fallback,
+    runtime: fallback,
+    systemFallback: true,
+  };
 }
 
 /**

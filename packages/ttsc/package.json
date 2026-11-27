@@ -30,6 +30,10 @@
       "types": "./src/internal/pluginSource.ts",
       "default": "./lib/internal/pluginSource.js"
     },
+    "./internal/system-temp": {
+      "types": "./src/internal/systemTempOutsideProject.ts",
+      "default": "./lib/internal/systemTempOutsideProject.js"
+    },
     "./register": {
       "types": "./src/register.ts",
       "default": "./lib/register.js"
@@ -59,6 +63,10 @@
       "./plugin-source": {
         "types": "./lib/internal/pluginSource.d.ts",
         "default": "./lib/internal/pluginSource.js"
+      },
+      "./internal/system-temp": {
+        "types": "./lib/internal/systemTempOutsideProject.d.ts",
+        "default": "./lib/internal/systemTempOutsideProject.js"
       },
       "./register": {
         "types": "./lib/register.d.ts",
@@ -111,7 +119,10 @@
     "@ttsc/win32-arm64": "workspace:*",
     "fsevents": "^2.3.3"
   },
-  "sideEffects": ["./lib/register.js", "./src/register.ts"],
+  "sideEffects": [
+    "./lib/register.js",
+    "./src/register.ts"
+  ],
   "files": [
     "README.md",
     "cmd",
@@ -127,6 +138,12 @@
     "tools",
     "utility"
   ],
-  "keywords": ["tsgo", "runner", "transformer", "plugin-host", "ttsc"],
+  "keywords": [
+    "tsgo",
+    "runner",
+    "transformer",
+    "plugin-host",
+    "ttsc"
+  ],
   "packageManager": "pnpm@10.6.4"
 }

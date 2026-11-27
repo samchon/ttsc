@@ -1,9 +1,11 @@
+import { PRIVATE_CONFIG_OVERLAY_ENV } from "./PRIVATE_CONFIG_OVERLAY_ENV";
 import { SEMANTIC_CONFIG_PATH_ENV } from "./SEMANTIC_CONFIG_PATH_ENV";
 import { SidecarEnvironment } from "./SidecarEnvironment";
 
 /**
- * Remove an outer wrapper's config owner, retaining only a caller-named value.
- * Native environment-name identity also applies to differently cased names.
+ * Remove an outer wrapper's config owner and private overlay unless this
+ * invocation names them. Native environment-name identity also applies to
+ * differently cased names.
  *
  * @evidence contracts/common.md#principled-implementation Only the caller's explicit channel value establishes this invocation's semantic owner; absence removes inherited authority rather than anchoring a nested build to an unrelated wrapper.
  * @evidence contracts/common.md#clear-and-simple-design This helper owns semantic-config inheritance policy and delegates native name identity to the shared environment boundary.
@@ -19,9 +21,6 @@ export function clearInheritedSemanticConfigPath(
   env: NodeJS.ProcessEnv,
   callerEnv: NodeJS.ProcessEnv | undefined,
 ): void {
-  SidecarEnvironment.write(
-    env,
-    SEMANTIC_CONFIG_PATH_ENV,
-    SidecarEnvironment.read(callerEnv, SEMANTIC_CONFIG_PATH_ENV),
-  );
+  for (const key of [SEMANTIC_CONFIG_PATH_ENV, PRIVATE_CONFIG_OVERLAY_ENV])
+    SidecarEnvironment.write(env, key, SidecarEnvironment.read(callerEnv, key));
 }

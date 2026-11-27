@@ -1,11 +1,16 @@
+import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
-/** Keep a test process's default cache and legacy cleanup paths in its fixture. */
+/** Give each fixture its own legacy home and external system temp directory. */
 export function isolatedCacheEnvironment(root: string): NodeJS.ProcessEnv {
   const home = path.join(root, "clean-process-home");
-  const temporary = path.join(home, "tmp");
-  fs.mkdirSync(temporary, { recursive: true });
+  fs.mkdirSync(home, { recursive: true });
+  let temporary = temporaries.get(root);
+  if (temporary === undefined) {
+    temporary = TestProject.tmpdir("ttsc-clean-process-temp-");
+    temporaries.set(root, temporary);
+  }
   return {
     HOME: home,
     USERPROFILE: home,
@@ -19,3 +24,5 @@ export function isolatedCacheEnvironment(root: string): NodeJS.ProcessEnv {
     GOCACHE: "",
   };
 }
+
+const temporaries = new Map<string, string>();

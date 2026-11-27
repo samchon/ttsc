@@ -26,6 +26,7 @@ import { CompilerArchives } from "../../../utils/src/CompilerArchives";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { prepareEvidenceDependencies } from "../../../utils/src/evidence/prepareEvidenceDependencies";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
+import { pnpmInvocation } from "../internal/pnpmInvocation";
 import { shellQuote } from "../internal/ttsc/internal/source-build";
 
 /**
@@ -615,12 +616,14 @@ export namespace BatchWorkspace {
       ),
     );
     for (const mode of ["root", "index"] as const) {
-      const original = path.join(runtimeFailureStorage, mode + "-original");
-      const victim = path.join(runtimeFailureStorage, mode + "-victim");
       const cache = path.join(runtimeFailureStorage, mode + "-cache");
+      const original = path.join(
+        mode === "index" ? cache : runtimeFailureStorage,
+        mode + "-original",
+      );
+      const victim = path.join(runtimeFailureStorage, mode + "-victim");
       fs.mkdirSync(original, { recursive: true });
       fs.mkdirSync(victim, { recursive: true });
-      if (mode === "index") fs.mkdirSync(cache);
       fs.symlinkSync(
         original,
         mode === "root" ? cache : path.join(cache, "project"),
@@ -745,16 +748,13 @@ export namespace BatchWorkspace {
     const installationOnly = process.argv.includes("--installation");
     const target = `${process.platform}-${process.arch}`;
     const pnpm = (args: string[], cwd: string): void => {
-      execFileSync("pnpm", args, {
+      const invocation = pnpmInvocation(args);
+      E2eProcessTrace.execFileSync(invocation.binary, invocation.args, {
         cwd,
-        shell: process.platform === "win32",
         stdio: "inherit",
+        windowsHide: true,
       });
     };
-    assert.ok(
-      process.env.npm_execpath,
-      "The E2E runner must be launched through pnpm",
-    );
     const compilerDirectories = ["packages/ttsc", `packages/ttsc-${target}`];
     // Runtime layouts mirror root files through hardlinks. Keep immutable
     // archives inside an opaque directory so those links cannot change their
@@ -767,21 +767,31 @@ export namespace BatchWorkspace {
       allocation: root,
       directories: compilerDirectories,
       produce: (directory, archive) =>
-        E2eProcessTrace.execFileSync(
-          process.execPath,
-          [process.env.npm_execpath!, "pack", "--out", archive],
-          {
-            cwd: path.join(TestProject.WORKSPACE_ROOT, directory),
-            stdio: "inherit",
-            windowsHide: true,
-          },
+        pnpm(
+          ["pack", "--out", archive],
+          path.join(TestProject.WORKSPACE_ROOT, directory),
         ),
       retain,
       observe: (event) =>
         console.info("TTSC_COMPILER_ARCHIVE_COST " + JSON.stringify(event)),
     });
-    const authoredManifest = JSON.parse(
+    const { pnpm: authoredSettings, ...authoredManifest } = JSON.parse(
       fs.readFileSync(path.join(root, "package.json"), "utf8"),
+    );
+    const platformArchive = `file:./.compiler-archives/ttsc-${target}.tgz`;
+    fs.writeFileSync(
+      path.join(root, "pnpm-workspace.yaml"),
+      JSON.stringify(
+        {
+          ...authoredSettings,
+          overrides: {
+            ...authoredSettings?.overrides,
+            [`@ttsc/${target}`]: platformArchive,
+          },
+        },
+        null,
+        2,
+      ),
     );
     fs.writeFileSync(
       path.join(root, "package.json"),
@@ -791,7 +801,7 @@ export namespace BatchWorkspace {
         type: "commonjs",
         dependencies: {
           ttsc: "file:./.compiler-archives/ttsc.tgz",
-          [`@ttsc/${target}`]: `file:./.compiler-archives/ttsc-${target}.tgz`,
+          [`@ttsc/${target}`]: platformArchive,
           // The workspace's own TypeScript, so a lane that installs another
           // line, such as the 7.1 E2E lane, tests that line's compiler target.
           typescript: (
@@ -799,13 +809,6 @@ export namespace BatchWorkspace {
               path.join(TestProject.WORKSPACE_ROOT, "package.json"),
             )("typescript/package.json") as { version: string }
           ).version,
-        },
-        pnpm: {
-          ...authoredManifest.pnpm,
-          overrides: {
-            ...authoredManifest.pnpm?.overrides,
-            [`@ttsc/${target}`]: `file:./.compiler-archives/ttsc-${target}.tgz`,
-          },
         },
       }),
     );
@@ -820,15 +823,7 @@ export namespace BatchWorkspace {
       },
       "installation dependencies must preserve the authored descriptor import map",
     );
-    pnpm(
-      [
-        "install",
-        "--ignore-workspace",
-        "--ignore-scripts",
-        "--no-frozen-lockfile",
-      ],
-      root,
-    );
+    pnpm(["install", "--ignore-scripts", "--no-frozen-lockfile"], root);
     const installed = createRequire(path.join(root, "package.json"));
     const sdk = path.dirname(installed.resolve("ttsc/package.json"));
     // Root and nested optional edges must select the same packed candidate.
@@ -1464,8 +1459,14 @@ export namespace BatchWorkspace {
       if (process.platform !== "win32") fs.chmodSync(go, 0o755);
       const invocations = path.join(container, "go-invocations.jsonl");
       const buildTrace = path.join(container, "go-build-actions.jsonl");
+      const projectTemp = path.join(source, ".tmp");
+      fs.mkdirSync(projectTemp);
       const env: NodeJS.ProcessEnv = {
         ...process.env,
+        TEMP: projectTemp,
+        TMP: projectTemp,
+        TMPDIR: projectTemp,
+        GOTMPDIR: projectTemp,
         GOCACHE: "",
         TTSC_CACHE_DIR: "",
         TTSC_GO_CACHE_DIR: "",
@@ -1504,9 +1505,9 @@ export namespace BatchWorkspace {
         }
       };
       assertGoCommandExits();
-      // No changing attempt may populate the compiler memo or replace an
-      // earlier witness. The existing real Go launcher changes its own bytes
-      // during each version query, then returns to ordinary stable operation.
+      // No changing attempt may publish a reusable toolchain reading or replace
+      // an earlier witness. The launcher changes its own bytes during the
+      // environment query that reports GOVERSION, then resumes normal operation.
       for (let reading = 0; reading < 2; reading += 1) {
         const moving = new Map<string, string>();
         pluginBuildEnvironment(
@@ -1520,7 +1521,7 @@ export namespace BatchWorkspace {
         assert.equal(
           PluginBuildEnvironmentWitness.holds(moving),
           false,
-          "a compiler that changes during every version query must remain refused",
+          "a compiler that changes during every environment query must remain refused",
         );
       }
       const recovered = new Map<string, string>();
@@ -1629,6 +1630,17 @@ export namespace BatchWorkspace {
       for (const [index, record] of coldActions.entries()) {
         assert.equal(record.status, 0, record.stderr);
         assert.equal(record.signal, null);
+        const work = /^WORK=(.+)$/m.exec(record.stderr)?.[1]?.trim();
+        assert.ok(
+          work && path.isAbsolute(work),
+          "Go must report its native work directory",
+        );
+        assert.equal(path.basename(path.dirname(work)), "go-build-output");
+        assert.equal(
+          fs.existsSync(work),
+          false,
+          "Go work must be gone after the command",
+        );
         assert.equal(
           changedToolchain(record),
           index !== coldActions.length - 1,
@@ -1640,6 +1652,7 @@ export namespace BatchWorkspace {
           "only the first epoch compiles the unique dependency; retries retain valid Go object reuse",
         );
       }
+      assert.deepEqual(fs.readdirSync(projectTemp), []);
       assert.ok(
         coldActions[0]!.stderr
           .split(/\r?\n/)
@@ -2330,7 +2343,7 @@ export namespace BatchWorkspace {
       });
       epochCase("moving-reader", (cache) => {
         const baseline = countBuilds();
-        // Reuse an actual already-published content key. Version observations
+        // Reuse an actual already-published content key. Environment queries
         // restore both launcher bytes and the independently fixed mtime, so
         // rejecting this read cannot rely on a different content key.
         const binary = epochRequest(expected, { TTSC_GO_CACHE_DIR: "" });
@@ -2367,10 +2380,12 @@ export namespace BatchWorkspace {
           .split(/\r?\n/)
           .slice(before)
           .map((line) => JSON.parse(line) as string[]);
-        assert.equal(
-          observed.filter((args) => args[0] === "version").length,
-          9,
-        );
+        // Three build attempts each query the selected toolchain. The first
+        // may also requery to witness the environment file named by Go.
+        const toolchainQueries = observed.filter(
+          (args) => args[0] === "env" && args.includes("GOVERSION"),
+        ).length;
+        assert.ok(toolchainQueries === 3 || toolchainQueries === 4);
         assert.equal(countBuilds(), baseline);
         assert.deepEqual([...sources], []);
         assert.deepEqual([...environments], []);

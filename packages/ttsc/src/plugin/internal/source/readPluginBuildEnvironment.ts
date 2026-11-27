@@ -13,16 +13,13 @@ import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
  * (`hashPluginBuildEnvironment`), taken from a record a previous process left
  * while everything the recorded reading depended on still holds.
  *
- * A reading runs `go env` and `go version` and walks GOROOT, seconds a load,
- * and every launch is a new process (samchon/ttsc#1852). What a reading depends
- * on is two things. One is the variables the Go tool receives, keyed by
- * `goToolVariables` with its optional launch-environment exclusion. The other
- * is the metadata of every path no variable carries: the Go tool, the file `go
- * env -w` writes, the executables the C toolchain commands name and GOROOT
- * (`PluginBuildEnvironmentWitness`). A process keeps a reading under exactly
- * that proof (`processPluginBuildEnvironment`); the record carries the same
- * proof to the next process (`WitnessedLoadAnswers`). A recorded reading's
- * witness joins the caller's, so a build still compares it after it ran.
+ * A reading runs `go env` and identifies GOROOT. Its record keys the caller's
+ * environment through `goToolVariables`, including its optional exclusion of
+ * launch state. The witness covers the Go executable, Go's environment file,
+ * toolchain selection files, C toolchain executables and GOROOT. This proof is
+ * shared within a process by `processPluginBuildEnvironment` and across
+ * processes by `WitnessedLoadAnswers`. The caller receives the witness so it
+ * can compare the same inputs after a build.
  *
  * @param goBinary The Go tool the build runs, or `undefined` for none.
  * @param directory The directory a build runs `go` in.
@@ -51,6 +48,9 @@ export function readPluginBuildEnvironment(
   currentReadings?: Map<string, string>,
 ): string {
   const identity = [
+    // Older answers have no toolchain-selection witness and may walk a
+    // complete packaged SDK snapshot during validation.
+    2,
     goBinary ?? null,
     path.resolve(directory),
     goToolVariables(env),

@@ -215,7 +215,7 @@ export async function observeColdMcpEof(
       },
     );
     void outcome.catch(() => undefined);
-    const first = await observed.build(row.trace, row.cache, row.goTmp);
+    const first = await observed.build(row.trace, row.cache);
     releaseConfirmed = false;
     const tools = await client.request("tools/list", {});
     assert.ok(tools && typeof tools === "object");
@@ -237,6 +237,7 @@ export async function observeColdMcpEof(
     await observed.retired(first);
     releaseConfirmed = true;
     retiredWork = workSnapshot(row.goTmp);
+    assert.deepEqual(retiredWork, [], "Go must use its owned build directory");
     client.assertNativeChildrenJoined();
     assert.equal(
       client.nativeSpawnCount(),
@@ -421,7 +422,7 @@ export async function observeColdPublicSessionCancellation(
     await observed.ready();
     await progress.wait("ready");
     await ColdGraphActorLifecycle.send(child, "start");
-    const first = await observed.build(row.trace, row.cache, row.goTmp);
+    const first = await observed.build(row.trace, row.cache);
     releaseConfirmed = false;
     await ColdGraphActorLifecycle.send(child, "abort");
     await observed.absent(first);
@@ -435,10 +436,9 @@ export async function observeColdPublicSessionCancellation(
       [],
       "cancelled preparation admitted native graph",
     );
-    const oldWork = new Set(fs.readdirSync(row.goTmp));
     initialPreparation = false;
     await ColdGraphActorLifecycle.send(child, "recover");
-    await observed.build(row.trace, row.cache, row.goTmp, first, oldWork);
+    await observed.build(row.trace, row.cache, first);
     // New preparation runs behind the canceled refresh in the public queue.
     // Native absence alone does not acknowledge the old SDK input lease.
     await observed.retired(first);
@@ -456,6 +456,7 @@ export async function observeColdPublicSessionCancellation(
     assert.deepEqual(await completion, { code: 0, signal: null });
     await observed.joined();
     retiredWork = workSnapshot(row.goTmp);
+    assert.deepEqual(retiredWork, [], "Go must use its owned build directory");
     const receipts = nativeReceipts(nativeReceipt);
     assert.deepEqual(
       receipts

@@ -103,8 +103,10 @@ func TestConfigLoaderIdentityScratchPreservesProjectRoot(t *testing.T) {
       t.Errorf("remove system TEMP scratch: %v", err)
     }
   })
-  if !strings.EqualFold(filepath.Dir(sameVolume), os.TempDir()) {
-    t.Fatalf("independent same-volume TEMP changed default placement: %q", sameVolume)
+  actual, actualErr := os.Stat(filepath.Dir(sameVolume))
+  expected, expectedErr := os.Stat(separateTemp)
+  if actualErr != nil || expectedErr != nil || !os.SameFile(actual, expected) {
+    t.Fatalf("independent same-volume TEMP was not used: %q, %v, %v", sameVolume, actualErr, expectedErr)
   }
   blockedRoot := filepath.Join(root, "blocked-cache")
   if err := os.Mkdir(blockedRoot, 0o755); err != nil {

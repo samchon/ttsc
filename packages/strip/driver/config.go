@@ -502,6 +502,9 @@ declare const process: {
 // see stripConfigToolAnchors. An already-open identity store can hold the
 // loader on a cross-volume TEMP setup without moving the config directory.
 func loadStripTypeScriptConfigFileWithInputs(location, resolutionRoot string) (stripLoadedConfig, error) {
+  if !filepath.IsAbs(location) {
+    return stripLoadedConfig{}, fmt.Errorf("@ttsc/strip: resolve relative config import %s: expected an absolute config path", location)
+  }
   tempDir, err := createStripConfigLoaderTempDir(location, os.TempDir(), os.Getenv("TTSC_NATIVE_PLUGIN_RECORD_ROOT"))
   if err != nil {
     return stripLoadedConfig{}, fmt.Errorf("@ttsc/strip: create config loader tempdir: %w", err)
@@ -589,7 +592,15 @@ func createStripConfigLoaderTempDir(location, systemTemp, recordRoot string) (st
   if preferred == "" || (err != nil &&
     (os.IsPermission(err) || os.IsNotExist(err) ||
       errors.Is(err, syscall.ENOTDIR) || errors.Is(err, syscall.EROFS))) {
-    tempDir, err = os.MkdirTemp(stripLoaderTempBase(location, systemTemp), "ttsc-strip-config-")
+    base := configloaderscratch.SystemTempBase(location, systemTemp)
+    if base == "" {
+      base = stripLoaderTempBase(location, systemTemp)
+    }
+    if base == "" {
+      err = fmt.Errorf("no writable private temporary directory on the volume of %s", location)
+    } else {
+      tempDir, err = os.MkdirTemp(base, "ttsc-strip-config-")
+    }
   }
   return tempDir, err
 }
@@ -715,44 +726,13 @@ func stripLoaderRootDir(outDir string) string {
   return filepath.ToSlash(vol + `\`)
 }
 
-// stripLoaderTempBase picks the parent directory for the ephemeral
-// config-loader tree. The system temp dir is the default, but when it sits on
-// a different volume than the config file (Windows: TEMP on `C:`, project on
-// `D:`) the loader cannot work from there — no single tsconfig rootDir spans
-// two volumes and filepath.Rel cannot produce a relative import across drives
-// (#305) — so the tree is created under the config's nearest
-// node_modules/.cache instead, falling back to the config's own directory
-// when no node_modules exists (or its .cache cannot be created): any location
-// on the config's volume beats the system temp dir, which is guaranteed to
-// fail. Returns "" (the os.MkdirTemp default) when the volumes already match.
+// stripLoaderTempBase selects the existing installation's private cache when the
+// system temporary directory cannot support a same-volume config import.
 func stripLoaderTempBase(location, systemTemp string) string {
-  // A relative location has no volume; "" must not be read as "a volume
-  // other than the system temp's" — it keeps the historical default (and
-  // the Rel-failure contract for relative config paths).
-  vol := filepath.VolumeName(location)
-  if vol == "" || strings.EqualFold(filepath.VolumeName(systemTemp), vol) {
+  if !filepath.IsAbs(location) || configloaderscratch.SystemTempBase(location, systemTemp) != "" {
     return ""
   }
-  nodeModules := stripFindNearestNodeModules(filepath.Dir(location))
-  if nodeModules == "" {
-    return filepath.Dir(location)
-  }
-  // Resolve a linked node_modules (junction/symlink — common in managed
-  // setups) before descending into it: the ESM runtime realpaths the loader
-  // module at import time, and a relative config specifier computed from the
-  // link-form path would resolve against the wrong directory. NTFS junctions
-  // defeat filepath.EvalSymlinks, so the link component is chased by hand
-  // first. Realpathing may also land on another volume, which defeats the
-  // whole point — fall back to the config's directory then.
-  base := filepath.Join(stripResolveDirLink(nodeModules), ".cache")
-  if err := os.MkdirAll(base, 0o755); err != nil {
-    return filepath.Dir(location)
-  }
-  real, err := filepath.EvalSymlinks(base)
-  if err != nil || !strings.EqualFold(filepath.VolumeName(real), filepath.VolumeName(location)) {
-    return filepath.Dir(location)
-  }
-  return real
+  return configloaderscratch.CacheTempBase(location, stripFindNearestNodeModules(filepath.Dir(location)))
 }
 
 // stripResolveDirLink chases a directory that is itself a symlink or NTFS junction

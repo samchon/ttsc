@@ -169,9 +169,8 @@ export function computeCacheKey(inputs: {
   ]);
   // The key frames the environment digest pluginBuildEnvironment reports for
   // this directory. WARNING (#1721): package selection reads that environment
-  // first in the same load; reading it again here doubled `go env` and
-  // `go version` per load. A reading taken through another byte adapter is
-  // not this one's, so only the default adapter shares it.
+  // first in the same load. Share that Go reading through the default byte
+  // adapter only, since a distinct adapter can see different SDK bytes.
   const environmentDirectory = path.resolve(inputs.dir);
   const sharedDigest =
     inputs.filesystem === undefined

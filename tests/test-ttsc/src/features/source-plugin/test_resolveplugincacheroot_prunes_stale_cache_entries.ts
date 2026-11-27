@@ -77,7 +77,10 @@ export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
     fs.writeFileSync(externalMarker, futureMarker, "utf8");
     fs.linkSync(externalMarker, path.join(pluginCache, ".gc-last-run"));
 
-    assert.equal(resolvePluginCacheRoot(root, undefined, {}), pluginCache);
+    assert.equal(
+      resolvePluginCacheRoot(root, undefined, {}),
+      fs.realpathSync.native(pluginCache),
+    );
     assert.equal(fs.existsSync(evictable), false);
     assert.equal(fs.existsSync(stale), true);
     assert.equal(fs.existsSync(fresh), true);

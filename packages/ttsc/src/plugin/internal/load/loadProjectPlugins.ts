@@ -2251,17 +2251,16 @@ ${reason}`);
 
 interface TtsxDescriptorResolutionRecord {
   hash?: string | null;
-  parent?: string;
   realpath?: string | null;
   resolved?: string;
   signature?: string;
-  specifier?: string;
   unstable?: boolean;
 }
 
 /**
- * Expand the ttsx runtime's selected module edges into the same exact and
- * missing resolution inputs used by the direct isolated evaluator.
+ * Read the evaluator's module inputs, including the candidates its resolver
+ * observed before selecting a file. The parent's search paths can differ from
+ * the evaluator's, so only the producer supplies candidates for these edges.
  *
  * The final owned snapshot transfers status independently of the optional
  * NDJSON channel. Records on disk can supplement it, but cannot turn an absent
@@ -2393,18 +2392,6 @@ function readTtsxDescriptorInputs(
         } else {
           hashes.set(resolved, record.hash);
         }
-      }
-    }
-    if (
-      typeof record.specifier === "string" &&
-      typeof record.parent === "string"
-    ) {
-      for (const candidate of collectModuleResolutionCandidates(
-        record.specifier,
-        record.parent,
-        record.resolved,
-      )) {
-        inputs.add(path.resolve(candidate));
       }
     }
   }

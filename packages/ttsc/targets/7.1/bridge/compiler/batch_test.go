@@ -37,6 +37,9 @@ func TestBeginBatchOnceHonorsMarkerAndBeginsAtMostOnce(t *testing.T) {
           t.Fatal(err)
         }
       }
+      if BeginBatchOnceForProgram() != nil {
+        t.Fatalf("inactive batch %q requested eager binding", value)
+      }
       bound := BeginBatchOnce()
       if bound == nil {
         t.Fatalf("BeginBatchOnce(%q) returned nil", value)
@@ -57,7 +60,7 @@ func TestBeginBatchOnceHonorsMarkerAndBeginsAtMostOnce(t *testing.T) {
     t.Setenv(BatchEnv, "1")
 
     first := BeginBatchOnce()
-    second := BeginBatchOnce()
+    second := BeginBatchOnceForProgram()
     if first == nil || second == nil {
       t.Fatalf("BeginBatchOnce returned nil: first=%v second=%v", first != nil, second != nil)
     }
@@ -112,6 +115,9 @@ func TestBeginBatchOnceHonorsMarkerAndBeginsAtMostOnce(t *testing.T) {
     })
     t.Setenv(BatchEnv, "1")
 
+    if BeginBatchOnceForProgram() != nil {
+      t.Fatal("a hook without a callback requested eager binding")
+    }
     bound := BeginBatchOnce()
     if bound == nil {
       t.Fatal("BeginBatchOnce returned nil for nil hook callback")

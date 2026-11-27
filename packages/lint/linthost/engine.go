@@ -13,8 +13,8 @@
 //
 // Rules are stateless across files: each file/rule pair gets a fresh Context
 // and may not retain references to the previous file. This keeps the
-// file walks independent. AST-only rules may run across files in parallel;
-// a shared type checker requires serial execution.
+// file walks independent. A file can use its compiler pool checker while
+// other files run. A checker shared by contributor rules requires a serial walk.
 package linthost
 
 import (
@@ -896,6 +896,9 @@ type Engine struct {
   unknownDirectives  map[string]struct{}
   unknownDirectiveMu sync.Mutex
   needsTypeChecker   bool
+  needsFileChecker   bool
+  needsStandalone    bool
+  hasFileContributor bool
   serial             bool
   projectSettings    map[string]ProjectRuleSetting
   configError        error
@@ -906,9 +909,8 @@ type Engine struct {
 // SetSerial forces Engine.Run to walk files one at a time. The host calls
 // this when `--singleThreaded` reaches the lint sidecar so the benchmark
 // (and any caller that wants a deterministic, low-overhead pass) can opt
-// out of file-level parallelism. Type-aware rule sets always run serial
-// regardless of this flag because their standalone checker is not concurrent,
-// so callers do not need to force serial execution themselves.
+// out of file-level parallelism. Callers using a shared checker get a serial
+// walk independently of this flag.
 //
 // Set this flag before execution; concurrent changes are unsupported.
 //
@@ -1017,12 +1019,12 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
         fmt.Errorf("@ttsc/lint: invalid options for rule %q: rule does not accept options", name),
       )
     }
-    // A project rule shares the engine-wide checker decision with every file
-    // rule, so one that declines the checker must not drag the whole run onto
-    // the serial walk. An unmarked rule keeps the conservative default.
+    // A project rule can query any source through one checker, so it needs
+    // a standalone checker. An unmarked rule keeps the conservative default.
     if setting.Declared && setting.Severity != SeverityOff &&
       projectRuleNeedsTypeChecker(name) {
       eng.needsTypeChecker = true
+      eng.needsStandalone = true
     }
   }
   displaySeverities := config.EnabledRuleConfig()
@@ -1057,8 +1059,12 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
     if _, invalid := invalidRuleOptions[name]; invalid {
       continue
     }
+    _, isContributor := rule.(contributorAdapter)
+    eng.hasFileContributor = eng.hasFileContributor || isContributor
     if ruleNeedsTypeChecker(rule) {
       eng.needsTypeChecker = true
+      eng.needsFileChecker = true
+      eng.needsStandalone = eng.needsStandalone || isContributor
     }
     eng.enabled[name] = displaySeverities.Severity(name)
     // Dedup kinds per rule so a contributor that accidentally lists the
@@ -1172,7 +1178,7 @@ func (e *Engine) recordUnknownDirectiveRule(name string) {
 // A nil receiver reports false. Project and file rules both contribute to
 // the construction-time decision; invalid engines must be rejected first.
 //
-// @evidence contracts/common.md#principled-implementation The stored decision combines active project and file rule capabilities so callers construct the shared checker only when needed.
+// @evidence contracts/common.md#principled-implementation The stored decision combines active project and file rule capabilities so callers know whether rules require a Program with types.
 // @evidence contracts/common.md#clear-and-simple-design The accessor exposes the binding result without repeating capability inspection during file execution.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Checker demand derives from declared rule capabilities rather than a hardcoded family or consumer list.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies both contributors, nil behavior and invalid-engine preconditions before its tags.
@@ -1251,23 +1257,28 @@ func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) 
   if currentDirectory == "" {
     currentDirectory, _ = os.Getwd()
   }
-  fileFindings := e.runFiles(files, checker, cycle.results, currentDirectory)
+  fileFindings := e.runFiles(files, func(file *shimast.SourceFile) []*Finding {
+    return e.runFile(file, checker, nil, cycle.results, currentDirectory)
+  }, e.runsSerial())
   return append(cycle.finalize(), fileFindings...)
 }
 
+// borrowFileChecker returns the Program's checker for a file with an exclusive
+// lease. The walk must release it before another file uses the same checker.
+type borrowFileChecker func(*shimast.SourceFile) (*shimchecker.Checker, func())
+
 func (e *Engine) runFiles(
   files []*shimast.SourceFile,
-  checker *shimchecker.Checker,
-  results publicrule.ProjectResultReader,
-  currentDirectory string,
+  walk func(*shimast.SourceFile) []*Finding,
+  serial bool,
 ) []*Finding {
-  if e.runsSerial() {
+  if serial {
     var findings []*Finding
     for _, file := range files {
       if file == nil {
         continue
       }
-      findings = append(findings, e.runFile(file, checker, results, currentDirectory)...)
+      findings = append(findings, walk(file)...)
     }
     return findings
   }
@@ -1288,7 +1299,7 @@ func (e *Engine) runFiles(
     go func(idx int, f *shimast.SourceFile) {
       defer wg.Done()
       defer func() { <-sem }()
-      perFile[idx] = e.runFile(f, checker, results, currentDirectory)
+      perFile[idx] = walk(f)
     }(i, file)
   }
   wg.Wait()
@@ -1363,6 +1374,7 @@ func (w *lintFileWalker) visitChild(child *shimast.Node) bool {
 func (e *Engine) runFile(
   file *shimast.SourceFile,
   checker *shimchecker.Checker,
+  borrow borrowFileChecker,
   results publicrule.ProjectResultReader,
   currentDirectory string,
 ) []*Finding {
@@ -1375,6 +1387,11 @@ func (e *Engine) runFile(
   fileRules := resolved.Rules
   if !hasEnabledFileRules(fileRules) {
     return collected
+  }
+  if borrow != nil {
+    var release func()
+    checker, release = borrow(file)
+    defer release()
   }
 
   // Bind each active rule to one Context per file. Its source, checker,

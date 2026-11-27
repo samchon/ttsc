@@ -4,10 +4,11 @@ import type { ViteServeInputWatch } from "./ViteServeInputWatch";
 /**
  * Select Vite's compiler-input channel without adding executable import edges.
  *
- * A watching serve delivery binds its readonly input batch to the existing
- * observer's replacement operation and requests membership. A watcherless serve
- * delivery supplies no input hooks. Other commands return undefined so the
- * caller can construct its build-project handoff at its original boundary.
+ * A watching serve delivery binds its input batches to the observer and
+ * requests membership. A capture token permits shared generation registration
+ * when the observer supports it. A watcherless serve delivery supplies no input
+ * hooks. Other commands return undefined so the caller can construct its
+ * build-project handoff at its original boundary.
  *
  * The binding preserves the delivered spelling, precompile sequence token,
  * input batch and failure flag. It does not acquire an observer or certify
@@ -44,15 +45,23 @@ import type { ViteServeInputWatch } from "./ViteServeInputWatch";
 export function createViteServeWatchHooks(
   command: string | undefined,
   watching: boolean,
-  serveInputs: Pick<ViteServeInputWatch, "replace">,
+  serveInputs: Pick<ViteServeInputWatch, "replace" | "replaceGeneration">,
   file: string,
   startedAt: number | undefined,
-): Pick<TtscTransformHooks, "addWatchFiles" | "membership"> | undefined {
+):
+  | Pick<TtscTransformHooks, "addWatchFiles" | "membership" | "watchGeneration">
+  | undefined {
   if (command !== "serve") return undefined;
   if (!watching) return {};
   return {
     addWatchFiles: (inputs, failed) =>
       serveInputs.replace(file, inputs, failed, startedAt),
     membership: true,
+    ...(startedAt === undefined || serveInputs.replaceGeneration === undefined
+      ? {}
+      : {
+          watchGeneration: (...registration) =>
+            serveInputs.replaceGeneration!(file, startedAt, ...registration),
+        }),
   };
 }

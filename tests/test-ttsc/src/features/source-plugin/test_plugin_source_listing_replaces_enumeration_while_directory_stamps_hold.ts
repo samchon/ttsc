@@ -16,14 +16,15 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * directory's stamps move when an entry is created, removed or renamed in it,
  * so while they hold the population is the recorded one and only file metadata
  * remains to compare. Corrupting the recorded digest distinguishes reuse from a
- * fresh reading, and counting directory listings below the module
- * distinguishes a replay from a walk.
+ * fresh reading, and counting directory listings below the module distinguishes
+ * a replay from a walk.
  *
- * 1. Opening stores admits the module's device once its probe moves a directory's
- *    stamps.
+ * 1. Prepare the identity directory, then open a store after the filesystem clock
+ *    has had time to advance. The real probe must move both stamps.
  * 2. A hit records the listing its walk read.
  * 3. A held listing returns the record without listing any directory.
- * 4. A store that has not admitted the device walks, and still reuses by signature.
+ * 4. A store that has not admitted the device walks, and still reuses by
+ *    signature.
  * 5. A file added in a nested directory moves that directory's stamps; the proof
  *    walks and reads the content again.
  * 6. Removing that file and setting the directory's modification time back still
@@ -58,10 +59,11 @@ export function test_plugin_source_listing_replaces_enumeration_while_directory_
     fs.renameSync(`${file}.txt`, file);
   }
   const device = fs.statSync(module, { bigint: true }).dev;
+  const sleeper = new Int32Array(new SharedArrayBuffer(4));
   const settle = (): void => {
     const past = new Date(Date.now() - 3_600_000);
     for (const file of listFiles(module)) fs.utimesSync(file, past, past);
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 30);
+    Atomics.wait(sleeper, 0, 0, 30);
   };
   const open = (): PluginContentIdentities.Store => {
     const store = PluginContentIdentities.open({
@@ -114,10 +116,15 @@ export function test_plugin_source_listing_replaces_enumeration_while_directory_
     }
   };
 
+  // The store can only qualify timestamps on a pre-existing directory. Allow
+  // its creation and the probe writes to land in distinct filesystem ticks.
+  fs.mkdirSync(path.join(cache, "identities"), { recursive: true });
   settle();
   let shown = false;
-  for (let attempt = 0; attempt < 10 && !shown; attempt += 1)
+  for (let attempt = 0; attempt < 10 && !shown; attempt += 1) {
+    if (attempt > 0) Atomics.wait(sleeper, 0, 0, 30);
     shown = open().listings.has(device);
+  }
   assert.ok(shown, "a device that moves directory stamps is admitted");
 
   assert.equal(

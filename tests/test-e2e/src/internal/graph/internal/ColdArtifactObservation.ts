@@ -5,6 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { PluginBuildLockProtocol } from "../../../../../../packages/ttsc/lib/plugin/internal/source/PluginBuildLockProtocol.js";
 import {
   type ObservedProcessReading as ProcessReading,
   updateObservedProcessTree,
@@ -211,9 +212,7 @@ export class ColdArtifactObservation {
   public async build(
     traceRoot: string,
     pluginCache: string,
-    goTmp: string,
     excluded?: BuildAdmission,
-    oldWork: ReadonlySet<string> = new Set(),
   ): Promise<BuildAdmission> {
     let admitted: BuildAdmission | undefined;
     await this.until(() => {
@@ -280,7 +279,13 @@ export class ColdArtifactObservation {
               process.platform,
             ),
         );
-        const work = compilerWork(goTmp, oldWork);
+        const work = compilerWork(
+          path.join(
+            PluginBuildLockProtocol.pluginBuildLockProtocolDir(`${entry}.lock`),
+            PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CURRENT_DIR,
+            PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CAPTURE_DIR,
+          ),
+        );
         if (!go || !work) continue;
         const targetOwner = this.latest.find(
           (row) =>
@@ -592,23 +597,23 @@ function guardRecords(root: string): ObservedGuard[] {
     });
 }
 
-function compilerWork(
-  root: string,
-  oldWork: ReadonlySet<string>,
-): string | undefined {
-  for (const work of fs.readdirSync(root, { withFileTypes: true })) {
-    if (
-      !work.isDirectory() ||
-      !work.name.startsWith("go-build") ||
-      oldWork.has(work.name)
-    )
-      continue;
+function compilerWork(root: string): string | undefined {
+  const entries = (directory: string): fs.Dirent[] => {
+    try {
+      return fs.readdirSync(directory, { withFileTypes: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw error;
+    }
+  };
+  for (const work of entries(root)) {
+    if (!work.isDirectory() || !work.name.startsWith("go-build")) continue;
     const directory = path.join(root, work.name);
-    for (const task of fs.readdirSync(directory, { withFileTypes: true })) {
+    for (const task of entries(directory)) {
       if (!task.isDirectory()) continue;
       for (const name of ["importcfg", "_pkg_.a", "importcfg.link"]) {
         const marker = path.join(directory, task.name, name);
-        if (fs.existsSync(marker) && fs.statSync(marker).size > 0)
+        if ((fs.statSync(marker, { throwIfNoEntry: false })?.size ?? 0) > 0)
           return marker;
       }
     }

@@ -203,7 +203,7 @@ Options go through the rule's `options` object: `{ loader: "@ttsc/unplugin/turbo
 
 During development, compiler failures appear as issues and remain until an input changes. Adapter failures or inputs that keep changing fail the loader request and are retried on the next request. A crashed worker does not block other workers.
 
-The loader registers one project record under Turbopack's `.ttsc` directory. The adapter updates it when compiler inputs change, including workspace packages outside Turbopack's root. You do not need to widen `turbopack.root` for these transform dependencies.
+The loader registers one project record under Turbopack's `node_modules/.cache/ttsc/unplugin` directory. The adapter updates it when compiler inputs change, including workspace packages outside Turbopack's root. You do not need to widen `turbopack.root` for these transform dependencies.
 
 ## Farm
 
@@ -339,11 +339,11 @@ One project compilation supplies every module's transformed output. The adapters
 
 Watching Vite servers track compiler inputs separately from Vite's runtime import graph. Type-only dependencies can trigger HMR without becoming runtime imports. Vite decides whether to preserve component state or reload the page; with `hmr: false`, the adapter requests a full reload.
 
-Other bundlers watch a project record below the host root's `.ttsc/records` directory. It changes when compiler inputs change, including files created or removed while the bundler is stopped. The adapter validates these records before a persistent cache is reused. Each record also identifies the effective compiler arguments and their working directory. Changing inherited arguments or `runExternalCode` invalidates cached modules even when every project file stays unchanged. Records created by older versions require a fresh delivery.
+Other bundlers watch a project record below the host root's `node_modules/.cache/ttsc/unplugin/records` directory. It changes when compiler inputs change, including files created or removed while the bundler is stopped. The adapter validates these records before a persistent cache is reused. Each record also identifies the effective compiler arguments and their working directory. Changing inherited arguments or `runExternalCode` invalidates cached modules even when every project file stays unchanged. Records created by older versions require a fresh delivery.
 
 For webpack and Rspack, include the bundler configuration in cache build dependencies so changing adapter options invalidates cached modules: `cache.buildDependencies.config` for webpack and `cache.buildDependencies` for Rspack.
 
-If the adapter cannot write a project record below the host root, it uses a temporary directory where the bundler permits it. Turbopack and Farm across drives cannot use that fallback. The adapter then reports `TTSC_PROJECT_RECORD_UNWRITABLE`, disables caching where supported, and refuses watching transforms that could become stale. Make the host's `.ttsc` directory writable to restore watching.
+Project records normally live under the host's `node_modules/.cache/ttsc/unplugin`. If that location is unwritable, the adapter can use private system storage where the bundler permits it. A temporary path that points into a project is skipped. Turbopack requires the record within its root. Farm uses a same-volume system temporary directory because its watcher ignores `node_modules`. Without writable record storage, the adapter keeps the module out of persistent caches where the host supports that and refuses watch mode where it cannot track compiler inputs.
 
 ### What the snapshot covers
 

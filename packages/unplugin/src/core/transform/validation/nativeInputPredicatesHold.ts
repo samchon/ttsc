@@ -6,6 +6,7 @@ import { resultFilesystem } from "../cache/resultFilesystem";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { nativeInputPredicateMatches } from "../inputs/nativeInputPredicateMatches";
 import type { TtscGenerationProof } from "./TtscGenerationProof";
+import { matchesRecordedInput } from "./matchesRecordedInput";
 
 // Weakly owned by immutable observation membership, never by current verdict.
 // Keeping this separate from native path derivation also preserves the empty
@@ -16,17 +17,18 @@ const predicateInputs = new WeakMap<
 >();
 
 /**
- * Validate every generation-owned native config predicate before cache reuse.
- * This check also applies when notification/epoch shortcuts admit other inputs.
- * A generation with no native predicates requires no native replay context;
- * existing non-native proof owners still perform their own validation.
+ * Validate generation-owned native config predicates and directly observed
+ * external names before cache reuse. This check also applies when
+ * notification/epoch shortcuts admit other inputs. A generation with neither
+ * source of input requires no native replay context. Other proof owners still
+ * perform their own validation.
  *
- * @evidence contracts/common.md#principled-implementation Every recorded native predicate must match through the generation's original filesystem view. An empty native predicate population contributes no native constraint, without admitting other proof domains or converting an exception into reuse.
+ * @evidence contracts/common.md#principled-implementation Every recorded native predicate and each external name deliberately left to direct validation must match through the generation's filesystem view before reuse.
  * @evidence contracts/common.md#clear-and-simple-design One gate is shared by source, complete-snapshot and universal-input admission; the typed replay owns encodings and native errors.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Metadata and notification shortcuts cannot omit typed config predicates or repair an unstable producer witness.
  * @evidence contracts/common.md#meaningful-documentation The comment identifies generation ownership and the admission shortcuts that must retain this gate.
  * @evidence contracts/portability.md#os-neutral-implementation Relative names are resolved against the recorded project with the filesystem view's path dialect; native identity and encoding belong to the replay operation.
- * @evidence contracts/performance.md#efficient-algorithms Immutable observation membership is indexed once, including an empty population. Each new synchronous admission replays only indexed native predicates and stops at the first refusal; nested validators share its verdict without another scan or native query. Empty populations require no native replay context.
+ * @evidence contracts/performance.md#efficient-algorithms Immutable observation membership is indexed once, including an empty population. Each synchronous admission replays the selected external names and indexed native predicates, stopping at the first refusal. Nested validators share its verdict without another scan or native query.
  * @evidence contracts/performance.md#reuse-equivalent-work A weak observation index shares immutable membership. Current verdicts belong only to an exact-owner synchronous transaction, never the next delivery or an await.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The weak index follows immutable observation lifetime; synchronous verdicts and native queries acquire no handle or history.
  */
@@ -44,6 +46,9 @@ export function nativeInputPredicatesHold(
     if (proof?.cached === cached) proof.nativePredicates = matches;
     return matches;
   };
+  for (const file of cached.directExternalInputs ?? []) {
+    if (!matchesRecordedInput(cached, file)) return finish(false);
+  }
   const observations = cached.result.graph?.inputObservations;
   if (observations === undefined) return finish(true);
   let inputs = predicateInputs.get(observations);

@@ -8,10 +8,11 @@ import { fileURLToPath } from "node:url";
 import { readE2eTracePayload } from "../../readE2eTracePayload";
 
 /**
- * Pins one completed canonical host's explicit runtime index to a sibling
- * physical directory. The caller owns root, has joined earlier hosts, and has
- * not begun using this explicit cache. No new project or launcher is created.
- * This setup does not itself prove runtime start, child admission or cleanup.
+ * Pins one completed canonical host's explicit runtime index to a physical
+ * directory inside the cache. The caller owns root, has joined earlier hosts,
+ * and has not begun using this explicit cache. No new project or launcher is
+ * created. This setup does not itself prove runtime start, child admission or
+ * cleanup.
  *
  * @evidence contracts/common.md#principled-implementation A fresh owned physical directory and a native link establish a different generation parent before the real canonical host claims any run; independently empty initial contents prevent an old generation from supplying the later cleanup observation.
  * @evidence contracts/common.md#clear-and-simple-design Preparation returns only the physical directory needed by the parent after its configured host closes; the parent keeps launcher status and user-output assertions.
@@ -24,7 +25,7 @@ import { readE2eTracePayload } from "../../readE2eTracePayload";
  */
 export function prepareCanonicalLinkedRuntimeIndex(root: string): string {
   const cache = path.join(root, ".ttsx-cache");
-  const physicalRuns = path.join(root, "physical-runs");
+  const physicalRuns = path.join(cache, "physical-runs");
   const link = path.join(cache, "project");
   assert.equal(
     fs.existsSync(link),

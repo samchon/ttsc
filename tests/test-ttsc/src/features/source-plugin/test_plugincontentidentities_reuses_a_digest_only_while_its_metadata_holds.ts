@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
+import { systemTempOutsideProject } from "../../../../../packages/ttsc/src/internal/systemTempOutsideProject";
 import { PluginContentIdentities } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginContentIdentities";
 import { pluginSourceDigest } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceDigest";
 import { TestProject } from "../../../../utils/src/TestProject";
@@ -24,15 +24,14 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 3. Give a file a stamp the reference cannot separate; the record must be neither
  *    trusted nor rewritten.
  * 4. Refuse a store whose root lies inside a plugin source.
- * 5. Mint the temporary-volume reference lazily only when a proof meets a device
- *    absent from the cache root's own references (at most once per store),
- *    never touching `os.tmpdir()` on `open()` alone or same-device proofs, and
- *    reuse one private temporary-volume reference directory across stores.
+ * 5. Acquire a temporary reference only on demand and only on a different device.
+ *    Simulate a second device while checking the probe writes and directory
+ *    reuse against the real filesystem.
  *
  * @evidence contracts/testing.md#behavioral-verification PluginContentIdentities.open, sourceDirectory and separable run against a real module directory and a real cache root; the observable result is the returned digest, the record file on disk, and whether a temporary-volume clock probe is written.
- * @evidence contracts/testing.md#independent-expectations pluginSourceDigest called directly, with no store, is the independent oracle for every fresh reading; the corrupted literal digest is the oracle for a reused record; wrapped fs.writeFileSync counts under the temporary reference directory independently verify lazy once-per-store minting.
+ * @evidence contracts/testing.md#independent-expectations Direct pluginSourceDigest calls are the oracle for fresh readings and the corrupted literal for a reused record. Exclusive probe opens under the temporary reference directory verify once-per-store minting.
  * @evidence contracts/testing.md#distinguishing-cases Unchanged separable metadata reuses; identical-byte rewrite, content edit, addition, rename and deletion reread; an unseparable stamp neither reuses nor records; a cache root inside the source refuses the store; open() alone and same-device proofs never write in os.tmpdir(), while a cross-device proof mints the temporary reference once per store, preserves owned precedence, and reuses the private directory across stores. Executable and GOROOT records share digest and are covered by their own units and the E2E warm-load budget.
- * @evidence contracts/testing.md#execution-ownership The named unit calls the owning source operations directly over a copied package fixture and a private cache root, restoring wrapped fs.writeFileSync in finally; no Go process, native build or product host runs.
+ * @evidence contracts/testing.md#execution-ownership The unit calls the source operations over a copied package fixture and restores the wrapped stat and open operations in finally.
  */
 export function test_plugincontentidentities_reuses_a_digest_only_while_its_metadata_holds(): void {
   const root = TestProject.physicalPath(
@@ -175,39 +174,54 @@ export function test_plugincontentidentities_reuses_a_digest_only_while_its_meta
     () => {
       const uid =
         typeof process.getuid === "function" ? process.getuid() : undefined;
+      const temporary = systemTempOutsideProject(root);
       const directory = path.join(
-        os.tmpdir(),
+        temporary,
         uid === undefined
           ? "ttsc-clock-references"
           : `ttsc-clock-references-${uid}`,
       );
+      const ownedDev = fs.lstatSync(cache, { bigint: true }).dev;
       const countTemporaryProbes = <T>(
         run: () => T,
+        temporaryDev?: bigint,
       ): { probes: string[]; value: T } => {
         const probes: string[] = [];
-        const originalWriteFileSync = fs.writeFileSync;
-        fs.writeFileSync = ((
-          file: fs.PathOrFileDescriptor,
-          data: string | NodeJS.ArrayBufferView,
-          options?: fs.WriteFileOptions,
+        const originalOpenSync = fs.openSync;
+        const originalStatSync = fs.statSync;
+        fs.statSync = ((file: fs.PathLike, options?: fs.StatOptions) => {
+          const stats = originalStatSync(file, options);
+          if (
+            temporaryDev !== undefined &&
+            file === temporary &&
+            options?.bigint
+          )
+            return Object.assign(stats!, { dev: temporaryDev });
+          return stats;
+        }) as typeof fs.statSync;
+        fs.openSync = ((
+          file: fs.PathLike,
+          flags: fs.OpenMode,
+          mode?: fs.Mode,
         ) => {
           if (
             typeof file === "string" &&
+            flags === "wx" &&
             path.dirname(path.resolve(file)) === path.resolve(directory)
           ) {
             probes.push(file);
           }
-          return originalWriteFileSync(file, data, options);
-        }) as typeof fs.writeFileSync;
+          return originalOpenSync(file, flags, mode);
+        }) as typeof fs.openSync;
         try {
           return { probes, value: run() };
         } finally {
-          fs.writeFileSync = originalWriteFileSync;
+          fs.openSync = originalOpenSync;
+          fs.statSync = originalStatSync;
         }
       };
 
       // open() alone and a same-device proof must not touch os.tmpdir().
-      const ownedDev = fs.lstatSync(cache, { bigint: true }).dev;
       const { probes: openProbes, value: firstStore } = countTemporaryProbes(
         () => {
           const store = open();
@@ -238,6 +252,14 @@ export function test_plugincontentidentities_reuses_a_digest_only_while_its_meta
           mtimeNs: 0n,
           ctimeNs: 0n,
         }) as fs.BigIntStats;
+      const { probes: sameDeviceProbes } = countTemporaryProbes(() => {
+        PluginContentIdentities.ensureTemporaryReference(open());
+      }, ownedDev);
+      assert.deepEqual(
+        sameDeviceProbes,
+        [],
+        "a same-device probe adds no authority",
+      );
       const { probes: firstCrossProbes } = countTemporaryProbes(() => {
         PluginContentIdentities.separable(
           firstStore.references,
@@ -247,7 +269,7 @@ export function test_plugincontentidentities_reuses_a_digest_only_while_its_meta
           firstStore.references,
           foreignStats(ownedDev + 2n),
         );
-      });
+      }, ownedDev + 1n);
       assert.equal(
         firstCrossProbes.length,
         1,
@@ -266,7 +288,7 @@ export function test_plugincontentidentities_reuses_a_digest_only_while_its_meta
           secondStore.references,
           foreignStats(ownedDev + 1n),
         );
-      });
+      }, ownedDev + 1n);
       assert.equal(
         secondCrossProbes.length,
         1,
@@ -286,7 +308,7 @@ export function test_plugincontentidentities_reuses_a_digest_only_while_its_meta
           thirdStore.references,
           foreignStats(ownedDev + 1n),
         );
-      });
+      }, ownedDev + 1n);
       assert.equal(
         forcedProbes.length,
         1,

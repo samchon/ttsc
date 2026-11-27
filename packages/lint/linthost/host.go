@@ -30,19 +30,20 @@ import (
   "github.com/microsoft/typescript-go/shim/vfs/osvfs"
 
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
+  "github.com/samchon/ttsc/packages/ttsc/driver/configoverlay"
 )
 
 var programLifecycleSequence atomic.Uint64
 
-var beginBatchOnce = shimcompiler.BeginBatchOnce
+var beginBatchOnce = shimcompiler.BeginBatchOnceForProgram
 
 // semanticConfigPathEnv mirrors `driver.SemanticConfigPathEnv`: the internal
 // channel that identifies the user-authored config behind a generated wrapper.
 // This module cannot import the ttsc driver; see the package boundary above.
 const semanticConfigPathEnv = "TTSC_SEMANTIC_CONFIG_PATH"
 
-// program bundles the tsgo Program with the parsed config and the standalone
-// checker used only by type-aware lint rules.
+// program bundles the tsgo Program with the parsed config and an optional
+// standalone checker for project rules and contributor file rules.
 type program struct {
   cwd           string
   inputObserver *inputObservationFS
@@ -78,8 +79,8 @@ type loadProgramOptions struct {
   forceNoEmit        bool
   outDir             string
   semanticConfigPath string
-  // needsRuleChecker asks loadProgram to create the standalone checker that
-  // type-aware lint rules receive through Context.Checker.
+  // needsRuleChecker asks loadProgram to create a standalone checker for
+  // rules that need one checker spanning the project.
   needsRuleChecker bool
   // singleThreaded mirrors `tsgo --singleThreaded`: one checker, serial
   // parse/check/emit.
@@ -124,6 +125,11 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   if !filepath.IsAbs(resolved) {
     resolved = filepath.Join(cwd, resolved)
   }
+  var fs vfs.FS = bundled.WrapFS(cachedvfs.From(osvfs.FS()))
+  fs, resolved, err := configoverlay.Open(fs, cwd, resolved)
+  if err != nil {
+    return nil, nil, err
+  }
   configFile, ok := shimtspath.TryRootedFilePathFromAbsolute(resolved)
   if !ok {
     return nil, nil, fmt.Errorf("loadProgram: tsconfig path is not absolute: %s", resolved)
@@ -133,7 +139,6 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     return nil, nil, fmt.Errorf("loadProgram: cwd is not absolute: %s", cwd)
   }
 
-  var fs vfs.FS = bundled.WrapFS(cachedvfs.From(osvfs.FS()))
   var observer *inputObservationFS
   var reader *projectInputReader
   if options.observeInputs {
@@ -205,14 +210,9 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     onProgramBound = beginBatchOnce()
   }
 
-  // Keep the user's checker pool intact for parallel semantic diagnostics.
-  // Type-aware lint rules cannot borrow one member of that pool: they walk
-  // every source file through a single Context.Checker, while TypeScript-Go
-  // affinitizes files to different pool members and forbids mixing their type
-  // graphs. Instead, lint owns a standalone checker over the same Program.
-  // Every lint type is then produced by one checker, while the Program's pool
-  // remains free to check its file groups in parallel. The engine serializes
-  // type-aware walks, so this dedicated checker is never accessed concurrently.
+  // Semantic diagnostics and built-in file rules use the Program pool.
+  // The standalone checker lets project rules query multiple files in one
+  // type graph and preserves the checker shared by contributor file rules.
   tsProgram := shimcompiler.NewProgram(shimcompiler.NewProgramOptions(parsed, host, true))
   if tsProgram == nil {
     return nil, nil, errors.New("compiler.NewProgram returned nil")
@@ -441,7 +441,7 @@ func (p *program) runDocumentWriteScopedCycle(engine *Engine, target *shimast.So
   if p.projectCycle == nil {
     p.projectCycle = engine.evaluateProject(p.identity, p.projectSourceFiles(), p.checker, p.projectInputReaders()...)
   }
-  fileFindings := engine.runFiles([]*shimast.SourceFile{target}, p.checker, p.projectCycle.results, p.cwd)
+  fileFindings := p.runFileRules(engine, []*shimast.SourceFile{target})
   return append(p.projectCycle.finalize(), fileFindings...)
 }
 
@@ -460,8 +460,26 @@ func (p *program) runCycleOver(engine *Engine, files []*shimast.SourceFile) []*F
   if p.projectCycle == nil {
     p.projectCycle = engine.evaluateProject(p.identity, files, p.checker, p.projectInputReaders()...)
   }
-  fileFindings := engine.runFiles(files, p.checker, p.projectCycle.results, p.cwd)
+  fileFindings := p.runFileRules(engine, files)
   return append(p.projectCycle.finalize(), fileFindings...)
+}
+
+// runFileRules borrows the same checker that checks each source for semantic
+// diagnostics. The built-in rules consume types within the file walk. With
+// contributor rules and a standalone checker, keep their existing serial
+// walk and shared checker, including access to project-rule results.
+func (p *program) runFileRules(engine *Engine, files []*shimast.SourceFile) []*Finding {
+  var borrow borrowFileChecker
+  if p.tsProgram != nil && engine.needsFileChecker && !(engine.hasFileContributor && engine.needsStandalone) {
+    ctx := context.Background()
+    borrow = func(file *shimast.SourceFile) (*shimchecker.Checker, func()) {
+      return p.tsProgram.GetTypeCheckerForFileExclusive(ctx, file)
+    }
+  }
+  serial := engine.serial || (p.tsProgram != nil && p.tsProgram.SingleThreaded()) || (borrow == nil && engine.needsTypeChecker)
+  return engine.runFiles(files, func(file *shimast.SourceFile) []*Finding {
+    return engine.runFile(file, p.checker, borrow, p.projectCycle.results, p.cwd)
+  }, serial)
 }
 
 // close drops the standalone lint checker and stops the project's
@@ -498,9 +516,8 @@ func (p *program) sourceFileByPath(absPath string) *shimast.SourceFile {
 
 // applyChange incrementally updates the resident Program for one changed file:
 // tsgo re-parses only that file and reuses every other file's AST, and the
-// standalone lint checker is rebuilt over the new Program. It mirrors
-// driver.Session.Apply, adapted to lint's standalone serial checker (lint cannot
-// borrow tsgo's pooled checker — see loadProgram). The caller has already
+// optional standalone lint checker is rebuilt over the new Program. File
+// checker leases always come from the current Program. The caller has already
 // confirmed absPath is a known source file; a config edit or a new/removed file
 // is handled by a full reload upstream, not here. tsgo returns a rebuilt Program
 // when the edit reshaped the import graph, and that rebuilt Program is still

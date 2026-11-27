@@ -347,7 +347,7 @@ var (
   batchMu           sync.Mutex
   batchStarted      bool
   batchProgramBound func()
-  batchHook         = beginBatch
+  batchHook         = beginBatchForProgram
 )
 
 // BeginBatch starts the compiler source's batch-compilation runtime policy
@@ -375,13 +375,13 @@ func BeginBatch() (programBound func(), end func()) {
 // Program with BindSourceFiles, and call the returned programBound function
 // before checking or diagnostics.
 //
-// The hook's end callback is not called because the marker states the process
-// ends with its batch. When TTSC_BATCH is not "1", BeginBatchOnce does nothing
-// and returns a no-op function so callers need no nil check. Resident hosts
-// (serve, check-serve, LSP and driver.Session) must not call BeginBatchOnce.
+// The hook's end callback is not called because the process ends with its
+// batch. Inactive hooks return a callable no-op. Hosts that want to bind only
+// for an active hook use BeginBatchOnceForProgram. Resident hosts do not start
+// either entry point.
 //
-// @evidence contracts/common.md#principled-implementation Checks BatchEnv for exact "1" and synchronizes a single process-wide call to the compiler's batch hook under batchMu, returning the hook's programBound callback or a non-nil no-op when inactive so every one-shot host shares one policy without nil checks.
-// @evidence contracts/common.md#clear-and-simple-design One neutral gate in the compiler shim serves driver.LoadProgram, linthost and any third-party host building its own Program without duplicating marker checks or mutex state above the shim.
+// @evidence contracts/common.md#principled-implementation Returns the active callback from BeginBatchOnceForProgram or the public callable no-op.
+// @evidence contracts/common.md#clear-and-simple-design The companion operation owns activation and synchronization for both calling contracts.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Performs no runtime tuning of its own; delegates solely to the linked compiler's batch hook when TTSC_BATCH=1 and leaves untagged or unmarked processes untouched.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state who calls BeginBatchOnce, the pre-create and post-bind/pre-check ordering, why end is not called, the no-op return without the marker and that resident hosts must not call it.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Reads one process environment variable via os.Getenv and invokes in-process Go callbacks with no filesystem, path or subprocess operation.
@@ -389,16 +389,31 @@ func BeginBatch() (programBound func(), end func()) {
 // @evidence contracts/performance.md#reuse-equivalent-work Process-wide batchStarted ensures the compiler's batch hook runs at most once across all one-shot hosts in the same process, reusing its programBound callback for subsequent batch loads.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Stores one process-lifetime callback reference when activated; the marker states the process ends with its batch, so end is never invoked and no handle is acquired.
 func BeginBatchOnce() (programBound func()) {
+  if bound := BeginBatchOnceForProgram(); bound != nil {
+    return bound
+  }
+  return noopBatchBound
+}
+
+// BeginBatchOnceForProgram returns a post-bind callback only when a compiler
+// hook needs it. Call it before Program creation and bind the Program before
+// invoking a non-nil callback.
+//
+// @evidence contracts/common.md#principled-implementation An exact batch marker gates one synchronized call to the build-selected hook, whose nullable callback authorizes explicit binding.
+// @evidence contracts/common.md#clear-and-simple-design Both batch entry points share this activation and one process-wide callback.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Inactive and untagged compilers leave the normal binder schedule intact.
+// @evidence contracts/common.md#meaningful-documentation The comment states when the nullable callback is acquired and used.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The gate reads one shared process environment name and invokes an in-process callback.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One environment lookup and at most one constant-time mutex-protected check per call.
+// @evidence contracts/performance.md#reuse-equivalent-work The callback returned by the one attempted batch hook is shared by later loads.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources One nullable callback is kept for the life of the one-shot process and no handle is acquired.
+func BeginBatchOnceForProgram() func() {
   if os.Getenv(BatchEnv) != "1" {
-    return noopBatchBound
+    return nil
   }
   batchMu.Lock()
   if !batchStarted {
-    bound, _ := batchHook()
-    if bound == nil {
-      bound = noopBatchBound
-    }
-    batchProgramBound = bound
+    batchProgramBound, _ = batchHook()
     batchStarted = true
   }
   bound := batchProgramBound

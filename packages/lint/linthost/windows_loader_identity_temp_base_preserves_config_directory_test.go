@@ -147,9 +147,8 @@ func TestWindowsLoaderIdentityTempBasePreservesConfigDirectory(t *testing.T) {
   if got := loaderIdentityTempBase(config, otherVolumeTemp, blockedRoot); got != "" {
     t.Fatalf("blocked identity child unexpectedly selected cache: %q", got)
   }
-  if fallback := loaderTempBase(config, otherVolumeTemp); fallback == "" ||
-    !strings.EqualFold(filepath.VolumeName(fallback), filepath.VolumeName(config)) {
-    t.Fatalf("blocked identity fallback left config volume: %q", fallback)
+  if fallback := loaderTempBase(config, otherVolumeTemp); fallback != "" {
+    t.Fatalf("blocked identities must never fall back beside the config: %q", fallback)
   }
   if err := os.Mkdir(filepath.Join(identity, "nested"), 0o755); err != nil {
     t.Fatal(err)

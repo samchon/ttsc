@@ -17,7 +17,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    then assert scratch creation and removal leave project metadata
  *    unchanged.
  * 3. Contrast available, blocked, linked and initially absent nearest cache
- *    directories without record authority, and reject an identities junction.
+ *    directories. Unusable caches may yield to external temp or fail before any
+ *    write beside the config.
  * 4. Compare the canonical system-temp volume with the config's lexical volume
  *    through junctions in either direction, checking the actual scratch
  *    parent.
@@ -27,7 +28,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    independent evaluator retains the historical system temp.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the real scratch allocator, checks native physical parents and ancestor metadata around creation and removal, and asserts each accepted owner has no temporary child afterward.
- * @evidence contracts/testing.md#independent-expectations Independently created ordinary, blocked, absent and linked cache entries define literal expected parents; native bigint project timestamps must stay fixed while entries change only below the preexisting identities child.
+ * @evidence contracts/testing.md#independent-expectations Independently created cache entries define expected parents or safe refusal without project scratch. Native bigint project timestamps must stay fixed while entries change only below the preexisting identities child.
  * @evidence contracts/testing.md#distinguishing-cases Preexisting identities, absent record authority, descriptor-load versus independent strict-ancestor temp, identity and cache junctions, inside-project system temp, and each physical-temp/lexical-config volume relationship distinguish accepted same-volume storage from a cross-volume fallback.
  * @evidence contracts/testing.md#execution-ownership This Windows-specific source unit calls only the allocator over TestProject-owned temporary directories; it starts no compiler, evaluator, native plugin, or product host. A missing second writable volume omits only the physical cross-volume link cases.
  */
@@ -97,6 +98,34 @@ export function test_lint_config_loader_uses_preexisting_cache_directory(): void
       else process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD = previous;
     }
   };
+  const expectExternalOrRefusal = (
+    systemTemp: string,
+    recordRoot: string,
+  ): void => {
+    const before = fs.readdirSync(project);
+    let directory: string | undefined;
+    try {
+      directory = allocate(config, systemTemp, recordRoot);
+    } catch (error) {
+      assert.match(String(error), /no writable temporary directory on/);
+    }
+    if (directory !== undefined) {
+      try {
+        const relative = path.relative(
+          fs.realpathSync.native(project),
+          directory,
+        );
+        assert.ok(
+          path.isAbsolute(relative) ||
+            relative === ".." ||
+            relative.startsWith(`..${path.sep}`),
+        );
+      } finally {
+        fs.rmdirSync(directory);
+      }
+    }
+    assert.deepEqual(fs.readdirSync(project), before);
+  };
 
   const before = fs.statSync(project, { bigint: true });
   expectParent(otherVolumeTemp, project, identities);
@@ -148,12 +177,12 @@ export function test_lint_config_loader_uses_preexisting_cache_directory(): void
     fs.rmdirSync(externalConfigDir);
   }
 
-  expectParent(otherVolumeTemp, "", project);
+  expectExternalOrRefusal(otherVolumeTemp, "");
 
   fs.rmdirSync(identities);
   fs.symlinkSync(project, identities, "junction");
   try {
-    expectParent(otherVolumeTemp, project, project);
+    expectExternalOrRefusal(otherVolumeTemp, project);
   } finally {
     fs.unlinkSync(identities);
   }
@@ -202,7 +231,7 @@ export function test_lint_config_loader_uses_preexisting_cache_directory(): void
     fs.rmdirSync(cache);
     fs.symlinkSync(physicalOtherVolume, cache, "junction");
     try {
-      expectParent(otherVolumeTemp, "", project);
+      expectExternalOrRefusal(otherVolumeTemp, "");
     } finally {
       fs.unlinkSync(cache);
     }

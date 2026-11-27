@@ -10,7 +10,6 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { EmitOwnershipIndex } from "../../../compiler/internal/EmitOwnershipIndex";
-import type { RuntimeBuildCache } from "../../../compiler/internal/build/RuntimeBuildCache";
 import type { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { E2ETrace } from "../../../internal/E2ETrace";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
@@ -1509,7 +1508,7 @@ function emitCommonJsForNameScan(real: string): string | null {
  * (`dependencyCacheRoot`), which is removed with the evaluation or the process
  * that made them.
  */
-function orphanCacheRoot(): string {
+function orphanCacheRoot(filename: string): string {
   const { RuntimeManifestRegistry, dependencyCacheRoot } = runtimeBuildPath();
   const owner = RuntimeManifestRegistry.runtimeManifests().find(
     (candidate) =>
@@ -1518,7 +1517,10 @@ function orphanCacheRoot(): string {
   );
   return owner !== undefined
     ? owner.orphanCacheDir!
-    : path.join(dependencyCacheRoot(), "orphan");
+    : path.join(
+        dependencyCacheRoot(process.env, path.dirname(filename)),
+        "orphan",
+      );
 }
 
 /**
@@ -1665,7 +1667,7 @@ function orphanCacheFile(
     .slice(0, 32);
   return {
     compiler,
-    file: path.join(orphanCacheRoot(), `${key}.js`),
+    file: path.join(orphanCacheRoot(filename), `${key}.js`),
     signature,
     source,
   };
@@ -2100,7 +2102,10 @@ function buildRoot(
       checked: rootIsChecked(source),
       emitDir,
       key: `${process.pid}-${generation}`,
-      options: { plugins },
+      options: {
+        plugins,
+        cacheDir: dependencyCompilerCache(project.root, cacheDir),
+      },
       projectRoot: project.root,
       role: "root",
       source,
@@ -2322,7 +2327,7 @@ function dependencyCachePaths(
     compilerIdentity: compilerProof ?? crypto.randomUUID(),
     plugins,
   });
-  const root = dependencyCacheRoot();
+  const root = dependencyCacheRoot(process.env, path.dirname(tsconfig));
   return {
     cacheDir: path.join(root, key),
     lockDir: path.join(root, `${key}.lock`),
@@ -2331,6 +2336,29 @@ function dependencyCachePaths(
     plugins,
     root,
   };
+}
+
+/**
+ * Keep the normal compiler cache when available. A refused default gets storage
+ * owned by this runtime dependency build.
+ */
+function dependencyCompilerCache(
+  projectRoot: string,
+  runCache: string,
+): string | undefined {
+  const {
+    SidecarEnvironment,
+    SourceBuildCacheLayout,
+    resolveSourceBuildCachePaths,
+  } = runtimeBuildPath();
+  if (SidecarEnvironment.read(process.env, "TTSC_CACHE_DIR")) return undefined;
+  try {
+    resolveSourceBuildCachePaths(projectRoot);
+    return undefined;
+  } catch (error) {
+    if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
+    return path.join(runCache, "compiler");
+  }
 }
 
 /** A runtime build may publish only under the compiler content that keyed it. */
@@ -2382,6 +2410,7 @@ function buildDependency(
     runtimeCompilerArgs,
   } = runtimeBuildPath();
   const project = readPluginDescriptorProjectConfig(tsconfig);
+  const compilerCacheDir = dependencyCompilerCache(project.root, cacheDir);
   const generation = DependencyBuildGeneration.newDependencyGeneration();
   const emitDir = DependencyBuildGeneration.dependencyGenerationDir(
     cacheDir,
@@ -2392,6 +2421,7 @@ function buildDependency(
     fs.mkdirSync(emitDir, { recursive: true });
     const result = runBuild({
       cwd: project.root,
+      cacheDir: compilerCacheDir,
       bundleRuntimeOutputs: true,
       runtimeCacheDir:
         process.env.TTSX_DISABLE_CACHE === "1" ||
@@ -2399,6 +2429,7 @@ function buildDependency(
           ? undefined
           : path.join(
               runtimeRecordStore()?.root ??
+                compilerCacheDir ??
                 resolveSourceBuildCachePaths(project.root).root,
               SourceBuildCacheLayout.RUNTIME_BUILD_CACHE_DIRNAME,
             ),
@@ -2461,7 +2492,7 @@ function buildDependency(
       tsconfig,
       // Storing the build would read its outputs back while the program
       // waits for this module (samchon/ttsc#1859); it is left to the launcher.
-      deferRuntimePublication: deferDependencyPublication(),
+      runtimePublicationRunDir: dependencyPublicationRunDir(),
     });
     // Success is "the project wrote JavaScript", not the exit status: the build is
     // emit-only, so diagnostics do not fail it, and a native transform host
@@ -2540,23 +2571,11 @@ function buildDependency(
 }
 
 /**
- * Hand this process's dependency publications to the launcher of its run, or
- * undefined to publish them in place when no launcher owns the run.
- *
- * A dependency build is reached while a module loads, and storing it reads
- * every output back and replays its proof before that module can run. Other
- * processes of the run may read the same outputs, so this process cannot move
- * them either. It writes a request into the run's `parks` directory at once;
- * the launcher parks each one when no process of the run remains, and the next
- * run that needs the build takes it from the store. The request is written
- * before the build serves anything, not when this process exits, because a
- * process can end without exiting: a prebuild worker the launcher stops is
- * terminated, and a build it had adopted from the store would otherwise leave
- * with its run.
+ * Identify the launcher-owned directory that can keep this process's builds
+ * after every reader has stopped. With no launcher or during descriptor
+ * loading, the cache publishes in place.
  */
-function deferDependencyPublication():
-  | ((publication: RuntimeBuildCache.Publication) => void)
-  | undefined {
+function dependencyPublicationRunDir(): string | undefined {
   const runDir = process.env.TTSX_RUNTIME_RUN_DIR;
   if (
     runDir === undefined ||
@@ -2564,23 +2583,7 @@ function deferDependencyPublication():
     process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
   )
     return undefined;
-  return (publication) => {
-    const request = publication.request();
-    if (request === undefined) return;
-    try {
-      const parks = path.join(
-        runDir,
-        runtimeBuildPath().RuntimeBuildCache.PARKS_DIRNAME,
-      );
-      const file = path.join(parks, `${process.pid}-${crypto.randomUUID()}`);
-      fs.mkdirSync(parks, { recursive: true });
-      // Renamed into place, so the launcher never reads a torn request.
-      fs.writeFileSync(file + ".tmp", JSON.stringify(request));
-      fs.renameSync(file + ".tmp", file + ".json");
-    } catch {
-      // The outputs go with the run; the next run builds again.
-    }
-  };
+  return runDir;
 }
 
 /**

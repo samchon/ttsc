@@ -17,19 +17,15 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * Its `config` hook can turn the cache off for the whole compile, measured on
  * Farm 1.7.11, and the adapter does so exactly when no record can exist.
  *
- * 1. Configure a root the adapter can write below, and assert the configuration
- *    comes back unchanged.
- * 2. Configure one with a file standing where `.ttsc` would be, while a temporary
- *    directory of the test's own holds the fallback, and assert it comes back
- *    unchanged, since the records live in the fallback.
- * 3. Configure another such root while no fallback can be established either, and
- *    assert the cache is turned off, a configuration that turned it off is
- *    kept, and one warning names the directory.
+ * 1. Configure a root with a same-volume fallback and verify the option stays
+ *    enabled without writing into the project.
+ * 2. Block a different root's actual fallback path with a file. Verify the cache
+ *    turns off, stays off and warns once.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls farmPersistentCacheWithoutRecords and fallbackToolDirectory; asserts writable local and fallback records preserve configuration, unusable local and fallback storage disable caching, an already disabled cache stays disabled, and one warning names the root.
+ * @evidence contracts/testing.md#behavioral-verification Calls farmPersistentCacheWithoutRecords and fallbackToolDirectory; asserts the same-volume record directory preserves caching without touching the project, unavailable temporary storage disables caching, an already disabled cache stays disabled, and one warning names the root.
  * @evidence contracts/testing.md#independent-expectations A host cache cannot validate output without a writable project record. Exact preserved configuration and persistentCache false are independent consequences of that storage contract; no Farm host is launched.
- * @evidence contracts/testing.md#distinguishing-cases Owns local success, fallback success, total failure and repeated failure with warning deduplication. TEMP/TMP/TMPDIR and the warning listener are restored in finally; native Farm restart delivery remains separate.
- * @evidence contracts/testing.md#execution-ownership Unit test: test_farm_turns_its_persistent_cache_off_without_records calls the real farmPersistentCacheWithoutRecords and fallbackToolDirectory over real temporary roots (one writable, two with a file where .ttsc belongs) while pointing TEMP/TMP/TMPDIR at its own directory. No Farm host starts; the process warning listener and environment variables are restored in finally.
+ * @evidence contracts/testing.md#distinguishing-cases Covers an available fallback, a file blocking the selected fallback and repeated failure with warning deduplication.
+ * @evidence contracts/testing.md#execution-ownership The unit uses real project and temporary roots and restores TEMP, TMP, TMPDIR and the warning listener in finally. No Farm host starts.
  */
 export async function test_farm_turns_its_persistent_cache_off_without_records(): Promise<void> {
   const writable = TestProject.tmpdir("ttsc-unplugin-farm-writable-");
@@ -37,15 +33,11 @@ export async function test_farm_turns_its_persistent_cache_off_without_records()
   assert.deepEqual(
     farmPersistentCacheWithoutRecords({ ...config, root: writable }, "/"),
     { ...config, root: writable },
-    "records below the root",
+    "the host can use its same-volume record directory",
   );
+  assert.deepEqual(fs.readdirSync(writable), []);
 
-  const blocked = () => {
-    const root = TestProject.tmpdir("ttsc-unplugin-farm-blocked-");
-    fs.writeFileSync(path.join(root, ".ttsc"), "");
-    return root;
-  };
-  const withFallback = blocked();
+  const withFallback = TestProject.tmpdir("ttsc-unplugin-farm-fallback-");
   const warnings: Error[] = [];
   const listen = (warning: Error & { code?: string }) => {
     if (warning.code === "TTSC_PROJECT_RECORD_UNWRITABLE")
@@ -55,11 +47,7 @@ export async function test_farm_turns_its_persistent_cache_off_without_records()
   // fallback it probes is removed with it.
   const saved = ["TEMP", "TMP", "TMPDIR"].map((key) => [key, process.env[key]]);
   const temporary = TestProject.tmpdir("ttsc-unplugin-farm-tmp-");
-  // No user directory can be established below a temporary directory that is
-  // a file.
-  const unusable = path.join(temporary, "file");
-  fs.writeFileSync(unusable, "");
-  const nowhere = blocked();
+  const nowhere = TestProject.tmpdir("ttsc-unplugin-farm-blocked-");
   process.on("warning", listen);
   try {
     for (const [key] of saved) process.env[key!] = temporary;
@@ -70,7 +58,17 @@ export async function test_farm_turns_its_persistent_cache_off_without_records()
       "records in the fallback",
     );
 
-    for (const [key] of saved) process.env[key!] = unusable;
+    const unusable = fallbackToolDirectory(nowhere);
+    assert.ok(unusable);
+    const relative = path.relative(
+      TestProject.physicalPath(temporary),
+      unusable,
+    );
+    assert.ok(
+      relative && !path.isAbsolute(relative) && !relative.startsWith(".."),
+    );
+    fs.mkdirSync(path.dirname(unusable), { mode: 0o700, recursive: true });
+    fs.writeFileSync(unusable, "");
     const off = farmPersistentCacheWithoutRecords(
       { ...config, root: nowhere },
       "/",
@@ -87,10 +85,7 @@ export async function test_farm_turns_its_persistent_cache_off_without_records()
     farmPersistentCacheWithoutRecords({ ...config, root: nowhere }, "/");
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(warnings.length, 1, "warned once");
-    assert.ok(
-      warnings[0]!.message.includes(path.join(nowhere, ".ttsc")),
-      warnings[0]!.message,
-    );
+    assert.ok(warnings[0]!.message.includes(nowhere), warnings[0]!.message);
   } finally {
     for (const [key, value] of saved) {
       if (value === undefined) delete process.env[key!];

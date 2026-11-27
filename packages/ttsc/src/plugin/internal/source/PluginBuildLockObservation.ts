@@ -35,6 +35,9 @@ export type PluginBuildLockObservation =
 
       /** The captured identity; a timeout alone cannot authorize retirement. */
       fence: PluginBuildLockFence;
+
+      /** Bytes observed in the current owner's Go build stderr capture. */
+      outputBytes?: number;
     }
   | {
       state: "abandoned";

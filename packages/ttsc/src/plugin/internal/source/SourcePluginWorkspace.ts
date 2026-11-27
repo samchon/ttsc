@@ -1,11 +1,11 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
+import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
 import { realPath } from "../../../launcher/internal/runtime/realPath";
 import type { CompilerTarget } from "./CompilerTarget";
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
@@ -403,11 +403,12 @@ export namespace SourcePluginWorkspace {
             launcher?.isFile() === true
               ? GoEnvironmentReading.recorded(
                   goBinary,
-                  os.tmpdir(),
+                  systemTempOutsideProject(resolved),
                   environment,
                   ["GOROOT"],
                   witness,
                   identities,
+                  resolved,
                 )
               : undefined;
           if (
@@ -518,12 +519,13 @@ export namespace SourcePluginWorkspace {
     // source mirrors its absolute path below the build's scratch directory, and
     // Windows refuses a working directory longer than MAX_PATH even where every
     // path the build itself opens is fine.
-    const cwd = os.tmpdir();
+    const cwd = systemTempOutsideProject(dir);
     const result = spawnGoTool(
       goBinary,
       ["mod", "edit", "-json", path.join(dir, "go.mod")],
       {
         cwd,
+        projectRoot: dir,
         encoding: "utf8",
         env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
         windowsHide: true,

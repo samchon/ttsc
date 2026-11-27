@@ -2,6 +2,7 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 /**
@@ -22,15 +23,19 @@ import path from "node:path";
  * 2. Check the project with the installed CLI in each; the probe records
  *    `core.Version()` of the compiler it was linked against.
  * 3. Require the two versions, two cache entries, and a second check of each that
- *    rebuilds nothing.
- * 4. Return both projects, which the installed graph case graphs.
+ *    rebuilds nothing. Check that the installed SDK answer witnesses package
+ *    identity without requiring metadata from every SDK file.
+ * 4. Load a descriptor under a different resolver environment and verify its warm
+ *    evaluation and invalidation when a real nearer candidate appears.
+ * 5. Supply conflicting compiler executables to the installed transform API. The
+ *    declared Go module is refused by the line of the explicit executable.
  *
- * @evidence contracts/testing.md#behavioral-verification The installed ttsc CLI checks each project; the probe's recorded compiler version, the plugin cache entries and the absence of a build notice on the second run are the observed results.
+ * @evidence contracts/testing.md#behavioral-verification The installed ttsc CLI checks each project; the probe's compiler version, plugin cache entries, absence of a second build and bounded SDK dependencies are observed. An installed loader reuses a descriptor under its evaluator's search environment and re-evaluates when a real superseding candidate appears. The plugin-free transform API reports the 7.1 module requirement for an explicit 7.1 executable even when its environment supplies the 7.0 executable.
  * @evidence contracts/testing.md#independent-expectations The 7.0 project expects its installed manifest version, and the 7.1 project the 7.1.0-dev version its pinned compiler declares; the nightly's gitHead must be the commit the 7.1 target pins, read from the repository's facade go.mod.
- * @evidence contracts/testing.md#distinguishing-cases One plugin source and cache exercise ordinary 7.0 discovery versus an explicit 7.1 alias beside legacy 6.0.2; equal compiler versions or one cache entry expose wrong selection, and a build notice on repeat exposes a target missing its own entry. Existing checks of packed target pins remain intact.
- * @evidence contracts/testing.md#execution-ownership test_e2e_installation supplies its packed consumer; this case installs the 7.1 project's TypeScript and runs the installed CLI four times.
+ * @evidence contracts/testing.md#distinguishing-cases The same plugin and cache exercise ordinary 7.0 discovery and the 7.1 alias beside legacy 6.0.2. The descriptor case contrasts an irrelevant parent search root with a genuine missing evaluator candidate, repeated reuse and appearance of that candidate. The native transform case distinguishes the explicit compiler from the environment's compiler.
+ * @evidence contracts/testing.md#execution-ownership test_e2e_installation supplies its packed consumer; this case installs the 7.1 project's local TypeScript packages independently of the parent workspace and runs the installed CLI four times.
  * @evidence contracts/e2e.md#necessary-boundary Target selection, the packed shim trees and the Go workspace meet only in an installed source-plugin build; no source unit links a plugin against a compiler.
- * @evidence contracts/e2e.md#shared-execution The consumer's installation and one plugin cache serve all four checks.
+ * @evidence contracts/e2e.md#shared-execution The installation and plugin cache serve all four checks and the descriptor search case, which uses the same 7.0 executable source.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The projects live in a fresh directory below the consumer, which the entry removes; the cache directory is tracked by TestProject.
  * @evidence contracts/e2e.md#preserved-coverage A new boundary; no existing assertion moves or is removed.
  */
@@ -89,7 +94,17 @@ export function case_installed_ttsc_builds_each_typescript_line_against_its_own_
       },
     }),
   );
-  input.pnpm(["install", "--ignore-scripts"], projects["7.1"]);
+  // The parent workspace owns the packed platform overrides and its already
+  // installed 7.0 graph. The 7.1 compiler alias belongs to this leaf project.
+  input.pnpm(
+    [
+      "install",
+      "--ignore-scripts",
+      "--ignore-workspace",
+      "--no-frozen-lockfile",
+    ],
+    projects["7.1"],
+  );
 
   const manifest = (project: string, name = "typescript") =>
     JSON.parse(
@@ -134,6 +149,8 @@ export function case_installed_ttsc_builds_each_typescript_line_against_its_own_
   const cache = TestProject.tmpdir("ttsc-compiler-target-cache-");
   const env: NodeJS.ProcessEnv = { ...process.env, TTSC_CACHE_DIR: cache };
   delete env.TTSC_TSGO_BINARY;
+  delete env.TTSC_GO_BINARY;
+  delete env.GOROOT;
   const entries = () =>
     fs
       .readdirSync(path.join(cache, "plugins"))
@@ -167,5 +184,178 @@ export function case_installed_ttsc_builds_each_typescript_line_against_its_own_
       `the ${line} project reuses its own target's entry`,
     );
   assert.deepEqual(entries(), built);
+
+  const fromInstalledTtsc = createRequire(path.join(input.sdk, "package.json"));
+  const goBinary = fs.realpathSync.native(
+    fromInstalledTtsc.resolve(
+      `@ttsc/${process.platform}-${process.arch}/bin/go/bin/${process.platform === "win32" ? "go.exe" : "go"}`,
+    ),
+  );
+  const goRoot = path.resolve(goBinary, "../..");
+  const goVersion = path.join(goRoot, "VERSION");
+  const goManifest = path.resolve(goRoot, "../../package.json");
+  const answers = path.join(cache, "answers");
+  const bundledAnswers = fs
+    .readdirSync(answers)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) =>
+      JSON.parse(fs.readFileSync(path.join(answers, file), "utf8")),
+    )
+    .filter((answer) => answer.kind === "plugin-build-environment")
+    .map(
+      (answer) =>
+        new Set<string>(
+          answer.value.witness.map(([file]: [string, string]) => file),
+        ),
+    )
+    .filter((witness) => witness.has(goVersion));
+  assert.ok(
+    bundledAnswers.length > 0,
+    "an installed SDK has a reusable environment answer",
+  );
+  for (const witness of bundledAnswers) {
+    assert.ok(
+      witness.has(goManifest),
+      "the SDK answer depends on the installed package version",
+    );
+    const observed = [...witness].filter((file) =>
+      file.startsWith(goRoot + path.sep),
+    );
+    assert.ok(
+      observed.length <= 3,
+      `the SDK witness has ${observed.length} descendant paths`,
+    );
+  }
+  verifyDescriptorSearchContext(input.sdk, root, projects["7.0"], cache, env);
+
+  const { TtscCompiler } = fromInstalledTtsc(
+    path.join(input.sdk, "lib", "index.js"),
+  ) as typeof import("ttsc");
+  const { resolveTsgo } = fromInstalledTtsc(
+    path.join(input.sdk, "lib", "compiler", "internal", "resolveTsgo.js"),
+  ) as typeof import("../../../../../../../packages/ttsc/lib/compiler/internal/resolveTsgo");
+  const binary70 = resolveTsgo({ cwd: projects["7.0"], env }).binary;
+  const binary71 = resolveTsgo({ cwd: projects["7.1"], env }).binary;
+  const transformProject = path.join(root, "transform-project");
+  const declaredCompiler = path.join(root, "wrong-compiler-module");
+  fs.mkdirSync(transformProject);
+  fs.mkdirSync(declaredCompiler);
+  fs.writeFileSync(
+    path.join(transformProject, "tsconfig.json"),
+    '{"files":["index.ts"]}',
+  );
+  fs.writeFileSync(
+    path.join(transformProject, "index.ts"),
+    "export const value = 1;\n",
+  );
+  fs.writeFileSync(
+    path.join(declaredCompiler, "go.mod"),
+    "module example.com/wrong-compiler\n\ngo 1.27\n",
+  );
+  const result = new TtscCompiler({
+    binary: binary71,
+    cacheDir: cache,
+    cwd: transformProject,
+    env: {
+      ...env,
+      TTSC_TSGO_BINARY: binary70,
+      TTSC_TSGO_SOURCE: declaredCompiler,
+    },
+  }).transform();
+  assert.equal(result.type, "exception");
+  assert.match(
+    result.error.message,
+    /TypeScript 7\.1 compiler target builds against "github\.com\/microsoft\/TypeScript\/tsc"/,
+  );
   return projects;
+}
+
+function verifyDescriptorSearchContext(
+  sdk: string,
+  root: string,
+  project: string,
+  cache: string,
+  env: NodeJS.ProcessEnv,
+): void {
+  const plugin = path.join(root, "plugin");
+  const name = "ttsc-descriptor-context-probe";
+  const descriptor = path.join(plugin, "search-context.cjs");
+  const observations = path.join(root, "observations");
+  const evaluations = path.join(observations, "descriptor-evaluations.log");
+  const parentSearch = path.join(root, "parent-search");
+  const childSearch = path.join(root, "evaluator-search");
+  const selected = path.join(childSearch, name, "index.js");
+  const nearer = path.join(plugin, "node_modules", name, "index.js");
+  // Keep the invocation counter outside the resolver's ancestor walks. A
+  // creation beside a negative node_modules lookup changes its witness.
+  fs.mkdirSync(observations);
+  fs.writeFileSync(evaluations, "");
+  fs.mkdirSync(parentSearch);
+  fs.mkdirSync(path.dirname(selected), { recursive: true });
+  fs.writeFileSync(selected, 'module.exports = "evaluator-context";\n');
+  fs.writeFileSync(
+    descriptor,
+    [
+      'const fs = require("node:fs");',
+      'const path = require("node:path");',
+      `const name = require(${JSON.stringify(name)});`,
+      "module.exports = () => {",
+      `  fs.appendFileSync(${JSON.stringify(evaluations)}, name + "\\n");`,
+      '  return { name, source: path.join(__dirname, "go"), stage: "check", hostInputHashes: {} };',
+      "};",
+    ].join("\n"),
+  );
+  const actor = [
+    'const assert = require("node:assert/strict");',
+    'const fs = require("node:fs");',
+    'const path = require("node:path");',
+    "const [loader, project, cache, descriptor, selected, nearer, evaluations, parentSearch, childSearch] = process.argv.slice(1);",
+    "const { loadProjectPlugins } = require(loader);",
+    "const load = () => loadProjectPlugins({",
+    '  binary: "", cwd: project, cacheDir: cache, file: "tsconfig.json",',
+    "  env: { ...process.env, NODE_PATH: childSearch }, entries: [{ transform: descriptor }],",
+    "});",
+    "const first = load();",
+    'assert.equal(first.nativePlugins[0].name, "evaluator-context");',
+    'assert.equal(typeof first.hostInputHashes[selected], "string");',
+    "assert.equal(first.hostInputHashes[nearer], null);",
+    "assert.equal(first.hostInputRealpaths[nearer], null);",
+    "assert.ok(!first.hostInputs.some(file => file.startsWith(parentSearch + path.sep)));",
+    "assert.deepEqual(first.hostInputs.filter(file => !first.deferredHostInputs.includes(file) && (!Object.hasOwn(first.hostInputHashes, file) || !Object.hasOwn(first.hostInputRealpaths, file))), []);",
+    'assert.equal(load().nativePlugins[0].name, "evaluator-context");',
+    'assert.equal(fs.readFileSync(evaluations, "utf8"), "evaluator-context\\n");',
+    "fs.mkdirSync(path.dirname(nearer), { recursive: true });",
+    "fs.writeFileSync(nearer, 'module.exports = \"nearer-context\";\\n');",
+    'assert.equal(load().nativePlugins[0].name, "nearer-context");',
+    'assert.equal(fs.readFileSync(evaluations, "utf8"), "evaluator-context\\nnearer-context\\n");',
+  ].join("\n");
+  const result = childProcess.spawnSync(
+    process.execPath,
+    [
+      "-e",
+      actor,
+      path.join(
+        sdk,
+        "lib",
+        "plugin",
+        "internal",
+        "load",
+        "loadProjectPlugins.js",
+      ),
+      project,
+      cache,
+      descriptor,
+      selected,
+      nearer,
+      evaluations,
+      parentSearch,
+      childSearch,
+    ],
+    {
+      cwd: project,
+      encoding: "utf8",
+      env: { ...env, NODE_PATH: parentSearch },
+    },
+  );
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
 }

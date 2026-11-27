@@ -33,6 +33,29 @@ import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The namespace has no acquired state; its maintenance operations own reclamation decisions.
  */
 export namespace SourceBuildCacheLayout {
+  /**
+   * Whether the automatic cache refused a path this caller can replace with
+   * owned storage.
+   *
+   * @evidence contracts/common.md#principled-implementation Only permission, read-only filesystem, and unsafe default placement errors request an owned fallback.
+   * @evidence contracts/common.md#clear-and-simple-design Runtime callers share error classification while retaining storage ownership.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Other failures propagate and explicit cache owners still control their paths.
+   * @evidence contracts/common.md#meaningful-documentation The predicate's result identifies the default placement failure it recognizes.
+   * @evidence contracts/portability.md#os-neutral-implementation Node error codes carry native failures alongside the layout's own refusal code.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms One field access and a fixed set of comparisons.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work No observation or work is shared by this predicate.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No retained state or handle.
+   */
+  export function refusesDefaultPath(error: unknown): boolean {
+    const code = (error as NodeJS.ErrnoException | null)?.code;
+    return (
+      code === "EACCES" ||
+      code === "EPERM" ||
+      code === "EROFS" ||
+      code === "TTSC_UNSAFE_NODE_MODULES_CACHE"
+    );
+  }
+
   const DEFAULT_WORKSPACE_CACHE_MARKER = ".workspace-root";
 
   /** Directory name the workspace-local cache is placed under. */
@@ -177,7 +200,9 @@ export namespace SourceBuildCacheLayout {
    * @evidence contracts/performance.md#bound-retention-and-release-resources At most one marker is retained per root and is reclaimed with that root; synchronous filesystem calls retain no open handle.
    */
   export function markDefaultWorkspaceCacheRoot(root: string): string {
-    const physicalRoot = canonicalPluginCacheRoot(root);
+    const physicalRoot = canonicalPluginCacheRoot(
+      defaultWorkspaceCachePath(root),
+    );
     const marker = path.join(physicalRoot, DEFAULT_WORKSPACE_CACHE_MARKER);
     try {
       fs.writeFileSync(marker, "1\n", { encoding: "utf8", flag: "wx" });
@@ -189,6 +214,56 @@ export namespace SourceBuildCacheLayout {
       }
     }
     return physicalRoot;
+  }
+
+  /**
+   * Pin the installed node_modules directory and check the default cache
+   * components before any writer can create them. A linked installation is
+   * allowed when it physically resolves to a node_modules directory. The cache
+   * components beneath it must be ordinary directories when present.
+   *
+   * @evidence contracts/common.md#principled-implementation Native metadata and realpath validate the ignored installation and both cache entries before returning their physical path.
+   * @evidence contracts/common.md#clear-and-simple-design One read-only check serves both cache selection and the workspace marker writer.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts An unavailable or linked cache entry is not assumed safe. Only observed absence can leave a component to be created.
+   * @evidence contracts/common.md#meaningful-documentation The prose specifies the physical installation, linked-installation rule and pre-write boundary.
+   * @evidence contracts/portability.md#os-neutral-implementation Native lstat and realpath observe symlinks and junctions, and native path functions derive each child.
+   * @evidence contracts/performance.md#efficient-algorithms A fixed number of native filesystem observations checks the three layout levels without enumerating their contents.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Every call observes the current installation and cache entries.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The read-only check retains no handle or filesystem state.
+   */
+  export function defaultWorkspaceCachePath(root: string): string {
+    const cacheParent = path.dirname(root);
+    const installation = path.dirname(cacheParent);
+    if (
+      path.basename(root) !== TTSC_CACHE_DIRNAME ||
+      path.basename(cacheParent) !== ".cache" ||
+      path.basename(installation) !== NODE_MODULES_DIRNAME
+    )
+      throw new Error(`ttsc: invalid default workspace cache layout: ${root}`);
+    const workspace = fs.realpathSync.native(path.dirname(installation));
+    let modules = path.join(workspace, NODE_MODULES_DIRNAME);
+    const installed = fs.lstatSync(modules, { throwIfNoEntry: false });
+    if (installed !== undefined) {
+      modules = fs.realpathSync.native(modules);
+      if (
+        path.basename(modules) !== NODE_MODULES_DIRNAME ||
+        !fs.lstatSync(modules).isDirectory()
+      )
+        throw Object.assign(
+          new Error(`ttsc: unsafe node_modules cache owner: ${installation}`),
+          { code: "TTSC_UNSAFE_NODE_MODULES_CACHE" },
+        );
+    }
+    const parent = path.join(modules, ".cache");
+    const cache = path.join(parent, TTSC_CACHE_DIRNAME);
+    for (const component of [parent, cache]) {
+      const stat = fs.lstatSync(component, { throwIfNoEntry: false });
+      if (stat !== undefined && !stat.isDirectory())
+        throw new Error(
+          `ttsc: unsafe default workspace cache directory: ${component}`,
+        );
+    }
+    return cache;
   }
 
   /**

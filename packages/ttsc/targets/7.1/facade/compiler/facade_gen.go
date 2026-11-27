@@ -27,6 +27,10 @@ func BeginBatchOnce() func() {
   return tsccompiler.BeginBatchOnce()
 }
 
+func BeginBatchOnceForProgram() func() {
+  return tsccompiler.BeginBatchOnceForProgram()
+}
+
 type CheckerPool = tsccompiler.CheckerPool
 
 func CombineEmitResults(p0 []*tsccompiler.EmitResult) *tsccompiler.EmitResult {

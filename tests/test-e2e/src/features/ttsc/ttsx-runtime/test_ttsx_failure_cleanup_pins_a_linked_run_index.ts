@@ -11,7 +11,7 @@ import path from "node:path";
  * can retarget that child before a later preparation error; cleanup through the
  * link would remove another directory with the same generation name.
  *
- * 1. Prepare through a linked `project` directory into an original run index.
+ * 1. Link `project` to a run index inside the explicit cache and prepare.
  * 2. Retarget the link from a descriptor, seed a same-named victim, and fail.
  * 3. Assert only the original generation is cleaned and the victim survives.
  *
@@ -28,7 +28,7 @@ export function test_ttsx_failure_cleanup_pins_a_linked_run_index(): void {
   const root = TestProject.tmpdir("ttsx-run-index-alias-");
   const project = path.join(root, "project");
   const cache = path.join(root, "cache");
-  const originalRuns = path.join(root, "original-runs");
+  const originalRuns = path.join(cache, "original-runs");
   const victimRuns = path.join(root, "victim-runs");
   const alias = path.join(cache, "project");
   for (const directory of [cache, originalRuns, victimRuns]) {

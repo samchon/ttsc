@@ -1,8 +1,6 @@
 package utility
 
 import (
-  "crypto/sha256"
-  "encoding/hex"
   "encoding/json"
   "flag"
   "fmt"
@@ -17,6 +15,7 @@ import (
   "github.com/microsoft/typescript-go/shim/vfs"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver/diagnosticcompletion"
 )
 
 // hostOptions is the parsed form of the flags accepted by the subcommands
@@ -36,10 +35,8 @@ type hostOptions struct {
   stdout         io.Writer
   stderr         io.Writer
 
-  // diagnosticToken and diagnosticCommand bind one requested report to the
-  // command that loaded it; nested utility calls retain their own arguments.
-  diagnosticToken   string
-  diagnosticCommand string
+  // The requested report belongs to the command that loaded it.
+  diagnosticReport diagnosticcompletion.Request
 
   // provenanceJSON is a caller-owned absolute private build-result path.
   provenanceJSON string
@@ -344,62 +341,13 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
 // process and the command captured before loading, so another utility call or
 // descendant cannot acknowledge the launcher's selected command.
 func writeProgramDiagnostics(opts hostOptions, prog *driver.Program, diags []driver.Diagnostic) {
-  if opts.diagnosticToken == "" || prog == nil {
-    driver.WritePrettyDiagnostics(opts.stderr, diags, opts.cwd)
-    return
+  report := opts.diagnosticReport
+  if prog == nil {
+    report = diagnosticcompletion.Request{}
   }
-  report := diagnosticReportWriter{target: opts.stderr}
-  driver.WritePrettyDiagnostics(&report, diags, opts.cwd)
-  if report.failed {
-    return
-  }
-  receipt, err := json.Marshal(struct {
-    PID     int    `json:"pid"`
-    Command string `json:"command"`
-  }{PID: os.Getpid(), Command: opts.diagnosticCommand})
-  if err == nil {
-    fmt.Fprintf(opts.stderr, "\n%s %s\n", opts.diagnosticToken, receipt)
-  }
-}
-
-// diagnosticReportWriter preserves the renderer's original streaming writes
-// while remembering any failed or short transfer for completion admission.
-type diagnosticReportWriter struct {
-  target io.Writer
-  failed bool
-}
-
-func (w *diagnosticReportWriter) Write(data []byte) (int, error) {
-  count, err := w.target.Write(data)
-  if err != nil || count != len(data) {
-    w.failed = true
-  }
-  return count, err
-}
-
-// diagnosticCommandKey matches the launcher's NUL-terminated UTF-8 argv and
-// fixed compiler-channel hash. The command is the first argument; native
-// arguments and environment values contain no NUL.
-func diagnosticCommandKey(command string, args []string) string {
-  hash := sha256.New()
-  _, _ = io.WriteString(hash, command)
-  _, _ = hash.Write([]byte{0})
-  for _, arg := range args {
-    _, _ = io.WriteString(hash, arg)
-    _, _ = hash.Write([]byte{0})
-  }
-  for _, name := range []string{
-    driver.TsgoArgsEnv,
-    driver.TsgoArgsCwdEnv,
-    driver.SemanticConfigPathEnv,
-    driver.PluginConfigDirEnv,
-    "TTSC_COMPILATION_SNAPSHOT",
-    driver.LinkedPluginsEnv,
-  } {
-    _, _ = io.WriteString(hash, os.Getenv(name))
-    _, _ = hash.Write([]byte{0})
-  }
-  return hex.EncodeToString(hash.Sum(nil))
+  report.Report(opts.stderr, func(w io.Writer) {
+    driver.WritePrettyDiagnostics(w, diags, opts.cwd)
+  })
 }
 
 // RunTransform returns the project TypeScript text after linked source
@@ -605,13 +553,9 @@ func parseHostOptions(command string, args []string, stdout, stderr io.Writer) (
     }
     resolvedCwd = abs
   }
-  token := ""
-  commandKey := ""
+  var diagnosticReport diagnosticcompletion.Request
   if command == "check" || command == "build" {
-    token = os.Getenv("TTSC_DIAGNOSTICS_COMPLETION_TOKEN")
-    if token != "" {
-      commandKey = diagnosticCommandKey(command, args)
-    }
+    diagnosticReport = diagnosticcompletion.Capture(command, args)
   }
   return hostOptions{
     cwd:                   filepath.Clean(resolvedCwd),
@@ -627,8 +571,7 @@ func parseHostOptions(command string, args []string, stdout, stderr io.Writer) (
     tsgoArgs:              tsgoArgs,
     stdout:                stdout,
     stderr:                stderr,
-    diagnosticToken:       token,
-    diagnosticCommand:     commandKey,
+    diagnosticReport:      diagnosticReport,
     provenanceJSON:        provenanceJSON,
     checkObservationsJSON: checkObservationsJSON,
     emitObservationsJSON:  emitObservationsJSON,

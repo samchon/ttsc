@@ -31,6 +31,7 @@ import (
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
+  "github.com/samchon/ttsc/packages/ttsc/driver/diagnosticcompletion"
 )
 
 // RunCheck implements `@ttsc/lint check`: typecheck + lint, no emit.
@@ -54,6 +55,8 @@ func RunCheck(args []string) int {
 // consumed compiler/config/contributor inputs before close, including on a
 // diagnosed check. Unobserved or unsupported consumption withdraws authority;
 // the result never substitutes a later filesystem read for consumed bytes.
+// A launcher that requested completion receives a receipt after the loaded
+// Program's full diagnostic batch is written.
 //
 // @evidence contracts/common.md#principled-implementation Shared flag parsing forces noEmit before project loading, so lint and compiler diagnostics use one loaded Program. Negotiated check observations project that Program's resident reference graph, compiler-returned text predicates, loader-consumed versioned fingerprints and contributor-consumed raw bytes; partial or conflicting evidence is carried as refusal rather than complete proof.
 // @evidence contracts/common.md#clear-and-simple-design This entry selects check policy; the shared runner owns Program lifetime, its per-generation VFS/reader own consumed predicates, and the private publisher serializes before close. Typed config kinds remain distinct from compiler text and raw contributor hashes because their encodings and consumption owners differ.
@@ -70,6 +73,7 @@ func RunCheckWithIO(args []string, stdout, stderr io.Writer) int {
     return 2
   }
   opts.noEmit = true
+  opts.diagnosticReport = diagnosticcompletion.Capture("check", args)
   opts.batch = true
   return runProject(opts)
 }
@@ -193,7 +197,7 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
   prog, parseDiags, err := loadProgram(resolvedCwd, *tsconfig, loadProgramOptions{
     forceEmit:          true,
     semanticConfigPath: semanticConfigPath,
-    needsRuleChecker:   engine.NeedsTypeChecker(),
+    needsRuleChecker:   engine.needsStandalone,
     singleThreaded:     *singleThreaded,
     checkers:           *checkers,
     tsgoArgs:           tsgoArgs,
@@ -285,6 +289,7 @@ type subcommandOpts struct {
   tsgoArgsCwd           string
   projectIdentity       publicrule.ProjectIdentity
   checkObservationsJSON string
+  diagnosticReport      diagnosticcompletion.Request
   batch                 bool
   stdout                io.Writer
   stderr                io.Writer
@@ -461,7 +466,7 @@ func runProject(opts *subcommandOpts) (code int) {
     forceNoEmit:        opts.noEmit,
     outDir:             opts.outDir,
     semanticConfigPath: opts.semanticConfigPath,
-    needsRuleChecker:   engine.NeedsTypeChecker(),
+    needsRuleChecker:   engine.needsStandalone,
     singleThreaded:     opts.singleThreaded,
     checkers:           opts.checkers,
     tsgoArgs:           opts.tsgoArgs,
@@ -508,7 +513,11 @@ func runProject(opts *subcommandOpts) (code int) {
   }
   printLintDiagnosticsTiming(opts.stdout, opts.diagnostics, diagnosticsTiming)
   warnUnknownRules(opts.stderr, engine.UnknownRules())
-  if errCount := shimdw.FormatMixedDiagnostics(opts.stderr, astDiags, lintDiags, opts.cwd); errCount > 0 {
+  var errCount int
+  opts.diagnosticReport.Report(opts.stderr, func(w io.Writer) {
+    errCount = shimdw.FormatMixedDiagnostics(w, astDiags, lintDiags, opts.cwd)
+  })
+  if errCount > 0 {
     return 2
   }
 

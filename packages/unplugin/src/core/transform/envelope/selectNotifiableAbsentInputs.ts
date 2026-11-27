@@ -5,6 +5,7 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
 import { pathIdentityKey } from "../filesystem/pathIdentityKey";
 import { relativeToProject } from "../filesystem/relativeToProject";
+import { usesWatchBroker } from "../tracker/broker/usesWatchBroker";
 import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 import { envelopeDerivation } from "./envelopeDerivation";
 import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
@@ -27,15 +28,15 @@ import { generationCaseSensitivity } from "./generationCaseSensitivity";
  * link retargeting cannot leave observers attached only to the old target.
  *
  * A chain that does not reach a captured project root before the
- * filesystem-root stopping condition retains direct probing. More than 512
- * distinct lexical parent locations rejects the whole selection after
- * collection; this limits admitted directory locations, not candidate count,
- * temporary memory or scan work. The tracker owns actual watcher acquisition,
- * notifications and release.
+ * filesystem-root stopping condition retains direct probing. A backend that can
+ * allocate a watch per directory declines selections past 512 lexical parent
+ * locations. The native recursive broker opens one project-root watch for the
+ * whole selection, so its directory count does not consume handles. The tracker
+ * owns actual watcher acquisition, notifications and release.
  *
  * @evidence contracts/common.md#principled-implementation Exact failed file predicates select unavailable resolver names, while the lexical ancestor chain witnesses component creation and retargeting; selections outside the root retain direct probes because their chain cannot be covered by project-local watchers.
  * @evidence contracts/common.md#clear-and-simple-design Separate candidate and ancestor sets expose probe-replacement names versus required watcher paths; resource acquisition remains with the tracker instead of occurring during envelope selection.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The 512-location bound rejects the entire selection so direct validation remains active; it does not return an incomplete watch claim or special-case known candidate names to fit a measurement.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The per-directory bound leaves direct validation active instead of claiming partial watch coverage. Native recursion only exempts the allocation bound; actual proof still requires acquired, verified observations.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish not-file from missing, candidate versus watched lists, root coverage, the population bound and tracker ownership; acknowledgments are separate under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native dirname/resolve and lexical containment against captured named/physical roots derive ancestor spellings on the host. Path grammar containment is not a certificate of filesystem case or notification coverage; the tracker owns that native admission. Physical identity excludes the temporary input without collapsing alias watcher names, and supplied/result-derived views must remain coherent.
  * @evidence contracts/performance.md#efficient-algorithms
@@ -45,7 +46,8 @@ import { generationCaseSensitivity } from "./generationCaseSensitivity";
  *   chain deduplication limits appended components. Cost includes path/root
  *   text, chain depth, cold native identity/existence work and two final string
  *   sorts. Candidate, component and directory populations allocate storage
- *   before the 512-directory rejection, so that limit does not bound scan cost.
+ *   before the backend-specific 512-directory rejection, so that limit does
+ *   not bound scan cost.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Seen suppresses repeated candidate admission after predicate/path work;
  *   chain suppresses repeated component output after constructing the chain.
@@ -171,7 +173,10 @@ export function selectNotifiableAbsentInputs(props: {
       directories.add(path.dirname(spelling));
     }
   }
-  if (directories.size > NOTIFIABLE_ABSENCE_DIRECTORY_LIMIT) {
+  if (
+    directories.size > NOTIFIABLE_ABSENCE_DIRECTORY_LIMIT &&
+    !usesWatchBroker(props.filesystem)
+  ) {
     // Decline the whole candidate selection past the lexical directory policy
     // limit. Returning partial names would claim only part of the intended
     // chain; an empty selection leaves direct candidate validation active.

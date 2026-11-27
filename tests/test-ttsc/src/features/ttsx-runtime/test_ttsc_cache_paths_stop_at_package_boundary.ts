@@ -17,7 +17,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership A tracked temporary tree supplies filesystem inputs to the source cache resolver without starting Go, a plugin or a compiler host.
  */
 export function test_ttsc_cache_paths_stop_at_package_boundary(): void {
-  const root = TestProject.tmpdir("ttsc-cache-package-boundary-");
+  const root = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-cache-package-boundary-"),
+  );
   const outer = path.join(root, "outer");
   const project = path.join(outer, "project");
   fs.mkdirSync(path.join(outer, "node_modules", "dependency"), {

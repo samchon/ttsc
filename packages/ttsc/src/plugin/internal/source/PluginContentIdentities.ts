@@ -1,10 +1,10 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../../../internal/E2ETrace";
+import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
 import type { IPluginSourceListing } from "./IPluginSourceListing";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 import { pluginSourceCovers } from "./pluginSourceCovers";
@@ -40,30 +40,20 @@ import { ttscPackageVersion } from "./ttscPackageVersion";
  * and change times); change time moves on every write and cannot be restored by
  * an ordinary process.
  *
- * A valid Nix store path is immutable: Nix never changes its content in place,
- * and replacing it deletes and recreates its top directory, giving that
- * directory a new inode and change time. For populations confined to their
- * subject (`plugin-source` and `executable`), a subject whose real path lies
- * inside a direct child of the store root (`NIX_STORE_DIR` or `/nix/store`)
- * named with a 32-character Nix base32 hash, whose top directory has no write
- * bits and is owned by the store root's owner, is observed from its store path,
- * real path, and top directory's device, inode and change time without walking
- * the population or needing a clock reference on the store volume. Any other
- * case, including unconfined populations such as `goroot`, a population on a
- * device without a reference, an unseparable stamp, a missing or foreign
- * record, or any observation failure, falls back to reading content, exactly as
- * before this owner.
+ * Content is read when a device has no reference, a stamp is not separable, or
+ * an observation or record cannot qualify. A package store path and a read-only
+ * directory mode establish no authority over descendant contents.
  *
  * Records live in single-file cache parts (`SourceBuildCacheLayout`), so the
  * opportunistic collector ages them out and `ttsc clean` removes them. Their
  * identity includes the record format and the ttsc version, so a release that
  * changes a digest rule never reads another release's records.
  *
- * @evidence contracts/common.md#principled-implementation Metadata stands for recorded content only under the established separable-stamp rule or, for confined kinds inside a read-only owner-matched Nix store path, the immutable store-path identity, with before/after agreement around the content read; every unproved premise falls back to the content reader.
- * @evidence contracts/common.md#clear-and-simple-design One store owns opening, Nix store-root discovery, record identity, reuse and publication; callers supply only the population observation and the content reader they already own.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts No path-only or process-permanent memo stands for content; look-alike store paths, unconfined kinds, failures and unseparable stamps take the metadata walk or real read rather than a guessed digest.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the regression this owner prevents, the separable-stamp and Nix store-path proof premises, the fallback and the storage lifetime.
- * @evidence contracts/portability.md#os-neutral-implementation References are keyed by the native device that minted them and stamps are compared per device; Nix store-path qualification uses native realpath and POSIX owner/mode capabilities when present without assuming a platform name or timestamp precision.
+ * @evidence contracts/common.md#principled-implementation Metadata stands for recorded content only under the established separable-stamp rule, with before/after agreement around the content read; every unproved premise falls back to the content reader.
+ * @evidence contracts/common.md#clear-and-simple-design One store owns opening, record identity, reuse and publication; callers supply only the population observation and the content reader they already own.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No path-only or process-permanent memo stands for content; unseparable or failed observations take the actual content read.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the regression this owner prevents, the separable-stamp premise, the fallback and the storage lifetime.
+ * @evidence contracts/portability.md#os-neutral-implementation References are keyed by the native device that minted them and stamps are compared per device.
  * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace groups operations; each member states its own work.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Members define the reuse identity and its validity.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Members define what they retain; the namespace holds no state.
@@ -71,16 +61,16 @@ import { ttscPackageVersion } from "./ttscPackageVersion";
 export namespace PluginContentIdentities {
   /**
    * One opened record store: the physical cache root, the clock references
-   * minted when it was opened, and the physical Nix store root when present.
+   * available during its lifetime.
    *
-   * @evidence contracts/common.md#principled-implementation The reference is minted by this store's own write before any observation it judges, so stamps strictly older than it cannot share a later write's tick; the optional Nix store root pairs its resolved path with its owner uid once at open time.
-   * @evidence contracts/common.md#clear-and-simple-design Root, references, listings, optional Nix store root and version travel together so every record of one load is judged against the state observed when the store opened and one product version.
+   * @evidence contracts/common.md#principled-implementation The reference is minted by this store's own write before any observation it judges, so stamps strictly older than it cannot share a later write's tick.
+   * @evidence contracts/common.md#clear-and-simple-design Root, references, listings and version travel together so every record of one load is judged against the state observed when the store opened and one product version.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The record stores observed state, not an expected digest.
    * @evidence contracts/common.md#meaningful-documentation Members document their provenance and lifetime.
-   * @evidence contracts/portability.md#os-neutral-implementation The reference map is keyed by native device identifiers, and Nix store metadata uses native realpath and bigint uid when supported.
+   * @evidence contracts/portability.md#os-neutral-implementation The reference map is keyed by native device identifiers.
    * @evidenceExclude contracts/performance.md#efficient-algorithms A record type runs no algorithm.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The type grants no reuse by itself; digest owns it.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The opener owns the store for one load or one build; at most two device references and one optional Nix store root pair are retained.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The opener owns the store for one load or one build; at most two device references are retained.
    */
   export interface Store {
     /** Physical cache root that holds the identity and answer parts. */
@@ -97,12 +87,6 @@ export namespace PluginContentIdentities {
      * directory's stamps there witness its entries (`IPluginSourceListing`).
      */
     readonly listings: ReadonlySet<bigint>;
-
-    /**
-     * Physical Nix store root and its owner uid when the store root exists as a
-     * directory; absent otherwise.
-     */
-    readonly nixStore?: { readonly root: string; readonly uid: bigint };
 
     /** Ttsc package version entering every record identity. */
     readonly version: string;
@@ -140,31 +124,27 @@ export namespace PluginContentIdentities {
    * default writer does, so a later root search never mistakes the new payload
    * for an older orphan. One reference is minted in the root's identity
    * directory, and the store exists only when that write succeeds. A second
-   * reference in a private per-user directory below the system temporary
-   * directory is minted lazily, at most once per store, only when a proof
-   * encounters a device absent from the cache root's own references (or when a
-   * caller forces it before a compile via {@link ensureTemporaryReference}), so
-   * single-volume loads and store-only openers never write in `os.tmpdir()`.
+   * reference can come from a validated system temporary directory outside the
+   * project, on a volume the cache root does not cover. The store attempts it
+   * once, when a proof needs another device or a caller requests the reference
+   * before compilation via {@link ensureTemporaryReference}.
    *
    * A root inside any of `sources` is refused before anything is written: the
    * build rejects such a cache (`SourcePluginAdmission`), and a record written
-   * there would change the very source it describes. The Nix store root
-   * (`NIX_STORE_DIR` from `env`, or `/nix/store`) is resolved once to its real
-   * path and owner uid when it exists as a directory.
+   * there would change the very source it describes.
    *
    * @param props.projectRoot Project whose cache root is selected.
    * @param props.cacheDir Explicit caller cache root, when one was given.
-   * @param props.env Effective environment selecting `TTSC_CACHE_DIR` and
-   *   `NIX_STORE_DIR`.
+   * @param props.env Effective environment selecting `TTSC_CACHE_DIR`.
    * @param props.sources Plugin source directories the root must lie outside.
-   * @evidence contracts/common.md#principled-implementation The root is marked before its first default write and an owned probe provides its reference. Cross-device proofs lazily mint a second reference with owned precedence and union listing semantics. The optional Nix store identity uses the real directory and its owner.
-   * @evidence contracts/common.md#clear-and-simple-design Root selection, Nix store lookup and probe creation delegate to their existing owners.
+   * @evidence contracts/common.md#principled-implementation The root is marked before its first default write and an owned probe provides its reference. Cross-device proofs lazily mint a second reference with owned precedence and union listing semantics.
+   * @evidence contracts/common.md#clear-and-simple-design Root selection and probe creation delegate to their existing owners.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No wall clock or historical stamp substitutes for the minted reference.
-   * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe root selection, marker ordering, the lazy probe, Nix store resolution and the undefined fallback.
-   * @evidence contracts/portability.md#os-neutral-implementation Native paths and device identities carry filesystem semantics. Environment names use the shared reader and Nix store ownership requires POSIX uid support.
-   * @evidence contracts/performance.md#efficient-algorithms Root selection can walk ancestors and read manifests. Opening mints one owned probe, resolves the Nix store with at most one realpath and one lstat, and reads no plugin source. The temporary-volume probe runs at most once per store when a proof needs it or a caller requests it explicitly.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe root selection, marker ordering, the lazy probe and the undefined fallback.
+   * @evidence contracts/portability.md#os-neutral-implementation Native paths and device identities carry filesystem semantics. Environment names use the shared reader.
+   * @evidence contracts/performance.md#efficient-algorithms Opening mints one owned probe and reads no plugin source. The optional second attempt validates the temporary root, its device and directory owner before it writes.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each load needs a freshly minted reference; reusing an older one would defeat the separation premise.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Each probe is removed in its owner's finally and the empty per-user temporary directory remains stable across loads. The store retains at most two device references and one optional Nix store root pair. The private WeakMap entry drops with the store.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Each probe is removed in its owner's finally and the empty per-user temporary directory remains stable across loads. The store retains at most two device references. The private WeakMap entry drops with the store.
    */
   export function open(props: {
     projectRoot: string;
@@ -213,7 +193,10 @@ export namespace PluginContentIdentities {
       const ensureTemporary = (): void => {
         if (temporaryMinted) return;
         temporaryMinted = true;
-        const temporary = temporaryReference();
+        const temporary = temporaryReference(
+          props.projectRoot,
+          owned.references,
+        );
         for (const [device, stamp] of temporary.references) {
           // Keep owned precedence over temporary on the same device.
           if (!Map.prototype.has.call(references, device)) {
@@ -224,7 +207,6 @@ export namespace PluginContentIdentities {
           Set.prototype.add.call(listings, device);
         }
       };
-      const nixStore = resolveNixStore(props.env);
       // WARNING (#1726): resolve no module here. A descriptor evaluator opens a
       // store under its resolution recorder, and any lookup becomes an input of
       // the descriptor it did not read (`ttscPackageVersion`).
@@ -232,7 +214,6 @@ export namespace PluginContentIdentities {
         root,
         references,
         listings,
-        ...(nixStore === undefined ? {} : { nixStore }),
         version: ttscPackageVersion(),
       };
       temporaryMinters.set(store, ensureTemporary);
@@ -301,21 +282,6 @@ export namespace PluginContentIdentities {
    * below a pruned directory such as `node_modules` is outside every
    * selection.
    *
-   * When the store opened with a Nix store root and `kind` is confined to its
-   * subject (`plugin-source`, where `collectPluginSourceFiles` rejects links,
-   * and `executable`, a single real-pathed regular file), a subject whose real
-   * path lies inside a direct child of that root named `<32 Nix base32
-   * chars>-<name>` whose top directory has no write bit (`mode & 0o222 === 0`)
-   * and is owned by the store root's owner is observed directly from its store
-   * path, real path, and top directory's `dev:ino:ctimeNs` instead of calling
-   * `observe`. Nix never edits a store path in place and recreating it changes
-   * its inode and change time; including the subject's real path invalidates a
-   * link retargeted to another subdirectory of the same store path, and the
-   * signature is prefixed so it never equals a metadata-walk signature.
-   * Unconfined kinds such as `goroot` keep the caller's `observe` path because
-   * `walkGoRootIdentity` follows symlinks, so a link reaching outside the store
-   * path would go unwitnessed.
-   *
    * @param store The opened store, or `undefined` to read content only.
    * @param kind Population family; records of different families never mix.
    * @param subject Absolute population path identifying the record.
@@ -323,13 +289,13 @@ export namespace PluginContentIdentities {
    *   given the listing the record holds, if any; an observer that lists its
    *   population returns the listing for the record.
    * @param read The owning content reader; its result is the digest.
-   * @evidence contracts/common.md#principled-implementation A record is used only when the current separable signature equals the recorded one; publication requires equal separable signatures before and after the actual content read. A recorded listing only shortens how the observer reaches the current signature, and a Nix store-path observation replaces the walk only for confined kinds whose real path lies inside a read-only owner-matched store directory.
-   * @evidence contracts/common.md#clear-and-simple-design The caller keeps population selection and content hashing; this function owns lookup, confined Nix store-path admission, reuse and publication in one place.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Corrupt or foreign records and unseparable observations cause the real read. Unconfined kinds and paths outside the admitted store layout use the caller's observer. The store path proof assumes the selected store preserves descendant contents.
-   * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the reuse condition, the self-containment exclusion, the Nix store-path premise and the `goroot` exclusion; parameters describe their roles.
-   * @evidence contracts/portability.md#os-neutral-implementation Separability is the observer's per-device judgement or a POSIX realpath/lstat Nix store check; record files use native path joins and atomic same-directory replacement.
-   * @evidence contracts/performance.md#efficient-algorithms A Nix store hit costs one realpath, one lstat and one small record read without walking or reading the population. An ordinary hit uses one population observation, which a held listing makes metadata-only. A miss adds the content read and checks again only when the initial observation was separable. Record identity hashes fixed framing text.
-   * @evidence contracts/performance.md#reuse-equivalent-work Processes share a digest only for the same family, subject, version and current separable signature (or confined Nix store-path identity) that the producing read was bracketed by, and an observer's listing with it.
+   * @evidence contracts/common.md#principled-implementation A record is used only when the current separable signature equals the recorded one; publication requires equal separable signatures before and after the actual content read. A recorded listing only shortens how the observer reaches the current signature.
+   * @evidence contracts/common.md#clear-and-simple-design The caller keeps population selection and content hashing; this function owns lookup, reuse and publication in one place.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Corrupt or foreign records and unseparable observations cause the real read.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the reuse condition, and the self-containment exclusion; parameters describe their roles.
+   * @evidence contracts/portability.md#os-neutral-implementation Separability is the observer's per-device judgement; record files use native path joins and atomic same-directory replacement.
+   * @evidence contracts/performance.md#efficient-algorithms A hit uses one population observation. A qualified listing lets the observer check its recorded members without enumerating their directories. A miss adds the content read and checks again only when the initial observation was separable. Record identity hashes fixed framing text.
+   * @evidence contracts/performance.md#reuse-equivalent-work Processes share a digest only for the same family, subject, version and current separable signature that the producing read was bracketed by, and an observer's listing with it.
    * @evidence contracts/performance.md#bound-retention-and-release-resources One small file per subject is published atomically and aged out by the single-file collector; hits refresh its use time, or rewrite it once with the listing their walk read; nothing is retained in memory.
    */
   export function digest(
@@ -351,9 +317,7 @@ export namespace PluginContentIdentities {
       return read();
     const file = recordFile(store, kind, subject);
     const known = readRecord(file);
-    const before =
-      nixStoreObservation(store, kind, subject) ??
-      observe(store.references, known?.listing);
+    const before = observe(store.references, known?.listing);
     if (before?.separable === true) {
       if (
         known !== undefined &&
@@ -390,10 +354,7 @@ export namespace PluginContentIdentities {
     // Only a separable pre-read observation can authorize publication; skip the
     // post-read observation when the record cannot be written anyway.
     const after =
-      before?.separable === true
-        ? (nixStoreObservation(store, kind, subject) ??
-          observe(store.references))
-        : undefined;
+      before?.separable === true ? observe(store.references) : undefined;
     const recorded =
       before?.separable === true &&
       after?.separable === true &&
@@ -693,13 +654,22 @@ export namespace PluginContentIdentities {
       directory,
       `clock-${process.pid}-${crypto.randomUUID()}.probe`,
     );
+    let ownsProbe = false;
     try {
-      const created = fs.mkdirSync(directory, { recursive: true });
-      const parent =
-        created === undefined
-          ? fs.lstatSync(directory, { bigint: true })
-          : undefined;
-      fs.writeFileSync(probe, `${process.hrtime.bigint()}\n`);
+      const parent = fs.lstatSync(directory, {
+        bigint: true,
+        throwIfNoEntry: false,
+      });
+      if (parent !== undefined && !parent.isDirectory())
+        return { references, listings };
+      if (parent === undefined) fs.mkdirSync(directory, { recursive: true });
+      const fd = fs.openSync(probe, "wx");
+      ownsProbe = true;
+      try {
+        fs.writeFileSync(fd, `${process.hrtime.bigint()}\n`);
+      } finally {
+        fs.closeSync(fd);
+      }
       const stats = fs.lstatSync(probe, { bigint: true });
       references.set(stats.dev, stats.mtimeNs);
       if (parent !== undefined) {
@@ -716,7 +686,7 @@ export namespace PluginContentIdentities {
       listings.clear();
     } finally {
       try {
-        fs.rmSync(probe, { force: true });
+        if (ownsProbe) fs.rmSync(probe, { force: true });
       } catch {
         // A leftover probe contains this call's hrtime text, not source data.
       }
@@ -779,72 +749,6 @@ export namespace PluginContentIdentities {
   /** Per-store lazy temporary-volume minters, released when the store drops. */
   const temporaryMinters = new WeakMap<Store, () => void>();
 
-  /**
-   * Population kinds whose content cannot reach outside the subject via links,
-   * so an immutable Nix store path can stand for the population. `goroot` is
-   * excluded because `walkGoRootIdentity` follows symlinks.
-   */
-  const NIX_STORE_CONFINED_KINDS: ReadonlySet<string> = new Set([
-    "plugin-source",
-    "executable",
-  ]);
-
-  /** Direct child of a Nix store root: 32 Nix base32 characters, `-`, name. */
-  const NIX_STORE_PATH_NAME = /^[0-9a-df-np-sv-z]{32}-.+$/;
-
-  function resolveNixStore(
-    env: NodeJS.ProcessEnv,
-  ): { readonly root: string; readonly uid: bigint } | undefined {
-    if (typeof process.getuid !== "function") return undefined;
-    try {
-      const configured = SidecarEnvironment.read(env, "NIX_STORE_DIR");
-      const root = fs.realpathSync.native(configured || "/nix/store");
-      const stats = fs.lstatSync(root, { bigint: true });
-      return stats.isDirectory() ? { root, uid: stats.uid } : undefined;
-    } catch {
-      return undefined;
-    }
-  }
-
-  function nixStoreObservation(
-    store: Store,
-    kind: string,
-    subject: string,
-  ): (Observation & { readonly listing?: IPluginSourceListing }) | undefined {
-    const nixStore = store.nixStore;
-    if (nixStore === undefined || !NIX_STORE_CONFINED_KINDS.has(kind))
-      return undefined;
-    try {
-      const realSubject = fs.realpathSync.native(subject);
-      const relative = path.relative(nixStore.root, realSubject);
-      if (
-        relative === "" ||
-        relative === ".." ||
-        relative.startsWith(`..${path.sep}`) ||
-        path.isAbsolute(relative)
-      )
-        return undefined;
-      const sepIndex = relative.indexOf(path.sep);
-      const entryName =
-        sepIndex === -1 ? relative : relative.slice(0, sepIndex);
-      if (!NIX_STORE_PATH_NAME.test(entryName)) return undefined;
-      const storePath = path.join(nixStore.root, entryName);
-      const stats = fs.lstatSync(storePath, { bigint: true });
-      if (
-        !stats.isDirectory() ||
-        (stats.mode & 0o222n) !== 0n ||
-        stats.uid !== nixStore.uid
-      )
-        return undefined;
-      return {
-        separable: true,
-        signature: `nix-store:${stats.dev}:${stats.ino}:${stats.ctimeNs}:${JSON.stringify([storePath, realSubject])}`,
-      };
-    } catch {
-      return undefined;
-    }
-  }
-
   interface IRecord {
     format: string;
     version: string;
@@ -865,7 +769,10 @@ export namespace PluginContentIdentities {
   // there could be another user's, so the directory is named for this user,
   // created private, and used only while it is a real directory this user owns
   // that nobody else can write to.
-  function temporaryReference(): {
+  function temporaryReference(
+    projectRoot: string,
+    owned: ReadonlyMap<bigint, bigint>,
+  ): {
     references: ReadonlyMap<bigint, bigint>;
     listings: ReadonlySet<bigint>;
   } {
@@ -873,8 +780,10 @@ export namespace PluginContentIdentities {
     try {
       const uid =
         typeof process.getuid === "function" ? process.getuid() : undefined;
+      const parent = systemTempOutsideProject(projectRoot);
+      if (owned.has(fs.statSync(parent, { bigint: true }).dev)) return none;
       const directory = path.join(
-        os.tmpdir(),
+        parent,
         uid === undefined
           ? TEMPORARY_REFERENCE_DIRNAME
           : `${TEMPORARY_REFERENCE_DIRNAME}-${uid}`,
