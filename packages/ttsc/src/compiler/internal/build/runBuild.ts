@@ -105,6 +105,7 @@ export namespace runBuild {
             // The observations a record needs are completed when it is
             // published, which a launcher defers until its program runs.
             defer: options.deferRuntimePublication,
+            parkIn: options.runtimePublicationRunDir,
             build,
           }));
     return BuildTiming.appendTimingOutput(result, timing);

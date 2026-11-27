@@ -86,6 +86,9 @@ export type RunBuildOptions = TtscBuildOptions & {
     publication: RuntimeBuildCache.Publication,
   ) => void;
 
+  /** Private run directory whose owner parks this process's dependency builds. */
+  runtimePublicationRunDir?: string;
+
   /**
    * Apply final compiler destination overrides for this private directory. This
    * does not sandbox arbitrary plugin, cache or external process writes.
