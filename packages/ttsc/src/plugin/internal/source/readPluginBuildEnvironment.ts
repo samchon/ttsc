@@ -36,7 +36,7 @@ import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
  * @evidence contracts/common.md#clear-and-simple-design One function owns the record family, so package selection, the binary key and the source state read the environment the same way.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No Go value is assumed: a missing, malformed or moved record reads Go again, and an unwitnessable reading is never recorded.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the two dependencies, the excluded variables and the admission rule.
- * @evidence contracts/portability.md#os-neutral-implementation Variables pass through the shared native-name merger, and the witness keeps native path, link and stat identity.
+ * @evidence contracts/portability.md#os-neutral-implementation Variables pass through the shared native-name merger. The key keeps the original cwd and a base for relative directories, and the witness keeps native path, link and stat identity.
  * @evidence contracts/performance.md#efficient-algorithms A hit hashes the variables once, parses one record and stats each witnessed path once per synchronous batch; a miss adds the reading it replaces and one witness validation.
  * @evidence contracts/performance.md#reuse-equivalent-work Equal variables, Go tool and directory share one reading across processes while its witness holds; an optional caller-owned synchronous batch map shares current witness stat observations across directories checked together and is dropped when the batch ends.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Records are single files in the plugin cache's answer directory, aged by its collector and removed by `ttsc clean`; nothing is retained in memory.
@@ -54,7 +54,8 @@ export function readPluginBuildEnvironment(
     // Older answers could come from a delegated SDK selected by a mutable search.
     3,
     goBinary ?? null,
-    path.resolve(directory),
+    directory,
+    path.isAbsolute(directory) ? null : process.cwd(),
     goToolVariables(env),
   ];
   const kept = WitnessedLoadAnswers.read(
@@ -87,4 +88,4 @@ export function readPluginBuildEnvironment(
 }
 
 /** Answer family of build-environment readings (`WitnessedLoadAnswers`). */
-const KIND = "plugin-build-environment-v4";
+const KIND = "plugin-build-environment-v5";

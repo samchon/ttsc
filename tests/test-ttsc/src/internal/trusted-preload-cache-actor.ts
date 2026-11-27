@@ -150,16 +150,21 @@ if (cachedDescriptor === null && descriptorLocation !== null) {
         realpaths?: Record<string, string | null>;
       };
     };
-    const changed = (
+    const difference = (
       expected: Record<string, string | null> | undefined,
       observed: ReadonlyMap<string, string | null>,
-    ) =>
-      Object.keys(expected ?? {}).filter(
-        (file) => expected![file] !== observed.get(file),
-      );
+    ) => {
+      const changed: string[] = [];
+      const unobserved: string[] = [];
+      for (const [file, value] of Object.entries(expected ?? {})) {
+        if (!observed.has(file)) unobserved.push(file);
+        else if (observed.get(file) !== value) changed.push(file);
+      }
+      return { changed, unobserved };
+    };
     descriptorReadFailure = JSON.stringify({
-      changedHashes: changed(saved.proof?.hashes, observedDescriptor.hashes),
-      changedRealpaths: changed(
+      hashes: difference(saved.proof?.hashes, observedDescriptor.hashes),
+      realpaths: difference(
         saved.proof?.realpaths,
         observedDescriptor.realpaths,
       ),

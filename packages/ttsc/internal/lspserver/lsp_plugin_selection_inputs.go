@@ -62,6 +62,7 @@ type NativePluginSelectionInputs struct {
 // repeated lane groups can perform native queries before sharing the record.
 type pluginSelectionInputs struct {
   directories     map[string]*pluginSelectionDirectory
+  rawDirectories  []*pluginSelectionDirectory
   rawFiles        map[string]string
   omittedNames    []string
   omittedSuffixes []string
@@ -108,6 +109,9 @@ func newPluginSelectionInputs(
           files: map[string]string{},
         }
         out.directories[key] = entry
+        if !utf8.ValidString(resolved) {
+          out.rawDirectories = append(out.rawDirectories, entry)
+        }
       }
       entry.listing = entry.listing || listing
       for name, digest := range files {
@@ -177,8 +181,18 @@ func (inputs pluginSelectionInputs) current() bool {
   return inputs.rawFilesCurrent()
 }
 
-// rawFilesCurrent rechecks POSIX byte paths that may not reach the host
-// through Unicode LSP watcher notifications.
+// rawSelectionCurrent checks the directory groups and files that cannot be
+// watched through Unicode LSP notifications.
+func (inputs pluginSelectionInputs) rawSelectionCurrent() bool {
+  for _, directory := range inputs.rawDirectories {
+    if !inputs.directoryCurrent(directory) {
+      return false
+    }
+  }
+  return inputs.rawFilesCurrent()
+}
+
+// rawFilesCurrent checks the individually transported POSIX byte paths.
 func (inputs pluginSelectionInputs) rawFilesCurrent() bool {
   for location, digest := range inputs.rawFiles {
     if projectInputReloadFileDigest(location) != digest {

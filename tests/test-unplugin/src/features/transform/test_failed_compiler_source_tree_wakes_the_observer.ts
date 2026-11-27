@@ -214,6 +214,47 @@ export async function test_failed_compiler_source_tree_wakes_the_observer(): Pro
     );
     deliver(project, beforeCompile, startedAt);
     assert.deepEqual(await settled(), [[owner]]);
+
+    if (process.platform === "linux") {
+      const rawLink = path.join(root, "compiler-byte-target");
+      const targets = [0xfe, 0xff].map((byte) =>
+        Buffer.concat([
+          Buffer.from(path.join(root, "source-")),
+          Buffer.from([byte]),
+        ]),
+      );
+      const digestAt = (target: Buffer): string | null => {
+        fs.symlinkSync(target, rawLink);
+        try {
+          return captureRecoveryTreeDigest(rawLink);
+        } finally {
+          fs.unlinkSync(rawLink);
+        }
+      };
+      const created: { directory: Buffer; file: Buffer }[] = [];
+      try {
+        for (const directory of targets) {
+          fs.mkdirSync(directory);
+          const file = Buffer.concat([directory, Buffer.from("/main.go")]);
+          created.push({ directory, file });
+          fs.writeFileSync(file, "package main\n");
+        }
+        const before = digestAt(targets[0]!);
+        const after = digestAt(targets[1]!);
+        assert.ok(before);
+        assert.ok(after);
+        assert.notEqual(
+          before,
+          after,
+          "equal bytes under distinct raw targets",
+        );
+      } finally {
+        for (const { directory, file } of created) {
+          if (fs.existsSync(file)) fs.unlinkSync(file);
+          fs.rmdirSync(directory);
+        }
+      }
+    }
   } finally {
     await observer.dispose();
   }

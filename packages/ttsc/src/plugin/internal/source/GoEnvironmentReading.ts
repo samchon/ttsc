@@ -263,7 +263,7 @@ export namespace GoEnvironmentReading {
    * @evidence contracts/common.md#clear-and-simple-design The shared witnessed-answer owner carries the proof; this member only names what Go reads.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No handwritten Go value or path is assumed: the values and the environment-file location still come from Go.
    * @evidence contracts/common.md#meaningful-documentation Native prose lists each witnessed dependency and why it can change the answer.
-   * @evidence contracts/portability.md#os-neutral-implementation Native path ancestry and stat identity; Go reports its own GOROOT and GOENV.
+   * @evidence contracts/portability.md#os-neutral-implementation The key preserves Go's original cwd spelling and the caller's base for a relative cwd. Native directory identity qualifies the selected ancestry, and Go reports its own GOROOT and GOENV.
    * @evidence contracts/performance.md#efficient-algorithms A hit hashes the variables and observes the physical and possible PWD ancestry, SDK and delegated PATH evidence recorded at the miss. A miss runs up to three settings queries and can add one cold launcher-version query when the reported root matches the launcher.
    * @evidence contracts/performance.md#reuse-equivalent-work Equal tool, directory, keys and variables share one Go run across processes while the witness holds.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Records belong to the answer store's collector; nothing is retained in memory.
@@ -280,7 +280,8 @@ export namespace GoEnvironmentReading {
     const identity = [
       1,
       goBinary,
-      path.resolve(cwd),
+      cwd,
+      path.isAbsolute(cwd) ? null : process.cwd(),
       keys,
       goToolVariables(env),
     ];
@@ -362,7 +363,7 @@ export namespace GoEnvironmentReading {
     witness: PluginBuildEnvironmentWitness.Record | undefined,
     projectRoot: string | undefined,
   ): string | undefined {
-    const directory = path.resolve(cwd);
+    const directory = nativeWorkingDirectory(cwd);
     const identity = JSON.stringify([memoKey, directory]);
     const kept = localVersions.get(goBinary);
     if (
@@ -405,7 +406,7 @@ export namespace GoEnvironmentReading {
    * ancestor file can start selecting a toolchain when it is created, so the
    * observation includes absent go.mod and go.work files.
    *
-   * @evidence contracts/common.md#principled-implementation Capture the launcher, ancestors and initial SDK defaults before Go reads them. This covers toolchain directives under GOWORK=auto and the initial root set by goBuildEnv; externally selected toolchains are governed separately by their reported root.
+   * @evidence contracts/common.md#principled-implementation Capture the launcher, ancestors and initial SDK defaults before Go reads them. On POSIX the physical cwd and any PWD accepted by native device and inode identity supply the starting directories. On Windows Go uses the OS working-directory spelling.
    * @evidence contracts/common.md#clear-and-simple-design Both Go answer families reuse the same pre-probe observations and retain their own reported values.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Native ancestor and SDK paths provide the selection evidence, including absent files. The probe still supplies all Go values.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains when to observe and why missing files matter.
@@ -430,14 +431,15 @@ export namespace GoEnvironmentReading {
         witness,
         path.join(initialRoot, "go.env"),
       );
-    const lexical = path.resolve(cwd);
-    const roots = new Set([lexical]);
+    const directory = nativeWorkingDirectory(cwd);
+    const roots = new Set<string>();
+    if (process.platform === "win32") roots.add(path.resolve(cwd));
     try {
-      const physical = fs.realpathSync.native(cwd);
-      const current = fs.statSync(physical, { bigint: true });
+      const physical = fs.realpathSync.native(directory);
+      const current = fs.statSync(directory, { bigint: true });
       PluginBuildEnvironmentWitness.addDirectoryIdentity(
         witness,
-        lexical,
+        directory,
         current,
         physical,
       );
@@ -457,9 +459,15 @@ export namespace GoEnvironmentReading {
       }
     } catch {
       // The actual Go invocation still owns cwd and PWD validation.
-      PluginBuildEnvironmentWitness.addDirectoryIdentity(witness, lexical);
+      PluginBuildEnvironmentWitness.addDirectoryIdentity(witness, directory);
+      PluginBuildEnvironmentWitness.requireToolchainProbe(witness);
     }
     for (const root of roots) witnessWorkspaceAncestors(root, witness);
+  }
+
+  /** Keep dot-parent components until native directory lookup follows links. */
+  function nativeWorkingDirectory(cwd: string): string {
+    return path.isAbsolute(cwd) ? cwd : `${process.cwd()}${path.sep}${cwd}`;
   }
 
   /** Record the module and workspace selectors along a possible Go cwd. */
@@ -467,7 +475,8 @@ export namespace GoEnvironmentReading {
     root: string,
     witness: PluginBuildEnvironmentWitness.Record,
   ): void {
-    for (let directory = root; ; ) {
+    // Go's workspace and module searches clean the selector paths they join.
+    for (let directory = path.normalize(root); ; ) {
       PluginBuildEnvironmentWitness.add(
         witness,
         path.join(directory, "go.mod"),
@@ -556,7 +565,7 @@ export namespace GoEnvironmentReading {
   }
 
   /** Answer family of {@link recorded} (`WitnessedLoadAnswers`). */
-  const RECORDED_READING = "go-environment-reading-v4";
+  const RECORDED_READING = "go-environment-reading-v5";
 
   // A wrong hint is safe: the reading compares it with the `GOENV` Go reports
   // and runs again with the reported file witnessed.

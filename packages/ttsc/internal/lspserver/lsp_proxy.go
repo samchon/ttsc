@@ -360,7 +360,7 @@ func NewProxy(opts ProxyOptions) *Proxy {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Local answers require actual command/capability ownership; malformed unsupported payloads pass through rather than being repaired into expected responses. Older optional sources use explicit interface capability checks.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain stream termination and the editor-exit exception, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native disk reads and physical input matching stay behind path helpers; negotiated UTF-16 and protocol URI spelling remain distinct from native bytes and path case capability.
-// @evidence contracts/performance.md#efficient-algorithms Each pump frames and parses an envelope before routing; handlers also decode method payloads and can marshal rewritten responses. A timer exists only for selections with non-UTF-8 descriptor paths, and each tick after initialization probes only those entries and hashes available file bytes until the first mismatch. Text scans, producer calls, native input probes and registration reconciliation retain their input-dependent costs.
+// @evidence contracts/performance.md#efficient-algorithms Each pump frames and parses an envelope before routing; handlers also decode method payloads and can marshal rewritten responses. A timer exists only for selections with non-UTF-8 paths. Each initialized tick checks only those files and directory groups, including source listings, until the first mismatch. Text scans, producer calls, native input probes and registration reconciliation retain their input-dependent costs.
 // @evidence contracts/performance.md#reuse-equivalent-work The session retains live text, producer corpora and diagnostic publications under their document/producer guards. Owner-scoped invalidation and refresh coalescing coordinate requests; they do not independently authenticate daemon Program equivalence or a common producer capture. Actual cache validity and native execution remain with their owners.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Session correlation, document text and diagnostic state grow with traffic without a general byte/history budget. Teardown stops pending timer/scheduler admission and requests source closure once; timer callbacks already begun, copied observers and local request tasks are not joined. Stopping the context AfterFunc does not wait for an already-started shutdown callback. Custom streams can block indefinitely; the editor-exit exception can return before its pump completes, and closure errors are ignored.
 func (p *Proxy) Run(ctx context.Context) error {
@@ -374,10 +374,10 @@ func (p *Proxy) Run(ctx context.Context) error {
   go func() { upstreamDone <- p.pumpUpstreamToEditor(ctx) }()
 
   var rawSelectionTick <-chan time.Time
-  var rawFilesCurrent func() bool
+  var rawSelectionCurrent func() bool
   if source, ok := p.source.(interface{ rawPluginSelectionCheck() func() bool }); ok {
-    rawFilesCurrent = source.rawPluginSelectionCheck()
-    if rawFilesCurrent != nil {
+    rawSelectionCurrent = source.rawPluginSelectionCheck()
+    if rawSelectionCurrent != nil {
       ticker := time.NewTicker(time.Second)
       defer ticker.Stop()
       rawSelectionTick = ticker.C
@@ -397,7 +397,7 @@ func (p *Proxy) Run(ctx context.Context) error {
       p.projectInputWatchMu.Lock()
       ready := p.projectInputWatchReady
       p.projectInputWatchMu.Unlock()
-      if first == nil && ready && ctx.Err() == nil && !rawFilesCurrent() {
+      if first == nil && ready && ctx.Err() == nil && !rawSelectionCurrent() {
         err = p.writePluginSelectionChanged()
         if err == nil {
           err = ErrLSPPluginSelectionChanged

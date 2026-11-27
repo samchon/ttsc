@@ -36,8 +36,8 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
  * bytes and invalidate the other policy's digest. A later judgment need not
  * reread a record moved by another process in mid-build; the next pass observes
  * it. A changed proves callback can invalidate an already read digest within
- * this pass. Refresh errors propagate after the key enters the attempted-proof
- * set.
+ * this pass. If a managed record cannot be invalidated, its saved digest
+ * remains unavailable for this pass unless a later delivery updates it.
  *
  * @param name The plugin's name, the key of its entry in a module's `meta`.
  * @param includes Whether the adapter transforms a module id.
@@ -45,7 +45,7 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
  *   (`rollupDeliveryOptions`).
  * @param proves Whether the build proves the records its cached modules name,
  *   which a build without a watching session's bridge does.
- * @evidence contracts/common.md#principled-implementation Adapter-owned modules compare options and pass-observed record digest; matching record-less metadata follows the no-project rule. Missing delivery, malformed record, null or unreadable record requests retransformation.
+ * @evidence contracts/common.md#principled-implementation Adapter-owned modules compare options and pass-observed record digest; matching record-less metadata follows the no-project rule. Missing delivery, malformed or unreadable records, and a failed managed invalidation request retransformation.
  * @evidence contracts/common.md#clear-and-simple-design Per-pass proven and digest tables back the existing begin/deliver/moved interface; shared record refresh owns filesystem-state proof.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The adapter uses the host retransformation hook without patching its cache or inventing a record when no proof exists.
  * @evidence contracts/common.md#meaningful-documentation Paragraphs explain optional record refresh, pass observation reuse and invalidation, including callback failure and record-less delivery semantics.
@@ -63,8 +63,9 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   The returned proof owner retains attempted keys and optional digests for R
  *   lexical records until begin clears them or the owner becomes unreachable.
- *   There is no count/byte cap within a pass or dedicated close. Thrown refresh
- *   leaves existing table state until that reset; no native handle/task is held.
+ *   There is no count/byte cap within a pass or dedicated close. A failed
+ *   managed refresh stores an unavailable result until reset or delivery. No
+ *   native handle or task is held.
  */
 export function createRollupCachedModuleProof(
   name: string,
@@ -103,17 +104,26 @@ export function createRollupCachedModuleProof(
       const key = keyOf(file, privateStorage);
       if (proves() && !proven.has(key)) {
         proven.add(key);
-        refreshProjectRecordFile(
-          file,
-          undefined,
-          undefined,
-          undefined,
-          privateStorage === true,
-        );
         // What a delivery of this build wrote is what the proof ran over, and
         // a move it made is read from the file.
         digests.delete(key);
         digests.delete(keyOf(file, privateStorage !== true));
+        try {
+          refreshProjectRecordFile(
+            file,
+            undefined,
+            undefined,
+            undefined,
+            privateStorage === true,
+            privateStorage === true,
+          );
+        } catch (error) {
+          if (privateStorage !== true) throw error;
+          // A failed managed signal can leave exactly the stale digest the
+          // host cached. Refuse that record for this pass.
+          digests.set(key, undefined);
+          return true;
+        }
       }
       if (!digests.has(key)) {
         let observed: string | undefined;

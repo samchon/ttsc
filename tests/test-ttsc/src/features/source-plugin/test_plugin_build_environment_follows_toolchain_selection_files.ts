@@ -18,12 +18,12 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 1. Record the usable toolchain in a child module and reread it unchanged.
  * 2. Add and remove an ancestor workspace that selects an unavailable version.
  * 3. Edit the module to select that version, then restore the working version.
- * 4. Exercise delegation within and across SDK roots and distinguish an unrelated
- *    directory edit from retargeting a working-directory alias.
+ * 4. Exercise delegation within and across SDK roots and native working-directory
+ *    aliases, including a symlink before a dot-parent component on POSIX.
  *
  * @evidence contracts/testing.md#behavioral-verification The direct answer reader over a real Go SDK and private store returns the working digest while selection holds, then produces a different digest and refuses the preceding witness whenever Go's selection files move.
  * @evidence contracts/testing.md#independent-expectations Go's toolchain selection rules give the ancestor workspace precedence and reject the authored higher requirement with path-only lookup. Restoring the original requirement restores the original build inputs.
- * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selection files. A native link preserves working-directory authority across an unrelated sibling entry but loses it on retarget. With a second installed SDK, Go compares stable delegation, edited defaults and an earlier PATH candidate. The earlier candidate must also displace a different Go release sharing the launcher's SDK root. The separate packaged identity unit owns shipped SDK metadata.
+ * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selection files, native link retargeting and a dot-parent alias whose normalized spelling would select a different workspace. With a second SDK, an earlier PATH candidate displaces a different Go release even when it shares the launcher's SDK root. The packaged identity unit owns shipped SDK metadata.
  * @evidence contracts/testing.md#execution-ownership The unit runs native Go queries with local and PATH selection in its temporary module, workspace and answer store. It copies already installed executables and runs no plugin build or installed ttsc host.
  */
 export function test_plugin_build_environment_follows_toolchain_selection_files(): void {
@@ -108,6 +108,58 @@ export function test_plugin_build_environment_follows_toolchain_selection_files(
     if (fs.lstatSync(alias, { throwIfNoEntry: false })?.isSymbolicLink())
       fs.unlinkSync(alias);
   }
+  if (process.platform !== "win32")
+    verifyNativeDotParentDirectory(binary, root, env, store());
+}
+
+/** Compare cached reads against Go's native cwd selection across a path alias. */
+function verifyNativeDotParentDirectory(
+  binary: string,
+  root: string,
+  env: NodeJS.ProcessEnv,
+  store: PluginContentIdentities.Store | undefined,
+): void {
+  const lexical = path.join(root, "lexical");
+  const physical = path.join(root, "physical");
+  const ordinary = path.join(lexical, "module");
+  const child = path.join(physical, "child");
+  fs.mkdirSync(ordinary, { recursive: true });
+  fs.mkdirSync(child, { recursive: true });
+  fs.mkdirSync(path.join(physical, "module"));
+  fs.symlinkSync(child, path.join(lexical, "link"), "dir");
+  const aliased = `${lexical}/link/../module`;
+  const invalidWorkspace = path.join(physical, "go.work");
+  fs.writeFileSync(invalidWorkspace, "go 1.99.0\n");
+  const effective = SidecarEnvironment.merge(env, {
+    GO111MODULE: "on",
+    PWD: undefined,
+    GOWORK: "auto",
+  });
+  const args = ["env", "-json", "GOROOT"];
+  const native = (cwd: string) =>
+    spawnSync(binary, args, { cwd, env: effective, encoding: "utf8" });
+  assert.equal(native(ordinary).status, 0);
+  const rejected = native(aliased);
+  assert.equal(rejected.status, 1, rejected.stderr);
+  assert.match(rejected.stderr, /go1\.99\.0/);
+  const recorded = (cwd: string) =>
+    GoEnvironmentReading.recorded(
+      binary,
+      cwd,
+      effective,
+      ["GOROOT"],
+      undefined,
+      store,
+    );
+  const digest = (cwd: string) =>
+    readPluginBuildEnvironment(binary, cwd, effective, undefined, store);
+  assert.ok(recorded(ordinary)?.GOROOT);
+  const ordinaryDigest = digest(ordinary);
+  assert.equal(recorded(aliased), undefined);
+  assert.notEqual(digest(aliased), ordinaryDigest);
+  fs.unlinkSync(invalidWorkspace);
+  assert.ok(recorded(aliased)?.GOROOT);
+  assert.equal(digest(aliased), ordinaryDigest);
 }
 
 /** Exercise real Go dispatch without downloading a test-only toolchain. */

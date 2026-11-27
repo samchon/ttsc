@@ -115,10 +115,10 @@ func (s *NativePluginSource) rawPluginSelectionCheck() func() bool {
   s.projectInputsMu.RLock()
   selection := s.selection
   s.projectInputsMu.RUnlock()
-  if len(selection.rawFiles) == 0 {
+  if len(selection.rawFiles) == 0 && len(selection.rawDirectories) == 0 {
     return nil
   }
-  return selection.rawFilesCurrent
+  return selection.rawSelectionCurrent
 }
 
 // ProjectInputMatchesURI tests a watched URI against retained dependency/glob

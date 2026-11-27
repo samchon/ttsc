@@ -227,7 +227,7 @@ The host consumes that file once: it removes the flag-named manifest as soon as 
 
 The native host retains that selection-time baseline while ordinary project-input refreshes update data watchers. It dynamically registers both the exact reload-directory identity and its immediate children, then checks the baseline again after the client confirms registration; changes before registration are covered by that check and changes after registration by watcher events.
 
-For POSIX descriptor paths containing non-UTF-8 bytes, the launcher sends base64-encoded paths in the selection baseline. After initialization the native host checks those fingerprints periodically because editor watchers use Unicode paths.
+For POSIX descriptor paths containing non-UTF-8 bytes, the launcher sends base64-encoded paths in the selection baseline. After initialization the native host periodically checks byte-path fingerprints and directory groups that resolve to byte paths, including their source files and listings, because editor watchers use Unicode paths.
 
 A symlink fingerprint includes the link target and the bytes of any regular file it reaches. Special files and directories contribute a missing-content marker. A descriptor alias to a volume root still records the link itself.
 
