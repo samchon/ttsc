@@ -32,3 +32,15 @@ export const PLUGIN_INPUT_OBSERVATION_PATH: string = path.resolve(
   "runtime",
   "PluginDescriptorInputObservation.js",
 );
+
+/** Compiled trusted-preload graph helper shared with the isolated CJS evaluator. */
+export const TRUSTED_PRELOAD_GRAPH_PATH: string = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "..",
+  "lib",
+  "internal",
+  "TrustedPreloadGraph.js",
+);

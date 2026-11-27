@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
+import { TrustedNodeOptions } from "../../internal/TrustedNodeOptions";
 import { runtimeExecutableIdentity } from "../../internal/runtimeExecutableIdentity";
 import type { PluginContentIdentities } from "./source/PluginContentIdentities";
 import { SourceBuildCacheLayout } from "./source/SourceBuildCacheLayout";
@@ -81,16 +82,18 @@ export namespace CapabilityResolutionFormat {
 
   /**
    * Where the entry for this project lives, or `null` when no cache root can be
-   * resolved or the descriptor runtime cannot be identified.
+   * resolved, the descriptor runtime cannot be identified, or `NODE_OPTIONS`
+   * carries anything other than trusted `--require`/`-r` preloads whose
+   * observed module graph can be digested (`TrustedNodeOptions`).
    *
    * Keyed on the project rather than on the capability: the walk it replaces
    * discovers every configured plugin, so one entry answers for all of them and
    * a second consumer can reuse that entry for another capability, while still
-   * paying its authority and freshness checks. The complete environment and
-   * runtime content proof distinguish evaluation authorities even when project
-   * file content stays unchanged.
+   * paying its authority and freshness checks. The complete environment,
+   * runtime content proof and any trusted-preload key part distinguish
+   * evaluation authorities even when project file content stays unchanged.
    *
-   * @evidence contracts/common.md#principled-implementation SHA-256 over project/config identity, canonical descriptor environment and actual executable content/lexical/physical proof selects an authority-specific entry; unproved runtime/storage returns null rather than trusting restored metadata.
+   * @evidence contracts/common.md#principled-implementation SHA-256 over project/config identity, canonical descriptor environment, actual executable content/lexical/physical proof and the observed trusted-preload graph key part when NODE_OPTIONS is non-empty selects an authority-specific entry; untrusted preloads, `--import` or unproved runtime/storage return null rather than trusting restored metadata.
    * @evidence contracts/common.md#clear-and-simple-design Cache-root policy is delegated once and this function adds only the capability-entry key and layout.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The NUL separator prevents ambiguous path-field concatenation; fallback means uncached resolution rather than a guessed answer.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains null storage and project-wide reuse across capabilities; descriptive/tag separation follows the documentation skill.
@@ -118,6 +121,13 @@ export namespace CapabilityResolutionFormat {
     identities?: PluginContentIdentities.Store;
   }): string | null {
     const environment = SidecarEnvironment.merge(options.env ?? process.env);
+    const resolvedCwd = path.resolve(options.cwd);
+    const preloadKey = TrustedNodeOptions.key({
+      cwd: resolvedCwd,
+      env: environment,
+      identities: options.identities,
+    });
+    if (preloadKey === null) return null;
     const runtime =
       SidecarEnvironment.read(environment, "TTSC_NODE_BINARY") ??
       process.execPath;
@@ -129,16 +139,16 @@ export namespace CapabilityResolutionFormat {
       if (observed === undefined) return null;
       runtimeIdentity = observed;
       root = resolveSourceBuildCachePaths(
-        path.resolve(options.cwd),
+        resolvedCwd,
         undefined,
         environment,
       ).root;
     } catch {
       return null;
     }
-    const key = crypto
+    const hash = crypto
       .createHash("sha256")
-      .update(path.resolve(options.cwd))
+      .update(resolvedCwd)
       .update(SEPARATOR)
       .update(options.tsconfig)
       .update(SEPARATOR)
@@ -154,8 +164,9 @@ export namespace CapabilityResolutionFormat {
         ),
       )
       .update(SEPARATOR)
-      .update(runtimeIdentity)
-      .digest("hex");
+      .update(runtimeIdentity);
+    if (preloadKey !== "") hash.update(SEPARATOR).update(preloadKey);
+    const key = hash.digest("hex");
     return path.join(
       root,
       SourceBuildCacheLayout.CAPABILITY_CACHE_DIRNAME,
