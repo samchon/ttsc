@@ -1851,12 +1851,16 @@ function loadCommonJsDescriptor(
       ].sort(),
       verifiedPhase: postEvalPhase,
     };
-    // A hit replays no diagnostics, so only an evaluation with an empty
-    // captured diagnostics file is kept.
+    // A hit replays no diagnostics. Publication also needs the child's actual
+    // preload graph proof in addition to the parent's cache key.
     if (
       cacheFile !== null &&
+      Array.isArray(parsed.startupPreloadFiles) &&
       fs.statSync(diagnostics).size === 0 &&
-      PluginDescriptorEvaluationCache.locate(cacheAuthority) === cacheFile
+      PluginDescriptorEvaluationCache.locate({
+        ...cacheAuthority,
+        expectedPreloadGraph: parsed.startupPreloadFiles,
+      }) === cacheFile
     ) {
       PluginDescriptorEvaluationCache.write(
         cacheFile,

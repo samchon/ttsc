@@ -9,6 +9,7 @@ import { PluginLoadAnswers } from "../plugin/internal/source/PluginLoadAnswers";
 import { E2ETrace } from "./E2ETrace";
 import type { IJavaScriptRuntimeCapabilities } from "./IJavaScriptRuntimeCapabilities";
 import { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
+import { TrustedNodeOptions } from "./TrustedNodeOptions";
 import { TtsxNodeOptions } from "./TtsxNodeOptions";
 import { isSpawnSyncFdExhaustion } from "./isSpawnSyncFdExhaustion";
 import { runtimeExecutableIdentity } from "./runtimeExecutableIdentity";
@@ -18,8 +19,12 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  * Probe an interpreter instead of inferring its identity from the host.
  *
  * Successful absolute candidates can be reused only while their actual bytes,
- * lexical link and physical target agree. Preloaded, relative and wrapper
- * candidates are probed anew because those inputs can select mutable behavior.
+ * lexical link and physical target agree. Untrusted preloaded, relative and
+ * wrapper candidates are probed anew because those inputs can select mutable
+ * behavior. Trusted `--require`/`-r` preloads (`TrustedNodeOptions`) enter the
+ * key by the observed `require.cache` `module.children` graph's content
+ * digests, `NODE_OPTIONS`, and `TTSC_CACHE_TRUSTED_PRELOADS`. The caller
+ * vouches for stability during execution and for inputs outside that graph.
  * Cache-ineligible candidates do not acquire executable proofs used only by
  * cache lookup and publication.
  *
@@ -31,7 +36,7 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  * @param env Caller environment merged over this process's.
  * @param cwd Working directory of the probe.
  * @param identities Optional record store of the caller's plugin cache.
- * @evidence contracts/common.md#principled-implementation A child reports its own feature availability and executable; byte-aware before/after identity and same-executable proof authorize reuse only for a stable absolute runtime without NODE_OPTIONS preload authority, in process or through an answer recorded under that identity.
+ * @evidence contracts/common.md#principled-implementation A child reports its own feature availability and executable; byte-aware before/after identity and same-executable proof authorize reuse only for a stable absolute runtime with empty NODE_OPTIONS or trusted `--require` preloads keyed by their observed module-graph digests, in process or through an answer recorded under that identity.
  * @evidence contracts/common.md#clear-and-simple-design One probe owner coordinates identity, spawning and parsing; the shared fingerprint helper owns file-content proof and the low-descriptor helper owns the POSIX launch distinction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Feature availability comes from the actual interpreter rather than its name; descriptor fallback handles a supported kernel constraint and failures produce unsupported capabilities, not fabricated success.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain measured capabilities, reuse restrictions and freshness, with comments separating platform launch and cache permission from tags.
@@ -51,7 +56,12 @@ export function javascriptRuntimeCapabilities(
   const effectiveEnv = TtsxNodeOptions.forHelpers(
     SidecarEnvironment.merge(process.env, env),
   );
-  const cacheKey = runtimeCapabilityCacheKey(runtime, effectiveEnv);
+  const cacheKey = runtimeCapabilityCacheKey(
+    runtime,
+    effectiveEnv,
+    cwd,
+    identities,
+  );
   const beforeIdentity =
     cacheKey === undefined
       ? undefined
@@ -147,12 +157,17 @@ export function javascriptRuntimeCapabilities(
   // false for either feature and still be reused under the executable proof.
   // This removes a process spawn from the common path without
   // authorizing a replaced or redirected runtime in a long-lived host.
+  const afterCacheKey =
+    cacheKey === undefined
+      ? undefined
+      : runtimeCapabilityCacheKey(runtime, effectiveEnv, cwd, identities);
   const afterIdentity =
     cacheKey === undefined
       ? undefined
       : runtimeExecutableIdentity(runtime, identities);
   if (
     cacheKey !== undefined &&
+    afterCacheKey === cacheKey &&
     capabilities.executable !== undefined &&
     beforeIdentity !== undefined &&
     beforeIdentity === afterIdentity &&
@@ -223,15 +238,19 @@ function sameRuntimeExecutable(candidate: string, executable: string): boolean {
   }
 }
 
-/** Stable cache key only for an absolute runtime with no preload authority. */
+/**
+ * Stable cache key for an absolute runtime with empty `NODE_OPTIONS` or only
+ * trusted `--require`/`-r` preloads (`TrustedNodeOptions`).
+ */
 function runtimeCapabilityCacheKey(
   runtime: string,
   env: NodeJS.ProcessEnv,
+  cwd: string,
+  identities: PluginContentIdentities.Store | undefined,
 ): string | undefined {
-  if (
-    !path.isAbsolute(runtime) ||
-    SidecarEnvironment.read(env, "NODE_OPTIONS")?.trim()
-  )
-    return undefined;
-  return path.resolve(runtime);
+  if (!path.isAbsolute(runtime)) return undefined;
+  const preloadKey = TrustedNodeOptions.key({ cwd, env, identities });
+  if (preloadKey === null) return undefined;
+  const resolved = path.resolve(runtime);
+  return preloadKey === "" ? resolved : `${resolved}\0${preloadKey}`;
 }

@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   PLUGIN_INPUT_OBSERVATION_PATH,
   RESOLUTION_INPUT_RECORDER_PATH,
+  TRUSTED_PRELOAD_GRAPH_PATH,
 } from "./RESOLUTION_INPUT_RECORDER_PATH";
 
 /**
@@ -27,6 +28,13 @@ export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `const vm = require("node:vm");`,
   `const { PluginDescriptorInputObservation } = require.cache[${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)}]?.exports ?? require(${JSON.stringify(PLUGIN_INPUT_OBSERVATION_PATH)});`,
   `const { PluginDescriptorInputReport } = require(${JSON.stringify(path.resolve(path.dirname(PLUGIN_INPUT_OBSERVATION_PATH), "PluginDescriptorInputReport.js"))});`,
+  `const rawNodeOptions = process.env.NODE_OPTIONS;`,
+  `const trustedPreloadGraph = typeof rawNodeOptions === "string" && rawNodeOptions.trim() !== "" ? require(${JSON.stringify(TRUSTED_PRELOAD_GRAPH_PATH)}).TrustedPreloadGraph : undefined;`,
+  `const trustedPreloadRoots = trustedPreloadGraph === undefined ? [] : trustedPreloadGraph.resolveTrustedRoots({ cwd: process.cwd(), rawOptions: rawNodeOptions, rawTrusted: process.env.TTSC_CACHE_TRUSTED_PRELOADS, nodePathDiffers: false });`,
+  `let startupPreloadFiles = null;`,
+  `if (trustedPreloadRoots !== null) {`,
+  `  startupPreloadFiles = trustedPreloadRoots.length === 0 ? [] : trustedPreloadGraph.walkModuleGraph(trustedPreloadRoots, require.cache);`,
+  `}`,
   `const { fileURLToPath } = require("node:url");`,
   `const { createResolutionInputRecorder, requireResolveConsultsHooks } = (() => {`,
   `  const file = ${JSON.stringify(RESOLUTION_INPUT_RECORDER_PATH)};`,
@@ -166,11 +174,27 @@ export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   // lazily require a config; snapshotting inputs first would silently omit
   // that influence.
   `  const serializedDescriptor = JSON.stringify(descriptor);`,
+  // Declining persistent preload reuse does not invalidate the ordinary input
+  // observations of a fresh descriptor evaluation.
+  `  let preloadGraphComplete = startupPreloadFiles !== null;`,
+  `  let recordedPreloadFiles = [];`,
+  `  if (startupPreloadFiles !== null && startupPreloadFiles.length !== 0) {`,
+  `    const preloadGraph = trustedPreloadGraph.walkModuleGraph(trustedPreloadRoots, require.cache);`,
+  `    if (preloadGraph === null) {`,
+  `      preloadGraphComplete = false;`,
+  `    } else {`,
+  `      recordedPreloadFiles = [...new Set([...startupPreloadFiles, ...preloadGraph])];`,
+  `      for (const preloadFile of recordedPreloadFiles) recorder.recordFile(preloadFile);`,
+  `    }`,
+  `  }`,
   `  const recorded = recorder.finish();`,
+  `  if (recordedPreloadFiles.some((file) => typeof recorded.hashes[file] !== "string" || typeof recorded.realpaths[file] !== "string")) {`,
+  `    preloadGraphComplete = false;`,
+  `  }`,
   `  PluginDescriptorInputReport.finish();`,
   `  const observation = PluginDescriptorInputObservation.snapshot();`,
   `  observation.complete = observation.complete && recorded.complete === true;`,
-  `  const payload = { inputHashes: recorded.hashes, inputRealpaths: recorded.realpaths, inputs: recorded.inputs, observation };`,
+  `  const payload = { inputHashes: recorded.hashes, inputRealpaths: recorded.realpaths, inputs: recorded.inputs, observation, startupPreloadFiles: preloadGraphComplete ? startupPreloadFiles : null };`,
   `  if (serializedDescriptor !== undefined) payload.descriptor = JSON.parse(serializedDescriptor);`,
   `  fs.writeFileSync(out, JSON.stringify(payload));`,
   `} catch (error) {`,
