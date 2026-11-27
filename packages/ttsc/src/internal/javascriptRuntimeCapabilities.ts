@@ -23,10 +23,8 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  * wrapper candidates are probed anew because those inputs can select mutable
  * behavior. Trusted `--require`/`-r` preloads (`TrustedNodeOptions`) enter the
  * key by the observed `require.cache` `module.children` graph's content
- * digests, `NODE_OPTIONS`, and `TTSC_CACHE_TRUSTED_PRELOADS`. Whoever lists a
- * preload vouches for everything it does beyond its module graph (reads,
- * bindings, dlopen, branches that depend on the environment). ttsc proves only
- * which code the preload is, by observing and digesting its module graph.
+ * digests, `NODE_OPTIONS`, and `TTSC_CACHE_TRUSTED_PRELOADS`. The caller
+ * vouches for stability during execution and for inputs outside that graph.
  * Cache-ineligible candidates do not acquire executable proofs used only by
  * cache lookup and publication.
  *

@@ -75,6 +75,10 @@ Hashing the lockfile in a CI cache key covers all of these without enumerating t
 
 Plugin options do not invalidate the binary. Lint `rules`, `banner` text, `calls`, and CLI flags such as `--emit` or `--outDir` are read at run time and are not part of the key.
 
+## Startup preloads
+
+For Node launched with `NODE_OPTIONS` containing only `--require` or `-r`, set `TTSC_CACHE_TRUSTED_PRELOADS` to the exact physical paths of those preload files to enable descriptor and capability caching. Separate multiple paths with the platform's path-list delimiter. Keep preload files and module resolution inputs stable while the launcher and its children run. Inputs outside the CommonJS graph, such as files read directly, must stay stable across launches that share the cache. Ttsc checks the CommonJS modules it observes and their file contents. When the startup graph cannot be verified, it evaluates the descriptor and probes capabilities afresh.
+
 ## Git worktrees
 
 Set `TTSC_CACHE_DIR` to the same absolute directory in every worktree. A relative value resolves from each worktree's project root and creates a separate cache there.

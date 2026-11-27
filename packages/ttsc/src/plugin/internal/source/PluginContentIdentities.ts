@@ -130,19 +130,21 @@ export namespace PluginContentIdentities {
   }
 
   /**
-   * Open the store under a plugin cache root and mint its clock reference, or
-   * return `undefined` when the root cannot hold records, so callers read
-   * content as they did without one.
+   * Open the store under a plugin cache root and mint its cache-volume clock
+   * reference, or return `undefined` when the root cannot hold records, so
+   * callers read content as they did without one.
    *
    * The root follows the plugin cache policy (`resolveSourceBuildCachePaths`):
    * an explicit `cacheDir`, `TTSC_CACHE_DIR`, or the workspace-local default. A
    * default root is marked as selected before its first write, as every other
    * default writer does, so a later root search never mistakes the new payload
    * for an older orphan. One reference is minted in the root's identity
-   * directory, and the store exists only when that write succeeds. Another is
-   * minted in a private per-user directory below the system temporary
-   * directory, so an executable or SDK on the system volume is separable even
-   * when the project lives on another volume.
+   * directory, and the store exists only when that write succeeds. A second
+   * reference in a private per-user directory below the system temporary
+   * directory is minted lazily, at most once per store, only when a proof
+   * encounters a device absent from the cache root's own references (or when a
+   * caller forces it before a compile via {@link ensureTemporaryReference}), so
+   * single-volume loads and store-only openers never write in `os.tmpdir()`.
    *
    * A root inside any of `sources` is refused before anything is written: the
    * build rejects such a cache (`SourcePluginAdmission`), and a record written
@@ -155,14 +157,14 @@ export namespace PluginContentIdentities {
    * @param props.env Effective environment selecting `TTSC_CACHE_DIR` and
    *   `NIX_STORE_DIR`.
    * @param props.sources Plugin source directories the root must lie outside.
-   * @evidence contracts/common.md#principled-implementation The plugin cache policy selects the root, default roots are marked before payload, the reference comes from a fresh owned probe, and the optional Nix store root is recorded only when its real path is an existing directory; any failure withholds the store so callers keep the content path.
-   * @evidence contracts/common.md#clear-and-simple-design Root policy, Nix store lookup and the probe are delegated to their helpers; this function composes them once per load.
+   * @evidence contracts/common.md#principled-implementation The root is marked before its first default write and an owned probe provides its reference. Cross-device proofs lazily mint a second reference with owned precedence and union listing semantics. The optional Nix store identity uses the real directory and its owner.
+   * @evidence contracts/common.md#clear-and-simple-design Root selection, Nix store lookup and probe creation delegate to their existing owners.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No wall clock or historical stamp substitutes for the minted reference.
-   * @evidence contracts/common.md#meaningful-documentation Native paragraphs state root selection, the marker ordering, Nix store resolution and the undefined fallback.
-   * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and the probe's device identity carry platform semantics; environment names use the shared reader and Nix store ownership requires POSIX uid support.
-   * @evidence contracts/performance.md#efficient-algorithms Root selection can walk ancestors and read manifests; each of the two probes performs one directory creation, one write, up to three lstats and one removal; the temporary one also checks its directory's ownership, and Nix store discovery performs at most one realpath and one lstat. No plugin source is read.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe root selection, marker ordering, the lazy probe, Nix store resolution and the undefined fallback.
+   * @evidence contracts/portability.md#os-neutral-implementation Native paths and device identities carry filesystem semantics. Environment names use the shared reader and Nix store ownership requires POSIX uid support.
+   * @evidence contracts/performance.md#efficient-algorithms Root selection can walk ancestors and read manifests. Opening mints one owned probe, resolves the Nix store with at most one realpath and one lstat, and reads no plugin source. The temporary-volume probe runs at most once per store when a proof needs it or a caller requests it explicitly.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each load needs a freshly minted reference; reusing an older one would defeat the separation premise.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Each probe is removed in its owner's finally; the per-user temporary directory stays, empty, for later loads so the temporary directory itself does not move. The returned store retains at most two device references, one optional Nix store root pair and two strings.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Each probe is removed in its owner's finally and the empty per-user temporary directory remains stable across loads. The store retains at most two device references and one optional Nix store root pair. The private WeakMap entry drops with the store.
    */
   export function open(props: {
     projectRoot: string;
@@ -188,27 +190,78 @@ export namespace PluginContentIdentities {
       // The cache root's device covers the project, its installed plugins and
       // the toolchain bundled with them. A runtime or SDK installed elsewhere,
       // typically on the system drive, is judged against a second reference
-      // minted in a per-user directory below the system temporary directory.
-      const temporary = temporaryReference();
-      const references = new Map([
-        ...temporary.references,
-        ...owned.references,
-      ]);
-      const listings = new Set([...temporary.listings, ...owned.listings]);
+      // minted lazily in a per-user directory below the system temporary
+      // directory only when a proof meets a device absent from owned.references.
+      let temporaryMinted = false;
+      const references = new (class extends Map<bigint, bigint> {
+        public override get(device: bigint): bigint | undefined {
+          if (!owned.references.has(device)) ensureTemporary();
+          return super.get(device);
+        }
+
+        public override has(device: bigint): boolean {
+          if (!owned.references.has(device)) ensureTemporary();
+          return super.has(device);
+        }
+      })(owned.references);
+      const listings = new (class extends Set<bigint> {
+        public override has(device: bigint): boolean {
+          if (!owned.references.has(device)) ensureTemporary();
+          return super.has(device);
+        }
+      })(owned.listings);
+      const ensureTemporary = (): void => {
+        if (temporaryMinted) return;
+        temporaryMinted = true;
+        const temporary = temporaryReference();
+        for (const [device, stamp] of temporary.references) {
+          // Keep owned precedence over temporary on the same device.
+          if (!Map.prototype.has.call(references, device)) {
+            Map.prototype.set.call(references, device, stamp);
+          }
+        }
+        for (const device of temporary.listings) {
+          Set.prototype.add.call(listings, device);
+        }
+      };
       const nixStore = resolveNixStore(props.env);
       // WARNING (#1726): resolve no module here. A descriptor evaluator opens a
       // store under its resolution recorder, and any lookup becomes an input of
       // the descriptor it did not read (`ttscPackageVersion`).
-      return {
+      const store: Store = {
         root,
         references,
         listings,
         ...(nixStore === undefined ? {} : { nixStore }),
         version: ttscPackageVersion(),
       };
+      temporaryMinters.set(store, ensureTemporary);
+      return store;
     } catch {
       return undefined;
     }
+  }
+
+  /**
+   * Explicitly mint the store's temporary-volume clock reference now, at most
+   * once per store.
+   *
+   * Callers that snapshot `store.references` before a compile to prove later
+   * post-compile or parked traces (`RuntimeBuildInputs`) call this before the
+   * compile starts so any cross-volume reference predates the compile.
+   *
+   * @param store The opened store, if any.
+   * @evidence contracts/common.md#principled-implementation Forces the store's own temporary-volume probe ahead of a bracketed compile without minting a second probe when already minted.
+   * @evidence contracts/common.md#clear-and-simple-design One explicit entry point triggers the store's lazy temporaryReference closure without exposing internal mutable maps.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Mints a real probe through temporaryReference rather than synthesizing a timestamp or reusing a past store's probe.
+   * @evidence contracts/common.md#meaningful-documentation States why pre-compile callers invoke this explicitly and its at-most-once semantics.
+   * @evidence contracts/portability.md#os-neutral-implementation Delegates directly to the store's native temporaryReference probe.
+   * @evidence contracts/performance.md#efficient-algorithms Constant-time WeakMap lookup plus at most one temporary-volume probe per store; no-op on subsequent calls.
+   * @evidence contracts/performance.md#reuse-equivalent-work Idempotent per store; once minted, subsequent calls and cross-device lookups reuse that store's reference.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Retains no additional state beyond the store's WeakMap entry, which releases when the store is dropped.
+   */
+  export function ensureTemporaryReference(store: Store | undefined): void {
+    if (store !== undefined) temporaryMinters.get(store)?.();
   }
 
   /**
@@ -722,6 +775,9 @@ export namespace PluginContentIdentities {
 
   /** Directory below the system temporary directory that holds its probes. */
   const TEMPORARY_REFERENCE_DIRNAME = "ttsc-clock-references";
+
+  /** Per-store lazy temporary-volume minters, released when the store drops. */
+  const temporaryMinters = new WeakMap<Store, () => void>();
 
   /**
    * Population kinds whose content cannot reach outside the subject via links,

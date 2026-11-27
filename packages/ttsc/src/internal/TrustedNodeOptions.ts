@@ -1,7 +1,5 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { createRequire } from "node:module";
-import path from "node:path";
 
 import { SidecarEnvironment } from "../compiler/internal/sharedHost/SidecarEnvironment";
 import { PluginContentIdentities } from "../plugin/internal/source/PluginContentIdentities";
@@ -20,10 +18,10 @@ import { TrustedPreloadGraph } from "./TrustedPreloadGraph";
  * `module.children` transitively from `require.cache[rootPhysical]`, excluding
  * Node builtins.
  *
- * Whoever lists a preload in `TTSC_CACHE_TRUSTED_PRELOADS` vouches for
- * everything it does beyond its module graph (reads, bindings, dlopen, branches
- * that depend on the environment). ttsc proves only which code the preload is,
- * by observing and digesting its module graph.
+ * List preloads whose files and resolution inputs stay stable while the
+ * participating processes run. The caller also vouches for inputs outside the
+ * observed graph, including filesystem reads and environment-dependent
+ * effects.
  *
  * @evidence contracts/common.md#principled-implementation Environment variables are read with native name identity through SidecarEnvironment, root resolution and `module.children` graph walking delegate to TrustedPreloadGraph, and graph files are digested through PluginContentIdentities.
  * @evidence contracts/common.md#clear-and-simple-design Keeps cache-key construction and metadata-backed digesting here while delegating Node-builtin-only option parsing, root resolution, and graph walking to TrustedPreloadGraph.
@@ -36,74 +34,17 @@ import { TrustedPreloadGraph } from "./TrustedPreloadGraph";
  */
 export namespace TrustedNodeOptions {
   /**
-   * Key part for `PluginDescriptorEvaluationCache.locate`, `""` when
-   * `NODE_OPTIONS` is empty or whitespace, or `null` when caching must be
-   * refused.
-   *
-   * Validates that `NODE_OPTIONS` contains only `--require`/`-r` flags whose
-   * targets resolve from `props.cwd` to regular physical files listed verbatim
-   * in `TTSC_CACHE_TRUSTED_PRELOADS`. The descriptor evaluator child separately
-   * walks its own `require.cache` preload graph and records every file into
-   * `evaluation.inputs`, `hostInputHashes` and `hostInputRealpaths` for
-   * `PluginDescriptorEvaluationCache.read` to verify on every hit.
-   *
-   * Whoever lists a preload in `TTSC_CACHE_TRUSTED_PRELOADS` vouches for
-   * everything it does beyond its module graph (reads, bindings, dlopen,
-   * branches that depend on the environment). ttsc proves only which code the
-   * preload is, by observing and digesting its module graph.
-   *
-   * @param props.cwd Working directory of the descriptor evaluator child.
-   * @param props.env Effective environment of the descriptor evaluator child.
-   * @evidence contracts/common.md#principled-implementation Empty `NODE_OPTIONS` returns an empty key part to preserve existing cache keys; non-empty options read native env values through SidecarEnvironment and delegate root resolution to TrustedPreloadGraph before keying the raw option text, trust list, and resolved root paths.
-   * @evidence contracts/common.md#clear-and-simple-design Shares option parsing and root resolution through TrustedPreloadGraph while leaving evaluation-time graph hashing to the descriptor evaluator child.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts `--import`, non-preload flags, globs, untrusted targets, and bare `NODE_PATH` mismatches return null.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states the empty-string, null, and key-part meanings and explains why file content proofs belong to the evaluator child.
-   * @evidence contracts/portability.md#os-neutral-implementation SidecarEnvironment handles native environment names before TrustedPreloadGraph splits trusted paths with `path.delimiter` and resolves roots from the evaluator cwd.
-   * @evidence contracts/performance.md#efficient-algorithms Tokenizes `NODE_OPTIONS` and resolves each trusted root without reading file contents; descriptor `read()` checks recorded file hashes on hits.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Pure key-part construction with no retained cache.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains no handles or module state.
-   */
-  export function descriptorKey(props: {
-    /** Evaluator working directory used to resolve `-r` targets. */
-    cwd: string;
-
-    /** Complete child environment carrying `NODE_OPTIONS` and trust list. */
-    env: NodeJS.ProcessEnv;
-  }): string | null {
-    const rawOptions = SidecarEnvironment.read(props.env, "NODE_OPTIONS");
-    if (rawOptions === undefined || rawOptions.trim() === "") return "";
-
-    const rawTrusted = SidecarEnvironment.read(props.env, TRUSTED_PRELOADS_ENV);
-    if (rawTrusted === undefined || rawTrusted === "") return null;
-
-    const roots = TrustedPreloadGraph.resolveTrustedRoots({
-      cwd: props.cwd,
-      rawOptions,
-      rawTrusted,
-      nodePathDiffers:
-        (SidecarEnvironment.read(props.env, "NODE_PATH") ?? "") !==
-        (SidecarEnvironment.read(process.env, "NODE_PATH") ?? ""),
-    });
-    if (roots === null || roots.length === 0) return null;
-    return JSON.stringify([rawOptions, rawTrusted, roots]);
-  }
-
-  /**
-   * Key part for the launcher's runtime-capability and capability-resolution
-   * caches, `""` when `NODE_OPTIONS` is empty or whitespace, or `null` when
-   * caching must be refused.
+   * Key part for descriptor and capability caches, `""` with empty
+   * `NODE_OPTIONS`, or `null` when reuse is unavailable.
    *
    * Resolves every `--require`/`-r` in `NODE_OPTIONS` against `props.cwd`,
    * verifies exact membership in `TTSC_CACHE_TRUSTED_PRELOADS`, walks the
    * transitive `module.children` graph starting from each trusted root's
    * `Module` in `require.cache` (excluding builtins), and hashes every file in
-   * that graph through `PluginContentIdentities.digest`. Any missing root in
-   * `require.cache`, unreadable child, `--import`, or other flag refuses.
-   *
-   * Whoever lists a preload in `TTSC_CACHE_TRUSTED_PRELOADS` vouches for
-   * everything it does beyond its module graph (reads, bindings, dlopen,
-   * branches that depend on the environment). ttsc proves only which code the
-   * preload is, by observing and digesting its module graph.
+   * that graph through `PluginContentIdentities.digest`. A different child
+   * `NODE_PATH` can redirect transitive imports even for an absolute root.
+   * Descriptor publication also checks the evaluator's initial graph against
+   * the graph used by the parent.
    *
    * @param props.cwd Working directory of the child process that receives
    *   `NODE_OPTIONS`, used to resolve `-r` targets as Node would.
@@ -112,9 +53,11 @@ export namespace TrustedNodeOptions {
    *   unchanged preload-graph bytes from separable metadata across launches.
    * @param props.cache Optional `require.cache` map; defaults to this runtime's
    *   live CommonJS module cache.
+   * @param props.expectedPreloadGraph Sorted paths from the descriptor child,
+   *   supplied at publication.
    * @evidence contracts/common.md#principled-implementation Empty `NODE_OPTIONS` returns an empty key part; non-empty options read env values via SidecarEnvironment, resolve roots and walk `module.children` via TrustedPreloadGraph, and hash every graph file through PluginContentIdentities.
-   * @evidence contracts/common.md#clear-and-simple-design Composes TrustedPreloadGraph root resolution and graph walking with `PluginContentIdentities.digest` into one refuse-or-key decision shared by runtime-capability and capability-resolution caches.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing cache roots, unreadable children, empty graphs, `--import`, unknown flags, and untrusted preloads return null rather than assuming an empty graph.
+   * @evidence contracts/common.md#clear-and-simple-design Descriptor and capability caches share one root resolution, graph walk and file digest policy.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unproved graphs, untrusted flags and child graph or NODE_PATH mismatches refuse reuse.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the empty-string, null, and key-part meanings, the parameter roles, and the exact residual trust contract.
    * @evidence contracts/portability.md#os-neutral-implementation SidecarEnvironment handles native variable-name identity and TrustedPreloadGraph uses `path.delimiter`, `createRequire`, and native realpath/stat/access.
    * @evidence contracts/performance.md#efficient-algorithms Empty or refused options exit before opening a lazy store or reading bytes. Accepted graph files reuse digests from `PluginContentIdentities` via metadata stats on warm launches and hash full file bytes on cold or modified launches.
@@ -135,28 +78,39 @@ export namespace TrustedNodeOptions {
 
     /** Optional module cache map; defaults to the live `require.cache`. */
     cache?: NodeJS.Dict<NodeJS.Module>;
+
+    /** Sorted physical paths observed in the descriptor evaluator at startup. */
+    expectedPreloadGraph?: readonly unknown[];
   }): string | null {
     const rawOptions = SidecarEnvironment.read(props.env, "NODE_OPTIONS");
-    if (rawOptions === undefined || rawOptions.trim() === "") return "";
+    if (rawOptions === undefined || rawOptions.trim() === "")
+      return (props.expectedPreloadGraph?.length ?? 0) === 0 ? "" : null;
 
     const rawTrusted = SidecarEnvironment.read(props.env, TRUSTED_PRELOADS_ENV);
     if (rawTrusted === undefined || rawTrusted === "") return null;
+    if (
+      (SidecarEnvironment.read(props.env, "NODE_PATH") ?? "") !==
+      (SidecarEnvironment.read(process.env, "NODE_PATH") ?? "")
+    )
+      return null;
 
     const roots = TrustedPreloadGraph.resolveTrustedRoots({
       cwd: props.cwd,
       rawOptions,
       rawTrusted,
-      nodePathDiffers:
-        (SidecarEnvironment.read(props.env, "NODE_PATH") ?? "") !==
-        (SidecarEnvironment.read(process.env, "NODE_PATH") ?? ""),
+      nodePathDiffers: false,
     });
     if (roots === null || roots.length === 0) return null;
 
-    const moduleCache =
-      props.cache ??
-      createRequire(path.join(path.resolve(props.cwd), "_.cjs")).cache;
-    const graph = TrustedPreloadGraph.walkModuleGraph(roots, moduleCache);
+    const graph = TrustedPreloadGraph.walkModuleGraph(roots, props.cache);
     if (graph === null) return null;
+    const expected = props.expectedPreloadGraph;
+    if (
+      expected !== undefined &&
+      (expected.length !== graph.length ||
+        graph.some((file, index) => file !== expected[index]))
+    )
+      return null;
 
     const store =
       typeof props.identities === "function"
@@ -168,7 +122,7 @@ export namespace TrustedNodeOptions {
       if (digest === null) return null;
       digests.push([physical, digest]);
     }
-    return JSON.stringify([rawOptions, rawTrusted, digests]);
+    return JSON.stringify([rawOptions, rawTrusted, roots, digests]);
   }
 
   /** Environment variable listing exact trusted preload physical paths. */

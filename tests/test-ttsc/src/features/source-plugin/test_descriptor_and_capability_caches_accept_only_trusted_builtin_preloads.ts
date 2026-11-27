@@ -16,6 +16,8 @@ interface IActorReport {
   descriptorEvaluated: boolean;
   descriptorInputs: string[];
   descriptorObservationsComplete: boolean | null;
+  descriptorDifferentGraphRefused: boolean;
+  descriptorDifferentNodePathRefused: boolean;
   capabilities: {
     bun: boolean;
     executable?: string;
@@ -45,13 +47,13 @@ interface IActorReport {
  *    across all three caches, then verify untrusted preloads and globs refuse.
  * 2. Edit the trusted preload's bytes and verify all three caches miss.
  * 3. Load a trusted preload requiring a local helper file, verify hits across
- *    launches and misses when the local helper changes (including after
- *    `locate()` and before `read()`), verify `--import` refuses, and verify a
- *    `ttsx`-like child with `runtimeHookPreload` records only the user graph.
+ *    launches and misses when its bytes or resolution change. Verify `--import`
+ *    refuses, and verify a `ttsx`-like child with `runtimeHookPreload` records
+ *    only the user graph.
  *
  * @evidence contracts/testing.md#behavioral-verification Real Node launches run the descriptor evaluator shim, PluginDescriptorEvaluationCache.locate/read/write, javascriptRuntimeCapabilities and resolveCapabilityPluginResolution with real preloads, local dependencies and runtimeHookPreload.
  * @evidence contracts/testing.md#independent-expectations Expected hits, misses, probe counts, recorded input graphs and null refusals follow directly from the observed-graph preload contract and real child execution.
- * @evidence contracts/testing.md#distinguishing-cases Covers trusted port-zero hits across launches, untrusted and glob refusal, preload byte edits, transitive local helper edits including post-locate pre-read invalidation, --import refusal, ttsx-like child with runtimeHookPreload isolation, relative and package -r resolution, NODE_PATH mismatch refusal, missing root in require.cache, non-preload flags, and empty/whitespace NODE_OPTIONS.
+ * @evidence contracts/testing.md#distinguishing-cases Covers trusted preload hits, untrusted and glob refusal, startup graph disagreement, preload and helper edits, a new resolution candidate with previous files unchanged, before-read invalidation, ttsx-like graph isolation, relative and package lookup, NODE_PATH mismatch, missing roots, unsupported flags and empty options.
  * @evidence contracts/testing.md#execution-ownership Unit test owning temp files and fresh Node source actors through register-unit-loader.mjs without building native artifacts, installing consumers or starting a product host.
  */
 export function test_descriptor_and_capability_caches_accept_only_trusted_builtin_preloads(): void {
@@ -96,7 +98,7 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   const portZeroReal = fs.realpathSync.native(portZeroFile);
 
   // Fixture 2: trusted preload requiring a local helper module.
-  const localHelperFile = path.join(preloadDir, "local-helper.cjs");
+  const localHelperFile = path.join(preloadDir, "local-helper.js");
   const localHelperV1 = "module.exports = { version: 1 };\n";
   fs.writeFileSync(localHelperFile, localHelperV1);
   const localHelperReal = fs.realpathSync.native(localHelperFile);
@@ -104,7 +106,7 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   const preloadWithLocalFile = path.join(preloadDir, "with-local.cjs");
   fs.writeFileSync(
     preloadWithLocalFile,
-    'const helper = require("./local-helper.cjs");\nvoid helper.version;\n',
+    'const helper = require("./local-helper");\nvoid helper.version;\n',
   );
   const preloadWithLocalReal = fs.realpathSync.native(preloadWithLocalFile);
 
@@ -195,6 +197,8 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   assert.equal(launch1.descriptorCacheHit, false);
   assert.equal(launch1.descriptorEvaluated, true);
   assert.equal(launch1.descriptorObservationsComplete, true);
+  assert.equal(launch1.descriptorDifferentGraphRefused, true);
+  assert.equal(launch1.descriptorDifferentNodePathRefused, true);
   assert.ok(
     launch1.descriptorInputs.includes(portZeroReal),
     "descriptor evaluation must record the trusted preload root",
@@ -460,6 +464,24 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   );
   assert.equal(ttsxChild2.capabilityProbes, 0);
 
+  const preferredHelper = path.join(preloadDir, "local-helper");
+  fs.writeFileSync(preferredHelper, "module.exports = { version: 3 };\n");
+  const redirected = runLaunch(localEnv, "evaluate");
+  assert.equal(
+    redirected.descriptorCacheHit,
+    false,
+    "a new higher-priority preload dependency must invalidate the descriptor cache",
+  );
+  assert.ok(
+    redirected.descriptorInputs.includes(
+      fs.realpathSync.native(preferredHelper),
+    ),
+  );
+  assert.ok(!redirected.descriptorInputs.includes(localHelperReal));
+  assert.equal(redirected.capabilityProbes, 1);
+  assert.equal(redirected.capabilityCacheHit, false);
+  assert.equal(runLaunch(localEnv).descriptorCacheHit, true);
+
   // Direct boundary checks: empty/whitespace NODE_OPTIONS, non-preload flags,
   // missing root in require.cache, relative -r, and NODE_PATH mismatch on bare -r.
   const baseEnv = SidecarEnvironment.merge(process.env, {
@@ -504,6 +526,7 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   }
 
   // Unloaded trusted root in current process refuses launcher capability key.
+  assert.equal(locateDescriptor(portZeroEnv), null);
   assert.equal(
     CapabilityResolutionFormat.resolutionFile({
       cwd: projectDir,
@@ -521,14 +544,14 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   // Relative -r resolved from evaluator cwd works for descriptor locate.
   const relPath = `./${path.relative(projectDir, portZeroFile).split(path.sep).join("/")}`;
   assert.notEqual(
-    locateDescriptor({
+    runLaunch({
       NODE_OPTIONS: `--require=${relPath}`,
       TTSC_CACHE_TRUSTED_PRELOADS: portZeroReal,
-    }),
+    }).descriptorLocation,
     null,
   );
 
-  // Package specifier -r resolves via node_modules from cwd, and refuses on NODE_PATH mismatch.
+  // Package specifier -r resolves via node_modules from the launch cwd.
   const pkgDir = path.join(projectDir, "node_modules", "trusted-pkg-preload");
   fs.mkdirSync(pkgDir, { recursive: true });
   const pkgEntry = path.join(pkgDir, "index.cjs");
@@ -538,22 +561,12 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   );
   fs.writeFileSync(pkgEntry, "module.exports = {};\n");
   const pkgEntryReal = fs.realpathSync.native(pkgEntry);
-  assert.notEqual(
-    locateDescriptor({
-      NODE_OPTIONS: "-r trusted-pkg-preload",
-      TTSC_CACHE_TRUSTED_PRELOADS: pkgEntryReal,
-    }),
-    null,
-  );
-  assert.equal(
-    locateDescriptor({
-      NODE_OPTIONS: "-r trusted-pkg-preload",
-      NODE_PATH: path.join(root, "other-node-path"),
-      TTSC_CACHE_TRUSTED_PRELOADS: pkgEntryReal,
-    }),
-    null,
-    "bare -r specifier must refuse when NODE_PATH differs from process.env.NODE_PATH",
-  );
+  const packageLaunch = runLaunch({
+    NODE_OPTIONS: "-r trusted-pkg-preload",
+    TTSC_CACHE_TRUSTED_PRELOADS: pkgEntryReal,
+  });
+  assert.notEqual(packageLaunch.descriptorLocation, null);
+  assert.equal(packageLaunch.descriptorDifferentNodePathRefused, true);
 
   // Non-preload flags and nonexistent paths refuse.
   for (const nodeOptions of [

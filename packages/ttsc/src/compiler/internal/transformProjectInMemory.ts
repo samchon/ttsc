@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { resolveNodeBinary } from "../../internal/resolveNodeBinary";
+import { HostInputObservationPhase } from "../../plugin/internal/load/HostInputObservationPhase";
 import { collectProjectHostInputs } from "../../plugin/internal/load/collectProjectHostInputs";
 import { hashHostInputPaths } from "../../plugin/internal/load/hashHostInputPaths";
 import { loadProjectPlugins } from "../../plugin/internal/load/loadProjectPlugins";
@@ -192,8 +193,15 @@ function transformProjectWithNativeHost(
   // consumes the resolved config chain here, so dependency package manifests
   // must not become per-project universal inputs a second time.
   const projectHostInputs = collectProjectHostInputs(project, false);
-  const projectHostInputHashes = hashHostInputPaths(projectHostInputs);
-  const projectHostInputRealpaths = realpathHostInputPaths(projectHostInputs);
+  const projectInputPhase = HostInputObservationPhase.create();
+  const projectHostInputHashes = hashHostInputPaths(
+    projectHostInputs,
+    projectInputPhase,
+  );
+  const projectHostInputRealpaths = realpathHostInputPaths(
+    projectHostInputs,
+    projectInputPhase,
+  );
   const observedHostInputs = mergeHostInputs(
     baseline?.hostInputs,
     projectHostInputs,
@@ -474,21 +482,26 @@ function transformProjectWithPlugins(
     stdout: "",
     stderr: outputText(res.stderr),
   };
+  const revalidationPhase = HostInputObservationPhase.create();
   const finalLoadedHostInputHashes = revalidateHostInputHashes(
     checkedHostInputHashes,
     checkedHostInputs,
+    revalidationPhase,
   );
   const finalOutputHostInputHashes = revalidateHostInputHashes(
     output.hostInputHashes ?? {},
     output.hostInputs ?? [],
+    revalidationPhase,
   );
   const finalLoadedHostInputRealpaths = revalidateHostInputRealpaths(
     checkedHostInputRealpaths,
     checkedHostInputs,
+    revalidationPhase,
   );
   const finalOutputHostInputRealpaths = revalidateHostInputRealpaths(
     output.hostInputRealpaths ?? {},
     output.hostInputs ?? [],
+    revalidationPhase,
   );
   const hostInputHashes = mergeCompatibleHostInputHashes(
     finalLoadedHostInputHashes,
@@ -529,8 +542,9 @@ function transformProjectWithPlugins(
 function revalidateHostInputHashes(
   initial: Readonly<Record<string, string | null>>,
   inputs: readonly string[],
+  phase?: HostInputObservationPhase.Phase,
 ): Record<string, string | null> {
-  const current = hashHostInputPaths(inputs);
+  const current = hashHostInputPaths(inputs, phase);
   return Object.fromEntries(
     inputs.flatMap((input) => {
       const absolute = path.resolve(input);
@@ -546,8 +560,9 @@ function revalidateHostInputHashes(
 function revalidateHostInputRealpaths(
   initial: Readonly<Record<string, string | null>>,
   inputs: readonly string[],
+  phase?: HostInputObservationPhase.Phase,
 ): Record<string, string | null> {
-  const current = realpathHostInputPaths(inputs);
+  const current = realpathHostInputPaths(inputs, phase);
   return Object.fromEntries(
     inputs.flatMap((input) => {
       const absolute = path.resolve(input);

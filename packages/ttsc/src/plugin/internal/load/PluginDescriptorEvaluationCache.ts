@@ -10,6 +10,7 @@ import type { PluginContentIdentities } from "../source/PluginContentIdentities"
 import { SourceBuildCacheLayout } from "../source/SourceBuildCacheLayout";
 import { recordCacheFileUse } from "../source/recordCacheFileUse";
 import { resolveSourceBuildCachePaths } from "../source/resolveSourceBuildCachePaths";
+import { HostInputObservationPhase } from "./HostInputObservationPhase";
 import { declaresHostInputReads } from "./declaresHostInputReads";
 import { hashHostInputPaths } from "./hashHostInputPaths";
 import { realpathHostInputPaths } from "./realpathHostInputPaths";
@@ -40,14 +41,10 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * Startup preloads run before these observations and cannot authorize
  * persistence merely through a stable NODE_OPTIONS string. Only
  * `--require`/`-r` preloads whose exact physical paths are listed in
- * `TTSC_CACHE_TRUSTED_PRELOADS` are accepted (`TrustedNodeOptions`), keyed by
- * `NODE_OPTIONS` and `TTSC_CACHE_TRUSTED_PRELOADS` here while the evaluator
- * child walks each trusted root's `require.cache` `module.children` graph and
- * records every file into `evaluation.inputs`, `hostInputHashes` and
- * `hostInputRealpaths` for `read()` to verify on every hit. Whoever lists a
- * preload vouches for everything it does beyond its module graph (reads,
- * bindings, dlopen, branches that depend on the environment). ttsc proves only
- * which code the preload is, by observing and digesting its module graph.
+ * `TTSC_CACHE_TRUSTED_PRELOADS` are accepted. The key includes the graph
+ * observed by the caller. Publication requires a matching startup graph in the
+ * evaluator, which records the files from its startup and final graphs for
+ * `read()` to verify on every hit.
  *
  * @evidence contracts/common.md#principled-implementation Persistent evaluation identity includes evaluator format, descriptor/context, working directory, effective environment, actual primary/secondary executable content identities, any trusted `--require` startup preload key part and ttsc version, while the evaluator child records the observed preload module graph into the entry's input proofs verified by `read()`. Acceptance checks recorded input observations and producer-declared external content, not every possible read; untrusted preloads, `--import` and other `NODE_OPTIONS` flags refuse persistence.
  * @evidence contracts/common.md#clear-and-simple-design Locate/read/write separate key construction, proof validation and publication while the loader owns evaluation and its diagnostics.
@@ -98,11 +95,6 @@ export namespace PluginDescriptorEvaluationCache {
    * anything other than trusted `--require`/`-r` preloads
    * (`TrustedNodeOptions`).
    *
-   * Whoever lists a preload in `TTSC_CACHE_TRUSTED_PRELOADS` vouches for
-   * everything it does beyond its module graph (reads, bindings, dlopen,
-   * branches that depend on the environment). ttsc proves only which code the
-   * preload is, by observing and digesting its module graph.
-   *
    * @param props.projectRoot The project whose cache root holds the entry.
    * @param props.cacheDir The plugin cache directory the caller selected.
    * @param props.request The resolved descriptor module.
@@ -112,6 +104,8 @@ export namespace PluginDescriptorEvaluationCache {
    * @param props.runtime The runtime executable that evaluates it.
    * @param props.additionalRuntime Selected Node executable exposed to the
    *   descriptor and used by ttsx/config loaders, when distinct from runtime.
+   * @param props.expectedPreloadGraph Evaluator startup paths to match against
+   *   the caller's current graph before publication.
    * @param props.version This ttsc build's version.
    * @evidence contracts/common.md#principled-implementation Canonical identity includes factory context, normalized evaluator working directory, sorted effective environment, fresh content/lexical/physical proof of both actual runtime authorities and the trusted-preload key part when NODE_OPTIONS is non-empty; untrusted preloads, `--import`, other `NODE_OPTIONS` flags and unreadable runtimes cannot select a reusable entry.
    * @evidence contracts/common.md#clear-and-simple-design The locator delegates cache-root policy and runtime observation, then constructs only the descriptor entry identity.
@@ -156,14 +150,16 @@ export namespace PluginDescriptorEvaluationCache {
      * it each runtime is streamed again.
      */
     identities?: PluginContentIdentities.Store;
+
+    /** Sorted startup module paths reported by the evaluator at publication. */
+    expectedPreloadGraph?: readonly unknown[];
   }): string | null {
     const environment = SidecarEnvironment.merge(props.env);
-    // Whoever lists a preload vouches for everything it does beyond its module
-    // graph (reads, bindings, dlopen, branches that depend on the environment);
-    // the evaluator child records the observed preload graph for read().
-    const preloadKey = TrustedNodeOptions.descriptorKey({
+    const preloadKey = TrustedNodeOptions.key({
       cwd: props.cwd,
       env: environment,
+      expectedPreloadGraph: props.expectedPreloadGraph,
+      identities: props.identities,
     });
     if (preloadKey === null) return null;
     const runtime = runtimeIdentity(props.runtime, props.identities);
@@ -238,10 +234,12 @@ export namespace PluginDescriptorEvaluationCache {
    */
   export function read(
     file: string,
-    observed?: {
-      hashes: Map<string, string | null>;
-      realpaths: Map<string, string | null>;
-    },
+    observed?:
+      | HostInputObservationPhase.Phase
+      | {
+          hashes: Map<string, string | null>;
+          realpaths: Map<string, string | null>;
+        },
   ): IEvaluation | null {
     let entry: unknown;
     try {
@@ -251,19 +249,25 @@ export namespace PluginDescriptorEvaluationCache {
     }
     if (!isEntry(entry) || entry.format !== FORMAT) return null;
     const hashed = Object.keys(entry.proof.hashes);
+    if (hashed.length === 0) return null;
+    const phase = HostInputObservationPhase.isPhase(observed)
+      ? observed
+      : HostInputObservationPhase.create();
+    const currentHashes = hashHostInputPaths(hashed, phase);
+    const currentRealpaths = sameMap(entry.proof.hashes, currentHashes)
+      ? realpathHostInputPaths(Object.keys(entry.proof.realpaths), phase)
+      : null;
     if (
-      hashed.length === 0 ||
-      !sameMap(
-        entry.proof.hashes,
-        hashHostInputPaths(hashed, observed?.hashes),
-      ) ||
-      !sameMap(
-        entry.proof.realpaths,
-        realpathHostInputPaths(
-          Object.keys(entry.proof.realpaths),
-          observed?.realpaths,
-        ),
-      )
+      observed !== undefined &&
+      !HostInputObservationPhase.isPhase(observed)
+    ) {
+      for (const [key, value] of phase.hashes) observed.hashes.set(key, value);
+      for (const [key, value] of phase.realpaths)
+        observed.realpaths.set(key, value);
+    }
+    if (
+      currentRealpaths === null ||
+      !sameMap(entry.proof.realpaths, currentRealpaths)
     )
       return null;
     recordCacheFileUse(file);

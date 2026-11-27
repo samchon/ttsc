@@ -63,14 +63,13 @@ function missingPathError(error) {
 }
 
 /**
- * The metadata identity of a path, which exposes a content-preserving A-B-A
- * replacement: the path's own, and its link target's. A missing path is tied to
- * its nearest existing ancestor, whose metadata moves when the missing branch
- * appears or disappears. `undefined` when it cannot be taken.
+ * The metadata identity of a path together with whether `lstat` on the path
+ * itself failed with ENOENT or ENOTDIR.
  */
-function metadataSignature(file) {
+function inspectMetadata(file) {
   const requested = path.resolve(file);
   let current = requested;
+  let missing = false;
   for (;;) {
     try {
       const link = fs.lstatSync(current, { bigint: true });
@@ -79,30 +78,62 @@ function metadataSignature(file) {
         try {
           target = fs.statSync(current, { bigint: true });
         } catch {
-          return undefined;
+          return { missing, signature: undefined };
         }
       }
-      return [
-        path.relative(current, requested),
-        link.dev,
-        link.ino,
-        link.mode,
-        link.size,
-        link.mtimeNs,
-        link.ctimeNs,
-        target.dev,
-        target.ino,
-        target.mode,
-        target.size,
-        target.mtimeNs,
-        target.ctimeNs,
-      ].join(":");
+      return {
+        missing,
+        signature: [
+          path.relative(current, requested),
+          link.dev,
+          link.ino,
+          link.mode,
+          link.size,
+          link.mtimeNs,
+          link.ctimeNs,
+          target.dev,
+          target.ino,
+          target.mode,
+          target.size,
+          target.mtimeNs,
+          target.ctimeNs,
+        ].join(":"),
+      };
     } catch (error) {
-      if (!missingPathError(error)) return undefined;
+      if (!missingPathError(error)) return { missing, signature: undefined };
+      if (current === requested) missing = true;
       const parent = path.dirname(current);
-      if (parent === current) return undefined;
+      if (parent === current) return { missing, signature: undefined };
       current = parent;
     }
+  }
+}
+
+/**
+ * The metadata identity of a path, which exposes a content-preserving A-B-A
+ * replacement: the path's own, and its link target's. A missing path is tied to
+ * its nearest existing ancestor, whose metadata moves when the missing branch
+ * appears or disappears. `undefined` when it cannot be taken.
+ */
+function metadataSignature(file) {
+  return inspectMetadata(file).signature;
+}
+
+/**
+ * Physical path selected by a candidate, or `null` while it is unresolved.
+ * Absent paths (`ENOENT` or `ENOTDIR`) stop after one `lstat` without walking
+ * `realpath`.
+ */
+function realpathCandidate(file) {
+  try {
+    fs.lstatSync(file);
+  } catch (error) {
+    if (missingPathError(error)) return null;
+  }
+  try {
+    return fs.realpathSync.native(file);
+  } catch {
+    return null;
   }
 }
 
@@ -190,7 +221,7 @@ function moduleCandidates(base, extensions) {
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Native filesystem identity supplies the case exception; no platform-name assumption or expected package answer is substituted.
  * @evidence contracts/common.md#meaningful-documentation JSDoc distinguishes candidate realpaths, selected lexical fallback and failed-resolution absence, with separate parameter prose and tags.
  * @evidence contracts/portability.md#os-neutral-implementation Node native path and realpath APIs handle separators; ambiguous folded containment requires nonzero device/inode identity rather than assuming Windows is insensitive.
- * @evidence contracts/performance.md#efficient-algorithms The complete candidate array is constructed before scanning until selection. Path/extension text, native selected and candidate realpaths, relative containment, optional ancestor identity stats and candidate directory stats contribute work; fixed loop steps do not bound filesystem resolution cost.
+ * @evidence contracts/performance.md#efficient-algorithms The complete candidate array is constructed before scanning until selection. Absent candidates stop after one lstat before native realpath; path/extension text, native selected and present-candidate realpaths, relative containment, optional ancestor identity stats and candidate directory stats contribute work; fixed loop steps do not bound filesystem resolution cost.
  * @evidence contracts/performance.md#reuse-equivalent-work Each candidate canonicalization is reused for equality and containment within the call; mutable filesystem selection is not cached across evaluations.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Candidate arrays and synchronous stat values are call-local and no descriptor remains retained.
  */
@@ -198,8 +229,9 @@ function moduleResolutionBaseSelects(base, resolvedFile, extensions) {
   const selected = selectedFile(resolvedFile);
   if (selected === undefined) return false;
   for (const candidate of moduleCandidates(path.resolve(base), extensions)) {
+    const canonical = realpathCandidate(candidate);
+    if (canonical === null) continue;
     try {
-      const canonical = fs.realpathSync.native(candidate);
       const relative = physicallyRelative(canonical, selected);
       if (
         relative !== undefined &&
@@ -387,7 +419,7 @@ function visitResolutionCandidates(
           exact =
             selected === undefined
               ? fs.statSync(base).isFile()
-              : fs.realpathSync.native(base) === selected;
+              : realpathCandidate(base) === selected;
         } catch {
           // A missing base is probed through its candidates.
         }
@@ -775,12 +807,12 @@ function visitImportTargetCandidates(specifier, parent, extensions, visit) {
  *   the input set without a hash, even when resolution observation is
  *   complete.
  *
- * @evidence contracts/common.md#principled-implementation Before/after metadata plus repeated content and physical observations withdraw contradictory per-input proofs; a selected file must have positive content and physical proof, while the separate complete flag reports known observation capability gaps.
+ * @evidence contracts/common.md#principled-implementation Before/after metadata plus repeated content and physical observations withdraw contradictory per-input proofs; absent candidates whose pre-read lstat reports ENOENT or ENOTDIR record null realpath and hash directly while keeping before/after metadata bracketing to expose races, a selected file must have positive content and physical proof, and the separate complete flag reports known observation capability gaps.
  * @evidence contracts/common.md#clear-and-simple-design One evaluation owns its input ledger, resolution tokens and final envelope; callers explicitly invalidate capability rather than manipulating proof maps.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown observations retain missing proofs and incomplete capability remains false; no expected digest or resolver monkeypatch makes reuse appear valid.
  * @evidence contracts/common.md#meaningful-documentation JSDoc describes hook ownership, entry recording, selected-file proof, final reread and capability versus stability; returned operations have native descriptions and tags are separated.
- * @evidence contracts/portability.md#os-neutral-implementation Native stat/realpath and URL conversion represent paths and identities; symlink ancestors are observed without equating an OS name to filesystem case policy.
- * @evidence contracts/performance.md#efficient-algorithms Sets/maps index paths, but candidate expansion and repeated pre/post/final observations still pay native stat/realpath/ancestor-link work and full file hashing; finish visits its captured input list and sorts output paths, with uncapped byte, path and manifest-expansion costs.
+ * @evidence contracts/portability.md#os-neutral-implementation Native lstat/stat/realpath with portable ENOENT/ENOTDIR classification and URL conversion represent paths and identities; symlink ancestors are observed without equating an OS name to filesystem case policy.
+ * @evidence contracts/performance.md#efficient-algorithms Sets/maps index paths and observe reuses its pre-read lstat so absent candidates skip realpathSync.native and statSync; candidate expansion, present-entry realpaths, full file hashing, ancestor-link checks and before/after metadata walks still pay native work, and finish visits its captured input list and sorts output paths with uncapped byte, path and manifest-expansion costs.
  * @evidence contracts/performance.md#reuse-equivalent-work Distinct candidates share the evaluation ledger and expanded bases; the first witness stays authoritative and contradictory later reads revoke its proof instead of refreshing it.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Returned closures retain uncapped input/proof/unstable/base collections and borrow extensions; caller-owned resolution tokens and result arrays add retention. This constructor neither starts an isolated subprocess nor installs/releases hooks; callers own those lifetimes, and synchronous observations leave no open file handles.
  */
@@ -797,23 +829,28 @@ function createResolutionInputRecorder(options) {
   /** Observe one path now; `commitOne` decides later whether it is an input. */
   const observe = (file) => {
     file = path.resolve(file);
-    const before = metadataSignature(file);
+    const { missing, signature: before } = inspectMetadata(file);
     let realpath;
-    try {
-      realpath = fs.realpathSync.native(file);
-    } catch {
-      realpath = null;
-    }
     let hash;
-    try {
-      hash = fs.statSync(file).isDirectory()
-        ? DIRECTORY_STATE
-        : crypto
-            .createHash("sha256")
-            .update(fs.readFileSync(file))
-            .digest("hex");
-    } catch {
+    if (missing) {
+      realpath = null;
       hash = null;
+    } else {
+      try {
+        realpath = fs.realpathSync.native(file);
+      } catch {
+        realpath = null;
+      }
+      try {
+        hash = fs.statSync(file).isDirectory()
+          ? DIRECTORY_STATE
+          : crypto
+              .createHash("sha256")
+              .update(fs.readFileSync(file))
+              .digest("hex");
+      } catch {
+        hash = null;
+      }
     }
     return { after: metadataSignature(file), before, file, hash, realpath };
   };

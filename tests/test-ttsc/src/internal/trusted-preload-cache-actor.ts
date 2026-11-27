@@ -74,7 +74,7 @@ const descriptorContext = {
   tsconfig: path.join(projectDir!, tsconfig!),
 };
 
-const descriptorLocation = PluginDescriptorEvaluationCache.locate({
+const descriptorAuthority = {
   cacheDir: cacheDir!,
   context: descriptorContext,
   cwd: projectDir!,
@@ -84,7 +84,19 @@ const descriptorLocation = PluginDescriptorEvaluationCache.locate({
   request: pluginFile!,
   runtime: process.execPath,
   version: "trusted-preload-unit",
-});
+};
+const descriptorLocation =
+  PluginDescriptorEvaluationCache.locate(descriptorAuthority);
+const descriptorDifferentGraphRefused =
+  PluginDescriptorEvaluationCache.locate({
+    ...descriptorAuthority,
+    expectedPreloadGraph: [path.join(projectDir!, "different-preload.cjs")],
+  }) === null;
+const descriptorDifferentNodePathRefused =
+  PluginDescriptorEvaluationCache.locate({
+    ...descriptorAuthority,
+    env: { ...helperEnv, NODE_PATH: path.join(projectDir!, "other-node-path") },
+  }) === null;
 
 let descriptorCacheHit = false;
 let descriptorEvaluated = false;
@@ -136,7 +148,7 @@ if (cachedDescriptor !== null) {
       inputRealpaths: Record<string, string | null>;
       inputs: string[];
       observation: { complete: boolean };
-      preloadGraphComplete: boolean;
+      startupPreloadFiles: string[] | null;
     };
     const evaluation: PluginDescriptorEvaluationCache.IEvaluation = {
       descriptor: parsed.descriptor,
@@ -147,7 +159,14 @@ if (cachedDescriptor !== null) {
     };
     descriptorInputs = evaluation.inputs;
     descriptorObservationsComplete = evaluation.observationsComplete;
-    if (descriptorLocation !== null && parsed.preloadGraphComplete) {
+    if (
+      descriptorLocation !== null &&
+      parsed.startupPreloadFiles !== null &&
+      PluginDescriptorEvaluationCache.locate({
+        ...descriptorAuthority,
+        expectedPreloadGraph: parsed.startupPreloadFiles,
+      }) === descriptorLocation
+    ) {
       PluginDescriptorEvaluationCache.write(descriptorLocation, evaluation);
     }
   } finally {
@@ -233,6 +252,8 @@ process.stdout.write(
     descriptorEvaluated,
     descriptorInputs,
     descriptorObservationsComplete,
+    descriptorDifferentGraphRefused,
+    descriptorDifferentNodePathRefused,
     capabilities,
     capabilityProbes,
     resolutionFile,

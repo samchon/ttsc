@@ -287,12 +287,10 @@ function capabilityRecordStore(
  * introduce additional authorities that this cache format does not observe, so
  * they are not reused. Trusted `--require`/`-r` preloads (`TrustedNodeOptions`)
  * are admitted and keyed by their observed `require.cache` `module.children`
- * graph digests alongside `NODE_OPTIONS` and `TTSC_CACHE_TRUSTED_PRELOADS`.
- * Whoever lists a preload vouches for everything it does beyond its module
- * graph (reads, bindings, dlopen, branches that depend on the environment).
- * ttsc proves only which code the preload is, by observing and digesting its
- * module graph. Native environment-name lookup preserves Windows aliases on
- * direct and worker calls; POSIX names remain case-sensitive. Private tracing
+ * graph digests alongside `NODE_OPTIONS` and `TTSC_CACHE_TRUSTED_PRELOADS`. The
+ * caller vouches for the graph's stability during execution and for inputs
+ * outside it. Native environment-name lookup preserves Windows aliases on
+ * direct and worker calls. POSIX names remain case-sensitive. Private tracing
  * reports this operation's existing decision and preserves short-circuited
  * comparisons as unobserved, without repeating native queries.
  */
