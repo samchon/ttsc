@@ -33,7 +33,7 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification The installed ttsc CLI checks each project; the probe's compiler version, plugin cache entries, absence of a second build and bounded SDK dependencies are observed. An installed loader reuses a descriptor under its evaluator's search environment and re-evaluates when a real superseding candidate appears. The plugin-free transform API reports the 7.1 module requirement for an explicit 7.1 executable even when its environment supplies the 7.0 executable.
  * @evidence contracts/testing.md#independent-expectations The 7.0 project expects its installed manifest version, and the 7.1 project the 7.1.0-dev version its pinned compiler declares; the nightly's gitHead must be the commit the 7.1 target pins, read from the repository's facade go.mod.
  * @evidence contracts/testing.md#distinguishing-cases The same plugin and cache exercise ordinary 7.0 discovery and the 7.1 alias beside legacy 6.0.2. The descriptor case contrasts an irrelevant parent search root with a genuine missing evaluator candidate, repeated reuse and appearance of that candidate. The native transform case distinguishes the explicit compiler from the environment's compiler.
- * @evidence contracts/testing.md#execution-ownership test_e2e_installation supplies its packed consumer; this case installs the 7.1 project's TypeScript and runs the installed CLI four times.
+ * @evidence contracts/testing.md#execution-ownership test_e2e_installation supplies its packed consumer; this case installs the 7.1 project's local TypeScript packages independently of the parent workspace and runs the installed CLI four times.
  * @evidence contracts/e2e.md#necessary-boundary Target selection, the packed shim trees and the Go workspace meet only in an installed source-plugin build; no source unit links a plugin against a compiler.
  * @evidence contracts/e2e.md#shared-execution The installation and plugin cache serve all four checks and the descriptor search case, which uses the same 7.0 executable source.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The projects live in a fresh directory below the consumer, which the entry removes; the cache directory is tracked by TestProject.
@@ -94,7 +94,17 @@ export function case_installed_ttsc_builds_each_typescript_line_against_its_own_
       },
     }),
   );
-  input.pnpm(["install", "--ignore-scripts"], projects["7.1"]);
+  // The parent workspace owns the packed platform overrides and its already
+  // installed 7.0 graph. The 7.1 compiler alias belongs to this leaf project.
+  input.pnpm(
+    [
+      "install",
+      "--ignore-scripts",
+      "--ignore-workspace",
+      "--no-frozen-lockfile",
+    ],
+    projects["7.1"],
+  );
 
   const manifest = (project: string, name = "typescript") =>
     JSON.parse(
