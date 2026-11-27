@@ -180,8 +180,9 @@ export class WatchTopology {
    *   observes the watch set through another.
    * @param openFileWatch File subscriptions use this owned observer; native
    *   fs.watch by default.
-   * @param readDirectory Immediate reload-directory fingerprints use this
-   *   reader; native readdirSync by default.
+   * @param readDirectory Plugin-source enumeration and immediate
+   *   reload-directory fingerprints use this reader; native readdirSync by
+   *   default.
    * @param getCompilerInputs Read each resolved project's absolute compiler
    *   membership; the default invokes the native compiler. Readers throw
    *   listing failures and retain ownership of their returned array, which this
@@ -1089,7 +1090,9 @@ export class WatchTopology {
             : pluginWatchRootIdentity(byteRoot ?? physical);
       }
       let targets =
-        identity === undefined ? [] : collectInputDirectories(physical);
+        identity === undefined
+          ? []
+          : collectPluginSourceDirectories(physical, this.readDirectory);
       if (
         identity !== undefined &&
         (physical !== input || byteRoot !== undefined) &&
@@ -2853,18 +2856,6 @@ function collectTopologyDirectories(
     }
   }
   return directories;
-}
-
-/**
- * Every directory of a plugin input a watch observes: the input and the
- * directories below it, except those the plugin build passes over and all below
- * them (`prunesPluginSourceDirectory`). The input is a plugin's whole Go
- * module, which can be a repository with its own `node_modules` and `.git`;
- * watching those would rebuild for every package install and commit without the
- * build reading any of it.
- */
-function collectInputDirectories(input: string): string[] {
-  return collectPluginSourceDirectories(input);
 }
 
 function isVanishedFilesystemEntry(error: unknown): boolean {

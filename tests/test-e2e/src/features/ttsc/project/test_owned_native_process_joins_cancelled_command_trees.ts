@@ -15,7 +15,7 @@ import { FixtureFiles } from "../../../internal/FixtureFiles";
  * Verifies the SDK's native command supervisor joins actual descendants.
  *
  * 1. Reuse the installed SDK, platform helper and one test-only observer with
- *    static Node inputs; collect transport, input and failure outcomes.
+ *    static Node inputs. Verify transport and native POSIX cwd traversal.
  * 2. Enroll live targets, then require their original lifetimes retired and late
  *    effects absent.
  * 3. Require recovery, including system temp fallback when the primary parent
@@ -25,7 +25,7 @@ import { FixtureFiles } from "../../../internal/FixtureFiles";
  *
  * @evidence contracts/testing.md#behavioral-verification Actual run calls exercise the Go helper and Node commands. Literal argv, environment, cwd, stdin hex, diagnostic text and status23 assert transport; ENOENT and ENOBUFS assert failure identity. A ready test observer enrolls each live command before effects or fast exit; product join must immediately yield retired on its original kernel lifetime. Parent and grandchild enrollment precedes cancellation, which must preserve original abort identity and prevent the unchanged 500ms late marker. Every command observes its joined, not-started or unknown classification. A watcher and final listing observe project-local TEMP. A POSIX actor with a traversable but unwritable primary TEMP must run its target and receive joined retirement. Incompatible and missing supervisors cannot admit the marker target. Null, unproved object and malformed nested receipt fields remain unknown and retained; literal diagnostic expectations require approved native fields or structure markers and exclude authored output/extra decoys. Original execution, verification and cleanup failures remain observable.
  * @evidence contracts/testing.md#independent-expectations Authored Node inputs independently report argv/cwd/env/stdin and prescribe status23. Literal bytes distinguish DataView slices and latin1 encoding. Native retained Windows handles, Linux pidfds or Darwin knotes supply original lifetime authority, independent from SDK receipts and numeric PID reuse; wait uses zero timeout after product join. The grandchild's original publication clock and 500ms marker supply a separate effect oracle. An incompatible preload writes null, never a valid cleanup certificate. Actual retained directory/null receipt observations require preservation; unknown is lack of retirement authority, not an asserted OS refusal or reproduced PID reuse.
- * @evidence contracts/testing.md#distinguishing-cases Nonzero successful execution, binary DataView offset/length, latin1 string input, relative cwd, nonexistent target, bounded output overflow, active two-generation cancellation, recovery and legacy/invalid-receipt/missing supervisor refusal retain separate failure names. Resolver rows distinguish arbitrary cancellation during the real configured-JavaScript-plugin runtime probe from unknown helper retirement that must reject both later commands in the active request and the queued request. Portable pre-abort and unsupported-option refusal belong to the direct source unit.
+ * @evidence contracts/testing.md#distinguishing-cases Nonzero execution, DataView offsets, latin1 input, relative cwd, POSIX link-parent cwd with a distinct project root, nonexistent target, overflow, active cancellation, recovery and legacy/invalid-receipt/missing supervisor refusal retain separate failure names. The link-parent target exists only beyond the link, so lexical normalization cannot run the command. Resolver rows distinguish arbitrary cancellation during the configured JavaScript plugin's runtime probe from unknown helper retirement that must reject later commands in the active and queued requests. Pre-abort and unsupported-option refusal belong to the direct source unit.
  * @evidence contracts/testing.md#execution-ownership The runtime experiment admits this scenario, loads its installed SDK and executes its platform helper plus a separately prepared test-only native observer. The standalone observer fixture remains under the owning package's test tree. Explicit SDK/platform/observer paths allow separately reported workspace/private probes, which do not certify installed packaging. No TypeScript compiler or installation is added.
  * @evidence contracts/e2e.md#necessary-boundary Native containment and the SDK's control pipe/result receipt must retire a real Node descendant tree; pure parsing or synthetic promise settlement cannot establish that connection.
  * @evidence contracts/e2e.md#shared-execution One existing runtime consumer supplies the SDK installation and already built product helper. The Runtime caller lends its ready observer after all descendant controller requests settle; standalone callers prepare one isolated test observer/session. The lender owns its one final close. Separate command lifetimes distinguish nonzero, missing target, overflow and cancellation. Three resolver actors require conflicting helper/preload environments or queued-admission scheduling and separate workers, while sharing the SDK and observer without another installation or TypeScript Program. Actual configured-plugin runtime probing precedes descriptor preparation.
@@ -355,7 +355,7 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
   };
   const run = async (
     mode: string,
-    settings: SpawnSyncOptions = {},
+    settings: SpawnSyncOptions & { projectRoot?: string } = {},
     signal?: AbortSignal,
     expectedRetirement: "joined" | "not-started" | "unknown" = "joined",
   ) => {
@@ -442,7 +442,7 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
     });
   };
   const echo = async (
-    settings: SpawnSyncOptions,
+    settings: SpawnSyncOptions & { projectRoot?: string },
     input: string,
     cwd = root,
   ) => {
@@ -492,6 +492,26 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
         nested,
       );
     });
+    if (process.platform !== "win32")
+      await check("native POSIX cwd follows the link before its parent", () => {
+        const consumer = path.join(root, "cwd-consumer");
+        const physical = path.join(root, "cwd-physical");
+        const selected = path.join(physical, "selected");
+        fs.mkdirSync(consumer);
+        fs.mkdirSync(path.join(physical, "leaf"), { recursive: true });
+        fs.mkdirSync(selected);
+        const alias = path.join(consumer, "alias");
+        fs.symlinkSync(path.join(physical, "leaf"), alias, "dir");
+        return echo(
+          {
+            cwd: `${path.relative(process.cwd(), alias)}/../selected`,
+            input: "",
+            projectRoot: consumer,
+          },
+          "",
+          selected,
+        );
+      });
     await check("missing target", async () => {
       const observed: string[] = [];
       const result = await owner.OwnedNativeProcess.run(

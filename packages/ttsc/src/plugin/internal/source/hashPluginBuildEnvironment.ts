@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
+import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
 import { CompilerTarget } from "./CompilerTarget";
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
@@ -313,12 +314,12 @@ function findExecutableCandidate(
   return null;
 }
 
-function resolveRealPath(
-  location: string,
-  realpath: (file: string) => string = fs.realpathSync.native,
-): string {
+function resolveRealPath(location: string): string {
   try {
-    return realpath(location);
+    const physical = RuntimeFilesystem.realpathWitness(location);
+    return RuntimeFilesystem.rawRealpath(physical) === undefined
+      ? physical
+      : location;
   } catch {
     return location;
   }

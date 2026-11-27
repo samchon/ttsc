@@ -15,13 +15,13 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 1. Publish an external link pointing to a compiler tree and check its watcher.
  * 2. Retarget the link to an identical tree and deliver the replacement event.
  * 3. Deliver a source edit through the new physical watcher.
- * 4. Point the link at a missing target and observe the target appearing. When the
- *    filesystem supports raw POSIX names, exercise the same recovery and a
- *    subsequent edit below a target whose path contains invalid UTF-8.
+ * 4. Observe a missing target appearing and recover from a retarget during
+ *    enumeration without a link event. Exercise raw target recovery on
+ *    filesystems that support names containing invalid UTF-8.
  *
  * @evidence contracts/testing.md#behavioral-verification The maintained WatchTopology reconciles a native directory junction or symlink while a supplied observer records the physical subscriptions and delivers events.
  * @evidence contracts/testing.md#independent-expectations The actual link target and the missing selected directory are checked before delivering their event. Exact registration handles establish which watch receives it and which must retire.
- * @evidence contracts/testing.md#distinguishing-cases An intermediate-link target change with identical source contents differs from the later edit through the new watcher and recovery when a missing target appears. Raw POSIX registration and delivery preserve exact bytes. The stale registration has to close.
+ * @evidence contracts/testing.md#distinguishing-cases Exercises retargeting, a source edit, missing-target appearance, and a retarget during enumeration whose empty destination produces no child notification. Raw POSIX registration and delivery preserve exact bytes. The stale registration has to close.
  * @evidence contracts/testing.md#execution-ownership The test owns all fixture paths and closes the topology. Event delivery is controlled through the public observer dependency without replacing native filesystem operations.
  */
 export async function test_watch_topology_rebinds_retargeted_plugin_source(): Promise<void> {
@@ -72,6 +72,15 @@ export async function test_watch_topology_rebinds_retargeted_plugin_source(): Pr
     byteWatches.push(watcher);
     return watcher;
   }) as typeof fs.watch;
+  let afterDirectoryRead: ((directory: fs.PathLike) => void) | undefined;
+  const readDirectory = ((directory: fs.PathLike, ...args: unknown[]) => {
+    const entries = Reflect.apply(fs.readdirSync, undefined, [
+      directory,
+      ...args,
+    ]);
+    afterDirectoryRead?.(directory);
+    return entries;
+  }) as typeof fs.readdirSync;
   const topology = new WatchTopology(
     { cwd: project, files: [source], projectRoot: project, tsconfig: config },
     {
@@ -83,7 +92,7 @@ export async function test_watch_topology_rebinds_retargeted_plugin_source(): Pr
     },
     openDirectoryWatch,
     openWatch,
-    fs.readdirSync,
+    readDirectory,
     () => assert.fail("a positional build does not need a compiler listing"),
   );
   const watchAt = (directory: string, from = 0) => {
@@ -148,6 +157,33 @@ export async function test_watch_topology_rebinds_retargeted_plugin_source(): Pr
     const recoveredWatch = watchAt(missing);
     assert.ok(changes.some(({ kind }) => kind === "plugin"));
 
+    // Publish an unrelated input to rescan the alias while its prior state
+    // remains captured. The retarget happens after reading the old tree, and
+    // no link event or new child announces it.
+    const empty = path.join(root, "empty", "src");
+    const extra = path.join(root, "extra");
+    for (const directory of [empty, extra])
+      fs.mkdirSync(directory, { recursive: true });
+    changes.length = 0;
+    afterDirectoryRead = (directory) => {
+      if (directory !== missing) return;
+      afterDirectoryRead = undefined;
+      retarget(empty);
+    };
+    topology.setExtraInputs([alias, extra]);
+    assert.equal(
+      afterDirectoryRead,
+      undefined,
+      "the listing retargeted the link",
+    );
+    assert.equal(recoveredWatch.active, false);
+    assert.deepEqual(changes, []);
+    await flush();
+    const emptyWatch = watchAt(empty);
+    assert.deepEqual(changes, [{ kind: "plugin", path: alias }]);
+    await flush();
+    assert.deepEqual(changes, [{ kind: "plugin", path: alias }]);
+
     if (process.platform === "win32") return;
     const raw = Buffer.from([0xff, 0x2d, 0x72, 0x61, 0x77]);
     const rawParent = Buffer.concat([Buffer.from(`${root}/`), raw]);
@@ -168,7 +204,7 @@ export async function test_watch_topology_rebinds_retargeted_plugin_source(): Pr
     assert.ok(linkWatch.active);
     linkWatch.listener("rename", path.basename(link));
     await flush();
-    assert.equal(recoveredWatch.active, false);
+    assert.equal(emptyWatch.active, false);
     const waiting = byteWatches.find(
       (watcher) => watcher.active && watcher.location.equals(rawParent),
     );

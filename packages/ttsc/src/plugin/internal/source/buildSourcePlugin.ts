@@ -219,10 +219,12 @@ function buildSourcePluginAttempt(
   ].sort();
   const contributors = opts.contributors ?? [];
   const compiler = resolveGoCompiler(env);
+  const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
   const goBinary = GoToolResolution.resolveGoToolForBuild(
     compiler.binary,
     env,
     dir,
+    environmentWitness,
   );
   ensureExecutableGoToolchain(goBinary, compiler.bundled);
   OwnedSynchronousProcess.checkpoint();
@@ -248,7 +250,6 @@ function buildSourcePluginAttempt(
     identities,
     opts.baseDir,
   );
-  const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
   const key = computeCacheKey({
     contributors,
     packageOwnership: opts.packageOwnership,

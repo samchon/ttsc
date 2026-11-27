@@ -106,6 +106,14 @@ export namespace GoSourceInputs {
    */
   export function inferGoRoot(goBinary: string): string | null {
     if (!path.isAbsolute(goBinary)) return null;
+    // A surviving POSIX parent component means the launcher kept an alias
+    // for native execution. Go cleans an explicit GOROOT itself, so let the
+    // executable discover its SDK before a lexical path can change the root.
+    if (
+      process.platform !== "win32" &&
+      /(?:^|\/)\.\.(?:\/|$)/.test(goBinary)
+    )
+      return null;
     const binDir = path.dirname(goBinary);
     if (path.basename(binDir) !== "bin") return null;
     const goRoot = path.dirname(binDir);

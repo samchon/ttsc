@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
+import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
@@ -344,10 +345,11 @@ export namespace GoEnvironmentReading {
       !path.isAbsolute(launcher)
     )
       return false;
-    if (path.resolve(active) === path.resolve(launcher)) return true;
+    if (active === launcher) return true;
     try {
       return (
-        fs.realpathSync.native(active) === fs.realpathSync.native(launcher)
+        RuntimeFilesystem.realpathWitness(active) ===
+        RuntimeFilesystem.realpathWitness(launcher)
       );
     } catch {
       return false;
@@ -435,7 +437,7 @@ export namespace GoEnvironmentReading {
     const roots = new Set<string>();
     if (process.platform === "win32") roots.add(path.resolve(cwd));
     try {
-      const physical = fs.realpathSync.native(directory);
+      const physical = RuntimeFilesystem.realpathWitness(directory);
       const current = fs.statSync(directory, { bigint: true });
       PluginBuildEnvironmentWitness.addDirectoryIdentity(
         witness,
@@ -444,7 +446,9 @@ export namespace GoEnvironmentReading {
         physical,
       );
       if (process.platform !== "win32") {
-        roots.add(physical);
+        if (RuntimeFilesystem.rawRealpath(physical) === undefined)
+          roots.add(physical);
+        else PluginBuildEnvironmentWitness.requireToolchainProbe(witness);
         const pwd = SidecarEnvironment.read(env, "PWD");
         if (pwd && path.isAbsolute(pwd) && pwd !== physical) {
           PluginBuildEnvironmentWitness.addDirectoryIdentity(witness, pwd);

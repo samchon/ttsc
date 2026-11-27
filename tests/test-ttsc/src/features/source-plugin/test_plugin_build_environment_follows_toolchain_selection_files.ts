@@ -26,7 +26,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification The direct answer reader over a real Go SDK and private store returns the working digest while selection holds, then produces a different digest and refuses the preceding witness whenever Go's selection files move.
  * @evidence contracts/testing.md#independent-expectations Go's toolchain selection rules give the ancestor workspace precedence and reject the authored higher requirement with path-only lookup. Restoring the original requirement restores the original build inputs.
- * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selectors, native link retargeting and a dot-parent alias whose normalized spelling would select a different workspace, Go launcher and capture boundary. Relative cache and pending requests start under two bases, and editing just one workspace invalidates only that worker's reading. With a second SDK, an earlier PATH candidate displaces a different Go release in a shared SDK root.
+ * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selectors, native link retargeting, dot-parent launcher and capture boundaries and a Linux launcher parent without a UTF-8 spelling. Relative cache and pending requests start under two bases. With a second SDK, earlier PATH candidates invalidate initial and delegated selection, including a POSIX candidate that only gained execute permission.
  * @evidence contracts/testing.md#execution-ownership The unit runs native Go queries in temporary modules, through the real preparation worker and a bounded POSIX Node child with its own temp environment. It restores cwd without changing environment variables, copies already installed executables and runs no plugin build or installed ttsc host.
  */
 export async function test_plugin_build_environment_follows_toolchain_selection_files(): Promise<void> {
@@ -113,7 +113,62 @@ export async function test_plugin_build_environment_follows_toolchain_selection_
   }
   if (process.platform !== "win32")
     verifyNativeDotParentDirectory(binary, root, env, store());
+  if (process.platform === "linux")
+    verifyRawLauncherParent(binary, root, env, store());
   await verifyRelativeDirectoryRequests(root);
+}
+
+/** A dot-parent lookup can reach a native directory with no UTF-8 spelling. */
+function verifyRawLauncherParent(
+  binary: string,
+  root: string,
+  env: NodeJS.ProcessEnv,
+  store: PluginContentIdentities.Store | undefined,
+): void {
+  const raw = Buffer.concat([Buffer.from(`${root}/sdk-`), Buffer.from([0xff])]);
+  const native = (suffix: string): Buffer =>
+    Buffer.concat([raw, Buffer.from(suffix)]);
+  fs.mkdirSync(native("/bin"), { recursive: true });
+  fs.mkdirSync(native("/child"));
+  fs.mkdirSync(native("/src/runtime"), { recursive: true });
+  fs.symlinkSync(binary, native("/bin/go"));
+  const alias = path.join(root, "raw-launcher-child");
+  fs.symlinkSync(native("/child"), alias, "dir");
+  try {
+    const relative = `./${path.basename(alias)}/../bin/go`;
+    const requested = `${root}/${relative}`;
+    const launchEnv = SidecarEnvironment.merge(env, {
+      GOTOOLCHAIN: "local",
+      TTSC_GO_BINARY: relative,
+    });
+    assert.equal(
+      GoToolResolution.resolveGoToolForBuild(relative, launchEnv, root),
+      requested,
+    );
+    const nativeGo = spawnSync(requested, ["env", "-json", "GOROOT"], {
+      cwd: root,
+      env: launchEnv,
+      encoding: "utf8",
+    });
+    assert.equal(nativeGo.status, 0, nativeGo.stderr);
+    assert.equal(
+      pluginBuildEnvironment(root, launchEnv, undefined, store, undefined, root),
+      readPluginBuildEnvironment(
+        binary,
+        root,
+        launchEnv,
+        undefined,
+        store,
+        undefined,
+        root,
+      ),
+    );
+  } finally {
+    fs.unlinkSync(alias);
+    fs.unlinkSync(native("/bin/go"));
+    for (const suffix of ["/bin", "/child", "/src/runtime", "/src", ""])
+      fs.rmdirSync(native(suffix));
+  }
 }
 
 /** Use the same input spelling at two successive native working directories. */
@@ -428,4 +483,31 @@ function verifyDelegatedEnvironment(props: {
   install(early);
   assert.equal(PluginBuildEnvironmentWitness.holds(shared), false);
   read("earlier", sharedLauncher, early);
+
+  const configured = SidecarEnvironment.merge(delegated, {
+    GOTOOLCHAIN: "local",
+    TTSC_GO_BINARY: path.basename(sharedLauncher),
+  });
+  const earlierLauncher = path.join(early, "bin", path.basename(binary));
+  const readInitialLauncher = () => {
+    const witness: PluginBuildEnvironmentWitness.Record = new Map();
+    const digest = pluginBuildEnvironment(module, configured, witness, store);
+    return { digest, witness };
+  };
+  launch(["env", "-json", "GOVERSION"], configured, sharedLauncher);
+  const later = readInitialLauncher();
+  assert.equal(PluginBuildEnvironmentWitness.holds(later.witness), true);
+  fs.copyFileSync(executable, earlierLauncher);
+  assert.equal(PluginBuildEnvironmentWitness.holds(later.witness), false);
+  if (process.platform !== "win32") {
+    fs.chmodSync(earlierLauncher, 0o644);
+    const nonExecutable = readInitialLauncher();
+    assert.equal(nonExecutable.digest, later.digest);
+    fs.chmodSync(earlierLauncher, 0o755);
+    assert.equal(
+      PluginBuildEnvironmentWitness.holds(nonExecutable.witness),
+      false,
+    );
+  }
+  assert.notEqual(readInitialLauncher().digest, later.digest);
 }

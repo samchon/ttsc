@@ -1,6 +1,7 @@
 import fs from "node:fs";
 
 import { E2ETrace } from "../../../internal/E2ETrace";
+import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
 
 /**
  * Native path metadata and ambient lookup variables actually observed while
@@ -52,7 +53,8 @@ export namespace PluginBuildEnvironmentWitness {
 
   /**
    * Record `file`'s metadata before reading it, unless already recorded.
-   * `observed` reuses a stat the caller just took before the same read.
+   * `observed` reuses a stat the caller just took before the same read, or
+   * null when that native stat failed.
    *
    * @evidence contracts/common.md#principled-implementation First-write retention keeps the earliest metadata even when a path contributes more than once; caller-provided metadata is from the same pre-read observation.
    * @evidence contracts/common.md#clear-and-simple-design Optional output makes one reader usable with or without a witness and leaves signature encoding in one helper.
@@ -67,7 +69,7 @@ export namespace PluginBuildEnvironmentWitness {
   export function add(
     witness: Record | undefined,
     file: string,
-    observed?: fs.BigIntStats,
+    observed?: fs.BigIntStats | null,
   ): void {
     if (witness === undefined || witness.has(file)) return;
     witness.set(file, signature(file, observed));
@@ -302,7 +304,7 @@ export namespace PluginBuildEnvironmentWitness {
       const stat = observed ?? fs.statSync(directory, { bigint: true });
       if (!stat.isDirectory()) return "missing";
       return JSON.stringify([
-        physical ?? fs.realpathSync.native(directory),
+        physical ?? RuntimeFilesystem.realpathWitness(directory),
         stat.dev.toString(),
         stat.ino.toString(),
         stat.mode.toString(),
@@ -315,16 +317,22 @@ export namespace PluginBuildEnvironmentWitness {
   }
 
   /**
-   * The metadata a replacement moves: identity, size, and modification and
-   * change times, following links; `missing` when the native stat is
+   * The metadata a replacement moves: identity, mode, size, and modification
+   * and change times, following links; `missing` when the native stat is
    * unavailable.
    */
-  function signature(file: string, observed?: fs.BigIntStats): string {
+  function signature(file: string, observed?: fs.BigIntStats | null): string {
+    if (observed === null) return "missing";
     try {
       const stat = observed ?? fs.statSync(file, { bigint: true });
-      return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(
-        ":",
-      );
+      return [
+        stat.dev,
+        stat.ino,
+        stat.mode,
+        stat.size,
+        stat.mtimeNs,
+        stat.ctimeNs,
+      ].join(":");
     } catch {
       return "missing";
     }
