@@ -111,6 +111,12 @@ export namespace GoEnvironmentReading {
       if (hinted === null || typeof hinted === "string") named = hinted;
     }
     const remembered = named;
+    const launcherRoot = GoSourceInputs.inferGoRoot(goBinary);
+    if (launcherRoot !== null)
+      PluginBuildEnvironmentWitness.add(
+        witness,
+        path.join(launcherRoot, "VERSION"),
+      );
     const args = [
       "env",
       "-json",
@@ -143,12 +149,13 @@ export namespace GoEnvironmentReading {
       }
       const activeRoot = parsed.GOROOT;
       const activeVersion = parsed.GOVERSION;
+      const local = provesLocalToolchain(goBinary, env, parsed);
       let repeatForToolchain = false;
       if (
         witness !== undefined &&
         typeof activeRoot === "string" &&
         typeof activeVersion === "string" &&
-        !provesLocalToolchain(goBinary, env, parsed)
+        !local
       ) {
         if (delegated === undefined) {
           // A delegated reread can qualify a stable launcher only. Preserve
@@ -174,7 +181,7 @@ export namespace GoEnvironmentReading {
       } else if (delegated !== undefined) {
         PluginBuildEnvironmentWitness.refuse(witness, goBinary);
         return parsed;
-      } else if (!provesLocalToolchain(goBinary, env, parsed)) {
+      } else if (!local) {
         PluginBuildEnvironmentWitness.requireToolchainProbe(witness);
       }
       const reported =
@@ -301,15 +308,15 @@ export namespace GoEnvironmentReading {
   }
 
   /**
-   * Identify whether Go reported the SDK that launched it. Reuse of a delegated
-   * choice requires an additional probe bracketed by its SDK and lookup paths.
+   * Check the reported SDK root and the launcher's distribution version.
+   * Another versioned executable under the same SDK can satisfy delegation.
    *
-   * @evidence contracts/common.md#principled-implementation Compares the launcher SDK observed before Go started with the active root Go actually reported.
+   * @evidence contracts/common.md#principled-implementation Go reports the active root and version. An explicit local selection needs only the root check. Otherwise the launcher's distributed VERSION identifies its release, and the reading witnesses that file before the probe.
    * @evidence contracts/common.md#clear-and-simple-design Both environment answer families share this reuse boundary.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts A different, unknown or relative root does not qualify as local. Only an observed delegated selection can obtain its own reuse witness.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A different, unknown or relative root, or an unconfirmed launcher release when delegation is enabled, requires the delegated lookup proof.
    * @evidence contracts/common.md#meaningful-documentation Describes current results separately from eligibility for persistent reuse.
    * @evidence contracts/portability.md#os-neutral-implementation Native absolute paths and physical identity resolve SDK links and junctions.
-   * @evidence contracts/performance.md#efficient-algorithms The launcher layout lookup and comparison use a fixed number of native filesystem operations, without another process or SDK scan.
+   * @evidence contracts/performance.md#efficient-algorithms Native root comparison and a read of the small distribution VERSION file require no additional process or SDK scan.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The predicate has no memo of its own.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate retains no handle or history.
    */
@@ -319,11 +326,12 @@ export namespace GoEnvironmentReading {
     values: Record<string, unknown>,
   ): boolean {
     const active = values.GOROOT;
-    const launcher =
-      SidecarEnvironment.read(env, "GOTOOLCHAIN") === "local"
-        ? SidecarEnvironment.read(env, "GOROOT") ||
-          GoSourceInputs.inferGoRoot(goBinary)
-        : GoSourceInputs.inferGoRoot(goBinary);
+    const explicitlyLocal =
+      SidecarEnvironment.read(env, "GOTOOLCHAIN") === "local";
+    const launcher = explicitlyLocal
+      ? SidecarEnvironment.read(env, "GOROOT") ||
+        GoSourceInputs.inferGoRoot(goBinary)
+      : GoSourceInputs.inferGoRoot(goBinary);
     if (
       typeof active !== "string" ||
       launcher === null ||
@@ -331,11 +339,15 @@ export namespace GoEnvironmentReading {
       !path.isAbsolute(launcher)
     )
       return false;
-    if (path.resolve(active) === path.resolve(launcher)) return true;
     try {
-      return (
-        fs.realpathSync.native(active) === fs.realpathSync.native(launcher)
-      );
+      if (
+        path.resolve(active) !== path.resolve(launcher) &&
+        fs.realpathSync.native(active) !== fs.realpathSync.native(launcher)
+      )
+        return false;
+      if (explicitlyLocal) return true;
+      const version = fs.readFileSync(path.join(launcher, "VERSION"), "utf8");
+      return version.split(/\r?\n/, 1)[0] === values.GOVERSION;
     } catch {
       return false;
     }
@@ -497,7 +509,7 @@ export namespace GoEnvironmentReading {
   }
 
   /** Answer family of {@link recorded} (`WitnessedLoadAnswers`). */
-  const RECORDED_READING = "go-environment-reading-v2";
+  const RECORDED_READING = "go-environment-reading-v3";
 
   // A wrong hint is safe: the reading compares it with the `GOENV` Go reports
   // and runs again with the reported file witnessed.

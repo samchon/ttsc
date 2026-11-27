@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import path from "node:path";
 
 import {
   STANDARD_DECORATOR_OUTPUT,
@@ -7,7 +8,7 @@ import {
 } from "../../../internal/ttsc/internal/ttsx-decorators";
 
 /**
- * Verifies orphan decorator caches never freeze imported const enum values.
+ * Verifies orphan decorator lowering stays current and can run without a cache.
  *
  * The cache owns the decorated file's bytes. Inlining an imported value binds
  * that output to another file which can change without invalidating this
@@ -16,15 +17,17 @@ import {
  * 1. Run a decorated orphan importing a const enum through a shared cache.
  * 2. Change only the enum source, then change the package from ESM to CommonJS.
  * 3. Assert each new value is observed while the decorated file stays unchanged.
+ * 4. On POSIX, load a decorated orphan with no manifest from the system temp
+ *    directory and assert the decorator still runs without private cache storage.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual hosts execute an unchanged decorated orphan while imported enum values and package format mutate; answers 1,2,3,4 with full effects detect stale imported-value inlining.
- * @evidence contracts/testing.md#independent-expectations The authored enum assigns each literal answer and authored decorators specify the exact log independently of cached JavaScript.
- * @evidence contracts/testing.md#distinguishing-cases ESM and CommonJS each have initial/changed values, with constant decorated source. Same-basename source selection has another orphan owner.
- * @evidence contracts/testing.md#execution-ownership This named E2E entry owns four sequential real hosts using one fixture/cache.
- * @evidence contracts/e2e.md#necessary-boundary Persistent lowering must defer imported values to next-host loading; direct compilation does not prove retained cache behavior.
- * @evidence contracts/e2e.md#shared-execution One root, decorated source and cache serve four requests. New processes are necessary to reset module state after enum/package mutation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only enum/package inputs mutate after each completed request. The decorated file/cache remain retained and tracked roots clean up after execution.
- * @evidence contracts/e2e.md#preserved-coverage All four success/effect/answer outcomes remain; all mutation phases execute before collected assertion failures are thrown.
+ * @evidence contracts/testing.md#behavioral-verification Actual hosts execute an unchanged decorated orphan while imported enum values and package format mutate. Answers 1,2,3,4 with full effects detect stale imported-value inlining. A manifest-less preload must also execute a decorator when its cwd exhausts the private cache placement candidates.
+ * @evidence contracts/testing.md#independent-expectations The authored enum assigns each literal answer and the authored decorators specify the exact log independently of cached JavaScript. Node's native strip cannot lower the standard decorator used in the cache-unavailable case.
+ * @evidence contracts/testing.md#distinguishing-cases ESM and CommonJS each have initial/changed values, with constant decorated source. The POSIX manifest-less run has no admitted cache parent. Same-basename source selection has another orphan owner.
+ * @evidence contracts/testing.md#execution-ownership This named E2E entry owns four sequential launcher runs using one fixture/cache and one POSIX Node preload run without a manifest.
+ * @evidence contracts/e2e.md#necessary-boundary Persistent lowering must defer imported values to next-host loading. The manifest-less Node preload must reach actual compiler lowering when its cache owner cannot provide storage. Direct compilation cannot establish either runtime behavior.
+ * @evidence contracts/e2e.md#shared-execution One root, decorated source and cache serve the four launcher requests. New processes reset module state after each enum/package mutation. The direct preload reuses the prepared toolchain and exercises a separate manifest-less process.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only enum/package inputs mutate after each completed launcher request. The manifest-less run has a separate tracked source directory and synchronously completes before fixture cleanup. The launcher fixture and cache remain tracked until execution finishes.
+ * @evidence contracts/e2e.md#preserved-coverage All four success/effect/answer outcomes remain. The independent preload outcome joins the collected assertions.
  */
 export function test_ttsx_standard_decorators_in_orphans_do_not_cache_imported_values() {
   const failures: unknown[] = [];
@@ -72,6 +75,38 @@ export function test_ttsx_standard_decorators_in_orphans_do_not_cache_imported_v
         result.stdout.trim(),
         STANDARD_DECORATOR_OUTPUT + "\n" + answer,
       );
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+
+  if (process.platform !== "win32") {
+    const orphan = TestProject.tmpdir("ttsx-cacheless-orphan-");
+    TestProject.writeFiles(orphan, { "entry.mts": STANDARD_DECORATOR_SOURCE });
+    const preload = path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "ttsc",
+      "lib",
+      "launcher",
+      "internal",
+      "runtimeHookPreload.js",
+    );
+    const result = TestProject.spawn(
+      process.execPath,
+      ["--require", preload, path.join(orphan, "entry.mts")],
+      {
+        cwd: "/tmp",
+        env: {
+          NODE_OPTIONS: undefined,
+          TMPDIR: "/tmp",
+          TTSX_RUNTIME_MANIFEST: undefined,
+        },
+      },
+    );
+    try {
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout.trim(), STANDARD_DECORATOR_OUTPUT);
     } catch (error) {
       failures.push(error);
     }

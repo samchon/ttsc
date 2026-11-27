@@ -74,6 +74,37 @@ func TestProgramContributorsShareStandaloneChecker(t *testing.T) {
   verify(newContributorAdapter(metadata), retired)
 }
 
+// TestASTOnlyFileContributorPreservesNativeCheckerPool verifies that the
+// project checker's lifetime does not force an AST-only file rule to share it.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual rule resolution keeps the native file-checker pool eligible beside a standalone project checker.
+// @evidence contracts/testing.md#independent-expectations The project rule declares the conservative default, the built-in needs types, and the external file rule explicitly needs none.
+// @evidence contracts/testing.md#distinguishing-cases The three rule capabilities are enabled together rather than tested in separate engines.
+// @evidence contracts/testing.md#execution-ownership The unit builds the real rule engine and restores its test-owned registration entries. It checks pool admission, without claiming concurrent execution.
+func TestASTOnlyFileContributorPreservesNativeCheckerPool(t *testing.T) {
+  project := externalStateProjectRule{}
+  registeredProjectRules[project.Name()] = projectRuleAdapter{
+    inner: project,
+    name:  project.Name(),
+  }
+  file := &astOnlyCheckerObserver{}
+  Register(file)
+  t.Cleanup(func() {
+    delete(registeredProjectRules, project.Name())
+    delete(registered.rules, file.Name())
+    invalidateRuntimeRuleCodes()
+  })
+  engine := NewEngine(RuleConfig{
+    project.Name():              SeverityWarn,
+    file.Name():                 SeverityWarn,
+    "typescript/await-thenable": SeverityWarn,
+  })
+  if !engine.needsStandalone || !engine.needsFileChecker || engine.needsStandaloneFileChecker {
+    t.Fatalf("project standalone=%v, typed files=%v, file standalone=%v",
+      engine.needsStandalone, engine.needsFileChecker, engine.needsStandaloneFileChecker)
+  }
+}
+
 type standaloneCheckerObserver struct {
   mu     sync.Mutex
   format bool
@@ -116,3 +147,9 @@ func (*directCheckerObserver) NeedsTypeChecker() bool { return true }
 func (r *directCheckerObserver) Check(ctx *Context, _ *shimast.Node) {
   r.observe(ctx.Checker)
 }
+
+type astOnlyCheckerObserver struct{ directCheckerObserver }
+
+func (*astOnlyCheckerObserver) Name() string { return "demo/ast-only-checker" }
+
+func (*astOnlyCheckerObserver) NeedsTypeChecker() bool { return false }

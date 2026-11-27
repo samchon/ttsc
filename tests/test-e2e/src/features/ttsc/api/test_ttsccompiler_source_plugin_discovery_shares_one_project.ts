@@ -344,6 +344,7 @@ async function compileWithProjectLocalAmbientTemp(
   const savedManifest = path.join(root, "fixture-package.json");
   const temporary = path.join(root, "ambient-temp");
   fs.mkdirSync(temporary);
+  const initialDirectory = fs.statSync(temporary, { bigint: true });
   fs.renameSync(config, custom);
   fs.renameSync(manifest, savedManifest);
   const observed = new Set<string | null>();
@@ -396,7 +397,17 @@ async function compileWithProjectLocalAmbientTemp(
     await verifyObserver("after-compile");
     observed.delete("before-compile");
     observed.delete("after-compile");
+    // Darwin can also report the watched directory's own basename when its
+    // entries change. Keep checking every named child and any nameless event.
+    const finalDirectory = fs.statSync(temporary, { bigint: true });
+    assert.equal(finalDirectory.dev, initialDirectory.dev);
+    assert.equal(finalDirectory.ino, initialDirectory.ino);
+    observed.delete(path.basename(temporary));
     assert.deepEqual([...observed], []);
+    assert.deepEqual(fs.readdirSync(temporary).sort(), [
+      "after-compile",
+      "before-compile",
+    ]);
     return JSON.parse(result.stdout) as ReturnType<TtscCompiler["compile"]>;
   } finally {
     watcher.close();

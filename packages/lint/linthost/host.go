@@ -466,11 +466,11 @@ func (p *program) runCycleOver(engine *Engine, files []*shimast.SourceFile) []*F
 
 // runFileRules borrows the same checker that checks each source for semantic
 // diagnostics. The built-in rules consume types within the file walk. With
-// contributor rules and a standalone checker, keep their existing serial
-// walk and shared checker, including access to project-rule results.
+// file contributor rules that need a checker, keep their serial walk and
+// shared standalone checker, including access to project-rule results.
 func (p *program) runFileRules(engine *Engine, files []*shimast.SourceFile) []*Finding {
   var borrow borrowFileChecker
-  if p.tsProgram != nil && engine.needsFileChecker && !(engine.hasFileContributor && engine.needsStandalone) {
+  if p.tsProgram != nil && engine.needsFileChecker && !engine.needsStandaloneFileChecker {
     ctx := context.Background()
     borrow = func(file *shimast.SourceFile) (*shimchecker.Checker, func()) {
       return p.tsProgram.GetTypeCheckerForFileExclusive(ctx, file)

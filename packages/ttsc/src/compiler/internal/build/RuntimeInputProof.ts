@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
 import type { ITtscCompilerTransformation } from "../../../structures/ITtscCompilerTransformation";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
@@ -17,7 +18,7 @@ import type { RuntimeInputContents } from "./RuntimeInputContents";
  * @evidence contracts/common.md#clear-and-simple-design One namespace separates result admission, declared host inputs, compiler predicates and the native version-one codec. Private physical/absence and SHA-256 helpers serve the codecs without merging their meanings.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown codecs, failed reads and producer proof failures decline admission. Only ENOENT/ENOTDIR prove absence; other physical-resolution errors remain unavailable. Following stat classifies compiler views while lstat retains native link kinds; only the producer private output subtree is excluded.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies generation proof, codec ownership and refusal semantics; private helper comments identify query, byte, decoded-text and null/error boundaries.
- * @evidence contracts/portability.md#os-neutral-implementation Native stat, lstat and realpath retain actual kinds, targets and spellings without case assumptions. POSIX directory names/link targets stay raw bytes, Windows names follow the producer UTF-8 codec, and compiler directory entries sort by UTF-8 bytes.
+ * @evidence contracts/portability.md#os-neutral-implementation Native stat, lstat and realpath retain actual kinds, targets and spellings without case assumptions. POSIX realpath comparisons preserve byte identity, including when older records with decoded replacements must be rejected. Compiler directory entries sort by UTF-8 bytes.
  * @evidence contracts/performance.md#efficient-algorithms Replay visits recorded predicates and their bytes or immediate directory entries rather than unrelated trees. Hashing and BOM decoding cost O(bytes), including a big-endian copy; directory codecs cost O(N log N) sorting plus encoded bytes and link queries. Physical resolution follows native path/link traversal.
  * @evidence contracts/performance.md#reuse-equivalent-work Every retained predicate is observed anew to authorize completed-result reuse. Host capture and admission share the producer codec; no path memo, watcher silence or historical hash independently grants authority.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Read buffers, decoded text, paths and sorted directory members are call-local and have no proof-reader byte or entry cap. Synchronous calls retain no handle, watcher, process or historical population; only returned proof values escape.
@@ -160,9 +161,15 @@ export namespace RuntimeInputProof {
     }
     if (!before.isFile() && !before.isDirectory())
       throw new Error("Unsupported runtime host input kind.");
-    const hash = before.isDirectory()
-      ? digest("ttsc:host-input:directory\0")
-      : digest(fs.readFileSync(file));
+    let hash: string;
+    if (before.isDirectory()) {
+      hash = digest("ttsc:host-input:directory\0");
+    } else {
+      const content = RuntimeFilesystem.readObservedRegularFile(file);
+      if (content === undefined)
+        throw new Error("Host input changed kind during observation.");
+      hash = digest(content);
+    }
     const after = fs.statSync(file, { bigint: true });
     const signature = (stat: fs.BigIntStats): string =>
       [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(":");
@@ -327,7 +334,9 @@ export namespace RuntimeInputProof {
             if (kind !== "missing") return file;
           } else if (
             kind === "missing" ||
-            ((row?.[1] ?? null) !== observed.realpath.path &&
+            (((row?.[1] ?? null) !== observed.realpath.path ||
+              (process.platform !== "win32" &&
+                observed.realpath.path.includes("\ufffd"))) &&
               native(file) !== observed.realpath.path)
           )
             return file;
@@ -593,10 +602,10 @@ export namespace RuntimeInputProof {
     );
   }
 
-  /** Obtain a current physical coordinate, with null only for native absence. */
+  /** Obtain a physical comparison witness, with null only for native absence. */
   function physical(file: string): string | null {
     try {
-      return fs.realpathSync.native(file);
+      return RuntimeFilesystem.realpathWitness(file);
     } catch (error) {
       if (missing(error)) return null;
       throw error;

@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { projectRecordMoved } from "../../../../../packages/unplugin/src/core/bridge/projectRecordMoved";
+import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import { createInputObserver } from "../../../../../packages/unplugin/src/core/observer/createInputObserver";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
-import type { TtscWatchInputEvidence } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInputEvidence";
+import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
+import { captureCompilerArguments } from "../../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
 import { captureRecoveryTreeDigest } from "../../../../../packages/unplugin/src/core/transform/watch/captureRecoveryTreeDigest";
 import { notifyFailedGenerationInputs } from "../../../../../packages/unplugin/src/core/transform/watch/notifyFailedGenerationInputs";
-import { watchInputEvidenceMatchesDisk } from "../../../../../packages/unplugin/src/core/transform/watch/watchInputEvidenceMatchesDisk";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -22,6 +24,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 2. Edit a nested Go file and report its native event.
  * 3. Deliver a failure through a dangling link, then create its target and check
  *    the recovery poll without sending an event.
+ * 4. Register a source at the membership root, after its recorded contents
+ *    changed, and check that recovery triggers without a new event.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual failed delivery registers the observer over real native paths. The observer reports the delivered owner after each repair, and the detached state comparison rejects the edited source.
  * @evidence contracts/testing.md#independent-expectations A nested source edit and an empty directory's arrival are independent fixture actions, with literal quiet and reload expectations.
@@ -35,6 +39,7 @@ export async function test_failed_compiler_source_tree_wakes_the_observer(): Pro
   TestProject.writeFiles(root, {
     "project/tsconfig.json": '{"include":["main.ts"]}',
     "project/main.ts": "export const value = 1;\n",
+    "project/internal/work.go": "package internal\n",
     "compiler/internal/driver/driver.go": "package driver\n",
   });
   const project = path.join(root, "project");
@@ -74,22 +79,36 @@ export async function test_failed_compiler_source_tree_wakes_the_observer(): Pro
       },
     },
   );
-  const deliver = (source: string) => {
-    const digest = captureRecoveryTreeDigest(source);
-    let evidence: TtscWatchInputEvidence | undefined;
+  const membershipPolicy = readProjectMembershipPolicy(tsconfig);
+  const deliver = (
+    source: string,
+    digest = captureRecoveryTreeDigest(source),
+    startedAt = observer.begin(),
+  ) => {
     notifyFailedGenerationInputs(
       {
+        membership: true,
         addWatchFiles: (inputs, failed) => {
           assert.equal(failed, true);
-          evidence = inputs.find((input) => input.file === source)?.evidence;
-          observer.replace(owner, inputs, failed);
+          if (source === project)
+            assert.equal(
+              inputs.find((input) => input.file === project)?.evidence?.state
+                ?.codec,
+              "membership",
+            );
+          observer.replace(owner, inputs, failed, startedAt);
         },
       },
       {
         failedCompilerSource: { file: source, digest },
         externalInputPaths: [source],
         inputHashes: {},
-        membershipPolicy: readProjectMembershipPolicy(tsconfig),
+        membershipPolicy,
+        projectDirectories: walkProjectInputs(
+          project,
+          undefined,
+          membershipPolicy,
+        ).directories,
         projectRoot: project,
         result: { type: "exception", error: new Error("compiler failed") },
         tsconfig,
@@ -97,8 +116,6 @@ export async function test_failed_compiler_source_tree_wakes_the_observer(): Pro
       owner,
       { consulted: [], filesystem: DEFAULT_FILESYSTEM_OPERATIONS, tsconfig },
     );
-    assert.ok(evidence);
-    return evidence;
   };
   const settled = async () => {
     await new Promise((resolve) => setTimeout(resolve, 30));
@@ -106,21 +123,49 @@ export async function test_failed_compiler_source_tree_wakes_the_observer(): Pro
   };
   try {
     observer.open(project, false);
-    const evidence = deliver(compiler);
+    const digest = captureRecoveryTreeDigest(compiler);
+    deliver(compiler, digest);
     assert.deepEqual(await settled(), []);
     assert.equal(watchers.get(compiler)?.admit?.(path.dirname(nested)), true);
     fs.appendFileSync(nested, "// repaired\n");
     watchers.get(compiler)?.listener("change", nested);
     assert.deepEqual(await settled(), [[owner]]);
-    assert.equal(watchInputEvidenceMatchesDisk(compiler, evidence), false);
+    const compilerArguments = captureCompilerArguments({});
+    const recordFile = path.join(root, "record.json");
+    fs.writeFileSync(
+      recordFile,
+      JSON.stringify({
+        compilerArguments,
+        inputs: {},
+        membership: null,
+        recoveryTree: { file: compiler, digest },
+        root: project,
+        signal: 0,
+        tsconfig,
+      }),
+    );
+    const record = readProjectRecordFile(recordFile);
+    assert.ok(record);
+    assert.equal(
+      projectRecordMoved(record, undefined, compilerArguments.identity),
+      compiler,
+    );
 
-    const dangling = deliver(link);
+    deliver(link);
     assert.deepEqual(await settled(), []);
     assert.ok(poll);
     fs.mkdirSync(target);
     poll();
     assert.deepEqual(await settled(), [[owner]]);
-    assert.equal(watchInputEvidenceMatchesDisk(link, dangling), false);
+
+    const startedAt = observer.begin();
+    const beforeCompile = captureRecoveryTreeDigest(project);
+    fs.appendFileSync(
+      path.join(project, "internal", "work.go"),
+      "// repaired\n",
+    );
+    deliver(project, beforeCompile, startedAt);
+    assert.deepEqual(await settled(), [[owner]]);
   } finally {
     await observer.dispose();
   }

@@ -6,6 +6,7 @@ import { type ProjectInputPathIdentityContext } from "../../../internal/pathIden
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import { resolveProjectInputPath } from "../../../internal/pathIdentity/resolveProjectInputPath";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
+import { RuntimeFilesystem } from "../runtime/RuntimeFilesystem";
 
 /**
  * Content fingerprints of the files and directories whose change forces the
@@ -218,8 +219,8 @@ export namespace LSPProjectInputDigest {
 
   /**
    * Digest of the available observations of one entry. A symlink frame combines
-   * its raw target and reached content; failed target/content reads use
-   * markers. Regular files hash their bytes, while classification or
+   * its raw target and any reached regular-file content. Other targets and
+   * failed reads use markers. Regular files hash their bytes, while classification or
    * regular-file read failure hashes the stable `missing` marker. Other entry
    * kinds hash as `other`. The reads are sequential and do not pin the entry
    * against change.
@@ -229,7 +230,7 @@ export namespace LSPProjectInputDigest {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Fixed markers encode the native wire contract's unavailable states; the function reads actual entries rather than replacing content with expected diagnostics or test values.
    * @evidence contracts/common.md#meaningful-documentation Native prose documents each entry kind and the two symlink inputs, with tags separated according to the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native lstat, readlink and readFile preserve host link semantics; Buffer target reads retain POSIX raw bytes while Windows supplies the native target representation consumed by the Go peer.
-   * @evidence contracts/performance.md#efficient-algorithms One native classification and at most one target/content read produce the digest. Native path work, hashing and copied framing scale with path, target and reached content bytes; whole-file buffers and concatenated frames coexist without a separate input byte ceiling. No unrelated files are enumerated.
+   * @evidence contracts/performance.md#efficient-algorithms One entry classification and at most one link-target read, followed stat, and guarded file read produce the digest. Hashing and framing scale with target and reached file bytes. No unrelated files are enumerated.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This produces a current observation, not a cached selection; a prior digest cannot be reused without separately proving the file and link remained unchanged.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Supported synchronous APIs own their handles; this helper retains only local content/framing buffers during the call and returns digest text. It owns no cross-call history, persistent handle or running task.
@@ -248,10 +249,11 @@ export namespace LSPProjectInputDigest {
         }
         let content = Buffer.from("missing\0");
         try {
-          content = Buffer.concat([
-            Buffer.from("file\0"),
-            fs.readFileSync(location),
-          ]);
+          if (fs.statSync(location).isFile()) {
+            const bytes = RuntimeFilesystem.readObservedRegularFile(location);
+            if (bytes !== undefined)
+              content = Buffer.concat([Buffer.from("file\0"), bytes]);
+          }
         } catch {
           // A dangling or unreadable target remains part of the symlink state.
         }
@@ -267,11 +269,13 @@ export namespace LSPProjectInputDigest {
           .digest("hex");
       }
       if (info.isFile()) {
-        return createHash("sha256")
-          .update(
-            Buffer.concat([Buffer.from("file\0"), fs.readFileSync(location)]),
-          )
-          .digest("hex");
+        const bytes = RuntimeFilesystem.readObservedRegularFile(location);
+        if (bytes !== undefined)
+          return createHash("sha256")
+            .update("file\0")
+            .update(bytes)
+            .digest("hex");
+        return createHash("sha256").update("missing\0").digest("hex");
       }
       return createHash("sha256").update("other\0").digest("hex");
     } catch {

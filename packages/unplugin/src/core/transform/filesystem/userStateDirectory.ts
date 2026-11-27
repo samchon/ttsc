@@ -44,11 +44,7 @@ export function userStateDirectory(
 ): string | undefined {
   try {
     const user = process.getuid?.();
-    const temporary = systemTempOutsideProject(projectRoot);
-    let directory = path.join(
-      temporary,
-      `ttsc-unplugin-sessions${user === undefined ? "" : `-${user}`}`,
-    );
+    let directory = userStateDirectory.location(projectRoot);
     if (!ownedDirectory(directory, user, create)) return undefined;
     if (segment !== undefined) {
       directory = path.join(directory, segment);
@@ -57,6 +53,30 @@ export function userStateDirectory(
     return directory;
   } catch {
     return undefined;
+  }
+}
+
+/**
+ * Name the user's state directory so a cache owner can inventory records even
+ * when the directory has lost its storage qualification.
+ *
+ * @evidence contracts/common.md#principled-implementation The shared native temporary selector and current uid determine the same name used for storage acquisition.
+ * @evidence contracts/common.md#clear-and-simple-design Naming and directory qualification are separate operations.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Returning the name neither creates the directory nor certifies its suitability.
+ * @evidence contracts/common.md#meaningful-documentation The comment explains why opaque caches require the name independently of access.
+ * @evidence contracts/portability.md#os-neutral-implementation The native temporary selector supplies long physical spelling outside the project.
+ * @evidence contracts/performance.md#efficient-algorithms The delegated temporary selector performs bounded candidate and ancestor metadata checks followed by a path join.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The caller owns any naming memo.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No handle or state is retained.
+ */
+export namespace userStateDirectory {
+  /** Return the native spelling before checking the directory itself. */
+  export function location(projectRoot: string): string {
+    const user = process.getuid?.();
+    return path.join(
+      systemTempOutsideProject(projectRoot),
+      `ttsc-unplugin-sessions${user === undefined ? "" : `-${user}`}`,
+    );
   }
 }
 

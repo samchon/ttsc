@@ -8,6 +8,7 @@ import { GoSourceInputs } from "../../../plugin/internal/source/GoSourceInputs";
 import { collectPluginSourceDirectories } from "../../../plugin/internal/source/collectPluginSourceDirectories";
 import { collectPluginSourceFiles } from "../../../plugin/internal/source/collectPluginSourceFiles";
 import { pluginSourceStateHolds } from "../../../plugin/internal/source/pluginSourceStateHolds";
+import { RuntimeFilesystem } from "../runtime/RuntimeFilesystem";
 import type { ILSPPluginSelectionInputs } from "./ILSPPluginSelectionInputs";
 import { LSPProjectInputDigest } from "./LSPProjectInputDigest";
 
@@ -40,11 +41,11 @@ import { LSPProjectInputDigest } from "./LSPProjectInputDigest";
  *   cache proves its plugin sources from records.
  * @returns The inputs, or `undefined` when the load no longer describes the
  *   filesystem and the selection has to be loaded again.
- * @evidence contracts/common.md#principled-implementation The manifest groups candidate/source-file digests by directory. Recorded content and physical-target proofs and all plugin-source states are compared again before return; a detected mismatch rejects capture, while sequential reads and unproven paths do not certify every post-load change.
+ * @evidence contracts/common.md#principled-implementation The manifest groups ordinary candidate and source-file digests by directory and carries POSIX byte paths separately. Recorded content and physical-target proofs and all plugin-source states are compared again before return; a detected mismatch rejects capture, while sequential reads and unproven paths do not certify every post-load change.
  * @evidence contracts/common.md#clear-and-simple-design Candidate filtering, source enumeration and proof comparison remain separate; the private recorder owns basename insertion into prototype-free maps, including names such as __proto__.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Source omission rules come from the binary builder's shared constants; stale proofs return undefined instead of replacing a loaded selection with guessed current evidence.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain selection versus program refresh, deferred config inputs and the startup race; parameter/result documentation and separated tags follow the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Native path operations retain declared spellings and actual realpath observations detect symlink or junction retargeting independently of content equality; no OS name supplies filesystem case policy.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path operations retain declared spellings, including encoded POSIX physical bytes. Volume roots have no basename and are left out of file-entry maps. Native realpath observations detect retargeting independently of content equality.
  * @evidence contracts/performance.md#efficient-algorithms Path normalization/filtering allocates candidate arrays and an excluded set. Each source is walked for directories and again for files; file framing is followed by separate recorded content/realpath proof reads and plugin-source state validation, including its native/toolchain costs. Maps retain path keys and digests while temporary walk/read buffers coexist; directory grouping avoids repeating directory keys per file.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This capture validates a particular completed load against current filesystem state; retained plugin/binary reuse belongs to that load's owner, and cached post-load readings would miss drift.
@@ -70,21 +71,25 @@ export function captureLSPPluginSelectionInputs(loaded: {
   const files = new Set(descriptorInputs);
   const aliases: string[] = [];
   const targets = new Set<string>();
+  const rawDescriptorFiles: Record<string, string> = {};
+  const recordRaw = (file: Buffer): void => {
+    rawDescriptorFiles[file.toString("base64")] ??=
+      LSPProjectInputDigest.lspProjectInputFileDigest(file);
+  };
   for (const file of files) {
     const physical = loaded.hostInputRealpaths[file];
     if (physical === undefined || physical === file) continue;
-    if (physical !== null && !physical.includes("\ufffd"))
-      targets.add(physical);
+    if (physical !== null) {
+      const raw = RuntimeFilesystem.rawRealpath(physical);
+      if (raw !== undefined) recordRaw(raw);
+      else if (!physical.includes("\0")) targets.add(physical);
+    }
     aliases.push(file);
   }
   for (const target of targets) files.add(target);
-  const rawDescriptorFiles: Record<string, string> = {};
   for (const entry of pluginInputAliasEntries(aliases, {
     endpoint: "linked",
-    rawEntry: (file) => {
-      rawDescriptorFiles[file.toString("base64")] =
-        LSPProjectInputDigest.lspProjectInputFileDigest(file);
-    },
+    rawEntry: recordRaw,
   }))
     files.add(entry);
   const descriptorFiles: Record<string, Record<string, string>> = {};
@@ -140,7 +145,8 @@ function record(
   directories: Record<string, Record<string, string>>,
   file: string,
 ): void {
-  (directories[path.dirname(file)] ??= Object.create(null))[
-    path.basename(file)
-  ] = LSPProjectInputDigest.lspProjectInputFileDigest(file);
+  const name = path.basename(file);
+  if (name === "") return;
+  (directories[path.dirname(file)] ??= Object.create(null))[name] =
+    LSPProjectInputDigest.lspProjectInputFileDigest(file);
 }

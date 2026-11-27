@@ -8,6 +8,8 @@ import { captureLSPPluginSelectionInputs } from "../../../../../packages/ttsc/sr
 import { fingerprintInitialLSPProjectInputSnapshot } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/fingerprintInitialLSPProjectInputSnapshot";
 import { initialLSPProjectInputSnapshotIsCurrent } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/initialLSPProjectInputSnapshotIsCurrent";
 import { materializeLSPPluginManifest } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/materializeLSPPluginManifest";
+import { hashHostInputPaths } from "../../../../../packages/ttsc/src/plugin/internal/load/hashHostInputPaths";
+import { realpathHostInputPaths } from "../../../../../packages/ttsc/src/plugin/internal/load/realpathHostInputPaths";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -452,6 +454,31 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
         }
       });
       verify(
+        "plugin selection omits the empty basename of a volume-root endpoint",
+        () => {
+          const alias = path.join(root, "volume-root-alias");
+          fs.symlinkSync(
+            path.parse(root).root,
+            alias,
+            process.platform === "win32" ? "junction" : "dir",
+          );
+          try {
+            const snapshot = captureLSPPluginSelectionInputs({
+              deferredHostInputs: [],
+              hostInputHashes: hashHostInputPaths([alias]),
+              hostInputRealpaths: realpathHostInputPaths([alias]),
+              hostInputs: [alias],
+              pluginSources: {},
+            });
+            assert.ok(snapshot?.descriptorFiles[root]?.[path.basename(alias)]);
+            for (const files of Object.values(snapshot.descriptorFiles))
+              assert.equal(Object.hasOwn(files, ""), false);
+          } finally {
+            fs.unlinkSync(alias);
+          }
+        },
+      );
+      verify(
         "plugin selection watches a dangling final link's external endpoint",
         () => {
           const directory = path.join(root, "unavailable-descriptor-parent");
@@ -611,5 +638,30 @@ function verifyRawDirectoryIdentity(
     assert.equal(captureLSPPluginSelectionInputs(input), undefined);
     fs.unlinkSync(alias);
     fs.unlinkSync(middle);
+
+    const rawFirst = Buffer.concat([rawTarget, Buffer.from([0x2f, 0xff])]);
+    const rawSecond = Buffer.concat([rawTarget, Buffer.from([0x2f, 0xfe])]);
+    fs.writeFileSync(rawFirst, contents);
+    fs.writeFileSync(rawSecond, contents);
+    fs.symlinkSync(rawFirst, alias, "file");
+    const rawInput = {
+      ...input,
+      hostInputHashes: hashHostInputPaths([alias]),
+      hostInputRealpaths: realpathHostInputPaths([alias]),
+    };
+    const initialSelection = captureLSPPluginSelectionInputs(rawInput);
+    assert.deepEqual(initialSelection?.rawDescriptorFiles, {
+      [rawFirst.toString("base64")]: createHash("sha256")
+        .update("file\0")
+        .update(contents)
+        .digest("hex"),
+    });
+    const beforeLossyTarget = fs.realpathSync.native(alias);
+    fs.unlinkSync(alias);
+    fs.symlinkSync(rawSecond, alias, "file");
+    assert.equal(fs.realpathSync.native(alias), beforeLossyTarget);
+    assert.deepEqual(hashHostInputPaths([alias]), rawInput.hostInputHashes);
+    assert.equal(captureLSPPluginSelectionInputs(rawInput), undefined);
+    fs.unlinkSync(alias);
   });
 }

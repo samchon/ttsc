@@ -447,6 +447,7 @@ function captureInitialLSPProjectInputs(options: {
     });
     SidecarEnvironment.write(env, BATCH_ENV, "1");
     const result = spawnNative(plugin.binary, args, {
+      additionalProjectRoots: [path.dirname(options.project.path)],
       cwd: options.project.root,
       env,
     });

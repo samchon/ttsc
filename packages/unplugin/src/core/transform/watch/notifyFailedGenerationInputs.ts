@@ -2,13 +2,12 @@ import path from "node:path";
 
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { formatUnknownError } from "../diagnostics/formatUnknownError";
-import { derivationIdentity } from "../envelope/derivationIdentity";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { hostSpelling } from "../envelope/hostSpelling";
 import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
+import { RECOVERY_TREE_DIGEST } from "./RECOVERY_TREE_DIGEST";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
-import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
 import type { TtscWatchSelection } from "./TtscWatchSelection";
 import { evidencedWatchInput } from "./evidencedWatchInput";
 import { handWatchInputs } from "./handWatchInputs";
@@ -70,14 +69,6 @@ export function notifyFailedGenerationInputs(
   const spell = hostSpelling(state.project, file);
   const inputs: TtscWatchInput[] = [];
   const compilerSource = cached.failedCompilerSource;
-  const recoveryTree: TtscWatchInputEvidence | undefined =
-    compilerSource === undefined
-      ? undefined
-      : {
-          identity: derivationIdentity(state, compilerSource.file),
-          missing: compilerSource.digest === null,
-          state: { codec: "recovery-tree", digest: compilerSource.digest },
-        };
   // Keep the compiler's spellings for the record and use its retained state
   // where available.
   const recorded: string[] = [];
@@ -93,10 +84,10 @@ export function notifyFailedGenerationInputs(
     seen.add(spelling);
     // The adapter reads current availability for ordinary inputs because
     // failure replay does not re-prove them.
-    inputs.push({
-      file: spell(spelling),
-      ...(spelling !== compilerSource?.file ? {} : { evidence: recoveryTree }),
-    });
+    const watched = { file: spell(spelling) };
+    if (spelling === compilerSource?.file)
+      RECOVERY_TREE_DIGEST.set(watched, compilerSource.digest);
+    inputs.push(watched);
     recorded.push(spelling);
   };
   for (const key of Object.keys(cached.inputHashes)) {
@@ -143,11 +134,17 @@ export function notifyFailedGenerationInputs(
       cached,
       true,
       () =>
-        recorded.map((input) =>
-          input === compilerSource?.file
-            ? { file: input, evidence: recoveryTree }
-            : evidencedWatchInput(cached, state, input, (spelling) => spelling),
-        ),
+        recorded.map((input) => {
+          const watched = evidencedWatchInput(
+            cached,
+            state,
+            input,
+            (spelling) => spelling,
+          );
+          if (input === compilerSource?.file)
+            RECOVERY_TREE_DIGEST.set(watched, compilerSource.digest);
+          return watched;
+        }),
       routedInputs,
     )
   ) {

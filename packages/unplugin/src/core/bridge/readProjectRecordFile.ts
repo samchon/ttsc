@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 
 import { normalizeGraphInputObservation } from "../transform/envelope/normalizeGraphInputObservation";
 import { isEnvironmentInputs } from "../transform/validation/isEnvironmentInputs";
@@ -55,7 +56,9 @@ export function readProjectRecordFile(
     (candidate.dependencies !== undefined &&
       !isStrings(candidate.dependencies)) ||
     (candidate.environmentInputs !== undefined &&
-      !isEnvironmentInputs(candidate.environmentInputs))
+      !isEnvironmentInputs(candidate.environmentInputs)) ||
+    (candidate.recoveryTree !== undefined &&
+      !isRecoveryTree(candidate.recoveryTree))
   ) {
     return undefined;
   }
@@ -74,10 +77,26 @@ export function readProjectRecordFile(
     ...(candidate.privateStorage === true
       ? { privateStorage: true as const }
       : {}),
+    ...(candidate.recoveryTree === undefined
+      ? {}
+      : { recoveryTree: candidate.recoveryTree }),
     root: candidate.root,
     signal: candidate.signal,
     tsconfig: candidate.tsconfig,
   };
+}
+
+/** The adapter's optional failed compiler source observation. */
+function isRecoveryTree(
+  value: unknown,
+): value is NonNullable<TtscProjectRecord["recoveryTree"]> {
+  return (
+    isRecord(value) &&
+    typeof value.file === "string" &&
+    path.isAbsolute(value.file) &&
+    (value.digest === null ||
+      (typeof value.digest === "string" && /^[0-9a-f]{64}$/.test(value.digest)))
+  );
 }
 
 /** A JSON dictionary, excluding arrays and null. */
@@ -179,8 +198,6 @@ function isInputState(value: unknown): boolean {
       return normalizeGraphInputObservation(value.observation) !== undefined;
     case "tree":
       return typeof value.digest === "string";
-    case "recovery-tree":
-      return value.digest === null || typeof value.digest === "string";
     case "membership":
       return isMembership(value);
     default:

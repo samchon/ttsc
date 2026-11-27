@@ -9,7 +9,6 @@ import { pluginSourceHolds } from "../inputs/pluginSourceHolds";
 import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
 import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
 import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
-import { captureRecoveryTreeDigest } from "./captureRecoveryTreeDigest";
 
 /**
  * Whether one input's disk state is still what its evidence recorded: the proof
@@ -44,8 +43,6 @@ export function watchInputEvidenceMatchesDisk(
   const state = evidence.state;
   if (state === undefined || state.codec === "membership") return false;
   try {
-    if (state.codec === "recovery-tree")
-      return captureRecoveryTreeDigest(file, filesystem) === state.digest;
     if (state.codec === "tree") {
       return pluginSourceHolds(
         file,

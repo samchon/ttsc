@@ -93,6 +93,9 @@ export interface TtscProjectRecord {
     policy: ITtscProjectMembershipPolicy;
   } | null;
 
+  /** Source observation taken before the failed compiler invocation. */
+  recoveryTree?: { file: string; digest: string | null };
+
   /** The project root the walk starts from and every input lies below or beside. */
   root: string;
 

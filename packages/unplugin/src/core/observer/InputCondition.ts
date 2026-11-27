@@ -39,6 +39,9 @@ export interface InputCondition {
   /** The generation's recorded state for the input. */
   evidence?: TtscWatchInputEvidence;
 
+  /** Internal recovery digest; null records an unavailable directory. */
+  recoveryTree?: string | null;
+
   /** Native owner spellings notified when this state changes or is unproved. */
   owners: Set<string>;
 }

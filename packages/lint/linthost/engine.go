@@ -907,21 +907,21 @@ func isBuiltInFileRule(name string, rule Rule) bool {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Engine is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Engine is a declaration of data shape; the code that holds its values owns their lifetime.
 type Engine struct {
-  config             RuleResolver
-  rules              [][]Rule
-  enabled            map[string]Severity
-  unknown            []string
-  unknownDirectives  map[string]struct{}
-  unknownDirectiveMu sync.Mutex
-  needsTypeChecker   bool
-  needsFileChecker   bool
-  needsStandalone    bool
-  hasFileContributor bool
-  serial             bool
-  projectSettings    map[string]ProjectRuleSetting
-  configError        error
-  currentDirectory   string
-  patterns           *userPatternCache
+  config                     RuleResolver
+  rules                      [][]Rule
+  enabled                    map[string]Severity
+  unknown                    []string
+  unknownDirectives          map[string]struct{}
+  unknownDirectiveMu         sync.Mutex
+  needsTypeChecker           bool
+  needsFileChecker           bool
+  needsStandalone            bool
+  needsStandaloneFileChecker bool
+  serial                     bool
+  projectSettings            map[string]ProjectRuleSetting
+  configError                error
+  currentDirectory           string
+  patterns                   *userPatternCache
 }
 
 // SetSerial forces Engine.Run to walk files one at a time. The host calls
@@ -1077,12 +1077,13 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
     if _, invalid := invalidRuleOptions[name]; invalid {
       continue
     }
-    isContributor := !isBuiltInFileRule(name, rule)
-    eng.hasFileContributor = eng.hasFileContributor || isContributor
     if ruleNeedsTypeChecker(rule) {
       eng.needsTypeChecker = true
       eng.needsFileChecker = true
-      eng.needsStandalone = eng.needsStandalone || isContributor
+      if !isBuiltInFileRule(name, rule) {
+        eng.needsStandalone = true
+        eng.needsStandaloneFileChecker = true
+      }
     }
     eng.enabled[name] = displaySeverities.Severity(name)
     // Dedup kinds per rule so a contributor that accidentally lists the

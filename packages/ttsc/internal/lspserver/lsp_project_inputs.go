@@ -1006,15 +1006,22 @@ func projectInputReloadFileDigest(location string) string {
       target = "<unreadable>"
     }
     prefix = "symlink\x00" + target + "\x00"
+    reached, err := os.Stat(native)
+    if err != nil || !reached.Mode().IsRegular() {
+      unavailable := sha256.Sum256([]byte(prefix + "missing\x00"))
+      return fmt.Sprintf("%x", unavailable[:])
+    }
   }
   digest := sha256.New()
   digest.Write([]byte(prefix))
-  file, err := os.Open(native)
+  file, err := openProjectInputFingerprintFile(native)
   if err == nil {
     defer file.Close()
-    digest.Write([]byte("file\x00"))
-    if _, readErr := io.Copy(digest, file); readErr == nil {
-      return fmt.Sprintf("%x", digest.Sum(nil))
+    if opened, statErr := file.Stat(); statErr == nil && opened.Mode().IsRegular() {
+      digest.Write([]byte("file\x00"))
+      if _, readErr := io.Copy(digest, file); readErr == nil {
+        return fmt.Sprintf("%x", digest.Sum(nil))
+      }
     }
   }
   // Read failure must discard partial bytes, retaining the same missing marker

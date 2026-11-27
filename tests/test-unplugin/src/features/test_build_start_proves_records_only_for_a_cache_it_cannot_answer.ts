@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { fallbackToolDirectory } from "../../../../packages/unplugin/src/core/bridge/fallbackToolDirectory";
 import { hostToolDirectory } from "../../../../packages/unplugin/src/core/bridge/hostToolDirectory";
 import { membershipRecordDigest } from "../../../../packages/unplugin/src/core/bridge/membershipRecordDigest";
 import { projectRecordDigest } from "../../../../packages/unplugin/src/core/bridge/projectRecordDigest";
@@ -49,7 +51,7 @@ import { TestProject } from "../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification unplugin.raw buildStart leaves two stale records untouched for Rollup/Vite serve, refreshes both for Farm, and Rollup cache lookup proves only its named project once.
  * @evidence contracts/testing.md#independent-expectations Literal signal zero/one expectations and independently edited declaration bytes specify which host must prove which record; no cached compiler output generates the oracle.
- * @evidence contracts/testing.md#distinguishing-cases Rollup, Vite serve with watch null and Farm differ by cache ownership; two projects distinguish global proof from per-module proof and repeated same-project lookup.
+ * @evidence contracts/testing.md#distinguishing-cases Rollup, Vite serve with watch null and Farm differ by cache ownership; two projects distinguish global proof from per-module proof and repeated same-project lookup. Opaque webpack/Rspack caches reject an unqualified existing inventory and proceed after the record path becomes absent.
  * @evidence contracts/testing.md#execution-ownership Calls raw buildStart/configResolved/shouldTransformCachedModule against host doubles and temporary records. Finally restores cwd and removes the unique Farm fixture storage. No bundler or compiler producer runs.
  */
 export async function test_build_start_proves_records_only_for_a_cache_it_cannot_answer(): Promise<void> {
@@ -152,7 +154,26 @@ export async function test_build_start_proves_records_only_for_a_cache_it_cannot
     second.write();
     const plugin = unplugin.raw(undefined, { framework: "rollup" });
     await plugin.buildStart!.call(rollup as never);
-    const ask = (file: string) =>
+    const current = rollupDeliveryOptions(
+      resolveOptions(),
+      createAliasPaths(undefined),
+    );
+    const environment = resolveCompilerEnvironment();
+    const legacy = createHash("sha256")
+      .update(
+        JSON.stringify({
+          aliasPaths: "{}",
+          compilerEnvironment: JSON.stringify([
+            environment.TTSC_TSGO_ARGS ?? null,
+            environment.TTSC_TSGO_ARGS_CWD ?? null,
+          ]),
+          compilerOptions: "{}",
+          project: null,
+          projectRoot: null,
+        }),
+      )
+      .digest("hex");
+    const ask = (file: string, options = current) =>
       (
         plugin.rollup!.shouldTransformCachedModule as (module: {
           id: string;
@@ -162,10 +183,7 @@ export async function test_build_start_proves_records_only_for_a_cache_it_cannot
         id: path.join(first.directory, "src", file),
         meta: {
           [plugin.name]: {
-            options: rollupDeliveryOptions(
-              resolveOptions(),
-              createAliasPaths(undefined),
-            ),
+            options,
             record: {
               digest: projectRecordDigest(fs.readFileSync(first.record)),
               file: first.record,
@@ -173,6 +191,8 @@ export async function test_build_start_proves_records_only_for_a_cache_it_cannot
           },
         },
       });
+    assert.equal(ask("legacy.ts", legacy), true, "old metadata runs again");
+    assert.equal(signal(first.record), 0, "old metadata did not reach replay");
     assert.equal(ask("main.ts"), true, "a module of a moved project runs");
     assert.equal(signal(first.record), 1, "its record was proven");
     assert.equal(signal(second.record), 0, "the other project's was not");
@@ -182,6 +202,46 @@ export async function test_build_start_proves_records_only_for_a_cache_it_cannot
       "a delivery that holds the record's bytes now is served",
     );
     assert.equal(signal(first.record), 1, "and is proven once per build");
+
+    // 4. Opaque caches cannot restore while an existing managed inventory
+    // cannot be qualified, but an absent record already invalidates snapshots.
+    assert.equal(fallbackToolDirectory(root), farmTool);
+    const directory = path.dirname(firstFarm);
+    const moved = path.join(farmTool, "moved-records");
+    fs.renameSync(directory, moved);
+    try {
+      fs.symlinkSync(moved, directory, "junction");
+      const opaque = (framework: "webpack" | "rspack") => {
+        const compiler = {} as never;
+        const plugin = unplugin.raw(
+          undefined,
+          framework === "webpack"
+            ? { framework, webpack: { compiler } }
+            : { framework, rspack: { compiler } },
+        );
+        return plugin.buildStart!.call({
+          getNativeBuildContext: () => ({ framework, compiler }),
+        } as never);
+      };
+      try {
+        for (const framework of ["webpack", "rspack"] as const)
+          await assert.rejects(
+            async () => opaque(framework),
+            /unsafe private project records prevent cache restoration/,
+          );
+        assert.equal(
+          signal(firstFarm),
+          1,
+          "the linked file was left untouched",
+        );
+      } finally {
+        fs.unlinkSync(directory);
+      }
+      for (const framework of ["webpack", "rspack"] as const)
+        await opaque(framework);
+    } finally {
+      fs.renameSync(moved, directory);
+    }
   } finally {
     process.chdir(cwd);
     fs.rmSync(farmTool, { recursive: true, force: true });

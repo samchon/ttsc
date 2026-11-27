@@ -30,12 +30,14 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
  * An owned module carrying no delivery, or one no cache may serve, runs again,
  * since nothing proves its output.
  *
- * A record read is cached, including unavailable results, until begin clears it
- * or a first proof attempt invalidates it. Deliveries replace the saved digest
- * with their own recorded bytes. A later judgment need not reread a record
- * moved by another process in mid-build; the next pass observes it. A changed
- * proves callback can invalidate an already read digest within this pass.
- * Refresh errors propagate after the key enters the attempted-proof set.
+ * A record read is cached by path and storage policy, including unavailable
+ * results, until begin clears it or a first proof attempt invalidates it.
+ * Deliveries replace the saved digest for their own policy with their recorded
+ * bytes and invalidate the other policy's digest. A later judgment need not
+ * reread a record moved by another process in mid-build; the next pass observes
+ * it. A changed proves callback can invalidate an already read digest within
+ * this pass. Refresh errors propagate after the key enters the attempted-proof
+ * set.
  *
  * @param name The plugin's name, the key of its entry in a module's `meta`.
  * @param includes Whether the adapter transforms a module id.
@@ -50,11 +52,11 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral record access uses producer-supplied native paths and the shared native record refresh operation, without universal path case normalization or fixed storage directories.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Judgment adds module filtering, current-option work and metadata/text
- *   comparison. Each lexical record gets one refresh attempt per pass, including
+ *   comparison. Each lexical record and storage policy gets one refresh attempt per pass, including
  *   native input/walk/record I/O work. Digest reads/hash follow record bytes
  *   and can repeat after proof invalidation; delivery updates avoid a reread.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   Modules with the same lexical record reuse a pass's refresh attempt and
+ *   Modules with the same lexical record and storage policy reuse a pass's refresh attempt and
  *   observed digest. Begin ends the window; first refresh invalidates an older
  *   read and delivery updates the digest. Quiet mid-pass observation is a
  *   defined reuse window, not independently fresh native state for every module.
@@ -72,29 +74,19 @@ export function createRollupCachedModuleProof(
 ): RollupCachedModuleProof {
   const proven = new Set<string>();
   const digests = new Map<string, string | undefined>();
-  const read = (
-    record: string,
-    privateStorage: boolean,
-  ): string | undefined => {
-    if (digests.has(record)) return digests.get(record);
-    let digest: string | undefined;
-    try {
-      if (!privateStorage || privateProjectRecordAvailable(record))
-        digest = projectRecordDigest(fs.readFileSync(record));
-    } catch {
-      // A record that cannot be read proves nothing.
-    }
-    digests.set(record, digest);
-    return digest;
-  };
+  const keyOf = (file: string, privateStorage: boolean | undefined): string =>
+    (privateStorage === true ? "1" : "0") + file;
   return {
     begin: () => {
       proven.clear();
       digests.clear();
     },
     deliver: (delivery) => {
-      if (delivery?.record !== undefined)
-        digests.set(delivery.record.file, delivery.record.digest);
+      if (delivery?.record !== undefined) {
+        const { file, digest, privateStorage } = delivery.record;
+        digests.set(keyOf(file, privateStorage), digest);
+        digests.delete(keyOf(file, privateStorage !== true));
+      }
       return { [name]: delivery };
     },
     moved: ({ id, meta }) => {
@@ -108,8 +100,9 @@ export function createRollupCachedModuleProof(
       const { digest, file, privateStorage } = (delivery.record ??
         {}) as Partial<NonNullable<NonNullable<TtscRollupDelivery>["record"]>>;
       if (typeof file !== "string" || typeof digest !== "string") return true;
-      if (proves() && !proven.has(file)) {
-        proven.add(file);
+      const key = keyOf(file, privateStorage);
+      if (proves() && !proven.has(key)) {
+        proven.add(key);
         refreshProjectRecordFile(
           file,
           undefined,
@@ -119,9 +112,20 @@ export function createRollupCachedModuleProof(
         );
         // What a delivery of this build wrote is what the proof ran over, and
         // a move it made is read from the file.
-        digests.delete(file);
+        digests.delete(key);
+        digests.delete(keyOf(file, privateStorage !== true));
       }
-      return read(file, privateStorage === true) !== digest;
+      if (!digests.has(key)) {
+        let observed: string | undefined;
+        try {
+          if (privateStorage !== true || privateProjectRecordAvailable(file))
+            observed = projectRecordDigest(fs.readFileSync(file));
+        } catch {
+          // A record that cannot be read proves nothing.
+        }
+        digests.set(key, observed);
+      }
+      return digests.get(key) !== digest;
     },
   };
 }

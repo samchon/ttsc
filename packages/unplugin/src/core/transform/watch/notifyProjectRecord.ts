@@ -13,6 +13,7 @@ import { createHostPathIdentityContext } from "../filesystem/createHostPathIdent
 import { pathIdentityKey } from "../filesystem/pathIdentityKey";
 import { hostInputStateHash } from "../inputs/hostInputStateHash";
 import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
+import { RECOVERY_TREE_DIGEST } from "./RECOVERY_TREE_DIGEST";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
 import { projectMembershipInput } from "./projectMembershipInput";
@@ -278,6 +279,11 @@ function recordOf(
     tsconfig: cached.tsconfig,
   };
   for (const input of inputs) {
+    const digest = RECOVERY_TREE_DIGEST.get(input);
+    if (digest !== undefined) {
+      record.recoveryTree = { file: input.file, digest };
+      continue;
+    }
     if (input.evidence !== undefined)
       record.inputs[input.file] = input.evidence;
   }
@@ -294,7 +300,8 @@ function readUnrecordedState(
   input: TtscWatchInput,
   identities: ReturnType<typeof createHostPathIdentityContext>,
 ): TtscWatchInput {
-  if (input.evidence?.state !== undefined) return input;
+  if (input.evidence?.state !== undefined || RECOVERY_TREE_DIGEST.has(input))
+    return input;
   const hash = hostInputStateHash(input.file) ?? MISSING_INPUT_STATE;
   const missing = hash === MISSING_INPUT_STATE;
   return {

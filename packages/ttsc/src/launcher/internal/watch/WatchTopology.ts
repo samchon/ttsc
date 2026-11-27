@@ -1035,18 +1035,35 @@ export class WatchTopology {
    * notification, as `@ttsc/unplugin`'s observer announces a directory it
    * starts watching, and reported when it moved what a build reads. The
    * directories of an input new to this sync are not reported: the load reports
-   * its inputs before any build reads them.
+   * its inputs before any build reads them. A POSIX symlink can name bytes that
+   * cannot be represented as a string. Scoped native subscriptions keep those
+   * paths as buffers and feed the same batched plugin decision.
    */
   private syncExtraWatchers(): void {
     const directories = new Map<string, string>();
     const registrations = new Map<string, string>();
     const topologyEntries = new Map<string, string>();
+    const byteWatches = new Map<string, { directory: Buffer; name?: Buffer }>();
     const appeared: [string, string][] = [];
     for (const input of this.extraInputs) {
-      const watchedBefore = this.watchedExtraInputs.has(this.pathKey(input));
+      const inputKey = this.pathKey(input);
+      const watchByteEntry = (entry: Buffer): void => {
+        const separator = entry.lastIndexOf(0x2f);
+        const directory = entry.subarray(0, Math.max(1, separator));
+        const name = entry.subarray(separator + 1);
+        const key = JSON.stringify([
+          "byte-entry",
+          inputKey,
+          entry.toString("hex"),
+        ]);
+        directories.set(key, input);
+        byteWatches.set(key, { directory, name });
+      };
+      const watchedBefore = this.watchedExtraInputs.has(inputKey);
       let physical = watcherRegistrationPath(input);
       let identity = pluginWatchRootIdentity(physical);
       let entries = new Set<string>();
+      let byteRoot: Buffer | undefined;
       if (physical !== input || identity === undefined) {
         let endpoint: string | undefined;
         entries = new Set(
@@ -1054,16 +1071,24 @@ export class WatchTopology {
             directory: (target) => {
               endpoint = target;
             },
+            rawEntry: watchByteEntry,
           }),
         );
         // The same link traversal owns the watched entries and the current
         // target. A dangling replacement must retire the previous tree.
         physical =
           endpoint === undefined ? input : watcherRegistrationPath(endpoint);
+        if (endpoint === input && physical !== input) {
+          byteRoot = pluginWatchBytePath(input);
+          if (byteRoot !== undefined) {
+            physical = input;
+            watchByteEntry(byteRoot);
+          }
+        }
         identity =
           endpoint === undefined
             ? undefined
-            : pluginWatchRootIdentity(physical);
+            : pluginWatchRootIdentity(byteRoot ?? physical);
       }
       const targets =
         identity === undefined ? [] : collectInputDirectories(physical);
@@ -1073,14 +1098,34 @@ export class WatchTopology {
             ? target
             : path.resolve(input, path.relative(physical, target));
         const lexicalKey = this.pathKey(directory);
-        const key = JSON.stringify([lexicalKey, target, identity]);
+        const byteTarget =
+          byteRoot === undefined
+            ? undefined
+            : target === input
+              ? byteRoot
+              : Buffer.concat([
+                  byteRoot,
+                  Buffer.from(`/${path.relative(input, target)}`),
+                ]);
+        const key = JSON.stringify([
+          lexicalKey,
+          byteTarget === undefined
+            ? target
+            : ["byte", byteTarget.toString("hex")],
+          identity,
+        ]);
         directories.set(key, directory);
-        registrations.set(key, target);
+        if (byteTarget === undefined) registrations.set(key, target);
+        else byteWatches.set(key, { directory: byteTarget });
         if (watchedBefore && !this.extraWatchers.has(key)) {
           appeared.push([key, directory]);
         }
       }
-      if (targets.length !== 0 && path.dirname(physical) !== physical)
+      if (
+        byteRoot === undefined &&
+        targets.length !== 0 &&
+        path.dirname(physical) !== physical
+      )
         entries.add(physical);
       for (const entry of entries) {
         const parent = watcherRegistrationPath(path.dirname(entry));
@@ -1100,6 +1145,28 @@ export class WatchTopology {
       this.extraWatchers,
       directories,
       (location, key) => {
+        const byteWatch = byteWatches.get(key);
+        if (byteWatch !== undefined)
+          return this.openFileWatch(
+            byteWatch.directory,
+            { encoding: "buffer", persistent: true },
+            (_event, filename) => {
+              this.beginLexicalTransaction();
+              if (filename === null || byteWatch.name !== undefined) {
+                if (filename === null || byteWatch.name?.equals(filename))
+                  this.notePluginNotification(location);
+                return;
+              }
+              const name = filename.toString();
+              if (!Buffer.from(name).equals(filename)) {
+                this.notePluginNotification(location);
+                return;
+              }
+              const changed = path.resolve(location, name);
+              if (this.isPluginInput(changed))
+                this.notePluginNotification(changed);
+            },
+          );
         const registration = registrations.get(key)!;
         const topologyEntry = topologyEntries.get(key);
         return this.openDirectoryWatch(
@@ -2780,7 +2847,7 @@ function isVanishedFilesystemEntry(error: unknown): boolean {
 }
 
 /** Distinguish replacement of a directory at the same physical spelling. */
-function pluginWatchRootIdentity(directory: string): string | undefined {
+function pluginWatchRootIdentity(directory: fs.PathLike): string | undefined {
   try {
     const stat = fs.statSync(directory, { bigint: true });
     if (!stat.isDirectory()) return undefined;
@@ -2788,6 +2855,18 @@ function pluginWatchRootIdentity(directory: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** Preserve a POSIX physical pathname that cannot round-trip through UTF-8. */
+function pluginWatchBytePath(input: string): Buffer | undefined {
+  if (process.platform === "win32") return undefined;
+  try {
+    const physical = fs.realpathSync.native(input, { encoding: "buffer" });
+    if (!Buffer.from(physical.toString()).equals(physical)) return physical;
+  } catch {
+    // The target disappeared between the link walk and canonical lookup.
+  }
+  return undefined;
 }
 
 function closeWatchers(watchers: Map<string, DirectoryWatcher>): void {
@@ -3276,10 +3355,16 @@ function pluginInputState(
     if (!WatchPaths.isDirectory(input))
       return `file:${fingerprintProjectInputFile(input)}`;
     const physical = fs.realpathSync.native(input);
+    const bytes = physical.includes("\uFFFD")
+      ? pluginWatchBytePath(input)
+      : undefined;
     return JSON.stringify([
       "directory",
-      physical,
-      PluginContentIdentities.sourceDirectory(identities, physical),
+      bytes === undefined ? physical : ["byte", bytes.toString("hex")],
+      PluginContentIdentities.sourceDirectory(
+        identities,
+        bytes === undefined ? physical : input,
+      ),
     ]);
   } catch (error) {
     return `unreadable:${error instanceof Error ? error.message : String(error)}`;

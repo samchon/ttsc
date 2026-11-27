@@ -6,6 +6,7 @@ import type { TtscTransformFilesystemOperations } from "../transform/filesystem/
 import type { HostWatchBridge } from "./HostWatchBridge";
 import { PROJECT_RECORD_DIRECTORY } from "./PROJECT_RECORD_DIRECTORY";
 import { fallbackRecordStorage } from "./fallbackRecordStorage";
+import { privateProjectRecordAvailable } from "./privateProjectRecordAvailable";
 import { refreshProjectRecordFile } from "./refreshProjectRecordFile";
 
 /**
@@ -25,10 +26,13 @@ import { refreshProjectRecordFile } from "./refreshProjectRecordFile";
  *
  * Each call enumerates the directory and refreshes each `.json` name once; host
  * owners invoke it at their restore/start boundaries. An absent directory costs
- * a failed listing, while an existing empty one returns an empty listing.
+ * a failed listing, while an existing empty one returns an empty listing. A
+ * managed inventory that may contain records must qualify for replay before the
+ * host can attempt restoration.
  *
  * @param toolDirectory The host's tool directory (`hostToolDirectory`).
  * @param bridge The watching session's bridge, when the host has one.
+ * @throws When managed records cannot be enumerated or safely refreshed.
  * @evidence contracts/common.md#principled-implementation
  *   Every persisted project record is refreshed because an opaque host cache can
  *   restore projects other than the current option's project. Absent directories
@@ -63,22 +67,37 @@ export function refreshProjectRecordFiles(
   privateStorage = false,
 ): void {
   const directory = path.join(toolDirectory, PROJECT_RECORD_DIRECTORY);
-  if (privateStorage && fallbackRecordStorage(directory, false) !== true)
-    return;
   let names: string[];
   try {
     names = fs.readdirSync(directory);
-  } catch {
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (privateStorage && code !== "ENOENT" && code !== "ENOTDIR")
+      throw new Error(
+        `@ttsc/unplugin: cannot inspect private project records before cache restoration: ${directory}`,
+        { cause: error },
+      );
     return;
   }
-  for (const name of names) {
-    if (name.endsWith(".json"))
-      refreshProjectRecordFile(
-        path.join(directory, name),
-        bridge,
-        filesystem,
-        compilerArgumentsIdentity,
-        privateStorage,
-      );
+  const records = names
+    .filter((name) => name.endsWith(".json"))
+    .map((name) => path.join(directory, name));
+  if (
+    privateStorage &&
+    records.length !== 0 &&
+    (fallbackRecordStorage(directory, false) !== true ||
+      records.some((file) => !privateProjectRecordAvailable(file)))
+  )
+    throw new Error(
+      `@ttsc/unplugin: unsafe private project records prevent cache restoration: ${directory}`,
+    );
+  for (const file of records) {
+    refreshProjectRecordFile(
+      file,
+      bridge,
+      filesystem,
+      compilerArgumentsIdentity,
+      privateStorage,
+    );
   }
 }

@@ -5,8 +5,8 @@ import { userStateDirectory } from "../transform/filesystem/userStateDirectory";
 
 /**
  * Where a host's project records live when its own tool directory
- * (`hostToolDirectory`) cannot be written, or `undefined` when this user has no
- * such place either (samchon/ttsc#1480).
+ * (`hostToolDirectory`) cannot be written, or `undefined` when there is no
+ * system temporary directory outside the project (samchon/ttsc#1480).
  *
  * A module handed to a build host without its project's record depends on its
  * own bytes alone: a watching session cannot tell the host that a type the
@@ -22,12 +22,14 @@ import { userStateDirectory } from "../transform/filesystem/userStateDirectory";
  * below the root. It is spelled in its long form, which webpack and Rspack
  * require of a watched directory on Windows. A host that accepts no record
  * outside its root, Turbopack, or none it cannot relate to its root, Farm on
- * another drive, does not take it (`hostToolDirectory`).
+ * another drive, does not take it (`hostToolDirectory`). Naming does not
+ * qualify the storage, so startup can find an existing inventory even after its
+ * directory loses the permissions needed for replay.
  *
  * @param root The host's root, as `hostToolDirectory` names it.
  * @evidence contracts/common.md#principled-implementation
  *   A resolved-root digest gives each host a stable directory beneath the
- *   validated user state root; absence remains explicit when no safe root exists.
+ *   named user state root; consumers qualify it for storage or startup replay.
  * @evidence contracts/common.md#clear-and-simple-design
  *   This helper owns root-to-fallback naming while userStateDirectory owns
  *   directory trust and hosts decide whether outside-root dependencies are allowed.
@@ -40,9 +42,8 @@ import { userStateDirectory } from "../transform/filesystem/userStateDirectory";
  * @evidence contracts/portability.md#os-neutral-implementation The validated user state boundary obtains a private native directory and long Windows spelling; native root resolution determines naming, while adapters separately reject fallback locations their host cannot watch.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Every call resolves and hashes the root's map key text. A cold name also
- *   obtains the native temporary-root realpath, recursive state-directory
- *   creation and directory-kind/available-uid checks, then hashes and joins
- *   the fallback spelling. A warm name avoids those delegated checks and the
+ *   obtains the native temporary-root realpath and directory-kind checks,
+ *   then hashes and joins the fallback spelling. A warm name avoids those checks and the
  *   naming digest, not root resolution or map-key work.
  * @evidence contracts/performance.md#reuse-equivalent-work A resolved host root shares its stable fallback naming within the process; actual write capability is checked by writers rather than certified by the cached name, and an unavailable initial user root remains unavailable here.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The module map retains one optional naming result per distinct resolved root for the process lifetime, without an eviction bound; no native handle is retained, and record-directory persistence belongs to the host cache protocol.
@@ -50,20 +51,17 @@ import { userStateDirectory } from "../transform/filesystem/userStateDirectory";
 export function fallbackToolDirectory(root: string): string | undefined {
   const key = path.resolve(root);
   if (!FALLBACKS.has(key)) {
-    // The provider checks directory kind and available uid/mode authority;
-    // other platforms rely on native temporary-directory access policy.
-    // The directories below are created by the first write.
-    const state = userStateDirectory(undefined, key, false);
-    FALLBACKS.set(
-      key,
-      state === undefined
-        ? undefined
-        : path.join(
-            state,
-            "hosts",
-            crypto.createHash("sha256").update(key).digest("hex").slice(0, 32),
-          ),
-    );
+    let directory: string | undefined;
+    try {
+      directory = path.join(
+        userStateDirectory.location(key),
+        "hosts",
+        crypto.createHash("sha256").update(key).digest("hex").slice(0, 32),
+      );
+    } catch {
+      // No system temporary directory outside this host's project.
+    }
+    FALLBACKS.set(key, directory);
   }
   return FALLBACKS.get(key);
 }

@@ -12,7 +12,7 @@ import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFil
  * observed with at most one `lstatSync`. A native regular-file directory entry
  * can supply the same kind and spelling in a warm batch. An absent path
  * (`ENOENT` or `ENOTDIR`) answers both its content hash (`null`) and physical
- * path (`null`), a present non-symlink file hashes its bytes without a separate
+ * path (`null`), a regular file hashes its guarded read without a separate path
  * `statSync`, a present non-symlink directory gets the fixed directory marker
  * without reading children, and a symlink follows native `statSync` and
  * `realpathSync.native`.
@@ -35,7 +35,7 @@ import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFil
  * @evidence contracts/common.md#clear-and-simple-design One phase owner coordinates lstat kind, content hashes, physical targets, ancestor realpaths and directory listings so hashHostInputPaths and realpathHostInputPaths share observations without duplicating filesystem rules.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Symlink parents never short-circuit descendants, lexical leaf basenames never replace on-disk spelling, non-ASCII or ambiguous folds and unreadable listings fall back to native realpathSync.native, and nothing is cached in module state across phases.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the lstat-sharing rule, absent-parent short-circuit boundary, one-consistent-phase premise, phase-end drop requirement and exact on-disk casing protocol.
- * @evidence contracts/portability.md#os-neutral-implementation Native path and fs operations handle POSIX and Windows links, case aliases, lookup failures and directory streams.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path and fs operations handle POSIX and Windows links, case aliases, lookup failures and directory streams. POSIX byte paths use lossless realpath witnesses and skip the string directory-listing shortcut.
  * @evidence contracts/performance.md#efficient-algorithms Absent paths reuse lstat and ancestor evidence. Sparse positive paths resolve directly. A batch shares parent realpath and scans at most four entries per known leaf plus a completeness probe before falling back.
  * @evidence contracts/performance.md#reuse-equivalent-work Observations are shared only through an explicit caller-owned Phase instance within one synchronous load or verification phase and are dropped when that phase ends; separate phases observe the filesystem afresh.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Phase maps keep the names of a completed listing or the bounded prefix containing every requested exact name. Exhausted and failed scans discard their entries. Open directory handles close before return.
@@ -55,6 +55,7 @@ export namespace HostInputObservationPhase {
   type LstatKind =
     | "missing"
     | "non-directory"
+    | "other"
     | "directory"
     | "symlink"
     | "error";
@@ -144,7 +145,7 @@ export namespace HostInputObservationPhase {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Follows symlinks with statSync rather than trusting link metadata, and returns null on unreadable paths without fabricating digests.
    * @evidence contracts/common.md#meaningful-documentation States resolved-path input and phase-scoped memoization.
    * @evidence contracts/portability.md#os-neutral-implementation Native fs.lstatSync, fs.statSync and fs.readFileSync handle host path and link semantics.
-   * @evidence contracts/performance.md#efficient-algorithms Zero syscalls on repeat lookup or absent/non-directory ancestor hit; one lstatSync on independent absent paths and non-symlink directories; one lstatSync plus readFileSync on non-symlink files.
+   * @evidence contracts/performance.md#efficient-algorithms Zero syscalls on repeat lookup or absent/non-directory ancestor hit; one lstatSync on independent absent paths and non-symlink directories. A regular file has a guarded descriptor read, and a link first supplies the reached kind by stat.
    * @evidence contracts/performance.md#reuse-equivalent-work Shares lstat and hash results within the caller-owned phase only.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Stores one hash string or null in phase.hashes; synchronous file reads close their descriptors before returning.
    */
@@ -161,22 +162,29 @@ export namespace HostInputObservationPhase {
       digest = DIRECTORY_HASH;
     } else if (kind === "non-directory") {
       try {
-        digest = crypto
-          .createHash("sha256")
-          .update(fs.readFileSync(resolved))
-          .digest("hex");
+        const content = RuntimeFilesystem.readObservedRegularFile(resolved);
+        digest =
+          content === undefined
+            ? null
+            : crypto.createHash("sha256").update(content).digest("hex");
       } catch {
         digest = null;
       }
+    } else if (kind === "other") {
+      digest = null;
     } else {
       try {
-        if (fs.statSync(resolved).isDirectory()) {
+        const target = fs.statSync(resolved);
+        if (target.isDirectory()) {
           digest = DIRECTORY_HASH;
         } else {
-          digest = crypto
-            .createHash("sha256")
-            .update(fs.readFileSync(resolved))
-            .digest("hex");
+          const content = target.isFile()
+            ? RuntimeFilesystem.readObservedRegularFile(resolved)
+            : undefined;
+          digest =
+            content === undefined
+              ? null
+              : crypto.createHash("sha256").update(content).digest("hex");
         }
       } catch {
         digest = null;
@@ -187,8 +195,8 @@ export namespace HostInputObservationPhase {
   }
 
   /**
-   * Observe and memoize the physical path of a resolved path within `phase`,
-   * byte-identical to `fs.realpathSync.native`.
+   * Observe and memoize the physical identity of a resolved path within
+   * `phase`, preserving native realpath bytes when UTF-8 cannot carry them.
    *
    * @evidence contracts/common.md#principled-implementation Proved absences return null, native realpath resolves unqualified leaves, and a bounded listing supplies exact on-disk names. Resolving case aliases requires a complete listing.
    * @evidence contracts/common.md#clear-and-simple-design Shares lstat classification and absent-parent short-circuiting with hash observation while caching ancestor realpaths and directory listings per phase.
@@ -264,7 +272,7 @@ export namespace HostInputObservationPhase {
       )
         continue;
       const physical = resolveDirectoryRealpath(parent, phase);
-      if (physical === null) continue;
+      if (physical === null || physical.includes("\0")) continue;
       const listing = listDirectory(physical, [...files.keys()], phase);
       if (listing === null) continue;
       for (const [name, file] of files) {
@@ -290,7 +298,9 @@ export namespace HostInputObservationPhase {
         ? "symlink"
         : stats.isDirectory()
           ? "directory"
-          : "non-directory";
+          : stats.isFile()
+            ? "non-directory"
+            : "other";
       phase.lstats.set(resolved, kind);
       if (kind === "non-directory") {
         const name = path.basename(resolved);
@@ -326,7 +336,11 @@ export namespace HostInputObservationPhase {
     let current = parent;
     for (;;) {
       const ancestor = phase.lstats.get(current);
-      if (ancestor === "missing" || ancestor === "non-directory") {
+      if (
+        ancestor === "missing" ||
+        ancestor === "non-directory" ||
+        ancestor === "other"
+      ) {
         return true;
       }
       const parent = path.dirname(current);
@@ -348,7 +362,7 @@ export namespace HostInputObservationPhase {
       return nativeRealpath(resolved);
     }
     const physicalParent = resolveDirectoryRealpath(parent, phase);
-    if (physicalParent === null) {
+    if (physicalParent === null || physicalParent.includes("\0")) {
       return nativeRealpath(resolved);
     }
     const listing = listDirectory(physicalParent, requested, phase);
@@ -467,7 +481,7 @@ export namespace HostInputObservationPhase {
 
   function nativeRealpath(file: string): string | null {
     try {
-      return fs.realpathSync.native(file);
+      return RuntimeFilesystem.realpathWitness(file);
     } catch {
       return null;
     }

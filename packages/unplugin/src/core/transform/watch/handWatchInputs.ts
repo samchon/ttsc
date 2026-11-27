@@ -1,3 +1,4 @@
+import { RECOVERY_TREE_DIGEST } from "./RECOVERY_TREE_DIGEST";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
 
@@ -48,8 +49,19 @@ export function handWatchInputs(
   const chosen = new Map<string, TtscWatchInput>();
   for (const input of inputs) {
     const kept = chosen.get(input.file);
-    if (kept === undefined || rank(input) > rank(kept)) {
+    if (kept === undefined) {
       chosen.set(input.file, input);
+      continue;
+    }
+    const winner = rank(input) > rank(kept) ? input : kept;
+    const other = winner === input ? kept : input;
+    const recovery = RECOVERY_TREE_DIGEST.get(other);
+    if (recovery !== undefined && !RECOVERY_TREE_DIGEST.has(winner)) {
+      const combined = { ...winner };
+      RECOVERY_TREE_DIGEST.set(combined, recovery);
+      chosen.set(input.file, combined);
+    } else {
+      chosen.set(input.file, winner);
     }
   }
   const distinct = [...chosen.values()];

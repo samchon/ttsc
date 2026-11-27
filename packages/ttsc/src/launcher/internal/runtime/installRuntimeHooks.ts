@@ -675,7 +675,7 @@ function recordPluginDescriptorInput(
 
 function pluginDescriptorInputRealpath(file: string): string | null {
   try {
-    return fs.realpathSync.native(file);
+    return RuntimeFilesystem.realpathWitness(file);
   } catch {
     return null;
   }
@@ -726,13 +726,16 @@ function pluginDescriptorInputMetadataSignature(
 
 function pluginDescriptorInputHash(file: string): string | null {
   try {
-    if (fs.statSync(file).isDirectory()) {
+    const info = fs.statSync(file);
+    if (info.isDirectory()) {
       return pluginDescriptorDirectoryHash();
     }
-    return crypto
-      .createHash("sha256")
-      .update(fs.readFileSync(file))
-      .digest("hex");
+    const content = info.isFile()
+      ? RuntimeFilesystem.readObservedRegularFile(file)
+      : undefined;
+    return content === undefined
+      ? null
+      : crypto.createHash("sha256").update(content).digest("hex");
   } catch {
     return null;
   }
@@ -1618,7 +1621,7 @@ let ownPackageVersionCache: string | undefined;
 
 /**
  * Content-addressed cache path for isolated orphan lowering, or `null` when the
- * source cannot be read.
+ * source cannot be read or private cache storage is unavailable.
  *
  * The cache outlives the run in its cache root, so a hit has to prove the
  * current inputs would produce the cached text. The key holds everything that
@@ -1650,6 +1653,14 @@ function orphanCacheFile(
   } catch {
     return null;
   }
+  let cacheRoot: string;
+  try {
+    cacheRoot = orphanCacheRoot(filename);
+  } catch {
+    // Orphans can still emit in qualified system temp when the process has
+    // no manifest and its dependency cache cannot be acquired.
+    return null;
+  }
   const compiler = compilerIdentity(tsgo);
   const key = crypto
     .createHash("sha256")
@@ -1667,7 +1678,7 @@ function orphanCacheFile(
     .slice(0, 32);
   return {
     compiler,
-    file: path.join(orphanCacheRoot(filename), `${key}.js`),
+    file: path.join(cacheRoot, `${key}.js`),
     signature,
     source,
   };

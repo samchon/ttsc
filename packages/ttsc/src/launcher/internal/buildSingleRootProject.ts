@@ -41,14 +41,14 @@ import { singleRootProjectConfig } from "./singleRootProjectConfig";
  * TypeScript 7.1 can hold the overlay beside the real config in memory.
  * `buildSingleRootInMemory` takes that route first. The command-line fallback
  * needs a config file to combine an exact file list with project options. For a
- * checked root it uses a cache below the owning config directory, preserving
- * the original dependency search. If the selected cache sits outside that
- * directory or refuses the write, the project compiler can read the wrapper
- * through a VFS view beside the original config on its plugin-free snapshot
- * route. Other compilers use a private mirror of the original dependency
- * search. The emit-only lane uses its private output directory. Inherited
- * `${configDir}` compiler paths retain their owner, and the temporary file is
- * created exclusively and removed after the build.
+ * checked root it uses a cache below the owning config directory whose
+ * intervening directories add no dependency installations. When that layout is
+ * unavailable, the project compiler can read the wrapper through a VFS view
+ * beside the original config on its plugin-free snapshot route. Other compilers
+ * use a private mirror of the original dependency search. The emit-only lane
+ * uses its private output directory. Inherited `${configDir}` compiler paths
+ * retain their owner, and the temporary file is created exclusively and removed
+ * after the build.
  *
  * `rootDir` is the root of the source's volume. The layout of this emit is
  * private, so `rootDir` decides nothing here but whether a file of the program
@@ -176,7 +176,7 @@ export function buildSingleRootProject(props: {
     }
     if (
       !props.checked ||
-      isPathWithin(attemptedDirectory, fs.realpathSync.native(configDir))
+      preservesConfigTypeSearch(attemptedDirectory, configDir)
     )
       placement = acquire(attemptedDirectory);
   } catch (error) {
@@ -363,6 +363,23 @@ export function buildSingleRootProject(props: {
       }
     }
   }
+}
+
+/** Keep the original dependency search when placing a wrapper on disk. */
+function preservesConfigTypeSearch(
+  directory: string,
+  configDir: string,
+): boolean {
+  const owner = fs.realpathSync.native(configDir);
+  if (!isPathWithin(directory, owner)) return false;
+  for (
+    let candidate = directory;
+    path.relative(owner, candidate) !== "";
+    candidate = path.dirname(candidate)
+  ) {
+    if (dependencyDirectory(candidate) !== undefined) return false;
+  }
+  return true;
 }
 
 /**

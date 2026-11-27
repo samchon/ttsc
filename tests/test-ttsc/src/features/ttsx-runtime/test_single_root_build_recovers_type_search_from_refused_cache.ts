@@ -125,6 +125,18 @@ export function test_single_root_build_recovers_type_search_from_refused_cache()
           files: ["included.ts"],
         }),
       );
+      if (!linked)
+        write(
+          path.join(
+            cache,
+            "ttsc",
+            "node_modules",
+            "@types",
+            "foreign",
+            "index.d.ts",
+          ),
+          "declare const marker: 1;",
+        );
       assert.throws(
         () =>
           buildSingleRootProject({

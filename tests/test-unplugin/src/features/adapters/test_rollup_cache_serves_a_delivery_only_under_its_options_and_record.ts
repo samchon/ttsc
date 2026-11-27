@@ -38,7 +38,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#independent-expectations
  *   A cached delivery can be served only under the same options and unchanged record bytes; absent proof requires transformation. Node's independent SHA-256 over the authored record literals establishes digest expectations. A CSS module outside the owned target set is left to Rollup. The hook requests transformation for owed delivery or movement and otherwise returns null; an exactly true owed answer must avoid consulting proof, while exceptions retain their identity.
  * @evidence contracts/testing.md#distinguishing-cases
- *   Covers matching and changed options, delivery without a project, null or missing delivery, malformed and missing record, unowned module, changed bytes across begin, quiet mid-pass observation, independently owed delivery for two modules and adoption of fresh delivered proofs. Hook rows distinguish absent/quiet/owed bridge, exactly true versus a malformed truthy answer, exact module reference, delegated receivers and each owner's exception.
+ *   Covers matching and changed options, delivery without a project, null or missing delivery, malformed and missing record, unowned module, changed bytes across begin, distinct storage policies at one pathname, quiet mid-pass observation, independently owed delivery for two modules and adoption of fresh delivered proofs. Hook rows distinguish absent/quiet/owed bridge, exactly true versus a malformed truthy answer, exact module reference, delegated receivers and each owner's exception.
  * @evidence contracts/testing.md#execution-ownership
  *   test_rollup_cache_serves_a_delivery_only_under_its_options_and_record calls createRollupCachedModuleProof.deliver/moved/begin, openHostWatchBridge and the production-used hook selector over temporary records and callable channels. It establishes no installed Rollup host, native watcher acquisition or compiler capture.
  */
@@ -59,11 +59,29 @@ export async function test_rollup_cache_serves_a_delivery_only_under_its_options
 
   // 1. The options and the record.
   const delivered = proof.deliver({ options: "A", record: { digest, file } });
+  const managed = {
+    "ttsc-unplugin": {
+      options: "A",
+      record: { digest, file, privateStorage: true },
+    },
+  };
   proof.begin();
   assert.equal(ask(delivered), false, "a delivery that still holds is served");
   options = "B";
   assert.equal(ask(delivered), true, "one compiled under other options runs");
   options = "A";
+  assert.equal(
+    ask(managed),
+    true,
+    "ordinary bytes cannot prove managed storage",
+  );
+  proof.begin();
+  assert.equal(ask(managed), true);
+  assert.equal(
+    ask(delivered),
+    false,
+    "managed refusal cannot affect ordinary storage",
+  );
 
   // 2. No project consulted.
   const bare = proof.deliver({ options: "A" });

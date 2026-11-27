@@ -18,15 +18,13 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 1. Record the usable toolchain in a child module and reread it unchanged.
  * 2. Add and remove an ancestor workspace that selects an unavailable version.
  * 3. Edit the module to select that version, then restore the working version.
- * 4. With another installed Go SDK, change its defaults and add a preceding
- *    executable for the same delegated version.
- * 5. Distinguish an unrelated directory-entry edit from replacing the directory
- *    selected through the Go working-directory alias.
+ * 4. Exercise delegation within and across SDK roots and distinguish an
+ *    unrelated directory edit from retargeting a working-directory alias.
  *
  * @evidence contracts/testing.md#behavioral-verification The direct answer reader over a real Go SDK and private store returns the working digest while selection holds, then produces a different digest and refuses the preceding witness whenever Go's selection files move.
  * @evidence contracts/testing.md#independent-expectations Go's toolchain selection rules give the ancestor workspace precedence and reject the authored higher requirement with path-only lookup. Restoring the original requirement restores the original build inputs.
- * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selection files. A native link preserves working-directory authority across an unrelated sibling entry but loses it on retarget. Where a second cached SDK is installed, actual Go compares a stable delegation, edited SDK defaults and an earlier PATH candidate at the same version. The separate packaged identity unit owns shipped SDK metadata.
- * @evidence contracts/testing.md#execution-ownership The unit probes an installed Go tool directly using local-only selection. It owns the temporary module, workspace and answer store, and runs no plugin build or installed ttsc host.
+ * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selection files. A native link preserves working-directory authority across an unrelated sibling entry but loses it on retarget. With a second installed SDK, Go compares stable delegation, edited defaults and an earlier PATH candidate. The earlier candidate must also displace a different Go release sharing the launcher's SDK root. The separate packaged identity unit owns shipped SDK metadata.
+ * @evidence contracts/testing.md#execution-ownership The unit runs native Go queries with local and PATH selection in its temporary module, workspace and answer store. It copies already installed executables and runs no plugin build or installed ttsc host.
  */
 export function test_plugin_build_environment_follows_toolchain_selection_files(): void {
   const root = TestProject.physicalPath(
@@ -121,8 +119,12 @@ function verifyDelegatedEnvironment(props: {
   store: PluginContentIdentities.Store | undefined;
 }): void {
   const { binary, module, root, env, store } = props;
-  const launch = (args: readonly string[], runEnv: NodeJS.ProcessEnv) => {
-    const result = spawnSync(binary, args, {
+  const launch = (
+    args: readonly string[],
+    runEnv: NodeJS.ProcessEnv,
+    launcher = binary,
+  ) => {
+    const result = spawnSync(launcher, args, {
       cwd: module,
       env: runEnv,
       encoding: "utf8",
@@ -196,13 +198,17 @@ function verifyDelegatedEnvironment(props: {
       .join(path.delimiter),
     ...(process.platform === "win32" ? { PATHEXT: "EXE" } : {}),
   });
-  const read = (tags: string) => {
+  const read = (tags: string, launcher = binary, root?: string) => {
     // Start the copied SDK before capturing its reusable metadata. Windows
     // can update the executable's change time on its first native load.
-    const native = launch(["env", "-json", "GOFLAGS", "GOROOT"], delegated);
+    const native = launch(
+      ["env", "-json", "GOFLAGS", "GOROOT", "GOVERSION"],
+      delegated,
+      launcher,
+    );
     const witness: PluginBuildEnvironmentWitness.Record = new Map();
     const actual = GoEnvironmentReading.recorded(
-      binary,
+      launcher,
       module,
       delegated,
       ["GOFLAGS"],
@@ -210,6 +216,8 @@ function verifyDelegatedEnvironment(props: {
       store,
     );
     assert.equal(native.GOFLAGS, `-tags=${tags}`);
+    assert.equal(native.GOVERSION, version);
+    if (root !== undefined) assert.equal(native.GOROOT, root);
     assert.equal(actual?.GOFLAGS, native.GOFLAGS);
     assert.equal(actual?.GOROOT, native.GOROOT);
     assert.equal(PluginBuildEnvironmentWitness.reusable(witness), true);
@@ -223,4 +231,14 @@ function verifyDelegatedEnvironment(props: {
   install(early);
   assert.equal(PluginBuildEnvironmentWitness.holds(edited), false);
   read("earlier");
+
+  fs.unlinkSync(path.join(early, "bin", version + path.extname(binary)));
+  const sharedLauncher = path.join(late, "bin", path.basename(binary));
+  fs.copyFileSync(binary, sharedLauncher);
+  if (process.platform !== "win32") fs.chmodSync(sharedLauncher, 0o755);
+  fs.writeFileSync(path.join(late, "VERSION"), `${local.GOVERSION}\n`);
+  const shared = read("later_edited", sharedLauncher, late);
+  install(early);
+  assert.equal(PluginBuildEnvironmentWitness.holds(shared), false);
+  read("earlier", sharedLauncher, early);
 }

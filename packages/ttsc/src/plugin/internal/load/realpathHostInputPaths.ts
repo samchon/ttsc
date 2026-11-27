@@ -4,7 +4,8 @@ import { HostInputObservationPhase } from "./HostInputObservationPhase";
 
 /**
  * The physical target of each host input, keyed by its resolved path; `null`
- * where it does not resolve. Recorded beside the content hashes because
+ * where it does not resolve. A reserved byte witness preserves POSIX paths
+ * outside UTF-8. Record physical identity beside the content hashes because
  * retargeting a symlinked input changes what it names without changing any
  * bytes a hash has seen yet.
  *
@@ -13,7 +14,7 @@ import { HostInputObservationPhase } from "./HostInputObservationPhase";
  * hashing. A dense batch can share a physical parent and bounded listing for
  * exact leaf spellings. The phase memo ends with that synchronous phase.
  *
- * @evidence contracts/common.md#principled-implementation Each resolved lexical key retains the current physical target byte-identical to native realpath or unresolved null, preserving symlink retargeting as distinct from unchanged content.
+ * @evidence contracts/common.md#principled-implementation Each resolved lexical key retains native realpath identity as a path, a reversible POSIX byte witness, or unresolved null, preserving retargeting independently of content.
  * @evidence contracts/common.md#clear-and-simple-design The collection mapper delegates phase-scoped lstat, absent-parent and ancestor-cached physical resolution to HostInputObservationPhase and leaves content hashing and proof acceptance separate.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed canonicalization remains null instead of borrowing a recorded target or assuming the lexical path is physical identity; non-symlink leaf names come from directory listings or native realpathSync.native, never from lexical basenames.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains unresolved values, phase-scoped sharing and why realpaths accompany hashes, with prose/tag separation following the documentation skill.
