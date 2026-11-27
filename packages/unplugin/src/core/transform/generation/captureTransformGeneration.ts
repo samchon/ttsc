@@ -426,7 +426,10 @@ export async function captureTransformGeneration(props: {
         // reaches this worker. Watch from the state before invoking it.
         compilerSourceBefore = {
           file,
-          digest: captureRecoveryTreeDigest(file, props.filesystem),
+          digest: captureRecoveryTreeDigest(file, props.filesystem, {
+            projectRoot,
+            environment: compilerEnvironment,
+          }),
         };
       }
       try {

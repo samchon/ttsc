@@ -79,7 +79,7 @@ export namespace RuntimeFilesystem {
    * POSIX descriptor supplies the final regular-file check. Windows reads the
    * classified path directly.
    *
-   * @evidence contracts/common.md#principled-implementation Open a native descriptor, verify its type, then read the same descriptor so path replacement cannot redirect the read.
+   * @evidence contracts/common.md#principled-implementation POSIX opens a nonblocking descriptor, verifies its type and reads that descriptor. Windows uses the regular-file observation supplied by the caller and its ordinary file read.
    * @evidence contracts/common.md#clear-and-simple-design Shares the guarded content-read boundary between host-input and LSP fingerprints.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Nonregular handles return undefined and native failures propagate for the caller's existing unavailable marker.
    * @evidence contracts/common.md#meaningful-documentation Documents the required preliminary file classification and how a replacement pipe is handled.

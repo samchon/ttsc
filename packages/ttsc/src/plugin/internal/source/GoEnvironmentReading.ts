@@ -32,6 +32,15 @@ export namespace GoEnvironmentReading {
    */
   const goEnvironmentFiles = new Map<string, string | null>();
 
+  const localVersions = new Map<
+    string,
+    {
+      identity: string;
+      value: string;
+      witness: PluginBuildEnvironmentWitness.Record;
+    }
+  >();
+
   /**
    * Answer family that carries the same location hint across processes, so a
    * new process does not run `go env` once merely to learn it (#1722). A wrong
@@ -73,16 +82,16 @@ export namespace GoEnvironmentReading {
    *
    * @param identities Optional record store carrying the hint across processes.
    * @param projectRoot Consumer boundary for child output and scratch.
-   * @returns The parsed object, or `undefined` when native acquisition or JSON
-   *   object decoding failed.
+   * @returns Go's values and whether the launcher supplied them, or `undefined`
+   *   when native acquisition or JSON decoding failed.
    * @evidence contracts/common.md#principled-implementation Actual Go supplies values and the environment-file path; pre-read metadata and bounded rediscovery preserve the earliest file witness instead of attaching a later state to an earlier read.
    * @evidence contracts/common.md#clear-and-simple-design One acquisition serves build hashing and manifest syntax qualification; callers choose keys and own interpretation and cache admission.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A remembered file name is only a discovery hint. Every call executes Go, and unresolved movement marks its witness unproven rather than lending a historical positive verdict.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why file discovery can repeat and distinguish unavailable acquisition from current authority.
    * @evidence contracts/portability.md#os-neutral-implementation Go reports its actual environment-file location; native path metadata and the existing Go process owner supply observation and execution semantics.
-   * @evidence contracts/performance.md#efficient-algorithms Hashing the complete tool/environment identity and up to three native Go queries process full name/value/output bytes. Requested keys contribute argument bytes; file discovery uses metadata rather than an SDK walk.
-   * @evidence contracts/performance.md#reuse-equivalent-work Only file-location discovery hints are shared: in process across equal selected-tool/environment identities, and through the record store across equal selected tools and location variables, since the reading verifies any hint against the file Go reports. Current Go values and file authority are reacquired for every call.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The module retains one file-location hint per historical tool/environment identity, without eviction, but no positive reading or native handle; persisted hints belong to the single-file collector. Command capture/retirement belongs to spawnGoTool and the caller owns the transferred witness.
+   * @evidence contracts/performance.md#efficient-algorithms Hashing the complete tool/environment identity and up to three settings queries process full name/value/output bytes. A cold same-root answer can additionally query the launcher's local version once. File discovery uses metadata without an SDK walk.
+   * @evidence contracts/performance.md#reuse-equivalent-work Each call queries current Go settings. File-location hints are shared in process and through the record store. A same-root launcher version is reused in process only for the same executable, environment and working directory while their metadata evidence holds.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The module retains one file-location hint per tool and environment and one current version proof per launcher path without eviction. The answer store collects persisted hints. Command capture belongs to spawnGoTool and the caller owns the settings witness.
    */
   export function read(
     goBinary: string,
@@ -92,7 +101,7 @@ export namespace GoEnvironmentReading {
     witness: PluginBuildEnvironmentWitness.Record | undefined,
     identities?: PluginContentIdentities.Store,
     projectRoot?: string,
-  ): Record<string, unknown> | undefined {
+  ): { values: Record<string, unknown>; local: boolean } | undefined {
     const memo = crypto.createHash("sha256").update(goBinary);
     for (const [key, value] of Object.entries(env).sort(([left], [right]) =>
       left < right ? -1 : left > right ? 1 : 0,
@@ -111,12 +120,6 @@ export namespace GoEnvironmentReading {
       if (hinted === null || typeof hinted === "string") named = hinted;
     }
     const remembered = named;
-    const launcherRoot = GoSourceInputs.inferGoRoot(goBinary);
-    if (launcherRoot !== null)
-      PluginBuildEnvironmentWitness.add(
-        witness,
-        path.join(launcherRoot, "VERSION"),
-      );
     const args = [
       "env",
       "-json",
@@ -149,7 +152,20 @@ export namespace GoEnvironmentReading {
       }
       const activeRoot = parsed.GOROOT;
       const activeVersion = parsed.GOVERSION;
-      const local = provesLocalToolchain(goBinary, env, parsed);
+      const local =
+        matchesLauncherRoot(goBinary, env, parsed.GOROOT) &&
+        (SidecarEnvironment.read(env, "GOTOOLCHAIN") === "local" ||
+          (typeof activeVersion === "string" &&
+            activeVersion ===
+              readLocalVersion(
+                goBinary,
+                cwd,
+                env,
+                memoKey,
+                witness,
+                projectRoot,
+              )));
+      const reading = { values: parsed, local };
       let repeatForToolchain = false;
       if (
         witness !== undefined &&
@@ -161,7 +177,7 @@ export namespace GoEnvironmentReading {
           // A delegated reread can qualify a stable launcher only. Preserve
           // the first witness so its owner can reject a changed toolchain
           // without starting an extra process for this attempt.
-          if (!PluginBuildEnvironmentWitness.holds(witness)) return parsed;
+          if (!PluginBuildEnvironmentWitness.holds(witness)) return reading;
           delegated = [activeRoot, activeVersion];
           witnessDelegatedToolchain(
             cwd,
@@ -176,11 +192,11 @@ export namespace GoEnvironmentReading {
           delegated[1] !== activeVersion
         ) {
           PluginBuildEnvironmentWitness.refuse(witness, goBinary);
-          return parsed;
+          return reading;
         }
       } else if (delegated !== undefined) {
         PluginBuildEnvironmentWitness.refuse(witness, goBinary);
-        return parsed;
+        return reading;
       } else if (!local) {
         PluginBuildEnvironmentWitness.requireToolchainProbe(witness);
       }
@@ -200,7 +216,7 @@ export namespace GoEnvironmentReading {
             named,
           );
         if (repeatForToolchain) continue;
-        return parsed;
+        return reading;
       }
       if (named !== undefined && named !== null) witness?.delete(named);
       named = reported;
@@ -214,7 +230,7 @@ export namespace GoEnvironmentReading {
             hintKey(goBinary, env),
             named,
           );
-        return parsed;
+        return reading;
       }
     }
     if (named !== undefined && named !== null)
@@ -248,7 +264,7 @@ export namespace GoEnvironmentReading {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No handwritten Go value or path is assumed: the values and the environment-file location still come from Go.
    * @evidence contracts/common.md#meaningful-documentation Native prose lists each witnessed dependency and why it can change the answer.
    * @evidence contracts/portability.md#os-neutral-implementation Native path ancestry and stat identity; Go reports its own GOROOT and GOENV.
-   * @evidence contracts/performance.md#efficient-algorithms A hit hashes the variables and observes the physical and possible PWD ancestry, SDK and delegated PATH evidence recorded at the miss. A miss runs Go up to three times to establish the active SDK and environment file.
+   * @evidence contracts/performance.md#efficient-algorithms A hit hashes the variables and observes the physical and possible PWD ancestry, SDK and delegated PATH evidence recorded at the miss. A miss runs up to three settings queries and can add one cold launcher-version query when the reported root matches the launcher.
    * @evidence contracts/performance.md#reuse-equivalent-work Equal tool, directory, keys and variables share one Go run across processes while the witness holds.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Records belong to the answer store's collector; nothing is retained in memory.
    */
@@ -281,7 +297,7 @@ export namespace GoEnvironmentReading {
     }
     const observed: PluginBuildEnvironmentWitness.Record = new Map();
     witnessToolchain(goBinary, cwd, env, observed);
-    const values = read(
+    const reading = read(
       goBinary,
       cwd,
       env,
@@ -290,7 +306,8 @@ export namespace GoEnvironmentReading {
       identities,
       projectRoot,
     );
-    if (values === undefined) return undefined;
+    if (reading === undefined) return undefined;
+    const { values } = reading;
     if (typeof values.GOROOT === "string" && path.isAbsolute(values.GOROOT))
       PluginBuildEnvironmentWitness.add(
         observed,
@@ -307,25 +324,12 @@ export namespace GoEnvironmentReading {
     return values;
   }
 
-  /**
-   * Check the reported SDK root and the launcher's distribution version.
-   * Another versioned executable under the same SDK can satisfy delegation.
-   *
-   * @evidence contracts/common.md#principled-implementation Go reports the active root and version. An explicit local selection needs only the root check. Otherwise the launcher's distributed VERSION identifies its release, and the reading witnesses that file before the probe.
-   * @evidence contracts/common.md#clear-and-simple-design Both environment answer families share this reuse boundary.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts A different, unknown or relative root, or an unconfirmed launcher release when delegation is enabled, requires the delegated lookup proof.
-   * @evidence contracts/common.md#meaningful-documentation Describes current results separately from eligibility for persistent reuse.
-   * @evidence contracts/portability.md#os-neutral-implementation Native absolute paths and physical identity resolve SDK links and junctions.
-   * @evidence contracts/performance.md#efficient-algorithms Native root comparison and a read of the small distribution VERSION file require no additional process or SDK scan.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The predicate has no memo of its own.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate retains no handle or history.
-   */
-  export function provesLocalToolchain(
+  /** Match the reported root to the SDK layout of the launcher path. */
+  function matchesLauncherRoot(
     goBinary: string,
     env: NodeJS.ProcessEnv,
-    values: Record<string, unknown>,
+    active: unknown,
   ): boolean {
-    const active = values.GOROOT;
     const explicitlyLocal =
       SidecarEnvironment.read(env, "GOTOOLCHAIN") === "local";
     const launcher = explicitlyLocal
@@ -339,17 +343,60 @@ export namespace GoEnvironmentReading {
       !path.isAbsolute(launcher)
     )
       return false;
+    if (path.resolve(active) === path.resolve(launcher)) return true;
     try {
-      if (
-        path.resolve(active) !== path.resolve(launcher) &&
-        fs.realpathSync.native(active) !== fs.realpathSync.native(launcher)
-      )
-        return false;
-      if (explicitlyLocal) return true;
-      const version = fs.readFileSync(path.join(launcher, "VERSION"), "utf8");
-      return version.split(/\r?\n/, 1)[0] === values.GOVERSION;
+      return (
+        fs.realpathSync.native(active) === fs.realpathSync.native(launcher)
+      );
     } catch {
       return false;
+    }
+  }
+
+  /** Read the version of the executable with Go delegation disabled. */
+  function readLocalVersion(
+    goBinary: string,
+    cwd: string,
+    env: NodeJS.ProcessEnv,
+    memoKey: string,
+    witness: PluginBuildEnvironmentWitness.Record | undefined,
+    projectRoot: string | undefined,
+  ): string | undefined {
+    const directory = path.resolve(cwd);
+    const identity = JSON.stringify([memoKey, directory]);
+    const kept = localVersions.get(goBinary);
+    if (
+      kept?.identity === identity &&
+      PluginBuildEnvironmentWitness.holds(kept.witness)
+    ) {
+      WitnessedLoadAnswers.join(witness, kept.witness);
+      return kept.value;
+    }
+    if (witness !== undefined && !PluginBuildEnvironmentWitness.holds(witness))
+      return undefined;
+    const observed: PluginBuildEnvironmentWitness.Record = new Map();
+    PluginBuildEnvironmentWitness.add(observed, goBinary);
+    PluginBuildEnvironmentWitness.addDirectoryIdentity(observed, directory);
+    const result = spawnGoTool(goBinary, ["env", "-json", "GOVERSION"], {
+      cwd,
+      projectRoot,
+      encoding: "utf8",
+      env: SidecarEnvironment.merge(
+        GoSourceInputs.goBuildEnv(goBinary, undefined, env),
+        { GOTOOLCHAIN: "local", GOWORK: "off" },
+      ),
+      windowsHide: true,
+    });
+    if (result.error !== undefined || result.status !== 0) return undefined;
+    try {
+      const value: unknown = JSON.parse(result.stdout)?.GOVERSION;
+      if (typeof value !== "string" || value === "") return undefined;
+      if (!PluginBuildEnvironmentWitness.holds(observed)) return undefined;
+      localVersions.set(goBinary, { identity, value, witness: observed });
+      WitnessedLoadAnswers.join(witness, observed);
+      return value;
+    } catch {
+      return undefined;
     }
   }
 
@@ -509,7 +556,7 @@ export namespace GoEnvironmentReading {
   }
 
   /** Answer family of {@link recorded} (`WitnessedLoadAnswers`). */
-  const RECORDED_READING = "go-environment-reading-v3";
+  const RECORDED_READING = "go-environment-reading-v4";
 
   // A wrong hint is safe: the reading compares it with the `GOENV` Go reports
   // and runs again with the reported file witnessed.

@@ -6,7 +6,7 @@ import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/Sideca
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
-import { realPath } from "../../../launcher/internal/runtime/realPath";
+import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
 import type { CompilerTarget } from "./CompilerTarget";
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
@@ -48,13 +48,15 @@ export namespace SourcePluginWorkspace {
    * Copied directories and regular files are made owner-writable (`0o700` on
    * directories, `0o200` on files) so read-only source trees such as Nix stores
    * or read-only `node_modules` can receive generated files and be removed
-   * cleanly in scratch cleanup without altering keyed file bytes.
+   * cleanly in scratch cleanup without altering keyed file bytes. A source
+   * linked through a path with no UTF-8 spelling is copied through the declared
+   * link, with the physical target checked before and after.
    *
    * @evidence contracts/common.md#principled-implementation The shared source-entry predicate keeps native build and metadata copies under the keyed source policy, and making the scratch copy owner-writable via lstat/chmod ensures read-only sources remain modifiable and removable without changing content digests; callers own root admission and any later digest proof.
    * @evidence contracts/common.md#clear-and-simple-design One recursive copy owner serves source modules, overlays, external replacements, contributors and metadata contexts.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No constraint interpretation or filename exception narrows the admitted copy, and permission restoration runs best-effort if copying fails so it never replaces the copy error.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes copying and owner-writable scratch permissions from later input-stability proof.
-   * @evidence contracts/portability.md#os-neutral-implementation Native filesystem operations preserve supported path identity, the shared predicate refuses observed non-root links, and lstat-guarded chmod adjusts owner write bits without following symlinks.
+   * @evidence contracts/portability.md#os-neutral-implementation The root link can retain a usable lexical path when its POSIX target has no UTF-8 spelling. The copy verifies the byte-level target before and after reading its immediate entries. The shared predicate excludes observed non-root links, and lstat-guarded chmod adjusts owner write bits without following symlinks.
    * @evidence contracts/performance.md#efficient-algorithms Traverses admitted entries, copies their complete bytes, then walks copied entries once to add missing owner write bits; each copy entry checks cancellation and the shared naming/kind policy.
    * @evidence contracts/performance.md#reuse-equivalent-work The caller owns and reuses the resulting scratch; no historical copy cache is retained.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous copy and chmod retain no handle after returning; partial scratch cleanup remains with the enclosing metadata/build owner.
@@ -63,13 +65,31 @@ export namespace SourcePluginWorkspace {
     OwnedSynchronousProcess.checkpoint();
     fs.mkdirSync(scratch, { recursive: true });
     try {
-      fs.cpSync(source, scratch, {
+      const options: fs.CopySyncOptions = {
         recursive: true,
         filter: (input) => {
           OwnedSynchronousProcess.checkpoint();
           return copiesPluginSourceEntry(source, input);
         },
-      });
+      };
+      const linkedTarget = fs.lstatSync(source).isSymbolicLink()
+        ? RuntimeFilesystem.realpathWitness(source)
+        : undefined;
+      if (
+        linkedTarget !== undefined &&
+        RuntimeFilesystem.rawRealpath(linkedTarget) !== undefined
+      ) {
+        // Keep the root alias in every lookup. The ordinary copy policy still
+        // applies to each entry below it.
+        for (const name of fs.readdirSync(source))
+          fs.cpSync(path.join(source, name), path.join(scratch, name), options);
+        if (RuntimeFilesystem.realpathWitness(source) !== linkedTarget)
+          throw new Error(
+            `ttsc: plugin source target changed while copying: ${source}`,
+          );
+      } else {
+        fs.cpSync(source, scratch, options);
+      }
     } catch (error) {
       makeTreeOwnerWritable(scratch, true);
       throw error;
@@ -781,23 +801,31 @@ export namespace SourcePluginWorkspace {
    * the project's own compiler was built from, which plugin and compiler hosts
    * then build against in place of the revision ttsc pins. An existing symbolic
    * link or junction is followed to its physical directory, so the key, copy,
-   * watch and report name one real directory; a path that does not exist keeps
-   * its lexical spelling so admission still names what was declared. Undefined
-   * when the variable is unset or empty. A relative path is refused, since the
-   * builds of one load run from different working directories.
+   * watch and report name one real directory. Missing targets and POSIX targets
+   * without a UTF-8 spelling retain the declaration for native lookups.
+   * Undefined when the variable is unset or empty. A relative path is refused,
+   * since the builds of one load run from different working directories.
    *
-   * @evidence contracts/common.md#principled-implementation The variable is read from the load's effective environment, as TTSC_TSGO_BINARY is, so a programmatic env override declares the source for exactly the builds it selects the compiler for; resolving an existing link once through realPath keeps keying, copying, watching and reporting on one physical directory instead of failing materialize on a root symlink, while a missing path keeps its lexical spelling for admission diagnostics.
+   * @evidence contracts/common.md#principled-implementation The variable is read from the load's effective environment, as TTSC_TSGO_BINARY is, so a programmatic env override declares the source for exactly the builds it selects the compiler for. Native resolution supplies the physical path when it is representable. Otherwise the existing lexical path remains the I/O address and the host input proof compares the target witness separately.
    * @evidence contracts/common.md#clear-and-simple-design One accessor owns the variable's reading, its absolute-path rule and best-effort physical resolution; every overlay list, watch projection and the workspace writer ask it.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A relative value is refused instead of being resolved against whichever working directory a caller happens to have; failed realpath keeps the resolved lexical spelling rather than fabricating a physical path.
-   * @evidence contracts/common.md#meaningful-documentation States what the directory is, symlink resolution, the missing-path lexical fallback, the undefined result and why a relative path is refused.
-   * @evidence contracts/portability.md#os-neutral-implementation SidecarEnvironment.read applies the platform's variable-name policy, path.isAbsolute and path.resolve apply the native path grammar, and realPath resolves native links and Windows short names via fs.realpathSync.native; no OS name is consulted.
+   * @evidence contracts/common.md#meaningful-documentation States what the directory is, when lexical spelling remains the I/O address, the undefined result and why a relative path is refused.
+   * @evidence contracts/portability.md#os-neutral-implementation SidecarEnvironment.read applies the platform's variable-name policy, path.isAbsolute and path.resolve apply the native path grammar, and the native realpath witness distinguishes POSIX byte paths from directly usable strings.
    * @evidenceExclude contracts/performance.md#efficient-algorithms One environment read, path normalization and native realpath lookup own no population-processing strategy.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The caller owns a mutable environment and links may change, so no earlier reading has a validity identity to reuse.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains no state, handle or task.
    */
   export function compilerSource(env: NodeJS.ProcessEnv): string | undefined {
     const declaration = compilerSourceDeclaration(env);
-    return declaration === undefined ? undefined : realPath(declaration);
+    if (declaration === undefined) return undefined;
+    try {
+      const target = RuntimeFilesystem.realpathWitness(declaration);
+      return RuntimeFilesystem.rawRealpath(target) === undefined
+        ? target
+        : declaration;
+    } catch {
+      return declaration;
+    }
   }
 
   /**

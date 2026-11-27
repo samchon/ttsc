@@ -16,6 +16,8 @@ interface IActorReport {
   descriptorEvaluated: boolean;
   descriptorInputs: string[];
   descriptorObservationsComplete: boolean | null;
+  descriptorReadFailure?: string;
+  descriptorWriteAttempted: boolean;
   descriptorDifferentGraphRefused: boolean;
   descriptorDifferentNodePathRefused: boolean;
   descriptorDifferentHomeRefused?: boolean;
@@ -322,7 +324,11 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   assert.equal(edited1.capabilityCacheHit, false);
 
   const edited2 = runLaunch(portZeroEnv, "evaluate");
-  assert.equal(edited2.descriptorCacheHit, true);
+  assert.equal(
+    edited2.descriptorCacheHit,
+    true,
+    `edited preload cache miss (previous write attempted=${edited1.descriptorWriteAttempted}): ${edited2.descriptorReadFailure}`,
+  );
   assert.equal(edited2.capabilityProbes, 0);
   assert.equal(edited2.capabilityAuthority, edited1.capabilityAuthority);
   assert.equal(edited2.capabilityCacheHit, true);
@@ -359,7 +365,7 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   assert.equal(
     local2.descriptorCacheHit,
     true,
-    "unchanged local preload graph must hit descriptor cache",
+    `unchanged local preload graph must hit descriptor cache (previous write attempted=${local1.descriptorWriteAttempted}): ${local2.descriptorReadFailure}`,
   );
   assert.equal(
     local2.capabilityProbes,

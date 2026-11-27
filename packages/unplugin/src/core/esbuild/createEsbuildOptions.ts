@@ -4,7 +4,7 @@ import type { UnpluginOptions } from "unplugin";
 
 import type { HostWatchBridge } from "../bridge/HostWatchBridge";
 import { MANAGED_PROJECT_RECORDS } from "../bridge/MANAGED_PROJECT_RECORDS";
-import { fallbackToolDirectory } from "../bridge/fallbackToolDirectory";
+import { fallbackToolDirectoryLocation } from "../bridge/fallbackToolDirectoryLocation";
 import { hostToolDirectory } from "../bridge/hostToolDirectory";
 import { openHostWatchBridge } from "../bridge/openHostWatchBridge";
 import { registerProjectRecord } from "../bridge/registerProjectRecord";
@@ -129,7 +129,7 @@ export function createEsbuildOptions(
             let errors;
             try {
               const source = await fs.promises.readFile(file, "utf8");
-              const fallback = fallbackToolDirectory(root);
+              const fallback = fallbackToolDirectoryLocation(root);
               const result = await transformTtsc(
                 file,
                 source,

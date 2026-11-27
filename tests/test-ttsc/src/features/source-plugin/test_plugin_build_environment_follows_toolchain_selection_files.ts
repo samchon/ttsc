@@ -18,8 +18,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 1. Record the usable toolchain in a child module and reread it unchanged.
  * 2. Add and remove an ancestor workspace that selects an unavailable version.
  * 3. Edit the module to select that version, then restore the working version.
- * 4. Exercise delegation within and across SDK roots and distinguish an
- *    unrelated directory edit from retargeting a working-directory alias.
+ * 4. Exercise delegation within and across SDK roots and distinguish an unrelated
+ *    directory edit from retargeting a working-directory alias.
  *
  * @evidence contracts/testing.md#behavioral-verification The direct answer reader over a real Go SDK and private store returns the working digest while selection holds, then produces a different digest and refuses the preceding witness whenever Go's selection files move.
  * @evidence contracts/testing.md#independent-expectations Go's toolchain selection rules give the ancestor workspace precedence and reject the authored higher requirement with path-only lookup. Restoring the original requirement restores the original build inputs.
@@ -236,7 +236,7 @@ function verifyDelegatedEnvironment(props: {
   const sharedLauncher = path.join(late, "bin", path.basename(binary));
   fs.copyFileSync(binary, sharedLauncher);
   if (process.platform !== "win32") fs.chmodSync(sharedLauncher, 0o755);
-  fs.writeFileSync(path.join(late, "VERSION"), `${local.GOVERSION}\n`);
+  fs.writeFileSync(path.join(late, "VERSION"), `${version}\n`);
   const shared = read("later_edited", sharedLauncher, late);
   install(early);
   assert.equal(PluginBuildEnvironmentWitness.holds(shared), false);

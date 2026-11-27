@@ -15,6 +15,7 @@ import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
 import { sameHashes } from "../validation/sameHashes";
 import { sameProjectDirectories } from "../validation/sameProjectDirectories";
 import { walkSnapshotComplete } from "../validation/walkSnapshotComplete";
+import { captureRecoveryTreeDigest } from "../watch/captureRecoveryTreeDigest";
 import { TERMINAL_ENVIRONMENT_VERDICTS } from "./TERMINAL_ENVIRONMENT_VERDICTS";
 import type { TtscFailedGenerationValidation } from "./TtscFailedGenerationValidation";
 import { failedGenerationInputState } from "./failedGenerationInputState";
@@ -38,7 +39,10 @@ import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
  * confirmation mints itself before it reads, as a delivery does, so a write a
  * clock rollback put into a recorded stamp's tick is read. The generation's own
  * probe directory was released with it, so the reference is minted in the probe
- * directory this process keeps (`refreshProcessClockReference`).
+ * directory this process keeps (`refreshProcessClockReference`). The declared
+ * compiler source from a failed invocation is compared with its precompile
+ * observation before the walk, since a nested repair can leave the directory's
+ * own metadata unchanged.
  *
  * The shared verdict remains until its scheduled setImmediate eviction runs.
  * Writes after confirmation can therefore be missed by that window's later
@@ -105,6 +109,12 @@ function environmentChanged(
   validation: TtscFailedGenerationValidation,
   filesystem: TtscTransformFilesystemOperations,
 ): boolean {
+  const source = validation.cached.failedCompilerSource;
+  if (
+    source !== undefined &&
+    captureRecoveryTreeDigest(source.file, filesystem) !== source.digest
+  )
+    return true;
   refreshProcessClockReference(validation.cached.projectRoot, filesystem);
   const identities = envelopeDerivation(validation.cached).identityContext;
   const current = collectProjectInputSnapshot(

@@ -217,5 +217,6 @@ export interface HostWatchBridge {
     failed?: boolean,
     startedAt?: number,
     privateStorage?: boolean,
+    requiredSignal?: boolean,
   ): void;
 }

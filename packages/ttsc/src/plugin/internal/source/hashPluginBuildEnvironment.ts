@@ -375,7 +375,7 @@ function resolveGoBuildEnvironment(
       compiler?.binary === goBinary ? compiler.packageManifest : undefined;
     if (packageManifest !== undefined)
       PluginBuildEnvironmentWitness.add(witness, packageManifest);
-    const parsed = GoEnvironmentReading.read(
+    const reading = GoEnvironmentReading.read(
       goBinary,
       cwd,
       env,
@@ -384,15 +384,12 @@ function resolveGoBuildEnvironment(
       identities,
       projectRoot,
     );
-    const local =
-      parsed !== undefined &&
-      GoEnvironmentReading.provesLocalToolchain(goBinary, env, parsed);
-    if (parsed === undefined)
+    if (reading === undefined)
       PluginBuildEnvironmentWitness.requireToolchainProbe(witness);
-    if (parsed !== undefined) {
+    if (reading !== undefined) {
       try {
         for (const key of GO_BUILD_ENV_KEYS) {
-          const raw = parsed[key];
+          const raw = reading.values[key];
           if (typeof raw === "string" && raw !== "") {
             values.set(
               key,
@@ -403,7 +400,7 @@ function resolveGoBuildEnvironment(
                 filesystem,
                 witness,
                 identities,
-                local ? packageManifest : undefined,
+                reading.local ? packageManifest : undefined,
               ),
             );
           }

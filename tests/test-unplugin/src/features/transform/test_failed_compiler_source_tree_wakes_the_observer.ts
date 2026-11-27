@@ -5,7 +5,12 @@ import path from "node:path";
 import { projectRecordMoved } from "../../../../../packages/unplugin/src/core/bridge/projectRecordMoved";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import { createInputObserver } from "../../../../../packages/unplugin/src/core/observer/createInputObserver";
+import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
+import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import { failedGenerationEnvironmentChanged } from "../../../../../packages/unplugin/src/core/transform/generation/failedGenerationEnvironmentChanged";
+import { projectWalkFailureFingerprint } from "../../../../../packages/unplugin/src/core/transform/generation/projectWalkFailureFingerprint";
+import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputSnapshot";
 import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
 import { captureCompilerArguments } from "../../../../../packages/unplugin/src/core/transform/tsconfig/captureCompilerArguments";
 import { captureRecoveryTreeDigest } from "../../../../../packages/unplugin/src/core/transform/watch/captureRecoveryTreeDigest";
@@ -21,7 +26,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * metadata unchanged.
  *
  * 1. Deliver a failure and check that the source's subtree is admitted.
- * 2. Edit a nested Go file and report its native event.
+ * 2. Edit a nested Go file and check the live and terminal recovery paths.
  * 3. Deliver a failure through a dangling link, then create its target and check
  *    the recovery poll without sending an event.
  * 4. Register a source at the membership root, after its recorded contents
@@ -123,13 +128,56 @@ export async function test_failed_compiler_source_tree_wakes_the_observer(): Pro
   };
   try {
     observer.open(project, false);
-    const digest = captureRecoveryTreeDigest(compiler);
+    const digest = captureRecoveryTreeDigest(compiler, undefined, {
+      projectRoot: project,
+      environment: { TTSC_CACHE_DIR: path.join(root, "cache") },
+    });
+    assert.equal(digest, captureRecoveryTreeDigest(compiler));
+    const cached: TtscCachedProjectTransform = {
+      failedCompilerSource: { file: compiler, digest },
+      inputHashes: {},
+      membershipPolicy,
+      projectRoot: project,
+      result: { type: "exception", error: new Error("compiler failed") },
+      tsconfig,
+    };
+    const filesystem = DEFAULT_FILESYSTEM_OPERATIONS;
+    const identities = envelopeDerivation(cached).identityContext;
+    const snapshot = collectProjectInputSnapshot(
+      project,
+      identities,
+      filesystem,
+      undefined,
+      { policy: membershipPolicy },
+    );
+    cached.projectDirectories = snapshot.projectDirectories;
+    const terminal = {
+      cached,
+      declaredInputs: undefined,
+      inputStates: new Map(),
+      projectInputHashes: snapshot.hashes,
+      projectWalkComplete: true,
+      projectWalkFailures: projectWalkFailureFingerprint(
+        snapshot,
+        undefined,
+        project,
+        identities,
+      ),
+    };
+    const terminalChanged = () =>
+      failedGenerationEnvironmentChanged(terminal, {
+        currentFile: owner,
+        currentSource: fs.readFileSync(owner, "utf8"),
+        filesystem,
+      });
+    assert.equal(terminalChanged(), false);
     deliver(compiler, digest);
     assert.deepEqual(await settled(), []);
     assert.equal(watchers.get(compiler)?.admit?.(path.dirname(nested)), true);
     fs.appendFileSync(nested, "// repaired\n");
     watchers.get(compiler)?.listener("change", nested);
     assert.deepEqual(await settled(), [[owner]]);
+    assert.equal(terminalChanged(), true);
     const compilerArguments = captureCompilerArguments({});
     const recordFile = path.join(root, "record.json");
     fs.writeFileSync(

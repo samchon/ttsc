@@ -6,9 +6,11 @@ import path from "node:path";
 import { fallbackToolDirectory } from "../../../../packages/unplugin/src/core/bridge/fallbackToolDirectory";
 import { hostToolDirectory } from "../../../../packages/unplugin/src/core/bridge/hostToolDirectory";
 import { membershipRecordDigest } from "../../../../packages/unplugin/src/core/bridge/membershipRecordDigest";
+import { openHostWatchBridge } from "../../../../packages/unplugin/src/core/bridge/openHostWatchBridge";
 import { projectRecordDigest } from "../../../../packages/unplugin/src/core/bridge/projectRecordDigest";
 import { projectRecordFile } from "../../../../packages/unplugin/src/core/bridge/projectRecordFile";
 import { readProjectRecordFile } from "../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
+import { refreshProjectRecordFiles } from "../../../../packages/unplugin/src/core/bridge/refreshProjectRecordFiles";
 import { writeProjectRecordFile } from "../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
 import { farmRecordFallback } from "../../../../packages/unplugin/src/core/farm/farmRecordFallback";
 import { resolveOptions } from "../../../../packages/unplugin/src/core/options/resolveOptions";
@@ -51,7 +53,7 @@ import { TestProject } from "../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification unplugin.raw buildStart leaves two stale records untouched for Rollup/Vite serve, refreshes both for Farm, and Rollup cache lookup proves only its named project once.
  * @evidence contracts/testing.md#independent-expectations Literal signal zero/one expectations and independently edited declaration bytes specify which host must prove which record; no cached compiler output generates the oracle.
- * @evidence contracts/testing.md#distinguishing-cases Rollup, Vite serve with watch null and Farm differ by cache ownership; two projects distinguish global proof from per-module proof and repeated same-project lookup. Opaque webpack/Rspack caches reject an unqualified existing inventory and proceed after the record path becomes absent.
+ * @evidence contracts/testing.md#distinguishing-cases Rollup, Vite serve with watch null and Farm differ by cache ownership; two projects distinguish global proof from per-module proof and repeated same-project lookup. Opaque cache startup accepts ordinary missing and empty directories, refuses populated, empty, and dangling aliases, and reports a failed update to an existing stale record during detached and watching admission where native permissions enforce read-only files.
  * @evidence contracts/testing.md#execution-ownership Calls raw buildStart/configResolved/shouldTransformCachedModule against host doubles and temporary records. Finally restores cwd and removes the unique Farm fixture storage. No bundler or compiler producer runs.
  */
 export async function test_build_start_proves_records_only_for_a_cache_it_cannot_answer(): Promise<void> {
@@ -208,37 +210,87 @@ export async function test_build_start_proves_records_only_for_a_cache_it_cannot
     assert.equal(fallbackToolDirectory(root), farmTool);
     const directory = path.dirname(firstFarm);
     const moved = path.join(farmTool, "moved-records");
-    fs.renameSync(directory, moved);
+    const opaque = (framework: "webpack" | "rspack") => {
+      const compiler = {} as never;
+      const plugin = unplugin.raw(
+        undefined,
+        framework === "webpack"
+          ? { framework, webpack: { compiler } }
+          : { framework, rspack: { compiler } },
+      );
+      return plugin.buildStart!.call({
+        getNativeBuildContext: () => ({ framework, compiler }),
+      } as never);
+    };
+    const before = fs.readFileSync(firstFarm);
+    fs.chmodSync(firstFarm, 0o444);
     try {
-      fs.symlinkSync(moved, directory, "junction");
-      const opaque = (framework: "webpack" | "rspack") => {
-        const compiler = {} as never;
-        const plugin = unplugin.raw(
-          undefined,
-          framework === "webpack"
-            ? { framework, webpack: { compiler } }
-            : { framework, rspack: { compiler } },
-        );
-        return plugin.buildStart!.call({
-          getNativeBuildContext: () => ({ framework, compiler }),
-        } as never);
-      };
+      let readonly = false;
       try {
-        for (const framework of ["webpack", "rspack"] as const)
-          await assert.rejects(
-            async () => opaque(framework),
-            /unsafe private project records prevent cache restoration/,
-          );
-        assert.equal(
-          signal(firstFarm),
-          1,
-          "the linked file was left untouched",
-        );
-      } finally {
-        fs.unlinkSync(directory);
+        fs.accessSync(firstFarm, fs.constants.W_OK);
+      } catch {
+        readonly = true;
       }
+      if (readonly) {
+        await assert.rejects(
+          async () => opaque("webpack"),
+          /cannot invalidate project record before cache restoration/,
+        );
+        const bridge = openHostWatchBridge(root, {}, true);
+        try {
+          assert.throws(
+            () =>
+              refreshProjectRecordFiles(
+                farmTool,
+                bridge,
+                undefined,
+                captureCompilerArguments(resolveCompilerEnvironment()).identity,
+                true,
+              ),
+            /cannot invalidate project record before cache restoration/,
+          );
+        } finally {
+          await bridge.close();
+        }
+        assert.deepEqual(fs.readFileSync(firstFarm), before);
+      }
+    } finally {
+      fs.chmodSync(firstFarm, 0o600);
+    }
+    fs.renameSync(directory, moved);
+    const empty = path.join(farmTool, "empty-target");
+    fs.mkdirSync(empty, { mode: 0o700 });
+    try {
+      for (const target of [
+        moved,
+        empty,
+        path.join(farmTool, "absent-target"),
+      ]) {
+        fs.symlinkSync(target, directory, "junction");
+        try {
+          assert.equal(fallbackToolDirectory(root), undefined);
+          for (const framework of ["webpack", "rspack"] as const)
+            await assert.rejects(
+              async () => opaque(framework),
+              /unsafe private project records prevent cache restoration/,
+            );
+        } finally {
+          fs.unlinkSync(directory);
+        }
+      }
+      assert.deepEqual(
+        fs.readFileSync(path.join(moved, path.basename(firstFarm))),
+        before,
+      );
       for (const framework of ["webpack", "rspack"] as const)
         await opaque(framework);
+      fs.mkdirSync(directory, { mode: 0o700 });
+      try {
+        for (const framework of ["webpack", "rspack"] as const)
+          await opaque(framework);
+      } finally {
+        fs.rmdirSync(directory);
+      }
     } finally {
       fs.renameSync(moved, directory);
     }

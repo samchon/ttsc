@@ -128,11 +128,46 @@ let descriptorCacheHit = false;
 let descriptorEvaluated = false;
 let descriptorInputs: string[] = [];
 let descriptorObservationsComplete: boolean | null = null;
+let descriptorReadFailure: string | undefined;
+let descriptorWriteAttempted = false;
 
+const observedDescriptor = {
+  hashes: new Map<string, string | null>(),
+  realpaths: new Map<string, string | null>(),
+};
 const cachedDescriptor =
   descriptorLocation === null
     ? null
-    : PluginDescriptorEvaluationCache.read(descriptorLocation);
+    : PluginDescriptorEvaluationCache.read(
+        descriptorLocation,
+        observedDescriptor,
+      );
+if (cachedDescriptor === null && descriptorLocation !== null) {
+  try {
+    const saved = JSON.parse(fs.readFileSync(descriptorLocation, "utf8")) as {
+      proof?: {
+        hashes?: Record<string, string | null>;
+        realpaths?: Record<string, string | null>;
+      };
+    };
+    const changed = (
+      expected: Record<string, string | null> | undefined,
+      observed: ReadonlyMap<string, string | null>,
+    ) =>
+      Object.keys(expected ?? {}).filter(
+        (file) => expected![file] !== observed.get(file),
+      );
+    descriptorReadFailure = JSON.stringify({
+      changedHashes: changed(saved.proof?.hashes, observedDescriptor.hashes),
+      changedRealpaths: changed(
+        saved.proof?.realpaths,
+        observedDescriptor.realpaths,
+      ),
+    });
+  } catch (error) {
+    descriptorReadFailure = String(error);
+  }
+}
 if (cachedDescriptor !== null) {
   descriptorCacheHit = true;
   descriptorInputs = cachedDescriptor.inputs;
@@ -193,6 +228,7 @@ if (cachedDescriptor !== null) {
         expectedPreloadGraph: parsed.startupPreloadFiles,
       }) === descriptorLocation
     ) {
+      descriptorWriteAttempted = true;
       PluginDescriptorEvaluationCache.write(descriptorLocation, evaluation);
     }
   } finally {
@@ -308,6 +344,8 @@ process.stdout.write(
     descriptorEvaluated,
     descriptorInputs,
     descriptorObservationsComplete,
+    descriptorReadFailure,
+    descriptorWriteAttempted,
     descriptorDifferentGraphRefused,
     descriptorDifferentNodePathRefused,
     descriptorDifferentHomeRefused,

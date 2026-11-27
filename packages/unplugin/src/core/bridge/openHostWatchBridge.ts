@@ -152,6 +152,7 @@ export function openHostWatchBridge(
   // The records the host's last compile did not depend on, which its watcher
   // does not observe, reported by a host that reports it (`compiled`).
   const unwatched = new Set<string>();
+  let requiredSignalRecord: string | undefined;
   const settle = (record: string): void => {
     owed.delete(record);
     clearTimeout(pending.get(record));
@@ -162,7 +163,11 @@ export function openHostWatchBridge(
     // A signal already owed keeps its schedule, which still lands a move
     // after whatever baseline the host takes next.
     if (pending.has(record)) return;
-    signalProjectRecordFile(record, registered.get(record)?.privateStorage);
+    signalProjectRecordFile(
+      record,
+      registered.get(record)?.privateStorage,
+      requiredSignalRecord === record,
+    );
     // The later moves defend a watcher's baseline, and no watcher of this host
     // observes the record: a compile that comes to depend on it reads this
     // move through its cache's snapshot, and `compiled` resumes the schedule
@@ -213,7 +218,14 @@ export function openHostWatchBridge(
     owes: (record) =>
       (answeredIn !== undefined && pass <= answeredIn + 1) ||
       (record === undefined ? owed.size !== 0 : owed.has(path.resolve(record))),
-    register(file, inputs, failed, startedAt, privateStorage = false) {
+    register(
+      file,
+      inputs,
+      failed,
+      startedAt,
+      privateStorage = false,
+      requiredSignal = false,
+    ) {
       const record = path.resolve(file);
       // Deliveries with the same immutable input population and pass reuse
       // the established observation. A generation whose later module adds
@@ -241,7 +253,12 @@ export function openHostWatchBridge(
       // read a state a change since `startedAt` has left, the replacement
       // finds that at once and signals again.
       settle(record);
-      observer.replace(record, inputs, failed, startedAt);
+      if (requiredSignal) requiredSignalRecord = record;
+      try {
+        observer.replace(record, inputs, failed, startedAt);
+      } finally {
+        if (requiredSignal) requiredSignalRecord = undefined;
+      }
     },
   };
 }

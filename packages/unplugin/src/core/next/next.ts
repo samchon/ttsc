@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { fallbackToolDirectory } from "../bridge/fallbackToolDirectory";
+import { fallbackToolDirectoryLocation } from "../bridge/fallbackToolDirectoryLocation";
 import { hostToolDirectory } from "../bridge/hostToolDirectory";
 import { refreshProjectRecordFiles } from "../bridge/refreshProjectRecordFiles";
 import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
@@ -112,7 +112,7 @@ export function next(
   );
   // And where webpack's records live when that directory cannot be written
   // (samchon/ttsc#1480); Turbopack's loader proves its own.
-  const fallback = fallbackToolDirectory(process.cwd());
+  const fallback = fallbackToolDirectoryLocation(process.cwd());
   if (fallback !== undefined)
     refreshProjectRecordFiles(
       fallback,

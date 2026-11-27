@@ -25,10 +25,10 @@ import { refreshProjectRecordFile } from "./refreshProjectRecordFile";
  * none.
  *
  * Each call enumerates the directory and refreshes each `.json` name once; host
- * owners invoke it at their restore/start boundaries. An absent directory costs
- * a failed listing, while an existing empty one returns an empty listing. A
- * managed inventory that may contain records must qualify for replay before the
- * host can attempt restoration.
+ * owners invoke it at their restore/start boundaries. A managed inventory
+ * qualifies its ancestry before listing. A missing directory or a readable
+ * empty directory has no records to replay. If a stale managed record needs
+ * invalidation, startup requires the signal or removal to complete.
  *
  * @param toolDirectory The host's tool directory (`hostToolDirectory`).
  * @param bridge The watching session's bridge, when the host has one.
@@ -46,7 +46,7 @@ import { refreshProjectRecordFile } from "./refreshProjectRecordFile";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain complete inventory and per-build proof cost,
  *   with parameter/tag separation following documentation guidance.
- * @evidence contracts/portability.md#os-neutral-implementation Native host-directory enumeration selects persisted record files, while each delegated project proof receives the supplied filesystem view; absent or inaccessible record directories provide no restore inventory.
+ * @evidence contracts/portability.md#os-neutral-implementation Native ancestry proof checks managed paths before listing. Managed access or update failures prevent opaque restoration; ordinary host paths keep their existing refresh policy.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Native listing allocates N directory names; suffix tests scan their text
  *   and selected .json names pay path joins and delegated record parse/replay,
@@ -67,12 +67,20 @@ export function refreshProjectRecordFiles(
   privateStorage = false,
 ): void {
   const directory = path.join(toolDirectory, PROJECT_RECORD_DIRECTORY);
+  const unsafe = () =>
+    new Error(
+      `@ttsc/unplugin: unsafe private project records prevent cache restoration: ${directory}`,
+    );
+  if (privateStorage) {
+    const inventory = fallbackRecordStorage.inventory(directory);
+    if (inventory === "missing") return;
+    if (inventory === "blocked") throw unsafe();
+  }
   let names: string[];
   try {
     names = fs.readdirSync(directory);
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (privateStorage && code !== "ENOENT" && code !== "ENOTDIR")
+    if (privateStorage)
       throw new Error(
         `@ttsc/unplugin: cannot inspect private project records before cache restoration: ${directory}`,
         { cause: error },
@@ -88,15 +96,14 @@ export function refreshProjectRecordFiles(
     (fallbackRecordStorage(directory, false) !== true ||
       records.some((file) => !privateProjectRecordAvailable(file)))
   )
-    throw new Error(
-      `@ttsc/unplugin: unsafe private project records prevent cache restoration: ${directory}`,
-    );
+    throw unsafe();
   for (const file of records) {
     refreshProjectRecordFile(
       file,
       bridge,
       filesystem,
       compilerArgumentsIdentity,
+      privateStorage,
       privateStorage,
     );
   }

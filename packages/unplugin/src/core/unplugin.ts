@@ -13,7 +13,7 @@ import {
   selectBuildHostRoot,
 } from "./bridge/buildHostRoot";
 import { createBuildWatchFile } from "./bridge/createBuildWatchFile";
-import { fallbackToolDirectory } from "./bridge/fallbackToolDirectory";
+import { fallbackToolDirectoryLocation } from "./bridge/fallbackToolDirectoryLocation";
 import { hostToolDirectory } from "./bridge/hostToolDirectory";
 import { openHostWatchBridge } from "./bridge/openHostWatchBridge";
 import { refreshProjectRecordFiles } from "./bridge/refreshProjectRecordFiles";
@@ -127,7 +127,9 @@ const unpluginFactory: UnpluginFactory<
       ? hostToolDirectory(hostRoot())
       : farmRecordFallback(farmRoot);
   const recordFallback = (): string | undefined =>
-    farmRoot === undefined ? fallbackToolDirectory(hostRoot()) : undefined;
+    farmRoot === undefined
+      ? fallbackToolDirectoryLocation(hostRoot())
+      : undefined;
   const closeBridge = async (): Promise<void> => {
     const open = bridge;
     bridge = undefined;
@@ -526,10 +528,10 @@ const unpluginFactory: UnpluginFactory<
             resolveCompilerEnvironment(options.runExternalCode),
           ).identity;
           const argumentsChanged = recordArgumentsIdentity !== identity;
-          recordArgumentsIdentity = identity;
           // Below the root, and in the fallback a host that cannot write there
           // keeps its records in (samchon/ttsc#1480).
           if (opening || argumentsChanged) {
+            recordArgumentsIdentity = undefined;
             const primary = recordToolDirectory();
             if (primary !== undefined)
               refreshProjectRecordFiles(
@@ -548,6 +550,7 @@ const unpluginFactory: UnpluginFactory<
                 identity,
                 true,
               );
+            recordArgumentsIdentity = identity;
           }
         }
       }
