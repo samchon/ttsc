@@ -20,9 +20,9 @@ let sharedPluginCacheDir: string | undefined;
 
 interface ITemporaryIdentity {
   readonly location: string;
-  readonly dev: number;
-  readonly ino: number;
-  readonly birthtimeMs: number;
+  readonly dev: bigint;
+  readonly ino: bigint;
+  readonly birthtimeNs: bigint;
 }
 
 function ensureCleanupHook(): void {
@@ -229,12 +229,12 @@ export namespace TestProject {
     const identities: ITemporaryIdentity[] = [];
     let location = fs.realpathSync.native(dir);
     while (true) {
-      const stat = fs.lstatSync(location);
+      const stat = fs.lstatSync(location, { bigint: true });
       identities.push({
         location,
         dev: stat.dev,
         ino: stat.ino,
-        birthtimeMs: stat.birthtimeMs,
+        birthtimeNs: stat.birthtimeNs,
       });
       const next = path.dirname(location);
       if (next === location) break;
@@ -286,14 +286,14 @@ export namespace TestProject {
           "Temporary retention refuses an aliased or linked root: " + root,
         );
       for (const identity of identities) {
-        const stat = fs.lstatSync(identity.location);
+        const stat = fs.lstatSync(identity.location, { bigint: true });
         if (
           !stat.isDirectory() ||
           stat.isSymbolicLink() ||
           fs.realpathSync.native(identity.location) !== identity.location ||
           stat.dev !== identity.dev ||
           stat.ino !== identity.ino ||
-          stat.birthtimeMs !== identity.birthtimeMs
+          stat.birthtimeNs !== identity.birthtimeNs
         )
           throw new Error(
             "Temporary retention identity changed: " + identity.location,

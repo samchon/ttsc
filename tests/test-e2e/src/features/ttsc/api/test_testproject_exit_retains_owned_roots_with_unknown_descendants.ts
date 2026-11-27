@@ -60,22 +60,35 @@ export const test_testproject_exit_retains_owned_roots_with_unknown_descendants 
             "const parent = TestProject.tmpdir('parent-', outer);",
             "const root = TestProject.tmpdir('child-', parent);",
             "fs.writeFileSync(path.join(root, 'input.txt'), 'retained input');",
-            "const original = fs.lstatSync(root);",
+            "const original = fs.lstatSync(root, { bigint: true });",
             "const foreign = fs.mkdtempSync(path.join(outer, 'foreign-'));",
             "fs.writeFileSync(path.join(foreign, 'sentinel.txt'), 'untracked input');",
             "assert.throws(() => TestProject.retainTemporaryDirectory(foreign, 'unknown'), /owned allocation/);",
             "assert.throws(() => TestProject.retainTemporaryDirectory(root + path.sep, 'unknown'), /owned allocation/);",
             "const removed = TestProject.tmpdir('removed-', outer); fs.rmdirSync(removed);",
             "assert.throws(() => TestProject.retainTemporaryDirectory(removed, 'unknown'), /ENOENT/);",
-            "const replaced = TestProject.tmpdir('replaced-', outer);",
-            "fs.renameSync(replaced, replaced + '-original'); fs.mkdirSync(replaced);",
-            "assert.throws(() => TestProject.retainTemporaryDirectory(replaced, 'unknown'), /identity changed/);",
+            "const lstatSync = fs.lstatSync;",
+            "let originalNumberStat;",
+            "fs.lstatSync = (location, options) => {",
+            "  const stat = lstatSync(location, options);",
+            "  if (!options?.bigint && path.basename(location).startsWith('replaced-')) {",
+            "    originalNumberStat ??= stat;",
+            "    return originalNumberStat;",
+            "  }",
+            "  return stat;",
+            "};",
+            "let replaced;",
+            "try {",
+            "  replaced = TestProject.tmpdir('replaced-', outer);",
+            "  fs.renameSync(replaced, replaced + '-original'); fs.mkdirSync(replaced);",
+            "  assert.throws(() => TestProject.retainTemporaryDirectory(replaced, 'unknown'), /identity changed/);",
+            "} finally { fs.lstatSync = lstatSync; }",
             "const linked = TestProject.tmpdir('linked-', outer); fs.renameSync(linked, linked + '-original');",
             "fs.symlinkSync(foreign, linked, process.platform === 'win32' ? 'junction' : 'dir');",
             "assert.throws(() => TestProject.retainTemporaryDirectory(linked, 'unknown'), /aliased or linked/);",
             "TestProject.retainTemporaryDirectory(root, 'descendant completion is unknown');",
             "TestProject.retainTemporaryDirectory(root, 'still unknown');",
-            "console.log(JSON.stringify({ parent: path.basename(parent), name: path.basename(root), replaced: path.basename(replaced), foreign: path.basename(foreign), linked: path.basename(linked), dev: original.dev, ino: original.ino, birthtimeMs: original.birthtimeMs }));",
+            "console.log(JSON.stringify({ parent: path.basename(parent), name: path.basename(root), replaced: path.basename(replaced), foreign: path.basename(foreign), linked: path.basename(linked), dev: String(original.dev), ino: String(original.ino), birthtimeNs: String(original.birthtimeNs) }));",
           ].join("\n"),
         ],
         {
@@ -93,9 +106,9 @@ export const test_testproject_exit_retains_owned_roots_with_unknown_descendants 
         replaced: string;
         foreign: string;
         linked: string;
-        dev: number;
-        ino: number;
-        birthtimeMs: number;
+        dev: string;
+        ino: string;
+        birthtimeNs: string;
       };
       assert.match(record.name, /^child-[A-Za-z0-9]+$/);
       assert.match(record.parent, /^parent-[A-Za-z0-9]+$/);
@@ -103,12 +116,12 @@ export const test_testproject_exit_retains_owned_roots_with_unknown_descendants 
       assert.match(record.foreign, /^foreign-[A-Za-z0-9]+$/);
       assert.match(record.linked, /^linked-[A-Za-z0-9]+$/);
       const root = path.join(outer, record.parent, record.name);
-      const actual = fs.lstatSync(root);
+      const actual = fs.lstatSync(root, { bigint: true });
       assert.equal(actual.isDirectory(), true);
       assert.equal(actual.isSymbolicLink(), false);
-      assert.equal(actual.dev, record.dev);
-      assert.equal(actual.ino, record.ino);
-      assert.equal(actual.birthtimeMs, record.birthtimeMs);
+      assert.equal(String(actual.dev), record.dev);
+      assert.equal(String(actual.ino), record.ino);
+      assert.equal(String(actual.birthtimeNs), record.birthtimeNs);
       assert.equal(
         fs.readFileSync(path.join(root, "input.txt"), "utf8"),
         "retained input",
@@ -133,7 +146,10 @@ export const test_testproject_exit_retains_owned_roots_with_unknown_descendants 
       failures.push(error);
     } finally {
       try {
-        fs.rmSync(outer, { recursive: true, force: true });
+        for (const entry of fs.readdirSync(outer, { withFileTypes: true }))
+          if (entry.isSymbolicLink())
+            fs.unlinkSync(path.join(outer, entry.name));
+        fs.rmSync(outer, { recursive: true });
       } catch (error) {
         failures.push(error);
       }
