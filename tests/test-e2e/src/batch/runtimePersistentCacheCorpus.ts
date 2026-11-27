@@ -604,7 +604,15 @@ export async function runtimePersistentCacheCorpus(
       cacheDecisions(checkedWarm),
     ),
   );
-  check(() => assert.equal(emitting(checkedWarm).length, 0));
+  check(() =>
+    assert.deepEqual(
+      emitting(checkedWarm).map(({ argv, data }) => ({
+        argv,
+        origin: data?.origin,
+      })),
+      [],
+    ),
+  );
   check(() =>
     assert.equal(
       checkedWarm.filter(
