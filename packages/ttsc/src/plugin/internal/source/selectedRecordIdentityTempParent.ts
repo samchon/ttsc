@@ -6,7 +6,9 @@ import path from "node:path";
  * root, or leave temporary placement to the caller's system default.
  *
  * The returned physical path is a direct child of the selected root. The caller
- * still uses createCanonicalTempDirectory to verify its own allocation; these
+ * supplies the consumer roots. Inside those roots, only a physical
+ * node_modules/.cache/ttsc store may host evaluator files. The caller still
+ * uses createCanonicalTempDirectory to verify its own allocation; these
  * observations do not hold the namespace against later mutation.
  *
  * @evidence contracts/common.md#principled-implementation Native realpath and link-preserving stat admit only a present ordinary identities directory whose physical parent is the selected root; an unproved path supplies no alternate temporary parent.
@@ -20,6 +22,7 @@ import path from "node:path";
  */
 export function selectedRecordIdentityTempParent(
   recordRoot: string | undefined,
+  projectRoots: readonly string[] = [],
 ): string | undefined {
   if (recordRoot === undefined || !path.isAbsolute(recordRoot))
     return undefined;
@@ -31,9 +34,28 @@ export function selectedRecordIdentityTempParent(
     if (!identityStats.isDirectory() || identityStats.isSymbolicLink())
       return undefined;
     const physicalIdentities = fs.realpathSync.native(identities);
-    return path.dirname(physicalIdentities) === physicalRoot
-      ? physicalIdentities
-      : undefined;
+    if (path.dirname(physicalIdentities) !== physicalRoot) return undefined;
+    const managed =
+      path.basename(physicalRoot) === "ttsc" &&
+      path.basename(path.dirname(physicalRoot)) === ".cache" &&
+      path.basename(path.dirname(path.dirname(physicalRoot))) ===
+        "node_modules";
+    if (!managed) {
+      for (const root of projectRoots) {
+        const relative = path.relative(
+          fs.realpathSync.native(root),
+          physicalIdentities,
+        );
+        if (
+          relative === "" ||
+          (!path.isAbsolute(relative) &&
+            relative !== ".." &&
+            !relative.startsWith(`..${path.sep}`))
+        )
+          return undefined;
+      }
+    }
+    return physicalIdentities;
   } catch {
     return undefined;
   }

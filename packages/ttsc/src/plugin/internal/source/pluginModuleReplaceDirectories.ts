@@ -56,6 +56,7 @@ export function pluginModuleReplaceDirectories(
   reader?: SourcePluginWorkspace.GoModReader,
   readers?: Map<string, SourcePluginWorkspace.GoModReader>,
   identities?: PluginContentIdentities.Store,
+  projectRoot?: string,
 ): IPluginModuleReplaceDirectory[] {
   const root = path.resolve(moduleRoot);
   let text: string;
@@ -81,7 +82,14 @@ export function pluginModuleReplaceDirectories(
     // whole load, so it must carry the load's record store, or every later
     // reader request of the load gets a store-less one and the go.mod syntax
     // records are never read or written.
-    SourcePluginWorkspace.createGoModReader(go, root, env, readers, identities)
+    SourcePluginWorkspace.createGoModReader(
+      go,
+      root,
+      env,
+      readers,
+      identities,
+      projectRoot,
+    )
   ).read(root);
   // Parsed syntax may be shared; physical containment is current native state
   // and must be recomputed even when these manifest bytes are unchanged.

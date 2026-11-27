@@ -85,6 +85,7 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
     ["api-compile", "--cwd", project.root, "--tsconfig", tsconfig],
     {
       cwd: project.root,
+      additionalProjectRoots: [cwd, path.dirname(tsconfig)],
       env: SidecarEnvironment.merge(env, { [BATCH_ENV]: "1" }),
     },
   );

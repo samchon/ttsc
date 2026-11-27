@@ -38,6 +38,8 @@ export function spawnNative(
     cwd?: string;
     env?: NodeJS.ProcessEnv;
     encoding?: BufferEncoding | "buffer";
+    /** Selected configuration roots distinct from the child cwd. */
+    additionalProjectRoots?: readonly string[];
 
     /**
      * Capture through pipes instead of files. Only for a command that starts no
@@ -86,7 +88,12 @@ export function spawnNative(
       } as SpawnSyncReturns<string | Buffer>;
     }
   }
-  const capture = captureProcessOutput(process.env, undefined, options.cwd);
+  const capture = captureProcessOutput(
+    process.env,
+    undefined,
+    options.cwd,
+    options.additionalProjectRoots,
+  );
   try {
     const result = spawnSyncResilient(
       viaNode ? process.execPath : binary,

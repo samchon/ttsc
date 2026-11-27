@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/SidecarEnvironment";
+import { GoEnvironmentReading } from "../../../../../packages/ttsc/src/plugin/internal/source/GoEnvironmentReading";
 import { PluginBuildEnvironmentWitness } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginContentIdentities";
 import { readPluginBuildEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/readPluginBuildEnvironment";
@@ -17,10 +18,12 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 1. Record the usable toolchain in a child module and reread it unchanged.
  * 2. Add and remove an ancestor workspace that selects an unavailable version.
  * 3. Edit the module to select that version, then restore the working version.
+ * 4. With another installed Go SDK, change its defaults and add a preceding
+ *    executable for the same delegated version.
  *
  * @evidence contracts/testing.md#behavioral-verification The direct answer reader over a real Go SDK and private store returns the working digest while selection holds, then produces a different digest and refuses the preceding witness whenever Go's selection files move.
  * @evidence contracts/testing.md#independent-expectations Go's toolchain selection rules give the ancestor workspace precedence and reject the authored higher requirement with path-only lookup. Restoring the original requirement restores the original build inputs.
- * @evidence contracts/testing.md#distinguishing-cases Covers absence, creation, removal and edit across module and workspace files, plus a stable recorded-answer control. The separate packaged identity unit owns shipped SDK metadata and version changes.
+ * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selection files. Where a second cached SDK is installed, actual Go compares a stable delegation, edited SDK defaults and an earlier PATH candidate at the same version. The separate packaged identity unit owns shipped SDK metadata.
  * @evidence contracts/testing.md#execution-ownership The unit probes an installed Go tool directly using local-only selection. It owns the temporary module, workspace and answer store, and runs no plugin build or installed ttsc host.
  */
 export function test_plugin_build_environment_follows_toolchain_selection_files(): void {
@@ -87,4 +90,107 @@ export function test_plugin_build_environment_follows_toolchain_selection_files(
   assert.notEqual(read().digest, previous.digest);
   fs.writeFileSync(manifest, goodModule);
   assert.equal(read().digest, previous.digest);
+  verifyDelegatedEnvironment({ binary, module, root, env, store: store() });
+}
+
+/** Exercise real Go dispatch without downloading a test-only toolchain. */
+function verifyDelegatedEnvironment(props: {
+  binary: string;
+  module: string;
+  root: string;
+  env: NodeJS.ProcessEnv;
+  store: PluginContentIdentities.Store | undefined;
+}): void {
+  const { binary, module, root, env, store } = props;
+  const launch = (args: readonly string[], runEnv: NodeJS.ProcessEnv) => {
+    const result = spawnSync(binary, args, {
+      cwd: module,
+      env: runEnv,
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return JSON.parse(result.stdout);
+  };
+  const local = launch(
+    ["env", "-json", "GOVERSION", "GOMODCACHE", "GOOS", "GOARCH"],
+    SidecarEnvironment.merge(env, { GOTOOLCHAIN: "local" }),
+  );
+  const registry = path.join(local.GOMODCACHE, "golang.org");
+  const suffix = `.${local.GOOS}-${local.GOARCH}`;
+  const prefix = "toolchain@v0.0.1-";
+  const alternate = fs.existsSync(registry)
+    ? fs
+        .readdirSync(registry)
+        .find(
+          (name) =>
+            name.startsWith(prefix) &&
+            name.endsWith(suffix) &&
+            name.slice(prefix.length, -suffix.length) !== local.GOVERSION &&
+            fs.existsSync(
+              path.join(registry, name, "bin", path.basename(binary)),
+            ),
+        )
+    : undefined;
+  if (alternate === undefined) {
+    process.stdout.write(
+      "Go delegation control requires a second installed toolchain\n",
+    );
+    return;
+  }
+  const version = alternate.slice(prefix.length, -suffix.length);
+  const executable = path.join(
+    registry,
+    alternate,
+    "bin",
+    path.basename(binary),
+  );
+  const early = path.join(root, "earlier-sdk");
+  const late = path.join(root, "later-sdk");
+  const defaults = (sdk: string, tags: string) =>
+    fs.writeFileSync(path.join(sdk, "go.env"), `GOFLAGS=-tags=${tags}\n`);
+  const install = (sdk: string) => {
+    const candidate = path.join(sdk, "bin", version + path.extname(binary));
+    fs.copyFileSync(executable, candidate);
+    if (process.platform !== "win32") fs.chmodSync(candidate, 0o755);
+  };
+  for (const sdk of [early, late]) {
+    for (const component of ["bin", "pkg/tool", "src/runtime"])
+      fs.mkdirSync(path.join(sdk, component), { recursive: true });
+  }
+  defaults(early, "earlier");
+  defaults(late, "later");
+  install(late);
+  const delegated = SidecarEnvironment.merge(env, {
+    GOTOOLCHAIN: `${version}+path`,
+    PATH: [early, late]
+      .map((sdk) => path.join(sdk, "bin"))
+      .join(path.delimiter),
+    ...(process.platform === "win32" ? { PATHEXT: "EXE" } : {}),
+  });
+  const read = (tags: string) => {
+    const witness: PluginBuildEnvironmentWitness.Record = new Map();
+    const actual = GoEnvironmentReading.recorded(
+      binary,
+      module,
+      delegated,
+      ["GOFLAGS"],
+      witness,
+      store,
+    );
+    const native = launch(["env", "-json", "GOFLAGS", "GOROOT"], delegated);
+    assert.equal(native.GOFLAGS, `-tags=${tags}`);
+    assert.equal(actual?.GOFLAGS, native.GOFLAGS);
+    assert.equal(actual?.GOROOT, native.GOROOT);
+    assert.equal(PluginBuildEnvironmentWitness.reusable(witness), true);
+    return witness;
+  };
+  const first = read("later");
+  read("later");
+  defaults(late, "later_edited");
+  assert.equal(PluginBuildEnvironmentWitness.holds(first), false);
+  const edited = read("later_edited");
+  install(early);
+  assert.equal(PluginBuildEnvironmentWitness.holds(edited), false);
+  read("earlier");
 }

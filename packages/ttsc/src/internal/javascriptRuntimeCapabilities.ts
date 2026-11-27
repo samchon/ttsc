@@ -271,6 +271,7 @@ function runtimeCapabilityCacheKey(
   const preloadKey = TrustedNodeOptions.key({
     cwd,
     env,
+    runtime,
     identities,
     expectedPreloadGraph,
   });

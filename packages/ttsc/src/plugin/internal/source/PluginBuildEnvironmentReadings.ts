@@ -161,6 +161,8 @@ export namespace PluginBuildEnvironmentReadings {
             env,
             sources: [directory],
           }),
+      undefined,
+      projectRoot,
     );
     readings.set(key(directory, env), { environment, witness });
     return environment;

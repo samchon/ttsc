@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../compiler/internal/sharedHost/SidecarEnvironment";
@@ -44,13 +45,14 @@ export namespace TrustedNodeOptions {
    * `Module` in `require.cache` (excluding builtins), and hashes every file in
    * that graph through `PluginContentIdentities.digest`. A different child
    * `NODE_PATH` can redirect transitive imports even for an absolute root.
-   * Relative search entries cannot reuse the parent's graph. The child cwd and
-   * absolute search entries enter the key. Publication compares the child's
-   * initial graph with the graph used by the parent.
+   * Match the child's absolute global search paths against the parent's
+   * initialized CommonJS search paths. The parent's environment can change
+   * after Node initializes them. Publication checks the child's startup graph.
    *
    * @param props.cwd Working directory of the child process that receives
    *   `NODE_OPTIONS`, used to resolve `-r` targets as Node would.
    * @param props.env Effective environment of the child process.
+   * @param props.runtime Child executable, defaulting to the current Node.
    * @param props.identities Optional record store (or lazy opener) that proves
    *   unchanged preload-graph bytes from separable metadata across launches.
    * @param props.cache Optional `require.cache` map; defaults to this runtime's
@@ -59,7 +61,7 @@ export namespace TrustedNodeOptions {
    *   supplied at publication.
    * @evidence contracts/common.md#principled-implementation Empty `NODE_OPTIONS` returns an empty key part; non-empty options read env values via SidecarEnvironment, resolve roots and walk `module.children` via TrustedPreloadGraph, and hash every graph file through PluginContentIdentities.
    * @evidence contracts/common.md#clear-and-simple-design Descriptor and capability caches share one root resolution, graph walk and file digest policy.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unproved graphs, untrusted flags and child graph or NODE_PATH mismatches refuse reuse.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unproved graphs, untrusted flags and child graph or global module search mismatches refuse reuse.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the empty-string, null, and key-part meanings, the parameter roles, and the exact residual trust contract.
    * @evidence contracts/portability.md#os-neutral-implementation SidecarEnvironment handles native variable-name identity and TrustedPreloadGraph uses `path.delimiter`, `createRequire`, and native realpath/stat/access.
    * @evidence contracts/performance.md#efficient-algorithms Empty or refused options exit before opening a lazy store or reading bytes. Accepted graph files reuse digests from `PluginContentIdentities` via metadata stats on warm launches and hash full file bytes on cold or modified launches.
@@ -72,6 +74,9 @@ export namespace TrustedNodeOptions {
 
     /** Complete child environment carrying `NODE_OPTIONS` and trust list. */
     env: NodeJS.ProcessEnv;
+
+    /** Executable whose startup would load the graph. */
+    runtime?: string;
 
     /** Optional record store (or lazy getter) proving preload-graph bytes. */
     identities?:
@@ -90,20 +95,11 @@ export namespace TrustedNodeOptions {
 
     const rawTrusted = SidecarEnvironment.read(props.env, TRUSTED_PRELOADS_ENV);
     if (rawTrusted === undefined || rawTrusted === "") return null;
-    const nodePath = SidecarEnvironment.read(props.env, "NODE_PATH") ?? "";
-    if (
-      nodePath !== (SidecarEnvironment.read(process.env, "NODE_PATH") ?? "") ||
-      nodePath
-        .split(path.delimiter)
-        .some(
-          (entry) =>
-            entry !== "" &&
-            (!path.isAbsolute(entry) ||
-              (process.platform === "win32" &&
-                path.parse(entry).root.length === 1)),
-        )
-    )
-      return null;
+    const searchPaths = matchingGlobalSearchPaths(
+      props.env,
+      props.runtime ?? process.execPath,
+    );
+    if (searchPaths === null) return null;
 
     const roots = TrustedPreloadGraph.resolveTrustedRoots({
       cwd: props.cwd,
@@ -137,7 +133,7 @@ export namespace TrustedNodeOptions {
       rawOptions,
       rawTrusted,
       path.resolve(props.cwd),
-      nodePath,
+      searchPaths,
       roots,
       digests,
     ]);
@@ -148,6 +144,44 @@ export namespace TrustedNodeOptions {
 
   /** Dedicated `PluginContentIdentities` family for preload-graph files. */
   const PRELOAD_IDENTITY_KIND = "trusted-node-options-preload-graph-v1";
+
+  /** Compare the child's startup inputs with the live CommonJS resolver. */
+  function matchingGlobalSearchPaths(
+    env: NodeJS.ProcessEnv,
+    runtime: string,
+  ): string[] | null {
+    if (runtime !== process.execPath || process.release.name !== "node")
+      return null;
+    const windows = process.platform === "win32";
+    const home = SidecarEnvironment.read(env, windows ? "USERPROFILE" : "HOME");
+    const search = (SidecarEnvironment.read(env, "NODE_PATH") ?? "")
+      .split(path.delimiter)
+      .filter(Boolean);
+    if (home) search.push(home);
+    if (
+      search.some(
+        (entry) =>
+          !path.isAbsolute(entry) ||
+          (windows && path.parse(entry).root.length === 1),
+      )
+    )
+      return null;
+    if (home) {
+      search.pop();
+      search.push(path.resolve(home, ".node_modules"));
+      search.push(path.resolve(home, ".node_libraries"));
+    }
+    const prefix = path.resolve(runtime, windows ? ".." : "../..");
+    search.push(path.join(prefix, "lib", "node"));
+    // A require anchored at the volume root has one local node_modules entry,
+    // followed by the initialized global paths exposed by Node's resolver.
+    const root = path.parse(runtime).root;
+    const live = createRequire(path.join(root, "_.cjs")).resolve.paths("_");
+    if (live === null || live.length !== search.length + 1) return null;
+    return search.every((entry, index) => entry === live[index + 1])
+      ? search
+      : null;
+  }
 
   /**
    * Return the SHA-256 content digest of `physical`, reusing a metadata-backed

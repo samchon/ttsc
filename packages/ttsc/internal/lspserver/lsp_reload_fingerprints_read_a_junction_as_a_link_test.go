@@ -26,10 +26,12 @@ import (
 //     target, then missing content, as a directory reads as none.
 //  3. Assert the directory fingerprint lists the junction as a symlink with its
 //     target.
+//  4. Retarget the junction between empty directories and require the selection
+//     watcher to detect the change through the junction's parent.
 //
 // @evidence contracts/testing.md#behavioral-verification On Windows actual exact-file and immediate-directory topology digests match independently framed symlink records for a created junction. The directory target contributes missing file content; no actual launcher, pnpm installation or startup session is executed.
 // @evidence contracts/testing.md#independent-expectations Literal file framing and literal link-name/kind topology framing feed a separate SHA-256 calculation. Target bytes come from native os.Readlink, so this distinguishes record-kind/framing errors without independently certifying native target spelling or Node parity.
-// @evidence contracts/testing.md#distinguishing-cases One junction to an empty directory is checked both as an exact file and as the single immediate topology entry. Other entry kinds, retargeting and unreadable targets are not exercised; non-Windows discovery reaches an explicit runtime skip.
+// @evidence contracts/testing.md#distinguishing-cases One junction to an empty directory is checked both as a file and as the only topology entry. The native selection watcher distinguishes the unchanged link from its replacement targeting another empty tree. Non-Windows discovery reaches an explicit runtime skip.
 // @evidence contracts/testing.md#execution-ownership The Go unit is discoverable on all platforms and uses a runtime Windows guard, not a Windows build tag. On Windows it owns temporary directories, creates the junction through actual windowsjunction.Create and its native setup child, then calls both actual digest operations. No sidecar, installed consumer, Node launcher or product host runs.
 func TestReloadFingerprintsReadAJunctionAsALink(t *testing.T) {
   if runtime.GOOS != "windows" {
@@ -72,5 +74,23 @@ func TestReloadFingerprintsReadAJunctionAsALink(t *testing.T) {
       got,
       want,
     )
+  }
+  inputs, err := newPluginSelectionInputs(NativePluginSelectionInputs{
+    DescriptorFiles: map[string]map[string]string{
+      parent: {"link": fmt.Sprintf("%x", file.Sum(nil))},
+    },
+  })
+  if err != nil || !inputs.current() || inputs.matchesChange(junction) {
+    t.Fatalf("stable junction selection must stay current: %v", err)
+  }
+  replacement := t.TempDir()
+  if err := os.Remove(junction); err != nil {
+    t.Fatal(err)
+  }
+  if err := windowsjunction.Create(junction, replacement); err != nil {
+    t.Fatal(err)
+  }
+  if inputs.current() || !inputs.matchesChange(junction) {
+    t.Fatal("replacing the junction must invalidate the native selection")
   }
 }

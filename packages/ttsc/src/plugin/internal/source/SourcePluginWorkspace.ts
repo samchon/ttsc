@@ -120,9 +120,21 @@ export namespace SourcePluginWorkspace {
     goBinary: string,
     pluginName: string,
     env: NodeJS.ProcessEnv,
-    goModReader: GoModReader = createGoModReader(goBinary, pluginName, env),
+    reader?: GoModReader,
     compilerSource?: string,
+    projectRoot?: string,
+    additionalProjectRoots?: readonly string[],
   ): void {
+    const goModReader =
+      reader ??
+      createGoModReader(
+        goBinary,
+        pluginName,
+        env,
+        undefined,
+        undefined,
+        projectRoot,
+      );
     validateSourceReplacements(scratchDir, useDirs, goModReader, pluginName);
     const sourceInfo = goModReader.read(scratchDir);
     // A TypeScript 7.1 target overlays bridges and facades. Each facade shares
@@ -190,6 +202,8 @@ export namespace SourcePluginWorkspace {
     // selected toolchain is too old for fails here with Go's own error.
     const settled = spawnGoTool(goBinary, ["work", "use"], {
       cwd: scratchDir,
+      projectRoot,
+      additionalProjectRoots,
       encoding: "utf8",
       env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
       windowsHide: true,
@@ -343,6 +357,7 @@ export namespace SourcePluginWorkspace {
     env: NodeJS.ProcessEnv,
     readers?: Map<string, GoModReader>,
     identities?: PluginContentIdentities.Store,
+    projectRoot?: string,
   ): GoModReader {
     const existing = readers?.get(goBinary);
     if (existing !== undefined)
@@ -403,12 +418,12 @@ export namespace SourcePluginWorkspace {
             launcher?.isFile() === true
               ? GoEnvironmentReading.recorded(
                   goBinary,
-                  systemTempOutsideProject(resolved),
+                  systemTempOutsideProject(projectRoot ?? resolved, [resolved]),
                   environment,
                   ["GOROOT"],
                   witness,
                   identities,
-                  resolved,
+                  projectRoot ?? resolved,
                 )
               : undefined;
           if (
@@ -475,6 +490,7 @@ export namespace SourcePluginWorkspace {
           goBinary,
           diagnosticPlugin,
           environment,
+          projectRoot,
         );
         if (!fs.readFileSync(manifest).equals(bytes))
           throw new Error(
@@ -509,6 +525,7 @@ export namespace SourcePluginWorkspace {
     goBinary: string,
     pluginName: string,
     env: NodeJS.ProcessEnv,
+    projectRoot = dir,
   ): GoModInfo {
     if (!fs.existsSync(path.join(dir, "go.mod"))) {
       return emptyGoModInfo();
@@ -519,13 +536,14 @@ export namespace SourcePluginWorkspace {
     // source mirrors its absolute path below the build's scratch directory, and
     // Windows refuses a working directory longer than MAX_PATH even where every
     // path the build itself opens is fine.
-    const cwd = systemTempOutsideProject(dir);
+    const cwd = systemTempOutsideProject(projectRoot, [dir]);
     const result = spawnGoTool(
       goBinary,
       ["mod", "edit", "-json", path.join(dir, "go.mod")],
       {
         cwd,
-        projectRoot: dir,
+        projectRoot,
+        additionalProjectRoots: [dir],
         encoding: "utf8",
         env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
         windowsHide: true,

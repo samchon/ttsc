@@ -67,6 +67,7 @@ export function hashPluginBuildEnvironment(
   filesystem: SourceBuildFilesystemOperations,
   witness?: PluginBuildEnvironmentWitness.Record,
   identities?: PluginContentIdentities.Store,
+  projectRoot?: string,
 ): void {
   // Fixed artifact policy must invalidate binaries and reported source states
   // together, including binaries cached before this policy was introduced.
@@ -96,6 +97,7 @@ export function hashPluginBuildEnvironment(
     filesystem,
     witness,
     identities,
+    projectRoot,
   );
   hashExternalGoBuildEnvironment(hash, env);
 }
@@ -336,6 +338,7 @@ function hashGoBuildEnvironment(
   filesystem: SourceBuildFilesystemOperations,
   witness: PluginBuildEnvironmentWitness.Record | undefined,
   identities: PluginContentIdentities.Store | undefined,
+  projectRoot: string | undefined,
 ): void {
   const values = resolveGoBuildEnvironment(
     goBinary,
@@ -344,6 +347,7 @@ function hashGoBuildEnvironment(
     filesystem,
     witness,
     identities,
+    projectRoot,
   );
   for (const key of GO_BUILD_ENV_KEYS) {
     const value = values.get(key);
@@ -360,6 +364,7 @@ function resolveGoBuildEnvironment(
   filesystem: SourceBuildFilesystemOperations,
   witness: PluginBuildEnvironmentWitness.Record | undefined,
   identities: PluginContentIdentities.Store | undefined,
+  projectRoot: string | undefined,
 ): Map<string, string> {
   const values = new Map<string, string>();
   if (goBinary !== undefined) {
@@ -377,6 +382,7 @@ function resolveGoBuildEnvironment(
       GO_BUILD_ENV_KEYS,
       witness,
       identities,
+      projectRoot,
     );
     const local =
       parsed !== undefined &&

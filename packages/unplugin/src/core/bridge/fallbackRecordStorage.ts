@@ -5,8 +5,9 @@ import { PROJECT_RECORD_DIRECTORY } from "./PROJECT_RECORD_DIRECTORY";
 
 /**
  * Qualify the generated user-state record path without following its managed
- * components. In probe mode, the deepest existing directory must be writable.
- * In creation mode, each absent component is acquired before descending.
+ * components. The record directory must support listing, writing and traversal.
+ * When it is missing, the deepest existing parent must support creation and
+ * traversal. Creation mode acquires each missing component.
  *
  * @evidence contracts/common.md#principled-implementation Checks the physical temporary parent and each managed component in order before descending into it.
  * @evidence contracts/common.md#clear-and-simple-design The adapter's read-only probe and record acquisition share one path walk.
@@ -41,7 +42,7 @@ export function fallbackRecordStorage(
       let stat = fs.lstatSync(component, { throwIfNoEntry: false });
       if (stat === undefined) {
         if (!create) {
-          fs.accessSync(prior, fs.constants.W_OK);
+          fs.accessSync(prior, fs.constants.W_OK | fs.constants.X_OK);
           return true;
         }
         try {
@@ -58,7 +59,10 @@ export function fallbackRecordStorage(
         return false;
       prior = component;
     }
-    if (!create) fs.accessSync(prior, fs.constants.W_OK);
+    fs.accessSync(
+      prior,
+      fs.constants.R_OK | fs.constants.W_OK | fs.constants.X_OK,
+    );
     return true;
   } catch {
     return false;

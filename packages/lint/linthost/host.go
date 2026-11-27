@@ -476,7 +476,7 @@ func (p *program) runFileRules(engine *Engine, files []*shimast.SourceFile) []*F
       return p.tsProgram.GetTypeCheckerForFileExclusive(ctx, file)
     }
   }
-  serial := engine.serial || (p.tsProgram != nil && p.tsProgram.SingleThreaded()) || (borrow == nil && engine.needsTypeChecker)
+  serial := engine.serial || engine.needsStandalone || (p.tsProgram != nil && p.tsProgram.SingleThreaded()) || (borrow == nil && engine.needsTypeChecker)
   return engine.runFiles(files, func(file *shimast.SourceFile) []*Finding {
     return engine.runFile(file, p.checker, borrow, p.projectCycle.results, p.cwd)
   }, serial)

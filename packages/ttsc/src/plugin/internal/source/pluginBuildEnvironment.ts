@@ -48,6 +48,7 @@ export function pluginBuildEnvironment(
   witness?: PluginBuildEnvironmentWitness.Record,
   identities?: PluginContentIdentities.Store,
   currentReadings?: Map<string, string>,
+  projectRoot?: string,
 ): string {
   const goBinary = GoToolResolution.resolveGoToolForBuild(
     resolveGoCompiler(env).binary,
@@ -62,5 +63,6 @@ export function pluginBuildEnvironment(
     witness,
     identities,
     currentReadings,
+    projectRoot,
   );
 }

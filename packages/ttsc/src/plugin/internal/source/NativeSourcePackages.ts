@@ -165,15 +165,16 @@ export namespace NativeSourcePackages {
       );
       if (recalled !== undefined) return recalled;
     }
+    const sourceRoots = [
+      moduleRoot,
+      ...opts.packages.flatMap(({ source }) =>
+        source === undefined ? [] : [source],
+      ),
+    ];
     const scratch = createProjectTempDirectory(
       "ttsc-package-selection-",
       opts.projectRoot ?? moduleRoot,
-      [
-        moduleRoot,
-        ...opts.packages.flatMap(({ source }) =>
-          source === undefined ? [] : [source],
-        ),
-      ],
+      sourceRoots,
     );
     let taskFailure: { error: unknown } | undefined;
     try {
@@ -231,6 +232,7 @@ export namespace NativeSourcePackages {
         env,
         opts.readers,
         opts.identities,
+        opts.projectRoot,
       );
       SourcePluginWorkspace.writeGoWork(
         scratch,
@@ -240,6 +242,8 @@ export namespace NativeSourcePackages {
         env,
         reader,
         SourcePluginWorkspace.compilerSource(env),
+        opts.projectRoot,
+        sourceRoots,
       );
       const observed = read({
         cwd: scratch,
@@ -247,6 +251,8 @@ export namespace NativeSourcePackages {
         env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
         goBinary,
         pluginName: opts.pluginName,
+        projectRoot: opts.projectRoot,
+        additionalProjectRoots: sourceRoots,
       });
       if (
         identity !== undefined &&
@@ -300,6 +306,7 @@ export namespace NativeSourcePackages {
     readers = new Map<string, SourcePluginWorkspace.GoModReader>(),
     identities?: PluginContentIdentities.Store,
     readings?: SelectionReadings,
+    projectRoot?: string,
   ): Package[] {
     const groups = new Map<string, Array<{ index: number; entry: string }>>();
     inputs.forEach((input, index) => {
@@ -318,6 +325,7 @@ export namespace NativeSourcePackages {
       const observations = inspect({
         source: first.source,
         pluginName: first.label,
+        projectRoot,
         env,
         readers,
         identities,
@@ -413,6 +421,8 @@ export namespace NativeSourcePackages {
     env: NodeJS.ProcessEnv;
     goBinary: string;
     pluginName: string;
+    projectRoot?: string;
+    additionalProjectRoots?: readonly string[];
   }): Package[] {
     const entries = [...new Set(opts.entries)];
     if (entries.length === 0) return [];
@@ -427,7 +437,14 @@ export namespace NativeSourcePackages {
         "-json=Dir,Name,GoFiles,CgoFiles,Error",
         ...entries,
       ],
-      { cwd: opts.cwd, encoding: "utf8", env: opts.env, windowsHide: true },
+      {
+        cwd: opts.cwd,
+        projectRoot: opts.projectRoot,
+        additionalProjectRoots: opts.additionalProjectRoots,
+        encoding: "utf8",
+        env: opts.env,
+        windowsHide: true,
+      },
     );
     OwnedSynchronousProcess.checkpoint();
     if (result.error !== undefined)
@@ -619,6 +636,7 @@ function selectionIdentity(
         witness,
         identities,
         readings.currentWitnessReadings,
+        opts.projectRoot,
       );
       readings.environments?.set(resolvedRoot, environment);
       readings.witnesses?.set(resolvedRoot, witness);

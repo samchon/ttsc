@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createProjectInputPathIdentityContext";
+import { captureLSPPluginSelectionInputs } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/captureLSPPluginSelectionInputs";
 import { fingerprintInitialLSPProjectInputSnapshot } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/fingerprintInitialLSPProjectInputSnapshot";
 import { initialLSPProjectInputSnapshotIsCurrent } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/initialLSPProjectInputSnapshotIsCurrent";
 import { materializeLSPPluginManifest } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/materializeLSPPluginManifest";
@@ -31,6 +32,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    frame an empty existing directory and a missing directory independently,
  *    and prove each captured baseline is current. Windows missing-suffix casing
  *    follows the observed directory authority, not a platform-default guess.
+ * 5. Carry an intermediate link to the native host under its own parent.
  *
  * @evidence contracts/testing.md#behavioral-verification Snapshot operations distinguish child-content edits from reload-file, immediate-topology and link-identity drift and preserve framed raw identities; manifest transport carries 8192 inputs and disposes its directory twice safely.
  * @evidence contracts/testing.md#independent-expectations Authored file and directory mutations define whether each snapshot must stay current or become stale; link, raw directory, empty-directory and missing-directory digests use independent sha256 framing (`symlink\0`/`directory\0`, target or native physical path bytes, NUL, `missing\0` or the empty-topology hash). Missing Windows suffix casing uses the supported authority observation without certifying that classifier itself. The test cannot prove agreement with the Go validator or startup host, only with this written framing; the manifest expectation is the literal count 8192 and a size above 64 KiB.
@@ -366,6 +368,53 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
           transport.dispose();
         }
         assert.equal(fs.existsSync(manifestDirectory), false);
+      });
+      verify("plugin selection watches every link in the source path", () => {
+        const link = path.join(root, "source-link");
+        const middle = path.join(root, "source-middle");
+        const physical = path.join(root, "physical-source");
+        const replacement = path.join(root, "replacement-source");
+        const source = path.join(link, "nested", "src");
+        const kind = process.platform === "win32" ? "junction" : "dir";
+        fs.mkdirSync(path.join(physical, "nested", "src"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(replacement, "nested", "src"), {
+          recursive: true,
+        });
+        fs.symlinkSync(physical, middle, kind);
+        fs.symlinkSync(middle, link, kind);
+        try {
+          const hostInputRealpaths = {
+            [source]: fs.realpathSync.native(source),
+          };
+          const input = {
+            deferredHostInputs: [],
+            hostInputHashes: {},
+            hostInputRealpaths,
+            hostInputs: [source],
+            pluginSources: {},
+          };
+          const snapshot = captureLSPPluginSelectionInputs(input);
+          assert.ok(snapshot);
+          for (const entry of [link, middle]) {
+            const digest = createHash("sha256")
+              .update("symlink\0")
+              .update(fs.readlinkSync(entry, { encoding: "buffer" }))
+              .update("\0missing\0")
+              .digest("hex");
+            assert.equal(
+              snapshot.descriptorFiles[root]?.[path.basename(entry)],
+              digest,
+            );
+          }
+          fs.unlinkSync(middle);
+          fs.symlinkSync(replacement, middle, kind);
+          assert.equal(captureLSPPluginSelectionInputs(input), undefined);
+        } finally {
+          fs.unlinkSync(link);
+          fs.unlinkSync(middle);
+        }
       });
       if (failures.length !== 0)
         throw new AggregateError(

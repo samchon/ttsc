@@ -34,7 +34,7 @@ interface ITraceRow {
   };
 }
 
-const [cacheDir, projectDir, tsconfig, pluginFile, mode] =
+const [cacheDir, projectDir, tsconfig, pluginFile, mode, alternateHome] =
   process.argv.slice(2);
 const traceDir = process.env.TTSC_E2E_TRACE!;
 const helperEnv = TtsxNodeOptions.forHelpers(process.env);
@@ -97,6 +97,28 @@ const descriptorDifferentNodePathRefused =
     ...descriptorAuthority,
     env: { ...helperEnv, NODE_PATH: path.join(projectDir!, "other-node-path") },
   }) === null;
+const homeVariable = process.platform === "win32" ? "USERPROFILE" : "HOME";
+const alternateHomeEnv =
+  alternateHome === undefined
+    ? undefined
+    : { ...helperEnv, [homeVariable]: alternateHome };
+let descriptorDifferentHomeRefused: boolean | undefined;
+if (alternateHomeEnv !== undefined) {
+  const original = process.env[homeVariable];
+  try {
+    // A running Node keeps its initialized search paths after an env edit.
+    // Its child would initialize under the new home even when env now agrees.
+    process.env[homeVariable] = alternateHomeEnv[homeVariable]!;
+    descriptorDifferentHomeRefused =
+      PluginDescriptorEvaluationCache.locate({
+        ...descriptorAuthority,
+        env: alternateHomeEnv,
+      }) === null;
+  } finally {
+    if (original === undefined) delete process.env[homeVariable];
+    else process.env[homeVariable] = original;
+  }
+}
 
 let descriptorCacheHit = false;
 let descriptorEvaluated = false;
@@ -187,6 +209,26 @@ const capabilityProbes = probeRows.filter(
     row.event === "process-result" &&
     row.data.origin === "runtime-capability-probe",
 ).length;
+const alternateHomeProbeStart = beforeProbeRows + probeRows.length;
+const alternateHomeCapabilities =
+  alternateHomeEnv === undefined
+    ? undefined
+    : javascriptRuntimeCapabilities(
+        process.execPath,
+        alternateHomeEnv,
+        projectDir!,
+        store,
+      );
+const alternateHomeProbes =
+  alternateHomeEnv === undefined
+    ? undefined
+    : readTraceRows()
+        .slice(alternateHomeProbeStart)
+        .filter(
+          (row) =>
+            row.event === "process-result" &&
+            row.data.origin === "runtime-capability-probe",
+        ).length;
 const alternateCwd = process.env.TTSC_TEST_PRELOAD_ALTERNATE_CWD;
 const alternateCapabilities =
   alternateCwd === undefined
@@ -264,7 +306,10 @@ process.stdout.write(
     descriptorObservationsComplete,
     descriptorDifferentGraphRefused,
     descriptorDifferentNodePathRefused,
+    descriptorDifferentHomeRefused,
     capabilities,
+    alternateHomeCapabilities,
+    alternateHomeProbes,
     alternateCapabilities,
     capabilityProbes,
     resolutionFile,

@@ -158,6 +158,7 @@ export namespace PluginDescriptorEvaluationCache {
     const preloadKey = TrustedNodeOptions.key({
       cwd: props.cwd,
       env: environment,
+      runtime: props.runtime,
       expectedPreloadGraph: props.expectedPreloadGraph,
       identities: props.identities,
     });
@@ -255,6 +256,7 @@ export namespace PluginDescriptorEvaluationCache {
       : HostInputObservationPhase.create();
     HostInputObservationPhase.observeRecordedFiles(
       entry.proof.realpaths,
+      entry.proof.hashes,
       phase,
     );
     const currentHashes = hashHostInputPaths(hashed, phase);

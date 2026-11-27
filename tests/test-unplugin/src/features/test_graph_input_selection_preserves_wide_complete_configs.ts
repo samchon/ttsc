@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import type { ITtscCompilerTransformation } from "ttsc";
 
+import { deriveWatchInputs } from "../../../../packages/unplugin/src/core/transform/envelope/deriveWatchInputs";
+import { envelopeDerivation } from "../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
+import { envelopeGraphIndexes } from "../../../../packages/unplugin/src/core/transform/envelope/envelopeGraphIndexes";
 import { selectGraphInputs } from "../../../../packages/unplugin/src/core/transform/envelope/selectGraphInputs";
 
 /**
@@ -14,7 +18,7 @@ import { selectGraphInputs } from "../../../../packages/unplugin/src/core/transf
  *    declaration.
  * 2. Select graph inputs for a successful result and require exactly the declared
  *    configs.
- * 3. Select for an exception result and require no inputs.
+ * 3. Derive watch inputs for an exception while a populated index is present.
  *
  * @evidence contracts/testing.md#behavioral-verification selectGraphInputs is called with complete: true for graphs holding 0, 1 and 200000 config paths and must return exactly that list in order; no indexed graph yields an empty list.
  * @evidence contracts/testing.md#independent-expectations The config paths are generated in the test as /project/config-N.json and are the only inputs a complete declaration contributes. One deepEqual per size covers length, order and every element, so truncation, reordering or omission fails; there is no separate endpoint assertion.
@@ -37,4 +41,25 @@ export const test_graph_input_selection_preserves_wide_complete_configs =
       assert.deepEqual(selectGraphInputs(graph, state, props), configs);
       assert.deepEqual(selectGraphInputs(undefined, state, props), []);
     }
+    const projectRoot = "/project";
+    const file = "/project/main.ts";
+    const success: ITtscCompilerTransformation.ISuccess = {
+      type: "success",
+      typescript: {},
+      graph: { edges: {}, globals: [], configs: ["/project/tsconfig.json"] },
+    };
+    const state = envelopeDerivation({ projectRoot, result: success });
+    envelopeGraphIndexes(state, { projectRoot, result: success });
+    assert.deepEqual(
+      deriveWatchInputs(
+        state,
+        {
+          projectRoot,
+          file,
+          result: { type: "exception", error: new Error("compile failed") },
+        },
+        file,
+      ),
+      [],
+    );
   };

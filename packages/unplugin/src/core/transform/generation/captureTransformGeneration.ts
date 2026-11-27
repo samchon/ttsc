@@ -510,6 +510,15 @@ export async function captureTransformGeneration(props: {
       scratchDirectory: envelopeScratchDirectory,
       temporaryTsconfig: envelopeTemporaryTsconfig,
     });
+    if (result.type === "exception") {
+      const compilerSource = Object.entries(compilerEnvironment).find(
+        ([name]) =>
+          (process.platform === "win32" ? name.toUpperCase() : name) ===
+          "TTSC_TSGO_SOURCE",
+      )?.[1];
+      if (compilerSource && path.isAbsolute(compilerSource))
+        externalInputPaths.push(path.normalize(compilerSource));
+    }
     // A plugin's Go source is as universal an input as any host input, and the
     // tracker watches it as a whole subtree (samchon/ttsc#1487).
     const persistentValidationInputs = [

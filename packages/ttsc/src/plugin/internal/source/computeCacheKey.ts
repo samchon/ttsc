@@ -97,6 +97,7 @@ export function computeCacheKey(inputs: {
   identities?: PluginContentIdentities.Store;
 
   overlayDirs?: readonly string[];
+  projectRoot?: string;
 
   /**
    * Digests of the source directories this load already read, by absolute path.
@@ -199,6 +200,8 @@ export function computeCacheKey(inputs: {
         env,
         witness,
         identities,
+        undefined,
+        inputs.projectRoot,
       );
     else {
       // Another byte adapter reads what the record's witness does not cover.
@@ -211,6 +214,7 @@ export function computeCacheKey(inputs: {
         filesystem,
         witness,
         identities,
+        inputs.projectRoot,
       );
       environment = reading.digest("hex");
     }

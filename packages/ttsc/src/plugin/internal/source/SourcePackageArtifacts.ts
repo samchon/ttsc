@@ -52,6 +52,7 @@ export namespace SourcePackageArtifacts {
     goBinary: string;
     key: string;
     pluginName: string;
+    projectRoot?: string;
     ttscVersion: string;
   }): {
     env: NodeJS.ProcessEnv;
@@ -113,6 +114,7 @@ export namespace SourcePackageArtifacts {
       ["list", "-deps", "-json", opts.entry],
       {
         cwd: opts.cwd,
+        projectRoot: opts.projectRoot,
         encoding: "utf8",
         env: opts.env,
         windowsHide: true,

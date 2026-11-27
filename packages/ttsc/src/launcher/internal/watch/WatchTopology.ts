@@ -16,6 +16,7 @@ import { createCaseSensitivityObservations } from "../../../internal/pathIdentit
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import { isProjectInputPathIdentityWithin } from "../../../internal/pathIdentity/isProjectInputPathIdentityWithin";
 import { resolveProjectInputPath } from "../../../internal/pathIdentity/resolveProjectInputPath";
+import { pluginInputAliasEntries } from "../../../plugin/internal/load/pluginInputAliasEntries";
 import { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
 import { collectPluginSourceDirectories } from "../../../plugin/internal/source/collectPluginSourceDirectories";
 import { pluginSourceCovers } from "../../../plugin/internal/source/pluginSourceCovers";
@@ -1045,24 +1046,27 @@ export class WatchTopology {
       const watchedBefore = this.watchedExtraInputs.has(this.pathKey(input));
       const physical = watcherRegistrationPath(input);
       const targets = collectInputDirectories(physical);
+      const identity = pluginWatchRootIdentity(physical);
       for (const target of targets) {
         const directory =
           physical === input
             ? target
             : path.resolve(input, path.relative(physical, target));
         const lexicalKey = this.pathKey(directory);
-        const key =
-          directory === target
-            ? lexicalKey
-            : JSON.stringify([lexicalKey, target]);
+        const key = JSON.stringify([lexicalKey, target, identity]);
         directories.set(key, directory);
         registrations.set(key, target);
         if (watchedBefore && !this.extraWatchers.has(key)) {
           appeared.push([key, directory]);
         }
       }
-      if (physical === input && targets.length !== 0) continue;
-      for (const entry of pluginInputAliasEntries(input)) {
+      const entries =
+        physical === input && targets.length !== 0
+          ? new Set<string>()
+          : new Set(pluginInputAliasEntries(input));
+      if (targets.length !== 0 && path.dirname(physical) !== physical)
+        entries.add(physical);
+      for (const entry of entries) {
         const parent = watcherRegistrationPath(path.dirname(entry));
         const name = path.basename(entry);
         const key = JSON.stringify([
@@ -2750,54 +2754,22 @@ function collectInputDirectories(input: string): string[] {
   return collectPluginSourceDirectories(input);
 }
 
-/**
- * Find link entries and the first missing component along the selected source.
- * A directory subscription below a link cannot report a replacement of the link
- * itself.
- */
-function pluginInputAliasEntries(input: string): string[] {
-  const entries = new Set<string>();
-  let location = input;
-  for (;;) {
-    const root = path.parse(location).root;
-    const names = location.slice(root.length).split(path.sep).filter(Boolean);
-    let parent = root;
-    let followed = false;
-    for (let index = 0; index < names.length; index++) {
-      const entry = path.join(parent, names[index]!);
-      try {
-        const stat = fs.lstatSync(entry, { throwIfNoEntry: false });
-        if (stat === undefined) {
-          entries.add(entry);
-          return [...entries];
-        }
-        if (stat.isSymbolicLink()) {
-          if (entries.has(entry)) return [...entries];
-          entries.add(entry);
-          location = path.resolve(
-            parent,
-            fs.readlinkSync(entry),
-            ...names.slice(index + 1),
-          );
-          followed = true;
-          break;
-        }
-        if (!stat.isDirectory()) return [...entries];
-      } catch {
-        return [...entries];
-      }
-      parent = entry;
-    }
-    if (!followed) return [...entries];
-  }
-}
-
 function isVanishedFilesystemEntry(error: unknown): boolean {
   return (
     error instanceof Error &&
     "code" in error &&
     (error.code === "ENOENT" || error.code === "ENOTDIR")
   );
+}
+
+/** Distinguish replacement of a directory at the same physical spelling. */
+function pluginWatchRootIdentity(directory: string): string | undefined {
+  try {
+    const stat = fs.statSync(directory, { bigint: true });
+    return `${stat.dev}:${stat.ino}:${stat.birthtimeNs}`;
+  } catch {
+    return undefined;
+  }
 }
 
 function closeWatchers(watchers: Map<string, DirectoryWatcher>): void {

@@ -16,6 +16,7 @@ import { createProjectTempDirectory } from "../../../internal/createProjectTempD
 import { javascriptRuntimeCapabilities } from "../../../internal/javascriptRuntimeCapabilities";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { spawnSyncResilient } from "../../../internal/spawnSyncResilient";
+import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
 import type { ITtscPlugin } from "../../../structures/ITtscPlugin";
 import type { ITtscPluginContributor } from "../../../structures/ITtscPluginContributor";
 import type { ITtscPluginFactoryContext } from "../../../structures/ITtscPluginFactoryContext";
@@ -452,12 +453,23 @@ export namespace loadProjectPlugins {
     const { ttsc: ttscVersion, tsgo: tsgoVersion } = pluginBuildVersions(
       context.projectRoot,
     );
+    const sourceAliases = new Map<string, string>();
+    const keepSourceAlias = (declared: string, physical: string): void => {
+      const lexical = path.resolve(context.projectRoot, declared);
+      if (lexical !== physical) sourceAliases.set(lexical, physical);
+    };
     const candidates = plugins
       .map((plugin, index) => {
         const stage = PluginDescriptorAdmission.stage(plugin);
         validatePluginSource(plugin);
         const contributors = validatePluginContributors(plugin);
         const source = resolvePluginSource(plugin.source, context.projectRoot);
+        keepSourceAlias(plugin.source, source);
+        for (const [index, contributor] of (contributors ?? []).entries())
+          keepSourceAlias(
+            plugin.contributors![index]!.source,
+            contributor.source,
+          );
         const label = pluginLabel(plugin, entries[index]!.config, index);
         requirePluginSource(source, label);
         return { plugin, index, stage, contributors, source, label };
@@ -482,44 +494,62 @@ export namespace loadProjectPlugins {
       candidates.length === 0
         ? undefined
         : SourcePluginWorkspace.compilerSourceDeclaration(effectiveEnv);
-    if (
-      compilerDeclaration !== undefined &&
-      !projectHostInputs.includes(compilerDeclaration)
-    ) {
-      projectHostInputs.push(compilerDeclaration);
+    const declarations = [...sourceAliases.keys()];
+    if (compilerDeclaration !== undefined)
+      declarations.push(compilerDeclaration);
+    const unobserved = declarations.filter(
+      (file) => !projectHostInputs.includes(file),
+    );
+    if (unobserved.length !== 0) {
+      projectHostInputs.push(...unobserved);
       const phase = HostInputObservationPhase.create();
       Object.assign(
         projectHostInputHashes,
-        hashHostInputPaths([compilerDeclaration], phase),
+        hashHostInputPaths(unobserved, phase),
       );
       Object.assign(
         projectHostInputRealpaths,
-        realpathHostInputPaths([compilerDeclaration], phase),
+        realpathHostInputPaths(unobserved, phase),
       );
     }
+    for (const [lexical, physical] of sourceAliases)
+      projectHostInputRealpaths[lexical] = physical;
     const sourceWatchInputs = (
       directories: readonly string[],
     ): readonly string[] => {
-      if (compilerDeclaration === undefined) return directories;
-      const physical = projectHostInputRealpaths[compilerDeclaration];
+      if (declarations.length === 0) return directories;
+      const physical = new Set(
+        declarations.map((file) => projectHostInputRealpaths[file]),
+      );
       // Read the compiler tree once through the declaration. The address of
       // the declaration also lets the watch owner see a link replacement.
       return [
         ...new Set([
-          ...directories.filter((directory) => directory !== physical),
-          compilerDeclaration,
+          ...directories.filter((directory) => !physical.has(directory)),
+          ...declarations,
         ]),
       ].sort();
     };
     // The overlay modules every selection and build of this load uses, found
     // once: each lookup walks the compiler line's shim tree. A compiler source
     // the project declares is one of them.
-    const overlayDirs = SourcePluginWorkspace.withCompilerSource(
-      SourcePluginWorkspace.findTtscOverlayDirs(
-        CompilerTarget.ofEnv(effectiveEnv),
-      ),
-      effectiveEnv,
-    );
+    let overlayDirs: readonly string[];
+    try {
+      overlayDirs = SourcePluginWorkspace.withCompilerSource(
+        SourcePluginWorkspace.findTtscOverlayDirs(
+          CompilerTarget.ofEnv(effectiveEnv),
+        ),
+        effectiveEnv,
+      );
+    } catch (error) {
+      if (compilerDeclaration !== undefined)
+        yield options.onWatchInputs?.(
+          sourceWatchInputs(
+            candidates.map((candidate) => candidate.moduleRoot),
+          ),
+        );
+      throw error;
+    }
     const readings = {
       sources: sourceDigests,
       environments: environmentDigests,
@@ -578,6 +608,7 @@ export namespace loadProjectPlugins {
         for (const directory of pluginReplacementWatchDirectories(
           candidate.moduleRoot,
           effectiveEnv,
+          project.root,
           watchReplacements,
           packageReaders,
           sourceIdentities,
@@ -672,6 +703,7 @@ export namespace loadProjectPlugins {
     const buildDirectories = pluginBuildDirectories(
       records,
       effectiveEnv,
+      project.root,
       watchReplacements,
       packageReaders,
       sourceIdentities,
@@ -780,6 +812,7 @@ export namespace loadProjectPlugins {
       packageReaders,
       sourceIdentities,
       readings,
+      project.root,
     );
     standaloneCandidates.forEach((candidate, index) => {
       NativeSourcePackages.kind(
@@ -1712,7 +1745,11 @@ function loadCommonJsDescriptor(
       ...cached,
       verifiedPhase: cachedPhase,
     };
-  const dir = createEvaluationTempDir(descriptorCache, context);
+  const dir = createProjectTempDirectory(
+    "ttsc-plugin-descriptor-",
+    descriptorCache.projectRoot,
+    [context.cwd, path.dirname(context.tsconfig), context.dirname],
+  );
   const out = path.join(dir, "descriptor.json");
   const inputsOut = path.join(dir, "descriptor-inputs.ndjson");
   const diagnostics = path.join(dir, "descriptor.stderr");
@@ -2180,7 +2217,7 @@ function loadDescriptorViaTtsx(
   if (node === undefined || ttsx === undefined || ttsx.length === 0) {
     return undefined;
   }
-  const dir = createEvaluationTempDir(descriptorCache, context);
+  const dir = createTypedEvaluationTempDir(descriptorCache, context);
   const out = path.join(dir, "descriptor.json");
   const inputsOut = path.join(dir, "descriptor-inputs.ndjson");
   const shim = path.join(dir, "load-descriptor.mts");
@@ -2573,6 +2610,7 @@ function pluginBuildDirectories(
     packageDir: string;
   }[],
   env: NodeJS.ProcessEnv,
+  projectRoot: string,
   replacements?: Map<string, readonly string[]>,
   readers?: Map<string, SourcePluginWorkspace.GoModReader>,
   identities?: PluginContentIdentities.Store,
@@ -2588,6 +2626,7 @@ function pluginBuildDirectories(
       for (const directory of pluginReplacementWatchDirectories(
         record.moduleRoot,
         env,
+        projectRoot,
         replacements,
         readers,
         identities,
@@ -2622,6 +2661,7 @@ function declaredCompilerSource(env: NodeJS.ProcessEnv): string[] {
 function pluginReplacementWatchDirectories(
   moduleRoot: string,
   env: NodeJS.ProcessEnv,
+  projectRoot: string,
   observed?: Map<string, readonly string[]>,
   readers?: Map<string, SourcePluginWorkspace.GoModReader>,
   identities?: PluginContentIdentities.Store,
@@ -2638,6 +2678,7 @@ function pluginReplacementWatchDirectories(
       undefined,
       readers,
       identities,
+      projectRoot,
     ).map((replacement) => replacement.directory);
   } catch {
     // An unreadable manifest/tool is not valid metadata. The already observed
@@ -2671,22 +2712,44 @@ function ttscPackageRoot(): string {
 }
 
 /**
- * Create an evaluator directory under the current selected record store when it
- * has an ordinary identities child. Canonical allocation fixes the physical
- * cleanup path; an absent or unproved store retains system TEMP.
+ * Prefer system temporary storage for the typed evaluator. A same-volume
+ * identities directory can keep the generated TypeScript entry on the
+ * descriptor's volume when the available system temp is on another drive.
  */
-function createEvaluationTempDir(
+function createTypedEvaluationTempDir(
   cache: DescriptorCacheOptions,
   context: ITtscPluginFactoryContext,
 ): string {
   const prefix = "ttsc-plugin-descriptor-";
-  const parent = selectedRecordIdentityTempParent(cache.identities?.root);
-  return parent === undefined
-    ? createProjectTempDirectory(prefix, cache.projectRoot, [
-        context.cwd,
-        path.dirname(context.tsconfig),
-      ])
-    : createCanonicalTempDirectory(prefix, parent);
+  const source = path.dirname(context.filename);
+  const sameVolume = (directory: string): boolean =>
+    !path.isAbsolute(path.relative(source, directory));
+  const roots = [
+    context.cwd,
+    path.dirname(context.tsconfig),
+    context.dirname,
+    process.cwd(),
+  ];
+  const candidates = systemTempOutsideProject.candidates(
+    cache.projectRoot,
+    roots,
+  );
+  let first: string | undefined;
+  for (const { directory } of candidates) {
+    first ??= directory;
+    if (sameVolume(directory))
+      return createCanonicalTempDirectory(prefix, directory);
+  }
+  const parent = selectedRecordIdentityTempParent(cache.identities?.root, [
+    cache.projectRoot,
+    ...roots,
+  ]);
+  if (parent !== undefined && sameVolume(parent))
+    return createCanonicalTempDirectory(prefix, parent);
+  if (first !== undefined) return createCanonicalTempDirectory(prefix, first);
+  throw new Error(
+    `ttsc: no existing system temporary directory outside ${cache.projectRoot}`,
+  );
 }
 
 /**

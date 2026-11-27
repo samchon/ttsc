@@ -38,7 +38,7 @@ import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFil
  * @evidence contracts/portability.md#os-neutral-implementation Native path and fs operations handle POSIX and Windows links, case aliases, lookup failures and directory streams.
  * @evidence contracts/performance.md#efficient-algorithms Absent paths reuse lstat and ancestor evidence. Sparse positive paths resolve directly. A batch shares parent realpath and scans at most four entries per known leaf plus a completeness probe before falling back.
  * @evidence contracts/performance.md#reuse-equivalent-work Observations are shared only through an explicit caller-owned Phase instance within one synchronous load or verification phase and are dropped when that phase ends; separate phases observe the filesystem afresh.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Maps belong to the phase, partial names are discarded, and the directory handle is closed in every case.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Phase maps keep the names of a completed listing or the bounded prefix containing every requested exact name. Exhausted and failed scans discard their entries. Open directory handles close before return.
  */
 export namespace HostInputObservationPhase {
   const PHASE_BRAND = Symbol("ttsc.HostInputObservationPhase");
@@ -190,7 +190,7 @@ export namespace HostInputObservationPhase {
    * Observe and memoize the physical path of a resolved path within `phase`,
    * byte-identical to `fs.realpathSync.native`.
    *
-   * @evidence contracts/common.md#principled-implementation Proved absences return null, native realpath resolves unqualified leaves, and a complete listing supplies exact on-disk names for ordinary leaves in a qualifying batch.
+   * @evidence contracts/common.md#principled-implementation Proved absences return null, native realpath resolves unqualified leaves, and a bounded listing supplies exact on-disk names. Resolving case aliases requires a complete listing.
    * @evidence contracts/common.md#clear-and-simple-design Shares lstat classification and absent-parent short-circuiting with hash observation while caching ancestor realpaths and directory listings per phase.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Never constructs a physical path from the lexical leaf basename; symlink leaves and unreadable or ambiguous listings always delegate to fs.realpathSync.native.
    * @evidence contracts/common.md#meaningful-documentation States byte-identical native realpath semantics and phase-scoped memoization.
@@ -235,15 +235,18 @@ export namespace HostInputObservationPhase {
    */
   export function observeRecordedFiles(
     recorded: Readonly<Record<string, string | null>>,
+    hashes: Readonly<Record<string, string | null>>,
     phase: Phase,
   ): void {
     const groups = new Map<string, Map<string, string>>();
     for (const [input, target] of Object.entries(recorded)) {
-      if (target === null) continue;
+      // A dirent does not prove that a child path can be searched. A prior
+      // non-null hash requires a successful read before this batch can hit.
+      if (target === null || typeof hashes[input] !== "string") continue;
       const file = path.resolve(input);
       if (phase.lstats.has(file)) continue;
       const name = path.basename(file);
-      if (name !== path.basename(target)) continue;
+      if (file !== target && name !== path.basename(target)) continue;
       const parent = path.dirname(file);
       let files = groups.get(parent);
       if (files === undefined) {

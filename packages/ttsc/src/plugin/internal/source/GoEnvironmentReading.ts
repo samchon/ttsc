@@ -4,7 +4,6 @@ import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { GoSourceInputs } from "./GoSourceInputs";
-import { GoToolResolution } from "./GoToolResolution";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
 import { PluginLoadAnswers } from "./PluginLoadAnswers";
@@ -367,7 +366,29 @@ export namespace GoEnvironmentReading {
         witness,
         path.join(initialRoot, "go.env"),
       );
-    for (let directory = path.resolve(cwd); ; ) {
+    const roots = new Set([path.resolve(cwd)]);
+    if (process.platform !== "win32") {
+      const pwd = SidecarEnvironment.read(env, "PWD");
+      try {
+        const physical = fs.realpathSync.native(cwd);
+        roots.add(physical);
+        if (pwd && path.isAbsolute(pwd) && pwd !== physical) {
+          PluginBuildEnvironmentWitness.add(witness, pwd);
+          if (fs.realpathSync.native(pwd) === physical) roots.add(pwd);
+        }
+      } catch {
+        // The actual Go invocation still owns cwd and PWD validation.
+      }
+    }
+    for (const root of roots) witnessWorkspaceAncestors(root, witness);
+  }
+
+  /** Record the module and workspace selectors along a possible Go cwd. */
+  function witnessWorkspaceAncestors(
+    root: string,
+    witness: PluginBuildEnvironmentWitness.Record,
+  ): void {
+    for (let directory = root; ; ) {
       PluginBuildEnvironmentWitness.add(
         witness,
         path.join(directory, "go.mod"),
@@ -399,19 +420,48 @@ export namespace GoEnvironmentReading {
       witness,
       path.join(root, "bin", process.platform === "win32" ? "go.exe" : "go"),
     );
-    const extensions =
-      process.platform === "win32"
-        ? ["", ...GoToolResolution.windowsExecutableExtensions(env)]
-        : [""];
-    for (const candidate of GoToolResolution.executableSearchBases(
-      version,
-      env,
-      cwd,
-      witness,
-    )) {
+    const search = SidecarEnvironment.read(env, "PATH") ?? "";
+    const windows = process.platform === "win32";
+    const directories = windows
+      ? windowsGoSearchDirectories(search)
+      : search.split(path.delimiter);
+    if (
+      windows &&
+      SidecarEnvironment.read(env, "NoDefaultCurrentDirectoryInExePath") ===
+        undefined
+    )
+      directories.unshift(cwd);
+    const extensions = windows
+      ? (SidecarEnvironment.read(env, "PATHEXT") || ".com;.exe;.bat;.cmd")
+          .toLowerCase()
+          .split(";")
+          .filter(Boolean)
+          .map((extension) =>
+            extension.startsWith(".") ? extension : "." + extension,
+          )
+      : [];
+    for (const directory of directories) {
+      const candidate = path.resolve(cwd, directory, version);
+      PluginBuildEnvironmentWitness.add(witness, candidate);
       for (const extension of extensions)
         PluginBuildEnvironmentWitness.add(witness, candidate + extension);
     }
+  }
+
+  /** Go's Windows filepath.SplitList honors and removes double quotes. */
+  function windowsGoSearchDirectories(search: string): string[] {
+    const directories: string[] = [];
+    let directory = "";
+    let quoted = false;
+    for (const character of search) {
+      if (character === '"') quoted = !quoted;
+      else if (character === ";" && !quoted) {
+        if (directory !== "") directories.push(directory);
+        directory = "";
+      } else directory += character;
+    }
+    if (directory !== "") directories.push(directory);
+    return directories;
   }
 
   /** Answer family of {@link recorded} (`WitnessedLoadAnswers`). */

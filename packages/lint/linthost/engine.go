@@ -1059,11 +1059,8 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
     if _, invalid := invalidRuleOptions[name]; invalid {
       continue
     }
-    isContributor := false
-    switch rule.(type) {
-    case contributorAdapter, formatContributorAdapter:
-      isContributor = true
-    }
+    _, builtIn := builtInRuleCodes[name]
+    isContributor := !builtIn
     eng.hasFileContributor = eng.hasFileContributor || isContributor
     if ruleNeedsTypeChecker(rule) {
       eng.needsTypeChecker = true

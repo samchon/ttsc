@@ -26,7 +26,7 @@ type Dependencies = Pick<
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Reads indexed graph and compiler-declared dependencies without reconstructing an envelope.
  * @evidence contracts/common.md#meaningful-documentation Names the retained metadata and shared selection.
  * @evidence contracts/portability.md#os-neutral-implementation Uses native spelling and the supplied identity context.
- * @evidence contracts/performance.md#efficient-algorithms Traverses selected graph paths and declarations without copying output or building a graph index.
+ * @evidence contracts/performance.md#efficient-algorithms Traverses selected graph paths and scans the resolution candidates. A first dependency selection can build the producer dependency-key index. Output and graph preparation remain with the caller.
  * @evidence contracts/performance.md#reuse-equivalent-work The supplied state shares identity and declaration indexes and the supplied graph is reused.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Each call owns its transient sets and result array and retains no compiler payload.
  */

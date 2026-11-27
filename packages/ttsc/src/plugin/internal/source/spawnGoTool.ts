@@ -42,7 +42,10 @@ import { windowsGoCommandArgs } from "./windowsGoCommandArgs";
 export function spawnGoTool(
   goBinary: string,
   args: readonly string[],
-  options: SpawnSyncOptionsWithStringEncoding & { projectRoot?: string },
+  options: SpawnSyncOptionsWithStringEncoding & {
+    projectRoot?: string;
+    additionalProjectRoots?: readonly string[];
+  },
   captureDirectory?: string,
 ): SpawnSyncReturns<string> {
   // The child's streams go to files rather than pipes, so no output ceiling
@@ -54,6 +57,7 @@ export function spawnGoTool(
     process.env,
     captureDirectory,
     projectRoot,
+    options.additionalProjectRoots,
   );
   const temporary = path.dirname(capture.stdoutPath);
   const spawnOptions = {

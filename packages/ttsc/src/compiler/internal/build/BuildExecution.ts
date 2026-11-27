@@ -519,7 +519,11 @@ export namespace BuildExecution {
         }
       } else if (
         buildOptions.forceEmitProvenance === true &&
-        isProjectCompiler(execution, buildOptions)
+        isProjectCompiler(
+          execution.projectRoot,
+          execution.tsgo,
+          buildOptions.env,
+        )
       ) {
         result = appendBuildOutput(
           checked,
@@ -569,7 +573,11 @@ export namespace BuildExecution {
       buildOptions.emit === true &&
       buildOptions.forceEmitProvenance === true &&
       SidecarEnvironment.read(buildOptions.env, PRIVATE_CONFIG_OVERLAY_ENV) &&
-      isProjectCompiler(execution, buildOptions) &&
+      isProjectCompiler(
+        execution.projectRoot,
+        execution.tsgo,
+        buildOptions.env,
+      ) &&
       !PassthroughFlags.forwardsTerminalTsgoFlag(buildOptions)
     ) {
       // The CLI only sees the physical wrapper. The selected compiler target
@@ -1189,22 +1197,32 @@ export namespace BuildExecution {
   }
 
   /**
-   * Preserve custom compiler executables while recognizing the project's exact
-   * compiler.
+   * Identify a compiler whose configuration can run in the project's native
+   * host. An explicit override qualifies when it names the installed binary.
+   *
+   * @evidence contracts/common.md#principled-implementation Package selection proves native host authority. Overrides compare physical paths against project resolution with the override cleared.
+   * @evidence contracts/common.md#clear-and-simple-design Private config placement and host execution use the same compiler test.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts An unresolved override stays external without guessing its capabilities from a filename or version.
+   * @evidence contracts/common.md#meaningful-documentation Defines when an override can use the installed compiler's host.
+   * @evidence contracts/portability.md#os-neutral-implementation Native realpath compares underlying binary spellings and the environment merger handles native name identity.
+   * @evidence contracts/performance.md#efficient-algorithms Ordinary package selections return immediately. Overrides pay project package lookup and two physical path reads.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work An override or installed package can move between calls.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate owns no retained state or open handle.
    */
-  function isProjectCompiler(
-    execution: ReturnType<typeof resolveExecutionContext>,
-    options: RunBuildOptions,
+  export function isProjectCompiler(
+    projectRoot: string,
+    tsgo: ReturnType<typeof resolveTsgo>,
+    environment: NodeJS.ProcessEnv | undefined,
   ): boolean {
-    if (execution.tsgo.version !== "custom") return true;
+    if (tsgo.version !== "custom") return true;
     try {
-      const env = SidecarEnvironment.merge(process.env, options.env, {
+      const env = SidecarEnvironment.merge(process.env, environment, {
         TTSC_TSGO_BINARY: undefined,
       });
-      const installed = resolveTsgo({ cwd: execution.projectRoot, env });
+      const installed = resolveTsgo({ cwd: projectRoot, env });
       return (
         fs.realpathSync.native(installed.binary) ===
-        fs.realpathSync.native(execution.tsgo.binary)
+        fs.realpathSync.native(tsgo.binary)
       );
     } catch {
       return false;

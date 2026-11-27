@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { HostInputObservationPhase } from "../../../plugin/internal/load/HostInputObservationPhase";
 import { hashHostInputPaths } from "../../../plugin/internal/load/hashHostInputPaths";
+import { pluginInputAliasEntries } from "../../../plugin/internal/load/pluginInputAliasEntries";
 import { realpathHostInputPaths } from "../../../plugin/internal/load/realpathHostInputPaths";
 import { GoSourceInputs } from "../../../plugin/internal/source/GoSourceInputs";
 import { collectPluginSourceDirectories } from "../../../plugin/internal/source/collectPluginSourceDirectories";
@@ -65,6 +66,15 @@ export function captureLSPPluginSelectionInputs(loaded: {
     .filter((file) => !excluded.has(file));
   const descriptorFiles: Record<string, Record<string, string>> = {};
   for (const file of descriptorInputs) record(descriptorFiles, file);
+  // Record the links first. The fresh realpath check below rejects a target
+  // already moved away from the selection that built the native plugin.
+  const aliases = new Set<string>();
+  for (const file of descriptorInputs) {
+    const physical = loaded.hostInputRealpaths[file];
+    if (physical == null || physical === file) continue;
+    for (const entry of pluginInputAliasEntries(file)) aliases.add(entry);
+  }
+  for (const entry of aliases) record(descriptorFiles, entry);
   const sourceFiles: Record<string, Record<string, string>> = {};
   for (const source of Object.keys(loaded.pluginSources)) {
     for (const directory of collectPluginSourceDirectories(source))

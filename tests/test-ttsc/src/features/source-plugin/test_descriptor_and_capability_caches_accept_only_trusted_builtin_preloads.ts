@@ -18,6 +18,7 @@ interface IActorReport {
   descriptorObservationsComplete: boolean | null;
   descriptorDifferentGraphRefused: boolean;
   descriptorDifferentNodePathRefused: boolean;
+  descriptorDifferentHomeRefused?: boolean;
   capabilities: {
     bun: boolean;
     executable?: string;
@@ -25,6 +26,8 @@ interface IActorReport {
   };
   capabilityProbes: number;
   alternateCapabilities?: IActorReport["capabilities"];
+  alternateHomeCapabilities?: IActorReport["capabilities"];
+  alternateHomeProbes?: number;
   resolutionFile: string | null;
   runtimeProved: boolean | null;
   capabilityAuthority: string | null;
@@ -51,12 +54,12 @@ interface IActorReport {
  *    launches and misses when its bytes or resolution change. Verify `--import`
  *    refuses, and verify a `ttsx`-like child with `runtimeHookPreload` records
  *    only the user graph.
- * 4. Resolve the same relative NODE_PATH in two child working directories and
- *    verify that each child's actual capability wins.
+ * 4. Check separate Node search contexts for alternate child home and working
+ *    directories.
  *
  * @evidence contracts/testing.md#behavioral-verification Real Node launches run the descriptor evaluator shim, PluginDescriptorEvaluationCache.locate/read/write, javascriptRuntimeCapabilities and resolveCapabilityPluginResolution with real preloads, local dependencies and runtimeHookPreload.
  * @evidence contracts/testing.md#independent-expectations Expected hits, misses, probe counts, recorded input graphs and null refusals follow directly from the observed-graph preload contract and real child execution.
- * @evidence contracts/testing.md#distinguishing-cases Covers trusted preload hits, untrusted and glob refusal, startup graph disagreement, preload and helper edits, a new resolution candidate with previous files unchanged, before-read invalidation, ttsx-like graph isolation, relative and package lookup, NODE_PATH mismatch, missing roots, unsupported flags and empty options.
+ * @evidence contracts/testing.md#distinguishing-cases Covers trusted preload hits, untrusted and glob refusal, startup graph disagreement, preload and helper edits, a new resolution candidate with previous files unchanged, before-read invalidation, ttsx-like graph isolation, relative and package lookup, NODE_PATH and home directory mismatches, missing roots, unsupported flags and empty options.
  * @evidence contracts/testing.md#execution-ownership Unit test owning temp files and fresh Node source actors through register-unit-loader.mjs without building native artifacts, installing consumers or starting a product host.
  */
 export function test_descriptor_and_capability_caches_accept_only_trusted_builtin_preloads(): void {
@@ -146,6 +149,7 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   const runLaunch = (
     envOverrides: NodeJS.ProcessEnv,
     mode: "check" | "evaluate" | "seed-capability" | "seed-all" = "check",
+    alternateHome?: string,
   ): IActorReport => {
     fs.rmSync(traceDir, { recursive: true, force: true });
     fs.mkdirSync(traceDir, { recursive: true });
@@ -168,6 +172,7 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
         tsconfig,
         pluginFile,
         mode,
+        ...(alternateHome === undefined ? [] : [alternateHome]),
       ],
       {
         cwd: projectDir,
@@ -191,7 +196,11 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
     NODE_OPTIONS: `--require=${portZeroFile}`,
     TTSC_CACHE_TRUSTED_PRELOADS: portZeroReal,
   };
-  const launch1 = runLaunch(portZeroEnv, "seed-all");
+  const launch1 = runLaunch(
+    portZeroEnv,
+    "seed-all",
+    path.join(root, "other-home"),
+  );
   assert.notEqual(
     launch1.descriptorLocation,
     null,
@@ -202,6 +211,7 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   assert.equal(launch1.descriptorObservationsComplete, true);
   assert.equal(launch1.descriptorDifferentGraphRefused, true);
   assert.equal(launch1.descriptorDifferentNodePathRefused, true);
+  assert.equal(launch1.descriptorDifferentHomeRefused, true);
   assert.ok(
     launch1.descriptorInputs.includes(portZeroReal),
     "descriptor evaluation must record the trusted preload root",
@@ -212,6 +222,8 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
     registerHooks: true,
   });
   assert.equal(launch1.capabilityProbes, 1);
+  assert.deepEqual(launch1.alternateHomeCapabilities, launch1.capabilities);
+  assert.equal(launch1.alternateHomeProbes, 1);
   assert.equal(launch1.runtimeProved, true);
   assert.notEqual(launch1.capabilityAuthority, null);
   assert.equal(launch1.capabilityAuthority, launch1.resolutionFile);

@@ -245,6 +245,7 @@ function buildSourcePluginAttempt(
     env,
     opts.goModReaders,
     identities,
+    opts.baseDir,
   );
   const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
   const key = computeCacheKey({
@@ -259,6 +260,7 @@ function buildSourcePluginAttempt(
     goBinary,
     identities,
     overlayDirs,
+    projectRoot: opts.baseDir,
     environmentDigests,
     environmentWitnesses: opts.environmentWitnesses,
     sourceDigests,
@@ -577,6 +579,7 @@ function compileSourcePlugin(opts: {
       scratchDir,
       opts.goBinary,
       opts.env,
+      opts.projectRoot,
     );
     const goModReader = opts.goModReader;
     OwnedSynchronousProcess.checkpoint();
@@ -603,6 +606,7 @@ function compileSourcePlugin(opts: {
       opts.env,
       goModReader,
       compilerSource === undefined ? undefined : external.get(compilerSource),
+      opts.projectRoot,
     );
     OwnedSynchronousProcess.checkpoint();
     const scratchBinaryName =
@@ -643,6 +647,7 @@ function compileSourcePlugin(opts: {
               ),
               goBinary: opts.goBinary,
               pluginName: opts.pluginName,
+              projectRoot: opts.projectRoot,
             });
             opts.packageOwnership.forEach((input, index) => {
               NativeSourcePackages.kind(
@@ -663,6 +668,7 @@ function compileSourcePlugin(opts: {
             goBinary: opts.goBinary,
             key: opts.key,
             pluginName: opts.pluginName,
+            projectRoot: opts.projectRoot,
             ttscVersion: opts.ttscVersion,
           });
           publisherRecording = recording;
@@ -694,6 +700,7 @@ function compileSourcePlugin(opts: {
               recording?.env ?? artifacts!.env,
               opts.normalizeGoToolPermissions,
               opts.captureDirectory,
+              opts.projectRoot,
               recording?.actionGraph,
             );
           } finally {
@@ -1215,6 +1222,7 @@ function anchorReplaceDirectories(
   scratchDir: string,
   goBinary: string,
   env: NodeJS.ProcessEnv,
+  projectRoot: string,
 ): void {
   for (const replacement of replacements) {
     OwnedSynchronousProcess.checkpoint();
@@ -1227,6 +1235,7 @@ function anchorReplaceDirectories(
       ["mod", "edit", `-replace=${old}=${replacement.directory}`],
       {
         cwd: scratchDir,
+        projectRoot,
         encoding: "utf8",
         env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
         windowsHide: true,
@@ -1283,6 +1292,7 @@ function runGoBuild(
   env: NodeJS.ProcessEnv,
   normalizeGoToolPermissions: boolean,
   captureDirectory: string,
+  projectRoot: string,
   actionGraph?: string,
 ): void {
   OwnedSynchronousProcess.checkpoint();
@@ -1302,6 +1312,7 @@ function runGoBuild(
     ],
     {
       cwd,
+      projectRoot,
       encoding: "utf8",
       env: GoSourceInputs.goBuildEnv(goBinary, goBuildCacheRoot, env),
       windowsHide: true,

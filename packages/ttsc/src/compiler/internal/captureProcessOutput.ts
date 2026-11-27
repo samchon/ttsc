@@ -42,6 +42,7 @@ export function captureProcessOutput(
   env: NodeJS.ProcessEnv = process.env,
   ownedDirectory?: string,
   projectRoot: string = process.cwd(),
+  additionalProjectRoots: readonly string[] = [],
 ): CapturedProcessOutput {
   const recordRoot =
     env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
@@ -51,8 +52,11 @@ export function captureProcessOutput(
     ownedDirectory ??
     createCanonicalTempDirectory(
       "ttsc-spawn-",
-      selectedRecordIdentityTempParent(recordRoot) ??
-        systemTempOutsideProject(projectRoot),
+      selectedRecordIdentityTempParent(recordRoot, [
+        projectRoot,
+        ...additionalProjectRoots,
+        process.cwd(),
+      ]) ?? systemTempOutsideProject(projectRoot, additionalProjectRoots),
     );
   if (ownedDirectory !== undefined) fs.mkdirSync(ownedDirectory);
   const stdoutPath = path.join(directory, "stdout");

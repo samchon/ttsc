@@ -29,6 +29,8 @@ import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
  *   every call reads.
  * @param currentReadings Optional caller-owned map sharing current native
  *   witness readings across one synchronous batch of recorded-answer checks.
+ * @param projectRoot The consuming project whose tree excludes temporary
+ *   output.
  * @returns The environment digest.
  * @evidence contracts/common.md#principled-implementation The Go tool environment projection and the pre-read metadata witness qualify a recorded digest. A reading is recorded only after its witness held around it.
  * @evidence contracts/common.md#clear-and-simple-design One function owns the record family, so package selection, the binary key and the source state read the environment the same way.
@@ -46,6 +48,7 @@ export function readPluginBuildEnvironment(
   witness: PluginBuildEnvironmentWitness.Record | undefined,
   identities: PluginContentIdentities.Store | undefined,
   currentReadings?: Map<string, string>,
+  projectRoot?: string,
 ): string {
   const identity = [
     // Older answers could come from a delegated SDK selected by a mutable search.
@@ -75,6 +78,7 @@ export function readPluginBuildEnvironment(
     { readFile: (location) => fs.readFileSync(location) },
     observed,
     identities,
+    projectRoot,
   );
   const environment = hash.digest("hex");
   WitnessedLoadAnswers.join(witness, observed);

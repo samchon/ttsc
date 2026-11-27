@@ -15,7 +15,7 @@ import { farmRecordFallback } from "./farmRecordFallback";
  * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and filesystem access checks observe the candidate under the host's selected root and platform permissions.
  * @evidence contracts/performance.md#efficient-algorithms At most one ancestor walk observes existing fallback components; the disabled case copies the configuration's own properties.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Writability is observed afresh on each configuration pass.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The warning set retains one spelling per refused root for the process lifetime. No probe file or handle is retained.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The warning set retains one spelling per refused root for the process lifetime, with no fixed cap. No probe file or handle is retained.
  */
 export function farmPersistentCacheWithoutRecords<
   Config extends {

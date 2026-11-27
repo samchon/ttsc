@@ -1,9 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { BuildExecution } from "../../compiler/internal/build/BuildExecution";
 import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
+import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { PRIVATE_CONFIG_OVERLAY_ENV } from "../../compiler/internal/sharedHost/PRIVATE_CONFIG_OVERLAY_ENV";
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
@@ -172,12 +174,27 @@ export function buildSingleRootProject(props: {
       throw unwritableConfigDirectory(error, props, attemptedDirectory);
     try {
       fs.mkdirSync(privateDirectory, { recursive: true });
-      const owners = configAncestors(configDir);
-      fallbackDirectory = allocatePrivateConfigDirectory(
-        privateDirectory,
-        owners,
-      );
-      placement = acquire(mirrorTypeSearchPath(owners, fallbackDirectory));
+      const tsgo = resolveTsgo({
+        cwd: original.root,
+        binary: options.binary,
+        env: SidecarEnvironment.merge(process.env, options.env),
+      });
+      if (BuildExecution.isProjectCompiler(original.root, tsgo, options.env)) {
+        // The native overlay reads this file at the original config location,
+        // so unrelated node_modules ancestors cannot enter type resolution.
+        fallbackDirectory = createCanonicalTempDirectory(
+          ".ttsx-config-",
+          privateDirectory,
+        );
+        placement = acquire(fallbackDirectory);
+      } else {
+        const owners = configAncestors(configDir);
+        fallbackDirectory = allocatePrivateConfigDirectory(
+          privateDirectory,
+          owners,
+        );
+        placement = acquire(mirrorTypeSearchPath(owners, fallbackDirectory));
+      }
     } catch (fallbackError) {
       removePrivateConfigDirectory(fallbackDirectory);
       throw unwritableConfigDirectory(fallbackError, props, privateDirectory);

@@ -101,7 +101,7 @@ function withCountedFs<T>(run: (counts: SyscallCounts) => T): T {
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the descriptor cache and host input helpers with native files, directories, links, absent candidates and Unicode names. Observes direct native probes and whether phases keep a complete listing, skip the listing or discard it as too wide.
  * @evidence contracts/testing.md#independent-expectations Computes SHA-256 from authored bytes and physical paths with direct native realpath; call counters and phase observations distinguish absent, dense, sparse and wide work.
- * @evidence contracts/testing.md#distinguishing-cases Contrasts file, directory, symlink and absent ancestry cases with case variants, normalized names, a Kelvin-sign alias, sparse versus wide batches, a searchable directory with unreadable entries on unprivileged POSIX, and post-phase creation.
+ * @evidence contracts/testing.md#distinguishing-cases Contrasts file, directory, symlink and absent ancestry cases with case variants, normalized names, a Kelvin-sign alias, sparse versus wide batches, opposite listing and search permissions on unprivileged POSIX, and post-phase creation.
  * @evidence contracts/testing.md#execution-ownership Calls maintained cache and host-input helpers directly over an owned temporary directory removed in finally, restoring every wrapped fs property in finally without starting a compiler, Go tool or subprocess.
  */
 export function test_host_input_warm_descriptor_load_syscall_budget(): void {
@@ -438,6 +438,42 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
           }
         },
       );
+
+    if (process.platform !== "win32" && process.getuid?.() !== 0)
+      check("enumeration does not prove search permission", () => {
+        const parent = path.join(root, "list-only");
+        fs.mkdirSync(parent);
+        const files = ["first", "second", "third"].map((name) =>
+          path.join(parent, name),
+        );
+        for (const file of files) {
+          fs.writeFileSync(file, "unreadable");
+          fs.chmodSync(file, 0);
+        }
+        const record = path.join(root, "permission-record.json");
+        PluginDescriptorEvaluationCache.write(record, {
+          descriptor: { hostInputHashes: {} },
+          hostInputHashes: Object.fromEntries(
+            files.map((file) => [file, null]),
+          ),
+          hostInputRealpaths: Object.fromEntries(
+            files.map((file) => [file, fs.realpathSync.native(file)]),
+          ),
+          inputs: files,
+          observationsComplete: true,
+        });
+        assert.notEqual(PluginDescriptorEvaluationCache.read(record), null);
+        fs.chmodSync(parent, 0o400);
+        try {
+          assert.equal(fs.readdirSync(parent).length, files.length);
+          assert.throws(() => fs.realpathSync.native(files[0]!), {
+            code: "EACCES",
+          });
+          assert.equal(PluginDescriptorEvaluationCache.read(record), null);
+        } finally {
+          fs.chmodSync(parent, 0o700);
+        }
+      });
 
     check("fresh phase observes newly created parent and child", () => {
       const appearedDir = path.join(dist, "absent0");

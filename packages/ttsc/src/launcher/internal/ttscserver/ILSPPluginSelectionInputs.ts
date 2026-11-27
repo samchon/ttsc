@@ -28,9 +28,9 @@ export interface ILSPPluginSelectionInputs {
   /**
    * Every directory holding a non-deferred input the plugin load reported, with
    * each recorded basename and digest: the project's config chain, the
-   * manifests plugin discovery reads, the descriptors, and what they resolved.
-   * Only those reported files count; the record does not discover undeclared
-   * external reads.
+   * manifests plugin discovery reads, the descriptors, what they resolved, and
+   * links along their resolved paths. Entries under a linked directory also
+   * depend on the link's parent, where a retarget is observed.
    */
   descriptorFiles: Record<string, Record<string, string>>;
 
