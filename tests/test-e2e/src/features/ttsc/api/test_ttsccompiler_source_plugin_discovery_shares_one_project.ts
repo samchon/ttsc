@@ -39,7 +39,7 @@ import {
  *    second, sample event-loop progress and change ambient temp variables after
  *    starting the worker; also compare the missing-config exceptions.
  *
- * @evidence contracts/testing.md#behavioral-verification Real native API calls apply configured and discovered plugins, stop at a nearer manifest, report the exact consulted host inputs and compare sync/worker envelopes. A separate process executes the selected markerless project while a real directory watcher observes its ambient temp.
+ * @evidence contracts/testing.md#behavioral-verification Real native API calls apply configured and discovered plugins, stop at a nearer manifest, report the exact consulted host inputs and compare sync/worker envelopes. Actual sentinel notifications and unchanged directory stamps bracket the separate markerless compiler process.
  * @evidence contracts/testing.md#independent-expectations The authored goUpper source and uppercase contract fix PLUGIN and unchanged goUpper expectations; nearest-manifest discovery is independently specified. The four literal consulted paths exclude the unrelated notes asset, the scoped temp file must retain its authored contents, and a literal one-second hold sets the independent 500ms stall bound. Sync/async envelopes compare the public contracts rather than compiler internals.
  * @evidence contracts/testing.md#distinguishing-cases Configured and package-discovered plugins, ancestor discovery and its nearest-manifest negative contrast with missing explicit config versus an unrelated asset, invalid scoped versus valid ambient temp parents and success versus missing-config worker envelopes. The one-second descriptor hold has an independent 500ms maximum caller stall.
  * @evidence contracts/testing.md#execution-ownership This ordinary test export is discovered by test-e2e src/index.ts and selected by evidence.config.json; it runs the native plugin loader and source producer through TtscCompiler, through the checkout built API and selected native compiler; manifest parsing units alone do not exercise this assembly. It is not packed installation or loaded-image certification.
@@ -349,23 +349,27 @@ async function compileWithProjectLocalAmbientTemp(
   fs.renameSync(manifest, savedManifest);
   const observed = new Set<string | null>();
   const watcher = fs.watch(temporary, (_, name) => observed.add(name));
-  const verifyObserver = (name: string): Promise<void> =>
-    new Promise((resolve, reject) => {
-      const listener = (_event: string, actual: string | null): void => {
-        if (actual !== name) return;
-        clearTimeout(timeout);
-        watcher.off("change", listener);
-        resolve();
-      };
-      const timeout = setTimeout(() => {
-        watcher.off("change", listener);
-        reject(new Error(`The temp watcher did not observe ${name}`));
-      }, 5000);
-      watcher.on("change", listener);
-      fs.writeFileSync(path.join(temporary, name), "");
-    });
+  const watchedName = path.basename(temporary);
+  const verifyObserver = async (name: string): Promise<void> => {
+    const marker = path.join(temporary, name);
+    observed.delete(name);
+    observed.delete(watchedName);
+    const deadline = performance.now() + 5_000;
+    for (let attempt = 0; performance.now() < deadline; attempt++) {
+      if (attempt !== 0) fs.unlinkSync(marker);
+      fs.writeFileSync(marker, "", { flag: "wx" });
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      if (
+        observed.has(name) ||
+        (process.platform === "darwin" && observed.has(watchedName))
+      )
+        return;
+    }
+    throw new Error(`The temp watcher did not observe ${name}`);
+  };
   try {
     await verifyObserver("before-compile");
+    const beforeCompile = fs.statSync(temporary, { bigint: true });
     const result = await promisify(execFile)(
       process.execPath,
       [
@@ -394,6 +398,12 @@ async function compileWithProjectLocalAmbientTemp(
         windowsHide: true,
       },
     );
+    // A coalesced directory notification carries no child name on Darwin.
+    // Capture metadata before creating the second sentinel so such an event
+    // cannot hide a transient directory entry from the compile interval.
+    const afterCompile = fs.statSync(temporary, { bigint: true });
+    assert.equal(afterCompile.mtimeNs, beforeCompile.mtimeNs);
+    assert.equal(afterCompile.ctimeNs, beforeCompile.ctimeNs);
     await verifyObserver("after-compile");
     observed.delete("before-compile");
     observed.delete("after-compile");
@@ -402,7 +412,7 @@ async function compileWithProjectLocalAmbientTemp(
     const finalDirectory = fs.statSync(temporary, { bigint: true });
     assert.equal(finalDirectory.dev, initialDirectory.dev);
     assert.equal(finalDirectory.ino, initialDirectory.ino);
-    observed.delete(path.basename(temporary));
+    observed.delete(watchedName);
     assert.deepEqual([...observed], []);
     assert.deepEqual(fs.readdirSync(temporary).sort(), [
       "after-compile",

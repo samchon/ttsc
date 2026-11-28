@@ -1,15 +1,23 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { RuntimeBuildCache } from "./compiler/internal/build/RuntimeBuildCache";
+import { RuntimeEmitBundle } from "./compiler/internal/build/RuntimeEmitBundle";
 import { prepareExecution } from "./launcher/internal/prepareExecution";
 import { type RuntimeManifest } from "./launcher/internal/runtime/RuntimeManifest";
 import { installRuntimeHooks } from "./launcher/internal/runtime/installRuntimeHooks";
 import { runtimeRunKey } from "./launcher/internal/runtime/runtimeRunKey";
 import { systemRuntimeRunTree } from "./launcher/internal/runtime/systemRuntimeRunTree";
+import { withRuntimeDirectoryLock } from "./launcher/internal/runtime/withRuntimeDirectoryLock";
 
 const cleanupDirectories = new Map<
   string,
-  { canChange?: (directory: string) => boolean; manifest: RuntimeManifest }
+  {
+    canChange?: (directory: string) => boolean;
+    manifest: RuntimeManifest;
+    runtimeRoot: string;
+    buildStore?: string;
+  }
 >();
 let runtimeSequence = 0;
 
@@ -44,6 +52,8 @@ function prepareEntry(filename: string): RuntimeManifest {
   cleanupDirectories.set(execution.cleanupDir, {
     canChange: execution.canChangeRuntimeRun,
     manifest,
+    runtimeRoot: execution.runtimeCacheDir,
+    buildStore: execution.runtimeBuildCacheDir,
   });
   return manifest;
 }
@@ -52,16 +62,31 @@ function prepareEntry(filename: string): RuntimeManifest {
  * Remove every register-owned transient emit when the JavaScript host exits.
  * Cleanup is best-effort and does not override the host's exit status.
  *
- * Each recorded transient tree is visited once. System cache runs must still
- * qualify before deletion. Failed deletions may leave disk output, and abrupt
- * process termination can bypass this callback.
+ * Each recorded transient tree is visited once. Under the system cache lock, an
+ * eligible run can return its adopted outputs before deletion. Failed cleanup
+ * may leave disk output, and abrupt process termination can bypass this
+ * callback.
  */
 function cleanupRuntimeOutputs(): void {
-  for (const [directory, { canChange, manifest }] of cleanupDirectories) {
+  for (const [
+    directory,
+    { canChange, manifest, runtimeRoot, buildStore },
+  ] of cleanupDirectories) {
     try {
-      if (systemRuntimeRunTree(directory, canChange, manifest) === "protected")
-        continue;
-      fs.rmSync(directory, { force: true, recursive: true });
+      const remove = () => {
+        if (
+          systemRuntimeRunTree(directory, canChange, manifest) === "protected"
+        )
+          return;
+        if (canChange !== undefined && buildStore !== undefined) {
+          RuntimeEmitBundle.release();
+          RuntimeBuildCache.parkRequested(directory, buildStore, canChange);
+        }
+        fs.rmSync(directory, { force: true, recursive: true });
+      };
+      if (canChange !== undefined && buildStore !== undefined) {
+        if (canChange(directory)) withRuntimeDirectoryLock(runtimeRoot, remove);
+      } else remove();
     } catch {
       // Best effort: cleanup must not replace the host process exit status.
     }
