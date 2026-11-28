@@ -268,11 +268,17 @@ export namespace RuntimeBuildCache {
     }
     const directory = props.directory;
     if (props.canChange?.(directory) === false) return props.build();
+    const launcherAdopts =
+      props.canChange !== undefined &&
+      props.parkIn === undefined &&
+      props.defer !== undefined;
+    const parkReceiptRun = launcherAdopts ? props.runDir : props.parkIn;
     const requiresParkReceipt =
-      props.canChange !== undefined && props.parkIn !== undefined;
+      props.canChange !== undefined && parkReceiptRun !== undefined;
     if (
-      props.parkIn !== undefined &&
-      props.canChange?.(path.join(props.parkIn, PARKS_DIRNAME)) === false
+      (launcherAdopts && parkReceiptRun === undefined) ||
+      (parkReceiptRun !== undefined &&
+        props.canChange?.(path.join(parkReceiptRun, PARKS_DIRNAME)) === false)
     )
       return props.build();
     // A plugin's environment reads are reported by its build, after the
@@ -941,18 +947,32 @@ export namespace RuntimeBuildCache {
             };
             const relocated = relocate(result, job.emitDir, props.emitDir);
             if (!fs.lstatSync(outputs).isDirectory()) continue;
-            if (props.parkIn !== undefined) {
+            let launcherAdoption: ParkRequest["launcherAdoption"];
+            if (launcherAdopts) {
+              if (!isParkedAddress(directory, parked)) continue;
+              const carriedIdentity = parkedIdentity(parked);
+              const outputIdentity = parkedIdentity(outputs);
+              if (
+                carriedIdentity === undefined ||
+                outputIdentity === undefined ||
+                parkedJobKey(job) !== key
+              )
+                continue;
+              launcherAdoption = { key, carriedIdentity, outputIdentity };
+            }
+            if (parkReceiptRun !== undefined) {
               // If this process is stopped after taking the directory, the
               // run owner must be able to return it even before outputs move.
               let saved = false;
               try {
                 saved = saveParkRequest(
-                  props.parkIn,
+                  parkReceiptRun,
                   {
                     outputs: props.emitDir,
                     parked: parkDestination(key),
                     carried: moved,
                     job: carry.job,
+                    launcherAdoption,
                   },
                   props.canChange,
                 );
@@ -970,7 +990,10 @@ export namespace RuntimeBuildCache {
               props.canChange?.(props.emitDir) === false ||
               (props.canChange !== undefined &&
                 (fs.lstatSync(moved, { throwIfNoEntry: false }) !== undefined ||
-                  !canMoveTree(parked, props.canChange)))
+                  !canMoveTree(parked, props.canChange))) ||
+              (launcherAdoption !== undefined &&
+                (parkedIdentity(parked) !== launcherAdoption.carriedIdentity ||
+                  parkedIdentity(outputs) !== launcherAdoption.outputIdentity))
             )
               continue;
             fs.rmdirSync(props.emitDir);
@@ -1141,6 +1164,13 @@ export namespace RuntimeBuildCache {
      * back whole. Undefined for a fresh build.
      */
     carried?: string;
+
+    /** Native ownership and exact variant of an interrupted launcher adoption. */
+    launcherAdoption?: {
+      key: string;
+      carriedIdentity: string;
+      outputIdentity: string;
+    };
 
     /**
      * What publishing the parked build needs, written beside the outputs, or
@@ -1529,7 +1559,18 @@ export namespace RuntimeBuildCache {
       !canChange(request.parked)
     )
       return false;
-    if (!ownsParkOutput(runDir, request.outputs, recorded)) return false;
+    const launcherAdoption = recorded ? request.launcherAdoption : undefined;
+    if (
+      !ownsParkOutput(
+        runDir,
+        request.outputs,
+        recorded && launcherAdoption === undefined,
+      ) ||
+      (launcherAdoption !== undefined &&
+        (request.carried === undefined ||
+          !path.relative(runDir, request.outputs).startsWith("fs" + path.sep)))
+    )
+      return false;
     if (
       !isParkedAddress(store, request.parked) ||
       fs.lstatSync(request.parked, { throwIfNoEntry: false }) !== undefined
@@ -1556,14 +1597,30 @@ export namespace RuntimeBuildCache {
             request.job.emitDir !== previous.emitDir))
       )
         return false;
-      if (
+      const carriedOutput = path.join(request.carried, "outputs");
+      const outputsInCarry =
         fs
-          .lstatSync(path.join(request.carried, "outputs"), {
+          .lstatSync(carriedOutput, {
             throwIfNoEntry: false,
           })
-          ?.isDirectory()
+          ?.isDirectory() === true;
+      if (
+        launcherAdoption !== undefined &&
+        (typeof launcherAdoption?.key !== "string" ||
+          typeof launcherAdoption.carriedIdentity !== "string" ||
+          typeof launcherAdoption.outputIdentity !== "string" ||
+          path.basename(path.dirname(request.parked)) !==
+            launcherAdoption.key + ".pending" ||
+          parkedJobKey(previous) !== launcherAdoption.key ||
+          (request.job !== undefined &&
+            parkedJobKey(request.job) !== launcherAdoption.key) ||
+          parkedIdentity(request.carried) !==
+            launcherAdoption.carriedIdentity ||
+          parkedIdentity(outputsInCarry ? carriedOutput : request.outputs) !==
+            launcherAdoption.outputIdentity)
       )
-        return true;
+        return false;
+      if (outputsInCarry) return true;
     } else if (!isFreshParkJob(request)) return false;
     return canMoveTree(request.outputs, canChange);
   }

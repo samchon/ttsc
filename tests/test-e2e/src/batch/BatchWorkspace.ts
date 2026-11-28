@@ -1618,15 +1618,35 @@ export namespace BatchWorkspace {
         }).trim(),
       };
       const freshGoBytes = fs.readFileSync(freshGo);
-      const firstWitness = new Map<string, string>();
-      const firstEnvironment = pluginBuildEnvironment(
+      const beforeFirstImage = fs.statSync(freshGo, { bigint: true });
+      let firstWitness = new Map<string, string>();
+      let firstEnvironment = pluginBuildEnvironment(
         source,
         freshGoEnv,
         firstWitness,
       );
+      assert.deepEqual(fs.readFileSync(freshGo), freshGoBytes);
+      if (!PluginBuildEnvironmentWitness.holds(firstWitness)) {
+        assert.equal(process.platform, "win32");
+        // Windows may update the copied launcher's change stamp on its first
+        // image load. Refuse that epoch and acquire a fresh observation.
+        const otherInputs = new Map(firstWitness);
+        assert.ok(otherInputs.delete(freshGo));
+        assert.ok(PluginBuildEnvironmentWitness.holds(otherInputs));
+        const afterFirstImage = fs.statSync(freshGo, { bigint: true });
+        for (const field of ["dev", "ino", "mode", "size", "mtimeNs"] as const)
+          assert.equal(afterFirstImage[field], beforeFirstImage[field], field);
+        assert.notEqual(afterFirstImage.ctimeNs, beforeFirstImage.ctimeNs);
+        firstWitness = new Map();
+        firstEnvironment = pluginBuildEnvironment(
+          source,
+          freshGoEnv,
+          firstWitness,
+        );
+      }
       assert.ok(
         PluginBuildEnvironmentWitness.holds(firstWitness),
-        "first Go execution must establish a usable toolchain witness",
+        "the unchanged Go toolchain must establish a usable witness",
       );
       assert.deepEqual(fs.readFileSync(freshGo), freshGoBytes);
       const warmWitness = new Map<string, string>();

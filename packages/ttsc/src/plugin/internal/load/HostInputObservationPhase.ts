@@ -47,6 +47,8 @@ export namespace HostInputObservationPhase {
   const MIN_SHARED_LEAVES = 3;
   const MIN_COLD_BATCH_LEAVES = MIN_SHARED_LEAVES * 2;
   const MAX_ENTRIES_PER_LEAF = 4;
+  const CAN_OPEN_WITHOUT_FOLLOWING =
+    process.platform !== "win32" && typeof fs.constants.O_NOFOLLOW === "number";
 
   const DIRECTORY_HASH = crypto
     .createHash("sha256")
@@ -217,7 +219,7 @@ export namespace HostInputObservationPhase {
       return null;
     }
     let target: string | null;
-    if (kind === "symlink" || kind === "error") {
+    if (kind === "symlink" || kind === "error" || kind === "other") {
       target = nativeRealpath(resolved);
     } else if (kind === "directory") {
       target = resolveDirectoryRealpath(resolved, phase);
@@ -230,10 +232,10 @@ export namespace HostInputObservationPhase {
 
   /**
    * Start a warm proof's positive file observations together. The record
-   * selects candidates for a bounded scan. Only an actual ordinary entry with
-   * the exact spelling can replace an individual lstat and realpath.
+   * selects candidates for a bounded scan when native open can refuse links.
+   * Windows hashes files before observing their grouped physical paths.
    *
-   * @evidence contracts/common.md#principled-implementation Recorded positive paths select directory batches. Native directory entries establish exact regular-file kind and spelling before any file bytes are hashed.
+   * @evidence contracts/common.md#principled-implementation Recorded positive paths select directory batches. A guarded read and requalified parent and leaf establish each retained content and physical observation.
    * @evidence contracts/common.md#clear-and-simple-design Uses the phase's bounded scan and memo while leaving hashes and aliases to their existing observations.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing, ambiguous, nonregular or unlisted entries retain individual native observation.
    * @evidence contracts/common.md#meaningful-documentation Names the profiling hint and the evidence that can replace per-file metadata calls.
@@ -247,13 +249,19 @@ export namespace HostInputObservationPhase {
     hashes: Readonly<Record<string, string | null>>,
     phase: Phase,
   ): void {
-    const groups = new Map<string, Map<string, string>>();
+    if (!CAN_OPEN_WITHOUT_FOLLOWING) return;
+    const groups = new Map<string, Set<string>>();
     for (const [input, target] of Object.entries(recorded)) {
       // A dirent does not prove that a child path can be searched. A prior
       // non-null hash requires a successful read before this batch can hit.
       if (target === null || typeof hashes[input] !== "string") continue;
       const file = path.resolve(input);
-      if (phase.lstats.has(file)) continue;
+      if (
+        phase.lstats.has(file) ||
+        phase.hashes.has(file) ||
+        phase.realpaths.has(file)
+      )
+        continue;
       const name = path.basename(file);
       // A string dirent can decode an invalid native byte sequence to U+FFFD.
       if (name.includes("\ufffd")) continue;
@@ -261,10 +269,10 @@ export namespace HostInputObservationPhase {
       const parent = path.dirname(file);
       let files = groups.get(parent);
       if (files === undefined) {
-        files = new Map();
+        files = new Set();
         groups.set(parent, files);
       }
-      files.set(name, file);
+      files.add(name);
     }
     for (const [parent, files] of groups) {
       if (
@@ -272,34 +280,27 @@ export namespace HostInputObservationPhase {
         hasAbsentOrNonDirectoryAncestor(parent, phase)
       )
         continue;
-      const physical = resolveDirectoryRealpath(parent, phase);
-      if (physical === null || physical.includes("\0")) continue;
-      const listing = listDirectory(physical, [...files.keys()], phase);
-      if (listing === null) continue;
-      for (const [name, file] of files) {
-        if (listing.exact.get(name)?.isFile() !== true) continue;
-        phase.lstats.set(file, "non-directory");
-        phase.realpaths.set(file, path.join(physical, name));
-      }
+      hashListedFiles(parent, files, phase);
     }
   }
 
   /**
    * Qualify exact siblings before individually hashing a fresh batch. A
-   * successful guarded read is required to use a dirent as a paired content and
-   * physical observation.
+   * successful guarded read and current path qualification are required to use
+   * a dirent as a paired content and physical observation.
    *
-   * @evidence contracts/common.md#principled-implementation A sufficiently large requested group nominates a bounded listing. An exact regular dirent and a successful guarded read establish its hash, kind and physical spelling in one phase.
+   * @evidence contracts/common.md#principled-implementation A sufficiently large requested group nominates a bounded listing when native open can refuse links. An exact regular dirent, a guarded read and a rechecked parent establish its hash, kind and physical spelling in one phase.
    * @evidence contracts/common.md#clear-and-simple-design The batch hash caller provides the candidate population, and the phase owns all native observations and fallback state.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Sparse, linked, unlisted and unreadable entries keep their individual native observations. Enumeration alone establishes no file's content or searchability.
    * @evidence contracts/common.md#meaningful-documentation Describes the fresh phase and the successful read requirement.
    * @evidence contracts/portability.md#os-neutral-implementation Native dirents and lossless physical parent identity establish exact spelling. Potentially lossy names bypass the listing shortcut.
-   * @evidence contracts/performance.md#efficient-algorithms Groups distinct candidate names by parent, skips sparse groups and uses the same bounded scanner as individual realpath observations. Confirmed reads omit per-file lstat and realpath calls.
+   * @evidence contracts/performance.md#efficient-algorithms Groups distinct candidate names by parent and skips sparse groups. Each eligible group uses a bounded scan and rechecks its parent. Windows hashes before grouping physical lookups instead of running a second cold scan.
    * @evidence contracts/performance.md#reuse-equivalent-work Fresh phases alone plan batches. Warm or partially observed phases keep their existing observations.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Grouping is call-local, and the scanner closes before file reads. Only observations survive in the caller's phase.
    */
   export function hashKnownFiles(files: readonly string[], phase: Phase): void {
     if (
+      !CAN_OPEN_WITHOUT_FOLLOWING ||
       files.length < MIN_COLD_BATCH_LEAVES ||
       phase.lstats.size !== 0 ||
       phase.hashes.size !== 0 ||
@@ -318,27 +319,49 @@ export namespace HostInputObservationPhase {
     }
     for (const [parent, names] of groups) {
       if (names.size < MIN_COLD_BATCH_LEAVES) continue;
-      const physical = resolveDirectoryRealpath(parent, phase);
-      if (physical === null || physical.includes("\0")) continue;
-      const listing = listDirectory(physical, [...names], phase);
-      if (listing === null) continue;
-      for (const name of names) {
-        if (listing.exact.get(name)?.isFile() !== true) continue;
-        const file = path.join(parent, name);
-        try {
-          const content = RuntimeFilesystem.readObservedRegularFile(file);
-          if (content === undefined) continue;
-          const digest = crypto
-            .createHash("sha256")
-            .update(content)
-            .digest("hex");
-          phase.lstats.set(file, "non-directory");
-          phase.realpaths.set(file, path.join(physical, name));
-          phase.hashes.set(file, digest);
-        } catch {
-          // Enumeration cannot establish search permission on the path.
-        }
+      hashListedFiles(parent, names, phase);
+    }
+  }
+
+  /** Requalify the paths around the reads before adopting a directory batch. */
+  function hashListedFiles(
+    parent: string,
+    names: ReadonlySet<string>,
+    phase: Phase,
+  ): void {
+    const physical = nativeRealpath(parent);
+    if (physical === null || physical.includes("\0")) return;
+    const listing = listDirectory(physical, [...names], phase);
+    if (listing === null) return;
+    const digests = new Map<string, string>();
+    for (const name of names) {
+      if (listing.exact.get(name)?.isFile() !== true) continue;
+      try {
+        const bytes = RuntimeFilesystem.readObservedRegularFile(
+          path.join(parent, name),
+          true,
+        );
+        if (bytes !== undefined)
+          digests.set(
+            name,
+            crypto.createHash("sha256").update(bytes).digest("hex"),
+          );
+      } catch {
+        // A failed read leaves the path to the ordinary observer.
       }
+    }
+    if (digests.size === 0) return;
+    if (nativeRealpath(parent) !== physical) {
+      phase.directoryRealpaths.delete(parent);
+      phase.directoryEntries.delete(physical);
+      return;
+    }
+    phase.directoryRealpaths.set(parent, physical);
+    for (const [name, digest] of digests) {
+      const file = path.join(parent, name);
+      phase.lstats.set(file, "non-directory");
+      phase.realpaths.set(file, path.join(physical, name));
+      phase.hashes.set(file, digest);
     }
   }
 
@@ -426,7 +449,7 @@ export namespace HostInputObservationPhase {
     }
     const listing = listDirectory(physicalParent, requested, phase);
     if (listing !== null) {
-      const exactLeaf = lookupEntry(listing, path.basename(resolved));
+      const exactLeaf = lookupEntry(listing, path.basename(resolved), "file");
       if (exactLeaf !== undefined) {
         return path.join(physicalParent, exactLeaf);
       }
@@ -453,7 +476,11 @@ export namespace HostInputObservationPhase {
         if (listing !== null && listing !== undefined) {
           const kind = observeLstat(directory, phase);
           if (kind === "directory") {
-            const exactName = lookupEntry(listing, path.basename(directory));
+            const exactName = lookupEntry(
+              listing,
+              path.basename(directory),
+              "directory",
+            );
             if (exactName !== undefined) {
               const target = path.join(physicalParent, exactName);
               phase.directoryRealpaths.set(directory, target);
@@ -511,24 +538,27 @@ export namespace HostInputObservationPhase {
   function lookupEntry(
     listing: DirectoryListing,
     lexicalName: string,
+    kind: "file" | "directory",
   ): string | undefined {
     if (lexicalName.includes("\ufffd")) return undefined;
-    if (listing.exact.has(lexicalName)) {
-      return lexicalName;
-    }
-    if (!listing.complete || !isAscii(lexicalName)) {
-      return undefined;
-    }
-    if (listing.lower === undefined) {
-      const lower = new Map<string, string | null>();
-      for (const name of listing.exact.keys()) {
-        const folded = name.toLowerCase();
-        lower.set(folded, isAscii(name) && !lower.has(folded) ? name : null);
+    let entry = listing.exact.get(lexicalName);
+    if (entry === undefined && listing.complete && isAscii(lexicalName)) {
+      if (listing.lower === undefined) {
+        const lower = new Map<string, string | null>();
+        for (const name of listing.exact.keys()) {
+          const folded = name.toLowerCase();
+          lower.set(folded, isAscii(name) && !lower.has(folded) ? name : null);
+        }
+        listing.lower = lower;
       }
-      listing.lower = lower;
+      const folded = listing.lower.get(lexicalName.toLowerCase());
+      if (folded !== undefined && folded !== null)
+        entry = listing.exact.get(folded);
     }
-    const folded = listing.lower.get(lexicalName.toLowerCase());
-    return folded === undefined || folded === null ? undefined : folded;
+    if (entry === undefined) return undefined;
+    return (kind === "directory" ? entry.isDirectory() : entry.isFile())
+      ? entry.name
+      : undefined;
   }
 
   function isAscii(value: string): boolean {

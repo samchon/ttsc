@@ -11,8 +11,8 @@ import { HostInputObservationPhase } from "./HostInputObservationPhase";
  * When a caller supplies a {@link HostInputObservationPhase.Phase}, hashing and
  * physical-path resolution share candidate metadata, skip descendants of
  * already-observed missing or non-directory parents, and drop the phase memo
- * when that synchronous phase ends. An untouched phase can qualify a dense
- * group of exact regular files in one bounded directory scan.
+ * when that synchronous phase ends. A fresh phase can qualify a dense group
+ * before individual lookup when native open can refuse following links.
  *
  * @evidence contracts/common.md#principled-implementation Resolved path keys pair readable content with SHA-256, directory kind with a domain marker, and unavailable input with null; consumers must pair this content projection with physical identity.
  * @evidence contracts/common.md#clear-and-simple-design The operation snapshots supplied inputs only, delegating phase-scoped lstat, absent-parent and content hashing to HostInputObservationPhase while leaving discovery and cache acceptance with their respective owners.

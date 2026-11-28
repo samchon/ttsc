@@ -93,8 +93,9 @@ export namespace RuntimeFilesystem {
   /**
    * Read a path already observed as a regular file. A POSIX nonblocking open
    * avoids waiting on a pipe substituted after that observation. The opened
-   * POSIX descriptor supplies the final regular-file check. Windows reads the
-   * classified path directly.
+   * POSIX descriptor supplies the final regular-file check. A caller that has
+   * native `O_NOFOLLOW` can prohibit following the final component. Windows
+   * reads the classified path directly.
    *
    * @evidence contracts/common.md#principled-implementation POSIX opens a nonblocking descriptor, verifies its type and reads that descriptor. Windows uses the regular-file observation supplied by the caller and its ordinary file read.
    * @evidence contracts/common.md#clear-and-simple-design Shares the guarded content-read boundary between host-input and LSP fingerprints.
@@ -107,11 +108,14 @@ export namespace RuntimeFilesystem {
    */
   export function readObservedRegularFile(
     candidate: string | Buffer,
+    noFollow: boolean = false,
   ): Buffer | undefined {
     if (process.platform === "win32") return fs.readFileSync(candidate);
     const descriptor = fs.openSync(
       candidate,
-      fs.constants.O_RDONLY | fs.constants.O_NONBLOCK,
+      fs.constants.O_RDONLY |
+        fs.constants.O_NONBLOCK |
+        (noFollow ? fs.constants.O_NOFOLLOW : 0),
     );
     try {
       return fs.fstatSync(descriptor).isFile()

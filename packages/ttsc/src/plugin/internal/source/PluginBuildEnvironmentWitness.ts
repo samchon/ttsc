@@ -419,6 +419,30 @@ export namespace PluginBuildEnvironmentWitness {
   }
 
   /**
+   * Distinguish a moved native observation from a refused or unproved read. A
+   * refusal still cannot authorize reuse.
+   *
+   * @evidence contracts/common.md#principled-implementation A changed previously observed signature signals drift. Probe and refusal markers do not claim a native state.
+   * @evidence contracts/common.md#clear-and-simple-design Reuses the validation owner's current native signatures.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts An unchanged result here does not qualify a witness for reuse.
+   * @evidence contracts/common.md#meaningful-documentation Distinguishes evidence movement from missing authority.
+   * @evidence contracts/portability.md#os-neutral-implementation Current signatures use the same native metadata and environment semantics as capture.
+   * @evidence contracts/performance.md#efficient-algorithms Visits comparable keys up to the first mismatch without retaining a second map.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call observes the current native inputs.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains no observations or handles.
+   */
+  export function hasChanged(witness: Record): boolean {
+    for (const [key, recorded] of witness)
+      if (
+        key !== TOOLCHAIN_PROBE &&
+        recorded !== UNWITNESSABLE &&
+        currentSignature(key) !== recorded
+      )
+        return true;
+    return false;
+  }
+
+  /**
    * Observe the exact native keys of a failed workspace for retry comparison.
    *
    * @evidence contracts/common.md#principled-implementation Current signatures are captured with the same key interpretation as validation, even after the original observation moved.

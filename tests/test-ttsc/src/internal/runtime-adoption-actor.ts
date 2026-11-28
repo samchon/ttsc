@@ -3,19 +3,35 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { RuntimeBuildCache } from "../../../../packages/ttsc/src/compiler/internal/build/RuntimeBuildCache";
+import { ProcessOwnedDirectory } from "../../../../packages/ttsc/src/launcher/internal/runtime/ProcessOwnedDirectory";
+import { systemRuntimeRunCanChange } from "../../../../packages/ttsc/src/launcher/internal/runtime/systemRuntimeRunCanChange";
 
 export function requestRuntimeEmit(
   store: string,
   run: string,
   build: boolean,
+  systemRoot?: string,
 ): string {
-  const emitDir = path.join(run, "emit");
+  const emitDir =
+    systemRoot === undefined
+      ? path.join(run, "emit")
+      : path.join(run, "fs", "entry");
+  let publication: RuntimeBuildCache.Publication | undefined;
   const output = path.join(emitDir, "main.js");
   fs.mkdirSync(emitDir, { recursive: true });
   const result = RuntimeBuildCache.run({
     directory: store,
     emitDir,
-    parkIn: run,
+    ...(systemRoot === undefined
+      ? { parkIn: run }
+      : {
+          runDir: run,
+          canChange: (directory: string) =>
+            systemRuntimeRunCanChange(directory, systemRoot, []),
+          defer: (pending: RuntimeBuildCache.Publication) => {
+            publication = pending;
+          },
+        }),
     capture: () => "fixed source snapshot",
     admit: (candidate) => candidate.status === 0,
     recordParked: (candidate) => candidate,
@@ -32,11 +48,18 @@ export function requestRuntimeEmit(
     },
   });
   if (result.status !== 0) throw new Error("dependency emit failed");
-  return fs.readFileSync(output, "utf8");
+  const content = fs.readFileSync(output, "utf8");
+  if (build) publication?.park();
+  return content;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const [stopAt, store, run] = process.argv.slice(2);
+  const [stopAt, store, run, systemRoot] = process.argv.slice(2);
+  if (systemRoot !== undefined) ProcessOwnedDirectory.claim(run!);
+  const emitDir =
+    systemRoot === undefined
+      ? path.join(run!, "emit")
+      : path.join(run!, "fs", "entry");
   const rename = fs.renameSync;
   fs.renameSync = (from, to) => {
     const taking = path
@@ -50,11 +73,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     rename(from, to);
     if (
       (taking && stopAt === "after-take") ||
-      (to === path.join(run!, "emit") && stopAt === "after-outputs")
+      (to === emitDir && stopAt === "after-outputs")
     )
       stop();
   };
-  requestRuntimeEmit(store!, run!, false);
+  requestRuntimeEmit(store!, run!, false, systemRoot);
   throw new Error("adoption completed without interruption");
 
   function stop(claimed?: string): never {

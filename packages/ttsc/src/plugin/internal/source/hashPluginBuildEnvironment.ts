@@ -805,7 +805,7 @@ function walkGoRootIdentity(
     const { dir, physical: knownPhysical } = pending.pop()!;
     const relative = sdkRelative(root, dir);
     PluginBuildEnvironmentWitness.add(witness, dir);
-    let entries: fs.Dirent<string | Buffer>[];
+    let entries: ReturnType<typeof sdkDirectoryEntries>;
     let physical: string;
     try {
       physical = knownPhysical ?? realpath(dir);
@@ -889,7 +889,12 @@ function walkGoRootIdentity(
  * requires the byte listing, including when an unknown Dirent kind makes Node
  * look up a lossy string name and report a missing entry.
  */
-function sdkDirectoryEntries(dir: string): fs.Dirent<string | Buffer>[] {
+function sdkDirectoryEntries(
+  dir: string,
+): (
+  | fs.Dirent<string>
+  | ReturnType<typeof readPosixDirectoryEntries>[number]
+)[] {
   const posix = process.platform !== "win32";
   const raw = posix ? RuntimeFilesystem.rawRealpath(dir) : undefined;
   if (raw === undefined) {

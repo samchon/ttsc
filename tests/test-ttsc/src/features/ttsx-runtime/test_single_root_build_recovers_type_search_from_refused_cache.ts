@@ -19,7 +19,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the maintained single-root build with real TypeScript-Go, original ambient declaration packages and a native cache link. The installed compiler route must report the incompatible assignment and leave the private output tree empty.
  * @evidence contracts/testing.md#independent-expectations The authored globals are available only through the original dependency search population.
- * @evidence contracts/testing.md#distinguishing-cases Automatic @types, an ordinary explicitly named package and an explicitly configured type root run with both cache layouts. A workspace member has an intermediate dependency installation that the workspace cache would skip. Its POSIX byte-named installation also has a UTF-8 lookalike with incompatible types. With an installed compiler, the member distinguishes a failed type check from an emit with errors.
+ * @evidence contracts/testing.md#distinguishing-cases Automatic @types, an ordinary explicitly named package and an explicitly configured type root run with both cache layouts. A workspace member has an intermediate dependency installation that the workspace cache would skip. Its POSIX byte-named installation uses the compiler's preserveSymlinks option and has a UTF-8 lookalike with incompatible types. With an installed compiler, the member distinguishes a failed type check from an emit with errors.
  * @evidence contracts/testing.md#execution-ownership The unit owns its source, dependency link, output and temporary configuration roots and executes the real native compiler through buildSingleRootProject.
  */
 export function test_single_root_build_recovers_type_search_from_refused_cache(): void {
@@ -263,6 +263,7 @@ function verifyByteNamedInstallation(props: {
   output: string;
 }): void {
   const installation = path.join(props.directory, "node_modules");
+  const config = path.join(path.dirname(props.config), "raw-dependency.json");
   const bytes = Buffer.concat([
     Buffer.from(`${installation}-`),
     Buffer.from([0xff]),
@@ -279,9 +280,25 @@ function verifyByteNamedInstallation(props: {
     fs.mkdirSync(twin, { recursive: true });
     fs.writeFileSync(path.join(twin, "package.json"), '{"types":"types.d.ts"}');
     fs.writeFileSync(path.join(twin, "types.d.ts"), "declare const marker: 2;");
+    // TypeScript-Go's OS VFS reads declarations through os.DirFS, which rejects
+    // non-UTF-8 names. Its own resolver can keep the accessible ASCII alias.
+    fs.writeFileSync(
+      config,
+      JSON.stringify({
+        extends: props.config,
+        compilerOptions: { preserveSymlinks: true },
+        files: [props.source],
+      }),
+    );
+    const native = TestProject.spawn(
+      TestProject.TSGO_BINARY,
+      ["--project", config, "--noEmit", "--pretty", "false"],
+      { cwd: path.dirname(config) },
+    );
+    assert.equal(native.status, 0, native.stdout + native.stderr);
     buildSingleRootProject({
       source: props.source,
-      tsconfig: props.config,
+      tsconfig: config,
       projectRoot: path.dirname(props.config),
       key: "workspace-raw-member",
       emitDir: props.emitDir,
@@ -297,6 +314,7 @@ function verifyByteNamedInstallation(props: {
       /seen\s*=\s*marker/,
     );
   } finally {
+    if (fs.existsSync(config)) fs.unlinkSync(config);
     if (fs.lstatSync(installation, { throwIfNoEntry: false })?.isSymbolicLink())
       fs.unlinkSync(installation);
     fs.renameSync(bytes, installation);

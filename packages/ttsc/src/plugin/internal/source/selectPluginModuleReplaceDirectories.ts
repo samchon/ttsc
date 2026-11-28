@@ -72,10 +72,12 @@ export function selectPluginModuleReplaceDirectories(
   );
 }
 
-/** Go local target syntax: absolute or dot-relative with native separators. */
+/** Go local targets may be absolute, bare dots or dot-relative native paths. */
 function isFilesystemPath(target: string): boolean {
   return (
     path.isAbsolute(target) ||
+    target === "." ||
+    target === ".." ||
     target.startsWith("./") ||
     target.startsWith("../") ||
     (process.platform === "win32" &&

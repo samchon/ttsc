@@ -77,6 +77,46 @@ function withCountedFs<T>(run: (counts: SyscallCounts) => T): T {
   }
 }
 
+function atBatchReadBoundary(
+  listed: string,
+  firstFile: string,
+  replace: () => void,
+  run: () => void,
+): void {
+  const open = fs.opendirSync;
+  const read = fs.readFileSync;
+  let replaced = false;
+  if (process.platform === "win32") {
+    fs.readFileSync = ((location, options) => {
+      if (location === firstFile && !replaced) {
+        replaced = true;
+        replace();
+      }
+      return read(location, options);
+    }) as typeof fs.readFileSync;
+  } else {
+    fs.opendirSync = ((location, options) => {
+      const directory = open(location, options);
+      if (String(location) === listed && !replaced) {
+        const close = directory.closeSync.bind(directory);
+        directory.closeSync = () => {
+          close();
+          replaced = true;
+          replace();
+        };
+      }
+      return directory;
+    }) as typeof fs.opendirSync;
+  }
+  try {
+    run();
+    assert.equal(replaced, true, "the batch reached its native read boundary");
+  } finally {
+    fs.opendirSync = open;
+    fs.readFileSync = read;
+  }
+}
+
 /**
  * Verifies a warm descriptor cache load proves absent candidates with one
  * lstat, skips descendants of missing or non-directory parents, and resolves
@@ -101,7 +141,7 @@ function withCountedFs<T>(run: (counts: SyscallCounts) => T): T {
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the descriptor cache and host input helpers with native files, directories, links, absent candidates and Unicode names. Observes direct native probes and whether phases keep a complete listing, skip the listing or discard it as too wide.
  * @evidence contracts/testing.md#independent-expectations Computes SHA-256 from authored bytes and physical paths with direct native realpath; call counters and phase observations distinguish absent, dense, sparse and wide work.
- * @evidence contracts/testing.md#distinguishing-cases Contrasts cold and warm dense batches, file, directory, symlink and absent ancestry cases, case variants, normalized names, a Kelvin-sign alias, a Linux invalid filename byte beside a valid replacement character, sparse versus wide batches, opposite listing and search permissions on unprivileged POSIX, and post-phase creation.
+ * @evidence contracts/testing.md#distinguishing-cases Contrasts cold and warm dense batches, equal-byte parent and leaf replacements at the native read boundary, file, directory, symlink and absent ancestry cases, case variants, normalized names, sparse versus wide batches, opposite POSIX permissions, and post-phase creation.
  * @evidence contracts/testing.md#execution-ownership Calls maintained cache and host-input helpers directly over an owned temporary directory removed in finally, restoring every wrapped fs property in finally without starting a compiler, Go tool or subprocess.
  */
 export function test_host_input_warm_descriptor_load_syscall_budget(): void {
@@ -243,45 +283,48 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
     const entry = path.join(root, "descriptor-cache.json");
     PluginDescriptorEvaluationCache.write(entry, evaluation);
 
-    check("a fresh dense batch qualifies even its first regular leaf", () => {
-      const missing = independentAbsent[0]!;
-      const fallback = [
-        missing,
-        dirLink,
-        ...(fileLink === undefined ? [] : [fileLink]),
-      ];
-      const files = [...presentFiles, ...fallback];
-      const { counts, hashes, realpaths } = withCountedFs((counts) => {
+    check(
+      "a fresh dense batch uses the host's qualified observation lane",
+      () => {
+        const missing = independentAbsent[0]!;
+        const fallback = [
+          missing,
+          dirLink,
+          ...(fileLink === undefined ? [] : [fileLink]),
+        ];
+        const files = [...presentFiles, ...fallback];
+        const { counts, hashes, realpaths } = withCountedFs((counts) => {
+          const phase = HostInputObservationPhase.create();
+          return {
+            counts,
+            hashes: hashHostInputPaths(files, phase),
+            realpaths: realpathHostInputPaths(files, phase),
+          };
+        });
+        assert.deepEqual(
+          hashes,
+          Object.fromEntries(files.map((file) => [file, expectedHashes[file]])),
+        );
+        assert.deepEqual(
+          realpaths,
+          Object.fromEntries(
+            files.map((file) => [file, expectedRealpaths[file]]),
+          ),
+        );
+        assert.deepEqual(counts.lstatPaths, windows ? files : fallback);
+        assert.deepEqual(
+          counts.realpathNativePaths.filter((file) =>
+            presentFiles.includes(file),
+          ),
+          [],
+        );
         const phase = HostInputObservationPhase.create();
-        return {
-          counts,
-          hashes: hashHostInputPaths(files, phase),
-          realpaths: realpathHostInputPaths(files, phase),
-        };
-      });
-      assert.deepEqual(
-        hashes,
-        Object.fromEntries(files.map((file) => [file, expectedHashes[file]])),
-      );
-      assert.deepEqual(
-        realpaths,
-        Object.fromEntries(
-          files.map((file) => [file, expectedRealpaths[file]]),
-        ),
-      );
-      assert.deepEqual(counts.lstatPaths, fallback);
-      assert.deepEqual(
-        counts.realpathNativePaths.filter((file) =>
-          presentFiles.includes(file),
-        ),
-        [],
-      );
-      const phase = HostInputObservationPhase.create();
-      const first = presentFiles[0]!;
-      const priorHash = digest("a prior observation");
-      hashHostInputPaths([first], phase, () => priorHash);
-      assert.equal(hashHostInputPaths(files, phase)[first], priorHash);
-    });
+        const first = presentFiles[0]!;
+        const priorHash = digest("a prior observation");
+        hashHostInputPaths([first], phase, () => priorHash);
+        assert.equal(hashHostInputPaths(files, phase)[first], priorHash);
+      },
+    );
 
     check("warm descriptor cache read meets syscall budget", () => {
       const { counts, loaded } = withCountedFs((counts) => ({
@@ -348,8 +391,8 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
       // (c) Non-symlink files in dist/ share the physical parent and listing.
       assert.deepEqual(
         presentFiles.filter((file) => lstatByPath.has(file)),
-        [],
-        "regular directory entries replace per-file lstat calls",
+        windows ? presentFiles : [],
+        "Windows observes every leaf before grouping realpaths",
       );
       const distRealpathCalls = counts.realpathNativePaths.filter(
         (file) => file === dist,
@@ -359,8 +402,8 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
       );
       assert.equal(
         distRealpathCalls.length,
-        1,
-        `expected 1 realpathSync.native for shared ancestor dist/, got ${distRealpathCalls.length}`,
+        windows ? 1 : 2,
+        "POSIX rechecks its shared parent after no-follow reads",
       );
       assert.deepEqual(
         leafFileRealpathCalls,
@@ -368,6 +411,92 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
         `expected 0 realpathSync.native calls on non-symlink leaf files in dist/, got ${JSON.stringify(leafFileRealpathCalls)}`,
       );
     });
+
+    check("a retargeted parent cannot supply a stale physical spelling", () => {
+      const oldParent = path.join(root, "old-dense-parent");
+      const newParent = path.join(root, "new-dense-parent");
+      const alias = path.join(root, "dense-parent-alias");
+      const kind = windows ? "junction" : "dir";
+      fs.mkdirSync(oldParent);
+      fs.mkdirSync(newParent);
+      fs.symlinkSync(oldParent, alias, kind);
+      links.push(alias);
+      const names = Array.from({ length: 6 }, (_, index) => `m${index}.js`);
+      for (const name of names) {
+        fs.writeFileSync(path.join(oldParent, name), "same");
+        fs.writeFileSync(path.join(newParent, name), "same");
+      }
+      const files = names.map((name) => path.join(alias, name));
+      const recordedHashes = Object.fromEntries(
+        files.map((file) => [file, digest("same")]),
+      );
+      const recordedPaths = Object.fromEntries(
+        files.map((file) => [file, fs.realpathSync.native(file)]),
+      );
+      const entry = path.join(root, "dense-parent-entry.json");
+      PluginDescriptorEvaluationCache.write(entry, {
+        descriptor: { name: "dense-parent", hostInputHashes: {} },
+        hostInputHashes: recordedHashes,
+        hostInputRealpaths: recordedPaths,
+        inputs: files,
+        observationsComplete: true,
+      });
+      assert.notEqual(PluginDescriptorEvaluationCache.read(entry), null);
+      atBatchReadBoundary(
+        oldParent,
+        files[0]!,
+        () => {
+          fs.unlinkSync(alias);
+          fs.symlinkSync(newParent, alias, kind);
+        },
+        () => assert.equal(PluginDescriptorEvaluationCache.read(entry), null),
+      );
+      assert.deepEqual(hashHostInputPaths(files), recordedHashes);
+      assert.notDeepEqual(realpathHostInputPaths(files), recordedPaths);
+    });
+
+    if (fileLink !== undefined)
+      check(
+        "a replaced leaf cannot reuse the warm descriptor's identity",
+        () => {
+          const directory = path.join(root, "dense-leaves");
+          const target = path.join(root, "dense-leaf-target.js");
+          fs.mkdirSync(directory);
+          const files = Array.from({ length: 6 }, (_, index) =>
+            path.join(directory, `m${index}.js`),
+          );
+          for (const file of [...files, target]) fs.writeFileSync(file, "same");
+          const leaf = files[0]!;
+          const entry = path.join(root, "dense-leaf-entry.json");
+          PluginDescriptorEvaluationCache.write(entry, {
+            descriptor: { name: "dense-leaf", hostInputHashes: {} },
+            hostInputHashes: hashHostInputPaths(files),
+            hostInputRealpaths: realpathHostInputPaths(files),
+            inputs: files,
+            observationsComplete: true,
+          });
+          assert.notEqual(PluginDescriptorEvaluationCache.read(entry), null);
+          const ordinaryPhase = HostInputObservationPhase.create();
+          for (const file of files)
+            HostInputObservationPhase.hash(file, ordinaryPhase);
+          atBatchReadBoundary(
+            directory,
+            leaf,
+            () => {
+              fs.unlinkSync(leaf);
+              fs.symlinkSync(target, leaf, "file");
+              links.push(leaf);
+            },
+            () =>
+              assert.equal(PluginDescriptorEvaluationCache.read(entry), null),
+          );
+          assert.equal(
+            HostInputObservationPhase.realpath(leaf, ordinaryPhase),
+            fs.realpathSync.native(leaf),
+            "a listed symlink cannot reuse an earlier regular-file classification",
+          );
+        },
+      );
 
     check(
       "small batches preserve native casing and Unicode normalization",

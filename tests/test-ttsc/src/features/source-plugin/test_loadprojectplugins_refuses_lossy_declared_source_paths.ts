@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
-import { loadProjectPlugins } from "../../../../../packages/ttsc/src/plugin/internal/load/loadProjectPlugins";
 import { validatePluginContributors } from "../../../../../packages/ttsc/src/plugin/internal/load/validatePluginContributors";
 import type { ITtscPlugin } from "../../../../../packages/ttsc/src/structures/ITtscPlugin";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies source admission cannot change a byte path into a UTF-8 lookalike.
@@ -17,7 +18,7 @@ import type { ITtscPlugin } from "../../../../../packages/ttsc/src/structures/IT
  * @evidence contracts/testing.md#behavioral-verification The regular loader evaluates a configured CommonJS descriptor. Source and contributor admission refuse the physical byte path before package lookup or builds can open its lookalike.
  * @evidence contracts/testing.md#independent-expectations Both modules have independently authored native addresses. The alias can read the actual Go source. Literal diagnostics identify the source or contributor declaration that cannot be used.
  * @evidence contracts/testing.md#distinguishing-cases A valid replacement character is accepted. The Linux fixture has a separate raw directory with the same decoded spelling and uses it in both declaration types.
- * @evidence contracts/testing.md#execution-ownership The fixture owns the descriptor, modules, temporary cache and cleanup. The loader starts its real descriptor process and stops at source admission, before Go compilation.
+ * @evidence contracts/testing.md#execution-ownership The fixture owns the descriptor, modules, temporary cache and cleanup. The compiled loader starts its real descriptor process with its adjacent packaged preload and stops at source admission, before Go compilation.
  */
 export function test_loadprojectplugins_refuses_lossy_declared_source_paths(): void {
   const root = fs.realpathSync.native(
@@ -65,6 +66,11 @@ export function test_loadprojectplugins_refuses_lossy_declared_source_paths(): v
       tsconfig,
       '{"compilerOptions":{"plugins":[{"transform":"./descriptor.cjs"}]},"files":[]}',
     );
+    const require = createRequire(
+      path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "package.json"),
+    );
+    const { loadProjectPlugins } =
+      require("./lib/plugin/internal/load/loadProjectPlugins.js") as typeof import("../../../../../packages/ttsc/src/plugin/internal/load/loadProjectPlugins");
     assert.throws(
       () =>
         loadProjectPlugins({

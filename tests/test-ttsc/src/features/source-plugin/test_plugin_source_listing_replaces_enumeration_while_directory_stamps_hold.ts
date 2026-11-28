@@ -102,11 +102,12 @@ export function test_plugin_source_listing_replaces_enumeration_while_directory_
       this: unknown,
       ...args: unknown[]
     ) {
-      if (
-        typeof args[0] === "string" &&
-        path.resolve(args[0]).startsWith(module)
-      )
-        listings += 1;
+      const argument = args[0];
+      if (typeof argument === "string" || Buffer.isBuffer(argument)) {
+        const listed = path.resolve(argument.toString());
+        if (listed === module || listed.startsWith(module + path.sep))
+          listings += 1;
+      }
       return (original as (...args: unknown[]) => unknown).apply(this, args);
     };
     try {
