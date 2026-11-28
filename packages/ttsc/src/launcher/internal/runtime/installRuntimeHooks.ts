@@ -1877,6 +1877,29 @@ function serveBuiltDependency(
   built: DependencyBuildGeneration.BuiltProject,
   real: string,
 ): ServedSource | null {
+  const guard = dependencyEmitGuards.get(built);
+  if (!canUseDependencyEmit(built, guard)) return null;
+  const read = (file: string): string | null => {
+    if (guard !== undefined) {
+      const physical =
+        built.bundledOutputs === true
+          ? path.join(
+              built.emitDir,
+              runtimeBuildPath().RuntimeEmitBundle.filename,
+            )
+          : file;
+      try {
+        if (
+          !canUseDependencyEmit(built, guard, path.dirname(physical)) ||
+          !fs.lstatSync(physical).isFile()
+        )
+          return null;
+      } catch {
+        return null;
+      }
+    }
+    return builtProjectIndex(built).readOutput(file);
+  };
   const emitted = builtProjectIndex(built).findPhysical(real);
   if (emitted === null) {
     return null;
@@ -1885,10 +1908,8 @@ function serveBuiltDependency(
   return {
     emittedFile: emitted,
     moduleOptions: built.moduleOptions,
-    source: readOwnedEmit(emitted, real, (file) =>
-      builtProjectIndex(built).readOutput(file),
-    ),
-    readOutput: (file) => builtProjectIndex(built).readOutput(file),
+    source: readOwnedEmit(emitted, real, read),
+    readOutput: read,
     sourceFile: real,
   };
 }
@@ -2027,27 +2048,35 @@ function ensureRootBuilt(
 ): DependencyBuildGeneration.BuiltProject {
   const { DependencyBuildAdmission, readDependencyCache } = runtimeBuildPath();
   const identity = `${source}\0${contentDigest(source)}`;
-  const { cacheDir, lockDir, metaPath, root, compilerProof, plugins } =
-    dependencyCachePaths(tsconfig, identity);
+  const paths = dependencyCachePaths(tsconfig, identity);
+  const { cacheDir, lockDir, metaPath, root, canChange } = paths;
   const memo = cacheDir;
   const cached = builtRoots.get(memo);
-  if (cached !== undefined) {
+  if (cached !== undefined && canUseDependencyEmit(cached, canChange)) {
     return cached;
   }
   const failed = failedRoots.get(memo);
   if (failed !== undefined) {
     throw failed;
   }
-  const reuse = readDependencyCache(cacheDir, metaPath);
+  const reuse = readDependencyCache(cacheDir, metaPath, canChange);
   if (reuse !== null) {
+    if (canChange !== undefined) dependencyEmitGuards.set(reuse, canChange);
     builtRoots.set(memo, reuse);
     return reuse;
   }
+  if (canChange?.(root) === false)
+    throw new Error(`ttsx: unsafe system dependency cache: ${root}`);
   fs.mkdirSync(root, { recursive: true });
   let built: DependencyBuildGeneration.BuiltProject;
   try {
-    built = DependencyBuildAdmission.run(cacheDir, metaPath, lockDir, () =>
-      buildRoot(tsconfig, source, cacheDir, metaPath, compilerProof, plugins),
+    built = DependencyBuildAdmission.run(
+      cacheDir,
+      metaPath,
+      lockDir,
+      () => buildRoot(tsconfig, source, paths),
+      undefined,
+      canChange,
     );
   } catch (error) {
     // The same content fails the same way, so a second reach of this root in
@@ -2055,6 +2084,7 @@ function ensureRootBuilt(
     failedRoots.set(memo, error);
     throw error;
   }
+  if (canChange !== undefined) dependencyEmitGuards.set(built, canChange);
   builtRoots.set(memo, built);
   return built;
 }
@@ -2087,11 +2117,9 @@ function contentDigest(file: string): string {
 function buildRoot(
   tsconfig: string,
   source: string,
-  cacheDir: string,
-  metaPath: string,
-  compilerProof?: string,
-  plugins?: false,
+  paths: DependencyCachePaths,
 ): DependencyBuildGeneration.BuiltProject {
+  const { cacheDir, metaPath, compilerProof, plugins, canChange } = paths;
   const {
     DependencyBuildGeneration,
     EmitOwnershipIndex,
@@ -2107,7 +2135,14 @@ function buildRoot(
     cacheDir,
     generation,
   );
-  fs.rmSync(emitDir, { force: true, recursive: true });
+  if (canChange === undefined)
+    fs.rmSync(emitDir, { force: true, recursive: true });
+  else {
+    if (!canChange(emitDir))
+      throw new Error(`ttsx: unsafe system dependency output: ${emitDir}`);
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.mkdirSync(emitDir);
+  }
   try {
     const built = buildSingleRootProject({
       checked: rootIsChecked(source),
@@ -2122,6 +2157,15 @@ function buildRoot(
       source,
       tsconfig,
     });
+    if (
+      !runtimeBuildPath().readDependencyCache.canUseEmit(
+        emitDir,
+        emitDir,
+        built.emittedSources ?? {},
+        canChange,
+      )
+    )
+      throw new Error(`ttsx: unsafe system dependency output: ${emitDir}`);
     const rootDir = DependencyBuildGeneration.resolvePhysicalPath(
       built.rootDir,
     );
@@ -2152,6 +2196,7 @@ function buildRoot(
       emittedSourceProofFailures,
     };
   } catch (error) {
+    if (canChange?.(emitDir) === false) throw error;
     throwAfterFailedArtifactCleanup(error, emitDir, true);
   }
 }
@@ -2215,7 +2260,13 @@ function ensureProjectBuilt(
   const selected = selectedProjects.get(selection);
   if (selected !== undefined) {
     if (selected.built === undefined) throw selected.error;
-    return selected.built;
+    if (
+      canUseDependencyEmit(
+        selected.built,
+        dependencyEmitGuards.get(selected.built),
+      )
+    )
+      return selected.built;
   }
   try {
     const built = buildSelectedProject(tsconfig);
@@ -2229,12 +2280,61 @@ function ensureProjectBuilt(
       path.isAbsolute(runDir) &&
       process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD !== "1"
     )
-      runtimeBuildPath().RuntimeDependencyPrebuild.note(runDir, tsconfig);
+      noteDependencyProject(runDir, tsconfig);
     return built;
   } catch (error) {
     selectedProjects.set(selection, { error });
     throw error;
   }
+}
+
+/** Record usage under the managed manifest's current run boundary. */
+function noteDependencyProject(runDir: string, tsconfig: string): void {
+  const {
+    RuntimeDependencyPrebuild,
+    RuntimeManifestRegistry,
+    systemRuntimeRunCanChange,
+  } = runtimeBuildPath();
+  const managed = RuntimeManifestRegistry.runtimeManifests().find(
+    (entry) => entry.systemProjectRoots !== undefined,
+  );
+  if (managed === undefined) {
+    RuntimeDependencyPrebuild.note(runDir, tsconfig);
+    return;
+  }
+  if (managed.depCacheDir !== path.join(runDir, "deps")) return;
+  const root = path.dirname(path.dirname(runDir));
+  const projects = [
+    ...managed.systemProjectRoots!,
+    path.dirname(tsconfig),
+    process.cwd(),
+  ];
+  RuntimeDependencyPrebuild.note(runDir, tsconfig, (directory) =>
+    systemRuntimeRunCanChange(directory, root, projects),
+  );
+}
+
+/** Requalify the memoized managed emit before serving it again. */
+const dependencyEmitGuards = new WeakMap<
+  DependencyBuildGeneration.BuiltProject,
+  NonNullable<DependencyCachePaths["canChange"]>
+>();
+
+/** Apply the managed guard to the exact directory selected for an emit read. */
+function canUseDependencyEmit(
+  built: DependencyBuildGeneration.BuiltProject,
+  guard?: (directory: string) => boolean,
+  directory = built.emitDir,
+): boolean {
+  return (
+    guard === undefined ||
+    runtimeBuildPath().readDependencyCache.canUseEmit(
+      built.emitDir,
+      directory,
+      built.emittedSources,
+      guard,
+    )
+  );
 }
 
 /**
@@ -2254,10 +2354,10 @@ function buildSelectedProject(
   tsconfig: string,
 ): DependencyBuildGeneration.BuiltProject {
   const { DependencyBuildAdmission, readDependencyCache } = runtimeBuildPath();
-  const { cacheDir, lockDir, metaPath, root, compilerProof, plugins } =
-    dependencyCachePaths(tsconfig);
+  const paths = dependencyCachePaths(tsconfig);
+  const { cacheDir, lockDir, metaPath, root, canChange } = paths;
   const cached = builtProjects.get(cacheDir);
-  if (cached !== undefined) {
+  if (cached !== undefined && canUseDependencyEmit(cached, canChange)) {
     return cached;
   }
   const failed = failedProjects.get(cacheDir);
@@ -2265,17 +2365,25 @@ function buildSelectedProject(
     throw failed;
   }
 
-  const reuse = readDependencyCache(cacheDir, metaPath);
+  const reuse = readDependencyCache(cacheDir, metaPath, canChange);
   if (reuse !== null) {
+    if (canChange !== undefined) dependencyEmitGuards.set(reuse, canChange);
     builtProjects.set(cacheDir, reuse);
     return reuse;
   }
 
+  if (canChange?.(root) === false)
+    throw new Error(`ttsx: unsafe system dependency cache: ${root}`);
   fs.mkdirSync(root, { recursive: true });
   let built: DependencyBuildGeneration.BuiltProject;
   try {
-    built = DependencyBuildAdmission.run(cacheDir, metaPath, lockDir, () =>
-      buildDependency(tsconfig, cacheDir, metaPath, compilerProof, plugins),
+    built = DependencyBuildAdmission.run(
+      cacheDir,
+      metaPath,
+      lockDir,
+      () => buildDependency(tsconfig, paths),
+      undefined,
+      canChange,
     );
   } catch (error) {
     // Every file the project owns asks for this build before its own root
@@ -2284,6 +2392,7 @@ function buildSelectedProject(
     failedProjects.set(cacheDir, error);
     throw error;
   }
+  if (canChange !== undefined) dependencyEmitGuards.set(built, canChange);
   builtProjects.set(cacheDir, built);
   return built;
 }
@@ -2311,6 +2420,18 @@ interface DependencyCachePaths {
   plugins?: false;
 
   root: string;
+
+  /** Native directory guard of a managed system run. */
+  canChange?: (directory: string) => boolean;
+
+  /** The system run and persistent store which share this selection. */
+  system?: { run: string; cache: string };
+
+  /** Whether the shared managed cache was refused in favor of private emit. */
+  privateFallback?: true;
+
+  /** The selected config already read for managed ownership. */
+  project?: ReturnType<typeof readPluginDescriptorProjectConfig>;
 }
 
 function dependencyCachePaths(
@@ -2320,8 +2441,11 @@ function dependencyCachePaths(
   const {
     dependencyCacheKey,
     dependencyCacheRoot,
+    RuntimeManifestRegistry,
+    projectConsumerRoots,
     resolveTsgo,
     runtimeExecutableIdentity,
+    systemRuntimeRunCanChange,
   } = runtimeBuildPath();
   let compilerProof: string | undefined;
   try {
@@ -2338,7 +2462,42 @@ function dependencyCachePaths(
     compilerIdentity: compilerProof ?? crypto.randomUUID(),
     plugins,
   });
-  const root = dependencyCacheRoot(process.env, path.dirname(tsconfig));
+  const cwd = path.dirname(tsconfig);
+  let root = dependencyCacheRoot(process.env, cwd);
+  const owner = RuntimeManifestRegistry.runtimeManifests().find(
+    (entry) =>
+      entry.depCacheDir === root && entry.systemProjectRoots !== undefined,
+  );
+  let system: DependencyCachePaths["system"];
+  let canChange: DependencyCachePaths["canChange"];
+  let privateFallback: DependencyCachePaths["privateFallback"];
+  let project: DependencyCachePaths["project"];
+  if (owner !== undefined) {
+    const run = path.dirname(root);
+    const cache = path.dirname(path.dirname(run));
+    project = readPluginDescriptorProjectConfig(tsconfig);
+    const projectRoots = [
+      ...owner.systemProjectRoots!,
+      cwd,
+      process.cwd(),
+      ...projectConsumerRoots(project.identity),
+    ];
+    const guard = (directory: string) =>
+      systemRuntimeRunCanChange(directory, cache, projectRoots);
+    const lock = path.join(root, `${key}.lock`);
+    if (
+      path.join(run, "deps") === root &&
+      guard(path.join(root, key)) &&
+      guard(path.join(lock, "current")) &&
+      guard(path.join(lock, "retired"))
+    ) {
+      system = { run, cache };
+      canChange = guard;
+    } else {
+      root = dependencyCacheRoot.privateRoot(project.root);
+      privateFallback = true;
+    }
+  }
   return {
     cacheDir: path.join(root, key),
     lockDir: path.join(root, `${key}.lock`),
@@ -2346,6 +2505,10 @@ function dependencyCachePaths(
     compilerProof,
     plugins,
     root,
+    canChange,
+    system,
+    privateFallback,
+    project,
   };
 }
 
@@ -2404,47 +2567,33 @@ function assertCompilerStillCurrent(tsconfig: string, proof?: string): void {
  */
 function buildDependency(
   tsconfig: string,
-  cacheDir: string,
-  metaPath: string,
-  compilerProof?: string,
-  plugins?: false,
+  paths: DependencyCachePaths,
 ): DependencyBuildGeneration.BuiltProject {
+  const {
+    cacheDir,
+    metaPath,
+    compilerProof,
+    plugins,
+    system,
+    privateFallback,
+  } = paths;
+  const canChangeRuntimeBuild = paths.canChange;
   const {
     DependencyBuildGeneration,
     EmitOwnershipIndex,
     RuntimeEmitProvenance,
-    RuntimeManifestRegistry,
     SourceBuildCacheLayout,
     privateRuntimeRootDir,
-    projectConsumerRoots,
     projectModuleOptions,
-    systemRuntimeRunCanChange,
     resolveSourceBuildCachePaths,
     runBuild,
     runtimeCompilerArgs,
   } = runtimeBuildPath();
-  const project = readPluginDescriptorProjectConfig(tsconfig);
+  const project = paths.project ?? readPluginDescriptorProjectConfig(tsconfig);
   const compilerCacheDir = dependencyCompilerCache(project.root, cacheDir);
-  const publicationRun = dependencyPublicationRunDir();
-  const owner = RuntimeManifestRegistry.runtimeManifests().find(
-    (entry) => entry.depCacheDir === path.dirname(cacheDir),
-  );
-  const systemProjectRoots = owner?.systemProjectRoots;
-  const systemRun =
-    systemProjectRoots === undefined
-      ? undefined
-      : path.dirname(owner!.depCacheDir);
-  const systemCache =
-    systemRun === undefined ? undefined : path.dirname(path.dirname(systemRun));
-  const projectRoots =
-    systemProjectRoots === undefined
-      ? undefined
-      : [...systemProjectRoots, ...projectConsumerRoots(project.identity)];
-  const canChangeRuntimeBuild =
-    systemCache === undefined
-      ? undefined
-      : (directory: string) =>
-          systemRuntimeRunCanChange(directory, systemCache, projectRoots!);
+  const publicationRun = privateFallback
+    ? undefined
+    : dependencyPublicationRunDir();
   const generation = DependencyBuildGeneration.newDependencyGeneration();
   const emitDir = DependencyBuildGeneration.dependencyGenerationDir(
     cacheDir,
@@ -2466,11 +2615,12 @@ function buildDependency(
       cacheDir: compilerCacheDir,
       bundleRuntimeOutputs: true,
       runtimeCacheDir:
+        privateFallback ||
         process.env.TTSX_DISABLE_CACHE === "1" ||
         process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
           ? undefined
           : path.join(
-              systemCache ??
+              system?.cache ??
                 runtimeRecordStore()?.root ??
                 compilerCacheDir ??
                 resolveSourceBuildCachePaths(project.root).root,
@@ -2536,10 +2686,10 @@ function buildDependency(
       // Storing the build would read its outputs back while the program
       // waits for this module (samchon/ttsc#1859); it is left to the launcher.
       runtimePublicationRunDir:
-        systemRun === undefined || publicationRun === systemRun
+        system === undefined || publicationRun === system.run
           ? publicationRun
           : undefined,
-      runtimeBuildRunDir: systemRun ?? publicationRun,
+      runtimeBuildRunDir: system?.run ?? publicationRun,
       canChangeRuntimeBuild,
     });
     // Success is "the project wrote JavaScript", not the exit status: the build is
@@ -2547,6 +2697,15 @@ function buildDependency(
     // (typia, @ttsc/banner, …) writes its output on its own. A genuinely empty
     // output directory is the real failure; the caller then falls back to
     // isolated emit of the one file.
+    if (
+      !runtimeBuildPath().readDependencyCache.canUseEmit(
+        emitDir,
+        emitDir,
+        result.emittedSources ?? {},
+        canChangeRuntimeBuild,
+      )
+    )
+      throw new Error(`ttsx: unsafe system dependency output: ${emitDir}`);
     if (
       !DependencyBuildGeneration.emittedAnything(
         emitDir,

@@ -268,6 +268,13 @@ export namespace RuntimeBuildCache {
     }
     const directory = props.directory;
     if (props.canChange?.(directory) === false) return props.build();
+    const requiresParkReceipt =
+      props.canChange !== undefined && props.parkIn !== undefined;
+    if (
+      props.parkIn !== undefined &&
+      props.canChange?.(path.join(props.parkIn, PARKS_DIRNAME)) === false
+    )
+      return props.build();
     // A plugin's environment reads are reported by its build, after the
     // request is named, so they cannot name the request's document. Each build
     // is stored and parked under the identity and the values of exactly the
@@ -702,7 +709,7 @@ export namespace RuntimeBuildCache {
         /** A job to write over the carried one; undefined keeps it. */
         job?: unknown;
       },
-    ): void => {
+    ): boolean => {
       // A record step that finished before the program ended is kept: the
       // parked build then carries its observations, and the request that
       // adopts it replays them instead of hashing its inputs again.
@@ -781,19 +788,26 @@ export namespace RuntimeBuildCache {
             );
         },
       };
-      if (props.parkIn === undefined) props.defer!(pending);
-      else
-        try {
-          const request = pending.request();
-          if (request !== undefined)
-            saveParkRequest(props.parkIn, request, props.canChange);
-        } catch {
-          report(
-            "not-recorded",
-            "cache-publication-io-or-output-failure",
-            keyOf(readNames(result)),
-          );
-        }
+      if (props.parkIn === undefined) {
+        props.defer!(pending);
+        return true;
+      }
+      try {
+        const request = pending.request();
+        if (
+          request !== undefined &&
+          saveParkRequest(props.parkIn, request, props.canChange)
+        )
+          return true;
+      } catch {
+        /* The caller can still serve its private output. */
+      }
+      report(
+        "not-recorded",
+        "cache-publication-io-or-output-failure",
+        keyOf(readNames(result)),
+      );
+      return false;
     };
     /** Remove one parked build by a rename into the store's trash. */
     const discard = (parked: string): void => {
@@ -836,8 +850,9 @@ export namespace RuntimeBuildCache {
     if (props.recordParked !== undefined) {
       let adopted: TtscBuildResult | undefined;
       let carried: { directory: string; job?: unknown } | undefined;
+      let receiptRefused = false;
       for (const { key } of candidates) {
-        if (adopted !== undefined) break;
+        if (adopted !== undefined || receiptRefused) break;
         let published = false;
         for (const parked of parkedBuilds(key)) {
           if (adopted !== undefined || published) {
@@ -867,7 +882,7 @@ export namespace RuntimeBuildCache {
             // Torn, or left by a format or request this one cannot prove. A
             // directory still being parked has no job yet; its parker reports
             // the failure, and only its own build is lost.
-            discard(parked);
+            if (!requiresParkReceipt) discard(parked);
             continue;
           }
           try {
@@ -923,16 +938,26 @@ export namespace RuntimeBuildCache {
             if (props.parkIn !== undefined) {
               // If this process is stopped after taking the directory, the
               // run owner must be able to return it even before outputs move.
-              saveParkRequest(
-                props.parkIn,
-                {
-                  outputs: props.emitDir,
-                  parked: parkDestination(key),
-                  carried: moved,
-                  job: carry.job,
-                },
-                props.canChange,
-              );
+              let saved = false;
+              try {
+                saved = saveParkRequest(
+                  props.parkIn,
+                  {
+                    outputs: props.emitDir,
+                    parked: parkDestination(key),
+                    carried: moved,
+                    job: carry.job,
+                  },
+                  props.canChange,
+                );
+              } catch {
+                /* An unreadable receipt directory must leave the build parked. */
+              }
+              if (!saved) {
+                if (!requiresParkReceipt) continue;
+                receiptRefused = true;
+                break;
+              }
             }
             if (
               props.canChange?.(moved) === false ||
@@ -956,6 +981,7 @@ export namespace RuntimeBuildCache {
           }
         }
       }
+      if (receiptRefused) return props.build();
       if (adopted !== undefined) {
         if (props.parkIn === undefined)
           defer(adopted, lift, undefined, true, carried);
@@ -980,11 +1006,14 @@ export namespace RuntimeBuildCache {
     // This build supersedes every parked build of the request, as its record
     // replaces the stored one: those of every key it tried, all of which hold
     // its values, and of the key it is stored under.
-    for (const candidate of new Set([
-      ...candidates.map((entry) => entry.key),
-      keyOf(readNames(result)),
-    ]))
-      for (const parked of parkedBuilds(candidate)) discard(parked);
+    const discardSuperseded = (): void => {
+      for (const candidate of new Set([
+        ...candidates.map((entry) => entry.key),
+        keyOf(readNames(result)),
+      ]))
+        for (const parked of parkedBuilds(candidate)) discard(parked);
+    };
+    if (!requiresParkReceipt) discardSuperseded();
     const record =
       props.recordSteps ??
       ((fresh: TtscBuildResult) => lift(props.record?.(fresh) ?? fresh));
@@ -993,7 +1022,8 @@ export namespace RuntimeBuildCache {
       return result;
     }
     // What parking needs is taken now, before a step consumes it.
-    defer(result, record, props.parked?.(), false);
+    if (defer(result, record, props.parked?.(), false) && requiresParkReceipt)
+      discardSuperseded();
     return result;
   }
 
@@ -1101,14 +1131,14 @@ export namespace RuntimeBuildCache {
    */
   const PARKS_DIRNAME = "parks";
 
-  /** Record a move before the run owner can clean up this process's outputs. */
+  /** Persist a move before adoption can take output out of the store. */
   function saveParkRequest(
     runDir: string,
     request: ParkRequest,
     canChange?: (directory: string) => boolean,
-  ): void {
+  ): boolean {
     const parks = path.join(runDir, PARKS_DIRNAME);
-    if (canChange?.(parks) === false) return;
+    if (canChange?.(parks) === false) return false;
     fs.mkdirSync(parks, { recursive: true });
     // The owner reads requests only after this process stops. A torn write
     // leaves the store untouched because adoption requires this write first.
@@ -1117,6 +1147,7 @@ export namespace RuntimeBuildCache {
       JSON.stringify(request),
       { flag: "wx" },
     );
+    return true;
   }
 
   /**
@@ -1208,11 +1239,29 @@ export namespace RuntimeBuildCache {
         const outputs = path.join(request.carried, "outputs");
         if (fs.lstatSync(outputs, { throwIfNoEntry: false }) === undefined)
           fs.renameSync(request.outputs, outputs);
-        if (request.job !== undefined)
-          fs.writeFileSync(
-            path.join(request.carried, "job.json"),
-            JSON.stringify(request.job),
-          );
+        if (request.job !== undefined) {
+          const job = path.join(request.carried, "job.json");
+          const text = JSON.stringify(request.job);
+          if (canChange === undefined) fs.writeFileSync(job, text);
+          else {
+            const temporary = path.join(
+              request.carried,
+              crypto.randomUUID() + ".job.tmp",
+            );
+            const fd = fs.openSync(temporary, "wx");
+            try {
+              try {
+                fs.writeFileSync(fd, text);
+              } finally {
+                fs.closeSync(fd);
+              }
+              fs.renameSync(temporary, job);
+            } finally {
+              if (canChange(request.carried))
+                fs.rmSync(temporary, { force: true });
+            }
+          }
+        }
         fs.mkdirSync(path.dirname(request.parked), { recursive: true });
         fs.renameSync(request.carried, request.parked);
         return true;

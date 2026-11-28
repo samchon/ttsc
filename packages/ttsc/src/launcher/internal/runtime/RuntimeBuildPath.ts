@@ -8,6 +8,7 @@ export { EmitOwnershipIndex } from "../../../compiler/internal/EmitOwnershipInde
 export { RuntimeBuildCache } from "../../../compiler/internal/build/RuntimeBuildCache";
 export { RuntimeBuildExplanation } from "../../../compiler/internal/build/RuntimeBuildExplanation";
 export { privateRuntimeRootDir } from "../../../compiler/internal/build/privateRuntimeRootDir";
+export { RuntimeEmitBundle } from "../../../compiler/internal/build/RuntimeEmitBundle";
 export { runBuild } from "../../../compiler/internal/build/runBuild";
 export { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 export { resolveOwningProjectConfig } from "../../../compiler/internal/project/resolveOwningProjectConfig";

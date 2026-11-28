@@ -159,6 +159,7 @@ async function run(
         store,
         tsconfig: run.tsconfig,
         plugins,
+        canChange: run.canChangeRuntimeRun,
       });
     };
     dependencies.release = () => {

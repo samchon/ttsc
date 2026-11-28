@@ -55,6 +55,7 @@ export namespace RuntimeDependencyPrebuild {
    *
    * @param runDir The run directory.
    * @param tsconfig The served project's config.
+   * @param canChange Current directory qualification for a system run.
    * @evidence contracts/common.md#principled-implementation One appended line per noted project; duplicates from several processes are removed when the list is kept.
    * @evidence contracts/common.md#clear-and-simple-design One append.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed append only loses a hint.
@@ -64,9 +65,22 @@ export namespace RuntimeDependencyPrebuild {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Noting is an effect.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The file lives in the run directory and goes with it.
    */
-  export function note(runDir: string, tsconfig: string): void {
+  export function note(
+    runDir: string,
+    tsconfig: string,
+    canChange?: (directory: string) => boolean,
+  ): void {
     try {
-      fs.appendFileSync(path.join(runDir, USED_FILENAME), tsconfig + "\n");
+      const file = path.join(runDir, USED_FILENAME);
+      if (canChange === undefined) fs.appendFileSync(file, tsconfig + "\n");
+      else if (canChange(runDir)) {
+        const descriptor = openHint(file, true);
+        try {
+          fs.appendFileSync(descriptor, tsconfig + "\n");
+        } finally {
+          fs.closeSync(descriptor);
+        }
+      }
     } catch {
       /* The next run builds this project at its first import. */
     }
@@ -80,6 +94,7 @@ export namespace RuntimeDependencyPrebuild {
    * @param props.store The runtime build store.
    * @param props.tsconfig The entry project's config.
    * @param props.plugins The run's plugin policy.
+   * @param props.canChange Current directory qualification for system storage.
    * @evidence contracts/common.md#principled-implementation The record holds the sorted distinct projects of this run, replacing the previous run's.
    * @evidence contracts/common.md#clear-and-simple-design One read and one atomic write.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A run that served no dependency leaves the record as it was, so a run that ended early does not erase it.
@@ -94,24 +109,79 @@ export namespace RuntimeDependencyPrebuild {
     store: string;
     tsconfig: string;
     plugins: false | undefined;
+    canChange?: (directory: string) => boolean;
   }): void {
     try {
+      if (props.canChange?.(props.runDir) === false) return;
+      const hint = path.join(props.runDir, USED_FILENAME);
+      let text: string;
+      if (props.canChange === undefined) text = fs.readFileSync(hint, "utf8");
+      else {
+        const descriptor = openHint(hint, false);
+        try {
+          text = fs.readFileSync(descriptor, "utf8");
+        } finally {
+          fs.closeSync(descriptor);
+        }
+      }
       const projects = [
-        ...new Set(
-          fs
-            .readFileSync(path.join(props.runDir, USED_FILENAME), "utf8")
-            .split(/\r?\n/)
-            .filter((line) => path.isAbsolute(line)),
-        ),
+        ...new Set(text.split(/\r?\n/).filter((line) => path.isAbsolute(line))),
       ].sort();
-      if (projects.length === 0) return;
+      if (projects.length === 0 || props.canChange?.(props.store) === false)
+        return;
       const record = recordFile(props.store, props.tsconfig, props.plugins);
       const temporary = `${record}.${process.pid}.${crypto.randomUUID()}.tmp`;
       fs.mkdirSync(props.store, { recursive: true });
-      fs.writeFileSync(temporary, JSON.stringify(projects));
+      fs.writeFileSync(temporary, JSON.stringify(projects), { flag: "wx" });
       fs.renameSync(temporary, record);
     } catch {
       /* Without a record the next run builds dependencies as they load. */
+    }
+  }
+
+  /** Open an ordinary, singly linked hint with append semantics for writers. */
+  function openHint(file: string, append: boolean): number {
+    const entry = fs.lstatSync(file, { throwIfNoEntry: false, bigint: true });
+    if (entry !== undefined && (!entry.isFile() || entry.nlink !== 1n))
+      throw new Error(`ttsx: unsafe dependency hint: ${file}`);
+    const flags =
+      (fs.constants.O_NOFOLLOW ?? 0) | (fs.constants.O_NONBLOCK ?? 0);
+    const mode =
+      flags |
+      (append
+        ? fs.constants.O_APPEND | fs.constants.O_WRONLY
+        : fs.constants.O_RDONLY);
+    let descriptor: number;
+    if (append && entry === undefined) {
+      try {
+        descriptor = fs.openSync(
+          file,
+          mode | fs.constants.O_CREAT | fs.constants.O_EXCL,
+          0o600,
+        );
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        const created = fs.lstatSync(file, { bigint: true });
+        if (!created.isFile() || created.nlink !== 1n) throw error;
+        descriptor = fs.openSync(file, mode);
+      }
+    } else descriptor = fs.openSync(file, mode);
+    try {
+      const opened = fs.fstatSync(descriptor, { bigint: true });
+      const current = fs.lstatSync(file, { bigint: true });
+      if (
+        !opened.isFile() ||
+        opened.nlink !== 1n ||
+        !current.isFile() ||
+        current.nlink !== 1n ||
+        current.dev !== opened.dev ||
+        current.ino !== opened.ino
+      )
+        throw new Error(`ttsx: unsafe dependency hint: ${file}`);
+      return descriptor;
+    } catch (error) {
+      fs.closeSync(descriptor);
+      throw error;
     }
   }
 
@@ -150,12 +220,19 @@ export namespace RuntimeDependencyPrebuild {
   }): () => Promise<void> {
     let projects: string[];
     try {
-      const recorded: unknown = JSON.parse(
-        fs.readFileSync(
-          recordFile(props.store, props.tsconfig, props.plugins),
-          "utf8",
-        ),
-      );
+      const record = recordFile(props.store, props.tsconfig, props.plugins);
+      let text: string;
+      if (props.systemProjectRoots === undefined)
+        text = fs.readFileSync(record, "utf8");
+      else {
+        const descriptor = openHint(record, false);
+        try {
+          text = fs.readFileSync(descriptor, "utf8");
+        } finally {
+          fs.closeSync(descriptor);
+        }
+      }
+      const recorded: unknown = JSON.parse(text);
       projects = Array.isArray(recorded)
         ? recorded.filter(
             (project): project is string =>

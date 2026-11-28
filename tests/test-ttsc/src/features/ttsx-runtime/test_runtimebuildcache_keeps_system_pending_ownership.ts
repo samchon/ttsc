@@ -13,7 +13,7 @@ import { systemRuntimeRunCanChange } from "../../../../../packages/ttsc/src/laun
  *
  * @evidence contracts/testing.md#behavioral-verification The native store reads real saved requests, parks and adopts the original run's output, and preserves foreign trees and an aliased pending parent.
  * @evidence contracts/testing.md#independent-expectations Authored marker and output bytes, original coordinates and an independent producer count distinguish an actual reuse from an uncached build.
- * @evidence contracts/testing.md#distinguishing-cases An ordinary pending item, an ordinary marked project, an aliased pending parent, and a record naming another run are observed separately.
+ * @evidence contracts/testing.md#distinguishing-cases The fixture distinguishes marked and linked pending paths, an aliased receipt that prevents adoption, cross-run records, and guarded replacement of a hardlinked carried job.
  * @evidence contracts/testing.md#execution-ownership The unit uses an owned temporary tree and removes the junction before removing the tree. It starts no compiler or watcher.
  */
 export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
@@ -39,7 +39,7 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
     systemRuntimeRunCanChange(directory, systemCache, [project]);
   const parks = path.join(run, "parks");
   let builds = 0;
-  const build = (emitDir: string) => {
+  const build = (emitDir: string, beforeAdopt?: () => string | undefined) => {
     fs.mkdirSync(emitDir, { recursive: true });
     return RuntimeBuildCache.run({
       directory: store,
@@ -50,7 +50,7 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
       capture: () => undefined,
       admit: () => true,
       identity: () => "owned-build",
-      replay: () => undefined,
+      replay: () => beforeAdopt?.(),
       recordParked: (result) => result,
       build: () => {
         ++builds;
@@ -110,8 +110,59 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
       fs.readFileSync(path.join(foreign, "go.work"), "utf8"),
       "go 1.24.0\n",
     );
+    const carry = fs
+      .readdirSync(path.dirname(adopted))
+      .find((name) => name.startsWith(path.basename(adopted) + ".parked-"));
+    assert.ok(carry);
+    const carriedJob = path.join(path.dirname(adopted), carry, "job.json");
+    const outsideJob = path.join(root, "keep-job.json");
+    const originalJob = fs.readFileSync(carriedJob);
+    fs.linkSync(carriedJob, outsideJob);
     RuntimeBuildCache.parkRequested(run, store, canChange);
     assert.equal(fs.existsSync(adopted), false);
+    assert.deepEqual(fs.readFileSync(outsideJob), originalJob);
+    const [next] = fs
+      .readdirSync(pending)
+      .filter((name) => name !== "foreign-project");
+    assert.ok(next);
+    const stored = path.join(pending, next);
+    assert.equal(
+      JSON.parse(fs.readFileSync(path.join(stored, "job.json"), "utf8"))
+        .recorded,
+      true,
+    );
+
+    const heldParks = path.join(run, "held-parks");
+    const outsideParks = path.join(root, "outside-parks");
+    fs.mkdirSync(outsideParks);
+    for (const phase of ["adoption", "fresh"]) {
+      let linkedParks = false;
+      try {
+        const refused = generation(run);
+        assert.equal(
+          build(refused, () => {
+            fs.renameSync(parks, heldParks);
+            fs.symlinkSync(outsideParks, parks, "junction");
+            linkedParks = true;
+            return phase === "fresh" ? "input changed" : undefined;
+          }).status,
+          0,
+        );
+        assert.equal(linkedParks, true);
+        assert.equal(builds, phase === "adoption" ? 2 : 3);
+        assert.equal(
+          fs.readFileSync(path.join(stored, "outputs", "main.js"), "utf8"),
+          "owned build output",
+        );
+        assert.deepEqual(fs.readdirSync(outsideParks), []);
+      } finally {
+        if (linkedParks) {
+          if (process.platform === "win32") fs.rmdirSync(parks);
+          else fs.unlinkSync(parks);
+        }
+        if (fs.existsSync(heldParks)) fs.renameSync(heldParks, parks);
+      }
+    }
 
     const redirected = path.join(root, "redirected-pending");
     fs.renameSync(pending, redirected);
@@ -120,7 +171,7 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
     try {
       const isolated = generation(run);
       assert.equal(build(isolated).status, 0);
-      assert.equal(builds, 2);
+      assert.equal(builds, 4);
       RuntimeBuildCache.parkRequested(run, store, canChange);
       assert.equal(
         fs.readFileSync(path.join(isolated, "main.js"), "utf8"),

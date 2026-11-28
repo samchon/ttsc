@@ -165,6 +165,11 @@ function processPrivateRoot(projectRoot: string): string {
  * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns an accepted directory. Failed publication attempts rollback, whose error can leave the directory behind.
  */
 export namespace dependencyCacheRoot {
+  /** Select a process-owned dependency root when the managed cache is refused. */
+  export function privateRoot(projectRoot: string): string {
+    return processPrivateRoot(projectRoot);
+  }
+
   /**
    * Create an ordinary dependency parent and admit one exclusive process root.
    * A project-owned or linked parent is ineligible. A failed owner write

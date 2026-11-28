@@ -5,6 +5,7 @@ import path from "node:path";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
 import { GoSourceInputs } from "./GoSourceInputs";
+import { GoToolResolution } from "./GoToolResolution";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
 import { PluginLoadAnswers } from "./PluginLoadAnswers";
@@ -62,6 +63,30 @@ export namespace GoEnvironmentReading {
     } finally {
       recoveryObserver = previous;
     }
+  }
+
+  /**
+   * Project temporary workspace observations before they reach the watcher.
+   *
+   * @evidence contracts/common.md#principled-implementation Forwards native observations through the caller's workspace projection while that workspace exists.
+   * @evidence contracts/common.md#clear-and-simple-design The existing scoped observer owns installation and restoration.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The projection does not create recovery authority when no observer is active.
+   * @evidence contracts/common.md#meaningful-documentation Identifies where projection occurs and who receives it.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation The caller supplies the native projection.
+   * @evidence contracts/performance.md#efficient-algorithms Installs a single callback only when an observer exists.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This scope retains no result.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The existing scope restores the callback in finally.
+   */
+  export function withRecoveryProjection<T>(
+    project: (
+      witness: PluginBuildEnvironmentWitness.Record,
+    ) => PluginBuildEnvironmentWitness.Record,
+    step: () => T,
+  ): T {
+    const observe = recoveryObserver;
+    return observe === undefined
+      ? step()
+      : withRecoveryObservations((witness) => observe(project(witness)), step);
   }
 
   /**
@@ -126,6 +151,28 @@ export namespace GoEnvironmentReading {
     "HOME",
     "home",
   ] as const;
+
+  /**
+   * Whether the explicit Go environment file is interpreted in child cwd.
+   *
+   * @evidence contracts/common.md#principled-implementation A nonempty relative file setting except Go's off marker depends on the child working directory.
+   * @evidence contracts/common.md#clear-and-simple-design Package, workspace and manifest readers share the same precondition.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The test does not guess the default Go settings file.
+   * @evidence contracts/common.md#meaningful-documentation Identifies the explicit working-directory dependency.
+   * @evidence contracts/portability.md#os-neutral-implementation The shared environment accessor and native path rules establish the setting and relativity.
+   * @evidence contracts/performance.md#efficient-algorithms One lookup and path classification require no native probe.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work No result is retained.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No resource is acquired.
+   */
+  export function hasRelativeFile(env: NodeJS.ProcessEnv): boolean {
+    const file = SidecarEnvironment.read(env, "GOENV");
+    return (
+      !!file &&
+      file !== "off" &&
+      (!path.isAbsolute(file) ||
+        (process.platform === "win32" && path.parse(file).root.length === 1))
+    );
+  }
 
   /**
    * Run `go env -json` for the requested keys and `GOENV`, the file `go env -w`
@@ -198,8 +245,6 @@ export namespace GoEnvironmentReading {
     additionalProjectRoots: readonly string[] | undefined,
   ): { values: Record<string, unknown>; local: boolean } | undefined {
     const configured = SidecarEnvironment.read(env, "GOENV");
-    if (configured !== undefined && path.isAbsolute(configured))
-      PluginBuildEnvironmentWitness.add(witness, configured);
     const memo = crypto.createHash("sha256").update(goBinary);
     for (const [key, value] of Object.entries(env).sort(([left], [right]) =>
       left < right ? -1 : left > right ? 1 : 0,
@@ -208,7 +253,12 @@ export namespace GoEnvironmentReading {
         memo.update(`\0${key.length}:${key}${value.length}:${value}`);
     }
     const memoKey = memo.digest("hex");
-    let named = goEnvironmentFiles.get(memoKey);
+    // Hints keep Go's spelling, never a pathname resolved under another cwd.
+    let named = configured
+      ? configured === "off"
+        ? null
+        : configured
+      : goEnvironmentFiles.get(memoKey);
     if (named === undefined) {
       const hinted = PluginLoadAnswers.read(
         identities,
@@ -226,7 +276,10 @@ export namespace GoEnvironmentReading {
     let delegated: readonly [root: string, version: string] | undefined;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       if (named !== undefined && named !== null)
-        PluginBuildEnvironmentWitness.add(witness, named);
+        PluginBuildEnvironmentWitness.add(
+          witness,
+          GoToolResolution.workingPath(cwd, named),
+        );
       const result = spawnGoTool(goBinary, args, {
         additionalProjectRoots,
         cwd,
@@ -235,7 +288,22 @@ export namespace GoEnvironmentReading {
         env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
         windowsHide: true,
       });
-      if (result.error !== undefined || result.status !== 0) return undefined;
+      if (result.error !== undefined) return undefined;
+      if (result.status !== 0) {
+        if (recoveryObserver === undefined || named !== undefined)
+          return undefined;
+        named = discoverRecoveryFile(
+          goBinary,
+          cwd,
+          env,
+          projectRoot,
+          additionalProjectRoots,
+        );
+        if (named === undefined) return undefined;
+        const file = GoToolResolution.workingPath(cwd, named);
+        PluginBuildEnvironmentWitness.add(witness, file);
+        continue;
+      }
       let parsed: Record<string, unknown>;
       try {
         const decoded: unknown = JSON.parse(result.stdout);
@@ -326,6 +394,9 @@ export namespace GoEnvironmentReading {
         parsed.GOENV !== "off"
           ? parsed.GOENV
           : null;
+      if (reported !== null)
+        parsed.GOENV = GoToolResolution.workingPath(cwd, reported);
+      else if (configured === "off") parsed.GOENV = "off";
       if (reported === named) {
         goEnvironmentFiles.set(memoKey, named);
         if (named !== remembered)
@@ -338,7 +409,8 @@ export namespace GoEnvironmentReading {
         if (repeatForToolchain) continue;
         return reading;
       }
-      if (named !== undefined && named !== null) witness?.delete(named);
+      if (named !== undefined && named !== null)
+        witness?.delete(GoToolResolution.workingPath(cwd, named));
       named = reported;
       goEnvironmentFiles.set(memoKey, named);
       // No file to witness: the reading depends on none.
@@ -354,7 +426,40 @@ export namespace GoEnvironmentReading {
       }
     }
     if (named !== undefined && named !== null)
-      PluginBuildEnvironmentWitness.refuse(witness, named);
+      PluginBuildEnvironmentWitness.refuse(
+        witness,
+        GoToolResolution.workingPath(cwd, named),
+      );
+    return undefined;
+  }
+
+  /** Locate the user settings with the local launcher when selection failed. */
+  function discoverRecoveryFile(
+    goBinary: string,
+    cwd: string,
+    env: NodeJS.ProcessEnv,
+    projectRoot: string | undefined,
+    additionalProjectRoots: readonly string[] | undefined,
+  ): string | undefined {
+    const result = spawnGoTool(goBinary, ["env", "-json", "GOENV"], {
+      additionalProjectRoots,
+      cwd,
+      projectRoot,
+      encoding: "utf8",
+      env: SidecarEnvironment.merge(
+        GoSourceInputs.goBuildEnv(goBinary, undefined, env),
+        { GOTOOLCHAIN: "local", GOWORK: "off", GOFLAGS: " " },
+      ),
+      windowsHide: true,
+    });
+    if (result.error !== undefined || result.status !== 0) return undefined;
+    try {
+      const file: unknown = JSON.parse(result.stdout)?.GOENV;
+      if (typeof file === "string" && file !== "" && file !== "off")
+        return file;
+    } catch {
+      // The original selection remains unavailable.
+    }
     return undefined;
   }
 
@@ -430,7 +535,7 @@ export namespace GoEnvironmentReading {
     additionalProjectRoots?: readonly string[],
   ): Record<string, unknown> | undefined {
     const identity = [
-      1,
+      2,
       goBinary,
       cwd,
       path.isAbsolute(cwd) ? null : process.cwd(),

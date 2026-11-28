@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { resolvePhysicalPath } from "../../../internal/pathIdentity/resolvePhysicalPath";
+import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
 import { GoToolResolution } from "./GoToolResolution";
 import type { IPluginModuleReplaceDirectory } from "./IPluginModuleReplaceDirectory";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
@@ -21,7 +22,8 @@ import { selectPluginModuleReplaceDirectories } from "./selectPluginModuleReplac
  * it. buildSourcePlugin snapshots and proves that target's copy, then anchors
  * the replacement to the copy before compiling. A relative target also has to
  * resolve from the module's own directory, as it does for `go build` there, and
- * not from the scratch copy the build runs in.
+ * not from the scratch copy the build runs in. A non-UTF-8 physical POSIX path
+ * cannot supply the string addresses used for selection and copying.
  *
  * The directives are read through `go mod edit -json`, Go's own reading of
  * `go.mod`, not a copy of its grammar. Only the main module's directives count,
@@ -36,14 +38,14 @@ import { selectPluginModuleReplaceDirectories } from "./selectPluginModuleReplac
  * @returns Each replacement outside the module, sorted by module path: the
  *   replaced module path and version, the target as `go.mod` spells it, and the
  *   target's absolute path.
- * @throws On non-ENOENT manifest reads, or when the replace-triggered Go query
- *   fails or supplies an unusable JSON result. A no-marker manifest skips Go
- *   parsing here; this is not general go.mod validation.
+ * @throws On non-ENOENT manifest reads, unusable Go query results, or a local
+ *   replacement whose physical path cannot be represented as UTF-8. A no-marker
+ *   manifest skips Go parsing here.
  * @evidence contracts/common.md#principled-implementation When the replace marker triggers a query, Go parses its grammar. Unversioned local targets selected outside best-effort root/target spellings are reported, resolving relative paths from the original module; unavailable identity resolution does not certify complete physical containment.
  * @evidence contracts/common.md#clear-and-simple-design A cheap no-replace scan avoids unnecessary parsing; the common selected-tool/load reader owns Go syntax, and this operation owns current physical containment.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The implementation uses Go's supported mod-edit interface instead of a handwritten grammar or special-casing particular dependency names.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain external versus internal replacement ownership, original-directory resolution and returned spellings; failure behavior is documented.
- * @evidence contracts/portability.md#os-neutral-implementation Node path and physical-path resolution determine containment; Go local-path syntax accepts native absolute paths and Windows-relative backslashes only on Windows.
+ * @evidence contracts/portability.md#os-neutral-implementation Native Go path syntax and physical-path resolution determine containment. POSIX byte paths are qualified before use, and a missing suffix retains established best-effort behavior after its existing ancestry is checked.
  * @evidence contracts/performance.md#efficient-algorithms Full manifest read/UTF-8 marker scan can skip Go parsing. Otherwise selected-tool reader acquisition and a current manifest read precede a pass over all parsed directives, not only returned ones. Equivalent bytes share Go JSON acquisition only in the supplied fixed-environment load registry; a new syntax record pays native tool/env/capture and full JSON costs; each selected local target uses native best-effort identity resolution, which can traverse ancestors/probe case. Sorting returned module/version strings processes their bytes, with complete manifest/output/path arrays retained transiently and no replacement content digest scan here.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work The optional pinned-tool/load reader or registry shares Go parsing of identical current bytes with package observation and workspace creation. Physical replacement containment is recomputed every call, never borrowed from that syntax memo.
@@ -96,6 +98,34 @@ export function pluginModuleReplaceDirectories(
   return selectPluginModuleReplaceDirectories(
     root,
     parsed.directives,
-    resolvePhysicalPath,
+    resolveReplacementPath,
   );
+}
+
+/** Qualify the existing target or ancestry before using a string spelling. */
+function resolveReplacementPath(location: string): string {
+  if (process.platform === "win32") return resolvePhysicalPath(location);
+  let current = location;
+  for (;;) {
+    let physical: string | undefined;
+    try {
+      physical = RuntimeFilesystem.realpathWitness(current);
+    } catch {
+      // The original resolution permits missing or unavailable components.
+    }
+    if (physical !== undefined) {
+      if (physical.includes("\0"))
+        throw new Error(
+          `ttsc: local Go replacement has no UTF-8 physical path: ${location}`,
+        );
+      return current === location
+        ? physical
+        : resolvePhysicalPath(
+            path.join(physical, path.relative(current, location)),
+          );
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return location;
+    current = parent;
+  }
 }

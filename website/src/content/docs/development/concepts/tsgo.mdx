@@ -87,7 +87,7 @@ The installed `typescript` version picks the target by its major.minor line. `7.
 
 Within a line, a plugin builds against the compiler revision `ttsc` pins for that target. A project that runs a compiler built from another revision of the same line, such as a fork with checker changes, sets `TTSC_TSGO_SOURCE` to the absolute directory of that compiler's Go module: the directory whose `go.mod` declares `github.com/microsoft/TypeScript/tsc` for 7.1, or `github.com/microsoft/typescript-go` for 7.0. A symbolic link to the directory is followed. On POSIX, a UTF-8 link can also name a compiler source directory whose physical path contains non-UTF-8 bytes. Plugins, the linked plugin host and the in-memory compiler host then compile that source in place of the pinned revision, so their checker is the one the project's `tsc` runs. Set it together with `TTSC_TSGO_BINARY`, to the source that binary was built from.
 
-On POSIX, plugin and contributor `source` paths must resolve to physical paths that can be represented as UTF-8. The loader uses those physical paths to find the owning `go.mod` before copying or compiling the module.
+On POSIX, plugin and contributor `source` paths must resolve to physical paths that can be represented as UTF-8. The loader uses those paths to find the owning `go.mod`. Local Go `replace` targets have the same requirement so the build can identify and copy the correct module.
 
 ```bash
 export TTSC_TSGO_BINARY=/opt/typescript/tsc/bin/tsc

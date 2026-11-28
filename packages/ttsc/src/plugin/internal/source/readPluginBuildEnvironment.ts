@@ -51,8 +51,8 @@ export function readPluginBuildEnvironment(
   projectRoot?: string,
 ): string {
   const identity = [
-    // Older answers do not carry the current native cwd and delegation proof.
-    7,
+    // Older answers could witness a relative GOENV from the caller's cwd.
+    8,
     goBinary ?? null,
     directory,
     path.isAbsolute(directory) ? null : process.cwd(),

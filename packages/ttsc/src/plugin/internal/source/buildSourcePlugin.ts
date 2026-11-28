@@ -398,7 +398,7 @@ function buildSourcePluginAttempt(
         workspace = observed;
         freshWorkspace = observed;
         qualified = observed.qualified;
-        local = observed.local;
+        local = observed.replayable;
       }
       PluginBuildEnvironmentWitness.join(environmentWitness, workspace.witness);
       const sourceEnvironment = environmentDigests.get(path.resolve(dir));
@@ -412,6 +412,7 @@ function buildSourcePluginAttempt(
             : GoWorkspaceEnvironment.externalWitness(
                 preparedDirectory,
                 environmentWitness,
+                env,
               ),
       };
       retainRecoveryWitness?.(workspaceEnvironment.witness);

@@ -293,7 +293,14 @@ export namespace NativeSourcePackages {
           identities: opts.identities,
           projectRoot: opts.projectRoot,
         });
-        GoEnvironmentReading.reportRecovery(freshWorkspace.witness, scratch);
+        GoEnvironmentReading.reportRecovery(
+          GoWorkspaceEnvironment.externalWitness(
+            scratch,
+            freshWorkspace.witness,
+            opts.env,
+          ),
+          scratch,
+        );
         if (freshWorkspace.qualified) workspace = freshWorkspace;
       }
       const observed = read({

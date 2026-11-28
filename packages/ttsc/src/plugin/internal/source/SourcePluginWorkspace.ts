@@ -440,7 +440,10 @@ export namespace SourcePluginWorkspace {
     // Shared views must forward their current label to every failed native read.
     const cache = new Map<string, GoModInfo>();
     const environment = { ...env };
+    const relativeEnvironment =
+      GoEnvironmentReading.hasRelativeFile(environment);
     let toolWitness: PluginBuildEnvironmentWitness.Record | undefined;
+    let toolCwd: string | undefined;
     // The tool part of a recorded parse's identity, formed with each qualified
     // witness; undefined without a store or a provable tool.
     let toolIdentity: unknown;
@@ -457,10 +460,15 @@ export namespace SourcePluginWorkspace {
             return emptyGoModInfo();
           throw error;
         }
+        const cwd = relativeEnvironment
+          ? systemTempOutsideProject(projectRoot ?? resolved, [resolved])
+          : undefined;
         if (
           toolWitness === undefined ||
+          cwd !== toolCwd ||
           !PluginBuildEnvironmentWitness.reusable(toolWitness)
         ) {
+          toolCwd = cwd;
           cache.clear();
           const witness: PluginBuildEnvironmentWitness.Record = new Map();
           let launcher: fs.BigIntStats | undefined;
@@ -486,12 +494,16 @@ export namespace SourcePluginWorkspace {
             launcher?.isFile() === true
               ? GoEnvironmentReading.recorded(
                   goBinary,
-                  systemTempOutsideProject(projectRoot ?? resolved, [resolved]),
+                  cwd ??
+                    systemTempOutsideProject(projectRoot ?? resolved, [
+                      resolved,
+                    ]),
                   environment,
                   ["GOROOT"],
                   witness,
                   identities,
                   projectRoot ?? resolved,
+                  [resolved],
                 )
               : undefined;
           if (
@@ -560,6 +572,7 @@ export namespace SourcePluginWorkspace {
           diagnosticPlugin,
           environment,
           projectRoot,
+          cwd,
         );
         if (!fs.readFileSync(manifest).equals(bytes))
           throw new Error(
@@ -595,6 +608,7 @@ export namespace SourcePluginWorkspace {
     pluginName: string,
     env: NodeJS.ProcessEnv,
     projectRoot = dir,
+    cwd = systemTempOutsideProject(projectRoot, [dir]),
   ): GoModInfo {
     if (!fs.existsSync(path.join(dir, "go.mod"))) {
       return emptyGoModInfo();
@@ -605,7 +619,6 @@ export namespace SourcePluginWorkspace {
     // source mirrors its absolute path below the build's scratch directory, and
     // Windows refuses a working directory longer than MAX_PATH even where every
     // path the build itself opens is fine.
-    const cwd = systemTempOutsideProject(projectRoot, [dir]);
     const result = spawnGoTool(
       goBinary,
       ["mod", "edit", "-json", path.join(dir, "go.mod")],

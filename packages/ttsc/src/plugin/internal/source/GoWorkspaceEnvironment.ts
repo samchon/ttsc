@@ -2,11 +2,15 @@ import crypto from "node:crypto";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
+import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
+import { GoEnvironmentReading } from "./GoEnvironmentReading";
+import { GoToolResolution } from "./GoToolResolution";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import { WitnessedLoadAnswers } from "./WitnessedLoadAnswers";
 import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
+import { isPathWithin } from "./isPathWithin";
 import { readSourceBuildFile } from "./readSourceBuildFile";
 
 /**
@@ -23,11 +27,12 @@ import { readSourceBuildFile } from "./readSourceBuildFile";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The namespace retains no resource or in-memory state.
  */
 export namespace GoWorkspaceEnvironment {
-  const KIND = "go-workspace-environment-v2";
+  const KIND = "go-workspace-environment-v3";
 
   /**
    * Skip a generated workspace probe only when the explicit local setting has
-   * native origin evidence. The caller separately validates that evidence.
+   * native origin evidence and GOENV is independent of the working directory.
+   * The caller separately validates that evidence.
    *
    * @evidence contracts/common.md#principled-implementation Explicit local disables Go's automatic dispatch. An earlier unproved reading cannot establish which executable or SDK will handle the workspace.
    * @evidence contracts/common.md#clear-and-simple-design Binary and package selection reuse the same shortcut decision.
@@ -44,6 +49,7 @@ export namespace GoWorkspaceEnvironment {
   ): boolean {
     return (
       SidecarEnvironment.read(env, "GOTOOLCHAIN") === "local" &&
+      !GoEnvironmentReading.hasRelativeFile(env) &&
       PluginBuildEnvironmentWitness.hasToolchainProof(witness)
     );
   }
@@ -133,30 +139,45 @@ export namespace GoWorkspaceEnvironment {
     witness: PluginBuildEnvironmentWitness.Record;
     qualified: boolean;
     local: boolean;
+    replayable: boolean;
   } {
     const witness: PluginBuildEnvironmentWitness.Record = new Map();
     const hash = crypto.createHash("sha256");
-    const local = hashPluginBuildEnvironment(
-      hash,
-      opts.goBinary,
-      opts.directory,
-      opts.env,
-      {
-        realpath: opts.filesystem?.realpath,
-        readFile: opts.filesystem?.readFile ?? readSourceBuildFile,
-        readRawFile:
-          opts.filesystem?.readRawFile ??
-          (opts.filesystem?.readFile === undefined
-            ? readSourceBuildFile
-            : undefined),
-      },
-      witness,
-      opts.identities,
-      opts.projectRoot,
-    );
+    const relative = GoEnvironmentReading.hasRelativeFile(opts.env);
+    const acquire = () =>
+      hashPluginBuildEnvironment(
+        hash,
+        opts.goBinary,
+        opts.directory,
+        opts.env,
+        {
+          realpath: opts.filesystem?.realpath,
+          readFile: opts.filesystem?.readFile ?? readSourceBuildFile,
+          readRawFile:
+            opts.filesystem?.readRawFile ??
+            (opts.filesystem?.readFile === undefined
+              ? readSourceBuildFile
+              : undefined),
+        },
+        witness,
+        opts.identities,
+        opts.projectRoot,
+      );
+    const local = relative
+      ? GoEnvironmentReading.withRecoveryProjection(
+          (entries) => externalWitness(opts.directory, entries, opts.env),
+          acquire,
+        )
+      : acquire();
     const value = hash.digest("hex");
     const qualified = PluginBuildEnvironmentWitness.reusable(witness);
-    return { value, witness, qualified, local };
+    return {
+      value,
+      witness,
+      qualified,
+      local,
+      replayable: local && !relative,
+    };
   }
 
   /**
@@ -179,7 +200,7 @@ export namespace GoWorkspaceEnvironment {
     observation: ReturnType<typeof observe>,
   ): void {
     if (
-      !observation.local ||
+      !observation.replayable ||
       !observation.qualified ||
       !PluginBuildEnvironmentWitness.reusable(observation.witness)
     )
@@ -197,23 +218,49 @@ export namespace GoWorkspaceEnvironment {
    * Keep the external observations from a live workspace proof. The caller
    * separately checks the generated inputs while their directory still exists.
    *
-   * @evidence contracts/common.md#principled-implementation Excludes only the physical scratch directory and two generated selectors owned by the caller.
+   * @evidence contracts/common.md#principled-implementation Excludes the physical scratch directory, its two generated selectors and a relative settings file physically owned by scratch.
    * @evidence contracts/common.md#clear-and-simple-design One projection serves durable proofs and outer build consumers.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Removing scratch observations does not validate any external metadata.
    * @evidence contracts/common.md#meaningful-documentation Identifies the omitted inputs and the caller's validation responsibility.
    * @evidence contracts/portability.md#os-neutral-implementation Native path joins identify the two module and workspace selectors.
-   * @evidence contracts/performance.md#efficient-algorithms Copies the witness map and removes three fixed keys.
+   * @evidence contracts/performance.md#efficient-algorithms Copies the witness map and removes three fixed keys. A relative GOENV can also query its candidate and existing native ancestors.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Projection does not cache its own result.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the result.
    */
   export function externalWitness(
     directory: string,
     witness: PluginBuildEnvironmentWitness.Record,
+    env?: NodeJS.ProcessEnv,
   ): PluginBuildEnvironmentWitness.Record {
     const external = new Map(witness);
     external.delete(`\0directory:${directory}`);
     external.delete(path.join(directory, "go.mod"));
     external.delete(path.join(directory, "go.work"));
+    if (env !== undefined && GoEnvironmentReading.hasRelativeFile(env)) {
+      const file = GoToolResolution.workingPath(
+        directory,
+        SidecarEnvironment.read(env, "GOENV")!,
+      );
+      if (external.has(file) && insideScratch(file, directory))
+        external.delete(file);
+    }
     return external;
+  }
+
+  /** Resolve the existing prefix without cleaning POSIX parent components. */
+  function insideScratch(file: string, scratch: string): boolean {
+    for (let current = file; ; current = path.dirname(current)) {
+      try {
+        const physical = RuntimeFilesystem.realpathWitness(current);
+        return !physical.includes("\0") && isPathWithin(physical, scratch);
+      } catch (error) {
+        if (
+          (error as NodeJS.ErrnoException).code !== "ENOENT" ||
+          path.dirname(current) === current ||
+          path.basename(current) === ".."
+        )
+          return false;
+      }
+    }
   }
 }

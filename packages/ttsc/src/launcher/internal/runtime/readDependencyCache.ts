@@ -1,7 +1,12 @@
 import fs from "node:fs";
+import path from "node:path";
 
+import { RuntimeEmitBundle } from "../../../compiler/internal/build/RuntimeEmitBundle";
+import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
+import { isPathWithin } from "../../../plugin/internal/source/isPathWithin";
 import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
 import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
+import { RuntimeFilesystem } from "./RuntimeFilesystem";
 import { projectModuleOptions } from "./projectModuleOptions";
 
 /**
@@ -34,9 +39,15 @@ import { projectModuleOptions } from "./projectModuleOptions";
 export function readDependencyCache(
   cacheDir: string,
   metaPath: string,
+  canChange?: (directory: string) => boolean,
 ): DependencyBuildGeneration.BuiltProject | null {
   let meta: DependencyBuildGeneration.DependencyCacheMeta;
   try {
+    if (canChange !== undefined) {
+      if (!canChange(cacheDir)) return null;
+      const marker = fs.lstatSync(metaPath);
+      if (!marker.isFile() || marker.nlink !== 1) return null;
+    }
     meta = JSON.parse(
       fs.readFileSync(metaPath, "utf8"),
     ) as DependencyBuildGeneration.DependencyCacheMeta;
@@ -74,6 +85,20 @@ export function readDependencyCache(
   );
   try {
     if (
+      canChange !== undefined &&
+      (!readDependencyCache.canUseEmit(
+        emitDir,
+        emitDir,
+        meta.emittedSources,
+        canChange,
+      ) ||
+        (meta.bundledOutputs === true &&
+          !fs
+            .lstatSync(path.join(emitDir, RuntimeEmitBundle.filename))
+            .isFile()))
+    )
+      return null;
+    if (
       !DependencyBuildGeneration.emittedAnything(
         emitDir,
         meta.bundledOutputs === true,
@@ -99,4 +124,56 @@ export function readDependencyCache(
     // root's spelling or a reconstruction of the output layout.
     rootDir: DependencyBuildGeneration.resolvePhysicalPath(meta.rootDir),
   };
+}
+
+export namespace readDependencyCache {
+  /**
+   * Qualify a selected generation, including any JSON markers copied by its
+   * compiler.
+   */
+  export function canUseEmit(
+    emitDir: string,
+    directory: string,
+    emittedSources: Readonly<Record<string, readonly string[]>>,
+    canChange?: (directory: string) => boolean,
+  ): boolean {
+    if (canChange === undefined) return true;
+    if (
+      !isPathWithin(directory, emitDir) ||
+      path.join(emitDir, path.relative(emitDir, directory)) !== directory
+    )
+      return false;
+    if (canChange(directory)) return true;
+    if (!canChange(path.dirname(emitDir))) return false;
+    try {
+      for (let current = directory; ; current = path.dirname(current)) {
+        if (
+          !fs.lstatSync(current).isDirectory() ||
+          RuntimeFilesystem.realpathWitness(current) !== current
+        )
+          return false;
+        for (const name of fs.readdirSync(current)) {
+          if (!systemTempOutsideProject.isProjectMarker(name)) continue;
+          const marker = path.join(current, name);
+          if (!name.endsWith(".json") || !fs.lstatSync(marker).isFile())
+            return false;
+          const bytes = fs.readFileSync(marker);
+          if (
+            !emittedSources[marker]?.some(
+              (source) =>
+                path.basename(source) === name &&
+                fs.lstatSync(source, { throwIfNoEntry: false })?.isFile() ===
+                  true &&
+                RuntimeFilesystem.realpathWitness(source) === source &&
+                fs.readFileSync(source).equals(bytes),
+            )
+          )
+            return false;
+        }
+        if (current === emitDir) return true;
+      }
+    } catch {
+      return false;
+    }
+  }
 }
