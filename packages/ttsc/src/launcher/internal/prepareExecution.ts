@@ -215,6 +215,7 @@ export function prepareExecution(
       context.processDir,
       context.cacheDir,
       context.canChangeRuntimeRun,
+      context.systemProjectRoots,
     );
     throw error;
   }
@@ -669,6 +670,7 @@ function buildProject(
     context.processDir,
     context.cacheDir,
     context.canChangeRuntimeRun,
+    context.systemProjectRoots,
   );
   const detail = [
     `ttsx: project check failed for ${context.tsconfig}`,
@@ -802,10 +804,14 @@ function claimSystemRuntimeCacheDirectory(
         cacheDir,
         runKey,
         (runtimeRoot, claim) =>
-          withRuntimeDirectoryLock(runtimeRoot, () => {
-            claimStarted = true;
-            return claim();
-          }),
+          withRuntimeDirectoryLock(
+            runtimeRoot,
+            () => {
+              claimStarted = true;
+              return claim();
+            },
+            projectRoots,
+          ),
         canChange,
       );
       return { cacheDir, processDir, canChange, projectRoots };
@@ -883,10 +889,11 @@ function removeRuntimeOutput(
   directory: string,
   runtimeCacheDir: string,
   canChange?: (directory: string) => boolean,
+  systemProjectRoots?: readonly string[],
 ): void {
   try {
     if (canChange?.(directory) === false) return;
-    withRuntimeDirectoryLock(runtimeCacheDir, () => {
+    const remove = () => {
       if (canChange?.(directory) === false) return;
       ProcessOwnedDirectory.relinquish(directory);
       const ownership = ProcessOwnedDirectory.ownership(directory, false);
@@ -907,7 +914,8 @@ function removeRuntimeOutput(
         !RuntimeTrash.retire(directory, runtimeCacheDir, canChange)
       )
         fs.rmSync(directory, { recursive: true, force: true });
-    });
+    };
+    withRuntimeDirectoryLock(runtimeCacheDir, remove, systemProjectRoots);
   } catch {
     // Best effort: cleanup must not hide the original preparation failure.
   }

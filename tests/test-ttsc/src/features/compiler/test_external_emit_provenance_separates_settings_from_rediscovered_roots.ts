@@ -9,6 +9,7 @@ import { PassthroughFlags } from "../../../../../packages/ttsc/src/compiler/inte
 import type { runExternalEmitProvenance } from "../../../../../packages/ttsc/src/compiler/internal/build/runExternalEmitProvenance";
 import { readCompilerOptionOccurrence } from "../../../../../packages/ttsc/src/flags/readCompilerOptionOccurrence";
 import { resolveFlagSpec } from "../../../../../packages/ttsc/src/flags/resolveFlagSpec";
+import { systemTempOutsideProject } from "../../../../../packages/ttsc/src/internal/systemTempOutsideProject";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -154,6 +155,7 @@ export function test_external_emit_provenance_separates_settings_from_rediscover
           "spawnNative",
           "CompilerDiagnostics",
           "PassthroughFlags",
+          "systemTempOutsideProject",
           javascript + "\nreturn runExternalEmitProvenance;",
         )(
           {},
@@ -185,6 +187,7 @@ export function test_external_emit_provenance_separates_settings_from_rediscover
           }),
           CompilerDiagnostics,
           PassthroughFlags,
+          systemTempOutsideProject,
         ) as typeof runExternalEmitProvenance;
         const args = ["-p", config];
         const stdout =

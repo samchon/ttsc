@@ -9,14 +9,16 @@ import { installRuntimeHooks } from "./launcher/internal/runtime/installRuntimeH
 import { runtimeRunKey } from "./launcher/internal/runtime/runtimeRunKey";
 import { systemRuntimeRunTree } from "./launcher/internal/runtime/systemRuntimeRunTree";
 import { withRuntimeDirectoryLock } from "./launcher/internal/runtime/withRuntimeDirectoryLock";
+import { writeRuntimeManifest } from "./launcher/internal/runtime/writeRuntimeManifest";
 
 const cleanupDirectories = new Map<
   string,
   {
     canChange?: (directory: string) => boolean;
-    manifest: RuntimeManifest;
     runtimeRoot: string;
     buildStore?: string;
+    publication?: RuntimeBuildCache.Publication;
+    systemProjectRoots?: readonly string[];
   }
 >();
 let runtimeSequence = 0;
@@ -51,10 +53,17 @@ function prepareEntry(filename: string): RuntimeManifest {
   };
   cleanupDirectories.set(execution.cleanupDir, {
     canChange: execution.canChangeRuntimeRun,
-    manifest,
     runtimeRoot: execution.runtimeCacheDir,
     buildStore: execution.runtimeBuildCacheDir,
+    publication: execution.publication,
+    systemProjectRoots: execution.systemProjectRoots,
   });
+  if (execution.canChangeRuntimeRun !== undefined)
+    writeRuntimeManifest(
+      path.join(execution.cleanupDir, "runtime-manifest.json"),
+      manifest,
+      execution.canChangeRuntimeRun,
+    );
   return manifest;
 }
 
@@ -62,30 +71,29 @@ function prepareEntry(filename: string): RuntimeManifest {
  * Remove every register-owned transient emit when the JavaScript host exits.
  * Cleanup is best-effort and does not override the host's exit status.
  *
- * Each recorded transient tree is visited once. Under the system cache lock, an
- * eligible run can return its adopted outputs before deletion. Failed cleanup
- * may leave disk output, and abrupt process termination can bypass this
+ * Each recorded tree is visited once. Under the system cache lock, an eligible
+ * run can park unfinished publication and return adopted outputs. Failed
+ * cleanup may leave disk output, and abrupt process termination can bypass this
  * callback.
  */
 function cleanupRuntimeOutputs(): void {
+  RuntimeEmitBundle.release();
   for (const [
     directory,
-    { canChange, manifest, runtimeRoot, buildStore },
+    { canChange, runtimeRoot, buildStore, publication, systemProjectRoots },
   ] of cleanupDirectories) {
     try {
       const remove = () => {
-        if (
-          systemRuntimeRunTree(directory, canChange, manifest) === "protected"
-        )
-          return;
+        if (systemRuntimeRunTree(directory, canChange) === "protected") return;
+        publication?.park();
         if (canChange !== undefined && buildStore !== undefined) {
-          RuntimeEmitBundle.release();
           RuntimeBuildCache.parkRequested(directory, buildStore, canChange);
         }
         fs.rmSync(directory, { force: true, recursive: true });
       };
-      if (canChange !== undefined && buildStore !== undefined) {
-        if (canChange(directory)) withRuntimeDirectoryLock(runtimeRoot, remove);
+      if (canChange !== undefined) {
+        if (canChange(directory))
+          withRuntimeDirectoryLock(runtimeRoot, remove, systemProjectRoots);
       } else remove();
     } catch {
       // Best effort: cleanup must not replace the host process exit status.

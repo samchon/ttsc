@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { readCompilerOptionOccurrence } from "../../../flags/readCompilerOptionOccurrence";
 import { resolveFlagSpec } from "../../../flags/resolveFlagSpec";
+import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import { CompilerArgumentsInspection } from "../CompilerArgumentsInspection";
 import { ensureExecutable } from "../ensureExecutable";
@@ -19,13 +20,14 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * A reporting producer names, in that one run, every source of its Program
  * (`--listFiles`) and every file it wrote (`--listEmittedFiles`); its own list
  * is the selection, so no second compiler run lists it beforehand
- * (samchon/ttsc#1859). Each written JavaScript file is owned by the one listed
- * source whose output the effective layout predicts at that name, resolved to
- * its physical path once per directory. Response files and the selected
- * executable bytes must be unchanged across the run. The layout is the one read
- * before the run; the runtime builds that require provenance pin their output
- * directory and root on the command line, and an output whose name the layout
- * cannot predict stays unowned rather than guessed.
+ * (samchon/ttsc#1859). Each written JavaScript file or relocated JSON project
+ * marker is owned by the one listed source whose output the effective layout
+ * predicts at that name, resolved to its physical path once per directory. A
+ * marker must be a regular file distinct from its source. Response files and
+ * the selected executable bytes must be unchanged across the run. The layout is
+ * the one read before the run; the runtime builds that require provenance pin
+ * their output directory and root on the command line, and an output whose name
+ * the layout cannot predict stays unowned rather than guessed.
  *
  * An observed host, which cannot report, is listed and resolved before it runs
  * and inspected again after: its effective options and physical source paths
@@ -162,7 +164,7 @@ export function runExternalEmitProvenance(options: {
       ? movedOutputs(outputsBefore)
       : observed
         ? []
-        : writtenJavaScript(result.stdout, options.cwd);
+        : writtenOutputs(result.stdout, options.cwd);
   const emittedSources: Record<string, readonly string[]> = Object.create(null);
   const emittedSourceProofFailures: Record<string, string> =
     Object.create(null);
@@ -267,8 +269,17 @@ export function runExternalEmitProvenance(options: {
       }
       for (const output of written) {
         const candidates = owners.get(output);
-        if (candidates?.size === 1) emittedSources[output] = [...candidates];
-        else
+        if (candidates?.size === 1) {
+          const [source] = candidates;
+          if (
+            !isCopiedProjectMarker(output) ||
+            distinctMarkerFiles(source!, output)
+          )
+            emittedSources[output] = [source!];
+          else
+            emittedSourceProofFailures[output] =
+              "The reported project marker is not a separate regular output file.";
+        } else
           emittedSourceProofFailures[output] =
             candidates === undefined
               ? `No selected source predicts this writer (${predictedSources} predicted sources; example ${JSON.stringify(sourceExample)}) under rootDir ${JSON.stringify(probe.config.compilerOptions.rootDir)} and outDir ${JSON.stringify(probe.config.compilerOptions.outDir)}, anchored at ${JSON.stringify(probe.base)}.`
@@ -436,18 +447,20 @@ function readSourceList(
     String(listed.stdout).split(/\r?\n/),
     options.cwd,
   );
-  if (
-    files.length === 0 ||
-    !files.every(
-      (file) =>
-        path.isAbsolute(file) &&
-        /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs|json)$/.test(file),
-    )
-  )
+  if (files.length === 0 || !files.every(isSupportedCompilerSource))
     throw new Error(
-      `Source-list inspection returned ${files.length} paths and no complete supported source population; first unsupported candidate: ${JSON.stringify(files.find((file) => !path.isAbsolute(file) || !/\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs|json)$/.test(file)))}.`,
+      `Source-list inspection returned ${files.length} paths and no complete supported source population; first unsupported candidate: ${JSON.stringify(files.find((file) => !isSupportedCompilerSource(file)))}.`,
     );
   return files;
+}
+
+/** Check the native source-list spellings the prediction can inspect. */
+function isSupportedCompilerSource(file: string): boolean {
+  return (
+    path.isAbsolute(file) &&
+    (/\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs|json)$/.test(file) ||
+      isCopiedProjectMarker(file))
+  );
 }
 
 /**
@@ -604,14 +617,17 @@ function createOutputPrediction(
     )
       return [];
     const extension = path.extname(source);
+    const copiedMarker = isCopiedProjectMarker(source);
     if (
+      !copiedMarker &&
       ![".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"].includes(
         extension,
       )
     )
       return [];
-    const outputExtension =
-      extension === ".mts" || extension === ".mjs"
+    const outputExtension = copiedMarker
+      ? extension
+      : extension === ".mts" || extension === ".mjs"
         ? ".mjs"
         : extension === ".cts" || extension === ".cjs"
           ? ".cjs"
@@ -620,7 +636,7 @@ function createOutputPrediction(
             ? ".jsx"
             : ".js";
     const adjacent = source.slice(0, -extension.length) + outputExtension;
-    if (outputDirectory === undefined) return [adjacent];
+    if (outputDirectory === undefined) return copiedMarker ? [] : [adjacent];
     if (prefix === undefined) return [];
     const sourceParts = source.split(path.sep).filter(Boolean);
     const certainlyOutside = rootParts.some((part, index) => {
@@ -635,14 +651,16 @@ function createOutputPrediction(
         part.lower !== sourcePart.toLowerCase()
       );
     });
-    if (certainlyOutside) return [adjacent];
+    if (certainlyOutside) return copiedMarker ? [] : [adjacent];
     // Upstream removes the common directory by UTF-8 byte length, not UTF-16
     // character count; preserving that distinction matters for Unicode paths.
     const sourceBytes = Buffer.from(source);
-    if (sourceBytes.length <= prefixBytes) return [adjacent];
+    if (sourceBytes.length <= prefixBytes)
+      return copiedMarker ? [] : [adjacent];
     const suffix = sourceBytes.subarray(prefixBytes).toString("utf8");
     const relocated = path.resolve(outputDirectory, suffix);
     const output = relocated.slice(0, -extension.length) + outputExtension;
+    if (copiedMarker) return output === source ? [] : [output];
     return source.startsWith(prefix)
       ? [output]
       : [...new Set([adjacent, output])];
@@ -698,14 +716,43 @@ function outputObservation(file: string): string {
 }
 
 /** The writer's TSFILE report, rather than existing files, establishes writes. */
-function writtenJavaScript(stdout: string, cwd: string): string[] {
+function writtenOutputs(stdout: string, cwd: string): string[] {
   const outputs = new Set<string>();
   for (const line of stdout.split(/\r?\n/)) {
     const match = /^TSFILE: +(.+)$/.exec(line);
-    if (match && /\.(?:js|jsx|mjs|cjs)$/i.test(match[1]!))
+    if (
+      match &&
+      (/\.(?:js|jsx|mjs|cjs)$/i.test(match[1]!) ||
+        isCopiedProjectMarker(match[1]!))
+    )
       outputs.add(path.resolve(cwd, match[1]!));
   }
   return [...outputs];
+}
+
+/** The JSON subset of the native runtime's recognized project markers. */
+function isCopiedProjectMarker(file: string): boolean {
+  return (
+    path.extname(file).toLowerCase() === ".json" &&
+    systemTempOutsideProject.isProjectMarker(path.basename(file))
+  );
+}
+
+/** A marker copied to another regular file, observed after the writer exits. */
+function distinctMarkerFiles(source: string, output: string): boolean {
+  try {
+    const input = fs.statSync(source, { bigint: true });
+    const written = fs.lstatSync(output, { bigint: true });
+    return (
+      input.isFile() &&
+      written.isFile() &&
+      input.ino !== 0n &&
+      written.ino !== 0n &&
+      (input.dev !== written.dev || input.ino !== written.ino)
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**

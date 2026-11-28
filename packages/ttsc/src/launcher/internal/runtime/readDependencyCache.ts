@@ -7,6 +7,7 @@ import { isPathWithin } from "../../../plugin/internal/source/isPathWithin";
 import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
 import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
+import { RuntimeProjectMarker } from "./RuntimeProjectMarker";
 import { projectModuleOptions } from "./projectModuleOptions";
 
 /**
@@ -94,6 +95,7 @@ export function readDependencyCache(
         emitDir,
         meta.emittedSources,
         canChange,
+        meta.emittedProjectMarkers,
       ) ||
         (meta.bundledOutputs === true &&
           !fs
@@ -118,6 +120,7 @@ export function readDependencyCache(
       : {}),
     outputs: meta.outputs,
     emittedSources: meta.emittedSources,
+    emittedProjectMarkers: meta.emittedProjectMarkers,
     emittedSourceProofFailures: meta.emittedSourceProofFailures,
     moduleOptions: projectModuleOptions(
       meta.moduleOptions as Record<string, unknown>,
@@ -136,7 +139,7 @@ export function readDependencyCache(
  * @evidence contracts/common.md#meaningful-documentation The reader explains historical cache misses and cooperative publication; the generation check identifies the copied marker exception.
  * @evidence contracts/common.md#principled-implementation Managed reads and publication share the generation's directory ownership and copied-marker checks.
  * @evidence contracts/common.md#clear-and-simple-design The check groups native path qualification and copied-marker validation with the cache reader that needs them.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts A project marker in managed output needs an observed compiler source and matching bytes; a filename is insufficient.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A project marker in managed output needs an observed compiler source and matching byte observations; a filename is insufficient.
  * @evidence contracts/portability.md#os-neutral-implementation Directory containment and native identity use platform paths and the shared filesystem witness.
  * @evidence contracts/performance.md#efficient-algorithms Clean managed directories take the shared guard's fast path; copied markers require walking the affected ancestors and comparing observed JSON files.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Observations are current at each call because the caller can publish, move or discard a generation between reads.
@@ -152,6 +155,7 @@ export namespace readDependencyCache {
     directory: string,
     emittedSources: Readonly<Record<string, readonly string[]>>,
     canChange?: (directory: string) => boolean,
+    emittedProjectMarkers?: RuntimeProjectMarker.Proofs,
   ): boolean {
     if (canChange === undefined) return true;
     if (
@@ -171,20 +175,11 @@ export namespace readDependencyCache {
         for (const name of fs.readdirSync(current)) {
           if (!systemTempOutsideProject.isProjectMarker(name)) continue;
           const marker = path.join(current, name);
-          if (!name.endsWith(".json") || !fs.lstatSync(marker).isFile())
-            return false;
-          const bytes = RuntimeFilesystem.readObservedRegularFile(marker);
           if (
-            bytes === undefined ||
-            !emittedSources[marker]?.some(
-              (source) =>
-                path.basename(source) === name &&
-                fs.lstatSync(source, { throwIfNoEntry: false })?.isFile() ===
-                  true &&
-                RuntimeFilesystem.realpathWitness(source) === source &&
-                RuntimeFilesystem.readObservedRegularFile(source)?.equals(
-                  bytes,
-                ) === true,
+            !RuntimeProjectMarker.matches(
+              marker,
+              emittedSources[marker],
+              emittedProjectMarkers?.[marker],
             )
           )
             return false;

@@ -13,7 +13,7 @@ import { systemRuntimeRunCanChange } from "../../../../../packages/ttsc/src/laun
  *
  * @evidence contracts/testing.md#behavioral-verification The native store reads real saved requests, parks and adopts the original run's output, and preserves foreign trees and an aliased pending parent.
  * @evidence contracts/testing.md#independent-expectations Authored marker and output bytes, original coordinates and an independent producer count distinguish an actual reuse from an uncached build.
- * @evidence contracts/testing.md#distinguishing-cases Marked output, refused receipts, incomplete or ordinary inline publication, and uncommitted adoption leave stable output. A committed park and its replay retire only the same environment variant. The fixture also checks linked paths and a guarded hardlinked job rewrite.
+ * @evidence contracts/testing.md#distinguishing-cases A project marker added after requesting a move, refused receipts, incomplete or ordinary inline publication, and uncommitted adoption leave stable output. A committed park and its replay retire only the same environment variant. The fixture also checks linked paths and a guarded hardlinked job rewrite.
  * @evidence contracts/testing.md#execution-ownership The unit uses an owned temporary tree and removes the junction before removing the tree. It starts no compiler or watcher.
  */
 export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
@@ -42,7 +42,6 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
   const build = (
     emitDir: string,
     beforeAdopt?: (emit: string) => string | undefined,
-    emitJson = false,
     options?: {
       variant?: string;
       mode?: "inline" | "defer";
@@ -66,9 +65,6 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
         ++builds;
         const output = path.join(emitDir, "main.js");
         fs.writeFileSync(output, "owned build output");
-        const json = path.join(emitDir, "package.json");
-        const sourceJson = path.join(project, "package.json");
-        if (emitJson) fs.copyFileSync(sourceJson, json);
         return {
           status: 0,
           diagnostics: [],
@@ -79,10 +75,7 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
             options?.variant === undefined
               ? undefined
               : { TTSC_TEST_VARIANT: options.variant },
-          emittedSources: {
-            [output]: [source],
-            ...(emitJson ? { [json]: [sourceJson] } : {}),
-          },
+          emittedSources: { [output]: [source] },
         };
       },
     });
@@ -215,20 +208,18 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
       throw new Error("Missing producer park request");
     };
     const inputChanged = () => "input changed";
-    const sourceJson = path.join(project, "package.json");
-    fs.writeFileSync(sourceJson, '{"name":"copied-by-the-compiler"}\n');
     const markedOutput = generation(run);
-    assert.equal(build(markedOutput, inputChanged, true).status, 0);
+    assert.equal(build(markedOutput, inputChanged).status, 0);
     const refused = requestFor(markedOutput);
     assert.ok(refused.replacement);
+    const insertedMarker = path.join(markedOutput, "package.json");
+    const projectBytes = '{"name":"inserted-project"}\n';
+    fs.writeFileSync(insertedMarker, projectBytes);
     assert.equal(fs.existsSync(stored), true);
     RuntimeBuildCache.parkRequested(run, store, canChange);
     assert.equal(fs.existsSync(refused.parked), false);
     assert.equal(fs.existsSync(stored), true);
-    assert.deepEqual(
-      fs.readFileSync(path.join(markedOutput, "package.json")),
-      fs.readFileSync(sourceJson),
-    );
+    assert.equal(fs.readFileSync(insertedMarker, "utf8"), projectBytes);
 
     const later = path.join(pending, `1-1-${crypto.randomUUID()}`);
     fs.mkdirSync(later);
@@ -286,17 +277,11 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
     assert.equal(fs.existsSync(restart.parked), true);
 
     const variantA = generation(run);
-    assert.equal(
-      build(variantA, inputChanged, false, { variant: "a" }).status,
-      0,
-    );
+    assert.equal(build(variantA, inputChanged, { variant: "a" }).status, 0);
     const oldA = requestFor(variantA).parked;
     RuntimeBuildCache.parkRequested(run, store, canChange);
     const variantB = generation(run);
-    assert.equal(
-      build(variantB, inputChanged, false, { variant: "b" }).status,
-      0,
-    );
+    assert.equal(build(variantB, inputChanged, { variant: "b" }).status, 0);
     const oldB = requestFor(variantB).parked;
     RuntimeBuildCache.parkRequested(run, store, canChange);
     assert.notEqual(path.dirname(oldB), path.dirname(oldA));
@@ -305,7 +290,7 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
       return `${entry.dev}:${entry.ino}`;
     };
     const nextA = generation(run);
-    assert.equal(build(nextA, inputChanged, false, { variant: "a" }).status, 0);
+    assert.equal(build(nextA, inputChanged, { variant: "a" }).status, 0);
     const replay = requestFor(nextA);
     assert.ok(replay.replacement);
     assert.ok(
@@ -356,7 +341,6 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
         build(
           inline,
           (emit) => (emit === inline ? undefined : "input changed"),
-          false,
           { mode: "inline" },
         ).status,
         0,
@@ -377,10 +361,7 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
     fs.cpSync(restart.parked, fallback, { recursive: true });
     const deferred = generation(run);
     const beforeDeferred = builds;
-    assert.equal(
-      build(deferred, undefined, false, { mode: "defer" }).status,
-      0,
-    );
+    assert.equal(build(deferred, undefined, { mode: "defer" }).status, 0);
     assert.equal(builds, beforeDeferred);
     assert.equal(fs.existsSync(restart.parked), false);
     assert.equal(

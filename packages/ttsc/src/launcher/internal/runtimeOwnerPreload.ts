@@ -1,11 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { systemTempOutsideProject } from "../../internal/systemTempOutsideProject";
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
-import { DependencyBuildLockProtocol } from "./runtime/DependencyBuildLockProtocol";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
-import { RuntimeFilesystem } from "./runtime/RuntimeFilesystem";
 import { systemRuntimeRunCanChange } from "./runtime/systemRuntimeRunCanChange";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 
@@ -39,6 +36,7 @@ if (
     throw new Error(`ttsx: invalid runtime run directory: ${directory}`);
   }
   const encodedRoots = process.env.TTSX_RUNTIME_SYSTEM_PROJECTS;
+  let systemProjectRoots: readonly string[] | undefined;
   let canChange: ((candidate: string) => boolean) | undefined;
   if (encodedRoots !== undefined) {
     const roots: unknown = JSON.parse(encodedRoots);
@@ -57,27 +55,13 @@ if (
         `ttsx: invalid system runtime run directory: ${directory}`,
       );
     const projectRoots = roots;
+    systemProjectRoots = projectRoots;
     canChange = (candidate) =>
       systemRuntimeRunCanChange(candidate, runtime, projectRoots);
-    const lock = `${runtime}.lock`;
-    for (const candidate of [
-      lock,
-      path.join(lock, DependencyBuildLockProtocol.DEP_BUILD_LOCK_CURRENT_DIR),
-      path.join(lock, DependencyBuildLockProtocol.DEP_BUILD_LOCK_RETIRED_DIR),
-    ]) {
-      const entry = fs.lstatSync(candidate, { throwIfNoEntry: false });
-      if (
-        !systemTempOutsideProject.allowsChild(candidate, projectRoots) ||
-        (entry !== undefined &&
-          (!entry.isDirectory() ||
-            RuntimeFilesystem.realpathWitness(candidate) !== candidate))
-      )
-        throw new Error(`ttsx: unsafe system runtime lock: ${candidate}`);
-    }
     if (!canChange(directory))
       throw new Error(`ttsx: unsafe runtime run directory: ${directory}`);
   }
-  withRuntimeDirectoryLock(runtime, () => {
+  const claim = () => {
     if (canChange !== undefined) {
       if (!canChange(directory))
         throw new Error(`ttsx: unsafe runtime run directory: ${directory}`);
@@ -90,5 +74,6 @@ if (
       throw new Error(`ttsx: unsafe runtime run directory: ${directory}`);
     }
     ProcessOwnedDirectory.admit(directory, process.pid, canChange);
-  });
+  };
+  withRuntimeDirectoryLock(runtime, claim, systemProjectRoots);
 }

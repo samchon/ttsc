@@ -3,6 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { RuntimeTrash } from "../../../internal/RuntimeTrash";
+import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
+import { RuntimeProjectMarker } from "../../../launcher/internal/runtime/RuntimeProjectMarker";
+import { readDependencyCache } from "../../../launcher/internal/runtime/readDependencyCache";
 import { readPosixDirectoryEntries } from "../../../plugin/internal/source/readPosixDirectoryEntries";
 import { recordCacheFileUse } from "../../../plugin/internal/source/recordCacheFileUse";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
@@ -523,6 +526,7 @@ export namespace RuntimeBuildCache {
         proven?: boolean;
         /** Read the outputs on the thread pool; the caller awaits the yield. */
         parallel?: boolean;
+        markerProofs?: RuntimeProjectMarker.Proofs;
       } = {},
     ): Generator<void | Promise<unknown>, boolean> {
       const result = yield* record(fresh);
@@ -553,7 +557,17 @@ export namespace RuntimeBuildCache {
       const pending = [outputs];
       while (pending.length !== 0) {
         const current = pending.pop()!;
-        if (props.canChange?.(current) === false)
+        if (
+          props.canChange?.(current) === false &&
+          (options.markerProofs === undefined ||
+            !readDependencyCache.canUseEmit(
+              emitDir,
+              current,
+              result.emittedSources ?? {},
+              props.canChange,
+              options.markerProofs,
+            ))
+        )
           throw new Error("unsafe runtime publication outputs");
         for (const child of fs.readdirSync(current, { withFileTypes: true })) {
           const target = path.join(current, child.name);
@@ -632,6 +646,23 @@ export namespace RuntimeBuildCache {
         return false;
       }
       yield;
+      if (props.canChange !== undefined)
+        for (const [name, bytes] of files) {
+          if (!systemTempOutsideProject.isProjectMarker(path.basename(name)))
+            continue;
+          const output = path.join(outputs, name);
+          const marker = options.markerProofs?.[output];
+          if (
+            marker === undefined ||
+            digest(bytes) !== marker.output ||
+            !RuntimeProjectMarker.matches(
+              output,
+              result.emittedSources?.[output],
+              marker,
+            )
+          )
+            throw new Error("unproved runtime project marker");
+        }
       if (props.canChange?.(directory) === false) return false;
       fs.mkdirSync(directory, { recursive: true });
       if (fs.lstatSync(directory).isSymbolicLink()) {
@@ -710,6 +741,7 @@ export namespace RuntimeBuildCache {
         launcherAdoption?: ParkRequest["launcherAdoption"];
       },
       prior?: NonNullable<ParkRequest["replacement"]>["prior"],
+      markerProofs?: RuntimeProjectMarker.Proofs,
     ): boolean => {
       // A record step that finished before the program ended is kept: the
       // parked build then carries its observations, and the request that
@@ -722,7 +754,8 @@ export namespace RuntimeBuildCache {
         },
         // An adopted build was proven by the lookup that adopted it.
         proven: carried !== undefined,
-        parallel: true,
+        parallel: markerProofs === undefined,
+        markerProofs,
       });
       let settled = false;
       const pending: Publication = {
@@ -770,6 +803,12 @@ export namespace RuntimeBuildCache {
         request: () => {
           if (settled) return undefined;
           settled = true;
+          if (markerProofs !== undefined) {
+            // Complete the archive while the emit is still available. Raw
+            // parking and cleanup keep their ordinary-directory guards.
+            finish(result, steps);
+            return undefined;
+          }
           // Parked under the values of the variables it read and registered
           // now, so a request with other values neither finds nor discards it.
           const reads = readNames(result);
@@ -826,6 +865,7 @@ export namespace RuntimeBuildCache {
         props.defer!(pending);
         return true;
       }
+      if (markerProofs !== undefined) return finish(result, steps);
       try {
         const request = pending.request();
         if (
@@ -1107,12 +1147,29 @@ export namespace RuntimeBuildCache {
     const record =
       props.recordSteps ??
       ((fresh: TtscBuildResult) => lift(props.record?.(fresh) ?? fresh));
+    const markerProofs =
+      props.canChange === undefined || result.emittedSources === undefined
+        ? undefined
+        : RuntimeProjectMarker.capture(props.emitDir, result.emittedSources);
     if (props.defer === undefined && props.parkIn === undefined) {
-      finish(result, publication(result, props.emitDir, props.emitDir, record));
+      finish(
+        result,
+        publication(result, props.emitDir, props.emitDir, record, {
+          markerProofs,
+        }),
+      );
       return result;
     }
     // What parking needs is taken now, before a step consumes it.
-    defer(result, record, props.parked?.(), false, undefined, previousParked);
+    defer(
+      result,
+      record,
+      props.parked?.(),
+      false,
+      undefined,
+      previousParked,
+      markerProofs,
+    );
     return result;
   }
 
@@ -1747,7 +1804,7 @@ export namespace RuntimeBuildCache {
   }
 
   /** Hash encoded input or document bytes with SHA-256. */
-  function digest(text: string): string {
+  function digest(text: string | Buffer): string {
     return crypto.createHash("sha256").update(text).digest("hex");
   }
 

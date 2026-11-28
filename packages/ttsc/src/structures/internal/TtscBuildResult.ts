@@ -29,8 +29,8 @@ export interface TtscBuildResult {
   bundledOutputs?: true;
 
   /**
-   * Emitter provenance for actual written JavaScript outputs. Keys are absolute
-   * native output spellings; values retain contributing physical source paths.
+   * Emitter provenance for written JavaScript and JSON project markers. Keys
+   * are absolute native outputs; values carry contributing physical sources.
    * Native producers capture those identities in the compile generation. The
    * external compiler adapter instead requires matching pre/post source
    * selection, effective options, physical identities and contents, including
@@ -41,7 +41,7 @@ export interface TtscBuildResult {
    * means the producer could not establish full ownership under its premise.
    *
    * Absent means unavailable or an older producer. A present empty map means a
-   * supported producer reported no eligible written JavaScript output.
+   * supported producer reported no writes eligible for source tracking.
    * Consumers must not infer source ownership from emitted filenames in either
    * unknown state. Provenance does not by itself establish overall build
    * success.

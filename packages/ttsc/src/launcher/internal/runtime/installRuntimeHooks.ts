@@ -27,6 +27,7 @@ import type { RuntimeHookOptions } from "./RuntimeHookOptions";
 import { RuntimeLoaderCapabilities } from "./RuntimeLoaderCapabilities";
 import type { RuntimeManifest } from "./RuntimeManifest";
 import type { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
+import { RuntimeProjectMarker } from "./RuntimeProjectMarker";
 import { advertiseTypeScriptExtensions } from "./advertiseTypeScriptExtensions";
 import { checkNodeRuntimeSupport } from "./checkNodeRuntimeSupport";
 import { commonJsExportNames } from "./commonJsExportNames";
@@ -2157,12 +2158,17 @@ function buildRoot(
       source,
       tsconfig,
     });
+    const emittedProjectMarkers =
+      canChange === undefined
+        ? undefined
+        : RuntimeProjectMarker.capture(emitDir, built.emittedSources ?? {});
     if (
       !runtimeBuildPath().readDependencyCache.canUseEmit(
         emitDir,
         emitDir,
         built.emittedSources ?? {},
         canChange,
+        emittedProjectMarkers,
       )
     )
       throw new Error(`ttsx: unsafe system dependency output: ${emitDir}`);
@@ -2185,6 +2191,7 @@ function buildRoot(
       outputs,
       rootDir,
       emittedSources,
+      emittedProjectMarkers,
       emittedSourceProofFailures,
     });
     return {
@@ -2193,6 +2200,7 @@ function buildRoot(
       outputs,
       rootDir,
       emittedSources,
+      emittedProjectMarkers,
       emittedSourceProofFailures,
     };
   } catch (error) {
@@ -2333,6 +2341,7 @@ function canUseDependencyEmit(
       directory,
       built.emittedSources,
       guard,
+      built.emittedProjectMarkers,
     )
   );
 }
@@ -2697,12 +2706,17 @@ function buildDependency(
     // (typia, @ttsc/banner, …) writes its output on its own. A genuinely empty
     // output directory is the real failure; the caller then falls back to
     // isolated emit of the one file.
+    const emittedProjectMarkers =
+      canChangeRuntimeBuild === undefined
+        ? undefined
+        : RuntimeProjectMarker.capture(emitDir, result.emittedSources ?? {});
     if (
       !runtimeBuildPath().readDependencyCache.canUseEmit(
         emitDir,
         emitDir,
         result.emittedSources ?? {},
         canChangeRuntimeBuild,
+        emittedProjectMarkers,
       )
     )
       throw new Error(`ttsx: unsafe system dependency output: ${emitDir}`);
@@ -2761,6 +2775,7 @@ function buildDependency(
       outputs,
       rootDir,
       emittedSources,
+      emittedProjectMarkers,
       emittedSourceProofFailures,
     });
     return {
@@ -2770,6 +2785,7 @@ function buildDependency(
       outputs,
       rootDir,
       emittedSources,
+      emittedProjectMarkers,
       emittedSourceProofFailures,
     };
   } catch (error) {

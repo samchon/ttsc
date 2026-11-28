@@ -9,6 +9,7 @@ import { PassthroughFlags } from "../../../../../packages/ttsc/src/compiler/inte
 import type { runExternalEmitProvenance } from "../../../../../packages/ttsc/src/compiler/internal/build/runExternalEmitProvenance";
 import { readCompilerOptionOccurrence } from "../../../../../packages/ttsc/src/flags/readCompilerOptionOccurrence";
 import { resolveFlagSpec } from "../../../../../packages/ttsc/src/flags/resolveFlagSpec";
+import { systemTempOutsideProject } from "../../../../../packages/ttsc/src/internal/systemTempOutsideProject";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -29,7 +30,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Executes the exact authored provenance adapter and its private declarations with real source, config and output files; the supplied read-only probe responses stand in for tsgo while the fixture writer stands in for the foreign host.
  * @evidence contracts/testing.md#independent-expectations Literal rootDir/outDir layout predicts each output; which file the fixture writer touched sets the expected ownership, and status 7 and stderr are preserved independently.
- * @evidence contracts/testing.md#distinguishing-cases A newly written output, an untouched existing output and an unsupported outFile layout are separate rows.
+ * @evidence contracts/testing.md#distinguishing-cases Observed and reported JavaScript and JSON project marker writes, an unrelated JSON asset, an untouched existing output and an unsupported outFile layout remain distinct.
  * @evidence contracts/testing.md#execution-ownership One source unit extracts the actual declarations with ts-legacy and binds real classification, path and filesystem owners plus supplied probe operations; no native compiler or plugin host runs.
  */
 export function test_external_emit_provenance_observes_a_host_that_cannot_report_writes(): void {
@@ -73,6 +74,14 @@ export function test_external_emit_provenance_observes_a_host_that_cannot_report
   fs.writeFileSync(untouched, "export const untouched = 2;\n");
   const writtenOutput = path.join(root, "dist", "written.js");
   const untouchedOutput = path.join(root, "dist", "untouched.js");
+  const markerName =
+    process.platform === "win32" ? "package.JSON" : "package.json";
+  const marker = path.join(root, "src", markerName);
+  const unmarked = path.join(root, "src", "settings.json");
+  const markerOutput = path.join(root, "dist", markerName);
+  const unmarkedOutput = path.join(root, "dist", "settings.json");
+  fs.writeFileSync(marker, '{"name":"example"}');
+  fs.writeFileSync(unmarked, '{"unmarked":true}');
   fs.writeFileSync(untouchedOutput, "// emitted by an earlier build\n");
 
   const operation = (shown: object) =>
@@ -87,6 +96,7 @@ export function test_external_emit_provenance_observes_a_host_that_cannot_report
       "spawnNative",
       "CompilerDiagnostics",
       "PassthroughFlags",
+      "systemTempOutsideProject",
       javascript + "\nreturn runExternalEmitProvenance;",
     )(
       {},
@@ -103,13 +113,17 @@ export function test_external_emit_provenance_observes_a_host_that_cannot_report
         signal: null,
         stdout: probeArgs.includes("--showConfig")
           ? JSON.stringify(shown)
-          : [written, untouched].join("\n") + "\n",
+          : [written, untouched, marker, unmarked].join("\n") + "\n",
         stderr: "",
       }),
       CompilerDiagnostics,
       PassthroughFlags,
+      systemTempOutsideProject,
     ) as typeof runExternalEmitProvenance;
-  const observe = (shown: object) => {
+  const observe = (
+    shown: object,
+    writes: "observed" | "reported" = "observed",
+  ) => {
     const args = ["-p", config];
     const runs: (readonly string[])[] = [];
     const result = operation(shown)({
@@ -120,35 +134,58 @@ export function test_external_emit_provenance_observes_a_host_that_cannot_report
       run: (actual) => {
         runs.push([...actual]);
         fs.writeFileSync(writtenOutput, "// foreign host output\n");
+        fs.writeFileSync(markerOutput, '{ "name": "example" }\n');
+        fs.writeFileSync(unmarkedOutput, '{ "unmarked": true }\n');
         return {
           completedNormally: true,
           result: {
             status: 7,
             diagnostics: [],
-            stdout: "host output without a write report\n",
+            stdout:
+              writes === "observed"
+                ? "host output without a write report\n"
+                : [
+                    ...[writtenOutput, markerOutput, unmarkedOutput].map(
+                      (file) => `TSFILE: ${file}`,
+                    ),
+                    written,
+                    untouched,
+                    marker,
+                    unmarked,
+                    "",
+                  ].join("\n"),
             stderr: "fixture diagnostic preserved",
           },
         };
       },
-      writes: "observed",
+      writes,
     });
-    assert.deepEqual(runs, [args], "the host runs once with its own argv");
+    assert.deepEqual(runs, [
+      writes === "observed"
+        ? args
+        : [...args, "--listFiles", "true", "--listEmittedFiles", "true"],
+    ]);
     assert.equal(result.status, 7);
     assert.equal(result.stderr, "fixture diagnostic preserved");
-    assert.equal(result.stdout, "host output without a write report\n");
+    if (writes === "observed")
+      assert.equal(result.stdout, "host output without a write report\n");
     return result;
   };
 
-  const result = observe({
-    compilerOptions: { rootDir: "src", outDir: "dist" },
-  });
-  assert.deepEqual(
-    { ...result.emittedSources },
-    {
-      [writtenOutput]: [fs.realpathSync.native(written)],
-    },
-  );
-  assert.equal(result.emittedSourceProofFailures, undefined);
+  for (const mode of ["observed", "reported"] as const) {
+    const result = observe(
+      { compilerOptions: { rootDir: "src", outDir: "dist" } },
+      mode,
+    );
+    assert.deepEqual(
+      { ...result.emittedSources },
+      {
+        [writtenOutput]: [fs.realpathSync.native(written)],
+        [markerOutput]: [fs.realpathSync.native(marker)],
+      },
+    );
+    assert.equal(result.emittedSourceProofFailures, undefined);
+  }
 
   fs.rmSync(writtenOutput);
   const unsupported = observe({

@@ -5,16 +5,18 @@ import os from "node:os";
 import path from "node:path";
 
 import { systemRuntimeCachePath } from "../../../../../packages/ttsc/src/launcher/internal/runtime/systemRuntimeCachePath";
+import { systemRuntimeRunCanChange } from "../../../../../packages/ttsc/src/launcher/internal/runtime/systemRuntimeRunCanChange";
+import { systemRuntimeRunTree } from "../../../../../packages/ttsc/src/launcher/internal/runtime/systemRuntimeRunTree";
 import { TestProject } from "../../../../utils/src/TestProject";
 import { requestRuntimeEmit } from "../../internal/runtime-adoption-actor";
 
 /**
- * A real Node register host returns its adopted system build on normal exit.
+ * Register returns an adopted system build or leaves a recoverable run.
  *
- * @evidence contracts/testing.md#behavioral-verification The maintained register hook prepares a native TypeScript entry. While its run is live, the program uses the existing cache actor to take a real parked build in that run, then normal exit returns it and removes the run.
- * @evidence contracts/testing.md#independent-expectations Authored stdout and status seven are checked directly. Exact JavaScript bytes survive at a new parked address, with no producer invocation allowed on the adoption.
- * @evidence contracts/testing.md#distinguishing-cases An ordinary file blocks project-local cache placement independently of permissions. The source-loader process uses the guard and store established by the actual register entry; the separate cache actor isolates ownership replay from native compiler cache eligibility.
- * @evidence contracts/testing.md#execution-ownership One bounded Node process loads maintained source, invokes installed native TypeScript and joins before its tree is inspected. The fixture owns its temporary paths and unlinks the package junction before removing the surrounding tree.
+ * @evidence contracts/testing.md#behavioral-verification The native register entry takes a parked build. Normal exit returns it, a project in the lock tree defers cleanup without changing that tree, and the next register host recovers a process killed after emitting an imported project marker.
+ * @evidence contracts/testing.md#independent-expectations Authored stdout, status seven, unchanged lock contents, and exact parked JavaScript bytes are checked directly. Adopters cannot silently build replacement output.
+ * @evidence contracts/testing.md#distinguishing-cases A file blocks project-local placement independently of permissions. The register entry selects the system guard and store. Lock projects, edited emit markers, abrupt death and ordinary release exercise distinct ownership paths.
+ * @evidence contracts/testing.md#execution-ownership Bounded Node children invoke installed native TypeScript and join sequentially before the shared fixture tree is inspected. The fixture unlinks its package junction before removing the tree.
  */
 export function test_register_preserves_adopted_system_build_on_exit(): void {
   const root = fs.realpathSync.native(
@@ -77,11 +79,24 @@ export function test_register_preserves_adopted_system_build_on_exit(): void {
     fs.writeFileSync(path.join(project, "package.json"), '{"private":true}\n');
     fs.writeFileSync(
       path.join(project, "tsconfig.json"),
-      '{"compilerOptions":{"module":"CommonJS","types":[]},"files":["main.ts"]}\n',
+      '{"compilerOptions":{"module":"CommonJS","resolveJsonModule":true,"types":[]},"files":["main.ts"]}\n',
+    );
+    fs.mkdirSync(path.join(project, "copied"));
+    const markerContents = '{"private":true,"name":"copied-project"}\n';
+    fs.writeFileSync(
+      path.join(
+        project,
+        "copied",
+        process.platform === "win32" ? "package.JSON" : "package.json",
+      ),
+      markerContents,
     );
     const runtime = systemRuntimeCachePath(project, temporary);
     const store = path.join(runtime, "runtime-builds");
     const index = path.join(runtime, "project");
+    const retired = path.join(`${runtime}.lock`, "retired");
+    const lockMarker = path.join(retired, "package.json");
+    const lockSnapshot = path.join(project, "retired.json");
     const seed = path.join(index, "seed");
     fs.mkdirSync(runtime, { recursive: true });
     assert.equal(
@@ -100,71 +115,130 @@ export function test_register_preserves_adopted_system_build_on_exit(): void {
 
     fs.writeFileSync(
       entry,
-      `declare const process: { exitCode?: number };
+      `import metadata = require("./copied/package.json");
+       declare const process: { argv: string[]; pid: number; exitCode?: number; kill(pid: number, signal: string): void };
        declare function require(name: string): {
          readdirSync(directory: string): string[];
+         writeFileSync(file: string, content: string): void;
+         writeSync(fd: number, content: string): void;
        };
        declare function adoptFixtureBuild(store: string, run: string, build: boolean, system: string): string;
-       export {};
+       if (metadata.name !== "copied-project") throw new Error("wrong JSON import");
+       const fs = require("node:fs");
        const index = ${JSON.stringify(index)};
-       const [run, ...other] = require("node:fs").readdirSync(index);
+       const [run, ...other] = fs.readdirSync(index);
        if (!run?.startsWith("register-") || other.length)
          throw new Error("expected the registered entry's one system run");
-       console.log(adoptFixtureBuild(
+       fs.writeSync(1, adoptFixtureBuild(
          ${JSON.stringify(store)}, index + ${JSON.stringify(path.sep)} + run, false, ${JSON.stringify(runtime)}
-       ));
+       ) + "\\n");
+       if (process.argv[2] === "protect-lock") {
+         fs.writeFileSync(${JSON.stringify(lockMarker)}, ${JSON.stringify(markerContents)});
+         fs.writeFileSync(${JSON.stringify(lockSnapshot)}, JSON.stringify(fs.readdirSync(${JSON.stringify(retired)}).sort()));
+       }
+       if (process.argv[2] === "kill") process.kill(process.pid, "SIGKILL");
        process.exitCode = 7;
       `,
     );
-    const run = spawnSync(
-      process.execPath,
-      [
-        "--import",
-        loader,
-        "--import",
-        bootstrap,
-        "--import",
-        buildPath,
-        "--import",
-        register,
-        entry,
-      ],
-      {
-        cwd: project,
-        encoding: "utf8",
-        timeout: 30_000,
-        windowsHide: true,
-        env: {
-          ...process.env,
-          NODE_OPTIONS: undefined,
-          TTSC_CACHE_DIR: undefined,
-          TTSC_TSGO_BINARY: undefined,
-          TTSX_DISABLE_CACHE: undefined,
-          TTSX_RUNTIME_CACHE_DIR: undefined,
-          TTSX_RUNTIME_MANIFEST: undefined,
-          TTSX_RUNTIME_RUN_DIR: undefined,
-          TTSX_RUNTIME_RUNS_DIR: undefined,
-          TTSC_EXPLAIN_CACHE: "1",
-          TEMP: temporary,
-          TMP: temporary,
-          TMPDIR: temporary,
+    const start = (mode: "exit" | "protect-lock" | "kill") => {
+      const run = spawnSync(
+        process.execPath,
+        [
+          "--import",
+          loader,
+          "--import",
+          bootstrap,
+          "--import",
+          buildPath,
+          "--import",
+          register,
+          entry,
+          mode,
+        ],
+        {
+          cwd: project,
+          encoding: "utf8",
+          timeout: 30_000,
+          windowsHide: true,
+          env: {
+            ...process.env,
+            NODE_OPTIONS: undefined,
+            TTSC_CACHE_DIR: undefined,
+            TTSC_TSGO_BINARY: undefined,
+            TTSX_DISABLE_CACHE: mode === "kill" ? "1" : undefined,
+            TTSX_RUNTIME_CACHE_DIR: undefined,
+            TTSX_RUNTIME_MANIFEST: undefined,
+            TTSX_RUNTIME_RUN_DIR: undefined,
+            TTSX_RUNTIME_RUNS_DIR: undefined,
+            TTSC_EXPLAIN_CACHE: "1",
+            TEMP: temporary,
+            TMP: temporary,
+            TMPDIR: temporary,
+          },
         },
-      },
-    );
-    assert.ifError(run.error);
-    assert.equal(run.signal, null);
-    assert.equal(run.status, 7, run.stderr);
-    assert.equal(run.stdout.trim(), "exports.value = 47;");
-    assert.match(run.stderr, /"outcome":"reused","reason":"parked"/);
-    assert.deepEqual(fs.readdirSync(index), []);
-    const [after, ...otherAfter] = fs.readdirSync(parked);
-    assert.ok(after);
-    assert.deepEqual(otherAfter, []);
-    assert.notEqual(after, before);
+      );
+      assert.ifError(run.error);
+      assert.equal(run.stdout.trim(), "exports.value = 47;", run.stderr);
+      assert.match(run.stderr, /"outcome":"reused","reason":"parked"/);
+      if (mode === "kill") {
+        if (process.platform === "win32") assert.equal(run.status, 1);
+        else assert.equal(run.signal, "SIGKILL");
+      } else {
+        assert.equal(run.signal, null);
+        assert.equal(run.status, 7, run.stderr);
+      }
+    };
+    const assertParked = (previous: string): string => {
+      assert.deepEqual(fs.readdirSync(index), []);
+      const [current, ...other] = fs.readdirSync(parked);
+      assert.ok(current);
+      assert.deepEqual(other, []);
+      assert.notEqual(current, previous);
+      assert.equal(
+        fs.readFileSync(
+          path.join(parked, current, "outputs", "main.js"),
+          "utf8",
+        ),
+        "exports.value = 47;",
+      );
+      return current;
+    };
+
+    start("exit");
+    const afterExit = assertParked(before);
+
+    start("protect-lock");
+    assert.equal(fs.readdirSync(index).length, 1);
+    assert.equal(fs.readFileSync(lockMarker, "utf8"), markerContents);
     assert.equal(
-      fs.readFileSync(path.join(parked, after, "outputs", "main.js"), "utf8"),
-      "exports.value = 47;",
+      JSON.stringify(fs.readdirSync(retired).sort()),
+      fs.readFileSync(lockSnapshot, "utf8"),
     );
+    fs.unlinkSync(lockMarker);
+    start("exit");
+    const afterLockRecovery = assertParked(afterExit);
+
+    start("kill");
+    const [abandoned, ...otherAbandoned] = fs.readdirSync(index);
+    assert.ok(abandoned);
+    assert.deepEqual(otherAbandoned, []);
+    const abandonedRun = path.join(index, abandoned);
+    const emitted = path.join(abandonedRun, "fs");
+    const markers = fs
+      .readdirSync(emitted, { recursive: true, encoding: "utf8" })
+      .filter((relative) => path.basename(relative) === "package.json");
+    assert.equal(markers.length, 1);
+    const outputMarker = path.join(emitted, markers[0]!);
+    const compiledMarker = fs.readFileSync(outputMarker, "utf8");
+    assert.deepEqual(JSON.parse(compiledMarker), JSON.parse(markerContents));
+    const guard = (directory: string) =>
+      systemRuntimeRunCanChange(directory, runtime, [project]);
+    assert.equal(systemRuntimeRunTree(abandonedRun, guard), "emitted-marker");
+    fs.writeFileSync(outputMarker, '{"name":"new-project"}\n');
+    assert.equal(systemRuntimeRunTree(abandonedRun, guard), "protected");
+    fs.writeFileSync(outputMarker, compiledMarker);
+    start("exit");
+    assertParked(afterLockRecovery);
   } finally {
     if (linkedCompiler) {
       if (process.platform === "win32") fs.rmdirSync(installed);

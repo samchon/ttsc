@@ -172,6 +172,7 @@ async function run(
           run.processDir,
           run.cacheDir,
           run.canChangeRuntimeRun,
+          run.systemProjectRoots,
         );
     };
   };
@@ -215,6 +216,7 @@ async function run(
       prepared.cleanupDir,
       prepared.runtimeCacheDir,
       prepared.canChangeRuntimeRun,
+      prepared.systemProjectRoots,
     );
     signals.raiseReceived();
   }
@@ -436,6 +438,7 @@ async function runPreparedEntry(
       execution.cleanupDir,
       execution.runtimeCacheDir,
       execution.canChangeRuntimeRun,
+      execution.systemProjectRoots,
     );
   };
   try {
@@ -677,12 +680,13 @@ function removeRuntimeOutput(
   directory: string,
   runtimeCacheDir: string,
   canChange?: (directory: string) => boolean,
+  systemProjectRoots?: readonly string[],
 ): void {
   const observe = E2ETrace.runtimeCleanup(directory, runtimeCacheDir);
   let stage = "lock";
   try {
     if (canChange?.(directory) === false) return;
-    withRuntimeDirectoryLock(runtimeCacheDir, () => {
+    const remove = () => {
       observe?.("lock-entered");
       if (canChange?.(directory) === false) return;
       stage = "relinquish";
@@ -724,7 +728,8 @@ function removeRuntimeOutput(
         observe?.("retained", ownership);
       }
       stage = "lock-release";
-    });
+    };
+    withRuntimeDirectoryLock(runtimeCacheDir, remove, systemProjectRoots);
     observe?.("completed");
   } catch (error) {
     observe?.(stage, undefined, error);

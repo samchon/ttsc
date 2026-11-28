@@ -5,6 +5,7 @@ import (
   "errors"
   "fmt"
   "path/filepath"
+  "runtime"
   "slices"
   "strings"
   "sync"
@@ -14,15 +15,15 @@ import (
 )
 
 // NewEmitProvenanceRecorder wraps a writer and returns a build-owned snapshot
-// function for successfully materialized JavaScript outputs. The compiler's actual
-// eligible source list and output resolver determine candidates; neither sibling
-// filenames nor source maps establish ownership.
+// function for successfully materialized JavaScript outputs and JSON project
+// markers. The compiler's eligible source list and output resolver determine
+// candidates; sibling filenames and source maps do not establish ownership.
 //
 // Snapshot keys are absolute native output paths. Values are sorted, distinct
 // physical source paths recorded by this compiler generation's input observer.
 // An empty value means an output was emitted but its eligible owners or some
 // owner's physical proof were unavailable or inconsistent. Multiple values
-// preserve ambiguity. An empty object means no JavaScript output succeeded.
+// preserve ambiguity. An empty object means no tracked output succeeded.
 // A writer may leave an existing byte-identical output in place and return
 // success; that output remains part of this generation's emitted result.
 //
@@ -34,12 +35,12 @@ import (
 // the supplied writer must not reenter either returned closure. Writer errors
 // prevent recording that callback even if the writer already had partial effects.
 //
-// @evidence contracts/common.md#principled-implementation Native eligible sources and resolved script destinations intersect only successful unskipped emit callbacks, including byte-identical existing outputs; all candidate generation-time physical proofs are required, with unknown and multiple owners represented explicitly.
+// @evidence contracts/common.md#principled-implementation Native eligible sources and resolved script or project marker destinations intersect only successful unskipped emit callbacks, including byte-identical existing outputs; all candidate generation-time physical proofs are required, with unknown and multiple owners represented explicitly.
 // @evidence contracts/common.md#clear-and-simple-design One compiler-owned candidate index, one serialized writer and one snapshot separate eligibility, successful publication and physical provenance without a same-stem fallback.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The recorder delegates supported emit-path helpers and actual writers; later realpath, fixture filenames or extension precedence cannot fabricate a unique source owner.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain snapshot timing, native keys, physical proof, ambiguity, unknown values and the non-atomic ledger limitation following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Compiler path normalization and its coordinate case policy index candidate collisions; recorded native physical paths prove source identity separately from that policy, preserving lexical output names without an OS-derived identity guess.
-// @evidence contracts/performance.md#efficient-algorithms Latched linked hooks and native eligibility/output-path helpers precede the source index. Candidate/path normalization and text keys contribute work; each callback delegates arbitrary writer work, then records a successful script row even when the writer reuses matching bytes. Snapshot visits each row's candidates, compares captured proofs, deduplicates physical paths and sorts each owner list with path-text comparison costs; shared candidate lists can be revisited across output spellings.
+// @evidence contracts/performance.md#efficient-algorithms Latched linked hooks and native eligibility/output-path helpers precede the source index. Candidate/path normalization and text keys contribute work; each callback delegates arbitrary writer work, then records a successful tracked output even when the writer reuses matching bytes. Snapshot visits each row's candidates, compares captured proofs, deduplicates physical paths and sorts each owner list with path-text comparison costs; shared candidate lists can be revisited across output spellings.
 // @evidence contracts/performance.md#reuse-equivalent-work One generation's native eligibility and output paths serve every writer callback; the snapshot reuses captured input observations without re-reading source bytes or recomputing an independent compiler Program.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Returned closures retain the captured input ledger and uncapped candidate/write path lists until their owner releases them. Snapshots allocate independent maps/slices; delegated writer resource release belongs to that writer. Shared locking serializes writer and snapshot with no deadline or reentrant acquisition; no independent descriptor or lease is acquired here.
 func (p *Program) NewEmitProvenanceRecorder(writeFile shimcompiler.WriteFile) (shimcompiler.WriteFile, func() map[string][]string, error) {
@@ -59,12 +60,25 @@ func (p *Program) NewEmitProvenanceRecorder(writeFile shimcompiler.WriteFile) (s
   coordinateKey := func(name string) string {
     return shimtspath.Canonicalize(caseSensitivity, shimtspath.NormalizePath(nativePath(name)))
   }
+  trackedOutput := func(name string) bool {
+    switch strings.ToLower(filepath.Ext(name)) {
+    case ".js", ".jsx", ".mjs", ".cjs":
+      return true
+    case ".json":
+      marker := filepath.Base(name)
+      if runtime.GOOS == "windows" {
+        marker = strings.ToLower(marker)
+      }
+      return marker == "package.json" || marker == "tsconfig.json" || marker == "jsconfig.json"
+    default:
+      return false
+    }
+  }
   candidates := map[string][]string{}
   host := &pluginEmitHost{program: program}
   for _, source := range shimcompiler.SourceFilesToEmit(host) {
     output := shimcompiler.OutputPathsFor(source, program.Options(), host).JsFilePath()
-    switch strings.ToLower(filepath.Ext(string(output))) {
-    case ".js", ".jsx", ".mjs", ".cjs":
+    if trackedOutput(string(output)) {
       key := coordinateKey(string(output))
       candidates[key] = append(candidates[key], nativePath(string(source.FileName())))
     }
@@ -82,11 +96,8 @@ func (p *Program) NewEmitProvenanceRecorder(writeFile shimcompiler.WriteFile) (s
     if err := writeFile(name, text, data); err != nil {
       return err
     }
-    if data == nil || !data.SkippedDtsWrite {
-      switch strings.ToLower(filepath.Ext(string(name))) {
-      case ".js", ".jsx", ".mjs", ".cjs":
-        written[nativePath(string(name))] = coordinateKey(string(name))
-      }
+    if (data == nil || !data.SkippedDtsWrite) && trackedOutput(string(name)) {
+      written[nativePath(string(name))] = coordinateKey(string(name))
     }
     return nil
   }

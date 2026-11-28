@@ -107,3 +107,92 @@ export async function test_runtimebuildcache_prefers_published_launcher_adoption
     fs.rmSync(root, { recursive: true });
   }
 }
+
+/**
+ * A short launcher run can finish a marker-bearing archive before cleanup. The
+ * next run restores the compiler's bytes from that archive.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Production publication and restore serve a normalized compiler-written JSON marker across two managed runs.
+ * @evidence contracts/testing.md#independent-expectations The producer count, preserved raw tree, archive file and restored bytes distinguish publication from parking or rebuilding.
+ * @evidence contracts/testing.md#distinguishing-cases A proved marker is archived even before the first background step; changing it after capture or omitting its compiler source refuses publication.
+ * @evidence contracts/testing.md#execution-ownership A private native temp tree drives the production cache with synthetic producer results.
+ */
+export function test_runtimebuildcache_archives_proved_project_markers(): void {
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), "ttsx-marker-archive-")),
+  );
+  const original = '{ "type": "module" }\n';
+  const emitted = '{"type":"module"}';
+  const changed = '{"type":"commonjs"}';
+  const source = path.join(root, "authored", "package.json");
+  try {
+    fs.mkdirSync(path.dirname(source));
+    fs.writeFileSync(source, original);
+    for (const mode of ["proved", "modified", "unproved"]) {
+      const runtimeRoot = path.join(root, mode);
+      const store = path.join(runtimeRoot, "runtime-builds");
+      const canChange = (directory: string) =>
+        systemRuntimeRunCanChange(directory, runtimeRoot, []);
+      let builds = 0;
+      const request = (name: string) => {
+        const run = path.join(runtimeRoot, "project", name);
+        const emitDir = path.join(run, "fs", "output");
+        const marker = path.join(emitDir, "nested", "package.json");
+        let publication: RuntimeBuildCache.Publication | undefined;
+        fs.mkdirSync(emitDir, { recursive: true });
+        const result = RuntimeBuildCache.run({
+          directory: store,
+          canChange,
+          runDir: run,
+          emitDir,
+          capture: () => "fixed snapshot",
+          admit: () => true,
+          recordParked: (value) => value,
+          defer: (value) => {
+            publication = value;
+          },
+          build: () => {
+            ++builds;
+            fs.mkdirSync(path.dirname(marker));
+            fs.writeFileSync(marker, mode === "unproved" ? original : emitted);
+            return {
+              status: 0,
+              diagnostics: [],
+              stdout: "",
+              stderr: "",
+              emittedSources: mode === "unproved" ? {} : { [marker]: [source] },
+            };
+          },
+        });
+        assert.equal(result.status, 0);
+        return { marker, publication };
+      };
+      const fresh = request("fresh");
+      assert.ok(fresh.publication);
+      if (mode === "modified") fs.writeFileSync(fresh.marker, changed);
+      fresh.publication.park();
+      assert.equal(
+        fs.readFileSync(fresh.marker, "utf8"),
+        mode === "proved" ? emitted : mode === "modified" ? changed : original,
+      );
+      const warm = request("warm");
+      assert.equal(builds, mode === "proved" ? 1 : 2);
+      if (mode === "proved") {
+        assert.equal(warm.publication, undefined);
+        assert.equal(fs.readFileSync(warm.marker, "utf8"), emitted);
+        const documents = fs.readdirSync(store);
+        assert.equal(
+          documents.some((name) => name.endsWith(".bundle")),
+          true,
+        );
+        assert.equal(
+          documents.some((name) => name.endsWith(".pending")),
+          false,
+        );
+      }
+    }
+    assert.equal(fs.readFileSync(source, "utf8"), original);
+  } finally {
+    fs.rmSync(root, { recursive: true });
+  }
+}
