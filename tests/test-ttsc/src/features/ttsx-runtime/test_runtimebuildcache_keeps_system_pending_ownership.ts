@@ -13,7 +13,7 @@ import { systemRuntimeRunCanChange } from "../../../../../packages/ttsc/src/laun
  *
  * @evidence contracts/testing.md#behavioral-verification The native store reads real saved requests, parks and adopts the original run's output, and preserves foreign trees and an aliased pending parent.
  * @evidence contracts/testing.md#independent-expectations Authored marker and output bytes, original coordinates and an independent producer count distinguish an actual reuse from an uncached build.
- * @evidence contracts/testing.md#distinguishing-cases The fixture distinguishes marked and linked pending paths, an aliased receipt that prevents adoption, cross-run records, and guarded replacement of a hardlinked carried job. A saved plan with a compiler-copied marker cannot retire the old candidate; committed and already-committed replacements can.
+ * @evidence contracts/testing.md#distinguishing-cases Marked output, refused receipts, incomplete or ordinary inline publication, and uncommitted adoption leave stable output. A committed park and its replay retire only the same environment variant. The fixture also checks linked paths and a guarded hardlinked job rewrite.
  * @evidence contracts/testing.md#execution-ownership The unit uses an owned temporary tree and removes the junction before removing the tree. It starts no compiler or watcher.
  */
 export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
@@ -41,20 +41,26 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
   let builds = 0;
   const build = (
     emitDir: string,
-    beforeAdopt?: () => string | undefined,
+    beforeAdopt?: (emit: string) => string | undefined,
     emitJson = false,
+    options?: {
+      variant?: string;
+      mode?: "inline" | "defer";
+    },
   ) => {
     fs.mkdirSync(emitDir, { recursive: true });
     return RuntimeBuildCache.run({
       directory: store,
       canChange,
       runDir: run,
-      parkIn: run,
+      parkIn: options?.mode === undefined ? run : undefined,
+      defer: options?.mode === "defer" ? () => undefined : undefined,
       emitDir,
       capture: () => undefined,
       admit: () => true,
       identity: () => "owned-build",
-      replay: () => beforeAdopt?.(),
+      replay: (_result, emit) => beforeAdopt?.(emit),
+      environmentValue: () => options?.variant,
       recordParked: (result) => result,
       build: () => {
         ++builds;
@@ -68,6 +74,11 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
           diagnostics: [],
           stdout: "",
           stderr: "",
+          compilerObservations: {},
+          environmentInputs:
+            options?.variant === undefined
+              ? undefined
+              : { TTSC_TEST_VARIANT: options.variant },
           emittedSources: {
             [output]: [source],
             ...(emitJson ? { [json]: [sourceJson] } : {}),
@@ -273,6 +284,113 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
     );
     RuntimeBuildCache.parkRequested(run, store, canChange);
     assert.equal(fs.existsSync(restart.parked), true);
+
+    const variantA = generation(run);
+    assert.equal(
+      build(variantA, inputChanged, false, { variant: "a" }).status,
+      0,
+    );
+    const oldA = requestFor(variantA).parked;
+    RuntimeBuildCache.parkRequested(run, store, canChange);
+    const variantB = generation(run);
+    assert.equal(
+      build(variantB, inputChanged, false, { variant: "b" }).status,
+      0,
+    );
+    const oldB = requestFor(variantB).parked;
+    RuntimeBuildCache.parkRequested(run, store, canChange);
+    assert.notEqual(path.dirname(oldB), path.dirname(oldA));
+    const nativeIdentity = (directory: string): string => {
+      const entry = fs.lstatSync(directory, { bigint: true });
+      return `${entry.dev}:${entry.ino}`;
+    };
+    const nextA = generation(run);
+    assert.equal(build(nextA, inputChanged, false, { variant: "a" }).status, 0);
+    const replay = requestFor(nextA);
+    assert.ok(replay.replacement);
+    assert.ok(
+      replay.replacement.prior.some(({ directory }) => directory === oldA),
+    );
+    assert.equal(
+      replay.replacement.prior.some(({ directory }) => directory === oldB),
+      false,
+    );
+    fs.mkdirSync(replay.parked);
+    fs.writeFileSync(
+      path.join(replay.parked, "job.json"),
+      JSON.stringify(replay.job),
+    );
+    fs.renameSync(nextA, path.join(replay.parked, "outputs"));
+    fs.writeFileSync(
+      path.join(parks, "replay-other-variant.json"),
+      JSON.stringify({
+        ...replay,
+        replacement: {
+          ...replay.replacement,
+          prior: [
+            ...replay.replacement.prior,
+            {
+              directory: oldB,
+              identity:
+                nativeIdentity(oldB) +
+                "/" +
+                nativeIdentity(path.join(oldB, "outputs")),
+            },
+          ],
+        },
+      }),
+    );
+    RuntimeBuildCache.parkRequested(run, store, canChange);
+    assert.equal(fs.existsSync(oldA), false);
+    assert.equal(
+      fs.readFileSync(path.join(oldB, "outputs", "main.js"), "utf8"),
+      "owned build output",
+    );
+
+    const recordAddress = pending.replace(/\.pending$/, ".json");
+    const bundleAddress = pending.replace(/\.pending$/, ".bundle");
+    fs.mkdirSync(recordAddress);
+    for (const expectRecord of [false, true]) {
+      const inline = generation(run);
+      assert.equal(
+        build(
+          inline,
+          (emit) => (emit === inline ? undefined : "input changed"),
+          false,
+          { mode: "inline" },
+        ).status,
+        0,
+      );
+      assert.ok(fs.lstatSync(bundleAddress).isFile());
+      assert.equal(fs.lstatSync(recordAddress).isFile(), expectRecord);
+      assert.equal(
+        fs.readFileSync(
+          path.join(restart.parked, "outputs", "main.js"),
+          "utf8",
+        ),
+        "owned build output",
+      );
+      if (!expectRecord) fs.rmdirSync(recordAddress);
+    }
+
+    const fallback = path.join(pending, `1-1-${crypto.randomUUID()}`);
+    fs.cpSync(restart.parked, fallback, { recursive: true });
+    const deferred = generation(run);
+    const beforeDeferred = builds;
+    assert.equal(
+      build(deferred, undefined, false, { mode: "defer" }).status,
+      0,
+    );
+    assert.equal(builds, beforeDeferred);
+    assert.equal(fs.existsSync(restart.parked), false);
+    assert.equal(
+      fs.readFileSync(path.join(deferred, "main.js"), "utf8"),
+      "owned build output",
+    );
+    assert.equal(
+      fs.readFileSync(path.join(fallback, "outputs", "main.js"), "utf8"),
+      "owned build output",
+    );
   } finally {
     fs.rmSync(root, { recursive: true });
   }

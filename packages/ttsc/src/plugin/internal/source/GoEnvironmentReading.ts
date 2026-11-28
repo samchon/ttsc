@@ -153,25 +153,79 @@ export namespace GoEnvironmentReading {
   ] as const;
 
   /**
-   * Whether the explicit Go environment file is interpreted in child cwd.
+   * Whether Go's user settings location can depend on child cwd.
    *
-   * @evidence contracts/common.md#principled-implementation A nonempty relative file setting except Go's off marker depends on the child working directory.
+   * @evidence contracts/common.md#principled-implementation The explicit setting takes precedence, and the host's native user-config variable can make the default relative.
    * @evidence contracts/common.md#clear-and-simple-design Package, workspace and manifest readers share the same precondition.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The test does not guess the default Go settings file.
-   * @evidence contracts/common.md#meaningful-documentation Identifies the explicit working-directory dependency.
+   * @evidence contracts/common.md#meaningful-documentation Identifies the settings location's working-directory dependency.
    * @evidence contracts/portability.md#os-neutral-implementation The shared environment accessor and native path rules establish the setting and relativity.
-   * @evidence contracts/performance.md#efficient-algorithms One lookup and path classification require no native probe.
+   * @evidence contracts/performance.md#efficient-algorithms A fixed number of variable lookups and path classification require no native probe.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work No result is retained.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No resource is acquired.
    */
   export function hasRelativeFile(env: NodeJS.ProcessEnv): boolean {
     const file = SidecarEnvironment.read(env, "GOENV");
+    if (file) return file !== "off" && cwdRelative(file);
+    if (process.platform === "win32")
+      return cwdRelative(SidecarEnvironment.read(env, "APPDATA"));
+    if (process.platform === "darwin")
+      return cwdRelative(SidecarEnvironment.read(env, "HOME"));
+    // Go rejects a relative XDG_CONFIG_HOME. A nonempty setting suppresses
+    // the HOME fallback regardless of whether the XDG value was valid.
+    return (
+      !SidecarEnvironment.read(env, "XDG_CONFIG_HOME") &&
+      cwdRelative(SidecarEnvironment.read(env, "HOME"))
+    );
+  }
+
+  function cwdRelative(file: string | undefined): boolean {
     return (
       !!file &&
-      file !== "off" &&
       (!path.isAbsolute(file) ||
         (process.platform === "win32" && path.parse(file).root.length === 1))
     );
+  }
+
+  /**
+   * Acquire a recovery-only settings path before a workspace command starts.
+   *
+   * @evidence contracts/common.md#principled-implementation An explicit name or the actual local Go launcher's default is resolved from the impending command's native cwd and stated before that command starts.
+   * @evidence contracts/common.md#clear-and-simple-design Reuses default discovery and witness projection from the settings reader and workspace owner.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Discovery does not replace the command's settings or confer reusable authority.
+   * @evidence contracts/common.md#meaningful-documentation Identifies when the path is acquired and where its evidence is sent.
+   * @evidence contracts/portability.md#os-neutral-implementation Go supplies the default location and the shared native cwd helper resolves its spelling.
+   * @evidence contracts/performance.md#efficient-algorithms Only an active recovery observer and a cwd-sensitive default can add a native subprocess before workspace preparation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Reports current native metadata only.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Owns a temporary map and delegates native capture cleanup.
+   */
+  export function reportWorkspaceSettings(
+    goBinary: string,
+    cwd: string,
+    env: NodeJS.ProcessEnv,
+    projectRoot: string | undefined,
+    additionalProjectRoots: readonly string[] | undefined,
+    project: (
+      witness: PluginBuildEnvironmentWitness.Record,
+    ) => PluginBuildEnvironmentWitness.Record,
+  ): void {
+    if (recoveryObserver === undefined || !hasRelativeFile(env)) return;
+    const file =
+      SidecarEnvironment.read(env, "GOENV") ||
+      discoverRecoveryFile(
+        goBinary,
+        cwd,
+        env,
+        projectRoot,
+        additionalProjectRoots,
+      );
+    if (file === undefined) return;
+    const witness: PluginBuildEnvironmentWitness.Record = new Map();
+    PluginBuildEnvironmentWitness.add(
+      witness,
+      GoToolResolution.workingPath(cwd, file),
+    );
+    reportRecovery(project(witness), cwd);
   }
 
   /**

@@ -17,7 +17,7 @@ import { isPathWithin } from "./isPathWithin";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not collapse POSIX parent components or substitute a lossy physical spelling.
  * @evidence contracts/common.md#meaningful-documentation Explains the survival boundary and which spelling is kept.
  * @evidence contracts/portability.md#os-neutral-implementation Uses native path identity for the existing prefix and preserves remaining POSIX path bytes, including for missing leaves.
- * @evidence contracts/performance.md#efficient-algorithms Only a relative settings observation needs a prefix walk, with one realpath per traversed scratch component and one metadata comparison for a translated observation.
+ * @evidence contracts/performance.md#efficient-algorithms An explicit relative setting identifies one key. A relative default selects observed native paths under scratch, with a prefix walk and one metadata comparison per translated key.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The projection uses current scratch metadata for each observation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Updates the caller's proof without retaining a path, descriptor or task.
  */
@@ -27,22 +27,28 @@ export function projectWorkspaceGoEnvironmentFile(
   evidence: PluginBuildEnvironmentWitness.Record,
 ): PluginBuildEnvironmentWitness.Record {
   if (!GoEnvironmentReading.hasRelativeFile(env)) return evidence;
-  const file = GoToolResolution.workingPath(
-    directory,
-    SidecarEnvironment.read(env, "GOENV")!,
-  );
-  const previous = evidence.get(file);
-  if (previous === undefined) return evidence;
-  const surviving = survivingPath(directory, file);
-  if (surviving === file) return evidence;
-  const projected = new Map(evidence);
-  projected.delete(file);
-  if (surviving === undefined) return projected;
-  const current: PluginBuildEnvironmentWitness.Record = new Map();
-  PluginBuildEnvironmentWitness.add(current, surviving);
-  if (current.get(surviving) === previous)
-    PluginBuildEnvironmentWitness.join(projected, current);
-  else PluginBuildEnvironmentWitness.refuse(projected, surviving);
+  const explicit = SidecarEnvironment.read(env, "GOENV");
+  const prefix = `${directory}${path.sep}`;
+  // Default discovery supplied the path when it recorded the file. Never
+  // synthesize Go's default filename from the configuration root here.
+  const files = explicit
+    ? [GoToolResolution.workingPath(directory, explicit)]
+    : [...evidence.keys()].filter((file) => file.startsWith(prefix));
+  let projected = evidence;
+  for (const file of files) {
+    const previous = evidence.get(file);
+    if (previous === undefined) continue;
+    const surviving = survivingPath(directory, file);
+    if (surviving === file) continue;
+    if (projected === evidence) projected = new Map(evidence);
+    projected.delete(file);
+    if (surviving === undefined) continue;
+    const current: PluginBuildEnvironmentWitness.Record = new Map();
+    PluginBuildEnvironmentWitness.add(current, surviving);
+    if (current.get(surviving) === previous)
+      PluginBuildEnvironmentWitness.join(projected, current);
+    else PluginBuildEnvironmentWitness.refuse(projected, surviving);
+  }
   return projected;
 }
 

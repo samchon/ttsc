@@ -10,7 +10,6 @@ import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFil
 import type { CompilerTarget } from "./CompilerTarget";
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
-import { GoToolResolution } from "./GoToolResolution";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "./PluginContentIdentities";
 import { PluginLoadAnswers } from "./PluginLoadAnswers";
@@ -265,20 +264,14 @@ export namespace SourcePluginWorkspace {
     // what every listed module declares. A fixed directive rejects a module that
     // declares a patch release (`go 1.26.0` against `go 1.26`), and a module the
     // selected toolchain is too old for fails here with Go's own error.
-    if (GoEnvironmentReading.hasRelativeFile(env)) {
-      const witness: PluginBuildEnvironmentWitness.Record = new Map();
-      PluginBuildEnvironmentWitness.add(
-        witness,
-        GoToolResolution.workingPath(
-          scratchDir,
-          SidecarEnvironment.read(env, "GOENV")!,
-        ),
-      );
-      GoEnvironmentReading.reportRecovery(
-        projectWorkspaceGoEnvironmentFile(scratchDir, env, witness),
-        scratchDir,
-      );
-    }
+    GoEnvironmentReading.reportWorkspaceSettings(
+      goBinary,
+      scratchDir,
+      env,
+      projectRoot,
+      additionalProjectRoots,
+      (witness) => projectWorkspaceGoEnvironmentFile(scratchDir, env, witness),
+    );
     const settled = spawnGoTool(goBinary, ["work", "use"], {
       cwd: scratchDir,
       projectRoot,

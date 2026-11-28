@@ -45,6 +45,7 @@ export namespace HostInputObservationPhase {
 
   // A listing pays off only when several observed leaves can share it.
   const MIN_SHARED_LEAVES = 3;
+  const MIN_COLD_BATCH_LEAVES = MIN_SHARED_LEAVES * 2;
   const MAX_ENTRIES_PER_LEAF = 4;
 
   const DIRECTORY_HASH = crypto
@@ -279,6 +280,64 @@ export namespace HostInputObservationPhase {
         if (listing.exact.get(name)?.isFile() !== true) continue;
         phase.lstats.set(file, "non-directory");
         phase.realpaths.set(file, path.join(physical, name));
+      }
+    }
+  }
+
+  /**
+   * Qualify exact siblings before individually hashing a fresh batch. A
+   * successful guarded read is required to use a dirent as a paired content and
+   * physical observation.
+   *
+   * @evidence contracts/common.md#principled-implementation A sufficiently large requested group nominates a bounded listing. An exact regular dirent and a successful guarded read establish its hash, kind and physical spelling in one phase.
+   * @evidence contracts/common.md#clear-and-simple-design The batch hash caller provides the candidate population, and the phase owns all native observations and fallback state.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Sparse, linked, unlisted and unreadable entries keep their individual native observations. Enumeration alone establishes no file's content or searchability.
+   * @evidence contracts/common.md#meaningful-documentation Describes the fresh phase and the successful read requirement.
+   * @evidence contracts/portability.md#os-neutral-implementation Native dirents and lossless physical parent identity establish exact spelling. Potentially lossy names bypass the listing shortcut.
+   * @evidence contracts/performance.md#efficient-algorithms Groups distinct candidate names by parent, skips sparse groups and uses the same bounded scanner as individual realpath observations. Confirmed reads omit per-file lstat and realpath calls.
+   * @evidence contracts/performance.md#reuse-equivalent-work Fresh phases alone plan batches. Warm or partially observed phases keep their existing observations.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Grouping is call-local, and the scanner closes before file reads. Only observations survive in the caller's phase.
+   */
+  export function hashKnownFiles(files: readonly string[], phase: Phase): void {
+    if (
+      files.length < MIN_COLD_BATCH_LEAVES ||
+      phase.lstats.size !== 0 ||
+      phase.hashes.size !== 0 ||
+      phase.realpaths.size !== 0
+    )
+      return;
+    const groups = new Map<string, Set<string>>();
+    for (const file of files) {
+      const resolved = path.resolve(file);
+      const name = path.basename(resolved);
+      if (name.includes("\ufffd")) continue;
+      const parent = path.dirname(resolved);
+      const names = groups.get(parent);
+      if (names === undefined) groups.set(parent, new Set([name]));
+      else names.add(name);
+    }
+    for (const [parent, names] of groups) {
+      if (names.size < MIN_COLD_BATCH_LEAVES) continue;
+      const physical = resolveDirectoryRealpath(parent, phase);
+      if (physical === null || physical.includes("\0")) continue;
+      const listing = listDirectory(physical, [...names], phase);
+      if (listing === null) continue;
+      for (const name of names) {
+        if (listing.exact.get(name)?.isFile() !== true) continue;
+        const file = path.join(parent, name);
+        try {
+          const content = RuntimeFilesystem.readObservedRegularFile(file);
+          if (content === undefined) continue;
+          const digest = crypto
+            .createHash("sha256")
+            .update(content)
+            .digest("hex");
+          phase.lstats.set(file, "non-directory");
+          phase.realpaths.set(file, path.join(physical, name));
+          phase.hashes.set(file, digest);
+        } catch {
+          // Enumeration cannot establish search permission on the path.
+        }
       }
     }
   }

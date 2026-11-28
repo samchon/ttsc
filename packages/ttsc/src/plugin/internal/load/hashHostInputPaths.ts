@@ -9,16 +9,17 @@ import { HostInputObservationPhase } from "./HostInputObservationPhase";
  * again.
  *
  * When a caller supplies a {@link HostInputObservationPhase.Phase}, hashing and
- * physical-path resolution share one `lstatSync` per candidate, skip
- * descendants of already-observed missing or non-directory parents, and drop
- * the phase memo when that synchronous phase ends.
+ * physical-path resolution share candidate metadata, skip descendants of
+ * already-observed missing or non-directory parents, and drop the phase memo
+ * when that synchronous phase ends. An untouched phase can qualify a dense
+ * group of exact regular files in one bounded directory scan.
  *
  * @evidence contracts/common.md#principled-implementation Resolved path keys pair readable content with SHA-256, directory kind with a domain marker, and unavailable input with null; consumers must pair this content projection with physical identity.
  * @evidence contracts/common.md#clear-and-simple-design The operation snapshots supplied inputs only, delegating phase-scoped lstat, absent-parent and content hashing to HostInputObservationPhase while leaving discovery and cache acceptance with their respective owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The directory marker encodes type, not an expected answer; symlink parents never short-circuit descendants, and unreadability stays null rather than synthetic content or a known-path bypass.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc states null's unreadable meaning, phase-scoped sharing and downstream comparison purpose; descriptive and acknowledgment paragraphs are separated following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve and delegated lstat/stat/readFile preserve host path semantics and follow links; directory kind comes from actual filesystem metadata rather than separators or platform-name inference.
- * @evidence contracts/performance.md#efficient-algorithms Each independent resolved path incurs at most one lstatSync per phase (zero for descendants of an already-observed missing or non-directory parent or duplicate resolved keys); a readable nondirectory hashes its bytes without a separate statSync, directories return the fixed marker without scanning children, and symlinks follow statSync.
+ * @evidence contracts/performance.md#efficient-algorithms A fresh phase can qualify exact ordinary files in a bounded scan and guarded read. Other independent paths incur at most one lstatSync per phase. Observed unavailable ancestors and duplicate resolved keys avoid repeated work. Directories return a marker and symlinks follow statSync.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work An optional caller-owned phase memo shares lstat and content-hash observations across overlapping checks within one synchronous verification phase and is dropped when that phase ends; without a caller phase, a call-local phase serves only the current call and is dropped on return.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous file APIs close their own descriptors and the returned record is caller-owned; this snapshot keeps no global collection or acquired handle.
@@ -53,6 +54,8 @@ export function hashHostInputPaths(
   const legacyMap = HostInputObservationPhase.isPhase(observed)
     ? undefined
     : observed;
+  if (legacyMap === undefined)
+    HostInputObservationPhase.hashKnownFiles(files, phase);
   for (const file of files) {
     const resolved = path.resolve(file);
     if (Object.prototype.hasOwnProperty.call(out, resolved)) continue;

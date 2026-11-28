@@ -288,18 +288,10 @@ export namespace RuntimeBuildCache {
     const identity = digest(FORMAT + "\0" + proof.text);
     const sets = path.join(directory, identity + ".environment");
     const keyOf = (names: readonly string[]): string =>
-      names.length === 0
-        ? identity
-        : digest(
-            identity +
-              "\0" +
-              JSON.stringify(
-                names.map((name) => [
-                  name,
-                  props.environmentValue?.(name) ?? null,
-                ]),
-              ),
-          );
+      environmentKey(
+        identity,
+        names.map((name) => [name, props.environmentValue?.(name) ?? null]),
+      );
     /** The variables `result`'s plugins recorded reading, name-ordered. */
     const readNames = (result: TtscBuildResult): string[] =>
       Object.keys(result.environmentInputs ?? {}).sort();
@@ -518,8 +510,6 @@ export namespace RuntimeBuildCache {
       options: {
         /** Called once `record` completed. */
         onRecorded?: (result: TtscBuildResult) => void;
-        /** Retire superseded outputs only after the record is installed. */
-        onPublished?: () => void;
         /**
          * The result's inputs were proven just now, by the lookup that adopted
          * it, so publication does not prove them a second time.
@@ -669,7 +659,6 @@ export namespace RuntimeBuildCache {
           }
       }
       report("recorded", undefined, key, files.length, 0);
-      options.onPublished?.();
       return true;
     }
     /**
@@ -726,8 +715,6 @@ export namespace RuntimeBuildCache {
         // An adopted build was proven by the lookup that adopted it.
         proven: carried !== undefined,
         parallel: true,
-        onPublished: () =>
-          retirePreviousParked(directory, prior, props.canChange),
       });
       let settled = false;
       const pending: Publication = {
@@ -761,8 +748,14 @@ export namespace RuntimeBuildCache {
           register(reads);
           report("parked", undefined, key);
           const parked = parkDestination(key);
+          const sameVariant = prior?.filter(
+            (candidate) =>
+              path.dirname(candidate.directory) === path.dirname(parked),
+          );
           const outputIdentity =
-            prior === undefined ? undefined : parkedIdentity(props.emitDir);
+            sameVariant === undefined
+              ? undefined
+              : parkedIdentity(props.emitDir);
           return carried !== undefined
             ? {
                 outputs: props.emitDir,
@@ -774,9 +767,9 @@ export namespace RuntimeBuildCache {
                 outputs: props.emitDir,
                 parked,
                 replacement:
-                  outputIdentity === undefined
+                  outputIdentity === undefined || sameVariant === undefined
                     ? undefined
-                    : { outputIdentity, prior: prior! },
+                    : { outputIdentity, prior: sameVariant },
                 job: {
                   format: PARKED_FORMAT,
                   [proof!.field]: proof!.value,
@@ -868,7 +861,7 @@ export namespace RuntimeBuildCache {
         let published = false;
         for (const parked of parkedBuilds(key)) {
           if (adopted !== undefined || published) {
-            discard(parked);
+            if (props.canChange === undefined) discard(parked);
             continue;
           }
           const job = (() => {
@@ -894,7 +887,7 @@ export namespace RuntimeBuildCache {
             // Torn, or left by a format or request this one cannot prove. A
             // directory still being parked has no job yet; its parker reports
             // the failure, and only its own build is lost.
-            if (!requiresParkReceipt) discard(parked);
+            if (props.canChange === undefined) discard(parked);
             continue;
           }
           try {
@@ -911,8 +904,9 @@ export namespace RuntimeBuildCache {
                   ),
                 ),
               );
-              // Its outputs now live in the stored record.
-              if (published) discard(parked);
+              // Managed readers retain the parked output because the two
+              // public files can be torn by another publisher.
+              if (published && props.canChange === undefined) discard(parked);
               continue;
             }
             const result: TtscBuildResult =
@@ -1011,7 +1005,8 @@ export namespace RuntimeBuildCache {
     }
     if (missing) report("miss", "document-missing", key);
     const previousParked =
-      props.canChange === undefined
+      props.canChange === undefined ||
+      (props.defer === undefined && props.parkIn === undefined)
         ? undefined
         : candidates.flatMap(({ key: candidate }) =>
             parkedBuilds(candidate).flatMap((directory) => {
@@ -1024,9 +1019,9 @@ export namespace RuntimeBuildCache {
       report("not-recorded", "producer-failed", key);
       return result;
     }
-    // This build supersedes every parked build of the request, as its record
-    // replaces the stored one: those of every key it tried, all of which hold
-    // its values, and of the key it is stored under.
+    // Caller-owned stores retain their eager supersedence. A system store
+    // keeps a durable fallback until a complete same-variant replacement is
+    // parked. The independently published bundle and record are insufficient.
     const discardSuperseded = (): void => {
       for (const candidate of new Set([
         ...candidates.map((entry) => entry.key),
@@ -1039,13 +1034,7 @@ export namespace RuntimeBuildCache {
       props.recordSteps ??
       ((fresh: TtscBuildResult) => lift(props.record?.(fresh) ?? fresh));
     if (props.defer === undefined && props.parkIn === undefined) {
-      finish(
-        result,
-        publication(result, props.emitDir, props.emitDir, record, {
-          onPublished: () =>
-            retirePreviousParked(directory, previousParked, props.canChange),
-        }),
-      );
+      finish(result, publication(result, props.emitDir, props.emitDir, record));
       return result;
     }
     // What parking needs is taken now, before a step consumes it.
@@ -1245,9 +1234,9 @@ export namespace RuntimeBuildCache {
    * @param canChange Current project and path ownership for a system cache.
    * @param recorded Whether the request came from a process's saved plan.
    * @returns Whether the build was parked.
-   * @evidence contracts/common.md#principled-implementation Fresh parking writes the job before moving the outputs. Earlier system candidates may retire only once that exact replacement occupies the target, including when replay observes an already-committed move. Adoption recovery returns the carried directory whole.
+   * @evidence contracts/common.md#principled-implementation Fresh parking writes the job before moving the outputs. Earlier system candidates may retire only once that exact replacement occupies the target and both jobs prove the same environment variant. Replay can confirm an already-committed move. Adoption recovery returns the carried directory whole.
    * @evidence contracts/common.md#clear-and-simple-design One function serves the launcher's own publication and requests left by its program's processes.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed move leaves nothing parked and reports false; the outputs then go with their run.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed move reports false. Managed rollback only attempts removal of a still-qualified directory created by this call. A refused or failed rollback can leave the partial directory for collection.
    * @evidence contracts/common.md#meaningful-documentation The prose states the order and the failure effect.
    * @evidence contracts/portability.md#os-neutral-implementation Native mkdir, write and rename within the cache root's volume.
    * @evidence contracts/performance.md#efficient-algorithms The publication uses a job write and bounded moves. Guarded pruning visits only the captured candidates and scans their current owned trees before mutation.
@@ -1417,22 +1406,33 @@ export namespace RuntimeBuildCache {
   /** Retire only the observed instances that still occupy their store addresses. */
   function retirePreviousParked(
     store: string,
-    prior: NonNullable<ParkRequest["replacement"]>["prior"] | undefined,
-    canChange?: (directory: string) => boolean,
-    replacement?: ParkRequest,
+    prior: NonNullable<ParkRequest["replacement"]>["prior"],
+    canChange: (directory: string) => boolean,
+    replacement: ParkRequest,
   ): void {
-    if (canChange === undefined || !Array.isArray(prior)) return;
+    if (!Array.isArray(prior)) return;
+    const pending = path.dirname(replacement.parked);
+    const key = parkedJobKey(replacement.job);
+    if (key === undefined || path.basename(pending) !== key + ".pending")
+      return;
     for (const candidate of prior)
       try {
         if (
           typeof candidate?.directory !== "string" ||
           typeof candidate.identity !== "string" ||
-          candidate.directory === replacement?.parked ||
+          candidate.directory === replacement.parked ||
+          path.dirname(candidate.directory) !== pending ||
           !isParkedAddress(store, candidate.directory) ||
           !canMoveTree(candidate.directory, canChange) ||
           parkedCandidateIdentity(candidate.directory) !== candidate.identity ||
-          (replacement !== undefined &&
-            !sameParkedProof(candidate.directory, replacement.job))
+          parkedJobKey(
+            JSON.parse(
+              fs.readFileSync(
+                path.join(candidate.directory, "job.json"),
+                "utf8",
+              ),
+            ),
+          ) !== key
         )
           continue;
         if (
@@ -1446,21 +1446,45 @@ export namespace RuntimeBuildCache {
       }
   }
 
-  /** A persisted replacement cannot authorize pruning another proof's job. */
-  function sameParkedProof(directory: string, replacement: unknown): boolean {
-    if (typeof replacement !== "object" || replacement === null) return false;
-    const existing = JSON.parse(
-      fs.readFileSync(path.join(directory, "job.json"), "utf8"),
-    );
-    return (
-      existing?.format === PARKED_FORMAT &&
-      ("identity" in replacement
-        ? typeof replacement.identity === "string" &&
-          existing.identity === replacement.identity
-        : "snapshot" in replacement &&
-          typeof replacement.snapshot === "string" &&
-          existing.snapshot === replacement.snapshot)
-    );
+  /** Recover the exact variant from a producer job's recorded inputs. */
+  function parkedJobKey(value: unknown): string | undefined {
+    if (typeof value !== "object" || value === null) return undefined;
+    const job = value as Partial<{
+      format: string;
+      identity: string;
+      snapshot: string;
+      result: TtscBuildResult;
+    }>;
+    if (job.format !== PARKED_FORMAT || job.result?.status !== 0)
+      return undefined;
+    const proof =
+      typeof job.identity === "string"
+        ? "replay\0" + job.identity
+        : job.snapshot;
+    if (typeof proof !== "string") return undefined;
+    const inputs = job.result.environmentInputs;
+    if (
+      inputs !== undefined &&
+      (typeof inputs !== "object" || inputs === null || Array.isArray(inputs))
+    )
+      return undefined;
+    const entries: [string, string | null][] = [];
+    for (const name of Object.keys(inputs ?? {}).sort()) {
+      const part = inputs?.[name];
+      if (typeof part !== "string" && part !== null) return undefined;
+      entries.push([name, part]);
+    }
+    return environmentKey(digest(FORMAT + "\0" + proof), entries);
+  }
+
+  /** Bind one build identity to its ordered observations of the environment. */
+  function environmentKey(
+    identity: string,
+    entries: readonly (readonly [string, string | null])[],
+  ): string {
+    return entries.length === 0
+      ? identity
+      : digest(identity + "\0" + JSON.stringify(entries));
   }
 
   /** Check a complete move tree without following linked directories. */

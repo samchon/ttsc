@@ -29,12 +29,16 @@ export function test_generated_go_workspace_retains_external_settings(): void {
   const scratch = path.join(root, "scratch");
   const settingsName = `${path.basename(root)}.env`;
   const settings = path.join(root, settingsName);
+  const telemetry = path.join(root, "telemetry");
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     GOENV: `../${settingsName}`,
+    TEST_TELEMETRY_DIR: telemetry,
   };
   delete env.GOTOOLCHAIN;
   try {
+    fs.mkdirSync(telemetry);
+    fs.writeFileSync(path.join(telemetry, "mode"), "off\n");
     fs.mkdirSync(scratch);
     fs.writeFileSync(
       path.join(scratch, "go.mod"),
@@ -68,6 +72,10 @@ export function test_generated_go_workspace_retains_external_settings(): void {
     );
     assert.ok(observed.has(settings));
     const failureProof = new Map([[settings, observed.get(settings)!]]);
+    const defaultProof =
+      process.platform === "win32"
+        ? verifyWindowsDefaultSettings(root, scratch, go, env)
+        : undefined;
 
     const read = (relative: string) => {
       const witness: PluginBuildEnvironmentWitness.Record = new Map();
@@ -118,6 +126,12 @@ export function test_generated_go_workspace_retains_external_settings(): void {
     fs.rmSync(scratch, { recursive: true });
     assert.equal(PluginBuildEnvironmentWitness.holds(failureProof), true);
     assert.equal(PluginBuildEnvironmentWitness.holds(missingProof), true);
+    if (defaultProof !== undefined) {
+      assert.equal(PluginBuildEnvironmentWitness.holds(defaultProof), true);
+      const [file] = defaultProof.keys();
+      fs.writeFileSync(file!, "GOTOOLCHAIN=local\n");
+      assert.equal(PluginBuildEnvironmentWitness.holds(defaultProof), false);
+    }
     fs.writeFileSync(settings, "GOTOOLCHAIN=local\n");
     fs.writeFileSync(absent, "GOTOOLCHAIN=local\n");
     assert.equal(PluginBuildEnvironmentWitness.holds(failureProof), false);
@@ -131,4 +145,66 @@ export function test_generated_go_workspace_retains_external_settings(): void {
   } finally {
     fs.rmSync(root, { recursive: true });
   }
+}
+
+function verifyWindowsDefaultSettings(
+  root: string,
+  scratch: string,
+  go: string,
+  base: NodeJS.ProcessEnv,
+): PluginBuildEnvironmentWitness.Record {
+  const env: NodeJS.ProcessEnv = { ...base, APPDATA: "." };
+  delete env.GOENV;
+  const local = { ...env, GOTOOLCHAIN: "local" };
+  const witness: PluginBuildEnvironmentWitness.Record = new Map();
+  const first = path.join(root, "go", "env");
+  const second = path.join(scratch, "go", "env");
+  for (const file of [first, second])
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(first, "GOFLAGS=-trimpath\n");
+  fs.writeFileSync(second, "GOFLAGS=-buildvcs=false\n");
+  const read = (cwd: string) =>
+    GoEnvironmentReading.read(
+      go,
+      cwd,
+      local,
+      ["GOFLAGS"],
+      witness,
+      undefined,
+      root,
+    )?.values;
+  assert.equal(read(root)?.GOFLAGS, "-trimpath");
+  assert.equal(read(scratch)?.GOFLAGS, "-buildvcs=false");
+  assert.equal(GoWorkspaceEnvironment.canUseOrigin(local, witness), false);
+  assert.equal(
+    GoWorkspaceEnvironment.externalWitness(scratch, witness, local).has(second),
+    false,
+  );
+
+  const profile = `${path.basename(root)}-profile`;
+  const setting = path.join(root, profile, "go", "env");
+  fs.mkdirSync(path.dirname(setting), { recursive: true });
+  fs.writeFileSync(setting, "GOTOOLCHAIN=ttsc-invalid-default-settings\n");
+  const captures: PluginBuildEnvironmentWitness.Record = new Map();
+  assert.throws(
+    () =>
+      GoEnvironmentReading.withRecoveryObservations(
+        (proof) =>
+          PluginBuildEnvironmentWitness.retainForRecovery(captures, proof),
+        () =>
+          SourcePluginWorkspace.writeGoWork(
+            scratch,
+            [],
+            go,
+            "workspace-default-settings",
+            { ...env, APPDATA: `../${profile}` },
+            undefined,
+            undefined,
+            root,
+          ),
+      ),
+    /setting the Go workspace version.*failed/i,
+  );
+  assert.ok(captures.has(setting));
+  return new Map([[setting, captures.get(setting)!]]);
 }

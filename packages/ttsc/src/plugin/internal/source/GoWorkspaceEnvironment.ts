@@ -25,7 +25,7 @@ import { readSourceBuildFile } from "./readSourceBuildFile";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The namespace retains no resource or in-memory state.
  */
 export namespace GoWorkspaceEnvironment {
-  const KIND = "go-workspace-environment-v3";
+  const KIND = "go-workspace-environment-v4";
 
   /**
    * Skip a generated workspace probe only when the explicit local setting has

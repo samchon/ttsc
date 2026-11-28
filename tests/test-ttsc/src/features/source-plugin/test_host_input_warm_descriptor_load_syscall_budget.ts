@@ -101,7 +101,7 @@ function withCountedFs<T>(run: (counts: SyscallCounts) => T): T {
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the descriptor cache and host input helpers with native files, directories, links, absent candidates and Unicode names. Observes direct native probes and whether phases keep a complete listing, skip the listing or discard it as too wide.
  * @evidence contracts/testing.md#independent-expectations Computes SHA-256 from authored bytes and physical paths with direct native realpath; call counters and phase observations distinguish absent, dense, sparse and wide work.
- * @evidence contracts/testing.md#distinguishing-cases Contrasts file, directory, symlink and absent ancestry cases with case variants, normalized names, a Kelvin-sign alias, a Linux invalid filename byte beside a valid replacement character, sparse versus wide batches, opposite listing and search permissions on unprivileged POSIX, and post-phase creation.
+ * @evidence contracts/testing.md#distinguishing-cases Contrasts cold and warm dense batches, file, directory, symlink and absent ancestry cases, case variants, normalized names, a Kelvin-sign alias, a Linux invalid filename byte beside a valid replacement character, sparse versus wide batches, opposite listing and search permissions on unprivileged POSIX, and post-phase creation.
  * @evidence contracts/testing.md#execution-ownership Calls maintained cache and host-input helpers directly over an owned temporary directory removed in finally, restoring every wrapped fs property in finally without starting a compiler, Go tool or subprocess.
  */
 export function test_host_input_warm_descriptor_load_syscall_budget(): void {
@@ -242,6 +242,46 @@ export function test_host_input_warm_descriptor_load_syscall_budget(): void {
     };
     const entry = path.join(root, "descriptor-cache.json");
     PluginDescriptorEvaluationCache.write(entry, evaluation);
+
+    check("a fresh dense batch qualifies even its first regular leaf", () => {
+      const missing = independentAbsent[0]!;
+      const fallback = [
+        missing,
+        dirLink,
+        ...(fileLink === undefined ? [] : [fileLink]),
+      ];
+      const files = [...presentFiles, ...fallback];
+      const { counts, hashes, realpaths } = withCountedFs((counts) => {
+        const phase = HostInputObservationPhase.create();
+        return {
+          counts,
+          hashes: hashHostInputPaths(files, phase),
+          realpaths: realpathHostInputPaths(files, phase),
+        };
+      });
+      assert.deepEqual(
+        hashes,
+        Object.fromEntries(files.map((file) => [file, expectedHashes[file]])),
+      );
+      assert.deepEqual(
+        realpaths,
+        Object.fromEntries(
+          files.map((file) => [file, expectedRealpaths[file]]),
+        ),
+      );
+      assert.deepEqual(counts.lstatPaths, fallback);
+      assert.deepEqual(
+        counts.realpathNativePaths.filter((file) =>
+          presentFiles.includes(file),
+        ),
+        [],
+      );
+      const phase = HostInputObservationPhase.create();
+      const first = presentFiles[0]!;
+      const priorHash = digest("a prior observation");
+      hashHostInputPaths([first], phase, () => priorHash);
+      assert.equal(hashHostInputPaths(files, phase)[first], priorHash);
+    });
 
     check("warm descriptor cache read meets syscall budget", () => {
       const { counts, loaded } = withCountedFs((counts) => ({
