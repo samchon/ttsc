@@ -1,12 +1,12 @@
 package lspserver
 
 import (
-	"encoding/json"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"testing"
+  "encoding/json"
+  "os"
+  "os/exec"
+  "path/filepath"
+  "runtime"
+  "testing"
 )
 
 // TestLSPWorkspaceMetadataMatchesNode validates the native wire on a regular
@@ -22,12 +22,12 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Ordinary files compare identity and change time. A Windows junction or POSIX directory link compares its leaf and its physical directory spelling separately. POSIX preserves link traversal before a lexical parent component.
 // @evidence contracts/testing.md#execution-ownership The test owns its files and joins one Node reporter. A host without Node cannot run this interoperability case.
 func TestLSPWorkspaceMetadataMatchesNode(t *testing.T) {
-	node, err := exec.LookPath("node")
-	if err != nil {
-		t.Skip("Node is unavailable")
-	}
-	root := t.TempDir()
-	command := exec.Command(node, "-e", `
+  node, err := exec.LookPath("node")
+  if err != nil {
+    t.Skip("Node is unavailable")
+  }
+  root := t.TempDir()
+  command := exec.Command(node, "-e", `
 const fs = require("node:fs");
 const path = require("node:path");
 const root = process.argv[1];
@@ -59,48 +59,48 @@ process.stdout.write(JSON.stringify(entries.map(([from, kind]) => {
   };
 })));
 `, root)
-	output, err := command.Output()
-	if err != nil {
-		t.Fatalf("Node fixture failed: %v", err)
-	}
-	var wire []NativePluginWorkspaceFile
-	if err := json.Unmarshal(output, &wire); err != nil {
-		t.Fatal(err)
-	}
-	want := 3
-	if runtime.GOOS != "windows" {
-		want = 4
-	}
-	if len(wire) != want {
-		t.Fatalf("Node returned %d observations, want %d", len(wire), want)
-	}
-	selection, err := newPluginSelectionInputs(NativePluginSelectionInputs{WorkspaceFiles: wire})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, input := range selection.workspaceFiles {
-		if !input.current() {
-			t.Fatalf("unchanged %s metadata differs: %#v", input.Kind, input.NativePluginWorkspaceFile)
-		}
-	}
-	file := filepath.Join(root, "workspace")
-	info, err := os.Stat(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Rename(file, filepath.Join(root, "previous")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(file, []byte("bytes"), info.Mode().Perm()); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chtimes(file, info.ModTime(), info.ModTime()); err != nil {
-		t.Fatal(err)
-	}
-	if selection.current() {
-		t.Fatal("the replacement passed the previous workspace proof")
-	}
-	moved := exec.Command(node, "-e", `
+  output, err := command.Output()
+  if err != nil {
+    t.Fatalf("Node fixture failed: %v", err)
+  }
+  var wire []NativePluginWorkspaceFile
+  if err := json.Unmarshal(output, &wire); err != nil {
+    t.Fatal(err)
+  }
+  want := 3
+  if runtime.GOOS != "windows" {
+    want = 4
+  }
+  if len(wire) != want {
+    t.Fatalf("Node returned %d observations, want %d", len(wire), want)
+  }
+  selection, err := newPluginSelectionInputs(NativePluginSelectionInputs{WorkspaceFiles: wire})
+  if err != nil {
+    t.Fatal(err)
+  }
+  for _, input := range selection.workspaceFiles {
+    if !input.current() {
+      t.Fatalf("unchanged %s metadata differs: %#v", input.Kind, input.NativePluginWorkspaceFile)
+    }
+  }
+  file := filepath.Join(root, "workspace")
+  info, err := os.Stat(file)
+  if err != nil {
+    t.Fatal(err)
+  }
+  if err := os.Rename(file, filepath.Join(root, "previous")); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(file, []byte("bytes"), info.Mode().Perm()); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.Chtimes(file, info.ModTime(), info.ModTime()); err != nil {
+    t.Fatal(err)
+  }
+  if selection.current() {
+    t.Fatal("the replacement passed the previous workspace proof")
+  }
+  moved := exec.Command(node, "-e", `
 const fs = require("node:fs");
 const path = require("node:path");
 const root = process.argv[1];
@@ -110,38 +110,38 @@ fs.renameSync(path.join(root, "target"), renamed);
 fs.unlinkSync(alias);
 fs.symlinkSync(renamed, alias, process.platform === "win32" ? "junction" : "dir");
 `, root)
-	if output, err := moved.CombinedOutput(); err != nil {
-		t.Fatalf("retargeting directory fixture: %v\n%s", err, output)
-	}
-	directory := selection.workspaceFiles[2]
-	if directory.current() {
-		t.Fatal("a new physical spelling passed the original directory proof")
-	}
-	directory.physical = ""
-	if !directory.current() {
-		t.Fatal("a rename of the original directory did not preserve its metadata")
-	}
-	if runtime.GOOS != "windows" {
-		input := selection.workspaceFiles[3]
-		if !input.current() {
-			t.Fatal("the unchanged lexical alias no longer resolves")
-		}
-		alias := filepath.Join(root, "parent")
-		if err := os.Remove(alias); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Rename(filepath.Join(root, "first", "configuration"), filepath.Join(root, "second", "configuration")); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Symlink(filepath.Join(root, "second", "directory"), alias); err != nil {
-			t.Fatal(err)
-		}
-		if input.current() {
-			t.Fatal("retargeting before a parent component kept the old proof")
-		}
-		input.physical = ""
-		if !input.current() {
-			t.Fatal("retargeting before a parent component did not preserve the directory's metadata")
-		}
-	}
+  if output, err := moved.CombinedOutput(); err != nil {
+    t.Fatalf("retargeting directory fixture: %v\n%s", err, output)
+  }
+  directory := selection.workspaceFiles[2]
+  if directory.current() {
+    t.Fatal("a new physical spelling passed the original directory proof")
+  }
+  directory.physical = ""
+  if !directory.current() {
+    t.Fatal("a rename of the original directory did not preserve its metadata")
+  }
+  if runtime.GOOS != "windows" {
+    input := selection.workspaceFiles[3]
+    if !input.current() {
+      t.Fatal("the unchanged lexical alias no longer resolves")
+    }
+    alias := filepath.Join(root, "parent")
+    if err := os.Remove(alias); err != nil {
+      t.Fatal(err)
+    }
+    if err := os.Rename(filepath.Join(root, "first", "configuration"), filepath.Join(root, "second", "configuration")); err != nil {
+      t.Fatal(err)
+    }
+    if err := os.Symlink(filepath.Join(root, "second", "directory"), alias); err != nil {
+      t.Fatal(err)
+    }
+    if input.current() {
+      t.Fatal("retargeting before a parent component kept the old proof")
+    }
+    input.physical = ""
+    if !input.current() {
+      t.Fatal("retargeting before a parent component did not preserve the directory's metadata")
+    }
+  }
 }

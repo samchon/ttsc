@@ -1,12 +1,12 @@
 package lspserver
 
 import (
-	"encoding/base64"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strconv"
-	"testing"
+  "encoding/base64"
+  "os"
+  "path/filepath"
+  "runtime"
+  "strconv"
+  "testing"
 )
 
 // TestLSPWorkspaceMetadataRestartsWithoutEditorEvents verifies that a workspace
@@ -21,29 +21,29 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases The unchanged file first validates and is absent from editor watch registrations.
 // @evidence contracts/testing.md#execution-ownership The Go test owns the file and both ends of the simulated editor transport.
 func TestLSPWorkspaceMetadataRestartsWithoutEditorEvents(t *testing.T) {
-	root := t.TempDir()
-	file := filepath.Join(root, "go-env")
-	if err := os.WriteFile(file, []byte("first"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	// Node reports writable permission on Windows and native permission on POSIX.
-	mode := uint32(0o100600)
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(file, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	info, err := os.Stat(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	selection := NativePluginSelectionInputs{WorkspaceFiles: []NativePluginWorkspaceFile{{
-		Path: base64.StdEncoding.EncodeToString([]byte(file)), Kind: "stat", Mode: &mode,
-		Size: "5", Modified: strconv.FormatInt(info.ModTime().UnixNano(), 10),
-	}}}
-	assertLSPRawPluginSelectionRestart(t, root, selection, func() {
-		if err := os.WriteFile(file, []byte("second"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	})
+  root := t.TempDir()
+  file := filepath.Join(root, "go-env")
+  if err := os.WriteFile(file, []byte("first"), 0o600); err != nil {
+    t.Fatal(err)
+  }
+  // Node reports writable permission on Windows and native permission on POSIX.
+  mode := uint32(0o100600)
+  if runtime.GOOS != "windows" {
+    if err := os.Chmod(file, 0o600); err != nil {
+      t.Fatal(err)
+    }
+  }
+  info, err := os.Stat(file)
+  if err != nil {
+    t.Fatal(err)
+  }
+  selection := NativePluginSelectionInputs{WorkspaceFiles: []NativePluginWorkspaceFile{{
+    Path: base64.StdEncoding.EncodeToString([]byte(file)), Kind: "stat", Mode: &mode,
+    Size: "5", Modified: strconv.FormatInt(info.ModTime().UnixNano(), 10),
+  }}}
+  assertLSPRawPluginSelectionRestart(t, root, selection, func() {
+    if err := os.WriteFile(file, []byte("second"), 0o600); err != nil {
+      t.Fatal(err)
+    }
+  })
 }
