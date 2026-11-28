@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
 
+import { OwnedSynchronousProcess } from "../../../../../packages/ttsc/src/internal/OwnedSynchronousProcess";
 import { loadProjectPlugins } from "../../../../../packages/ttsc/src/plugin/internal/load/loadProjectPlugins";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -14,8 +16,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 2. Assert loading remains pending until publication finishes and inspect it.
  * 3. Contrast synchronous handlers, promise refusal and rejected registration.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual synchronous and asynchronous loader entries publish empty roots once; deferred completion prevents an early result, while refusal and rejection remain observable failures.
- * @evidence contracts/testing.md#independent-expectations The authored plugin-disabled config independently selects no native plugins or source states; an external deferred promise determines when registration is complete.
+ * @evidence contracts/testing.md#behavioral-verification Actual synchronous and asynchronous loader entries publish empty roots once. The synchronous step sees the selected external config directory, and the pending handoff restores the previous project scope. Refusal and rejection remain observable failures.
+ * @evidence contracts/testing.md#independent-expectations The authored plugin-disabled config selects no native plugins or source states. Its separately allocated directory supplies the expected scope boundary and an external promise controls completion.
  * @evidence contracts/testing.md#distinguishing-cases Empty selection, pending and completed publication, absent and synchronous handlers, inline throw, synchronous promise refusal and asynchronous rejection cover the loader's no-entry handoff. Nonempty Go package/source publication belongs to native plugin watch E2E tests.
  * @evidence contracts/testing.md#execution-ownership This exported source unit loads a tracked temporary config with entries false, so no descriptor evaluator, Go tool, native artifact or watcher starts. The owned project is removed after all pending operations settle.
  */
@@ -23,11 +25,19 @@ export async function test_plugin_loader_awaits_empty_selection_publication(): P
   const root = TestProject.physicalPath(
     TestProject.createProject({ "tsconfig.json": '{"files":[]}' }),
   );
+  const external = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-plugin-loader-config-"),
+  );
+  const tsconfig = path.join(external, "custom.json");
+  fs.writeFileSync(tsconfig, '{"files":[]}');
   const options = {
     binary: process.execPath,
     cwd: root,
+    projectRoot: root,
+    tsconfig,
     entries: false as const,
   };
+  const previousRoots = OwnedSynchronousProcess.additionalProjectRoots();
   const handoff = Promise.withResolvers<void>();
   let calls = 0;
   let completed = false;
@@ -37,6 +47,9 @@ export async function test_plugin_loader_awaits_empty_selection_publication(): P
       onWatchInputs: (inputs, identities) => {
         assert.deepEqual(inputs, []);
         assert.equal(identities, undefined);
+        assert.ok(
+          OwnedSynchronousProcess.additionalProjectRoots().includes(external),
+        );
         ++calls;
         return handoff.promise;
       },
@@ -47,6 +60,10 @@ export async function test_plugin_loader_awaits_empty_selection_publication(): P
     });
   try {
     assert.equal(calls, 1);
+    assert.equal(
+      OwnedSynchronousProcess.additionalProjectRoots(),
+      previousRoots,
+    );
     await Promise.resolve();
     assert.equal(completed, false);
     handoff.resolve();
@@ -90,9 +107,14 @@ export async function test_plugin_loader_awaits_empty_selection_publication(): P
       }),
       (error) => error === failure,
     );
+    assert.equal(
+      OwnedSynchronousProcess.additionalProjectRoots(),
+      previousRoots,
+    );
   } finally {
     handoff.resolve();
     await operation;
+    fs.rmSync(external, { recursive: true });
     fs.rmSync(root, { recursive: true, force: true });
   }
 }

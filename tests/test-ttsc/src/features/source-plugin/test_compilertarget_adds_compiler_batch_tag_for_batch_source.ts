@@ -112,6 +112,19 @@ export function test_compilertarget_adds_compiler_batch_tag_for_batch_source(): 
       undefined,
       "-mod=mod -tags=netgo,ttsc_typescript_7_1,ttsc_compiler_batch",
     ],
+    [
+      "7.1",
+      undefined,
+      "'-ldflags=-s  -w' \"--tags=old\" '-tags=netgo osusergo'",
+      "'-ldflags=-s  -w' \"--tags=old\" -tags=netgo,osusergo,ttsc_typescript_7_1,ttsc_compiler_batch",
+    ],
+    [
+      "7.0",
+      "'-tags=netgo osusergo'",
+      undefined,
+      "-tags=netgo,osusergo,ttsc_compiler_batch",
+    ],
+    ["7.0", undefined, "-tags='netgo'", "-tags=netgo,ttsc_compiler_batch"],
   ] as const) {
     if (storedFlags === undefined) fs.rmSync(stored, { force: true });
     else fs.writeFileSync(stored, `GOFLAGS=${storedFlags}\n`);
@@ -142,12 +155,29 @@ export function test_compilertarget_adds_compiler_batch_tag_for_batch_source(): 
       "--tags=ttsc_compiler_batchx -trimpath",
       "--tags=ttsc_compiler_batchx -trimpath",
     ],
+    [
+      "'-ldflags=-s  -w' '-tags=netgo ttsc_typescript_7_1 ttsc_compiler_batch'",
+      "'-ldflags=-s  -w' -tags=netgo",
+    ],
+    ["-tags=old '-tags=ttsc_compiler_batch'", "-tags=old -tags="],
+    ["'-tags=unclosed", "'-tags=unclosed"],
   ] as const)
     assert.equal(
       CompilerTarget.withoutTag(flags),
       expected,
       `withoutTag(${flags})`,
     );
+
+  assert.equal(
+    CompilerTarget.ofEnv({ GOFLAGS: "'-tags=netgo ttsc_typescript_7_1'" }),
+    "7.1",
+  );
+  assert.equal(
+    CompilerTarget.ofEnv({ GOFLAGS: "-tags=ttsc_typescript_7_1 -tags=netgo" }),
+    "7.0",
+  );
+  const malformed = { ...declaredBase, GOFLAGS: "'-tags=unclosed" };
+  assert.equal(CompilerTarget.buildEnv(malformed, "7.1", root), malformed);
 
   for (const line of ["7.0", "7.1"] as const)
     assert.equal(

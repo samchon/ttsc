@@ -17,6 +17,10 @@ import { ensureExecutable } from "./ensureExecutable";
  * report one line per system call; a pipe that cannot be created falls back to
  * the files.
  *
+ * File placement excludes the working directory and any additional project
+ * roots. A projectless child uses the system temp marker checks without
+ * treating its private working directory as a project.
+ *
  * When `options.encoding` is omitted it defaults to `"utf8"`. Pass `"buffer"`
  * when the caller needs raw bytes.
  *
@@ -38,6 +42,11 @@ export function spawnNative(
     cwd?: string;
     env?: NodeJS.ProcessEnv;
     encoding?: BufferEncoding | "buffer";
+    /** Selected configuration roots distinct from the child cwd. */
+    additionalProjectRoots?: readonly string[];
+
+    /** The child reads no project and runs in a private working directory. */
+    projectless?: boolean;
 
     /**
      * Capture through pipes instead of files. Only for a command that starts no
@@ -48,6 +57,13 @@ export function spawnNative(
   },
 ): SpawnSyncReturns<string | Buffer> {
   const viaNode = /\.(?:[cm]?js|ts)$/i.test(binary);
+  const spawnOptions = {
+    additionalProjectRoots: options.additionalProjectRoots,
+    cwd: options.cwd,
+    env: options.env,
+    projectRoot: options.projectless === true ? null : undefined,
+    windowsHide: true,
+  };
   if (!viaNode) {
     ensureExecutable(binary);
   }
@@ -60,10 +76,8 @@ export function spawnNative(
       viaNode ? process.execPath : binary,
       viaNode ? [binary, ...args] : [...args],
       {
-        cwd: options.cwd,
-        env: options.env,
+        ...spawnOptions,
         stdio: ["ignore", "pipe", "pipe"],
-        windowsHide: true,
         maxBuffer: Infinity,
       },
     );
@@ -86,16 +100,19 @@ export function spawnNative(
       } as SpawnSyncReturns<string | Buffer>;
     }
   }
-  const capture = captureProcessOutput(process.env, undefined, options.cwd);
+  const capture = captureProcessOutput(
+    process.env,
+    undefined,
+    options.projectless === true ? null : options.cwd,
+    options.additionalProjectRoots,
+  );
   try {
     const result = spawnSyncResilient(
       viaNode ? process.execPath : binary,
       viaNode ? [binary, ...args] : [...args],
       {
-        cwd: options.cwd,
-        env: options.env,
+        ...spawnOptions,
         stdio: ["ignore", capture.stdoutFd, capture.stderrFd],
-        windowsHide: true,
       },
       { stderr: capture.stderrPath, stdout: capture.stdoutPath },
     );

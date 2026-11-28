@@ -9,6 +9,7 @@ import { PassthroughFlags } from "../../../../../packages/ttsc/src/compiler/inte
 import type { runExternalEmitProvenance } from "../../../../../packages/ttsc/src/compiler/internal/build/runExternalEmitProvenance";
 import { readCompilerOptionOccurrence } from "../../../../../packages/ttsc/src/flags/readCompilerOptionOccurrence";
 import { resolveFlagSpec } from "../../../../../packages/ttsc/src/flags/resolveFlagSpec";
+import { systemTempOutsideProject } from "../../../../../packages/ttsc/src/internal/systemTempOutsideProject";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -231,6 +232,7 @@ export function test_external_emit_provenance_admits_native_jsx_layouts_without_
         "spawnNative",
         "CompilerDiagnostics",
         "PassthroughFlags",
+        "systemTempOutsideProject",
         javascript + "\nreturn runExternalEmitProvenance;",
       )(
         {},
@@ -245,6 +247,7 @@ export function test_external_emit_provenance_admits_native_jsx_layouts_without_
         suppliedProbe,
         CompilerDiagnostics,
         PassthroughFlags,
+        systemTempOutsideProject,
       ) as typeof runExternalEmitProvenance;
       let writerArgs: readonly string[] | undefined;
       let writes = 0;

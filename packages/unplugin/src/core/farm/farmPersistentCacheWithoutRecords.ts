@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 
 import { farmRecordFallback } from "./farmRecordFallback";
@@ -16,7 +15,7 @@ import { farmRecordFallback } from "./farmRecordFallback";
  * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and filesystem access checks observe the candidate under the host's selected root and platform permissions.
  * @evidence contracts/performance.md#efficient-algorithms At most one ancestor walk observes existing fallback components; the disabled case copies the configuration's own properties.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Writability is observed afresh on each configuration pass.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The warning set retains one spelling per refused root for the process lifetime. No probe file or handle is retained.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The warning set retains one spelling per refused root for the process lifetime, with no fixed cap. No probe file or handle is retained.
  */
 export function farmPersistentCacheWithoutRecords<
   Config extends {
@@ -27,7 +26,7 @@ export function farmPersistentCacheWithoutRecords<
   if (config.compilation?.persistentCache === false) return config;
   const root = path.resolve(cwd, config.root ?? ".");
   const fallback = farmRecordFallback(root);
-  if (fallback !== undefined && canHostRecords(fallback)) return config;
+  if (fallback !== undefined) return config;
   if (!WARNED.has(root)) {
     WARNED.add(root);
     process.emitWarning(
@@ -40,23 +39,6 @@ export function farmPersistentCacheWithoutRecords<
     ...config,
     compilation: { ...config.compilation, persistentCache: false },
   };
-}
-
-/** Check the first existing fallback ancestor without creating a probe. */
-function canHostRecords(fallback: string): boolean {
-  for (let directory = fallback; ; directory = path.dirname(directory)) {
-    try {
-      const stat = fs.lstatSync(directory, { throwIfNoEntry: false });
-      if (stat !== undefined) {
-        if (!stat.isDirectory()) return false;
-        fs.accessSync(directory, fs.constants.W_OK);
-        return true;
-      }
-    } catch {
-      return false;
-    }
-    if (path.dirname(directory) === directory) return false;
-  }
 }
 
 /** The host roots this process already warned about. */

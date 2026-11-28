@@ -1,5 +1,3 @@
-import type { ITtscCompilerTransformation } from "ttsc";
-
 import type { TtscEnvelopeDerivation } from "./TtscEnvelopeDerivation";
 import type { TtscEnvelopeGraphIndexes } from "./TtscEnvelopeGraphIndexes";
 import { selectReachableEdges } from "./selectReachableEdges";
@@ -16,7 +14,7 @@ import { selectReachableEdges } from "./selectReachableEdges";
  * `complete` drops the reach and globals halves, keeping only the universal
  * config chain: the caller established that the plugin declared its own
  * `dependencies[file]` list the complete replacement for them. Returns an empty
- * list on exceptions or without a graph.
+ * list without an indexed graph.
  *
  * @evidence contracts/common.md#principled-implementation The direct-edge reachability closure plus globals forms the ordinary language-semantic bound, while explicit completeness drops only those two categories and preserves the universal config chain.
  * @evidence contracts/common.md#clear-and-simple-design One completeness branch chooses graph contributions and selectReachableEdges owns traversal; resolver and plugin inputs remain separate selectors because their ownership differs.
@@ -36,22 +34,27 @@ import { selectReachableEdges } from "./selectReachableEdges";
  *   Acquires no handle, timer or retained state of its own.
  */
 export function selectGraphInputs(
-  graph: TtscEnvelopeGraphIndexes,
-  state: TtscEnvelopeDerivation,
+  graph:
+    | Pick<TtscEnvelopeGraphIndexes, "edges" | "globals" | "configs">
+    | undefined,
+  state: Pick<TtscEnvelopeDerivation, "identityContext" | "identities">,
   props: {
     complete: boolean;
     file: string;
-    projectRoot: string;
-    result: ITtscCompilerTransformation;
   },
 ): string[] {
-  if (props.result.type === "exception" || props.result.graph === undefined) {
+  if (graph === undefined) {
     return [];
   }
   const output: string[] = [];
   if (!props.complete) {
-    for (const entryToAppend of selectReachableEdges(graph, state, props.file))
-      output.push(entryToAppend);
+    if (graph.edges.size !== 0)
+      for (const entryToAppend of selectReachableEdges(
+        graph,
+        state,
+        props.file,
+      ))
+        output.push(entryToAppend);
     for (const entryToAppend of graph.globals) output.push(entryToAppend);
   }
   for (const entryToAppend of graph.configs) output.push(entryToAppend);

@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { runHoldingLock } from "../../../internal/runHoldingLock";
 import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
 import type { DependencyBuildLockFence } from "./DependencyBuildLockFence";
@@ -61,14 +63,16 @@ export namespace DependencyBuildAdmission {
     lockDir: string,
     build: () => DependencyBuildGeneration.BuiltProject,
     timeoutMs = DependencyBuildLockProtocol.DEP_BUILD_LOCK_WAIT_MS,
+    canChange?: (directory: string) => boolean,
   ): DependencyBuildGeneration.BuiltProject {
     assertWaitBudget(timeoutMs);
     const startedAt = performance.now();
     for (;;) {
-      const reuse = readDependencyCache(cacheDir, metaPath);
+      const reuse = readDependencyCache(cacheDir, metaPath, canChange);
       if (reuse !== null) return reuse;
       const remaining = timeoutMs - (performance.now() - startedAt);
       if (remaining <= 0) throw timeoutError(timeoutMs);
+      if (!lockCanChange(lockDir, canChange)) return build();
       let lease;
       try {
         lease = acquireDependencyBuildLock(lockDir);
@@ -81,16 +85,19 @@ export namespace DependencyBuildAdmission {
           metaPath,
           lockDir,
           Math.max(0, timeoutMs - (performance.now() - startedAt)),
+          canChange,
         );
         if (waited.outcome === "built") return waited.built;
-        if (waited.outcome === "abandoned")
+        if (waited.outcome === "abandoned" && lockCanChange(lockDir, canChange))
           reclaimDependencyBuildLock(lockDir, waited.fence);
         continue;
       }
       const held = lease;
       return runHoldingLock(
-        () => readDependencyCache(cacheDir, metaPath) ?? build(),
-        () => releaseDependencyBuildLock(lockDir, held),
+        () => readDependencyCache(cacheDir, metaPath, canChange) ?? build(),
+        () =>
+          lockCanChange(lockDir, canChange) &&
+          releaseDependencyBuildLock(lockDir, held),
         () => undefined,
       );
     }
@@ -116,15 +123,17 @@ export namespace DependencyBuildAdmission {
     metaPath: string,
     lockDir: string,
     timeoutMs: number,
+    canChange?: (directory: string) => boolean,
   ): WaitResult {
     assertWaitBudget(timeoutMs);
     const startedAt = performance.now();
     for (;;) {
-      const reuse = readDependencyCache(cacheDir, metaPath);
+      const reuse = readDependencyCache(cacheDir, metaPath, canChange);
       if (reuse !== null) return { outcome: "built", built: reuse };
+      if (!lockCanChange(lockDir, canChange)) return { outcome: "released" };
       const lock = inspectDependencyBuildLock(lockDir, Date.now());
       if (lock.state === "released") {
-        const built = readDependencyCache(cacheDir, metaPath);
+        const built = readDependencyCache(cacheDir, metaPath, canChange);
         return built !== null
           ? { outcome: "built", built }
           : { outcome: "released" };
@@ -141,6 +150,28 @@ export namespace DependencyBuildAdmission {
       );
     }
   }
+}
+
+/** Recheck the directory coordinates used by the native lease protocol. */
+function lockCanChange(
+  lockDir: string,
+  canChange?: (directory: string) => boolean,
+): boolean {
+  return (
+    canChange === undefined ||
+    (canChange(
+      path.join(
+        lockDir,
+        DependencyBuildLockProtocol.DEP_BUILD_LOCK_CURRENT_DIR,
+      ),
+    ) &&
+      canChange(
+        path.join(
+          lockDir,
+          DependencyBuildLockProtocol.DEP_BUILD_LOCK_RETIRED_DIR,
+        ),
+      ))
+  );
 }
 
 /** Expiration limits a contender; it never grants retirement authority. */

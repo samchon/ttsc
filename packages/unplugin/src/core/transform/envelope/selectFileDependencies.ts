@@ -2,17 +2,16 @@ import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
 
 import { toProjectKey } from "../project/toProjectKey";
+import type { TtscEnvelopeDerivation } from "./TtscEnvelopeDerivation";
 import { createEnvelopeKeyIndex } from "./createEnvelopeKeyIndex";
 import { derivationIdentity } from "./derivationIdentity";
-import { envelopeDerivation } from "./envelopeDerivation";
 
 /**
  * Extract the absolute, lexical-spelling-deduplicated dependency list for a
  * single file from the compiler result. Mirrors `selectTransformedSource`'s key
  * lookup: fast project-relative match first, then a per-envelope identity
  * index. Distinct lexical aliases must survive so bundlers observe a later
- * symlink or junction retarget. Returns an empty list on exceptions or when the
- * plugin reported nothing.
+ * symlink or junction retarget. An absent dependency map yields an empty list.
  *
  * @evidence contracts/common.md#principled-implementation Exact project keys take precedence and a physical-identity index handles alternate producer spellings; returned dependencies resolve against the project root but deduplicate lexically so alias retargeting remains observable.
  * @evidence contracts/common.md#clear-and-simple-design Lookup and list normalization are local stages, while generation ownership, project key semantics and identity indexing stay with their shared helpers.
@@ -29,19 +28,17 @@ import { envelopeDerivation } from "./envelopeDerivation";
  *   temporary entry pairs/normalized arrays drive costs, not only list count.
  * @evidence contracts/performance.md#reuse-equivalent-work The dependency index shares the immutable envelope's producer map and root across deliveries; normalization still returns a fresh array because only keyed lookup, not the final list, is memoized here.
  */
-export function selectFileDependencies(props: {
-  file: string;
-  projectRoot: string;
-  result: ITtscCompilerTransformation;
-}): string[] {
-  if (props.result.type === "exception") {
-    return [];
-  }
-  const dependencies = props.result.dependencies;
+export function selectFileDependencies(
+  state: Pick<
+    TtscEnvelopeDerivation,
+    "identityContext" | "identities" | "selection"
+  >,
+  props: { file: string; projectRoot: string },
+  dependencies: ITtscCompilerTransformation.ISuccess["dependencies"],
+): string[] {
   if (dependencies === undefined) {
     return [];
   }
-  const state = envelopeDerivation(props);
   const key = toProjectKey(
     props.projectRoot,
     props.file,
@@ -51,7 +48,7 @@ export function selectFileDependencies(props: {
     ? dependencies[key]
     : undefined;
   if (entries === undefined) {
-    const index = (state.dependencyIndex ??= createEnvelopeKeyIndex(
+    const index = (state.selection.dependencyIndex ??= createEnvelopeKeyIndex(
       state,
       props.projectRoot,
       dependencies,

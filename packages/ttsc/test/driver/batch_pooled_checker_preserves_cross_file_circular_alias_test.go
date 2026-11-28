@@ -1,16 +1,16 @@
 package driver_test
 
 import (
-	"path/filepath"
-	"reflect"
-	"strings"
-	"testing"
+  "path/filepath"
+  "reflect"
+  "strings"
+  "testing"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
-	shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestDriverPooledBatchPreservesCrossFileCircularAliasAndTransformGraph verifies
@@ -33,69 +33,69 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Circular indexed-access aliases span f1.ts and f4.ts across six independent sibling files so a four-checker pool splits the files while prog.Checker resolves declarations from both files after pooled Diagnostics.
 // @evidence contracts/testing.md#execution-ownership Discoverable Go unit in package driver_test using in-process LoadProgram, Checker and NewTransformGraph over a temporary project; no native binary or consumer install runs.
 func TestDriverPooledBatchPreservesCrossFileCircularAliasAndTransformGraph(t *testing.T) {
-	root := writeCrossFileCircularAliasProject(t)
+  root := writeCrossFileCircularAliasProject(t)
 
-	t.Setenv(shimcompiler.BatchEnv, "")
-	pinned, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
-		ForceNoEmit: true,
-	})
-	if err != nil {
-		t.Fatalf("pinned LoadProgram: %v", err)
-	}
-	if len(diags) != 0 {
-		t.Fatalf("pinned config diagnostics: %#v", diags)
-	}
-	defer pinned.Close()
+  t.Setenv(shimcompiler.BatchEnv, "")
+  pinned, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
+    ForceNoEmit: true,
+  })
+  if err != nil {
+    t.Fatalf("pinned LoadProgram: %v", err)
+  }
+  if len(diags) != 0 {
+    t.Fatalf("pinned config diagnostics: %#v", diags)
+  }
+  defer pinned.Close()
 
-	if gotDiags := pinned.Diagnostics(); len(gotDiags) != 0 {
-		t.Fatalf("pinned Diagnostics: %#v", gotDiags)
-	}
-	pinnedTypes := readCircularAliasTypes(t, pinned, root)
-	pinnedGraph := driver.NewTransformGraph(pinned, root)
+  if gotDiags := pinned.Diagnostics(); len(gotDiags) != 0 {
+    t.Fatalf("pinned Diagnostics: %#v", gotDiags)
+  }
+  pinnedTypes := readCircularAliasTypes(t, pinned, root)
+  pinnedGraph := driver.NewTransformGraph(pinned, root)
 
-	t.Setenv(shimcompiler.BatchEnv, "1")
-	pooled, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
-		ForceNoEmit: true,
-	})
-	if err != nil {
-		t.Fatalf("batch LoadProgram: %v", err)
-	}
-	if len(diags) != 0 {
-		t.Fatalf("batch config diagnostics: %#v", diags)
-	}
-	defer pooled.Close()
+  t.Setenv(shimcompiler.BatchEnv, "1")
+  pooled, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
+    ForceNoEmit: true,
+  })
+  if err != nil {
+    t.Fatalf("batch LoadProgram: %v", err)
+  }
+  if len(diags) != 0 {
+    t.Fatalf("batch config diagnostics: %#v", diags)
+  }
+  defer pooled.Close()
 
-	if gotDiags := pooled.Diagnostics(); len(gotDiags) != 0 {
-		t.Fatalf("batch Diagnostics: %#v", gotDiags)
-	}
-	pooledTypes := readCircularAliasTypes(t, pooled, root)
-	pooledGraph := driver.NewTransformGraph(pooled, root)
+  if gotDiags := pooled.Diagnostics(); len(gotDiags) != 0 {
+    t.Fatalf("batch Diagnostics: %#v", gotDiags)
+  }
+  pooledTypes := readCircularAliasTypes(t, pooled, root)
+  pooledGraph := driver.NewTransformGraph(pooled, root)
 
-	for _, name := range []string{"A", "AResolved", "B", "BResolved"} {
-		pinnedText := pinnedTypes[name]
-		pooledText := pooledTypes[name]
-		if pooledText == "" || pooledText == "any" || strings.Contains(pooledText, ": any") {
-			t.Fatalf("alias %s resolved to %q on batch load; must never yield any", name, pooledText)
-		}
-		if pooledText != pinnedText {
-			t.Fatalf("alias %s type mismatch: batch=%q pinned=%q", name, pooledText, pinnedText)
-		}
-	}
-	if pooledTypes["AResolved"] != `"alpha"` {
-		t.Fatalf("AResolved = %q, want %q", pooledTypes["AResolved"], `"alpha"`)
-	}
-	if pooledTypes["BResolved"] != `"alpha"` {
-		t.Fatalf("BResolved = %q, want %q", pooledTypes["BResolved"], `"alpha"`)
-	}
-	if !reflect.DeepEqual(pooledGraph, pinnedGraph) {
-		t.Fatalf("NewTransformGraph mismatch:\nbatch:  %+v\npinned: %+v", pooledGraph, pinnedGraph)
-	}
+  for _, name := range []string{"A", "AResolved", "B", "BResolved"} {
+    pinnedText := pinnedTypes[name]
+    pooledText := pooledTypes[name]
+    if pooledText == "" || pooledText == "any" || strings.Contains(pooledText, ": any") {
+      t.Fatalf("alias %s resolved to %q on batch load; must never yield any", name, pooledText)
+    }
+    if pooledText != pinnedText {
+      t.Fatalf("alias %s type mismatch: batch=%q pinned=%q", name, pooledText, pinnedText)
+    }
+  }
+  if pooledTypes["AResolved"] != `"alpha"` {
+    t.Fatalf("AResolved = %q, want %q", pooledTypes["AResolved"], `"alpha"`)
+  }
+  if pooledTypes["BResolved"] != `"alpha"` {
+    t.Fatalf("BResolved = %q, want %q", pooledTypes["BResolved"], `"alpha"`)
+  }
+  if !reflect.DeepEqual(pooledGraph, pinnedGraph) {
+    t.Fatalf("NewTransformGraph mismatch:\nbatch:  %+v\npinned: %+v", pooledGraph, pinnedGraph)
+  }
 }
 
 func writeCrossFileCircularAliasProject(t *testing.T) string {
-	t.Helper()
-	root := t.TempDir()
-	writeProjectFile(t, root, "tsconfig.json", `{
+  t.Helper()
+  root := t.TempDir()
+  writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
     "target": "es2022",
     "module": "commonjs",
@@ -115,7 +115,7 @@ func writeCrossFileCircularAliasProject(t *testing.T) string {
   ]
 }
 `)
-	writeProjectFile(t, root, "src/f1.ts", `import type { B } from "./f4";
+  writeProjectFile(t, root, "src/f1.ts", `import type { B } from "./f4";
 
 export type A = {
   next: B["value"];
@@ -123,13 +123,13 @@ export type A = {
 };
 export type AResolved = A["next"];
 `)
-	writeProjectFile(t, root, "src/f2.ts", `export interface Pad2 { id: number; label: string; }
+  writeProjectFile(t, root, "src/f2.ts", `export interface Pad2 { id: number; label: string; }
 export const pad2: Pad2 = { id: 2, label: "two" };
 `)
-	writeProjectFile(t, root, "src/f3.ts", `export interface Pad3 { id: number; label: string; }
+  writeProjectFile(t, root, "src/f3.ts", `export interface Pad3 { id: number; label: string; }
 export const pad3: Pad3 = { id: 3, label: "three" };
 `)
-	writeProjectFile(t, root, "src/f4.ts", `import type { A } from "./f1";
+  writeProjectFile(t, root, "src/f4.ts", `import type { A } from "./f1";
 
 export type B = {
   value: A["tag"];
@@ -137,74 +137,74 @@ export type B = {
 };
 export type BResolved = B["value"];
 `)
-	writeProjectFile(t, root, "src/f5.ts", `export interface Pad5 { id: number; label: string; }
+  writeProjectFile(t, root, "src/f5.ts", `export interface Pad5 { id: number; label: string; }
 export const pad5: Pad5 = { id: 5, label: "five" };
 `)
-	writeProjectFile(t, root, "src/f6.ts", `export interface Pad6 { id: number; label: string; }
+  writeProjectFile(t, root, "src/f6.ts", `export interface Pad6 { id: number; label: string; }
 export const pad6: Pad6 = { id: 6, label: "six" };
 `)
-	writeProjectFile(t, root, "src/f7.ts", `export interface Pad7 { id: number; label: string; }
+  writeProjectFile(t, root, "src/f7.ts", `export interface Pad7 { id: number; label: string; }
 export const pad7: Pad7 = { id: 7, label: "seven" };
 `)
-	writeProjectFile(t, root, "src/f8.ts", `export interface Pad8 { id: number; label: string; }
+  writeProjectFile(t, root, "src/f8.ts", `export interface Pad8 { id: number; label: string; }
 export const pad8: Pad8 = { id: 8, label: "eight" };
 `)
-	return root
+  return root
 }
 
 func readCircularAliasTypes(t *testing.T, prog *driver.Program, root string) map[string]string {
-	t.Helper()
-	targets := []struct {
-		file string
-		name string
-	}{
-		{"src/f1.ts", "A"},
-		{"src/f1.ts", "AResolved"},
-		{"src/f4.ts", "B"},
-		{"src/f4.ts", "BResolved"},
-	}
-	out := make(map[string]string, len(targets))
-	for _, target := range targets {
-		sf := prog.SourceFile(filepath.Join(root, filepath.FromSlash(target.file)))
-		if sf == nil {
-			t.Fatalf("SourceFile(%s) returned nil", target.file)
-		}
-		decl := findTypeAliasDeclaration(sf, target.name)
-		if decl == nil {
-			t.Fatalf("type alias %s not found in %s", target.name, target.file)
-		}
-		sym := prog.Checker.GetSymbolAtLocation(decl.Name())
-		if sym == nil {
-			t.Fatalf("GetSymbolAtLocation(%s) returned nil", target.name)
-		}
-		typ := shimchecker.Checker_getDeclaredTypeOfSymbol(prog.Checker, sym)
-		if typ == nil {
-			t.Fatalf("Checker_getDeclaredTypeOfSymbol(%s) returned nil", target.name)
-		}
-		out[target.name] = prog.Checker.TypeToString(typ)
-	}
-	return out
+  t.Helper()
+  targets := []struct {
+    file string
+    name string
+  }{
+    {"src/f1.ts", "A"},
+    {"src/f1.ts", "AResolved"},
+    {"src/f4.ts", "B"},
+    {"src/f4.ts", "BResolved"},
+  }
+  out := make(map[string]string, len(targets))
+  for _, target := range targets {
+    sf := prog.SourceFile(filepath.Join(root, filepath.FromSlash(target.file)))
+    if sf == nil {
+      t.Fatalf("SourceFile(%s) returned nil", target.file)
+    }
+    decl := findTypeAliasDeclaration(sf, target.name)
+    if decl == nil {
+      t.Fatalf("type alias %s not found in %s", target.name, target.file)
+    }
+    sym := prog.Checker.GetSymbolAtLocation(decl.Name())
+    if sym == nil {
+      t.Fatalf("GetSymbolAtLocation(%s) returned nil", target.name)
+    }
+    typ := shimchecker.Checker_getDeclaredTypeOfSymbol(prog.Checker, sym)
+    if typ == nil {
+      t.Fatalf("Checker_getDeclaredTypeOfSymbol(%s) returned nil", target.name)
+    }
+    out[target.name] = prog.Checker.TypeToString(typ)
+  }
+  return out
 }
 
 func findTypeAliasDeclaration(sf *shimast.SourceFile, name string) *shimast.TypeAliasDeclaration {
-	var found *shimast.TypeAliasDeclaration
-	var visit func(*shimast.Node)
-	visit = func(node *shimast.Node) {
-		if node == nil || found != nil {
-			return
-		}
-		if node.Kind == shimast.KindTypeAliasDeclaration {
-			alias := node.AsTypeAliasDeclaration()
-			if alias != nil && alias.Name() != nil && alias.Name().Text() == name {
-				found = alias
-				return
-			}
-		}
-		node.ForEachChild(func(child *shimast.Node) bool {
-			visit(child)
-			return false
-		})
-	}
-	visit(sf.AsNode())
-	return found
+  var found *shimast.TypeAliasDeclaration
+  var visit func(*shimast.Node)
+  visit = func(node *shimast.Node) {
+    if node == nil || found != nil {
+      return
+    }
+    if node.Kind == shimast.KindTypeAliasDeclaration {
+      alias := node.AsTypeAliasDeclaration()
+      if alias != nil && alias.Name() != nil && alias.Name().Text() == name {
+        found = alias
+        return
+      }
+    }
+    node.ForEachChild(func(child *shimast.Node) bool {
+      visit(child)
+      return false
+    })
+  }
+  visit(sf.AsNode())
+  return found
 }

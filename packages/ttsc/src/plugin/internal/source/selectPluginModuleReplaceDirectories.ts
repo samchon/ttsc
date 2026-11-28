@@ -40,7 +40,11 @@ export function selectPluginModuleReplaceDirectories(
       !isFilesystemPath(spelled)
     )
       continue;
-    const directory = physicalPath(path.resolve(root, spelled));
+    const directory = physicalPath(
+      process.platform !== "win32" && path.isAbsolute(spelled)
+        ? spelled
+        : path.resolve(root, spelled),
+    );
     const relative = path.relative(physicalRoot, directory);
     if (
       relative !== ".." &&
@@ -68,10 +72,12 @@ export function selectPluginModuleReplaceDirectories(
   );
 }
 
-/** Go local target syntax: absolute or dot-relative with native separators. */
+/** Go local targets may be absolute, bare dots or dot-relative native paths. */
 function isFilesystemPath(target: string): boolean {
   return (
     path.isAbsolute(target) ||
+    target === "." ||
+    target === ".." ||
     target.startsWith("./") ||
     target.startsWith("../") ||
     (process.platform === "win32" &&

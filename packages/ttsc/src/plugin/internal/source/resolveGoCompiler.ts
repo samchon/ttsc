@@ -3,6 +3,10 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
+import { resolveNativePackagePath } from "../../../compiler/internal/project/resolveNativePackagePath";
+import { resolvePhysicalProjectPath } from "../../../compiler/internal/project/resolvePhysicalProjectPath";
+import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
+
 /**
  * The initial Go executable candidate before build-facing lookup applies the
  * module directory (`GoToolResolution.resolveGoToolForBuild`): TTSC_GO_BINARY
@@ -23,7 +27,7 @@ import path from "node:path";
  * @evidence contracts/common.md#clear-and-simple-design One resolver is shared by builds and environment proofs, with ordered early returns and executable resolution left to its separate owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Install layouts are product-defined fallbacks and the explicit environment belongs to the caller; no process global or foreign resolver is patched.
  * @evidence contracts/common.md#meaningful-documentation Native documentation explains precedence, bundled provenance and the later module-directory toolchain boundary.
- * @evidence contracts/portability.md#os-neutral-implementation Node module/path APIs select native platform packages and executable suffixes; home SDK lookup honors caller HOME/USERPROFILE then Node's native home directory, while explicit SDK and PATH remain supported fallbacks.
+ * @evidence contracts/portability.md#os-neutral-implementation Node's native package resolution selects the installed SDK. A lossless lexical witness prevents POSIX package aliases from selecting an executable at the decoded lookalike. Checkout identity uses native realpath bytes, and explicit and PATH choices keep their own resolution policy.
  * @evidence contracts/performance.md#efficient-algorithms A fixed candidate order has early returns but Node require resolution can search native module ancestors/manifests/paths. Native path/existence/home lookup and supplied text contribute cost; fixed candidate count is not a bounded filesystem-work claim and no SDK content traversal is performed here.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current caller overrides and installation presence are resolved afresh; this selector owns no memo.
@@ -54,11 +58,16 @@ export function resolveGoCompiler(env: NodeJS.ProcessEnv = process.env): {
     executable,
   );
   try {
-    const binary = createRequire(__filename).resolve(
+    const binary = resolveNativePackagePath(
+      createRequire(__filename),
+      __filename,
       `@ttsc/${process.platform}-${process.arch}/bin/go/bin/${executable}`,
+      "bundled Go executable",
     );
+    if (process.platform !== "win32")
+      resolvePhysicalProjectPath(binary, "bundled Go executable");
     const checkout = fs.existsSync(platformPackage)
-      ? fs.realpathSync.native(platformPackage)
+      ? RuntimeFilesystem.realpathWitness(platformPackage)
       : undefined;
     if (binary === platformPackage || binary === checkout)
       return { binary, bundled: true };
@@ -67,7 +76,12 @@ export function resolveGoCompiler(env: NodeJS.ProcessEnv = process.env): {
       bundled: true,
       packageManifest: path.resolve(binary, "../../../../package.json"),
     };
-  } catch {
+  } catch (error) {
+    if (
+      (error as NodeJS.ErrnoException | null)?.code ===
+      "TTSC_UNREPRESENTABLE_PROJECT_PATH"
+    )
+      throw error;
     /* fall through */
   }
   if (fs.existsSync(platformPackage)) {

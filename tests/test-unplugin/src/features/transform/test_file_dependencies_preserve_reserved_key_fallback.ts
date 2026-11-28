@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
 
+import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
 import { selectFileDependencies } from "../../../../../packages/unplugin/src/core/transform/envelope/selectFileDependencies";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -54,6 +55,14 @@ export function test_file_dependencies_preserve_reserved_key_fallback(): void {
       ...names.map((name) => [name, [exact]] as const),
     ]),
   };
+  const fallbackState = envelopeDerivation({
+    projectRoot: root,
+    result: fallbackResult,
+  });
+  const exactState = envelopeDerivation({
+    projectRoot: root,
+    result: exactResult,
+  });
   for (const name of names) {
     const file = path.join(root, name);
     assert.equal(
@@ -63,11 +72,11 @@ export function test_file_dependencies_preserve_reserved_key_fallback(): void {
     );
     assert.equal(Object.prototype.hasOwnProperty.call(absolute, name), false);
     assert.deepEqual(
-      selectFileDependencies({
-        file,
-        projectRoot: root,
-        result: fallbackResult,
-      }),
+      selectFileDependencies(
+        fallbackState,
+        { file, projectRoot: root },
+        fallbackResult.dependencies,
+      ),
       [fallback],
       `${name}: absent own key permits alternate producer spelling`,
     );
@@ -76,7 +85,11 @@ export function test_file_dependencies_preserve_reserved_key_fallback(): void {
       true,
     );
     assert.deepEqual(
-      selectFileDependencies({ file, projectRoot: root, result: exactResult }),
+      selectFileDependencies(
+        exactState,
+        { file, projectRoot: root },
+        exactResult.dependencies,
+      ),
       [exact],
       `${name}: own relative entry takes precedence over the earlier absolute entry`,
     );
@@ -85,11 +98,11 @@ export function test_file_dependencies_preserve_reserved_key_fallback(): void {
   assert.equal(fs.existsSync(missing), false);
   assert.equal(Object.prototype.hasOwnProperty.call(absolute, missing), false);
   assert.deepEqual(
-    selectFileDependencies({
-      file: missing,
-      projectRoot: root,
-      result: fallbackResult,
-    }),
+    selectFileDependencies(
+      fallbackState,
+      { file: missing, projectRoot: root },
+      fallbackResult.dependencies,
+    ),
     [],
     "an unreported missing input has no dependency list",
   );

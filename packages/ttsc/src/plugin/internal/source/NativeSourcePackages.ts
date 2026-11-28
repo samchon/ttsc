@@ -5,16 +5,19 @@ import path from "node:path";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
-import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
 import { CompilerTarget } from "./CompilerTarget";
+import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
+import { GoWorkspaceEnvironment } from "./GoWorkspaceEnvironment";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "./PluginContentIdentities";
 import { PluginLoadAnswers } from "./PluginLoadAnswers";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { ensureExecutableGoToolchain } from "./ensureExecutableGoToolchain";
+import { goToolVariables } from "./goToolVariables";
 import { pluginSourceDigest } from "./pluginSourceDigest";
 import { readPluginBuildEnvironment } from "./readPluginBuildEnvironment";
 import { resolveGoCompiler } from "./resolveGoCompiler";
@@ -122,6 +125,7 @@ export namespace NativeSourcePackages {
   export function inspect(opts: {
     source: string;
     pluginName: string;
+    projectRoot?: string;
     env?: NodeJS.ProcessEnv;
     packages: readonly { entry: string; source?: string; name?: string }[];
     readers?: Map<string, SourcePluginWorkspace.GoModReader>;
@@ -142,29 +146,73 @@ export namespace NativeSourcePackages {
     const env = SidecarEnvironment.merge(opts.env ?? process.env);
     const { moduleRoot } = resolvePluginGoModule(opts.source, opts.pluginName);
     const compiler = resolveGoCompiler(env);
+    const launcherWitness: PluginBuildEnvironmentWitness.Record = new Map();
     const goBinary = GoToolResolution.resolveGoToolForBuild(
       compiler.binary,
       env,
       moduleRoot,
+      launcherWitness,
     );
     ensureExecutableGoToolchain(goBinary, compiler.bundled);
+    if (path.isAbsolute(goBinary))
+      PluginBuildEnvironmentWitness.add(launcherWitness, goBinary);
+    GoEnvironmentReading.reportRecovery(launcherWitness, moduleRoot);
     // WARNING (#1721): never drop this lookup or narrow its identity. Without
     // it every warm launch and every unplugin generation copied the module
     // twice and ran `go list` twice (6 s+ on Windows) to rediscover an answer
     // its unchanged inputs already determined.
-    const identity =
+    const selection =
       opts.identities === undefined
         ? undefined
-        : selectionIdentity(opts, moduleRoot, goBinary, env, opts.identities);
-    if (identity !== undefined) {
+        : selectionIdentity(
+            opts,
+            moduleRoot,
+            goBinary,
+            env,
+            opts.identities,
+            launcherWitness,
+          );
+    GoEnvironmentReading.reportRecovery(selection?.witness, moduleRoot);
+    const identity = selection?.identity;
+    const useOrigin =
+      selection !== undefined &&
+      GoWorkspaceEnvironment.canUseOrigin(env, selection.witness);
+    const workspaceIdentity = [
+      "package-selection",
+      identity,
+      goBinary,
+      goToolVariables(env),
+    ];
+    let workspace =
+      useOrigin || selection === undefined
+        ? undefined
+        : GoWorkspaceEnvironment.recall(opts.identities, workspaceIdentity);
+    if (selection !== undefined && (useOrigin || workspace !== undefined)) {
       const recalled = recallSelection(
-        PluginLoadAnswers.read(opts.identities, SELECTION_ANSWER, identity),
+        PluginLoadAnswers.read(opts.identities, SELECTION_ANSWER, [
+          selection.identity,
+          workspace?.value ?? null,
+        ]),
         moduleRoot,
         opts.packages.length,
       );
-      if (recalled !== undefined) return recalled;
+      if (
+        recalled !== undefined &&
+        PluginBuildEnvironmentWitness.reusable(selection.witness)
+      )
+        return recalled;
     }
-    const scratch = createCanonicalTempDirectory("ttsc-package-selection-");
+    const sourceRoots = [
+      moduleRoot,
+      ...opts.packages.flatMap(({ source }) =>
+        source === undefined ? [] : [source],
+      ),
+    ];
+    const scratch = createProjectTempDirectory(
+      "ttsc-package-selection-",
+      opts.projectRoot ?? moduleRoot,
+      sourceRoots,
+    );
     let taskFailure: { error: unknown } | undefined;
     try {
       SourceNativeRetirement.register({
@@ -221,6 +269,7 @@ export namespace NativeSourcePackages {
         env,
         opts.readers,
         opts.identities,
+        opts.projectRoot,
       );
       SourcePluginWorkspace.writeGoWork(
         scratch,
@@ -230,25 +279,61 @@ export namespace NativeSourcePackages {
         env,
         reader,
         SourcePluginWorkspace.compilerSource(env),
+        opts.projectRoot,
+        sourceRoots,
       );
+      let freshWorkspace:
+        | ReturnType<typeof GoWorkspaceEnvironment.observe>
+        | undefined;
+      if (!useOrigin && workspace === undefined && selection !== undefined) {
+        freshWorkspace = GoWorkspaceEnvironment.observe({
+          directory: scratch,
+          env,
+          goBinary,
+          identities: opts.identities,
+          projectRoot: opts.projectRoot,
+        });
+        GoEnvironmentReading.reportRecovery(
+          GoWorkspaceEnvironment.externalWitness(
+            scratch,
+            freshWorkspace.witness,
+            opts.env,
+          ),
+          scratch,
+        );
+        if (freshWorkspace.qualified) workspace = freshWorkspace;
+      }
       const observed = read({
         cwd: scratch,
         entries: opts.packages.map((input) => input.entry),
         env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
         goBinary,
         pluginName: opts.pluginName,
+        projectRoot: opts.projectRoot,
+        additionalProjectRoots: sourceRoots,
       });
       if (
-        identity !== undefined &&
+        selection !== undefined &&
         copiesKeyed &&
         observed.every((input) => input.Error === undefined) &&
         JSON.stringify(overlayDigests(env, opts.identities)) ===
-          JSON.stringify(identity.overlays)
-      )
+          JSON.stringify(selection.identity.overlays) &&
+        PluginBuildEnvironmentWitness.reusable(selection.witness) &&
+        (useOrigin ||
+          (workspace !== undefined &&
+            PluginBuildEnvironmentWitness.reusable(workspace.witness)))
+      ) {
+        if (freshWorkspace !== undefined)
+          GoWorkspaceEnvironment.remember(
+            opts.identities,
+            workspaceIdentity,
+            scratch,
+            freshWorkspace,
+          );
         PluginLoadAnswers.write(
           opts.identities,
           SELECTION_ANSWER,
-          identity,
+          [selection.identity, workspace?.value ?? null],
           observed.map((input) => ({
             ...input,
             Dir:
@@ -257,6 +342,7 @@ export namespace NativeSourcePackages {
                 : path.relative(scratch, input.Dir),
           })),
         );
+      }
       return observed;
     } catch (error) {
       taskFailure = { error };
@@ -290,6 +376,7 @@ export namespace NativeSourcePackages {
     readers = new Map<string, SourcePluginWorkspace.GoModReader>(),
     identities?: PluginContentIdentities.Store,
     readings?: SelectionReadings,
+    projectRoot?: string,
   ): Package[] {
     const groups = new Map<string, Array<{ index: number; entry: string }>>();
     inputs.forEach((input, index) => {
@@ -308,6 +395,7 @@ export namespace NativeSourcePackages {
       const observations = inspect({
         source: first.source,
         pluginName: first.label,
+        projectRoot,
         env,
         readers,
         identities,
@@ -345,6 +433,7 @@ export namespace NativeSourcePackages {
     readers = new Map<string, SourcePluginWorkspace.GoModReader>(),
     identities?: PluginContentIdentities.Store,
     readings?: SelectionReadings,
+    projectRoot?: string,
   ): Array<{ observation: Package; ownModule: boolean }> {
     const groups = new Map<
       string,
@@ -369,6 +458,7 @@ export namespace NativeSourcePackages {
       const observations = inspect({
         source: first.source,
         pluginName: first.label,
+        projectRoot,
         env,
         readers,
         identities,
@@ -401,6 +491,8 @@ export namespace NativeSourcePackages {
     env: NodeJS.ProcessEnv;
     goBinary: string;
     pluginName: string;
+    projectRoot?: string;
+    additionalProjectRoots?: readonly string[];
   }): Package[] {
     const entries = [...new Set(opts.entries)];
     if (entries.length === 0) return [];
@@ -415,7 +507,14 @@ export namespace NativeSourcePackages {
         "-json=Dir,Name,GoFiles,CgoFiles,Error",
         ...entries,
       ],
-      { cwd: opts.cwd, encoding: "utf8", env: opts.env, windowsHide: true },
+      {
+        cwd: opts.cwd,
+        projectRoot: opts.projectRoot,
+        additionalProjectRoots: opts.additionalProjectRoots,
+        encoding: "utf8",
+        env: opts.env,
+        windowsHide: true,
+      },
     );
     OwnedSynchronousProcess.checkpoint();
     if (result.error !== undefined)
@@ -567,7 +666,7 @@ const SELECTION_FIELDS = "-json=Dir,Name,GoFiles,CgoFiles,Error";
  * key does.
  */
 interface ISelectionIdentity {
-  format: 1;
+  format: 3;
   command: readonly string[];
   mode: "proposal" | "actual";
   module: string;
@@ -584,7 +683,13 @@ function selectionIdentity(
   goBinary: string,
   env: NodeJS.ProcessEnv,
   identities: PluginContentIdentities.Store,
-): ISelectionIdentity | undefined {
+  launcherWitness: PluginBuildEnvironmentWitness.Record,
+):
+  | {
+      identity: ISelectionIdentity;
+      witness: PluginBuildEnvironmentWitness.Record;
+    }
+  | undefined {
   try {
     const readings = opts.readings ?? {};
     const directory = (root: string): string => {
@@ -598,8 +703,14 @@ function selectionIdentity(
     };
     const resolvedRoot = path.resolve(moduleRoot);
     let environment = readings.environments?.get(resolvedRoot);
-    if (environment === undefined) {
-      const witness: PluginBuildEnvironmentWitness.Record = new Map();
+    let witness = readings.witnesses?.get(resolvedRoot);
+    if (
+      environment === undefined ||
+      witness === undefined ||
+      !PluginBuildEnvironmentWitness.covers(witness, launcherWitness) ||
+      !PluginBuildEnvironmentWitness.reusable(witness)
+    ) {
+      witness = new Map(launcherWitness);
       environment = readPluginBuildEnvironment(
         goBinary,
         moduleRoot,
@@ -607,6 +718,7 @@ function selectionIdentity(
         witness,
         identities,
         readings.currentWitnessReadings,
+        opts.projectRoot,
       );
       readings.environments?.set(resolvedRoot, environment);
       readings.witnesses?.set(resolvedRoot, witness);
@@ -616,37 +728,44 @@ function selectionIdentity(
         ? resolvePluginGoModule(genericHostSource(), opts.pluginName).moduleRoot
         : undefined;
     return {
-      format: 1,
-      command: [
-        "list",
-        ...GoSourceInputs.BUILD_FLAGS,
-        "-find",
-        "-e",
-        SELECTION_FIELDS,
-      ],
-      mode: opts.proposal === true ? "proposal" : "actual",
-      module: directory(moduleRoot),
-      environment,
-      variables: Object.entries(
-        GoSourceInputs.goBuildEnv(goBinary, undefined, env),
-      )
-        .filter(
-          (entry): entry is [string, string] =>
-            entry[1] !== undefined && /^(GO|CGO_)/i.test(entry[0]),
+      witness,
+      identity: {
+        format: 3,
+        command: [
+          "list",
+          ...GoSourceInputs.BUILD_FLAGS,
+          "-find",
+          "-e",
+          SELECTION_FIELDS,
+        ],
+        mode: opts.proposal === true ? "proposal" : "actual",
+        module: directory(moduleRoot),
+        environment,
+        variables: Object.entries(
+          GoSourceInputs.goBuildEnv(goBinary, undefined, env),
         )
-        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)),
-      manifests:
-        host === undefined
-          ? null
-          : ["go.mod", "go.sum"].map((name) =>
-              fileDigest(path.join(host, name)),
-            ),
-      overlays: (readings.overlays ?? selectionOverlayDirs(env)).map(directory),
-      entries: opts.packages.map((input) => [
-        input.entry,
-        input.name ?? null,
-        input.source === undefined ? null : directory(input.source),
-      ]),
+          .filter(
+            (entry): entry is [string, string] =>
+              entry[1] !== undefined && /^(GO|CGO_)/i.test(entry[0]),
+          )
+          .sort(([left], [right]) =>
+            left < right ? -1 : left > right ? 1 : 0,
+          ),
+        manifests:
+          host === undefined
+            ? null
+            : ["go.mod", "go.sum"].map((name) =>
+                fileDigest(path.join(host, name)),
+              ),
+        overlays: (readings.overlays ?? selectionOverlayDirs(env)).map(
+          directory,
+        ),
+        entries: opts.packages.map((input) => [
+          input.entry,
+          input.name ?? null,
+          input.source === undefined ? null : directory(input.source),
+        ]),
+      },
     };
   } catch {
     // An identity that cannot be formed only costs the real observation.

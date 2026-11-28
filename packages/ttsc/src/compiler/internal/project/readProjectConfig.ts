@@ -1,10 +1,10 @@
-import fs from "node:fs";
 import path from "node:path";
 
 import type { ITtscProjectPluginConfig } from "../../../structures/ITtscProjectPluginConfig";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectLocatorOptions } from "../../../structures/internal/ITtscProjectLocatorOptions";
 import { readJsoncFile } from "./readJsoncFile";
+import { resolvePhysicalProjectPath } from "./resolvePhysicalProjectPath";
 import { resolveProjectIdentity } from "./resolveProjectIdentity";
 import { resolveTsconfigExtends } from "./resolveTsconfigExtends";
 import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
@@ -200,18 +200,6 @@ function isProjectPluginConfig(
 }
 
 /**
- * Resolve symlinks on `location`, returning the original path when
- * `realpathSync` fails (e.g. when the file does not yet exist).
- */
-function resolveRealPath(location: string): string {
-  try {
-    return fs.realpathSync(location);
-  } catch {
-    return location;
-  }
-}
-
-/**
  * Resolve `target` against `cwd`, normalized to native separators.
  *
  * An absolute `target` is normalized too, not returned as given. Every path
@@ -241,7 +229,7 @@ function readResolvedCompilerOptions(
   onInput?: (file: string) => void,
 ): ResolvedCompilerOptions {
   onInput?.(tsconfig);
-  const canonical = resolveRealPath(tsconfig);
+  const canonical = resolvePhysicalProjectPath(tsconfig, "extended config");
   if (seen.has(canonical)) {
     throw new Error(`ttsc: circular tsconfig extends detected: ${canonical}`);
   }

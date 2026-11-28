@@ -1,11 +1,11 @@
 /**
  * Synchronous filesystem reads used to fingerprint external Go toolchains.
  *
- * The key accepts a byte reader so external toolchain fingerprinting has one
- * explicit filesystem dependency. Production supplies `fs.readFileSync`.
+ * The key accepts a filesystem adapter to fingerprint toolchains. Production
+ * reads only regular files and accepts POSIX paths with non-UTF-8 bytes.
  *
  * @evidence contracts/common.md#principled-implementation The synchronous Buffer-returning method preserves the exact file bytes used for the Go root content identity, including ordinary read failures.
- * @evidence contracts/common.md#clear-and-simple-design The boundary contains only the byte-read operation that hashing consumes; metadata and enumeration remain with native identity validation.
+ * @evidence contracts/common.md#clear-and-simple-design The boundary supplies string and optional byte-path reads with a physical lookup seam. Metadata and enumeration remain with native identity validation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Injection replaces an owned dependency explicitly rather than patching fs globals or adding a production path for an expected test result.
  * @evidence contracts/common.md#meaningful-documentation The owning prose identifies the fingerprinting dependency and its production reader; the member states byte-read semantics.
  * @evidence contracts/portability.md#os-neutral-implementation The reader receives native file locations and returns unmodified bytes through Node's filesystem API; path and case interpretation are not reimplemented by this interface.
@@ -31,12 +31,26 @@ export interface SourceBuildFilesystemOperations {
   readFile(location: string): Buffer;
 
   /**
+   * Read a POSIX path whose bytes have no UTF-8 spelling.
+   *
+   * @evidence contracts/common.md#principled-implementation A native Buffer preserves the requested entry's exact path and yields its file bytes.
+   * @evidence contracts/common.md#clear-and-simple-design Optional byte-path support leaves existing string readers usable for ordinary paths.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts An unavailable byte reader cannot qualify a complete SDK fingerprint.
+   * @evidence contracts/common.md#meaningful-documentation States which paths use the optional read.
+   * @evidence contracts/portability.md#os-neutral-implementation POSIX can address native paths with raw bytes that cannot be named by JavaScript strings.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This method declaration chooses no traversal strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The method supplies a fresh read.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Implementations own the synchronous read resources.
+   */
+  readRawFile?(location: Buffer): Buffer;
+
+  /**
    * Resolve a path to its physical target, as `fs.realpathSync.native` does.
-   * Omitted in production, which uses `fs.realpathSync.native`.
+   * Omitted in production, which uses the lossless native realpath witness.
    *
    * @evidence contracts/common.md#principled-implementation Synchronous physical resolution preserves the exact link-expansion semantics that SDK topology hashing requires.
    * @evidence contracts/common.md#clear-and-simple-design Optional injection extends the existing filesystem boundary without adding a separate parameter or patching fs globals.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Production defaults directly to fs.realpathSync.native without guessing physical paths.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Production uses native realpath bytes without guessing physical paths.
    * @evidence contracts/common.md#meaningful-documentation The method states its native realpath semantics and production default.
    * @evidence contracts/portability.md#os-neutral-implementation The native path passes unchanged to the platform realpath implementation.
    *

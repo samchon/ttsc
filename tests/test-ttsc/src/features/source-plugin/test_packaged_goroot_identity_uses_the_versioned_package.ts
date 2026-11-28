@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -14,11 +15,12 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 1. Describe two installs of one platform package with the same SDK version.
  * 2. Compare their identities and verify the reader only touches two files.
  * 3. Change the version inputs and offer a foreign or unreadable root.
+ * 4. Confirm a POSIX FIFO version never reaches the byte reader.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the packaged SDK identity reader over real package manifests and SDK paths. The file reader records and delegates each byte read to Node, and the real witness detects a written version file or manifest.
  * @evidence contracts/testing.md#independent-expectations A published package version and its SDK VERSION identify a shipped SDK independently of installation path. The sibling source file must not be read for an installed SDK, and a foreign root has no package identity.
- * @evidence contracts/testing.md#distinguishing-cases Equivalent paths share an identity, changed package and SDK versions do not, and a wrong root or incomplete manifest yields no package identity. Mutable SDK content hashing has its own tests.
- * @evidence contracts/testing.md#execution-ownership A direct TypeScript unit uses only task-owned directories and the hasher's file-read adapter. It launches no Go process and builds no native artifact.
+ * @evidence contracts/testing.md#distinguishing-cases Equivalent paths share an identity, changed package and SDK versions do not, and a wrong root or incomplete manifest yields no package identity. A FIFO declines package identity before any byte read. Mutable SDK content hashing has its own tests.
+ * @evidence contracts/testing.md#execution-ownership A direct TypeScript unit uses only task-owned directories and the hasher's file-read adapter, with a bounded mkfifo child on POSIX. It launches no Go process and builds no native artifact.
  */
 export function test_packaged_goroot_identity_uses_the_versioned_package(): void {
   const root = TestProject.physicalPath(
@@ -81,4 +83,29 @@ export function test_packaged_goroot_identity_uses_the_versioned_package(): void
   fs.writeFileSync(left.manifest, "{}");
   assert.equal(PluginBuildEnvironmentWitness.holds(witness), false);
   assert.equal(read(left), undefined);
+  if (process.platform !== "win32") {
+    fs.unlinkSync(right.version);
+    const created = spawnSync("mkfifo", [right.version], {
+      encoding: "utf8",
+      timeout: 5_000,
+    });
+    assert.equal(created.status, 0, created.stderr);
+    const baseline = reads.length;
+    assert.equal(
+      packagedGoRootIdentity(
+        right.manifest,
+        right.sdk,
+        {
+          readFile: (file) => {
+            // Report an accidental attempt without opening the pipe.
+            reads.push(file);
+            throw new Error(`unexpected byte read: ${file}`);
+          },
+        },
+        undefined,
+      ),
+      undefined,
+    );
+    assert.equal(reads.length, baseline);
+  }
 }

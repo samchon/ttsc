@@ -1,5 +1,6 @@
 import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegistration";
 import type { HostWatchBridge } from "./HostWatchBridge";
+import { MANAGED_PROJECT_RECORDS } from "./MANAGED_PROJECT_RECORDS";
 
 /**
  * Hand one delivery's project record to a build host, and its inputs to the
@@ -59,6 +60,7 @@ export function registerProjectRecord(props: {
     inputs(),
     failed,
     props.bridge.startedAt,
+    props.registration[MANAGED_PROJECT_RECORDS],
   );
   props.addWatchFile(record);
 }

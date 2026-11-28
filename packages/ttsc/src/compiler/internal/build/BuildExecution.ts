@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { hasProjectPluginEntries } from "../../../plugin/internal/load/hasProjectPluginEntries";
 import { loadProjectPlugins } from "../../../plugin/internal/load/loadProjectPlugins";
@@ -416,11 +416,15 @@ export namespace BuildExecution {
       buildOptions.forceEmitProvenance === true &&
       execution.nativePlugins.length !== 0
     )
-      return CompilationSnapshot.run(buildOptions.env, (env) =>
-        runPreparedSnapshotBuild(options, timing, execution, {
-          ...buildOptions,
-          env,
-        }),
+      return CompilationSnapshot.run(
+        buildOptions.env,
+        execution.projectRoot,
+        [path.dirname(execution.tsconfig), options.cwd ?? process.cwd()],
+        (env) =>
+          runPreparedSnapshotBuild(options, timing, execution, {
+            ...buildOptions,
+            env,
+          }),
       );
     return runPreparedSnapshotBuild(options, timing, execution, buildOptions);
   }
@@ -515,7 +519,11 @@ export namespace BuildExecution {
         }
       } else if (
         buildOptions.forceEmitProvenance === true &&
-        isProjectCompiler(execution, buildOptions)
+        isProjectCompiler(
+          execution.projectRoot,
+          execution.tsgo,
+          buildOptions.env,
+        )
       ) {
         result = appendBuildOutput(
           checked,
@@ -565,7 +573,11 @@ export namespace BuildExecution {
       buildOptions.emit === true &&
       buildOptions.forceEmitProvenance === true &&
       SidecarEnvironment.read(buildOptions.env, PRIVATE_CONFIG_OVERLAY_ENV) &&
-      isProjectCompiler(execution, buildOptions) &&
+      isProjectCompiler(
+        execution.projectRoot,
+        execution.tsgo,
+        buildOptions.env,
+      ) &&
       !PassthroughFlags.forwardsTerminalTsgoFlag(buildOptions)
     ) {
       // The CLI only sees the physical wrapper. The selected compiler target
@@ -880,10 +892,15 @@ export namespace BuildExecution {
             TsgoArguments.createNativeBuildTsgoArgs(execution, options),
           ),
         "build",
+        execution.projectRoot,
+        [path.dirname(execution.tsconfig), options.cwd ?? process.cwd()],
       );
     if (options.forceEmitProvenance !== true) return run();
     if (host.capabilities?.emitProvenance === true)
-      return captureNativeEmitProvenance(run);
+      return captureNativeEmitProvenance(run, execution.projectRoot, [
+        path.dirname(execution.tsconfig),
+        options.cwd ?? process.cwd(),
+      ]);
     // WARNING: NEVER reject a compiler host for lacking `emitProvenance`.
     //
     // Plugin libraries such as typia ship their own Go executable host with its
@@ -905,6 +922,10 @@ export namespace BuildExecution {
       }),
       binary: execution.tsgo.binary,
       cwd: execution.compilerSelection.compilerArgsCwd,
+      additionalProjectRoots: [
+        execution.projectRoot,
+        path.dirname(execution.tsconfig),
+      ],
       env: compilerEnv(options.env),
       run: () => {
         const result = run();
@@ -929,8 +950,14 @@ export namespace BuildExecution {
    */
   function captureNativeEmitProvenance(
     run: (provenancePath: string) => TtscBuildResult,
+    projectRoot: string,
+    additionalProjectRoots: readonly string[],
   ): TtscBuildResult {
-    const directory = createCanonicalTempDirectory("ttsc-emit-provenance-");
+    const directory = createProjectTempDirectory(
+      "ttsc-emit-provenance-",
+      projectRoot,
+      additionalProjectRoots,
+    );
     const ownership = fs.lstatSync(directory);
     const provenancePath = path.join(directory, "emitted-sources.json");
     let completed: TtscBuildResult | undefined;
@@ -1087,6 +1114,10 @@ export namespace BuildExecution {
       ],
       {
         cwd: execution.compilerSelection.compilerArgsCwd,
+        additionalProjectRoots: [
+          execution.projectRoot,
+          path.dirname(execution.tsconfig),
+        ],
         env: compilerEnv(options.env),
         encoding: "utf8",
         pipe: execution.tsgo.packageJson !== "",
@@ -1174,22 +1205,32 @@ export namespace BuildExecution {
   }
 
   /**
-   * Preserve custom compiler executables while recognizing the project's exact
-   * compiler.
+   * Identify a compiler whose configuration can run in the project's native
+   * host. An explicit override qualifies when it names the installed binary.
+   *
+   * @evidence contracts/common.md#principled-implementation Package selection proves native host authority. Overrides compare physical paths against project resolution with the override cleared.
+   * @evidence contracts/common.md#clear-and-simple-design Private config placement and host execution use the same compiler test.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts An unresolved override stays external without guessing its capabilities from a filename or version.
+   * @evidence contracts/common.md#meaningful-documentation Defines when an override can use the installed compiler's host.
+   * @evidence contracts/portability.md#os-neutral-implementation Native realpath compares underlying binary spellings and the environment merger handles native name identity.
+   * @evidence contracts/performance.md#efficient-algorithms Ordinary package selections return immediately. Overrides pay project package lookup and two physical path reads.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work An override or installed package can move between calls.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate owns no retained state or open handle.
    */
-  function isProjectCompiler(
-    execution: ReturnType<typeof resolveExecutionContext>,
-    options: RunBuildOptions,
+  export function isProjectCompiler(
+    projectRoot: string,
+    tsgo: ReturnType<typeof resolveTsgo>,
+    environment: NodeJS.ProcessEnv | undefined,
   ): boolean {
-    if (execution.tsgo.version !== "custom") return true;
+    if (tsgo.version !== "custom") return true;
     try {
-      const env = SidecarEnvironment.merge(process.env, options.env, {
+      const env = SidecarEnvironment.merge(process.env, environment, {
         TTSC_TSGO_BINARY: undefined,
       });
-      const installed = resolveTsgo({ cwd: execution.projectRoot, env });
+      const installed = resolveTsgo({ cwd: projectRoot, env });
       return (
         fs.realpathSync.native(installed.binary) ===
-        fs.realpathSync.native(execution.tsgo.binary)
+        fs.realpathSync.native(tsgo.binary)
       );
     } catch {
       return false;
@@ -1221,6 +1262,12 @@ export namespace BuildExecution {
       cacheDir: options.cacheDir,
     });
     const emittedFiles: string[] = [];
+    if (
+      SidecarEnvironment.read(options.env, PRIVATE_CONFIG_OVERLAY_ENV) &&
+      options.skipDiagnosticsCheck !== true &&
+      compiled.result.status !== 0
+    )
+      return { ...compiled.result, emittedFiles };
     for (const [name, text] of Object.entries(compiled.output)) {
       const output = path.resolve(execution.projectRoot, name);
       fs.mkdirSync(path.dirname(output), { recursive: true });
@@ -1275,6 +1322,10 @@ export namespace BuildExecution {
             : commandArgs,
         {
           cwd: execution.compilerSelection.compilerArgsCwd,
+          additionalProjectRoots: [
+            execution.projectRoot,
+            path.dirname(execution.tsconfig),
+          ],
           env,
           encoding: "utf8",
           // The installed compiler starts no process of its own; a custom
@@ -1328,6 +1379,10 @@ export namespace BuildExecution {
             args,
             binary: execution.tsgo.binary,
             cwd: execution.compilerSelection.compilerArgsCwd,
+            additionalProjectRoots: [
+              execution.projectRoot,
+              path.dirname(execution.tsconfig),
+            ],
             env,
             pipe: execution.tsgo.packageJson !== "",
             run,
@@ -1451,6 +1506,8 @@ export namespace BuildExecution {
             TsgoArguments.createNativeCheckTsgoArgs(execution, options),
           ),
         args[0],
+        execution.projectRoot,
+        [path.dirname(execution.tsconfig), options.cwd ?? process.cwd()],
       );
       out = appendBuildOutput(out, result);
       if (result.status !== 0) {
@@ -1493,6 +1550,7 @@ export namespace BuildExecution {
         plugin.binary,
         NativePluginArguments.createNativeProjectInputsArgs(execution, plugin),
         {
+          additionalProjectRoots: [path.dirname(execution.tsconfig)],
           cwd: execution.projectRoot,
           env: nativePluginEnv(options.env, execution, plugin, undefined, true),
           encoding: "utf8",
@@ -1570,6 +1628,7 @@ export namespace BuildExecution {
       SidecarEnvironment.write(env, "TTSC_WATCH_WRITE_IF_CHANGED", "1");
     }
     const res = spawnNative(plugin.binary, args, {
+      additionalProjectRoots: [path.dirname(execution.tsconfig)],
       cwd: execution.projectRoot,
       env,
       encoding: "utf8",
@@ -1734,7 +1793,7 @@ export namespace BuildExecution {
         });
         nativePlugins = pluginLoad.nativePlugins;
       } else {
-        yield options.onWatchInputs?.([]);
+        yield options.onWatchInputs?.([], undefined, {});
       }
     } catch (error) {
       pluginSetupFailure = {

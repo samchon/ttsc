@@ -16,12 +16,13 @@ import { pluginBuildEnvironment } from "./pluginBuildEnvironment";
  * Cold asynchronous reads run in an exclusively owned worker. Its complete
  * environment snapshot is passed explicitly to the native reader. Publication
  * rechecks both current host variables and external witnesses after transfer.
- * The worker reads the parent's shared environment for native fallback rules;
+ * Each request anchors relative paths before it enters the cache or queue. The
+ * worker reads the parent's shared environment for native fallback rules;
  * neither it nor this owner writes that environment. Explicit reader inputs
  * still use the request snapshot and publication still qualifies that
  * snapshot.
  *
- * @evidence contracts/common.md#principled-implementation Readings pair complete environment identity with the producer's native pre-read witness; cached reuse validates that witness and asynchronous publication rechecks variables/witness after transfer. Synchronous fresh reads publish their paired observations without an extra post-read holds call here; native metadata distinguishability remains a premise.
+ * @evidence contracts/common.md#principled-implementation Readings pair complete environment identity with the producer's native pre-read witness. Cached reuse validates that witness, asynchronous publication rechecks variables and witnesses after transfer, and synchronous fresh reads retry once if a comparable observation changed during acquisition.
  * @evidence contracts/common.md#clear-and-simple-design One owner shares observation records across synchronous reads, cache-only proof and asynchronous preparation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cold preparation performs the same actual native Go/toolchain reading off-thread; failed or stale observations are never replaced by producer-expected state.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes preparation, publication and cache-only authority; members document their separate execution responsibilities.
@@ -69,9 +70,9 @@ export namespace PluginBuildEnvironmentReadings {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The operation borrows a process-owned record and retains no request history.
    */
   export function cached(directory: string): string | undefined {
-    const known = readings.get(key(directory, process.env));
+    const known = readings.get(key(anchorDirectory(directory), process.env));
     return known !== undefined &&
-      PluginBuildEnvironmentWitness.holds(known.witness)
+      PluginBuildEnvironmentWitness.reusable(known.witness)
       ? known.environment
       : undefined;
   }
@@ -105,12 +106,12 @@ export namespace PluginBuildEnvironmentReadings {
     for (const directory of directories) {
       if (result.has(directory)) continue;
       const known = readings.get(
-        directory + (variables ??= key("", process.env)),
+        anchorDirectory(directory) + (variables ??= key("", process.env)),
       );
       result.set(
         directory,
         known !== undefined &&
-          PluginBuildEnvironmentWitness.holds(known.witness, undefined, current)
+          PluginBuildEnvironmentWitness.reusable(known.witness, current)
           ? known.environment
           : undefined,
       );
@@ -132,12 +133,12 @@ export namespace PluginBuildEnvironmentReadings {
    * @param directory Plugin source directory whose build environment is read.
    * @param refresh Bypass a cached reading.
    * @param projectRoot Project whose plugin cache root holds the records.
-   * @evidence contracts/common.md#principled-implementation The same native reader constructs a digest paired with its pre-read witness; optional cached reuse validates current variables/metadata. A fresh synchronous reading is published without a separate post-read qualification here and relies on the native reader's premises.
+   * @evidence contracts/common.md#principled-implementation The same native reader constructs a digest and pre-read witness. The synchronous owner retries a moved observation once with a fresh witness, refuses repeated drift and leaves unproved readings ineligible for reuse.
    * @evidence contracts/common.md#clear-and-simple-design The synchronous boundary shares cached authority and delegates fresh observation to its owning reader.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A requested refresh actually probes the selected native toolchain.
    * @evidence contracts/common.md#meaningful-documentation Native prose identifies the synchronous execution owner and explicit refresh meaning.
    * @evidence contracts/portability.md#os-neutral-implementation Native Go selection and filesystem witnesses remain delegated to the shared reader.
-   * @evidence contracts/performance.md#efficient-algorithms Hits pay complete variable-text indexing and native witness queries. Misses/refresh merge environment values, perform actual toolchain/SDK/content work, then rebuild the full variable-text key for publication; native/path/file/name/value bytes contribute cost beyond invocation count.
+   * @evidence contracts/performance.md#efficient-algorithms Hits pay complete variable-text indexing and native witness queries. A miss or refresh merges the environment once and performs at most two native reads and metadata comparisons. Native pathname and environment text, SDK content and subprocess costs depend on the selected inputs.
    * @evidence contracts/performance.md#reuse-equivalent-work Synchronous and asynchronous clients share the same qualified readings; a miss of a caller naming its project takes SDK and executable digests from the record store across processes.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retention belongs to the namespace; this call publishes one replacement record.
    */
@@ -146,24 +147,36 @@ export namespace PluginBuildEnvironmentReadings {
     refresh = false,
     projectRoot?: string,
   ): string {
+    directory = anchorDirectory(directory);
     const known = refresh ? undefined : cached(directory);
     if (known !== undefined) return known;
     const env = SidecarEnvironment.merge(process.env);
-    const witness: PluginBuildEnvironmentWitness.Record = new Map();
-    const environment = pluginBuildEnvironment(
-      directory,
-      env,
-      witness,
+    if (projectRoot !== undefined) projectRoot = anchorDirectory(projectRoot);
+    const identities =
       projectRoot === undefined
         ? undefined
         : PluginContentIdentities.open({
             projectRoot,
             env,
             sources: [directory],
-          }),
+          });
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const witness: PluginBuildEnvironmentWitness.Record = new Map();
+      const environment = pluginBuildEnvironment(
+        directory,
+        env,
+        witness,
+        identities,
+        undefined,
+        projectRoot,
+      );
+      if (PluginBuildEnvironmentWitness.hasChanged(witness)) continue;
+      readings.set(key(directory, env), { environment, witness });
+      return environment;
+    }
+    throw new Error(
+      `ttsc: the Go build environment changed while reading ${directory}`,
     );
-    readings.set(key(directory, env), { environment, witness });
-    return environment;
   }
 
   /**
@@ -197,12 +210,14 @@ export namespace PluginBuildEnvironmentReadings {
     refresh = false,
     projectRoot?: string,
   ): Promise<string> {
+    directory = anchorDirectory(directory);
     const known = refresh ? undefined : cached(directory);
     if (known !== undefined) return known;
     const env = SidecarEnvironment.merge(process.env);
     const identity = key(directory, env);
     const existing = pending.get(identity);
     if (existing !== undefined) return existing;
+    if (projectRoot !== undefined) projectRoot = anchorDirectory(projectRoot);
     const request = (async () => {
       const reading = await observe(directory, env, projectRoot);
       if (
@@ -221,6 +236,23 @@ export namespace PluginBuildEnvironmentReadings {
     } finally {
       if (pending.get(identity) === request) pending.delete(identity);
     }
+  }
+
+  /**
+   * Anchor before queuing while preserving native POSIX traversal through
+   * links.
+   */
+  function anchorDirectory(directory: string): string {
+    if (process.platform === "win32") {
+      const root = path.parse(directory).root;
+      // Win32 resolution supplies the drive for rooted and drive-relative names.
+      return path.isAbsolute(directory) && root.length > 1
+        ? directory
+        : path.resolve(directory);
+    }
+    return path.isAbsolute(directory)
+      ? directory
+      : `${process.cwd()}${path.sep}${directory}`;
   }
 
   function key(directory: string, env: NodeJS.ProcessEnv): string {

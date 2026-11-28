@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
 import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createProjectInputPathIdentityContext";
+import { captureLSPPluginSelectionInputs } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/captureLSPPluginSelectionInputs";
 import { fingerprintInitialLSPProjectInputSnapshot } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/fingerprintInitialLSPProjectInputSnapshot";
 import { initialLSPProjectInputSnapshotIsCurrent } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/initialLSPProjectInputSnapshotIsCurrent";
 import { materializeLSPPluginManifest } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/materializeLSPPluginManifest";
+import { hashHostInputPaths } from "../../../../../packages/ttsc/src/plugin/internal/load/hashHostInputPaths";
+import { realpathHostInputPaths } from "../../../../../packages/ttsc/src/plugin/internal/load/realpathHostInputPaths";
+import { PluginBuildEnvironmentWitness } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentWitness";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -31,11 +36,15 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    frame an empty existing directory and a missing directory independently,
  *    and prove each captured baseline is current. Windows missing-suffix casing
  *    follows the observed directory authority, not a platform-default guess.
+ * 5. Carry intermediate links and reachable or missing physical endpoints to the
+ *    native host under their own parents, including a representable POSIX raw
+ *    link. Verify that the manifest stays outside a POSIX config alias's
+ *    physical directory.
  *
- * @evidence contracts/testing.md#behavioral-verification Snapshot operations distinguish child-content edits from reload-file, immediate-topology and link-identity drift and preserve framed raw identities; manifest transport carries 8192 inputs and disposes its directory twice safely.
+ * @evidence contracts/testing.md#behavioral-verification Snapshot operations distinguish child-content edits from reload-file, immediate-topology and link-identity drift and preserve framed raw identities. Selection capture records the raw intermediate link fingerprint independently of its unchanged reached bytes. It carries workspace-only metadata and rejects a witness that moved before capture. Manifest transport carries 8192 inputs and disposes its directory twice safely.
  * @evidence contracts/testing.md#independent-expectations Authored file and directory mutations define whether each snapshot must stay current or become stale; link, raw directory, empty-directory and missing-directory digests use independent sha256 framing (`symlink\0`/`directory\0`, target or native physical path bytes, NUL, `missing\0` or the empty-topology hash). Missing Windows suffix casing uses the supported authority observation without certifying that classifier itself. The test cannot prove agreement with the Go validator or startup host, only with this written framing; the manifest expectation is the literal count 8192 and a size above 64 KiB.
  * @evidence contracts/testing.md#distinguishing-cases Child contents remain current while exact-file edits and immediate topology invalidate. Exact-entry retarget uses a Windows leaf junction or POSIX leaf file symlink: both own link identity, but junction framing has missing content while the POSIX link reaches file bytes. POSIX preserves original different-content and added same-content retargets; Windows empty-directory retarget isolates identity. Native directory-link retarget is mandatory. POSIX raw bytes/backslash names and Windows Unicode junction bytes retain their distinct native input domains. Only an observed EILSEQ creation refusal selects UTF-8 recovery after an unchanged directory/link assertion; other preparation errors fail; manifest contents and repeated disposal are asserted separately.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/ttscserver entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/ttscserver entry exercises the owning operations on isolated inputs. A Node child supplies a controlled temporary environment for the manifest boundary case without changing the test runner's environment. No native host, build or consumer installation executes.
  */
 export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
   (): void => {
@@ -58,6 +67,43 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
           failures.push(new Error(name, { cause }));
         }
       };
+      verify(
+        "workspace metadata stays separate from descriptor content",
+        () => {
+          const selector = path.join(root, "workspace-goenv");
+          fs.writeFileSync(selector, "first");
+          const witness: PluginBuildEnvironmentWitness.Record = new Map();
+          PluginBuildEnvironmentWitness.add(witness, selector);
+          PluginBuildEnvironmentWitness.addDirectoryIdentity(witness, root);
+          const input = {
+            deferredHostInputs: [],
+            hostInputHashes: {},
+            hostInputRealpaths: {},
+            hostInputs: [],
+            pluginSources: {},
+            workspaceInputs: PluginBuildEnvironmentWitness.watchInputs(
+              [witness],
+              root,
+            ),
+          };
+          const observed = captureLSPPluginSelectionInputs(input);
+          assert.deepEqual(observed?.descriptorFiles, {});
+          assert.equal(observed?.workspaceFiles?.length, 2);
+          const entry = observed?.workspaceFiles?.find(
+            ({ kind }) => kind === "stat",
+          );
+          assert.equal(entry?.path, Buffer.from(selector).toString("base64"));
+          assert.equal(entry?.kind, "stat");
+          assert.equal(entry?.size, "5");
+          assert.equal(
+            observed?.workspaceFiles?.find(({ kind }) => kind === "directory")
+              ?.physical,
+            Buffer.from(fs.realpathSync.native(root)).toString("base64"),
+          );
+          fs.appendFileSync(selector, " moved");
+          assert.equal(captureLSPPluginSelectionInputs(input), undefined);
+        },
+      );
       verify("ordinary reload content and topology", () => {
         const first = fingerprintInitialLSPProjectInputSnapshot({
           files: [reloadFile],
@@ -367,6 +413,145 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
         }
         assert.equal(fs.existsSync(manifestDirectory), false);
       });
+      if (process.platform !== "win32")
+        verify("manifest excludes the physical config directory", () => {
+          verifyManifestConfigBoundary();
+        });
+      verify("plugin selection watches every link in the source path", () => {
+        const link = path.join(root, "source-link");
+        const middleName =
+          process.platform === "win32" ? "source-middle" : "source\\middle";
+        const middle = path.join(root, middleName);
+        const physical = path.join(root, "physical-source");
+        const replacement = path.join(root, "replacement-source");
+        const source = path.join(link, "nested", "src");
+        const kind = process.platform === "win32" ? "junction" : "dir";
+        fs.mkdirSync(path.join(physical, "nested", "src"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(replacement, "nested", "src"), {
+          recursive: true,
+        });
+        fs.symlinkSync(physical, middle, kind);
+        fs.symlinkSync(middle, link, kind);
+        try {
+          const descriptorName = "config.cjs";
+          const descriptor = path.join(source, descriptorName);
+          const actualDirectory = path.join(physical, "nested", "src");
+          const actualFile = path.join(actualDirectory, descriptorName);
+          const bytes = "module.exports = {};\n";
+          fs.writeFileSync(actualFile, bytes);
+          const hostInputRealpaths = {
+            [source]: fs.realpathSync.native(source),
+            [descriptor]: fs.realpathSync.native(descriptor),
+          };
+          const input = {
+            deferredHostInputs: [],
+            hostInputHashes: {},
+            hostInputRealpaths,
+            hostInputs: [source, descriptor],
+            pluginSources: {},
+          };
+          const snapshot = captureLSPPluginSelectionInputs(input);
+          assert.ok(snapshot);
+          assert.equal(
+            snapshot.descriptorFiles[actualDirectory]?.[descriptorName],
+            createHash("sha256").update("file\0").update(bytes).digest("hex"),
+          );
+          for (const entry of [link, middle]) {
+            const digest = createHash("sha256")
+              .update("symlink\0")
+              .update(fs.readlinkSync(entry, { encoding: "buffer" }))
+              .update("\0missing\0")
+              .digest("hex");
+            assert.equal(
+              snapshot.descriptorFiles[root]?.[path.basename(entry)],
+              digest,
+            );
+          }
+          const missing = path.join(source, "later.cjs");
+          const missingInput = {
+            ...input,
+            hostInputs: [missing],
+            hostInputHashes: { [missing]: null },
+            hostInputRealpaths: { [missing]: null },
+          };
+          assert.ok(
+            captureLSPPluginSelectionInputs(missingInput)?.descriptorFiles[
+              root
+            ]?.[middleName],
+          );
+          fs.writeFileSync(
+            path.join(replacement, "nested", "src", "later.cjs"),
+            "module.exports = {};\n",
+          );
+          fs.unlinkSync(middle);
+          fs.symlinkSync(replacement, middle, kind);
+          assert.equal(captureLSPPluginSelectionInputs(input), undefined);
+          assert.equal(
+            captureLSPPluginSelectionInputs(missingInput),
+            undefined,
+          );
+        } finally {
+          fs.unlinkSync(link);
+          fs.unlinkSync(middle);
+        }
+      });
+      verify(
+        "plugin selection omits the empty basename of a volume-root endpoint",
+        () => {
+          const alias = path.join(root, "volume-root-alias");
+          fs.symlinkSync(
+            path.parse(root).root,
+            alias,
+            process.platform === "win32" ? "junction" : "dir",
+          );
+          try {
+            const snapshot = captureLSPPluginSelectionInputs({
+              deferredHostInputs: [],
+              hostInputHashes: hashHostInputPaths([alias]),
+              hostInputRealpaths: realpathHostInputPaths([alias]),
+              hostInputs: [alias],
+              pluginSources: {},
+            });
+            assert.ok(snapshot?.descriptorFiles[root]?.[path.basename(alias)]);
+            for (const files of Object.values(snapshot.descriptorFiles))
+              assert.equal(Object.hasOwn(files, ""), false);
+          } finally {
+            fs.unlinkSync(alias);
+          }
+        },
+      );
+      verify(
+        "plugin selection watches a dangling final link's external endpoint",
+        () => {
+          const directory = path.join(root, "unavailable-descriptor-parent");
+          const link = path.join(root, "dangling-descriptor");
+          fs.symlinkSync(
+            directory,
+            link,
+            process.platform === "win32" ? "junction" : "dir",
+          );
+          try {
+            const input = {
+              deferredHostInputs: [],
+              hostInputHashes: { [link]: null },
+              hostInputRealpaths: { [link]: null },
+              hostInputs: [link],
+              pluginSources: {},
+            };
+            const snapshot = captureLSPPluginSelectionInputs(input);
+            assert.equal(
+              snapshot?.descriptorFiles[root]?.[path.basename(directory)],
+              createHash("sha256").update("missing\0").digest("hex"),
+            );
+            fs.mkdirSync(directory);
+            assert.equal(captureLSPPluginSelectionInputs(input), undefined);
+          } finally {
+            fs.unlinkSync(link);
+          }
+        },
+      );
       if (failures.length !== 0)
         throw new AggregateError(
           failures,
@@ -376,6 +561,76 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
       fs.rmSync(root, { force: true, recursive: true });
     }
   };
+
+/** Exercise manifest allocation with a file alias and controlled child temp. */
+function verifyManifestConfigBoundary(): void {
+  const root = TestProject.physicalPath(
+    TestProject.tmpdir("ttscserver-manifest-config-", "/tmp"),
+  );
+  const invocation = path.join(root, "invocation");
+  const logical = path.join(root, "logical");
+  const physical = path.join(root, "physical");
+  try {
+    for (const dir of [invocation, logical, physical]) fs.mkdirSync(dir);
+    const config = path.join(logical, "tsconfig.json");
+    fs.writeFileSync(path.join(physical, "custom.json"), "{}");
+    fs.symlinkSync(path.join(physical, "custom.json"), config);
+    const loader = new URL(
+      "../../../../../config/register-unit-loader.mjs",
+      import.meta.url,
+    );
+    const manifestModule = new URL(
+      "../../../../../packages/ttsc/src/launcher/internal/ttscserver/materializeLSPPluginManifest.ts",
+      import.meta.url,
+    );
+    const identityModule = new URL(
+      "../../../../../packages/ttsc/src/compiler/internal/project/resolveProjectIdentity.ts",
+      import.meta.url,
+    );
+    const result = spawnSync(
+      process.execPath,
+      [
+        "--import",
+        loader.href,
+        "--input-type=module",
+        "--eval",
+        `
+        import path from "node:path";
+        import { materializeLSPPluginManifest } from ${JSON.stringify(manifestModule.href)};
+        import { resolveProjectIdentity } from ${JSON.stringify(identityModule.href)};
+        const identity = resolveProjectIdentity({ tsconfig: ${JSON.stringify(config)} });
+        const parents = [identity.logicalProjectRoot, identity.physicalProjectRoot];
+        for (const project of [process.cwd(), identity]) {
+          const transport = materializeLSPPluginManifest({}, project);
+          try {
+            parents.push(path.dirname(path.dirname(transport.path)));
+          } finally {
+            transport.dispose();
+          }
+        }
+        process.stdout.write(JSON.stringify(parents));
+        `,
+      ],
+      {
+        cwd: invocation,
+        env: { ...process.env, NODE_OPTIONS: undefined, TMPDIR: physical },
+        encoding: "utf8",
+        timeout: 30_000,
+      },
+    );
+    assert.ifError(result.error);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), [
+      logical,
+      physical,
+      physical,
+      fs.realpathSync.native("/tmp"),
+    ]);
+    assert.deepEqual(fs.readdirSync(physical), ["custom.json"]);
+  } finally {
+    fs.rmSync(root, { recursive: true });
+  }
+}
 
 function verifyRawDirectoryIdentity(
   root: string,
@@ -464,5 +719,63 @@ function verifyRawDirectoryIdentity(
       "physical directory identity lost the native target bytes",
     );
     assert.equal(initialLSPProjectInputSnapshotIsCurrent(rawSnapshot), true);
+    if (!target.equals(rawTarget)) return;
+    const middle = Buffer.concat([rawTarget, Buffer.from("/middle")]);
+    const first = path.join(root, "raw-descriptor-first");
+    const second = path.join(root, "raw-descriptor-second");
+    const alias = path.join(root, "raw-descriptor-alias");
+    const contents = "module.exports = {};";
+    fs.writeFileSync(first, contents);
+    fs.writeFileSync(second, contents);
+    fs.symlinkSync(first, middle, "file");
+    fs.symlinkSync(middle, alias, "file");
+    const input = {
+      deferredHostInputs: [],
+      hostInputHashes: {},
+      hostInputRealpaths: { [alias]: first },
+      hostInputs: [alias],
+      pluginSources: {},
+    };
+    const selection = captureLSPPluginSelectionInputs(input);
+    const expectedMiddle = createHash("sha256")
+      .update("symlink\0")
+      .update(first)
+      .update("\0file\0")
+      .update(contents)
+      .digest("hex");
+    assert.deepEqual(selection?.rawDescriptorFiles, {
+      [middle.toString("base64")]: expectedMiddle,
+    });
+    fs.unlinkSync(middle);
+    fs.symlinkSync(second, middle, "file");
+    assert.equal(fs.readFileSync(alias, "utf8"), contents);
+    assert.equal(captureLSPPluginSelectionInputs(input), undefined);
+    fs.unlinkSync(alias);
+    fs.unlinkSync(middle);
+
+    const rawFirst = Buffer.concat([rawTarget, Buffer.from([0x2f, 0xff])]);
+    const rawSecond = Buffer.concat([rawTarget, Buffer.from([0x2f, 0xfe])]);
+    fs.writeFileSync(rawFirst, contents);
+    fs.writeFileSync(rawSecond, contents);
+    fs.symlinkSync(rawFirst, alias, "file");
+    const rawInput = {
+      ...input,
+      hostInputHashes: hashHostInputPaths([alias]),
+      hostInputRealpaths: realpathHostInputPaths([alias]),
+    };
+    const initialSelection = captureLSPPluginSelectionInputs(rawInput);
+    assert.deepEqual(initialSelection?.rawDescriptorFiles, {
+      [rawFirst.toString("base64")]: createHash("sha256")
+        .update("file\0")
+        .update(contents)
+        .digest("hex"),
+    });
+    const beforeLossyTarget = fs.realpathSync.native(alias);
+    fs.unlinkSync(alias);
+    fs.symlinkSync(rawSecond, alias, "file");
+    assert.equal(fs.realpathSync.native(alias), beforeLossyTarget);
+    assert.deepEqual(hashHostInputPaths([alias]), rawInput.hostInputHashes);
+    assert.equal(captureLSPPluginSelectionInputs(rawInput), undefined);
+    fs.unlinkSync(alias);
   });
 }

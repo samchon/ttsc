@@ -1,15 +1,11 @@
-import {
-  type SpawnSyncOptions,
-  type SpawnSyncReturns,
-  spawn,
-} from "node:child_process";
+import { type SpawnSyncReturns, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { resolveBinary } from "../compiler/internal/resolveBinary";
-import { createCanonicalTempDirectory } from "./createCanonicalTempDirectory";
-import { systemTempOutsideProject } from "./systemTempOutsideProject";
+import type { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
+import { createProjectTempDirectory } from "./createProjectTempDirectory";
 
 /**
  * Execute one command under the platform helper's process-tree owner.
@@ -41,6 +37,13 @@ export namespace OwnedNativeProcess {
    * causes. Output fields and extra receipt fields are omitted. Diagnostic data
    * never authorizes release.
    *
+   * The receipt directory stays outside the primary and additional consumer
+   * roots. The command's working directory supplies the boundary by default. A
+   * projectless command uses the system temp marker checks. A permission
+   * refusal can advance to another qualified system temporary parent. POSIX
+   * working-directory spelling retains parent components for native lookup
+   * after following links.
+   *
    * Enabled private tracing may receive a frozen scalar copy of an accepted
    * receipt through the existing retirement observer. The original helper has
    * closed before that copy is made. It contains no command or environment data
@@ -50,7 +53,7 @@ export namespace OwnedNativeProcess {
    * @evidence contracts/common.md#clear-and-simple-design Control stdin is separate from target input, target output streams remain unchanged, and one finally owns listeners and private protocol storage.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unsupported modes and incompatible helper overrides reject explicitly rather than falling back to an uncontained child or asserting cleanup from helper exit alone.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain supported descriptor/input modes, forced retirement, helper override compatibility and the opt-in frozen receipt observation's scheduling and authority limits; the namespace describes the native ownership split.
-   * @evidence contracts/portability.md#os-neutral-implementation The existing native helper resolver owns platform and override precedence; JSON argv/env and explicit Windows verbatim mode preserve the actual command boundary without an added shell layer.
+   * @evidence contracts/portability.md#os-neutral-implementation The native helper resolver owns platform and override precedence. JSON argv/env and explicit Windows verbatim mode preserve the command boundary. Win32 resolves drive-relative working directories through node:path. POSIX anchors relative working directories without collapsing parent traversal. The temp allocator qualifies native paths and retries permission refusals before process admission.
    * @evidence contracts/performance.md#efficient-algorithms Piped output is accumulated up to maxBuffer per stream and file-backed outputs stream through inherited descriptors. Input encoding processes only the supplied view bytes; protocol serialization and receipts scale with their payloads. Enabled tracing with an observer alone copies and freezes nine validated scalar fields without traversing arbitrary receipt payloads.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Commands can produce external effects and every admitted invocation has its own process boundary and result.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Abort closes the control pipe, then helper close and its native retirement receipt are awaited before private storage is removed. Missing or failed cleanup proof rejects and retains the exact protocol path; a classified failed spawn removes unused storage. The observer transfers classification to the source-resource owner rather than manufacturing a joined result from helper exit; its optional frozen receipt copy lives with this invocation and may transfer to the caller without retaining streams or mutable receipt data.
@@ -58,7 +61,7 @@ export namespace OwnedNativeProcess {
   export async function run(
     command: string,
     args: readonly string[],
-    options: SpawnSyncOptions & { projectRoot?: string },
+    options: OwnedSynchronousProcess.CommandOptions,
     signal?: AbortSignal,
     observeRetirement?: (
       state: "joined" | "not-started" | "unknown",
@@ -141,13 +144,18 @@ export namespace OwnedNativeProcess {
         (entry): entry is [string, string] => entry[1] !== undefined,
       ),
     );
-    const cwd = path.resolve(
-      options.cwd === undefined
-        ? process.cwd()
-        : typeof options.cwd === "string"
-          ? options.cwd
-          : fileURLToPath(options.cwd),
-    );
+    const workingDirectory =
+      typeof options.cwd === "string"
+        ? options.cwd
+        : options.cwd === undefined
+          ? process.cwd()
+          : fileURLToPath(options.cwd);
+    const cwd =
+      process.platform === "win32"
+        ? path.resolve(workingDirectory)
+        : path.isAbsolute(workingDirectory)
+          ? workingDirectory
+          : `${process.cwd()}/${workingDirectory}`;
     const payload = `${JSON.stringify({
       version: 1,
       command,
@@ -159,9 +167,10 @@ export namespace OwnedNativeProcess {
       ...(options.argv0 === undefined ? {} : { argv0: options.argv0 }),
       ...(options.timeout === undefined ? {} : { timeoutMs: options.timeout }),
     })}\n`;
-    const directory = createCanonicalTempDirectory(
+    const directory = createProjectTempDirectory(
       "ttsc-owned-process-",
-      systemTempOutsideProject(options.projectRoot ?? cwd),
+      options.projectRoot === null ? undefined : (options.projectRoot ?? cwd),
+      options.additionalProjectRoots,
     );
     const resultFile = path.join(directory, "result.json");
     let retirement: "joined" | "not-started" | "unknown" = "not-started";

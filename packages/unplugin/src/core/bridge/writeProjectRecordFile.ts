@@ -49,7 +49,10 @@ export function writeProjectRecordFile(
   file: string,
   record: TtscProjectRecord,
 ): string {
-  const directory = prepareProjectRecordDirectory(path.dirname(file));
+  const directory = prepareProjectRecordDirectory(
+    path.dirname(file),
+    record.privateStorage === true,
+  );
   const target = path.join(directory, path.basename(file));
   if (fs.lstatSync(target, { throwIfNoEntry: false })?.isSymbolicLink())
     throw new Error(`@ttsc/unplugin: unsafe project record file: ${target}`);

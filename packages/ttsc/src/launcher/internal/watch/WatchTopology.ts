@@ -16,10 +16,13 @@ import { createCaseSensitivityObservations } from "../../../internal/pathIdentit
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import { isProjectInputPathIdentityWithin } from "../../../internal/pathIdentity/isProjectInputPathIdentityWithin";
 import { resolveProjectInputPath } from "../../../internal/pathIdentity/resolveProjectInputPath";
+import { pluginInputAliasEntries } from "../../../plugin/internal/load/pluginInputAliasEntries";
+import { PluginBuildEnvironmentWitness } from "../../../plugin/internal/source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
 import { collectPluginSourceDirectories } from "../../../plugin/internal/source/collectPluginSourceDirectories";
 import { pluginSourceCovers } from "../../../plugin/internal/source/pluginSourceCovers";
 import { prunesPluginSourceDirectory } from "../../../plugin/internal/source/prunesPluginSourceDirectory";
+import type { ITtscCompilerTransformation } from "../../../structures/ITtscCompilerTransformation";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOptions";
@@ -80,6 +83,12 @@ export class WatchTopology {
   private directories = new Map<string, string>();
   private directoryWatchers = new Map<string, DirectoryWatcher>();
   private extraInputs: readonly string[] = [];
+  private workspaceEntries: {
+    anchor: string;
+    witness: [string, string];
+  }[] = [];
+  private workspaceCursor = 0;
+  private workspaceTimer: NodeJS.Timeout | undefined;
 
   /**
    * What each plugin input held when last observed, by path key: the digest a
@@ -101,6 +110,9 @@ export class WatchTopology {
    */
   private pendingPluginNotifications = new Map<string, Set<string>>();
   private pluginNotificationsScheduled = false;
+  private pluginAliasRetry:
+    | { aliases: Set<string>; immediate: NodeJS.Immediate }
+    | undefined;
   private extraWatchers = new Map<string, DirectoryWatcher>();
 
   /** The plugin inputs whose directories the last sync already watched. */
@@ -179,8 +191,9 @@ export class WatchTopology {
    *   observes the watch set through another.
    * @param openFileWatch File subscriptions use this owned observer; native
    *   fs.watch by default.
-   * @param readDirectory Immediate reload-directory fingerprints use this
-   *   reader; native readdirSync by default.
+   * @param readDirectory Plugin-source enumeration and immediate
+   *   reload-directory fingerprints use this reader; native readdirSync by
+   *   default.
    * @param getCompilerInputs Read each resolved project's absolute compiler
    *   membership; the default invokes the native compiler. Readers throw
    *   listing failures and retain ownership of their returned array, which this
@@ -233,11 +246,11 @@ export class WatchTopology {
    * belong to a later barrier; this does not freeze the filesystem.
    *
    * @evidence contracts/common.md#principled-implementation A check-phase observation follows delivered events, and every notification, recovery and registration queue must be empty before completion.
-   * @evidence contracts/common.md#clear-and-simple-design The topology owns the barrier because it alone owns all five scheduled queues.
+   * @evidence contracts/common.md#clear-and-simple-design The topology owns the barrier because it owns every scheduled decision, including retries of moved plugin aliases.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Queue state establishes completion without a quiet-time estimate or an invented filesystem snapshot.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes delivered work from later mutations and explains the post-build queued-decision race.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation The barrier observes owned JavaScript queues without a separate native operation.
-   * @evidence contracts/performance.md#efficient-algorithms Each check turn inspects five flags and two map sizes; notification processing retains its owning traversal and native-operation costs.
+   * @evidence contracts/performance.md#efficient-algorithms Each check turn inspects five scheduling flags, one optional retry and two map sizes; notification processing retains its owning traversal and native-operation costs.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call observes current work rather than reusing an earlier completion.
    * @evidence contracts/performance.md#bound-retention-and-release-resources One immediate callback and promise remain live per waiting call; continuous new work can prevent completion and no deadline is imposed.
    */
@@ -248,6 +261,7 @@ export class WatchTopology {
       !this.closed &&
       (this.notificationsScheduled ||
         this.pluginNotificationsScheduled ||
+        this.pluginAliasRetry !== undefined ||
         this.compilerPostRegistrationReconciliationScheduled ||
         this.projectInputRecoveryScheduled ||
         this.projectInputPostRegistrationReconciliationScheduled ||
@@ -280,7 +294,6 @@ export class WatchTopology {
         : [...programFiles];
     const next = resolveWatchTopology(
       this.options,
-      this.extraInputs,
       this.lexicalIdentities,
       (project, options) => {
         const question = listingQuestion(project, options);
@@ -484,23 +497,35 @@ export class WatchTopology {
    *
    * @param inputs Plugin source directories and files the load reported.
    * @param identities The reporting load's record store, if it opened one.
-   * @evidence contracts/common.md#principled-implementation Published plugin inputs define the source corpus, and retaining existing pre-build baselines keeps unreported edits visible.
+   * @param workspace Actual generated Go workspace evidence when provided. A
+   *   source-only publication retains the current workspace observation.
+   * @param repairedWorkspaceAnchors Changes observed before recovery admission.
+   * @evidence contracts/common.md#principled-implementation Source baselines retain unreported edits. A final workspace publication retains the producer's native observations and reports exact metadata movement through the same plugin change channel.
    * @evidence contracts/common.md#clear-and-simple-design Deduplication, baseline retention and compiler/watch reconciliation remain ordered phases.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual plugin source digest applies its owning source-selection and pruning policy; named plugins or fixture output do not replace observed input state.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains baseline timing and why existing inputs are not restamped following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and canonical backend registration govern source trees; lexical keys preserve declarations and unknown names, folding ASCII only under measured insensitive parents rather than an OS-derived rule.
-   * @evidence contracts/performance.md#efficient-algorithms Input/path keys deduplicate with text and native case/ancestor work; only newly admitted inputs compute initial source digests, each proven from the selected files' metadata when the load's records hold and read from the selected pruned corpus otherwise; the following reconciliation pays project configuration, directory traversal and watcher work but answers membership from each project's last compiler listing; fixed publication count does not bound delegated bytes or backend work.
+   * @evidence contracts/performance.md#efficient-algorithms Source reconciliation pays native path and watcher costs and reuses available compiler listings. A final workspace publication traverses its entries once; its settled timer validates at most 256 metadata entries per turn without rehashing SDK contents or opening SDK file watchers.
    * @evidence contracts/performance.md#reuse-equivalent-work Unchanged ordered input sets return immediately; a changed set reuses each project's last compiler listing under the same arguments, since plugin inputs cannot move Program membership; existing inputs reuse their recorded digest until actual notification processing establishes changed consumed state; a new input's digest is the one the load recorded while its metadata holds.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Publications replace input/digest populations and case-observation caches without a population cap; synchronization attempts obsolete watcher closure. Native/supplied closure has its own lifetime and can throw; owner close does not prove every backend has stopped or every retained snapshot byte was released.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Publications replace input/digest populations and case observations without a population cap. The workspace lane retains one exact metadata list and one unreferenced timer, replaced on final publication and cleared on close. Source watcher shutdown retains its backend's closure semantics.
    */
   public setExtraInputs(
     inputs: readonly string[],
     identities?: PluginContentIdentities.Store,
+    workspace?: ITtscCompilerTransformation.ISuccess["workspaceInputs"],
+    repairedWorkspaceAnchors?: readonly string[],
   ): void {
     this.beginLexicalTransaction();
     // The latest load's store also serves later notifications; its references
     // only grow older, which can make fewer stamps separable but never more.
     this.pluginInputIdentities = identities;
+    if (workspace !== undefined) {
+      this.replaceWorkspaceInputs(workspace);
+      for (const anchor of repairedWorkspaceAnchors ?? []) {
+        if (Object.hasOwn(workspace, anchor))
+          this.callbacks.onInputChange({ kind: "plugin", path: anchor });
+      }
+    }
     const next = uniqueExistingPaths(inputs, this.lexicalIdentities);
     if (arraysEqual(this.extraInputs, next)) return;
     this.extraInputs = next;
@@ -518,12 +543,62 @@ export class WatchTopology {
       );
     }
     this.pluginInputStates = states;
-    // Plugin inputs join the watched files and directories, never Program
+    // Plugin inputs join their own watch lane. They cannot move Program
     // membership, so the compiler's last answer stands. A load reports up to
     // three different sets, and asking again for each spawned tsgo three times
     // per load (samchon/ttsc#1741). A membership change meanwhile reaches the
     // refresh its own notification starts, which lists again.
     this.refreshCompilerInputs(false, false, true);
+  }
+
+  private replaceWorkspaceInputs(
+    workspace: NonNullable<
+      ITtscCompilerTransformation.ISuccess["workspaceInputs"]
+    >,
+  ): void {
+    clearTimeout(this.workspaceTimer);
+    this.workspaceTimer = undefined;
+    this.workspaceCursor = 0;
+    const entries: typeof this.workspaceEntries = [];
+    const seen = new Map<string, string>();
+    for (const [anchor, group] of Object.entries(workspace)) {
+      for (const [key, signature] of group.entries) {
+        if (
+          PluginBuildEnvironmentWitness.pathOf(key) === undefined ||
+          seen.get(key) === signature
+        )
+          continue;
+        entries.push({ anchor, witness: [key, signature] });
+        seen.set(key, signature);
+      }
+    }
+    this.workspaceEntries = entries;
+    this.scheduleWorkspacePoll();
+  }
+
+  /** Poll exact metadata in a single off-thread, bounded lane. */
+  private scheduleWorkspacePoll(): void {
+    if (this.closed || this.workspaceEntries.length === 0) return;
+    this.workspaceTimer = setTimeout(() => {
+      this.workspaceTimer = undefined;
+      if (this.closed) return;
+      const end = this.workspaceCursor + 256;
+      const batch = this.workspaceEntries.slice(this.workspaceCursor, end);
+      const readings = PluginBuildEnvironmentWitness.retryBaseline(
+        batch.map((entry) => entry.witness),
+      );
+      this.workspaceCursor = end >= this.workspaceEntries.length ? 0 : end;
+      const changed = new Set<string>();
+      for (const [index, entry] of batch.entries()) {
+        const signature = readings[index]![1];
+        if (signature === entry.witness[1]) continue;
+        entry.witness[1] = signature;
+        changed.add(entry.anchor);
+      }
+      this.scheduleWorkspacePoll();
+      for (const anchor of changed)
+        this.callbacks.onInputChange({ kind: "plugin", path: anchor });
+    }, 200).unref();
   }
 
   /**
@@ -596,10 +671,17 @@ export class WatchTopology {
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Shutdown decides no equivalence of compilation or fingerprint work.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources On successful completion all five watcher maps clear and the lexical transaction is replaced; queued tasks observe the closed guard. A thrown close can leave later maps retained, and backend closure is not joined. Snapshot/declaration/pending byte state remains until replaced or the facade is released.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Close cancels the alias retry before releasing watchers. On successful completion all five watcher maps clear and the lexical transaction is replaced; other queued tasks observe the closed guard. A thrown close can leave later maps retained, and backend closure is not joined. Snapshot/declaration/pending byte state remains until replaced or the facade is released.
    */
   public close(): void {
     this.closed = true;
+    clearTimeout(this.workspaceTimer);
+    this.workspaceTimer = undefined;
+    this.workspaceEntries = [];
+    if (this.pluginAliasRetry !== undefined) {
+      clearImmediate(this.pluginAliasRetry.immediate);
+      this.pluginAliasRetry = undefined;
+    }
     closeWatchers(this.fileWatchers);
     closeWatchers(this.directoryWatchers);
     closeWatchers(this.extraWatchers);
@@ -1034,30 +1116,165 @@ export class WatchTopology {
    * notification, as `@ttsc/unplugin`'s observer announces a directory it
    * starts watching, and reported when it moved what a build reads. The
    * directories of an input new to this sync are not reported: the load reports
-   * its inputs before any build reads them.
+   * its inputs before any build reads them. A POSIX symlink can name bytes that
+   * cannot be represented as a string. Scoped native subscriptions keep those
+   * paths as buffers and feed the same batched plugin decision.
    */
-  private syncExtraWatchers(): void {
+  private syncExtraWatchers(retryRacedAlias = true): void {
     const directories = new Map<string, string>();
-    const appeared: string[] = [];
+    const registrations = new Map<string, string>();
+    const topologyEntries = new Map<string, string>();
+    const byteWatches = new Map<string, { directory: Buffer; name?: Buffer }>();
+    const appeared: [string, string][] = [];
+    let racedAliases: Set<string> | undefined;
     for (const input of this.extraInputs) {
-      const watchedBefore = this.watchedExtraInputs.has(this.pathKey(input));
-      for (const directory of collectInputDirectories(input)) {
-        const key = this.pathKey(directory);
-        directories.set(key, directory);
-        if (watchedBefore && !this.extraWatchers.has(key)) {
-          appeared.push(directory);
+      const inputKey = this.pathKey(input);
+      const watchByteEntry = (entry: Buffer): void => {
+        const separator = entry.lastIndexOf(0x2f);
+        const directory = entry.subarray(0, Math.max(1, separator));
+        const name = entry.subarray(separator + 1);
+        const key = JSON.stringify([
+          "byte-entry",
+          inputKey,
+          entry.toString("hex"),
+        ]);
+        directories.set(key, input);
+        byteWatches.set(key, { directory, name });
+      };
+      const watchedBefore = this.watchedExtraInputs.has(inputKey);
+      let physical = watcherRegistrationPath(input);
+      let identity = pluginWatchRootIdentity(physical);
+      let entries = new Set<string>();
+      let byteRoot: Buffer | undefined;
+      if (physical !== input || identity === undefined) {
+        let endpoint: string | undefined;
+        entries = new Set(
+          pluginInputAliasEntries([input], {
+            directory: (target) => {
+              endpoint = target;
+            },
+            rawEntry: watchByteEntry,
+          }),
+        );
+        // The same link traversal owns the watched entries and the current
+        // target. A dangling replacement must retire the previous tree.
+        physical =
+          endpoint === undefined ? input : watcherRegistrationPath(endpoint);
+        if (endpoint === input && physical !== input) {
+          byteRoot = pluginWatchBytePath(input);
+          if (byteRoot !== undefined) physical = input;
         }
+        identity =
+          endpoint === undefined
+            ? undefined
+            : pluginWatchRootIdentity(byteRoot ?? physical);
+      }
+      let targets =
+        identity === undefined
+          ? []
+          : collectPluginSourceDirectories(physical, this.readDirectory);
+      if (
+        identity !== undefined &&
+        (physical !== input || byteRoot !== undefined) &&
+        pluginWatchRootIdentity(input) !== identity
+      ) {
+        // The scanned tree can stay intact while the declaration retargets.
+        // Keep the topology subscriptions and give the new target one fresh
+        // reconciliation after those subscriptions are live.
+        targets = [];
+        (racedAliases ??= new Set()).add(input);
+      }
+      for (const target of targets) {
+        const directory =
+          physical === input
+            ? target
+            : path.resolve(input, path.relative(physical, target));
+        const lexicalKey = this.pathKey(directory);
+        const byteTarget =
+          byteRoot === undefined
+            ? undefined
+            : target === input
+              ? byteRoot
+              : Buffer.concat([
+                  byteRoot,
+                  Buffer.from(`/${path.relative(input, target)}`),
+                ]);
+        const key = JSON.stringify([
+          lexicalKey,
+          byteTarget === undefined
+            ? target
+            : ["byte", byteTarget.toString("hex")],
+          identity,
+        ]);
+        directories.set(key, directory);
+        if (byteTarget === undefined) registrations.set(key, target);
+        else byteWatches.set(key, { directory: byteTarget });
+        if (watchedBefore && !this.extraWatchers.has(key)) {
+          appeared.push([key, directory]);
+        }
+      }
+      if (targets.length !== 0) {
+        if (byteRoot !== undefined) watchByteEntry(byteRoot);
+        else if (path.dirname(physical) !== physical) entries.add(physical);
+      }
+      for (const entry of entries) {
+        const parent = watcherRegistrationPath(path.dirname(entry));
+        const name = path.basename(entry);
+        const key = JSON.stringify([
+          "entry",
+          this.pathKey(input),
+          parent,
+          name,
+        ]);
+        directories.set(key, input);
+        registrations.set(key, parent);
+        topologyEntries.set(key, name);
       }
     }
     syncWatchers(
       this.extraWatchers,
       directories,
-      (location) =>
-        this.openDirectoryWatch(
-          watcherRegistrationPath(location),
+      (location, key) => {
+        const byteWatch = byteWatches.get(key);
+        if (byteWatch !== undefined)
+          return this.openFileWatch(
+            byteWatch.directory,
+            { encoding: "buffer", persistent: true },
+            (_event, filename) => {
+              this.beginLexicalTransaction();
+              if (filename === null || byteWatch.name !== undefined) {
+                if (filename === null || byteWatch.name?.equals(filename))
+                  this.notePluginNotification(location);
+                return;
+              }
+              const name = filename.toString();
+              if (!Buffer.from(name).equals(filename)) {
+                this.notePluginNotification(location);
+                return;
+              }
+              const changed = path.resolve(location, name);
+              if (this.isPluginInput(changed))
+                this.notePluginNotification(changed);
+            },
+          );
+        const registration = registrations.get(key)!;
+        const topologyEntry = topologyEntries.get(key);
+        return this.openDirectoryWatch(
+          registration,
           false,
           (_event, filename) => {
             this.beginLexicalTransaction();
+            if (topologyEntry !== undefined) {
+              if (
+                filename === null ||
+                this.lexicalIdentities.lexicalMatches(
+                  path.join(registration, topologyEntry),
+                  path.join(registration, filename),
+                )
+              )
+                this.notePluginNotification(location);
+              return;
+            }
             const changed =
               filename === null ? undefined : path.resolve(location, filename);
             // The one decision every watcher that hears a plugin path shares;
@@ -1065,17 +1282,18 @@ export class WatchTopology {
             if (changed !== undefined && !this.isPluginInput(changed)) return;
             this.notePluginNotification(changed ?? location);
           },
-        ),
+        );
+      },
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
     );
     this.watchedExtraInputs = new Set(
       this.extraInputs.map((input) => this.pathKey(input)),
     );
-    for (const directory of appeared) {
+    for (const [key, directory] of appeared) {
       // Only a directory now watched: one whose registration failed was
       // reported through `onError`, and one gone meanwhile holds nothing.
-      if (!this.extraWatchers.has(this.pathKey(directory))) continue;
+      if (!this.extraWatchers.has(key)) continue;
       let entries: string[];
       try {
         entries = fs.readdirSync(directory);
@@ -1087,6 +1305,34 @@ export class WatchTopology {
         if (this.isPluginInput(entry)) this.notePluginNotification(entry);
       }
     }
+    if (racedAliases !== undefined && retryRacedAlias)
+      this.schedulePluginAliasRetry(racedAliases);
+  }
+
+  /** Coalesce refused aliases into one owned reconciliation turn. */
+  private schedulePluginAliasRetry(aliases: Set<string>): void {
+    const pending = this.pluginAliasRetry;
+    if (pending !== undefined) {
+      for (const input of aliases) pending.aliases.add(input);
+      return;
+    }
+    const immediate = setImmediate(() => {
+      this.pluginAliasRetry = undefined;
+      if (this.closed) return;
+      this.beginLexicalTransaction();
+      // A link move can precede the new subscription and leave no child
+      // entries to replay. Compare the declaration against its old state.
+      for (const input of this.extraInputs)
+        if (aliases.has(input)) this.recordPluginNotification(input, input);
+      if (
+        this.pluginNotificationsScheduled ||
+        this.pendingPluginNotifications.size === 0
+      )
+        return;
+      this.pluginNotificationsScheduled = true;
+      this.decidePluginNotifications(false);
+    });
+    this.pluginAliasRetry = { aliases, immediate };
   }
 
   private syncProjectInputWatchers(
@@ -1993,17 +2239,21 @@ export class WatchTopology {
     const covering = this.extraInputs.filter((input) =>
       pluginSourceCovers(input, resolved, "entry"),
     );
-    for (const input of covering.length === 0 ? this.extraInputs : covering) {
-      const key = this.pathKey(input);
-      const locations = this.pendingPluginNotifications.get(key) ?? new Set();
-      locations.add(location);
-      this.pendingPluginNotifications.set(key, locations);
-    }
+    for (const input of covering.length === 0 ? this.extraInputs : covering)
+      this.recordPluginNotification(input, location);
     if (this.pluginNotificationsScheduled) return;
     this.pluginNotificationsScheduled = true;
     // A watcher backend hands one delivery to its listeners within one turn
     // of the event loop, so the check phase after that turn holds all of it.
     setImmediate(() => this.decidePluginNotifications());
+  }
+
+  /** Retain one reportable location for an input's pending comparison. */
+  private recordPluginNotification(input: string, location: string): void {
+    const key = this.pathKey(input);
+    const locations = this.pendingPluginNotifications.get(key) ?? new Set();
+    locations.add(location);
+    this.pendingPluginNotifications.set(key, locations);
   }
 
   /**
@@ -2019,7 +2269,7 @@ export class WatchTopology {
    * synced first, and what a directory they start watching already holds is
    * noted into this same decision (`syncExtraWatchers`).
    */
-  private decidePluginNotifications(): void {
+  private decidePluginNotifications(retryRacedAlias = true): void {
     if (this.closed) {
       this.pendingPluginNotifications = new Map();
       this.pluginNotificationsScheduled = false;
@@ -2028,7 +2278,7 @@ export class WatchTopology {
     this.beginLexicalTransaction();
     // Still scheduled while syncing, so what the sync notes joins this decision
     // instead of scheduling another.
-    this.syncExtraWatchers();
+    this.syncExtraWatchers(retryRacedAlias);
     this.pluginNotificationsScheduled = false;
     const pending = this.pendingPluginNotifications;
     this.pendingPluginNotifications = new Map();
@@ -2160,7 +2410,6 @@ type CompilerFileMovement = {
 
 function resolveWatchTopology(
   options: WatchTopologyOptions,
-  extraInputs: readonly string[],
   identities: ProjectInputPathIdentityContext,
   getCompilerInputs: typeof listCompilerInputs,
 ): ResolvedWatchTopology {
@@ -2245,7 +2494,6 @@ function resolveWatchTopology(
     }
   }
   CompilerProjectSelection.assertCurrent(selection);
-  addPaths(files, extraInputs, identities);
   return {
     analysisOnly,
     directories: collectTopologyDirectories(files.values(), roots, identities),
@@ -2360,6 +2608,7 @@ function listCompilerInputs(
     ],
     {
       cwd: options.compilerArgsCwd ?? project.root,
+      additionalProjectRoots: [project.root, path.dirname(project.path)],
       env,
       encoding: "utf8",
     },
@@ -2697,24 +2946,35 @@ function collectTopologyDirectories(
   return directories;
 }
 
-/**
- * Every directory of a plugin input a watch observes: the input and the
- * directories below it, except those the plugin build passes over and all below
- * them (`prunesPluginSourceDirectory`). The input is a plugin's whole Go
- * module, which can be a repository with its own `node_modules` and `.git`;
- * watching those would rebuild for every package install and commit without the
- * build reading any of it.
- */
-function collectInputDirectories(input: string): string[] {
-  return collectPluginSourceDirectories(input);
-}
-
 function isVanishedFilesystemEntry(error: unknown): boolean {
   return (
     error instanceof Error &&
     "code" in error &&
     (error.code === "ENOENT" || error.code === "ENOTDIR")
   );
+}
+
+/** Distinguish replacement of a directory at the same physical spelling. */
+function pluginWatchRootIdentity(directory: fs.PathLike): string | undefined {
+  try {
+    const stat = fs.statSync(directory, { bigint: true });
+    if (!stat.isDirectory()) return undefined;
+    return `${stat.dev}:${stat.ino}:${stat.birthtimeNs}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Preserve a POSIX physical pathname that cannot round-trip through UTF-8. */
+function pluginWatchBytePath(input: string): Buffer | undefined {
+  if (process.platform === "win32") return undefined;
+  try {
+    const physical = fs.realpathSync.native(input, { encoding: "buffer" });
+    if (!Buffer.from(physical.toString()).equals(physical)) return physical;
+  } catch {
+    // The target disappeared between the link walk and canonical lookup.
+  }
+  return undefined;
 }
 
 function closeWatchers(watchers: Map<string, DirectoryWatcher>): void {
@@ -3200,9 +3460,20 @@ function pluginInputState(
   identities: PluginContentIdentities.Store | undefined,
 ): string {
   try {
-    return WatchPaths.isDirectory(input)
-      ? `directory:${PluginContentIdentities.sourceDirectory(identities, input)}`
-      : `file:${fingerprintProjectInputFile(input)}`;
+    if (!WatchPaths.isDirectory(input))
+      return `file:${fingerprintProjectInputFile(input)}`;
+    const physical = fs.realpathSync.native(input);
+    const bytes = physical.includes("\uFFFD")
+      ? pluginWatchBytePath(input)
+      : undefined;
+    return JSON.stringify([
+      "directory",
+      bytes === undefined ? physical : ["byte", bytes.toString("hex")],
+      PluginContentIdentities.sourceDirectory(
+        identities,
+        bytes === undefined ? physical : input,
+      ),
+    ]);
   } catch (error) {
     return `unreadable:${error instanceof Error ? error.message : String(error)}`;
   }

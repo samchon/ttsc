@@ -70,7 +70,9 @@ export interface ITtscPlugin {
    * Use the canonical path returned by `fs.realpathSync.native`, or `null` when
    * the input was missing. Persistent adapters pair this with
    * {@link hostInputHashes} so retargeting a symlink or junction cannot attach
-   * output evaluated from one target to equal bytes at another target.
+   * output evaluated from one target to equal bytes at another target. Loader
+   * observations can also carry an opaque witness for a POSIX path that cannot
+   * be represented in UTF-8. Use that witness for identity comparisons only.
    */
   hostInputRealpaths?: Record<string, string | null>;
 

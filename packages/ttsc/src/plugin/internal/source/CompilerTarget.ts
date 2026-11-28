@@ -108,6 +108,7 @@ export namespace CompilerTarget {
    * @param projectRoot Project whose compiler is resolved.
    * @param env Effective environment of the load.
    * @param identities Optional record store of the project's plugin cache.
+   * @param additionalProjectRoots Consumer roots excluded from version scratch.
    * @evidence contracts/common.md#principled-implementation resolveTsgo locates the same compiler the project's build runs; its manifest version is used, and a custom binary is asked for --version since it has no manifest. An unresolvable compiler maps to the 7.0 default, leaving the build's own resolution to report it.
    * @evidence contracts/common.md#clear-and-simple-design Version reading stays here and line mapping in lineOf; callers receive only the line.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The project's real compiler decides the target; no fixture name or path pattern does.
@@ -121,8 +122,14 @@ export namespace CompilerTarget {
     projectRoot: string,
     env: NodeJS.ProcessEnv,
     identities?: PluginContentIdentities.Store,
+    additionalProjectRoots?: readonly string[],
   ): Line {
-    const version = installedVersion(projectRoot, env, identities);
+    const version = installedVersion(
+      projectRoot,
+      env,
+      identities,
+      additionalProjectRoots,
+    );
     const { line, newer } = lineOf(version);
     if (newer && !warned.has(version)) {
       warned.add(version);
@@ -151,7 +158,7 @@ export namespace CompilerTarget {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Other GOFLAGS entries are kept unchanged and in order, the stored value comes from Go itself rather than a handwritten environment-file location, and a 7.0 build without a batch-hook compiler source returns env unchanged.
    * @evidence contracts/common.md#meaningful-documentation Native prose states when each tag applies, the merge behavior and why the stored value is read.
    * @evidence contracts/portability.md#os-neutral-implementation Go locates and reads its own environment file; resolveGoCompiler, GoToolResolution and GoEnvironmentReading own the native lookup and launch, and node:path/node:fs check whether the declared compiler source contains an internal/batch directory without platform path assumptions.
-   * @evidence contracts/performance.md#efficient-algorithms At most one directory stat for a declared compiler source and one pass over the GOFLAGS fields; only a tagged build whose env sets no GOFLAGS adds one go env process.
+   * @evidence contracts/performance.md#efficient-algorithms Observes a declared compiler source and scans the GOFLAGS fields once. Tagged builds that inherit stored flags use a qualified Go answer or run up to three probes to establish its SDK and environment file.
    * @evidence contracts/performance.md#reuse-equivalent-work With a record store the stored value is answered across loads while the file `go env -w` writes, the tool and the variables hold; without one it is read afresh.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned environment is a caller-owned copy, and the go env process is synchronous and released on return.
    */
@@ -160,6 +167,7 @@ export namespace CompilerTarget {
     line: Line,
     cwd: string,
     identities?: PluginContentIdentities.Store,
+    additionalProjectRoots?: readonly string[],
   ): NodeJS.ProcessEnv {
     const additions: string[] = [];
     if (line === "7.1") additions.push(TYPESCRIPT_7_1_TAG);
@@ -167,28 +175,26 @@ export namespace CompilerTarget {
     if (additions.length === 0) return env;
     const current =
       SidecarEnvironment.read(env, "GOFLAGS") ||
-      storedGoFlags(env, cwd, identities);
-    const fields = current.split(/\s+/).filter((field) => field !== "");
-    let tagged = false;
-    const next = fields.map((field) => {
-      const match = /^(-{1,2}tags=)(.*)$/.exec(field);
-      if (match === null) return field;
-      tagged = true;
-      const tags = match[2]!.split(",").filter((tag) => tag !== "");
-      for (const addition of additions)
-        if (!tags.includes(addition)) tags.push(addition);
-      return `${match[1]}${tags.join(",")}`;
-    });
-    if (!tagged) next.push(`-tags=${additions.join(",")}`);
+      storedGoFlags(env, cwd, identities, additionalProjectRoots);
+    const flags = parseFlags(current);
+    if (flags === undefined) return env;
+    const setting = flags.tags.at(-1);
+    const next = flags.fields.map((field) => field.raw);
+    if (setting === undefined) next.push(`-tags=${additions.join(",")}`);
+    else {
+      const missing = additions.filter((tag) => !setting.tags.includes(tag));
+      next[setting.index] = renderTags(setting, [...setting.tags, ...missing]);
+    }
     const result = SidecarEnvironment.merge(env);
     SidecarEnvironment.write(result, "GOFLAGS", next.join(" "));
     return result;
   }
 
   /**
-   * The line a build environment compiles: 7.1 when its GOFLAGS carries the 7.1
-   * build tag, otherwise 7.0. A build reads its overlays through this, so the
-   * overlaid shim tree is always the one the tagged files were written for.
+   * The line a build environment compiles: 7.1 when Go's effective tags include
+   * the 7.1 build tag, otherwise 7.0. A build reads its overlays through this,
+   * so the overlaid shim tree is always the one the tagged files were written
+   * for.
    *
    * @evidence contracts/common.md#principled-implementation The tag decides which target files Go compiles, so the same tag decides which shim tree they are compiled against; a workspace can never pair 7.1 files with 7.0 shims.
    * @evidence contracts/common.md#clear-and-simple-design The environment a build already carries names its target, so no separate target parameter is threaded through package selection and builds.
@@ -200,19 +206,18 @@ export namespace CompilerTarget {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The reading retains nothing.
    */
   export function ofEnv(env: NodeJS.ProcessEnv): Line {
-    const flags = SidecarEnvironment.read(env, "GOFLAGS") ?? "";
-    for (const field of flags.split(/\s+/)) {
-      const match = /^-{1,2}tags=(.*)$/.exec(field);
-      if (match !== null && match[1]!.split(",").includes(TYPESCRIPT_7_1_TAG))
-        return "7.1";
-    }
-    return "7.0";
+    const text = SidecarEnvironment.read(env, "GOFLAGS");
+    if (text === undefined || !text.includes(TYPESCRIPT_7_1_TAG)) return "7.0";
+    const flags = parseFlags(text);
+    return flags?.tags.at(-1)?.tags.includes(TYPESCRIPT_7_1_TAG) === true
+      ? "7.1"
+      : "7.0";
   }
 
   /**
    * GOFLAGS without the build tags ttsc adds (`ttsc_typescript_7_1` and
-   * `ttsc_compiler_batch`): each tag leaves every -tags list, an emptied list
-   * leaves the flags, and every other field stays in order.
+   * `ttsc_compiler_batch`). Retain a final empty setting when it clears earlier
+   * caller tags. Other flags keep their original spellings and order.
    *
    * @evidence contracts/common.md#principled-implementation Both build tags are ttsc's own selection, not the caller's Go environment; the environment digest of a source state omits them so a reader with the caller's environment reproduces the state, while the build key still separates targets and compiler-batch builds through their overlay modules.
    * @evidence contracts/common.md#clear-and-simple-design The inverse of buildEnv's merge lives beside it, so the two cannot disagree on the tags or the -tags syntax.
@@ -224,23 +229,92 @@ export namespace CompilerTarget {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The transform retains nothing.
    */
   export function withoutTag(flags: string): string {
-    return flags
-      .split(/\s+/)
-      .filter((field) => field !== "")
-      .flatMap((field) => {
-        const match = /^(-{1,2}tags=)(.*)$/.exec(field);
-        if (match === null) return [field];
-        const tags = match[2]!
-          .split(",")
-          .filter(
-            (tag) =>
-              tag !== "" &&
-              tag !== TYPESCRIPT_7_1_TAG &&
-              tag !== COMPILER_BATCH_TAG,
-          );
-        return tags.length === 0 ? [] : [`${match[1]}${tags.join(",")}`];
-      })
-      .join(" ");
+    if (flags.length === 0) return flags;
+    const parsed = parseFlags(flags);
+    if (parsed === undefined) return flags;
+    const fields = parsed.fields.map((field) => field.raw);
+    let previousTags = false;
+    for (const setting of parsed.tags) {
+      const tags = setting.tags.filter(
+        (tag) => tag !== TYPESCRIPT_7_1_TAG && tag !== COMPILER_BATCH_TAG,
+      );
+      fields[setting.index] =
+        tags.length !== 0 || previousTags ? renderTags(setting, tags) : "";
+      previousTags = tags.length !== 0;
+    }
+    return fields.filter((field) => field !== "").join(" ");
+  }
+
+  interface GoField {
+    readonly raw: string;
+    readonly value: string;
+  }
+
+  interface GoTagSetting {
+    readonly index: number;
+    readonly name: string;
+    readonly tags: string[];
+  }
+
+  // Match cmd/internal/quoted.Split: only quotes at the start of a field
+  // delimit it, and there is no escape syntax. Preserve unrelated raw fields.
+  function splitGoFields(text: string): GoField[] | undefined {
+    const token =
+      /[ \t\r\n]*(?:'([^']*)'|"([^"]*)"|([^'" \t\r\n][^ \t\r\n]*))/y;
+    const fields: GoField[] = [];
+    let end = 0;
+    for (let part = token.exec(text); part !== null; part = token.exec(text)) {
+      end = token.lastIndex;
+      fields.push({
+        raw: part[0].replace(/^[ \t\r\n]+/, ""),
+        value: (part[1] ?? part[2] ?? part[3])!,
+      });
+    }
+    return /[^ \t\r\n]/.test(text.slice(end)) ? undefined : fields;
+  }
+
+  function parseFlags(
+    text: string,
+  ): { fields: GoField[]; tags: GoTagSetting[] } | undefined {
+    const fields = splitGoFields(text);
+    if (fields === undefined) return undefined;
+    const tags: GoTagSetting[] = [];
+    for (const [index, field] of fields.entries()) {
+      const match = /^(-{1,2}tags=)([\s\S]*)$/.exec(field.value);
+      if (match === null) continue;
+      const value = match[2]!;
+      // cmd/go's tagsFlag uses its legacy quoted list for a space or apostrophe.
+      const values = /[ ']/.test(value)
+        ? splitGoFields(value)?.map((entry) => entry.value)
+        : value.split(",").filter((entry) => entry !== "");
+      if (values === undefined) return undefined;
+      tags.push({ index, name: match[1]!, tags: values });
+    }
+    return { fields, tags };
+  }
+
+  function renderTags(setting: GoTagSetting, tags: string[]): string {
+    if (tags.every((tag) => tag !== "" && !/[, '\t\r\n]/.test(tag)))
+      return setting.name + tags.join(",");
+    const hasSingle = tags.some((tag) => tag.includes("'"));
+    const hasDouble = tags.some((tag) => tag.includes('"'));
+    if (hasSingle && hasDouble) {
+      // An unquoted legacy value can contain both delimiters as literal
+      // characters. Go build constraints cannot name any of those terms.
+      return (
+        setting.name +
+        tags.filter((tag) => /^[\p{L}\p{Nd}_.]+$/u.test(tag)).join(",")
+      );
+    }
+    // Preserve legacy values containing commas as single tags.
+    const quote = hasSingle ? '"' : "'";
+    const inner = hasSingle ? "'" : '"';
+    const entries = tags.map((tag) =>
+      tag === "" || /^['"]|[ \t\r\n]/.test(tag)
+        ? `${inner}${tag}${inner}`
+        : tag,
+    );
+    return `${quote}${setting.name} ${entries.join(" ")}${quote}`;
   }
 
   /**
@@ -267,6 +341,7 @@ export namespace CompilerTarget {
     env: NodeJS.ProcessEnv,
     cwd: string,
     identities: PluginContentIdentities.Store | undefined,
+    additionalProjectRoots: readonly string[] | undefined,
   ): string {
     const goBinary = GoToolResolution.resolveGoToolForBuild(
       resolveGoCompiler(env).binary,
@@ -280,8 +355,10 @@ export namespace CompilerTarget {
       ["GOFLAGS"],
       undefined,
       identities,
+      undefined,
+      additionalProjectRoots,
     );
-    return typeof values?.GOFLAGS === "string" ? values.GOFLAGS.trim() : "";
+    return typeof values?.GOFLAGS === "string" ? values.GOFLAGS : "";
   }
 
   /** Answer family of custom compiler versions (`PluginLoadAnswers`). */
@@ -293,6 +370,7 @@ export namespace CompilerTarget {
     projectRoot: string,
     env: NodeJS.ProcessEnv,
     identities: PluginContentIdentities.Store | undefined,
+    additionalProjectRoots: readonly string[] | undefined,
   ): string {
     let tsgo: ReturnType<typeof resolveTsgo>;
     try {
@@ -313,6 +391,7 @@ export namespace CompilerTarget {
       if (typeof recorded === "string") return recorded;
     }
     const result = spawnNative(tsgo.binary, ["--version"], {
+      additionalProjectRoots,
       cwd: projectRoot,
       env,
     });

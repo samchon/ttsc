@@ -2744,27 +2744,33 @@ func loadScriptConfigEvaluation(location string) (evaluatedConfigFile, error) {
   return loadScriptConfigEvaluationWithin(location, filepath.Dir(location))
 }
 
+// scriptConfigTempBase selects the parent of a script config's private result
+// directory. A system temporary directory outside the config and resolution
+// roots comes first, then the platform's own. A project marker above every such
+// directory, such as a package.json in the account's home directory or a
+// project at the volume root, leaves the config's ignored node_modules/.cache
+// as the private owner. An empty result authorizes no write.
+func scriptConfigTempBase(location, resolutionRoot, systemTemp string) string {
+  for _, candidate := range []string{systemTemp, configloaderscratch.PlatformTempDir()} {
+    base := configloaderscratch.PrivateTempBase(location, candidate)
+    if resolutionRoot != "" && base != "" {
+      base = configloaderscratch.PrivateTempBase(filepath.Join(resolutionRoot, "tsconfig.json"), base)
+    }
+    if base != "" {
+      return base
+    }
+  }
+  if !filepath.IsAbs(location) {
+    return ""
+  }
+  return configloaderscratch.CacheTempBase(location, findNearestNodeModules(filepath.Dir(location)))
+}
+
 func loadScriptConfigEvaluationWithin(
   location string,
   resolutionRoot string,
 ) (evaluatedConfigFile, error) {
-  base := configloaderscratch.PrivateTempBase(location, os.TempDir())
-  if resolutionRoot != "" && base != "" {
-    base = configloaderscratch.PrivateTempBase(filepath.Join(resolutionRoot, "tsconfig.json"), base)
-  }
-  if base == "" {
-    fallback := "/tmp"
-    if runtime.GOOS == "windows" {
-      home, err := os.UserHomeDir()
-      if err == nil {
-        fallback = filepath.Join(home, "AppData", "Local", "Temp")
-      }
-    }
-    base = configloaderscratch.PrivateTempBase(location, fallback)
-    if resolutionRoot != "" && base != "" {
-      base = configloaderscratch.PrivateTempBase(filepath.Join(resolutionRoot, "tsconfig.json"), base)
-    }
-  }
+  base := scriptConfigTempBase(location, resolutionRoot, os.TempDir())
   if base == "" {
     return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: no private temporary directory for script config %s", location)
   }

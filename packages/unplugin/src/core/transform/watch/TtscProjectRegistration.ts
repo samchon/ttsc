@@ -1,3 +1,4 @@
+import { MANAGED_PROJECT_RECORDS } from "../../bridge/MANAGED_PROJECT_RECORDS";
 import type { TtscWatchInput } from "./TtscWatchInput";
 
 /**
@@ -24,6 +25,9 @@ import type { TtscWatchInput } from "./TtscWatchInput";
  *   retained state at runtime.
  */
 export interface TtscProjectRegistration {
+  /** The adapter selected a generated managed record. */
+  [MANAGED_PROJECT_RECORDS]?: true;
+
   /**
    * The digest of snapshot bytes this process wrote or found identical in
    * {@link record} for the delivery's revision (`projectRecordDigest`), or

@@ -28,7 +28,8 @@ export function watchInputEvidenceMatchesBaseline(
   if (
     !isWatchInputKeyBaseline(baseline) ||
     evidence.identity !== baseline.identity ||
-    evidence.state === undefined
+    evidence.state === undefined ||
+    evidence.workspace !== undefined
   ) {
     return false;
   }

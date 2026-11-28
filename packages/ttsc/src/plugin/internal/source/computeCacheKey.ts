@@ -1,16 +1,16 @@
 import crypto from "node:crypto";
-import fs from "node:fs";
 import path from "node:path";
 
 import { GoToolResolution } from "./GoToolResolution";
 import type { ITtscBuildContributor } from "./ITtscBuildContributor";
-import type { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
+import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "./PluginContentIdentities";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import type { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
 import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
 import { readPluginBuildEnvironment } from "./readPluginBuildEnvironment";
+import { readSourceBuildFile } from "./readSourceBuildFile";
 
 /**
  * Compute a 32-character lowercase key from a plugin build's SHA-256 digest.
@@ -97,6 +97,7 @@ export function computeCacheKey(inputs: {
   identities?: PluginContentIdentities.Store;
 
   overlayDirs?: readonly string[];
+  projectRoot?: string;
 
   /**
    * Digests of the source directories this load already read, by absolute path.
@@ -111,6 +112,11 @@ export function computeCacheKey(inputs: {
   const filesystem: SourceBuildFilesystemOperations = {
     readFile:
       inputs.filesystem?.readFile ?? DEFAULT_SOURCE_BUILD_FILESYSTEM.readFile,
+    readRawFile:
+      inputs.filesystem?.readRawFile ??
+      (inputs.filesystem?.readFile === undefined
+        ? DEFAULT_SOURCE_BUILD_FILESYSTEM.readRawFile
+        : undefined),
     ...(inputs.filesystem?.realpath === undefined
       ? {}
       : { realpath: inputs.filesystem.realpath }),
@@ -150,6 +156,7 @@ export function computeCacheKey(inputs: {
   // binaries produced by the former absolute-ancestry layout out of this
   // layout's cache admissions, including callers with no SDK overlays.
   hash.update(JSON.stringify(["external-source-layout", 1]));
+  hash.update(JSON.stringify(["generated-workspace-toolchain", 1]));
   const overlays = [...(inputs.overlayDirs ?? [])].sort();
   // Hash contributors in sorted-by-name order so two consumers with the
   // same logical set produce the same key regardless of declaration order
@@ -181,7 +188,15 @@ export function computeCacheKey(inputs: {
       ? undefined
       : inputs.environmentWitnesses?.get(environmentDirectory);
   let environment: string;
-  if (sharedDigest !== undefined && sharedWitness !== undefined) {
+  if (
+    sharedDigest !== undefined &&
+    sharedWitness !== undefined &&
+    inputs.environmentWitness !== undefined &&
+    PluginBuildEnvironmentWitness.covers(
+      sharedWitness,
+      inputs.environmentWitness,
+    )
+  ) {
     // The build compares this witness after it ran, exactly as it would its
     // own reading's, so a toolchain change since the reading still refuses.
     for (const [file, state] of sharedWitness)
@@ -199,6 +214,8 @@ export function computeCacheKey(inputs: {
         env,
         witness,
         identities,
+        undefined,
+        inputs.projectRoot,
       );
     else {
       // Another byte adapter reads what the record's witness does not cover.
@@ -211,6 +228,7 @@ export function computeCacheKey(inputs: {
         filesystem,
         witness,
         identities,
+        inputs.projectRoot,
       );
       environment = reading.digest("hex");
     }
@@ -256,7 +274,8 @@ export function computeCacheKey(inputs: {
 
 const DEFAULT_SOURCE_BUILD_FILESYSTEM: SourceBuildFilesystemOperations =
   Object.freeze({
-    readFile: (location: string) => fs.readFileSync(location),
+    readFile: readSourceBuildFile,
+    readRawFile: readSourceBuildFile,
   });
 
 function hashSourceDirectory(

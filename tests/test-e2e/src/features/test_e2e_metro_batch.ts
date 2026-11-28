@@ -43,6 +43,7 @@ import {
   computeCacheKey,
   createFakeGoBinary,
   ensureExecutableGoToolchain,
+  fakeLocalGoEnvironment,
   formatGoWorkPath,
 } from "../internal/ttsc/internal/source-build";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
@@ -102,14 +103,16 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * bounded transactions must all refuse publication; restoring the stable
  * producer then permits recovery. These repeated scripted commands share the
  * original protocol project and are distinct from actual native Go builds and
- * resident Program receipts. Copied overlay selection follows the actual Go
- * workspace's module identity, independently of compact directory names. The
- * same official Go parser also contrasts quoted and bare original
- * comment-prefix paths at the serializer boundary; these read-only commands do
- * not compile another native artifact. They add three official Go parser
- * processes: copied-overlay selection and the quoted/bare serializer contrast.
- * The existing captured-workspace parser supplies the copied module identities
- * without another native preparation.
+ * resident Program receipts. The scripted tool reports a private local SDK so
+ * the fixture can verify that its source-side key names the actually published
+ * managed entry before exercising path and lock refusal. Copied overlay
+ * selection follows the actual Go workspace's module identity, independently of
+ * compact directory names. The same official Go parser also contrasts quoted
+ * and bare original comment-prefix paths at the serializer boundary; these
+ * read-only commands do not compile another native artifact. They add three
+ * official Go parser processes: copied-overlay selection and the quoted/bare
+ * serializer contrast. The existing captured-workspace parser supplies the
+ * copied module identities without another native preparation.
  *
  * The normal linked probe includes excluded-tag and foreign-OS main files; its
  * existing native output assertions must still execute. The existing public
@@ -2121,6 +2124,21 @@ async function runResidentLoaderPool(): Promise<void> {
       toolInputsOwned = true;
       fs.mkdirSync(toolProtocol);
       const tool = createFakeGoBinary(toolProtocol);
+      const localToolEnvironment = fakeLocalGoEnvironment(toolProtocol);
+      const nativeWorkspaceEnvironment = Object.fromEntries(
+        Object.keys(localToolEnvironment).map((key) => [
+          key,
+          SidecarEnvironment.read(baselineBuildEnv, key) ?? null,
+        ]),
+      );
+      const readNativeWorkspace = [
+        'const workspaceEnv = { ...process.env, GOWORK: path.resolve("go.work") };',
+        `for (const [key, value] of Object.entries(${JSON.stringify(nativeWorkspaceEnvironment)})) {`,
+        "  if (value === null) delete workspaceEnv[key];",
+        "  else workspaceEnv[key] = value;",
+        "}",
+        'const parsedWorkspace = JSON.parse(require("node:child_process").execFileSync("go", ["work", "edit", "-json"], { encoding: "utf8", env: workspaceEnv }));',
+      ];
       for (const relative of copiedToolInputs) {
         const target = path.join(replacementModule, relative);
         assert.equal(fs.existsSync(target), false);
@@ -2129,6 +2147,7 @@ async function runResidentLoaderPool(): Promise<void> {
       }
       const env: NodeJS.ProcessEnv = {
         ...baselineBuildEnv,
+        ...localToolEnvironment,
         GOCACHE: "",
         TTSC_GO_BINARY: tool,
         TTSC_GO_CACHE_DIR: path.join(toolProtocol, "instance-go-cache"),
@@ -2310,6 +2329,7 @@ async function runResidentLoaderPool(): Promise<void> {
         });
       const managedProducer = path.join(nativeProbe.fixtureSource, "probe.go");
       const managedProducerBytes = fs.readFileSync(managedProducer);
+      let managedEntry: string;
       try {
         const successMarker = String(Date.now() + 24 * 60 * 60 * 1000);
         const successful = managedRequest({
@@ -2321,6 +2341,8 @@ async function runResidentLoaderPool(): Promise<void> {
           successful.startsWith(path.join(managedCache, "plugins") + path.sep),
           true,
         );
+        assert.equal(fs.existsSync(successful), true);
+        managedEntry = path.dirname(successful);
         assert.equal(
           JSON.parse(fs.readFileSync(toolEnvRecord, "utf8")).GOCACHE,
           path.join(managedCache, "go-build"),
@@ -2389,7 +2411,11 @@ async function runResidentLoaderPool(): Promise<void> {
         if (fs.existsSync(managedPluginRoot)) fs.unlinkSync(managedPluginRoot);
         fs.renameSync(managedRootBackup, managedPluginRoot);
       }
-      const managedEntry = path.join(managedPluginRoot, key(tool, managedEnv));
+      assert.equal(
+        managedEntry,
+        path.join(managedPluginRoot, key(tool, managedEnv)),
+        "the scripted local SDK publishes the entry predicted by its source key",
+      );
       const managedEntryBackup = path.join(
         toolProtocol,
         "managed-entry-backup",
@@ -2595,7 +2621,7 @@ async function runResidentLoaderPool(): Promise<void> {
           tsgoVersion: "7.0.0-dev",
         });
       const overlayOutput = [
-        'const parsedWorkspace = JSON.parse(require("node:child_process").execFileSync("go", ["work", "edit", "-json"], { encoding: "utf8", env: { ...process.env, GOWORK: path.resolve("go.work") } }));',
+        ...readNativeWorkspace,
         'const overlays = (parsedWorkspace.Use ?? []).map((entry) => entry.DiskPath).filter((directory) => parseGoMod(fs.readFileSync(path.join(directory, "go.mod"), "utf8")).Module?.Path === "example.com/batch-replacement");',
         'if (overlays.length !== 1) throw new Error("expected exactly one copied replacement overlay");',
         `fs.writeFileSync(${JSON.stringify(overlayFile)}, ${JSON.stringify(overlaySecond)});`,
@@ -2666,7 +2692,7 @@ async function runResidentLoaderPool(): Promise<void> {
       );
       const captureWorkspace = [
         `fs.copyFileSync("go.work", ${JSON.stringify(capturedWorkspace)});`,
-        'const parsedWorkspace = JSON.parse(require("node:child_process").execFileSync("go", ["work", "edit", "-json"], { encoding: "utf8", env: { ...process.env, GOWORK: path.resolve("go.work") } }));',
+        ...readNativeWorkspace,
         'const modules = (parsedWorkspace.Use ?? []).map((entry) => ({ path: entry.DiskPath, module: parseGoMod(fs.readFileSync(path.join(entry.DiskPath, "go.mod"), "utf8")).Module?.Path }));',
         `fs.writeFileSync(${JSON.stringify(capturedWorkspaceReceipt)}, JSON.stringify({ parsedWorkspace, modules }));`,
         "",

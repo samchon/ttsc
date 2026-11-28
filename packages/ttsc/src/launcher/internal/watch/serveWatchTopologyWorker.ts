@@ -60,7 +60,12 @@ async function execute(
       topology.refresh(request.notify, request.programFiles);
       break;
     case "setExtraInputs":
-      topology.setExtraInputs(request.inputs, request.identities);
+      topology.setExtraInputs(
+        request.inputs,
+        request.identities,
+        request.workspace,
+        request.repairedWorkspaceAnchors,
+      );
       break;
     case "setProjectInputs":
       topology.setProjectInputs(request.inputs);

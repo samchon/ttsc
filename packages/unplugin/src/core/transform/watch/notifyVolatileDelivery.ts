@@ -4,13 +4,11 @@ import { isVolatileFile } from "../envelope/isVolatileFile";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 
 /**
- * Notify the host when the captured generation declares this absolute delivery
- * path volatile. The cached result and root belong to one immutable generation.
- * The declaration is checked even without a callback. A supplied callback runs
- * with the hooks object as its receiver, and its exception reaches the caller.
- * This notification does not acquire or certify compiler metadata.
+ * Notify the host of a volatile delivery or a required workspace replay when
+ * its cache has opted in. A supplied callback runs with the hooks object as its
+ * receiver, and its exception reaches the caller.
  *
- * @evidence contracts/common.md#principled-implementation Only the generation's explicit volatile file membership requests host cache withdrawal; ordinary deliveries do not invoke the callback.
+ * @evidence contracts/common.md#principled-implementation A declared volatile file requests cache withdrawal. A required workspace replay does so only for a host that opts in to this fallback.
  * @evidence contracts/common.md#clear-and-simple-design Generation declaration matching remains with isVolatileFile, while this operation owns the conditional delivery notification used by transformTtsc.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No output-text inference or fabricated compiler declaration replaces recorded membership, and callback failures are not suppressed.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies declaration evaluation, callback receiver and exception behavior, and excludes compiler acquisition certification.
@@ -25,6 +23,9 @@ export function notifyVolatileDelivery(
   file: string,
 ): void {
   if (
+    (hooks?.workspaceReplayUsesVolatility === true &&
+      cached.result.type !== "exception" &&
+      cached.result.workspaceReplayRequired === true) ||
     isVolatileFile(envelopeDerivation(cached), {
       file,
       projectRoot: cached.projectRoot,

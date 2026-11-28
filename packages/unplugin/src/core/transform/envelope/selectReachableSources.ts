@@ -21,8 +21,8 @@ import { derivationIdentity } from "./derivationIdentity";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This source closure is an invocation-local computation; per-delivery watch-list reuse belongs to selectWatchInputs and generation index reuse belongs to envelopeGraphIndexes.
  */
 export function selectReachableSources(
-  graph: TtscEnvelopeGraphIndexes,
-  state: TtscEnvelopeDerivation,
+  graph: Pick<TtscEnvelopeGraphIndexes, "edges" | "spellings">,
+  state: Pick<TtscEnvelopeDerivation, "identityContext" | "identities">,
   file: string,
 ): string[] {
   const output = [file];

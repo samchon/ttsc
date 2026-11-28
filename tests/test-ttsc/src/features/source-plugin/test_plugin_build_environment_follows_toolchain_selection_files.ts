@@ -4,8 +4,16 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/SidecarEnvironment";
+import { GoEnvironmentReading } from "../../../../../packages/ttsc/src/plugin/internal/source/GoEnvironmentReading";
+import { GoToolResolution } from "../../../../../packages/ttsc/src/plugin/internal/source/GoToolResolution";
+import { GoWorkspaceEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/GoWorkspaceEnvironment";
+import { NativeSourcePackages } from "../../../../../packages/ttsc/src/plugin/internal/source/NativeSourcePackages";
+import { PluginBuildEnvironmentReadings } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentReadings";
 import { PluginBuildEnvironmentWitness } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginContentIdentities";
+import { SourcePluginWorkspace } from "../../../../../packages/ttsc/src/plugin/internal/source/SourcePluginWorkspace";
+import { computeCacheKey } from "../../../../../packages/ttsc/src/plugin/internal/source/computeCacheKey";
+import { pluginBuildEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginBuildEnvironment";
 import { readPluginBuildEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/readPluginBuildEnvironment";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -17,13 +25,15 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 1. Record the usable toolchain in a child module and reread it unchanged.
  * 2. Add and remove an ancestor workspace that selects an unavailable version.
  * 3. Edit the module to select that version, then restore the working version.
+ * 4. Exercise delegation across SDK roots, native launcher and capture paths on
+ *    POSIX, and relative cache and worker requests across a cwd change.
  *
  * @evidence contracts/testing.md#behavioral-verification The direct answer reader over a real Go SDK and private store returns the working digest while selection holds, then produces a different digest and refuses the preceding witness whenever Go's selection files move.
  * @evidence contracts/testing.md#independent-expectations Go's toolchain selection rules give the ancestor workspace precedence and reject the authored higher requirement with path-only lookup. Restoring the original requirement restores the original build inputs.
- * @evidence contracts/testing.md#distinguishing-cases Covers absence, creation, removal and edit across module and workspace files, plus a stable recorded-answer control. The separate packaged identity unit owns shipped SDK metadata and version changes.
- * @evidence contracts/testing.md#execution-ownership The unit probes an installed Go tool directly using local-only selection. It owns the temporary module, workspace and answer store, and runs no plugin build or installed ttsc host.
+ * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selectors, native link retargeting, dot-parent launcher and capture boundaries and a Linux launcher parent without a UTF-8 spelling. An earlier positive launcher stat cannot erase a nested refusal. Relative cache and pending requests start under two bases. With a second SDK, earlier PATH candidates invalidate initial and delegated selection, including a POSIX candidate that only gained execute permission.
+ * @evidence contracts/testing.md#execution-ownership The unit runs native Go queries in temporary modules, through the real preparation worker and a bounded POSIX Node child with its own temp environment. The worker case pins and restores its Go variables and cwd. Real package inspection prepares a scratch workspace and shares the answer store and installed SDKs with the direct workspace observations. No plugin build or installed ttsc host runs.
  */
-export function test_plugin_build_environment_follows_toolchain_selection_files(): void {
+export async function test_plugin_build_environment_follows_toolchain_selection_files(): Promise<void> {
   const root = TestProject.physicalPath(
     TestProject.tmpdir("ttsc-go-selection-"),
   );
@@ -48,17 +58,24 @@ export function test_plugin_build_environment_follows_toolchain_selection_files(
     "bin",
     process.platform === "win32" ? "go.exe" : "go",
   );
+  const initial: PluginBuildEnvironmentWitness.Record = new Map();
+  const unreadable: PluginBuildEnvironmentWitness.Record = new Map();
+  PluginBuildEnvironmentWitness.add(initial, binary);
+  PluginBuildEnvironmentWitness.refuse(unreadable, binary);
+  assert.equal(PluginBuildEnvironmentWitness.holds(initial), true);
+  PluginBuildEnvironmentWitness.join(initial, unreadable);
+  assert.equal(PluginBuildEnvironmentWitness.holds(initial), false);
   const store = () =>
     PluginContentIdentities.open({
       projectRoot: root,
       cacheDir: path.join(root, "cache"),
       env,
     });
-  const read = () => {
+  const read = (directory = module) => {
     const witness: PluginBuildEnvironmentWitness.Record = new Map();
     const digest = readPluginBuildEnvironment(
       binary,
-      module,
+      directory,
       env,
       witness,
       store(),
@@ -87,4 +104,739 @@ export function test_plugin_build_environment_follows_toolchain_selection_files(
   assert.notEqual(read().digest, previous.digest);
   fs.writeFileSync(manifest, goodModule);
   assert.equal(read().digest, previous.digest);
+  verifyDelegatedEnvironment({ binary, module, root, env, store: store() });
+  const alias = path.join(root, "module-link");
+  const replacement = path.join(root, "replacement");
+  const linkKind = process.platform === "win32" ? "junction" : "dir";
+  fs.mkdirSync(replacement);
+  fs.writeFileSync(path.join(replacement, "go.mod"), goodModule);
+  fs.symlinkSync(module, alias, linkKind);
+  try {
+    const linked = read(alias);
+    fs.writeFileSync(path.join(module, "unrelated.txt"), "entry edit");
+    assert.equal(PluginBuildEnvironmentWitness.holds(linked.witness), true);
+    fs.unlinkSync(alias);
+    fs.symlinkSync(replacement, alias, linkKind);
+    assert.equal(PluginBuildEnvironmentWitness.holds(linked.witness), false);
+  } finally {
+    if (fs.lstatSync(alias, { throwIfNoEntry: false })?.isSymbolicLink())
+      fs.unlinkSync(alias);
+  }
+  if (process.platform !== "win32")
+    verifyNativeDotParentDirectory(binary, root, env, store());
+  if (process.platform === "linux")
+    verifyRawLauncherParent(binary, root, env, store());
+  await verifyRelativeDirectoryRequests(root, binary);
+}
+
+/** A dot-parent lookup can reach a native directory with no UTF-8 spelling. */
+function verifyRawLauncherParent(
+  binary: string,
+  root: string,
+  env: NodeJS.ProcessEnv,
+  store: PluginContentIdentities.Store | undefined,
+): void {
+  const raw = Buffer.concat([Buffer.from(`${root}/sdk-`), Buffer.from([0xff])]);
+  const native = (suffix: string): Buffer =>
+    Buffer.concat([raw, Buffer.from(suffix)]);
+  fs.mkdirSync(native("/bin"), { recursive: true });
+  fs.mkdirSync(native("/child"));
+  fs.mkdirSync(native("/src/runtime"), { recursive: true });
+  fs.mkdirSync(native("/pkg/tool"), { recursive: true });
+  fs.symlinkSync(binary, native("/bin/go"));
+  const alias = path.join(root, "raw-launcher-child");
+  const validGoRoot = raw.toString();
+  fs.symlinkSync(native("/child"), alias, "dir");
+  fs.symlinkSync(raw, validGoRoot, "dir");
+  try {
+    const relative = `./${path.basename(alias)}/../bin/go`;
+    const requested = `${root}/${relative}`;
+    const launchEnv = SidecarEnvironment.merge(env, {
+      GOTOOLCHAIN: "local",
+      TTSC_GO_BINARY: relative,
+    });
+    assert.equal(
+      GoToolResolution.resolveGoToolForBuild(relative, launchEnv, root),
+      requested,
+    );
+    const nativeGo = spawnSync(requested, ["env", "-json", "GOROOT"], {
+      cwd: root,
+      env: launchEnv,
+      encoding: "utf8",
+    });
+    assert.equal(nativeGo.status, 0, nativeGo.stderr);
+    assert.equal(
+      pluginBuildEnvironment(
+        root,
+        launchEnv,
+        undefined,
+        store,
+        undefined,
+        root,
+      ),
+      readPluginBuildEnvironment(
+        binary,
+        root,
+        launchEnv,
+        undefined,
+        store,
+        undefined,
+        root,
+      ),
+    );
+    fs.unlinkSync(native("/bin/go"));
+    fs.copyFileSync(binary, native("/bin/go"));
+    fs.chmodSync(native("/bin/go"), 0o755);
+    const rawGo = spawnSync(requested, ["env", "-json", "GOROOT"], {
+      cwd: root,
+      env: launchEnv,
+      encoding: "utf8",
+    });
+    assert.equal(rawGo.status, 0, rawGo.stderr);
+    assert.equal(JSON.parse(rawGo.stdout).GOROOT, validGoRoot);
+    const rawBytes = spawnSync(requested, ["env", "GOROOT"], {
+      cwd: root,
+      env: launchEnv,
+    });
+    assert.equal(rawBytes.status, 0, rawBytes.stderr.toString());
+    assert.deepEqual(rawBytes.stdout, native("\n"));
+    const unsafe: PluginBuildEnvironmentWitness.Record = new Map();
+    pluginBuildEnvironment(root, launchEnv, unsafe, store, undefined, root);
+    assert.equal(PluginBuildEnvironmentWitness.holds(unsafe), false);
+
+    const addressed = SidecarEnvironment.merge(launchEnv, {
+      GOROOT: validGoRoot,
+    });
+    const realAlias: PluginBuildEnvironmentWitness.Record = new Map();
+    pluginBuildEnvironment(root, addressed, realAlias, store, undefined, root);
+    assert.equal(PluginBuildEnvironmentWitness.reusable(realAlias), true);
+  } finally {
+    fs.unlinkSync(alias);
+    fs.unlinkSync(validGoRoot);
+    fs.unlinkSync(native("/bin/go"));
+    for (const suffix of [
+      "/bin",
+      "/child",
+      "/src/runtime",
+      "/src",
+      "/pkg/tool",
+      "/pkg",
+      "",
+    ])
+      fs.rmdirSync(native(suffix));
+  }
+}
+
+/** Use the same input spelling at two successive native working directories. */
+async function verifyRelativeDirectoryRequests(
+  root: string,
+  binary: string,
+): Promise<void> {
+  const first = path.join(root, "relative-a");
+  const second = path.join(root, "relative-b");
+  for (const base of [first, second]) {
+    fs.mkdirSync(path.join(base, "module"), { recursive: true });
+    fs.writeFileSync(
+      path.join(base, "module", "go.mod"),
+      "module example.com/module\n\ngo 1.23.0\n",
+    );
+  }
+  const original = process.cwd();
+  const pinned = { TTSC_GO_BINARY: binary, GOTOOLCHAIN: "local", GOENV: "off" };
+  const previous = new Map(
+    Object.keys(pinned).map((name) => [
+      name,
+      SidecarEnvironment.read(process.env, name),
+    ]),
+  );
+  try {
+    for (const [name, value] of Object.entries(pinned))
+      SidecarEnvironment.write(process.env, name, value);
+    process.chdir(first);
+    const initial = PluginBuildEnvironmentReadings.read("module", false, root);
+    assert.equal(PluginBuildEnvironmentReadings.cached("module"), initial);
+    process.chdir(second);
+    assert.equal(PluginBuildEnvironmentReadings.cached("module"), undefined);
+    assert.equal(
+      PluginBuildEnvironmentReadings.cachedAll(["module"]).get("module"),
+      undefined,
+    );
+    process.chdir(first);
+    const requestA = PluginBuildEnvironmentReadings.prepare(
+      "module",
+      true,
+      root,
+    );
+    process.chdir(second);
+    const requestB = PluginBuildEnvironmentReadings.prepare(
+      "module",
+      true,
+      root,
+    );
+    process.chdir(original);
+    const [observedA, observedB] = await Promise.all([requestA, requestB]);
+    process.chdir(first);
+    assert.equal(PluginBuildEnvironmentReadings.cached("module"), observedA);
+    fs.writeFileSync(path.join(first, "module", "go.work"), "go 1.23.0\n");
+    assert.equal(PluginBuildEnvironmentReadings.cached("module"), undefined);
+    process.chdir(second);
+    assert.equal(
+      PluginBuildEnvironmentReadings.cachedAll(["module"]).get("module"),
+      observedB,
+    );
+  } finally {
+    process.chdir(original);
+    for (const [name, value] of previous)
+      SidecarEnvironment.write(process.env, name, value);
+  }
+}
+
+/** Compare cached reads against Go's native cwd selection across a path alias. */
+function verifyNativeDotParentDirectory(
+  binary: string,
+  root: string,
+  env: NodeJS.ProcessEnv,
+  store: PluginContentIdentities.Store | undefined,
+): void {
+  const lexical = path.join(root, "lexical");
+  const physical = path.join(root, "physical");
+  const ordinary = path.join(lexical, "module");
+  const child = path.join(physical, "child");
+  fs.mkdirSync(ordinary, { recursive: true });
+  fs.mkdirSync(child, { recursive: true });
+  fs.mkdirSync(path.join(physical, "module"));
+  fs.symlinkSync(child, path.join(lexical, "link"), "dir");
+  const aliased = `${lexical}/link/../module`;
+  const invalidWorkspace = path.join(physical, "go.work");
+  fs.writeFileSync(invalidWorkspace, "go 1.99.0\n");
+  const effective = SidecarEnvironment.merge(env, {
+    GO111MODULE: "on",
+    PWD: undefined,
+    GOWORK: "auto",
+  });
+  const args = ["env", "-json", "GOROOT"];
+  const native = (cwd: string) =>
+    spawnSync(binary, args, { cwd, env: effective, encoding: "utf8" });
+  assert.equal(native(ordinary).status, 0);
+  const rejected = native(aliased);
+  assert.equal(rejected.status, 1, rejected.stderr);
+  assert.match(rejected.stderr, /go1\.99\.0/);
+  const recorded = (cwd: string) =>
+    GoEnvironmentReading.recorded(
+      binary,
+      cwd,
+      effective,
+      ["GOROOT"],
+      undefined,
+      store,
+    );
+  const digest = (cwd: string) =>
+    readPluginBuildEnvironment(binary, cwd, effective, undefined, store);
+  assert.ok(recorded(ordinary)?.GOROOT);
+  const ordinaryDigest = digest(ordinary);
+  assert.equal(recorded(aliased), undefined);
+  assert.notEqual(digest(aliased), ordinaryDigest);
+  fs.unlinkSync(invalidWorkspace);
+  assert.ok(recorded(aliased)?.GOROOT);
+  assert.equal(digest(aliased), ordinaryDigest);
+  verifyDotParentLaunch(
+    binary,
+    ordinary,
+    aliased,
+    path.join(physical, "module"),
+    effective,
+    store,
+  );
+}
+
+/** Check initial executable selection and the Go child's private temp root. */
+function verifyDotParentLaunch(
+  binary: string,
+  lexical: string,
+  cwd: string,
+  physical: string,
+  env: NodeJS.ProcessEnv,
+  store: PluginContentIdentities.Store | undefined,
+): void {
+  const toolName = "dot-parent-go";
+  const actual = path.join(physical, "bin", toolName);
+  fs.mkdirSync(path.dirname(actual));
+  fs.symlinkSync(binary, actual);
+  fs.mkdirSync(path.join(lexical, "bin"));
+  fs.symlinkSync(process.execPath, path.join(lexical, "bin", toolName));
+  for (const requested of [`./bin/${toolName}`, toolName]) {
+    const toolEnv = SidecarEnvironment.merge(env, {
+      PATH: "bin",
+      TTSC_GO_BINARY: requested,
+    });
+    assert.equal(
+      GoToolResolution.resolveGoToolForBuild(requested, toolEnv, cwd),
+      actual,
+    );
+    assert.equal(
+      pluginBuildEnvironment(cwd, toolEnv, undefined, store),
+      readPluginBuildEnvironment(actual, cwd, toolEnv, undefined, store),
+    );
+  }
+
+  const temporary = path.join(physical, "inside-tmp");
+  fs.mkdirSync(temporary);
+  const loader = new URL(
+    "../../../../../config/register-unit-loader.mjs",
+    import.meta.url,
+  );
+  const spawnModule = new URL(
+    "../../../../../packages/ttsc/src/plugin/internal/source/spawnGoTool.ts",
+    import.meta.url,
+  );
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      loader.href,
+      "--input-type=module",
+      "--eval",
+      `
+      import { spawnGoTool } from ${JSON.stringify(spawnModule.href)};
+      const result = spawnGoTool(${JSON.stringify(binary)}, ["env", "-json", "GOTMPDIR"], {
+        cwd: ${JSON.stringify(cwd)}, encoding: "utf8"
+      });
+      if (result.status !== 0) throw result.error ?? new Error(result.stderr);
+      process.stdout.write(result.stdout);
+      `,
+    ],
+    {
+      env: SidecarEnvironment.merge(env, {
+        GOTOOLCHAIN: "local",
+        TMPDIR: temporary,
+        NODE_OPTIONS: undefined,
+      }),
+      encoding: "utf8",
+      timeout: 30_000,
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const captured: string = JSON.parse(result.stdout).GOTMPDIR;
+  assert.ok(captured);
+  assert.notEqual(path.dirname(captured), temporary);
+  assert.deepEqual(fs.readdirSync(temporary), []);
+}
+
+/** Exercise real Go dispatch without downloading a test-only toolchain. */
+function verifyDelegatedEnvironment(props: {
+  binary: string;
+  module: string;
+  root: string;
+  env: NodeJS.ProcessEnv;
+  store: PluginContentIdentities.Store | undefined;
+}): void {
+  const { binary, module, root, env, store } = props;
+  const launch = (
+    args: readonly string[],
+    runEnv: NodeJS.ProcessEnv,
+    launcher = binary,
+  ) => {
+    const result = spawnSync(launcher, args, {
+      cwd: module,
+      env: runEnv,
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return JSON.parse(result.stdout);
+  };
+  const local = launch(
+    ["env", "-json", "GOVERSION", "GOMODCACHE", "GOOS", "GOARCH"],
+    SidecarEnvironment.merge(env, { GOTOOLCHAIN: "local" }),
+  );
+  const registry = path.join(local.GOMODCACHE, "golang.org");
+  const suffix = `.${local.GOOS}-${local.GOARCH}`;
+  const prefix = "toolchain@v0.0.1-";
+  const alternate = fs.existsSync(registry)
+    ? fs
+        .readdirSync(registry)
+        .find(
+          (name) =>
+            name.startsWith(prefix) &&
+            name.endsWith(suffix) &&
+            name.slice(prefix.length, -suffix.length) !== local.GOVERSION &&
+            fs.existsSync(
+              path.join(registry, name, "bin", path.basename(binary)),
+            ),
+        )
+    : undefined;
+  if (alternate === undefined) {
+    assert.notEqual(
+      process.env.TTSC_TEST_REQUIRE_GO_DELEGATION,
+      "1",
+      "CI must prepare the comparison SDK",
+    );
+    process.stdout.write(
+      "Go delegation control requires a second installed toolchain\n",
+    );
+    return;
+  }
+  const version = alternate.slice(prefix.length, -suffix.length);
+  const executable = path.join(
+    registry,
+    alternate,
+    "bin",
+    path.basename(binary),
+  );
+  const early = path.join(root, "earlier-sdk");
+  const late = path.join(root, "later-sdk");
+  const defaults = (sdk: string, tags: string) =>
+    fs.writeFileSync(path.join(sdk, "go.env"), `GOFLAGS=-tags=${tags}\n`);
+  const install = (sdk: string) => {
+    const candidate = path.join(sdk, "bin", version + path.extname(binary));
+    fs.copyFileSync(executable, candidate);
+    if (process.platform !== "win32") fs.chmodSync(candidate, 0o755);
+  };
+  for (const sdk of [early, late]) {
+    for (const component of ["bin", "pkg/tool", "src/runtime"])
+      fs.mkdirSync(path.join(sdk, component), { recursive: true });
+  }
+  defaults(early, "earlier");
+  defaults(late, "later");
+  install(late);
+  const delegated = SidecarEnvironment.merge(env, {
+    GOTOOLCHAIN: `${version}+path`,
+    PATH: [early, late]
+      .map((sdk) =>
+        process.platform === "win32"
+          ? `"${path.join(sdk, "bin")}"`
+          : path.join(sdk, "bin"),
+      )
+      .join(path.delimiter),
+    ...(process.platform === "win32" ? { PATHEXT: "EXE" } : {}),
+  });
+  const read = (tags: string, launcher = binary, root?: string) => {
+    // Start the copied SDK before capturing its reusable metadata. Windows
+    // can update the executable's change time on its first native load.
+    const native = launch(
+      ["env", "-json", "GOFLAGS", "GOROOT", "GOVERSION"],
+      delegated,
+      launcher,
+    );
+    const witness: PluginBuildEnvironmentWitness.Record = new Map();
+    const actual = GoEnvironmentReading.recorded(
+      launcher,
+      module,
+      delegated,
+      ["GOFLAGS"],
+      witness,
+      store,
+    );
+    assert.equal(native.GOFLAGS, `-tags=${tags}`);
+    assert.equal(native.GOVERSION, version);
+    if (root !== undefined) assert.equal(native.GOROOT, root);
+    assert.equal(actual?.GOFLAGS, native.GOFLAGS);
+    assert.equal(actual?.GOROOT, native.GOROOT);
+    assert.equal(PluginBuildEnvironmentWitness.reusable(witness), true);
+    return witness;
+  };
+  const first = read("later");
+  read("later");
+  defaults(late, "later_edited");
+  assert.equal(PluginBuildEnvironmentWitness.holds(first), false);
+  const edited = read("later_edited");
+  install(early);
+  assert.equal(PluginBuildEnvironmentWitness.holds(edited), false);
+  read("earlier");
+
+  fs.unlinkSync(path.join(early, "bin", version + path.extname(binary)));
+  const sharedLauncher = path.join(late, "bin", path.basename(binary));
+  fs.copyFileSync(binary, sharedLauncher);
+  if (process.platform !== "win32") fs.chmodSync(sharedLauncher, 0o755);
+  fs.writeFileSync(path.join(late, "VERSION"), `${version}\n`);
+  const shared = read("later_edited", sharedLauncher, late);
+  install(early);
+  assert.equal(PluginBuildEnvironmentWitness.holds(shared), false);
+  read("earlier", sharedLauncher, early);
+
+  const configured = SidecarEnvironment.merge(delegated, {
+    GOTOOLCHAIN: "local",
+    TTSC_GO_BINARY: path.basename(sharedLauncher),
+  });
+  const earlierLauncher = path.join(early, "bin", path.basename(binary));
+  const readInitialLauncher = () => {
+    const witness: PluginBuildEnvironmentWitness.Record = new Map();
+    const digest = pluginBuildEnvironment(module, configured, witness, store);
+    return { digest, witness };
+  };
+  launch(["env", "-json", "GOVERSION"], configured, sharedLauncher);
+  const later = readInitialLauncher();
+  assert.equal(PluginBuildEnvironmentWitness.holds(later.witness), true);
+  fs.copyFileSync(executable, earlierLauncher);
+  assert.equal(PluginBuildEnvironmentWitness.holds(later.witness), false);
+  if (process.platform !== "win32") {
+    fs.chmodSync(earlierLauncher, 0o644);
+    const nonExecutable = readInitialLauncher();
+    assert.equal(nonExecutable.digest, later.digest);
+    fs.chmodSync(earlierLauncher, 0o755);
+    assert.equal(
+      PluginBuildEnvironmentWitness.holds(nonExecutable.witness),
+      false,
+    );
+  }
+  assert.notEqual(readInitialLauncher().digest, later.digest);
+
+  const key = (sharePrior: boolean): string => {
+    const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
+    const goBinary = GoToolResolution.resolveGoToolForBuild(
+      path.basename(binary),
+      configured,
+      module,
+      environmentWitness,
+    );
+    return computeCacheKey({
+      dir: module,
+      entry: ".",
+      env: configured,
+      environmentWitness,
+      environmentDigests: new Map(sharePrior ? [[module, later.digest]] : []),
+      environmentWitnesses: new Map(
+        sharePrior ? [[module, later.witness]] : [],
+      ),
+      goBinary,
+      identities: store,
+      ttscVersion: "launcher-witness-unit",
+      tsgoVersion: "7.0.0",
+    });
+  };
+  assert.equal(key(true), key(false));
+  const alternateIsNewer =
+    version.localeCompare(local.GOVERSION, "en", {
+      numeric: true,
+    }) > 0;
+  verifyGeneratedWorkspaceToolchain({
+    older: alternateIsNewer ? binary : executable,
+    olderVersion: alternateIsNewer ? local.GOVERSION : version,
+    newer: alternateIsNewer ? executable : binary,
+    newerVersion: alternateIsNewer ? version : local.GOVERSION,
+    env,
+    root,
+    store,
+  });
+}
+
+/** An overlay can require a toolchain the source module alone never selects. */
+function verifyGeneratedWorkspaceToolchain(props: {
+  older: string;
+  olderVersion: string;
+  newer: string;
+  newerVersion: string;
+  env: NodeJS.ProcessEnv;
+  root: string;
+  store: PluginContentIdentities.Store | undefined;
+}): void {
+  const workspace = path.join(props.root, "generated-workspace");
+  const overlay = path.join(props.root, "workspace-overlay");
+  for (const [directory, version, name] of [
+    [workspace, props.olderVersion, "source"],
+    [overlay, props.newerVersion, "overlay"],
+  ] as const) {
+    fs.mkdirSync(directory);
+    fs.writeFileSync(
+      path.join(directory, "go.mod"),
+      `module example.com/${name}\n\ngo ${version.slice(2)}\n`,
+    );
+  }
+  const early = path.join(props.root, "workspace-early");
+  const late = path.join(props.root, "workspace-late");
+  const install = (sdk: string, tag: string): void => {
+    const tool = path.join(
+      sdk,
+      "bin",
+      props.newerVersion + path.extname(props.newer),
+    );
+    fs.copyFileSync(props.newer, tool);
+    if (process.platform !== "win32") fs.chmodSync(tool, 0o755);
+    fs.writeFileSync(path.join(sdk, "go.env"), `GOFLAGS=-tags=${tag}\n`);
+  };
+  for (const sdk of [early, late])
+    for (const component of ["bin", "pkg/tool", "src/runtime"])
+      fs.mkdirSync(path.join(sdk, component), { recursive: true });
+  install(late, "workspace_late");
+  const env = SidecarEnvironment.merge(props.env, {
+    PATH: [early, late]
+      .map((name) => path.join(name, "bin"))
+      .join(path.delimiter),
+    GOTOOLCHAIN: "path",
+  });
+  const opts = {
+    directory: workspace,
+    env,
+    goBinary: props.older,
+    identities: props.store,
+    projectRoot: props.root,
+  };
+  const native = () =>
+    spawnSync(props.older, ["env", "GOVERSION"], {
+      cwd: workspace,
+      env,
+      encoding: "utf8",
+      windowsHide: true,
+    });
+  assert.equal(native().stdout.trim(), props.olderVersion);
+  for (const tag of ["workspace_late", "workspace_early"])
+    fs.writeFileSync(
+      path.join(workspace, `${tag}.go`),
+      `//go:build ${tag}\n\npackage source\n`,
+    );
+  const sourceKey = computeCacheKey({
+    dir: workspace,
+    entry: ".",
+    env,
+    goBinary: props.older,
+    identities: props.store,
+    overlayDirs: [overlay],
+    ttscVersion: "workspace-sdk-unit",
+    tsgoVersion: "7.0.0",
+  });
+  const selectedFiles = (): readonly string[] | undefined =>
+    NativeSourcePackages.read({
+      cwd: workspace,
+      entries: ["."],
+      env,
+      goBinary: props.older,
+      pluginName: "workspace-sdk-unit",
+      projectRoot: props.root,
+    })[0]?.GoFiles;
+  SourcePluginWorkspace.writeGoWork(
+    workspace,
+    [],
+    props.older,
+    "workspace-sdk-local-unit",
+    env,
+    undefined,
+    undefined,
+    props.root,
+  );
+  const localIdentity = "local-workspace-control";
+  const local = GoWorkspaceEnvironment.observe(opts);
+  assert.equal(local.local, true);
+  const explicitLocal = SidecarEnvironment.merge(env, { GOTOOLCHAIN: "local" });
+  const failedOrigin: PluginBuildEnvironmentWitness.Record = new Map();
+  // Node cannot answer `go env`. Keep its actual failed query separate from
+  // the explicit local setting and still-held executable metadata.
+  readPluginBuildEnvironment(
+    process.execPath,
+    workspace,
+    explicitLocal,
+    failedOrigin,
+    props.store,
+    undefined,
+    props.root,
+  );
+  assert.equal(PluginBuildEnvironmentWitness.holds(failedOrigin), true);
+  assert.equal(
+    GoWorkspaceEnvironment.canUseOrigin(explicitLocal, failedOrigin),
+    false,
+  );
+  assert.equal(
+    GoWorkspaceEnvironment.canUseOrigin(explicitLocal, local.witness),
+    true,
+  );
+  const unqualified = GoWorkspaceEnvironment.binaryKey(
+    sourceKey,
+    local.value,
+    local.value,
+    false,
+  );
+  assert.notEqual(unqualified, sourceKey);
+  assert.equal(
+    GoWorkspaceEnvironment.recall(props.store, localIdentity),
+    undefined,
+  );
+  GoWorkspaceEnvironment.remember(props.store, localIdentity, workspace, local);
+  fs.unlinkSync(path.join(workspace, "go.work"));
+  if (props.store !== undefined)
+    assert.equal(
+      GoWorkspaceEnvironment.recall(props.store, localIdentity)?.value,
+      local.value,
+    );
+  SourcePluginWorkspace.writeGoWork(
+    workspace,
+    [overlay],
+    props.older,
+    "workspace-sdk-unit",
+    env,
+    undefined,
+    undefined,
+    props.root,
+  );
+  assert.equal(native().stdout.trim(), props.newerVersion);
+  const prior = GoWorkspaceEnvironment.observe(opts);
+  assert.equal(prior.qualified, true);
+  const delegatedIdentity = "overlay-switch-control";
+  GoWorkspaceEnvironment.remember(
+    props.store,
+    delegatedIdentity,
+    workspace,
+    prior,
+  );
+  assert.equal(
+    GoWorkspaceEnvironment.recall(props.store, delegatedIdentity),
+    undefined,
+  );
+  assert.deepEqual(selectedFiles(), ["workspace_late.go"]);
+  install(early, "workspace_early");
+  assert.equal(PluginBuildEnvironmentWitness.holds(prior.witness), false);
+  assert.equal(native().stdout.trim(), props.newerVersion);
+  const changed = GoWorkspaceEnvironment.observe(opts);
+  assert.equal(changed.qualified, true);
+  assert.notEqual(changed.value, prior.value);
+  assert.deepEqual(selectedFiles(), ["workspace_early.go"]);
+  const artifact = (workspace: typeof prior) =>
+    GoWorkspaceEnvironment.binaryKey(
+      sourceKey,
+      local.value,
+      workspace.value,
+      workspace.qualified,
+    );
+  assert.equal(artifact(local), sourceKey);
+  assert.notEqual(artifact(prior), sourceKey);
+  assert.notEqual(artifact(changed), artifact(prior));
+
+  // The source is under an older ancestor workspace, but inspection must
+  // generate its own workspace from the newer source module's requirement.
+  fs.unlinkSync(path.join(workspace, "go.work"));
+  fs.writeFileSync(
+    path.join(workspace, "go.mod"),
+    `module example.com/source\n\ngo ${props.newerVersion.slice(2)}\n`,
+  );
+  fs.writeFileSync(path.join(workspace, "base.go"), "package source\n");
+  const ancestor = path.join(props.root, "go.work");
+  fs.writeFileSync(ancestor, `go ${props.olderVersion.slice(2)}\n`);
+  const earlier = path.join(
+    early,
+    "bin",
+    props.newerVersion + path.extname(props.newer),
+  );
+  fs.unlinkSync(earlier);
+  try {
+    const origin = native();
+    assert.equal(origin.status, 0, origin.stderr);
+    assert.equal(origin.stdout.trim(), props.olderVersion);
+    const inspect = () =>
+      NativeSourcePackages.inspect({
+        source: workspace,
+        packages: [{ entry: "." }],
+        env: SidecarEnvironment.merge(env, { TTSC_GO_BINARY: props.older }),
+        identities: props.store,
+        pluginName: "generated-workspace-inspection",
+        projectRoot: props.root,
+      })[0];
+    const before = inspect();
+    assert.equal(before?.Error, undefined);
+    assert.deepEqual(before?.GoFiles, ["base.go", "workspace_late.go"]);
+    install(early, "workspace_early");
+    assert.equal(native().stdout.trim(), props.olderVersion);
+    const after = inspect();
+    assert.equal(after?.Error, undefined);
+    assert.deepEqual(after?.GoFiles, ["base.go", "workspace_early.go"]);
+  } finally {
+    fs.unlinkSync(ancestor);
+  }
 }

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 
+import { privateProjectRecordAvailable } from "./privateProjectRecordAvailable";
 import { readProjectRecordFile } from "./readProjectRecordFile";
 import { writeProjectRecordFile } from "./writeProjectRecordFile";
 
@@ -24,8 +25,11 @@ let bare = 0;
  *
  * A bare signal only ever replaces a file that is there. A record is gone when
  * its project is (`refreshProjectRecordFiles`), and writing one here would
- * bring a project's file back for a project that has none.
+ * bring a project's file back for a project that has none. Startup can require
+ * an invalidation before the host restores cached output. A watching bridge's
+ * later signals remain retryable.
  *
+ * @throws When startup requires a signal and the native update fails.
  * @evidence contracts/common.md#principled-implementation A readable record preserves its project proof while choosing a distinct finite signal even beyond safe-integer precision; an unreadable existing file receives a bare marker without creating a deleted project's file.
  * @evidence contracts/common.md#clear-and-simple-design The operation uses the shared record writer for readable records and a bounded in-place write for an existing undecodable file.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed write cannot claim invalidation success, and process-local sequencing is not presented as an atomic cross-process counter.
@@ -35,9 +39,15 @@ let bare = 0;
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call requests a new invalidation effect, so equal return values would not permit suppressing the write as shared work.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The bare descriptor has a finally close attempt after write or truncate failure; the process marker occupies one scalar. Decoded records and serialized bytes are call-owned, and persisted record removal belongs to project refresh.
  */
-export function signalProjectRecordFile(file: string): void {
-  const record = readProjectRecordFile(file);
+export function signalProjectRecordFile(
+  file: string,
+  privateStorage = false,
+  required = false,
+): void {
   try {
+    if (privateStorage && !privateProjectRecordAvailable(file))
+      throw new Error(`unavailable private project record: ${file}`);
+    const record = readProjectRecordFile(file);
     if (record === undefined) {
       bare = bare < Number.MAX_SAFE_INTEGER ? bare + 1 : 0;
       const text = `${process.pid}:${bare}`;
@@ -55,9 +65,15 @@ export function signalProjectRecordFile(file: string): void {
     const next = record.signal + 1;
     writeProjectRecordFile(file, {
       ...record,
+      ...(privateStorage ? { privateStorage: true as const } : {}),
       signal: Number.isFinite(next) && next !== record.signal ? next : 0,
     });
-  } catch {
+  } catch (cause) {
+    if (required)
+      throw new Error(
+        `@ttsc/unplugin: cannot invalidate project record before cache restoration: ${file}`,
+        { cause },
+      );
     // A record that cannot be written signals nothing. The host's next pass
     // still re-proves the generation against the filesystem.
   }

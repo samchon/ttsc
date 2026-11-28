@@ -111,6 +111,30 @@ func (s *NativePluginSource) ProjectInputReloadFingerprintsAreCurrent() bool {
   return projectInputReloadFingerprintsAreCurrent(snapshot) && selection.current()
 }
 
+func (s *NativePluginSource) polledPluginSelectionCheck() func() bool {
+  s.projectInputsMu.RLock()
+  selection := s.selection
+  s.projectInputsMu.RUnlock()
+  if len(selection.rawFiles) == 0 && len(selection.rawDirectories) == 0 && len(selection.workspaceFiles) == 0 {
+    return nil
+  }
+  // A mutable SDK can have many witnesses. Check every entry before startup,
+  // then rotate through a fixed number per live poll.
+  index := 0
+  return func() bool {
+    if !selection.rawSelectionCurrent() {
+      return false
+    }
+    for range min(len(selection.workspaceFiles), 512) {
+      if !selection.workspaceFiles[index].current() {
+        return false
+      }
+      index = (index + 1) % len(selection.workspaceFiles)
+    }
+    return true
+  }
+}
+
 // ProjectInputMatchesURI tests a watched URI against retained dependency/glob
 // declarations for invalidation routing. Native resolution can fall back to
 // lexical spelling; unknown Windows glob case capability admits both spellings.
@@ -996,15 +1020,22 @@ func projectInputReloadFileDigest(location string) string {
       target = "<unreadable>"
     }
     prefix = "symlink\x00" + target + "\x00"
+    reached, err := os.Stat(native)
+    if err != nil || !reached.Mode().IsRegular() {
+      unavailable := sha256.Sum256([]byte(prefix + "missing\x00"))
+      return fmt.Sprintf("%x", unavailable[:])
+    }
   }
   digest := sha256.New()
   digest.Write([]byte(prefix))
-  file, err := os.Open(native)
+  file, err := openProjectInputFingerprintFile(native)
   if err == nil {
     defer file.Close()
-    digest.Write([]byte("file\x00"))
-    if _, readErr := io.Copy(digest, file); readErr == nil {
-      return fmt.Sprintf("%x", digest.Sum(nil))
+    if opened, statErr := file.Stat(); statErr == nil && opened.Mode().IsRegular() {
+      digest.Write([]byte("file\x00"))
+      if _, readErr := io.Copy(digest, file); readErr == nil {
+        return fmt.Sprintf("%x", digest.Sum(nil))
+      }
     }
   }
   // Read failure must discard partial bytes, retaining the same missing marker

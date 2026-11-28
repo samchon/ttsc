@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { MANAGED_PROJECT_RECORDS } from "../../bridge/MANAGED_PROJECT_RECORDS";
+import { privateProjectRecordAvailable } from "../../bridge/privateProjectRecordAvailable";
 import { projectRecordFile } from "../../bridge/projectRecordFile";
 import { hostSpelling } from "../envelope/hostSpelling";
 import { TtscUnstableGenerationError } from "../errors/TtscUnstableGenerationError";
@@ -9,6 +11,7 @@ import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchSelection } from "./TtscWatchSelection";
 import { handWatchInputs } from "./handWatchInputs";
 import { notifyFailedGenerationInputs } from "./notifyFailedGenerationInputs";
+import { projectRecordDirectories } from "./projectRecordDirectories";
 import { selectionInputs } from "./selectionInputs";
 
 /**
@@ -58,6 +61,7 @@ export function notifyRejectedGenerationInputs(
       rejection.validation.cached,
       file,
       selection,
+      rejection.validation.workspaceInputs,
     );
     return;
   }
@@ -83,16 +87,25 @@ export function notifyRejectedGenerationInputs(
   if (hooks.project !== undefined) {
     // Below the host's tool directory, or the fallback it accepts, where the
     // last generation may have written it (samchon/ttsc#1480).
-    const record = [
-      hooks.project.toolDirectory,
-      ...(hooks.project.fallbackToolDirectory === undefined
-        ? []
-        : [hooks.project.fallbackToolDirectory]),
-    ]
-      .map((directory) => projectRecordFile(directory, selection.tsconfig))
-      .find((candidate) => fs.existsSync(candidate));
+    const record = projectRecordDirectories(hooks.project)
+      .map(({ directory, privateStorage }) => ({
+        file: projectRecordFile(directory, selection.tsconfig),
+        privateStorage,
+      }))
+      .find(({ file, privateStorage }) =>
+        privateStorage
+          ? privateProjectRecordAvailable(file)
+          : fs.existsSync(file),
+      );
     if (record !== undefined) {
-      hooks.project.register({ failed: true, inputs: () => inputs, record });
+      hooks.project.register({
+        ...(record.privateStorage
+          ? { [MANAGED_PROJECT_RECORDS]: true as const }
+          : {}),
+        failed: true,
+        inputs: () => inputs,
+        record: record.file,
+      });
     } else {
       hooks.markVolatile?.();
     }

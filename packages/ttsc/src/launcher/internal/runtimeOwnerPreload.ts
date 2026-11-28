@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
+import { systemRuntimeRunCanChange } from "./runtime/systemRuntimeRunCanChange";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 
 /**
@@ -33,11 +35,45 @@ if (
   ) {
     throw new Error(`ttsx: invalid runtime run directory: ${directory}`);
   }
-  withRuntimeDirectoryLock(runtime, () => {
+  const encodedRoots = process.env.TTSX_RUNTIME_SYSTEM_PROJECTS;
+  let systemProjectRoots: readonly string[] | undefined;
+  let canChange: ((candidate: string) => boolean) | undefined;
+  if (encodedRoots !== undefined) {
+    const roots: unknown = JSON.parse(encodedRoots);
+    if (
+      !Array.isArray(roots) ||
+      roots.length === 0 ||
+      !roots.every(
+        (root: unknown) => typeof root === "string" && path.isAbsolute(root),
+      ) ||
+      runs !==
+        path.join(runtime, SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME) ||
+      (manifest !== path.join(directory, "runtime-manifest.json") &&
+        manifest !== path.join(directory, "prebuild-manifest.json"))
+    )
+      throw new Error(
+        `ttsx: invalid system runtime run directory: ${directory}`,
+      );
+    const projectRoots = roots;
+    systemProjectRoots = projectRoots;
+    canChange = (candidate) =>
+      systemRuntimeRunCanChange(candidate, runtime, projectRoots);
+    if (!canChange(directory))
+      throw new Error(`ttsx: unsafe runtime run directory: ${directory}`);
+  }
+  const claim = () => {
+    if (canChange !== undefined) {
+      if (!canChange(directory))
+        throw new Error(`ttsx: unsafe runtime run directory: ${directory}`);
+      const manifestEntry = fs.lstatSync(manifest);
+      if (!manifestEntry.isFile() || manifestEntry.nlink !== 1)
+        throw new Error(`ttsx: unsafe system runtime manifest: ${manifest}`);
+    }
     const entry = fs.lstatSync(directory);
     if (!entry.isDirectory() || entry.isSymbolicLink()) {
       throw new Error(`ttsx: unsafe runtime run directory: ${directory}`);
     }
-    ProcessOwnedDirectory.admit(directory, process.pid);
-  });
+    ProcessOwnedDirectory.admit(directory, process.pid, canChange);
+  };
+  withRuntimeDirectoryLock(runtime, claim, systemProjectRoots);
 }

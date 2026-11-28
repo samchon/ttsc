@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../internal/createProjectTempDirectory";
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { EmitOwnershipIndex } from "./EmitOwnershipIndex";
 import { WatchInputPublication } from "./build/WatchInputPublication";
@@ -21,6 +21,9 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * `finally` is attempted after acquisition, including failure paths. Removal
  * failure propagates on success and is aggregated with an earlier operation
  * failure rather than replacing it.
+ *
+ * Temporary placement excludes the selected project and invocation roots. The
+ * source path supplies output identity and can lie outside those roots.
  *
  * A launcher-supplied selection shares its project and original compiler
  * argument cwd with public output planning. Response freshness is checked
@@ -118,7 +121,11 @@ export namespace runSingleFileEmit {
         : project.root;
     if (selection !== undefined)
       CompilerProjectSelection.assertCurrent(selection);
-    const outDir = createCanonicalTempDirectory("ttsc-single-file-");
+    const outDir = createProjectTempDirectory(
+      "ttsc-single-file-",
+      project.root,
+      [cwd, path.dirname(tsconfig)],
+    );
     let failed = false;
     let failure: unknown;
     try {

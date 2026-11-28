@@ -50,6 +50,9 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  *   and independently imposes no population or byte bound.
  */
 export interface TtscProjectRecord {
+  /** Whether the adapter selected this record from generated private storage. */
+  privateStorage?: true;
+
   /** Captured invocation; older records without it require a fresh delivery. */
   compilerArguments?: TtscCompilerArgumentsWitness;
   /**
@@ -89,6 +92,12 @@ export interface TtscProjectRecord {
     directories: readonly string[];
     policy: ITtscProjectMembershipPolicy;
   } | null;
+
+  /** Source observation taken before the failed compiler invocation. */
+  recoveryTree?: { file: string; digest: string | null };
+
+  /** A restoring host must request delivery under a newly resolved workspace. */
+  workspaceReplayRequired?: true;
 
   /** The project root the walk starts from and every input lies below or beside. */
   root: string;

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../transform/filesystem/TtscTransformFilesystemOperations";
 import type { HostWatchBridge } from "./HostWatchBridge";
+import { privateProjectRecordAvailable } from "./privateProjectRecordAvailable";
 import { projectRecordArgumentsMatch } from "./projectRecordArgumentsMatch";
 import { projectRecordMoved } from "./projectRecordMoved";
 import { projectRecordWatchInputs } from "./projectRecordWatchInputs";
@@ -27,6 +28,9 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * record that cannot be read proves nothing and is moved too. A record whose
  * tsconfig is gone is removed instead, the one move no delivery has to end.
  *
+ * A persisted workspace replay requirement moves the record before either
+ * restoration path can use it. Opaque hosts require that move to succeed.
+ *
  * A watching session's bridge takes the record instead
  * (`projectRecordWatchInputs`): the bridge proves the recorded inputs as it
  * takes them, moves a record it finds stale and again until a delivery answers,
@@ -41,6 +45,8 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  *
  * @param file The project record (`projectRecordFile`).
  * @param bridge The watching session's bridge, when the host has one.
+ * @returns False when this record needs a new workspace delivery.
+ * @throws When startup requires invalidation and the record cannot be moved.
  * @evidence contracts/common.md#principled-implementation
  *   An unreadable record proves nothing and is signaled; a vanished project is
  *   removed. Watching restoration transfers evidence to the bridge, while a
@@ -54,7 +60,7 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain cached-session restoration and proof failure effects,
  *   with lifecycle comments and tag separation per documentation guidance.
- * @evidence contracts/portability.md#os-neutral-implementation Record persistence remains on the host's native filesystem, while project existence and proof use the supplied observation view; deletion errors remain retryable rather than being treated as successful removal.
+ * @evidence contracts/portability.md#os-neutral-implementation Record persistence remains on the host's native filesystem, while project existence and proof use the supplied observation view. Required native effects report failure to the restoring host.
  * @evidence contracts/performance.md#bound-retention-and-release-resources It keeps no handle. A record whose tsconfig is gone is removed, which ends a record no generation will write again, and a removal another process blocks is retried by the next proof.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Record reading parses and validates byte/list populations. Detached replay
@@ -72,7 +78,17 @@ export function refreshProjectRecordFile(
   bridge?: HostWatchBridge,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
   compilerArgumentsIdentity?: string,
-): void {
+  privateStorage = false,
+  required = false,
+  opaqueRestore = false,
+): false | void {
+  if (privateStorage && !privateProjectRecordAvailable(file)) {
+    if (required)
+      throw new Error(
+        `@ttsc/unplugin: unavailable private project record prevents cache restoration: ${file}`,
+      );
+    return;
+  }
   const record = readProjectRecordFile(file);
   // A record that cannot be read proves nothing, and is moved as a proof that
   // found a change is. A host may hold exactly these bytes: a signal that could
@@ -84,7 +100,7 @@ export function refreshProjectRecordFile(
   // writer caught mid-write loses its bytes to the move, which its own host
   // hears and runs on, and a record another process removed stays removed.
   if (record === undefined) {
-    signalProjectRecordFile(file);
+    signalProjectRecordFile(file, privateStorage, required);
     return;
   }
   // Nothing will write this project again: the record's own rule, that it
@@ -95,17 +111,33 @@ export function refreshProjectRecordFile(
   if (!filesystem.exists(record.tsconfig)) {
     try {
       fs.rmSync(file, { force: true });
-    } catch {
+    } catch (cause) {
+      if (required)
+        throw new Error(
+          `@ttsc/unplugin: cannot remove project record before cache restoration: ${file}`,
+          { cause },
+        );
       // Held by another process; the next proof removes it.
     }
     return;
   }
+  if (record.workspaceReplayRequired === true) {
+    signalProjectRecordFile(file, privateStorage, required || opaqueRestore);
+    return false;
+  }
   if (bridge !== undefined) {
     if (!projectRecordArgumentsMatch(record, compilerArgumentsIdentity)) {
-      signalProjectRecordFile(file);
+      signalProjectRecordFile(file, privateStorage, required);
       return;
     }
-    bridge.register(file, projectRecordWatchInputs(record));
+    bridge.register(
+      file,
+      projectRecordWatchInputs(record),
+      undefined,
+      undefined,
+      privateStorage || record.privateStorage === true,
+      required,
+    );
     return;
   }
   // A proof that cannot run proves nothing, and the record is moved as if it
@@ -117,5 +149,6 @@ export function refreshProjectRecordFile(
   } catch {
     moved = record.root;
   }
-  if (moved !== undefined) signalProjectRecordFile(file);
+  if (moved !== undefined)
+    signalProjectRecordFile(file, privateStorage, required);
 }

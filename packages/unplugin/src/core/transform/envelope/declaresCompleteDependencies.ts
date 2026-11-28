@@ -20,20 +20,30 @@ import { derivationIdentity } from "./derivationIdentity";
  * @evidence contracts/performance.md#reuse-equivalent-work The set is cached on one envelope's state and reused for that generation's files; this requires a stable producer declaration and the same root/context throughout the generation.
  */
 export function declaresCompleteDependencies(
-  state: TtscEnvelopeDerivation,
+  state: Pick<
+    TtscEnvelopeDerivation,
+    "identityContext" | "identities" | "selection"
+  >,
   props: {
     file: string;
     projectRoot: string;
-    result: ITtscCompilerTransformation;
+    result:
+      | Pick<
+          | ITtscCompilerTransformation.ISuccess
+          | ITtscCompilerTransformation.IFailure,
+          "type" | "dependenciesComplete"
+        >
+      | Pick<ITtscCompilerTransformation.IException, "type">;
   },
 ): boolean {
   if (props.result.type === "exception") {
     return false;
   }
-  const declared = (state.dependenciesComplete ??= collectDeclaredIdentities(
-    state,
-    props.projectRoot,
-    props.result.dependenciesComplete,
-  ));
+  const declared = (state.selection.dependenciesComplete ??=
+    collectDeclaredIdentities(
+      state,
+      props.projectRoot,
+      props.result.dependenciesComplete,
+    ));
   return declared.has(derivationIdentity(state, props.file));
 }

@@ -22,8 +22,8 @@ import { derivationIdentity } from "./derivationIdentity";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This closure operation owns no cross-request cache; selectWatchInputs owns final per-spelling reuse and envelopeGraphIndexes owns shared adjacency reuse.
  */
 export function selectReachableEdges(
-  graph: TtscEnvelopeGraphIndexes,
-  state: TtscEnvelopeDerivation,
+  graph: Pick<TtscEnvelopeGraphIndexes, "edges">,
+  state: Pick<TtscEnvelopeDerivation, "identityContext" | "identities">,
   file: string,
 ): string[] {
   const output: string[] = [];

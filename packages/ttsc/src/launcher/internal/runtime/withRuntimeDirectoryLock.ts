@@ -1,8 +1,11 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import { resolvePhysicalPath } from "../../../internal/pathIdentity/resolvePhysicalPath";
 import { runHoldingLock } from "../../../internal/runHoldingLock";
+import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
 import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
+import { RuntimeFilesystem } from "./RuntimeFilesystem";
 import { acquireDependencyBuildLock } from "./acquireDependencyBuildLock";
 import { inspectDependencyBuildLock } from "./inspectDependencyBuildLock";
 import { reclaimDependencyBuildLock } from "./reclaimDependencyBuildLock";
@@ -30,8 +33,11 @@ import { releaseDependencyBuildLock } from "./releaseDependencyBuildLock";
  *
  * @param runtimeRoot The runtime directory, in any filesystem spelling.
  * @param work A synchronous claim or clean operation under the lock.
+ * @param systemProjectRoots Consumer boundaries when the root is managed system
+ *   storage. The actual sibling lock and its mutation paths are requalified
+ *   before acquisition, reclamation and release.
  * @returns What `work` returned.
- * @evidence contracts/common.md#principled-implementation Resolving the observed physical root selects the cooperative sibling lock; work executes only after a returned lease. Inspector-authorized recovery retires its observed generation, including its owner-missing stale-age policy, without claiming every abandonment decision proves native process death.
+ * @evidence contracts/common.md#principled-implementation Resolving the observed physical root selects the cooperative sibling lock; managed callers qualify that root and the exact lock, current and retired paths before each lock mutation. Work executes only after a returned lease. Inspector-authorized recovery retires its observed generation without claiming every abandonment decision proves native process death.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous wrapper coordinates root identity, bounded acquisition polling and finally release while delegating the fenced protocol and work/error precedence to shared owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper follows the actual inspector state and generation fence rather than bypassing a recognized active owner. Missing valid ownership follows the shared stale-age policy; work errors retain precedence through runHoldingLock.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the sibling coordination point, acquisition timeout and unbounded peer-handle retirement; parameters identify native root spelling and synchronous work ownership.
@@ -45,16 +51,52 @@ import { releaseDependencyBuildLock } from "./releaseDependencyBuildLock";
 export function withRuntimeDirectoryLock<T>(
   runtimeRoot: string,
   work: () => T,
+  systemProjectRoots?: readonly string[],
 ): T {
-  const lockDir = `${resolvePhysicalPath(path.resolve(runtimeRoot))}.lock`;
+  const physicalRoot = resolvePhysicalPath(path.resolve(runtimeRoot));
+  const lockDir = `${physicalRoot}.lock`;
+  const requireSystemLock = () => {
+    if (systemProjectRoots === undefined) return;
+    if (
+      runtimeRoot !== physicalRoot ||
+      !fs.lstatSync(runtimeRoot).isDirectory() ||
+      RuntimeFilesystem.realpathWitness(runtimeRoot) !== physicalRoot ||
+      !systemTempOutsideProject.allowsChild(runtimeRoot, systemProjectRoots)
+    )
+      throw new Error(
+        `ttsx: unsafe system runtime cache directory: ${runtimeRoot}`,
+      );
+    for (const candidate of [
+      lockDir,
+      path.join(
+        lockDir,
+        DependencyBuildLockProtocol.DEP_BUILD_LOCK_CURRENT_DIR,
+      ),
+      path.join(
+        lockDir,
+        DependencyBuildLockProtocol.DEP_BUILD_LOCK_RETIRED_DIR,
+      ),
+    ]) {
+      const entry = fs.lstatSync(candidate, { throwIfNoEntry: false });
+      if (
+        !systemTempOutsideProject.allowsChild(candidate, systemProjectRoots) ||
+        (entry !== undefined &&
+          (!entry.isDirectory() ||
+            RuntimeFilesystem.realpathWitness(candidate) !== candidate))
+      )
+        throw new Error(`ttsx: unsafe system runtime lock: ${candidate}`);
+    }
+  };
   const startedAt = Date.now();
   const sleeper = new Int32Array(new SharedArrayBuffer(4));
   for (;;) {
+    requireSystemLock();
     const lease = acquireDependencyBuildLock(lockDir);
     if (lease !== null) {
       return runHoldingLock(
         work,
         () => {
+          requireSystemLock();
           if (!releaseDependencyBuildLock(lockDir, lease)) {
             throw new Error(
               `runtime directory lock was not released: ${lockDir}`,
@@ -72,6 +114,7 @@ export function withRuntimeDirectoryLock<T>(
     const now = Date.now();
     const observed = inspectDependencyBuildLock(lockDir, now);
     if (observed.state === "abandoned") {
+      requireSystemLock();
       reclaimDependencyBuildLock(lockDir, observed.fence);
     }
     if (

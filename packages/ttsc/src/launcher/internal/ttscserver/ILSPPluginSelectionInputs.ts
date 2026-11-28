@@ -19,7 +19,7 @@
  * @evidence contracts/common.md#clear-and-simple-design Directory-to-basename maps match the native observer's unit of identity resolution; omission vocabulary travels as data rather than becoming a second independently maintained source policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Recorded file state comes from the selection's actual inputs, and source filters are shared builder rules rather than consumer or fixture exceptions.
  * @evidence contracts/common.md#meaningful-documentation The interface and member comments explain directory grouping, missing candidates and listing exclusions; documented members have blank source lines and tags are separated according to the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Declared native directories and entry names travel separately so the native host resolves actual directory identity without replacing path spellings with an OS-wide case assumption.
+ * @evidence contracts/portability.md#os-neutral-implementation Declared native directories and entry names travel separately so the native host resolves actual directory identity without replacing path spellings with an OS-wide case assumption. POSIX paths outside UTF-8 use base64 for native checks.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
  * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
@@ -28,11 +28,37 @@ export interface ILSPPluginSelectionInputs {
   /**
    * Every directory holding a non-deferred input the plugin load reported, with
    * each recorded basename and digest: the project's config chain, the
-   * manifests plugin discovery reads, the descriptors, and what they resolved.
-   * Only those reported files count; the record does not discover undeclared
-   * external reads.
+   * manifests plugin discovery reads, the descriptors, what they resolved, and
+   * links along their resolved paths. Entries under a linked directory also
+   * depend on the link's parent, where a retarget is observed.
    */
   descriptorFiles: Record<string, Record<string, string>>;
+
+  /**
+   * Fingerprints of POSIX descriptor entries whose paths contain non-UTF-8
+   * bytes, keyed by the base64 encoding of each absolute native path.
+   */
+  rawDescriptorFiles?: Record<string, string>;
+
+  /** Metadata baselines of external Go workspace inputs, polled natively. */
+  workspaceFiles?: readonly {
+    /** Base64 of the exact native absolute path. */
+    path: string;
+    kind: "directory" | "link" | "stat";
+    /** Missing when the witnessed operation could not observe the entry. */
+    mode?: number;
+    modified?: string;
+    size?: string;
+    changed?: string;
+    device?: string;
+    inode?: string;
+    owner?: string;
+    group?: string;
+    /** Base64 of the physical directory path when the directory was observed. */
+    physical?: string;
+    /** Base64 of the exact native link payload. */
+    target?: string;
+  }[];
 
   /**
    * Every plugin source directory an observer watches

@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { WatchInputPublication } from "../../../compiler/internal/build/WatchInputPublication";
+import { projectConsumerRoots } from "../../../compiler/internal/project/projectConsumerRoots";
 import { readJsonFile } from "../../../compiler/internal/project/readJsonFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
@@ -12,9 +13,11 @@ import { E2ETrace } from "../../../internal/E2ETrace";
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { TtsxNodeOptions } from "../../../internal/TtsxNodeOptions";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
 import { javascriptRuntimeCapabilities } from "../../../internal/javascriptRuntimeCapabilities";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { spawnSyncResilient } from "../../../internal/spawnSyncResilient";
+import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
 import type { ITtscPlugin } from "../../../structures/ITtscPlugin";
 import type { ITtscPluginContributor } from "../../../structures/ITtscPluginContributor";
 import type { ITtscPluginFactoryContext } from "../../../structures/ITtscPluginFactoryContext";
@@ -25,9 +28,11 @@ import type { TtscPluginSourceInputsHandler } from "../../../structures/internal
 import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason";
 import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailure";
 import { CompilerTarget } from "../source/CompilerTarget";
+import { GoEnvironmentReading } from "../source/GoEnvironmentReading";
 import { NativeSourcePackages } from "../source/NativeSourcePackages";
-import type { PluginBuildEnvironmentWitness } from "../source/PluginBuildEnvironmentWitness";
+import { PluginBuildEnvironmentWitness } from "../source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../source/PluginContentIdentities";
+import { SourceBuildCacheLayout } from "../source/SourceBuildCacheLayout";
 import { SourcePluginWorkspace } from "../source/SourcePluginWorkspace";
 import { buildSourcePlugin } from "../source/buildSourcePlugin";
 import { isPathWithin } from "../source/isPathWithin";
@@ -55,6 +60,7 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
 import { rejectJsTransformFunctions } from "./rejectJsTransformFunctions";
 import { requirePluginSource } from "./requirePluginSource";
 import { resolveNativeSource } from "./resolveNativeSource";
+import { resolvePluginSourcePath } from "./resolvePluginSourcePath";
 import { validatePluginContributors } from "./validatePluginContributors";
 import { validatePluginSource } from "./validatePluginSource";
 import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
@@ -190,6 +196,14 @@ export function loadProjectPlugins(options: {
    */
   observationsComplete?: false;
 
+  /** A later load must recreate the generated Go workspace before reuse. */
+  workspaceReplayRequired?: true;
+
+  /** Full external workspace metadata grouped by watchable paths. */
+  workspaceInputs?: ReturnType<
+    typeof PluginBuildEnvironmentWitness.watchInputs
+  >;
+
   /**
    * Record store this load proved its inputs through, for the invocation's
    * later native spawns (#1723); absent when the project loads no plugin.
@@ -234,7 +248,8 @@ export namespace loadProjectPlugins {
   /**
    * Produce one load, suspending at each watch-input handoff before continuing.
    * Internal build orchestration consumes the whole sequence with its chosen
-   * completion runner; it must deliver rejection back into the sequence.
+   * completion runner. Each step and its cleanup inherit the selected project's
+   * scratch boundaries, which are restored before suspension.
    */
   export function* steps(
     options: Parameters<typeof loadProjectPlugins>[0],
@@ -252,6 +267,102 @@ export namespace loadProjectPlugins {
       projectRoot: options.projectRoot,
       tsconfig: options.tsconfig,
     });
+    const additionalProjectRoots = projectConsumerRoots(
+      projectSnapshot.project.identity,
+    );
+    const publish = options.onWatchInputs;
+    const observations: PluginBuildEnvironmentWitness.Record = new Map();
+    const record =
+      publish === undefined
+        ? undefined
+        : (witness: PluginBuildEnvironmentWitness.Record): void =>
+            PluginBuildEnvironmentWitness.retainForRecovery(
+              observations,
+              witness,
+            );
+    let selected: Parameters<TtscPluginSourceInputsHandler> | undefined;
+    let handoffFailed = false;
+    const sequence = stepsForProject(
+      publish === undefined
+        ? options
+        : {
+            ...options,
+            onWatchInputs: (
+              ...args: Parameters<TtscPluginSourceInputsHandler>
+            ) => {
+              selected = args;
+              try {
+                return publish(args[0], args[1], args[2], args[3]);
+              } catch (error) {
+                handoffFailed = true;
+                throw error;
+              }
+            },
+          },
+      callerEnv,
+      projectSnapshot,
+      additionalProjectRoots,
+      record,
+    );
+    const scoped = <T>(step: () => T): T =>
+      OwnedSynchronousProcess.withProjectRoots(additionalProjectRoots, () =>
+        GoEnvironmentReading.withRecoveryObservations(record, step),
+      );
+    try {
+      return yield* {
+        [Symbol.iterator]: () => ({
+          next: () => scoped(() => sequence.next()),
+          throw: (error: unknown) => {
+            handoffFailed = true;
+            return scoped(() => sequence.throw(error));
+          },
+          return: (result: ReturnType<typeof loadProjectPlugins>) =>
+            scoped(() => sequence.return(result)),
+        }),
+      };
+    } catch (error) {
+      if (
+        !handoffFailed &&
+        publish !== undefined &&
+        selected !== undefined &&
+        observations.size !== 0
+      ) {
+        const moved = new Set<string>();
+        const retry = new Map(
+          PluginBuildEnvironmentWitness.retryBaseline(observations, (key) =>
+            moved.add(key),
+          ),
+        );
+        const workspace = PluginBuildEnvironmentWitness.watchInputs(
+          [retry],
+          projectSnapshot.project.root,
+        );
+        const repaired = Object.entries(workspace)
+          .filter(([, { entries }]) => entries.some(([key]) => moved.has(key)))
+          .map(([anchor]) => anchor);
+        try {
+          yield publish(selected[0], selected[1], workspace, repaired);
+        } catch (publicationError) {
+          throw new AggregateError(
+            [error, publicationError],
+            `${error instanceof Error ? error.message : String(error)}\nttsc: could not publish Go workspace recovery inputs: ${publicationError instanceof Error ? publicationError.message : String(publicationError)}`,
+          );
+        }
+      }
+      throw error;
+    }
+  }
+
+  /** Load the selected generation between watch-input handoffs. */
+  function* stepsForProject(
+    options: Parameters<typeof loadProjectPlugins>[0],
+    callerEnv: NodeJS.ProcessEnv,
+    projectSnapshot: ProjectHostInputSnapshot,
+    additionalProjectRoots: readonly string[],
+    onWorkspaceFailure: Parameters<
+      typeof buildSourcePlugin
+    >[0]["onWorkspaceFailure"],
+  ): WatchInputPublication.Sequence<ReturnType<typeof loadProjectPlugins>> {
     const { project } = projectSnapshot;
     const projectHostInputs = projectSnapshot.hostInputs;
     const projectHostInputHashes = projectSnapshot.hostInputHashes;
@@ -266,7 +377,7 @@ export namespace loadProjectPlugins {
             projectSnapshot.discovery,
           ).filter((entry) => entry.config.enabled !== false);
     if (entries.length === 0) {
-      yield options.onWatchInputs?.([]);
+      yield options.onWatchInputs?.([], undefined, {});
       const finalPhase = HostInputObservationPhase.create();
       return {
         ...collectHostInputSnapshot(
@@ -310,9 +421,15 @@ export namespace loadProjectPlugins {
     // project's TypeScript line; the target travels in the environment.
     const effectiveEnv = CompilerTarget.buildEnv(
       callerEnv,
-      CompilerTarget.resolve(project.root, callerEnv, identities),
+      CompilerTarget.resolve(
+        project.root,
+        callerEnv,
+        identities,
+        additionalProjectRoots,
+      ),
       project.root,
       identities,
+      additionalProjectRoots,
     );
     const cwd = path.resolve(options.cwd ?? process.cwd());
     const context = {
@@ -330,6 +447,7 @@ export namespace loadProjectPlugins {
       identities,
       projectRoot: project.root,
       version: pluginBuildVersions(project.root).ttsc,
+      additionalProjectRoots,
     };
     const loadedEntries = withPluginLoaderEnv(
       () =>
@@ -442,6 +560,7 @@ export namespace loadProjectPlugins {
           };
         }),
       identities,
+      additionalProjectRoots,
     );
     const plugins = composePluginSources(
       entries,
@@ -451,12 +570,23 @@ export namespace loadProjectPlugins {
     const { ttsc: ttscVersion, tsgo: tsgoVersion } = pluginBuildVersions(
       context.projectRoot,
     );
+    const sourceAliases = new Map<string, string>();
+    const keepSourceAlias = (declared: string, physical: string): void => {
+      const lexical = path.resolve(context.projectRoot, declared);
+      if (lexical !== physical) sourceAliases.set(lexical, physical);
+    };
     const candidates = plugins
       .map((plugin, index) => {
         const stage = PluginDescriptorAdmission.stage(plugin);
         validatePluginSource(plugin);
         const contributors = validatePluginContributors(plugin);
         const source = resolvePluginSource(plugin.source, context.projectRoot);
+        keepSourceAlias(plugin.source, source);
+        for (const [index, contributor] of (contributors ?? []).entries())
+          keepSourceAlias(
+            plugin.contributors![index]!.source,
+            contributor.source,
+          );
         const label = pluginLabel(plugin, entries[index]!.config, index);
         requirePluginSource(source, label);
         return { plugin, index, stage, contributors, source, label };
@@ -477,15 +607,73 @@ export namespace loadProjectPlugins {
       string,
       PluginBuildEnvironmentWitness.Record
     >();
+    const workspaceWitnesses: PluginBuildEnvironmentWitness.Record[] = [];
+    const onWorkspaceEnvironment: NonNullable<
+      Parameters<typeof buildSourcePlugin>[0]["onWorkspaceEnvironment"]
+    > = ({ matchesSource, witness }) => {
+      if (!matchesSource) workspaceWitnesses.push(witness);
+      onWorkspaceFailure?.(witness);
+    };
+    const compilerDeclaration =
+      candidates.length === 0
+        ? undefined
+        : SourcePluginWorkspace.compilerSourceDeclaration(effectiveEnv);
+    const declarations = [...sourceAliases.keys()];
+    if (compilerDeclaration !== undefined)
+      declarations.push(compilerDeclaration);
+    const unobserved = declarations.filter(
+      (file) => !projectHostInputs.includes(file),
+    );
+    if (unobserved.length !== 0) {
+      projectHostInputs.push(...unobserved);
+      const phase = HostInputObservationPhase.create();
+      Object.assign(
+        projectHostInputHashes,
+        hashHostInputPaths(unobserved, phase),
+      );
+      Object.assign(
+        projectHostInputRealpaths,
+        realpathHostInputPaths(unobserved, phase),
+      );
+    }
+    for (const [lexical, physical] of sourceAliases)
+      projectHostInputRealpaths[lexical] = physical;
+    const sourceWatchInputs = (
+      directories: readonly string[],
+    ): readonly string[] => {
+      if (declarations.length === 0) return directories;
+      const physical = new Set(
+        declarations.map((file) => projectHostInputRealpaths[file]),
+      );
+      // Read the compiler tree once through the declaration. The address of
+      // the declaration also lets the watch owner see a link replacement.
+      return [
+        ...new Set([
+          ...directories.filter((directory) => !physical.has(directory)),
+          ...declarations,
+        ]),
+      ].sort();
+    };
     // The overlay modules every selection and build of this load uses, found
     // once: each lookup walks the compiler line's shim tree. A compiler source
     // the project declares is one of them.
-    const overlayDirs = SourcePluginWorkspace.withCompilerSource(
-      SourcePluginWorkspace.findTtscOverlayDirs(
-        CompilerTarget.ofEnv(effectiveEnv),
-      ),
-      effectiveEnv,
-    );
+    let overlayDirs: readonly string[];
+    try {
+      overlayDirs = SourcePluginWorkspace.withCompilerSource(
+        SourcePluginWorkspace.findTtscOverlayDirs(
+          CompilerTarget.ofEnv(effectiveEnv),
+        ),
+        effectiveEnv,
+      );
+    } catch (error) {
+      if (compilerDeclaration !== undefined)
+        yield options.onWatchInputs?.(
+          sourceWatchInputs(
+            candidates.map((candidate) => candidate.moduleRoot),
+          ),
+        );
+      throw error;
+    }
     const readings = {
       sources: sourceDigests,
       environments: environmentDigests,
@@ -531,7 +719,10 @@ export namespace loadProjectPlugins {
       // read every source the load proves from records a moment later.
       // A worker owns the watch baseline now. Complete this handoff before Go
       // metadata or source proof consumes the roots, preserving #1728 (#1758).
-      yield options.onWatchInputs([...interests].sort(), sourceIdentities);
+      yield options.onWatchInputs(
+        sourceWatchInputs([...interests].sort()),
+        sourceIdentities,
+      );
       const initialSize = interests.size;
       for (const candidate of candidates) {
         // Nested source-only proposals replace the outer root manifests. Do not
@@ -541,6 +732,7 @@ export namespace loadProjectPlugins {
         for (const directory of pluginReplacementWatchDirectories(
           candidate.moduleRoot,
           effectiveEnv,
+          project.root,
           watchReplacements,
           packageReaders,
           sourceIdentities,
@@ -548,7 +740,10 @@ export namespace loadProjectPlugins {
           if (reportsPluginSource(directory)) interests.add(directory);
       }
       if (interests.size !== initialSize)
-        yield options.onWatchInputs([...interests].sort(), sourceIdentities);
+        yield options.onWatchInputs(
+          sourceWatchInputs([...interests].sort()),
+          sourceIdentities,
+        );
     }
     const proposals = NativeSourcePackages.propose(
       candidates.map((candidate) => ({
@@ -559,6 +754,7 @@ export namespace loadProjectPlugins {
       packageReaders,
       sourceIdentities,
       readings,
+      project.root,
     );
     const records = candidates.map(
       ({ plugin, index, stage, contributors, source, packageDir }) => {
@@ -631,13 +827,19 @@ export namespace loadProjectPlugins {
     const buildDirectories = pluginBuildDirectories(
       records,
       effectiveEnv,
+      project.root,
       watchReplacements,
       packageReaders,
       sourceIdentities,
     );
     // Admission can now narrow the provisional interests without restamping the
     // retained package/module baselines. Final host errors still keep these roots.
-    yield options.onWatchInputs?.(buildDirectories, sourceIdentities);
+    const selectedWatchInputs =
+      options.onWatchInputs === undefined
+        ? undefined
+        : sourceWatchInputs(buildDirectories);
+    if (selectedWatchInputs !== undefined)
+      yield options.onWatchInputs?.(selectedWatchInputs, sourceIdentities);
     const keyedDirectories = new Set(buildDirectories);
     const linkedContributors = records
       .filter((record) => record.stage === "transform")
@@ -691,6 +893,7 @@ export namespace loadProjectPlugins {
         const observations = NativeSourcePackages.inspect({
           source: host.source,
           pluginName: host.label,
+          projectRoot: project.root,
           env: effectiveEnv,
           readers: packageReaders,
           identities: sourceIdentities,
@@ -735,6 +938,7 @@ export namespace loadProjectPlugins {
       packageReaders,
       sourceIdentities,
       readings,
+      project.root,
     );
     standaloneCandidates.forEach((candidate, index) => {
       NativeSourcePackages.kind(
@@ -759,124 +963,157 @@ export namespace loadProjectPlugins {
           }))
         : []),
     ];
-    const builtTransformHosts = new Map<object, string>();
-    for (const record of transformHosts) {
-      builtTransformHosts.set(
-        record,
-        buildSourcePlugin({
-          baseDir: context.projectRoot,
-          cacheDir: options.cacheDir,
-          contributors: mergeContributors(
-            record.contributors,
-            hostContributors,
-          ),
-          env: effectiveEnv,
-          goModReaders: packageReaders,
-          identities: sourceIdentities,
-          pluginName: record.label,
-          packageOwnership: packageOwnership(record.source, record.label, true),
-          source: record.source,
-          environmentDigests,
-          environmentWitnesses,
-          overlayDirs,
-          sourceDigests,
-          ttscVersion,
-          tsgoVersion,
-        }),
-      );
-    }
-    const fallbackDriverHost =
-      transformHosts.length === 0 && linkedContributors.length !== 0
-        ? buildSourcePlugin({
+    const nativePlugins: ITtscLoadedNativePlugin[] = (() => {
+      const builtTransformHosts = new Map<object, string>();
+      for (const record of transformHosts) {
+        builtTransformHosts.set(
+          record,
+          buildSourcePlugin({
             baseDir: context.projectRoot,
             cacheDir: options.cacheDir,
-            contributors: linkedContributors,
+            contributors: mergeContributors(
+              record.contributors,
+              hostContributors,
+            ),
             env: effectiveEnv,
             goModReaders: packageReaders,
             identities: sourceIdentities,
-            label: "linked plugin host",
-            pluginName: "linked-plugin-host",
-            source: path.join(ttscPackageRoot(), "cmd", "utility-host"),
+            pluginName: record.label,
             packageOwnership: packageOwnership(
-              path.join(ttscPackageRoot(), "cmd", "utility-host"),
-              "linked-plugin-host",
+              record.source,
+              record.label,
               true,
             ),
+            source: record.source,
             environmentDigests,
             environmentWitnesses,
+            onWorkspaceEnvironment,
+            onWorkspaceFailure,
             overlayDirs,
             sourceDigests,
             ttscVersion,
             tsgoVersion,
-          })
-        : undefined;
-    const selectedTransformHost =
-      transformHosts.length === 0
-        ? fallbackDriverHost
-        : builtTransformHosts.get(transformHosts[0]!);
-    const nativePlugins: ITtscLoadedNativePlugin[] = records.map((record) => {
-      const binary =
-        record.stage === "transform" && record.kind === "linked"
-          ? selectedTransformHost
-          : record.stage === "transform"
-            ? builtTransformHosts.get(record)
-            : buildSourcePlugin({
-                baseDir: context.projectRoot,
-                cacheDir: options.cacheDir,
-                contributors: record.contributors,
-                env: effectiveEnv,
-                goModReaders: packageReaders,
-                identities: sourceIdentities,
-                pluginName: record.label,
-                packageOwnership: packageOwnership(
-                  record.source,
-                  record.label,
-                  false,
-                ),
-                source: record.source,
-                environmentDigests,
-                environmentWitnesses,
-                overlayDirs,
-                sourceDigests,
-                ttscVersion,
-                tsgoVersion,
-              });
-      if (binary === undefined) {
-        throw new Error(
-          `ttsc: plugin "${record.label}" is a linked Go package, but no compiler host is available`,
+          }),
         );
       }
-      return {
-        binary,
-        // This fallback is compiled from our utility-host, whose actual writer
-        // publishes provenance and supports a separate compiler argument cwd,
-        // and which serves the resident analysis check (`check-serve`, #1864).
-        // A separately selected executable host must opt in itself; a linked
-        // library cannot certify that foreign host. An undeclared capability
-        // only withholds the optional protocol: build execution still runs such
-        // a host and observes it from outside, never rejecting it.
-        capabilities:
-          record.stage === "transform" &&
-          record.kind === "linked" &&
-          fallbackDriverHost !== undefined
-            ? {
-                ...record.capabilities,
-                compilerArgsCwd: true,
-                emitProvenance: true,
-                emitObservations: true,
-                residentCheck: true,
-              }
-            : record.capabilities,
-        config: record.config,
-        contributors: record.contributors,
-        kind: record.kind,
-        name: record.name,
-        reportsTypeScriptDiagnostics: record.reportsTypeScriptDiagnostics,
-        source: record.source,
-        stage: record.stage,
-      };
-    });
+      const fallbackDriverHost =
+        transformHosts.length === 0 && linkedContributors.length !== 0
+          ? buildSourcePlugin({
+              baseDir: context.projectRoot,
+              cacheDir: options.cacheDir,
+              contributors: linkedContributors,
+              env: effectiveEnv,
+              goModReaders: packageReaders,
+              identities: sourceIdentities,
+              label: "linked plugin host",
+              pluginName: "linked-plugin-host",
+              source: path.join(ttscPackageRoot(), "cmd", "utility-host"),
+              packageOwnership: packageOwnership(
+                path.join(ttscPackageRoot(), "cmd", "utility-host"),
+                "linked-plugin-host",
+                true,
+              ),
+              environmentDigests,
+              environmentWitnesses,
+              onWorkspaceEnvironment,
+              onWorkspaceFailure,
+              overlayDirs,
+              sourceDigests,
+              ttscVersion,
+              tsgoVersion,
+            })
+          : undefined;
+      const selectedTransformHost =
+        transformHosts.length === 0
+          ? fallbackDriverHost
+          : builtTransformHosts.get(transformHosts[0]!);
+      return records.map((record) => {
+        const binary =
+          record.stage === "transform" && record.kind === "linked"
+            ? selectedTransformHost
+            : record.stage === "transform"
+              ? builtTransformHosts.get(record)
+              : buildSourcePlugin({
+                  baseDir: context.projectRoot,
+                  cacheDir: options.cacheDir,
+                  contributors: record.contributors,
+                  env: effectiveEnv,
+                  goModReaders: packageReaders,
+                  identities: sourceIdentities,
+                  pluginName: record.label,
+                  packageOwnership: packageOwnership(
+                    record.source,
+                    record.label,
+                    false,
+                  ),
+                  source: record.source,
+                  environmentDigests,
+                  environmentWitnesses,
+                  onWorkspaceEnvironment,
+                  onWorkspaceFailure,
+                  overlayDirs,
+                  sourceDigests,
+                  ttscVersion,
+                  tsgoVersion,
+                });
+        if (binary === undefined) {
+          throw new Error(
+            `ttsc: plugin "${record.label}" is a linked Go package, but no compiler host is available`,
+          );
+        }
+        return {
+          binary,
+          // This fallback is compiled from our utility-host, whose actual writer
+          // publishes provenance and supports a separate compiler argument cwd,
+          // and which serves the resident analysis check (`check-serve`, #1864).
+          // A separately selected executable host must opt in itself; a linked
+          // library cannot certify that foreign host. An undeclared capability
+          // only withholds the optional protocol: build execution still runs such
+          // a host and observes it from outside, never rejecting it.
+          capabilities:
+            record.stage === "transform" &&
+            record.kind === "linked" &&
+            fallbackDriverHost !== undefined
+              ? {
+                  ...record.capabilities,
+                  compilerArgsCwd: true,
+                  emitProvenance: true,
+                  emitObservations: true,
+                  residentCheck: true,
+                }
+              : record.capabilities,
+          config: record.config,
+          contributors: record.contributors,
+          kind: record.kind,
+          name: record.name,
+          reportsTypeScriptDiagnostics: record.reportsTypeScriptDiagnostics,
+          source: record.source,
+          stage: record.stage,
+        };
+      });
+    })();
+    const workspaceInputs =
+      workspaceWitnesses.length === 0
+        ? undefined
+        : PluginBuildEnvironmentWitness.watchInputs(
+            workspaceWitnesses,
+            project.root,
+          );
+    if (selectedWatchInputs !== undefined)
+      yield options.onWatchInputs?.(
+        selectedWatchInputs,
+        sourceIdentities,
+        workspaceInputs ?? {},
+      );
     const finalPhase = HostInputObservationPhase.create();
+    const currentWorkspaceReadings = new Map<string, string>();
+    const workspacesQualified = workspaceWitnesses.every((witness) =>
+      PluginBuildEnvironmentWitness.holds(
+        witness,
+        "descriptor-workspace-publication",
+        currentWorkspaceReadings,
+      ),
+    );
     return {
       ...collectHostInputSnapshot(
         project,
@@ -901,9 +1138,16 @@ export namespace loadProjectPlugins {
       discoveryInputsComplete: project.configInputsComplete === true,
       ...(identities === undefined ? {} : { identities }),
       nativePlugins: orderNativePlugins(nativePlugins),
-      ...(loadedEntries.some((entry) => !entry.observationsComplete)
+      ...(!workspacesQualified ||
+      loadedEntries.some((entry) => !entry.observationsComplete)
         ? { observationsComplete: false as const }
         : {}),
+      ...(workspaceInputs === undefined
+        ? {}
+        : {
+            workspaceReplayRequired: true as const,
+            workspaceInputs,
+          }),
       // The directories the watch inputs named before the builds, as the builds
       // read them. Package selection shares these readings and also reads a
       // linked plugin's module root, which no build keys on, so only the build
@@ -1552,6 +1796,9 @@ interface DescriptorCacheOptions {
   /** Source-project cache anchor, independent of descriptor consumer context. */
   projectRoot: string;
 
+  /** Invocation and selected config directories excluded from scratch. */
+  additionalProjectRoots: readonly string[];
+
   /** This ttsc build's version. */
   version: string;
 }
@@ -1602,11 +1849,17 @@ function loadCommonJsDescriptor(
   const effectiveEnv = TtsxNodeOptions.forHelpers(loadEnv);
   const runtime = pluginDescriptorRuntimeBinary(effectiveEnv);
   const ttsx = effectiveEnv.TTSC_TTSX_BINARY ?? process.env.TTSC_TTSX_BINARY;
+  const additionalProjectRoots = descriptorConsumerRoots(
+    descriptorCache,
+    context,
+  );
   const runtimeCapabilities = javascriptRuntimeCapabilities(
     runtime,
     effectiveEnv,
     descriptorCache.projectRoot,
     descriptorCache.identities,
+    undefined,
+    additionalProjectRoots,
   );
   const node =
     !runtimeCapabilities.bun &&
@@ -1617,6 +1870,7 @@ function loadCommonJsDescriptor(
           effectiveEnv,
           descriptorCache.projectRoot,
           descriptorCache.identities,
+          additionalProjectRoots,
         );
   const cacheAuthority = {
     additionalRuntime: node,
@@ -1667,7 +1921,11 @@ function loadCommonJsDescriptor(
       ...cached,
       verifiedPhase: cachedPhase,
     };
-  const dir = createEvaluationTempDir(descriptorCache.identities);
+  const dir = createProjectTempDirectory(
+    "ttsc-plugin-descriptor-",
+    descriptorCache.projectRoot,
+    additionalProjectRoots,
+  );
   const out = path.join(dir, "descriptor.json");
   const inputsOut = path.join(dir, "descriptor-inputs.ndjson");
   const diagnostics = path.join(dir, "descriptor.stderr");
@@ -1721,6 +1979,7 @@ function loadCommonJsDescriptor(
           shim,
         ],
         {
+          additionalProjectRoots,
           cwd: descriptorCache.projectRoot,
           env: {
             ...descriptorRecordEnvironment(
@@ -2126,16 +2385,25 @@ function loadDescriptorViaTtsx(
   // Binary discovery prefers the instance environment, then the ambient
   // process.env (where `withPluginLoaderEnv` injects ttsc's own node/ttsx paths
   // just before this runs), then the running interpreter.
+  const additionalProjectRoots = descriptorConsumerRoots(
+    descriptorCache,
+    context,
+  );
   const node = resolveNodeBinary(
     effectiveEnv,
     descriptorCache.projectRoot,
     descriptorCache.identities,
+    additionalProjectRoots,
   );
   const ttsx = effectiveEnv.TTSC_TTSX_BINARY ?? process.env.TTSC_TTSX_BINARY;
   if (node === undefined || ttsx === undefined || ttsx.length === 0) {
     return undefined;
   }
-  const dir = createEvaluationTempDir(descriptorCache.identities);
+  const dir = createTypedEvaluationTempDir(
+    descriptorCache,
+    context,
+    additionalProjectRoots,
+  );
   const out = path.join(dir, "descriptor.json");
   const inputsOut = path.join(dir, "descriptor-inputs.ndjson");
   const shim = path.join(dir, "load-descriptor.mts");
@@ -2160,7 +2428,7 @@ function loadDescriptorViaTtsx(
       { cwd: descriptorCache.projectRoot },
       "plugin-descriptor",
     );
-    const result = spawnOwnedDescriptor(node, [ttsx, "--no-plugins", shim], {
+    const evaluationOptions: childProcess.SpawnSyncOptionsWithStringEncoding = {
       cwd: descriptorCache.projectRoot,
       encoding: "utf8",
       env: {
@@ -2197,7 +2465,13 @@ function loadDescriptorViaTtsx(
       // human output needs no output ceiling.
       stdio: ["ignore", 2, 2],
       windowsHide: true,
-    });
+    };
+    const result = spawnOwnedDescriptor(
+      node,
+      [ttsx, "--no-plugins", shim],
+      evaluationOptions,
+      additionalProjectRoots,
+    );
     E2ETrace.result(trace, result);
     const processFailure = pluginDescriptorProcessFailure(result, request);
     if (processFailure) {
@@ -2427,10 +2701,16 @@ function errorMessage(error: unknown): string {
 function withPluginLoaderEnv<T>(
   run: () => T,
   identities: PluginContentIdentities.Store | undefined,
+  additionalProjectRoots: readonly string[],
 ): T {
   const previousNode = process.env.TTSC_NODE_BINARY;
   const previousTtsx = process.env.TTSC_TTSX_BINARY;
-  const node = resolveNodeBinary({}, process.cwd(), identities);
+  const node = resolveNodeBinary(
+    {},
+    process.cwd(),
+    identities,
+    additionalProjectRoots,
+  );
   if (process.env.TTSC_NODE_BINARY === undefined && node !== undefined) {
     process.env.TTSC_NODE_BINARY = node;
   }
@@ -2503,8 +2783,9 @@ function restoreEnv(
 }
 
 function resolvePluginSource(source: string, projectRoot: string): string {
-  return PluginPackageResolution.resolveRealPath(
+  return resolvePluginSourcePath(
     path.isAbsolute(source) ? source : path.resolve(projectRoot, source),
+    "plugin source",
   );
 }
 
@@ -2528,6 +2809,7 @@ function pluginBuildDirectories(
     packageDir: string;
   }[],
   env: NodeJS.ProcessEnv,
+  projectRoot: string,
   replacements?: Map<string, readonly string[]>,
   readers?: Map<string, SourcePluginWorkspace.GoModReader>,
   identities?: PluginContentIdentities.Store,
@@ -2543,6 +2825,7 @@ function pluginBuildDirectories(
       for (const directory of pluginReplacementWatchDirectories(
         record.moduleRoot,
         env,
+        projectRoot,
         replacements,
         readers,
         identities,
@@ -2577,6 +2860,7 @@ function declaredCompilerSource(env: NodeJS.ProcessEnv): string[] {
 function pluginReplacementWatchDirectories(
   moduleRoot: string,
   env: NodeJS.ProcessEnv,
+  projectRoot: string,
   observed?: Map<string, readonly string[]>,
   readers?: Map<string, SourcePluginWorkspace.GoModReader>,
   identities?: PluginContentIdentities.Store,
@@ -2593,6 +2877,7 @@ function pluginReplacementWatchDirectories(
       undefined,
       readers,
       identities,
+      projectRoot,
     ).map((replacement) => replacement.directory);
   } catch {
     // An unreadable manifest/tool is not valid metadata. The already observed
@@ -2625,17 +2910,70 @@ function ttscPackageRoot(): string {
   return path.resolve(__dirname, "..", "..", "..", "..");
 }
 
+/** Boundaries shared by probe, evaluation and command receipt scratch. */
+function descriptorConsumerRoots(
+  cache: DescriptorCacheOptions,
+  context: ITtscPluginFactoryContext,
+): string[] {
+  return [...cache.additionalProjectRoots, context.dirname];
+}
+
 /**
- * Create an evaluator directory under the current selected record store when it
- * has an ordinary identities child. Canonical allocation fixes the physical
- * cleanup path; an absent or unproved store retains system TEMP.
+ * Prefer system temporary storage for the typed evaluator. A same-volume
+ * identities directory can keep the generated TypeScript entry on the
+ * descriptor's volume when same-volume system temp is unavailable. A parent
+ * that refuses allocation leaves the remaining qualified parents eligible.
  */
-function createEvaluationTempDir(
-  identities: PluginContentIdentities.Store | undefined,
+function createTypedEvaluationTempDir(
+  cache: DescriptorCacheOptions,
+  context: ITtscPluginFactoryContext,
+  additionalProjectRoots: readonly string[],
 ): string {
-  return createCanonicalTempDirectory(
-    "ttsc-plugin-descriptor-",
-    selectedRecordIdentityTempParent(identities?.root),
+  const prefix = "ttsc-plugin-descriptor-";
+  const source = path.dirname(context.filename);
+  const sameVolume = (directory: string): boolean =>
+    !path.isAbsolute(path.relative(source, directory));
+  const roots = [...additionalProjectRoots, process.cwd()];
+  const candidates = systemTempOutsideProject.candidates(
+    cache.projectRoot,
+    roots,
+  );
+  let refusal: unknown;
+  const allocate = (directory: string): string | undefined => {
+    try {
+      return createCanonicalTempDirectory(prefix, directory);
+    } catch (error) {
+      if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
+      refusal ??= error;
+      return undefined;
+    }
+  };
+  const otherVolumes = new Set<string>();
+  for (const { directory } of candidates) {
+    if (!sameVolume(directory)) {
+      otherVolumes.add(directory);
+      continue;
+    }
+    const allocated = allocate(directory);
+    if (allocated !== undefined) return allocated;
+  }
+  const parent = selectedRecordIdentityTempParent(cache.identities?.root, [
+    cache.projectRoot,
+    ...roots,
+  ]);
+  if (parent !== undefined && sameVolume(parent)) {
+    const allocated = allocate(parent);
+    if (allocated !== undefined) return allocated;
+  }
+  for (const directory of otherVolumes) {
+    const allocated = allocate(directory);
+    if (allocated !== undefined) return allocated;
+  }
+  throw (
+    refusal ??
+    new Error(
+      `ttsc: no existing system temporary directory outside ${cache.projectRoot}`,
+    )
   );
 }
 
@@ -2663,9 +3001,12 @@ function spawnOwnedDescriptor(
   command: string,
   args: readonly string[],
   options: childProcess.SpawnSyncOptionsWithStringEncoding,
+  additionalProjectRoots: readonly string[],
 ): childProcess.SpawnSyncReturns<string> {
   return (
-    OwnedSynchronousProcess.launch<string>(command, args, options) ??
-    childProcess.spawnSync(command, args, options)
+    OwnedSynchronousProcess.launch<string>(command, args, {
+      ...options,
+      additionalProjectRoots,
+    }) ?? childProcess.spawnSync(command, args, options)
   );
 }

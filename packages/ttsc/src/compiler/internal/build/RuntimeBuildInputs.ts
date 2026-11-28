@@ -148,7 +148,8 @@ export namespace RuntimeBuildInputs {
       loaded !== undefined &&
       (!loaded.discoveryInputsComplete ||
         !loaded.descriptorReadsDeclared ||
-        loaded.observationsComplete === false)
+        loaded.observationsComplete === false ||
+        loaded.workspaceReplayRequired === true)
     ) {
       RuntimeBuildExplanation.report({
         outcome: "ineligible",
@@ -157,7 +158,9 @@ export namespace RuntimeBuildInputs {
           ? "incomplete-plugin-discovery"
           : !loaded.descriptorReadsDeclared
             ? "undeclared-descriptor-inputs"
-            : "incomplete-descriptor-observations",
+            : loaded.workspaceReplayRequired === true
+              ? "plugin-workspace-replay-required"
+              : "incomplete-descriptor-observations",
       });
       return undefined;
     }
@@ -483,6 +486,10 @@ export namespace RuntimeBuildInputs {
                   ],
                   {
                     cwd: execution.compilerSelection.compilerArgsCwd,
+                    additionalProjectRoots: [
+                      execution.projectRoot,
+                      path.dirname(execution.tsconfig),
+                    ],
                     env,
                     pipe: true,
                   },
@@ -710,7 +717,14 @@ export namespace RuntimeBuildInputs {
             const result = spawnNative(
               execution.tsgo.binary,
               [...args, ...flags],
-              { cwd: execution.compilerSelection.compilerArgsCwd, env },
+              {
+                cwd: execution.compilerSelection.compilerArgsCwd,
+                env,
+                additionalProjectRoots: [
+                  execution.projectRoot,
+                  path.dirname(execution.tsconfig),
+                ],
+              },
             );
             if (result.error || result.status !== 0 || result.signal !== null)
               throw new Error("runtime input inspection unavailable");

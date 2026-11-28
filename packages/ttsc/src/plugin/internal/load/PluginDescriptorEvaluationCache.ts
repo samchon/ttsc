@@ -158,6 +158,7 @@ export namespace PluginDescriptorEvaluationCache {
     const preloadKey = TrustedNodeOptions.key({
       cwd: props.cwd,
       env: environment,
+      runtime: props.runtime,
       expectedPreloadGraph: props.expectedPreloadGraph,
       identities: props.identities,
     });
@@ -228,7 +229,7 @@ export namespace PluginDescriptorEvaluationCache {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable, malformed or changed entries become misses, without accepting stale descriptor data because the file exists.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states the exact observation-state condition and null fallback, with separate acknowledgment prose under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Current native hash/realpath observations preserve content and physical selection independently, including symlink/junction retargeting.
-   * @evidence contracts/performance.md#efficient-algorithms Complete UTF-8 entry read/JSON parse and state-map validation precede key/value comparisons, current full file hashing and native realpath queries. Entry/key/path/file bytes and native lookup contribute processing and transient storage; a valid hit also performs usage metadata queries and avoids actual child evaluation.
+   * @evidence contracts/performance.md#efficient-algorithms After JSON validation, recorded positives group bounded directory observations that can replace separate native kind and path work for exact ordinary entries. Full file hashing and the remaining native observations still run. A hit refreshes usage metadata and avoids child evaluation.
    * @evidence contracts/performance.md#reuse-equivalent-work Recorded content and physical-path projections must match current observations and the content map must be nonempty. An optional caller-owned phase map receives the just-observed content hashes and realpaths so the caller's immediate post-evaluation merge does not re-observe the same paths; the map is never retained here. External declarations can contribute content without separate physical observations; this is the existing proof scope, not atomic or complete-world equivalence.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The returned parsed data belongs to the caller; recordCacheFileUse attempts disk-entry last-use refresh for pruning and can skip or fail, with no global in-memory answer map.
    */
@@ -253,6 +254,11 @@ export namespace PluginDescriptorEvaluationCache {
     const phase = HostInputObservationPhase.isPhase(observed)
       ? observed
       : HostInputObservationPhase.create();
+    HostInputObservationPhase.observeRecordedFiles(
+      entry.proof.realpaths,
+      entry.proof.hashes,
+      phase,
+    );
     const currentHashes = hashHostInputPaths(hashed, phase);
     const currentRealpaths = sameMap(entry.proof.hashes, currentHashes)
       ? realpathHostInputPaths(Object.keys(entry.proof.realpaths), phase)

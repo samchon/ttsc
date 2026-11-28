@@ -1,0 +1,68 @@
+import fs from "node:fs";
+import { registerHooks } from "node:module";
+import path from "node:path";
+
+import { observeLexicalPackagePath } from "./observeLexicalPackagePath";
+import { resolvePhysicalProjectPath } from "./resolvePhysicalProjectPath";
+
+/**
+ * Resolve with the caller's Node hooks, and refuse a known lossy POSIX result.
+ * The observer reads the conditions after delegation from the same lookup. This
+ * covers ordinary hooks that forward once. The lexical proof cannot replace a
+ * different result or an error supplied by the caller.
+ *
+ * @evidence contracts/common.md#principled-implementation Preserves caller errors. A successful caller result is refused only when an independent lexical resolution matches the lossy standard selection.
+ * @evidence contracts/common.md#clear-and-simple-design Config inheritance and installed SDK selection share native alias handling without rebuilding Node package search.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A temporary hook delegates unchanged and observes the resulting condition context. That context does not reconstruct an arbitrary hook's provenance. The lossy old spelling is only compared and never opened by the witness.
+ * @evidence contracts/common.md#meaningful-documentation States caller authority, observation scope and the refusal case.
+ * @evidence contracts/portability.md#os-neutral-implementation Native Node resolution and filesystem APIs own package lookup and native alias qualification. Windows needs only the calling resolver.
+ * @evidence contracts/performance.md#efficient-algorithms Performs one caller resolution and on POSIX one bounded lexical inspection. The caller's standard resolver owns package traversal.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each resolution needs current observations. The worker owner handles startup reuse.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The hook is deregistered after the caller lookup. This operation keeps no previous path or live worker handle.
+ */
+export function resolveNativePackagePath(
+  resolver: NodeRequire,
+  from: string,
+  specifier: string,
+  owner: "extended config" | "bundled Go executable",
+): string {
+  if (process.platform === "win32") return resolver.resolve(specifier);
+  let conditions: string[] | undefined;
+  let observing = false;
+  const observer =
+    typeof registerHooks === "function"
+      ? registerHooks({
+          resolve(request, context, next) {
+            if (observing || request !== specifier)
+              return next(request, context);
+            observing = true;
+            const result = next(request, context);
+            conditions = [...context.conditions];
+            return result;
+          },
+        })
+      : undefined;
+  let selected: string;
+  try {
+    selected = resolver.resolve(specifier);
+  } finally {
+    observer?.deregister();
+  }
+  const lexical = observeLexicalPackagePath(from, specifier, conditions);
+  if (lexical !== undefined && path.isAbsolute(lexical)) {
+    try {
+      resolvePhysicalProjectPath(lexical, owner);
+    } catch (error) {
+      if (selected === lexical) throw error;
+      // A different path chosen by a registered hook is still authoritative.
+      let ordinary: string | undefined;
+      try {
+        ordinary = fs.realpathSync(lexical);
+      } catch {
+        // Node could not represent the lexical answer at this spelling.
+      }
+      if (ordinary === selected) throw error;
+    }
+  }
+  return selected;
+}

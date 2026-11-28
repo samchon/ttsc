@@ -1,6 +1,8 @@
+import { privateProjectRecordAvailable } from "../../bridge/privateProjectRecordAvailable";
 import { projectRecordFile } from "../../bridge/projectRecordFile";
 import { readProjectRecordFile } from "../../bridge/readProjectRecordFile";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
+import { projectRecordDirectories } from "./projectRecordDirectories";
 
 /**
  * The dependency-only paths the project record of `tsconfig` carries
@@ -35,15 +37,12 @@ export function recordedDependencyWitnesses(
   tsconfig: string,
 ): readonly string[] | undefined {
   if (project === undefined) return undefined;
-  for (const directory of [
-    project.toolDirectory,
-    ...(project.fallbackToolDirectory === undefined
-      ? []
-      : [project.fallbackToolDirectory]),
-  ]) {
-    const record = readProjectRecordFile(
-      projectRecordFile(directory, tsconfig),
-    );
+  for (const { directory, privateStorage } of projectRecordDirectories(
+    project,
+  )) {
+    const file = projectRecordFile(directory, tsconfig);
+    if (privateStorage && !privateProjectRecordAvailable(file)) continue;
+    const record = readProjectRecordFile(file);
     if (record !== undefined) return record.dependencies;
   }
   return undefined;

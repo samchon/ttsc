@@ -1,5 +1,6 @@
 import { createHostPathIdentityContext } from "../transform/filesystem/createHostPathIdentityContext";
 import { pathIdentityKey } from "../transform/filesystem/pathIdentityKey";
+import { RECOVERY_TREE_DIGEST } from "../transform/watch/RECOVERY_TREE_DIGEST";
 import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
 import type { TtscProjectRecord } from "./TtscProjectRecord";
 
@@ -58,6 +59,11 @@ export function projectRecordWatchInputs(
       },
       file: record.root,
     });
+  }
+  if (record.recoveryTree !== undefined) {
+    const input = { file: record.recoveryTree.file };
+    RECOVERY_TREE_DIGEST.set(input, record.recoveryTree.digest);
+    inputs.push(input);
   }
   return inputs;
 }

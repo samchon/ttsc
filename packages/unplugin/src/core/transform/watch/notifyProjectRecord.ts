@@ -1,7 +1,9 @@
 import fs from "node:fs";
 
+import { MANAGED_PROJECT_RECORDS } from "../../bridge/MANAGED_PROJECT_RECORDS";
 import type { TtscProjectRecord } from "../../bridge/TtscProjectRecord";
 import { membershipRecordDigest } from "../../bridge/membershipRecordDigest";
+import { privateProjectRecordAvailable } from "../../bridge/privateProjectRecordAvailable";
 import { projectRecordFile } from "../../bridge/projectRecordFile";
 import { warnUnwritableProjectRecord } from "../../bridge/warnUnwritableProjectRecord";
 import { writeProjectRecordFile } from "../../bridge/writeProjectRecordFile";
@@ -11,9 +13,11 @@ import { createHostPathIdentityContext } from "../filesystem/createHostPathIdent
 import { pathIdentityKey } from "../filesystem/pathIdentityKey";
 import { hostInputStateHash } from "../inputs/hostInputStateHash";
 import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
+import { RECOVERY_TREE_DIGEST } from "./RECOVERY_TREE_DIGEST";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
 import { projectMembershipInput } from "./projectMembershipInput";
+import { projectRecordDirectories } from "./projectRecordDirectories";
 
 /**
  * What each generation hands a build host in this process: the inputs read for
@@ -38,7 +42,10 @@ const HANDED = new WeakMap<
      * The records written, one per host root the generation reached, each with
      * the digest of the bytes written.
      */
-    written: Map<string, { digest: string; revision: number }>;
+    written: Map<
+      string,
+      { digest: string; revision: number; privateStorage: boolean }
+    >;
   }
 >();
 
@@ -156,28 +163,38 @@ export function notifyProjectRecord(
         : [...handed.evidenced, membership];
     ++handed.revision;
   }
-  const records = [
-    project.toolDirectory,
-    ...(project.fallbackToolDirectory === undefined
-      ? []
-      : [project.fallbackToolDirectory]),
-  ].map((directory) => projectRecordFile(directory, cached.tsconfig));
-  let record: string | undefined;
+  const records = projectRecordDirectories(project).map(
+    ({ directory, privateStorage }) => ({
+      file: projectRecordFile(directory, cached.tsconfig),
+      privateStorage,
+    }),
+  );
+  const available = (candidate: (typeof records)[number]): boolean =>
+    candidate.privateStorage
+      ? privateProjectRecordAvailable(candidate.file)
+      : recordAvailable(candidate.file);
+  let record: (typeof records)[number] | undefined;
   let refused: unknown;
   for (const candidate of records) {
-    if (handed.written.get(candidate)?.revision === handed.revision) {
-      if (recordAvailable(candidate)) {
+    const { file, privateStorage } = candidate;
+    const accepted = handed.written.get(file);
+    if (
+      accepted?.revision === handed.revision &&
+      accepted.privateStorage === privateStorage
+    ) {
+      if (available(candidate)) {
         record = candidate;
         break;
       }
-      handed.written.delete(candidate);
+      handed.written.delete(file);
     }
     try {
-      handed.written.set(candidate, {
-        digest: writeProjectRecordFile(
-          candidate,
-          recordOf(cached, handed.evidenced),
-        ),
+      handed.written.set(file, {
+        digest: writeProjectRecordFile(file, {
+          ...recordOf(cached, handed.evidenced),
+          ...(privateStorage ? { privateStorage: true as const } : {}),
+        }),
+        privateStorage,
         revision: handed.revision,
       });
       record = candidate;
@@ -186,23 +203,30 @@ export function notifyProjectRecord(
       refused ??= error;
     }
   }
-  record ??= records.find(recordAvailable);
+  record ??= records.find(available);
   if (record === undefined) {
-    warnUnwritableProjectRecord(records[0]!, refused);
+    const primary = records[0]!.file;
+    warnUnwritableProjectRecord(primary, refused);
     if (project.watching === true && !failed) {
-      throw new TtscProjectRecordUnwritableError(records[0]!, refused);
+      throw new TtscProjectRecordUnwritableError(primary, refused);
     }
     return false;
   }
   const registered = handed.inputs;
-  const written = handed.written.get(record);
+  const written = handed.written.get(record.file);
   const digest =
-    written?.revision === handed.revision ? written.digest : undefined;
+    written?.revision === handed.revision &&
+    written.privateStorage === record.privateStorage
+      ? written.digest
+      : undefined;
   project.register({
     ...(digest === undefined ? {} : { digest }),
+    ...(record.privateStorage
+      ? { [MANAGED_PROJECT_RECORDS]: true as const }
+      : {}),
     failed,
     inputs: () => registered,
-    record,
+    record: record.file,
   });
   return true;
 }
@@ -253,10 +277,24 @@ function recordOf(
     root: cached.projectRoot,
     signal: 0,
     tsconfig: cached.tsconfig,
+    ...(cached.result.type !== "exception" &&
+    cached.result.workspaceReplayRequired === true
+      ? { workspaceReplayRequired: true as const }
+      : {}),
   };
   for (const input of inputs) {
-    if (input.evidence !== undefined)
-      record.inputs[input.file] = input.evidence;
+    const digest = RECOVERY_TREE_DIGEST.get(input);
+    // Workspace recovery is live-only. Restoring its record requires a new
+    // workspace delivery, so keep the separate compiler source slot intact.
+    if (digest !== undefined && input.evidence?.workspace === undefined) {
+      record.recoveryTree = { file: input.file, digest };
+      continue;
+    }
+    if (input.evidence !== undefined) {
+      const { workspace, ...evidence } = input.evidence;
+      if (workspace === undefined || evidence.state !== undefined)
+        record.inputs[input.file] = evidence;
+    }
   }
   return record;
 }
@@ -271,7 +309,12 @@ function readUnrecordedState(
   input: TtscWatchInput,
   identities: ReturnType<typeof createHostPathIdentityContext>,
 ): TtscWatchInput {
-  if (input.evidence?.state !== undefined) return input;
+  if (
+    input.evidence?.state !== undefined ||
+    input.evidence?.workspace !== undefined ||
+    RECOVERY_TREE_DIGEST.has(input)
+  )
+    return input;
   const hash = hostInputStateHash(input.file) ?? MISSING_INPUT_STATE;
   const missing = hash === MISSING_INPUT_STATE;
   return {

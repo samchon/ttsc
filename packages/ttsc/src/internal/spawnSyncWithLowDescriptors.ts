@@ -35,7 +35,7 @@ import type { SpawnSyncOutputFiles } from "./SpawnSyncOutputFiles";
 export function spawnSyncWithLowDescriptors(
   command: string,
   args: readonly string[],
-  options: SpawnSyncOptions,
+  options: OwnedSynchronousProcess.CommandOptions,
   output: SpawnSyncOutputFiles,
 ): ReturnType<typeof spawnSync> {
   const report = `${output.stdout}.ttsc-result-${process.pid}-${nextBrokerResult++}`;
@@ -94,6 +94,8 @@ export function spawnSyncWithLowDescriptors(
     const broker =
       OwnedSynchronousProcess.launch(process.execPath, brokerArgs, {
         ...brokerOptions,
+        projectRoot: options.projectRoot,
+        additionalProjectRoots: options.additionalProjectRoots,
         stdio: ["ignore", 1, 2],
       }) ?? spawnSync(process.execPath, brokerArgs, brokerOptions);
     E2ETrace.result(trace, broker);

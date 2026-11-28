@@ -3,6 +3,7 @@ import path from "node:path";
 import { PROJECT_RECORD_DIRECTORY } from "../../bridge/PROJECT_RECORD_DIRECTORY";
 import { prepareProjectRecordDirectory } from "../../bridge/prepareProjectRecordDirectory";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
+import { projectRecordDirectories } from "./projectRecordDirectories";
 
 /**
  * Acquire the host's record directories before a generation observes inputs.
@@ -27,16 +28,13 @@ export function prepareProjectRecordDirectories(
   project: TtscTransformHooks["project"],
 ): void {
   if (project === undefined) return;
-  const directories = [
-    project.toolDirectory,
-    ...(project.fallbackToolDirectory === undefined
-      ? []
-      : [project.fallbackToolDirectory]),
-  ];
-  for (const directory of directories) {
+  for (const { directory, privateStorage } of projectRecordDirectories(
+    project,
+  )) {
     try {
       prepareProjectRecordDirectory(
         path.join(directory, PROJECT_RECORD_DIRECTORY),
+        privateStorage,
       );
       return;
     } catch {

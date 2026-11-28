@@ -36,6 +36,8 @@ parentPort?.on(
           request.env,
           witness,
           identities,
+          undefined,
+          request.projectRoot,
         ),
         witness,
       });

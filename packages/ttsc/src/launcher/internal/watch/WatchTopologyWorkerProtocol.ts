@@ -1,4 +1,5 @@
 import type { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
+import type { ITtscCompilerTransformation } from "../../../structures/ITtscCompilerTransformation";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import type { WatchInputChange } from "./WatchInputChange";
 import type { WatchTopology } from "./WatchTopology";
@@ -69,6 +70,8 @@ export namespace WatchTopologyWorkerProtocol {
         method: "setExtraInputs";
         inputs: readonly string[];
         identities?: PluginContentIdentities.Store;
+        workspace?: ITtscCompilerTransformation.ISuccess["workspaceInputs"];
+        repairedWorkspaceAnchors?: readonly string[];
       }
     | { method: "setProjectInputs"; inputs: ITtscProjectInputSnapshot }
     | { method: "whenIdle" }

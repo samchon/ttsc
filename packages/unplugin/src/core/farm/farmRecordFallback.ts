@@ -1,6 +1,8 @@
 import path from "node:path";
 
-import { fallbackToolDirectory } from "../bridge/fallbackToolDirectory";
+import { PROJECT_RECORD_DIRECTORY } from "../bridge/PROJECT_RECORD_DIRECTORY";
+import { fallbackRecordStorage } from "../bridge/fallbackRecordStorage";
+import { fallbackToolDirectoryLocation } from "../bridge/fallbackToolDirectoryLocation";
 
 /**
  * The fallback tool directory Farm accepts for a root, or `undefined` when it
@@ -32,10 +34,14 @@ import { fallbackToolDirectory } from "../bridge/fallbackToolDirectory";
  *   Acquires no handle, timer or retained state of its own.
  */
 export function farmRecordFallback(root: string): string | undefined {
-  const fallback = fallbackToolDirectory(root);
+  const fallback = fallbackToolDirectoryLocation(root);
   if (fallback === undefined) return undefined;
   if (path.isAbsolute(path.relative(root, fallback))) return undefined;
-  return fallback.split(path.sep).includes("node_modules")
-    ? undefined
-    : fallback;
+  if (fallback.split(path.sep).includes("node_modules")) return undefined;
+  return fallbackRecordStorage(
+    path.join(fallback, PROJECT_RECORD_DIRECTORY),
+    false,
+  )
+    ? fallback
+    : undefined;
 }

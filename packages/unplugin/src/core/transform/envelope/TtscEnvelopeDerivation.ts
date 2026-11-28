@@ -53,17 +53,12 @@ export interface TtscEnvelopeDerivation {
    */
   graph?: TtscEnvelopeGraphIndexes;
 
-  /**
-   * Lazily collected identities of the envelope's `volatile` member files,
-   * `undefined` until the first volatility predicate.
-   */
-  volatileFiles?: Set<string>;
-
-  /**
-   * Lazily collected identities of the envelope's `dependenciesComplete` member
-   * files, `undefined` until the first completeness predicate.
-   */
-  dependenciesComplete?: Set<string>;
+  /** Dependency and declaration indexes shared by compile and watch consumers. */
+  readonly selection: {
+    volatileFiles?: Set<string>;
+    dependenciesComplete?: Set<string>;
+    dependencyIndex?: Map<string, unknown>;
+  };
 
   /**
    * Lazily built identity -> envelope key index of the `typescript` map (first
@@ -71,12 +66,6 @@ export interface TtscEnvelopeDerivation {
    * project-relative key miss.
    */
   outputIndex?: Map<string, string>;
-
-  /**
-   * Lazily built identity -> `dependencies` entries index (first match wins,
-   * mirroring the historical scan). `undefined` until the first key miss.
-   */
-  dependencyIndex?: Map<string, unknown>;
 
   /** Per lexical delivered-module spelling memo of its final watch-input list. */
   readonly watchInputs: Map<string, string[]>;

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { fallbackToolDirectoryLocation } from "../../../../../packages/unplugin/src/core/bridge/fallbackToolDirectoryLocation";
 import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/bridge/openHostWatchBridge";
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
 import { createRollupCachedModuleProof } from "../../../../../packages/unplugin/src/core/rollup/createRollupCachedModuleProof";
@@ -32,13 +33,14 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    module the adapter does not transform is left to Rollup.
  * 4. Move the record's bytes, open the next build, and assert the module runs
  *    again until a delivery hands the bytes now held.
+ * 5. Require retransformation when a stale managed record cannot be changed.
  *
  * @evidence contracts/testing.md#behavioral-verification
  *   Authored createRollupCachedModuleProof compares delivered options and actual fixture record bytes; selectRollupCachedModuleTransform maps its actual answer and bridge debt to true/null, with callable receiver, short-circuit and error assertions.
  * @evidence contracts/testing.md#independent-expectations
  *   A cached delivery can be served only under the same options and unchanged record bytes; absent proof requires transformation. Node's independent SHA-256 over the authored record literals establishes digest expectations. A CSS module outside the owned target set is left to Rollup. The hook requests transformation for owed delivery or movement and otherwise returns null; an exactly true owed answer must avoid consulting proof, while exceptions retain their identity.
  * @evidence contracts/testing.md#distinguishing-cases
- *   Covers matching and changed options, delivery without a project, null or missing delivery, malformed and missing record, unowned module, changed bytes across begin, quiet mid-pass observation, independently owed delivery for two modules and adoption of fresh delivered proofs. Hook rows distinguish absent/quiet/owed bridge, exactly true versus a malformed truthy answer, exact module reference, delegated receivers and each owner's exception.
+ *   Covers matching and changed options, delivery without a project, null or missing delivery, malformed and missing record, unowned module, changed bytes across begin, distinct storage policies at one pathname, a read-only managed record that cannot signal changed input, quiet mid-pass observation, independently owed delivery for two modules and adoption of fresh delivered proofs. Hook rows distinguish absent/quiet/owed bridge, exactly true versus a malformed truthy answer, exact module reference, delegated receivers and each owner's exception.
  * @evidence contracts/testing.md#execution-ownership
  *   test_rollup_cache_serves_a_delivery_only_under_its_options_and_record calls createRollupCachedModuleProof.deliver/moved/begin, openHostWatchBridge and the production-used hook selector over temporary records and callable channels. It establishes no installed Rollup host, native watcher acquisition or compiler capture.
  */
@@ -59,11 +61,90 @@ export async function test_rollup_cache_serves_a_delivery_only_under_its_options
 
   // 1. The options and the record.
   const delivered = proof.deliver({ options: "A", record: { digest, file } });
+  const managed = {
+    "ttsc-unplugin": {
+      options: "A",
+      record: { digest, file, privateStorage: true },
+    },
+  };
   proof.begin();
   assert.equal(ask(delivered), false, "a delivery that still holds is served");
   options = "B";
   assert.equal(ask(delivered), true, "one compiled under other options runs");
   options = "A";
+  assert.equal(
+    ask(managed),
+    true,
+    "ordinary bytes cannot prove managed storage",
+  );
+  proof.begin();
+  assert.equal(ask(managed), true);
+  assert.equal(
+    ask(delivered),
+    false,
+    "managed refusal cannot affect ordinary storage",
+  );
+  if (process.platform === "win32" || process.getuid?.() !== 0) {
+    const toolDirectory = fallbackToolDirectoryLocation(root);
+    assert.ok(toolDirectory);
+    const managedFile = path.join(toolDirectory, "records", "restored.json");
+    const tsconfig = path.join(root, "tsconfig.json");
+    const compiler = path.join(root, "repaired-compiler");
+    fs.writeFileSync(tsconfig, '{"files":[]}');
+    try {
+      writeProjectRecordFile(managedFile, {
+        compilerArguments: captureCompilerArguments(
+          resolveCompilerEnvironment(),
+        ),
+        inputs: {},
+        membership: null,
+        privateStorage: true,
+        recoveryTree: { file: compiler, digest: null },
+        root,
+        signal: 0,
+        tsconfig,
+      });
+      const previous = fs.readFileSync(managedFile);
+      const restoredDigest = createHash("sha256")
+        .update(previous)
+        .digest("hex");
+      const detached = createRollupCachedModuleProof(
+        "ttsc-unplugin",
+        () => true,
+        () => options,
+        () => true,
+      );
+      const meta = detached.deliver({
+        options,
+        record: {
+          digest: restoredDigest,
+          file: managedFile,
+          privateStorage: true,
+        },
+      });
+      const ordinaryMeta = {
+        "ttsc-unplugin": {
+          options,
+          record: { digest: restoredDigest, file: managedFile },
+        },
+      };
+      assert.equal(detached.moved({ id: "main.ts", meta }), false);
+      fs.mkdirSync(compiler);
+      fs.chmodSync(managedFile, 0o444);
+      try {
+        detached.begin();
+        assert.equal(detached.moved({ id: "main.ts", meta }), true);
+        detached.moved({ id: "explicit.ts", meta: ordinaryMeta });
+        assert.equal(detached.moved({ id: "sibling.ts", meta }), true);
+        assert.deepEqual(fs.readFileSync(managedFile), previous);
+      } finally {
+        fs.chmodSync(managedFile, 0o600);
+      }
+    } finally {
+      if (fs.existsSync(toolDirectory))
+        fs.rmSync(toolDirectory, { recursive: true });
+    }
+  }
 
   // 2. No project consulted.
   const bare = proof.deliver({ options: "A" });

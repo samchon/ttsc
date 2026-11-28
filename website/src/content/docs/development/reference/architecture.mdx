@@ -44,6 +44,8 @@ The cache key does **not** include:
 
 README, JSON, schema, and other data files inside the plugin source directory do affect the cache key. This keeps `//go:embed` and other file-backed plugin data aligned with the built binary. Local workspace changes to `ttsc`'s Go host or shim overlay also invalidate the source plugin cache automatically.
 
+On POSIX, files and directories included in the source snapshot must have valid UTF-8 names. If the build reports an invalid name, rename the entry using the parent directory and hexadecimal bytes in the diagnostic.
+
 ## Cache Locations
 
 Default (project-local, the `find-cache-dir` convention):

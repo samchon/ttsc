@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
+import { PluginBuildEnvironmentWitness } from "ttsc/plugin-source";
 
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
@@ -49,6 +50,9 @@ export function nativeInputPredicatesHold(
   for (const file of cached.directExternalInputs ?? []) {
     if (!matchesRecordedInput(cached, file)) return finish(false);
   }
+  for (const state of Object.values(cached.result.workspaceInputs ?? {}))
+    if (!PluginBuildEnvironmentWitness.holds(state.entries))
+      return finish(false);
   const observations = cached.result.graph?.inputObservations;
   if (observations === undefined) return finish(true);
   let inputs = predicateInputs.get(observations);

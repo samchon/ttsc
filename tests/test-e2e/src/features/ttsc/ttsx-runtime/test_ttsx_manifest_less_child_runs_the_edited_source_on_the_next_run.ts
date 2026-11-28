@@ -23,15 +23,17 @@ import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
  * 2. Run it, edit `src/child.ts`, and run it again.
  * 3. Assert each run prints its own version, and that no private cache directory
  *    of either child remains.
+ * 4. On non-root POSIX, deny traversal of an acquired cache and verify that the
+ *    same process can claim another private cache.
  *
- * @evidence contracts/testing.md#behavioral-verification Two parent ttsx runs each spawn a Node child with runtime manifest removed; child v1/v2 output must match rewritten source and neither observed PID may leave a process-PID cache directory.
- * @evidence contracts/testing.md#independent-expectations The authored version bytes determine fresh execution; observed child PID plus literal private cache prefix independently identifies cleanup targets.
- * @evidence contracts/testing.md#distinguishing-cases Manifest-less child differs from inherited shared-run ownership. Two source versions at one path must not reuse the first lowering, and both child-private cache owners must be gone.
- * @evidence contracts/testing.md#execution-ownership The named test_ttsx_manifest_less_child_runs_the_edited_source_on_the_next_run E2E entry owns the actual bootstrap and observations specified here. TestProject/internal helpers supply fixtures and completed process results; this acknowledgment does not infer portable unit coverage from similarly named tests.
- * @evidence contracts/e2e.md#necessary-boundary Actual inherited hooks, removed manifest, child process exit and filesystem cleanup connect here. Direct cache-key/lifetime units cannot prove the child executes edited source and releases its directories.
- * @evidence contracts/e2e.md#shared-execution Two parent and two child lifetimes share one project. Separate runs are necessary for cross-run source invalidation; child-private generation state cannot be shared merely because tsconfig path is equal.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The full child bytes are rewritten before each synchronous parent run. Runtime owns each child-private cache; the test observes cleanup after both children exit and TestProject owns fixture cleanup.
- * @evidence contracts/e2e.md#preserved-coverage Original version/status checks and both PID-prefix absence checks remain. Only the named historical ttsx-dep cache parent is inspected, not arbitrary leaked directories.
+ * @evidence contracts/testing.md#behavioral-verification Two ttsx runs each spawn a Node child with its manifest removed. The v1/v2 output must match the rewrite and neither PID may leave a private cache. A non-root POSIX actor claims through the runtime cache API, proves native lstat refusal on the cached path, then claims the second candidate in the same process.
+ * @evidence contracts/testing.md#independent-expectations The authored versions determine fresh execution. A PID and literal cache prefix identify cleanup targets, and separately owned temp parents identify the expected first and second claims.
+ * @evidence contracts/testing.md#distinguishing-cases Two source versions at one path distinguish fresh execution from stale reuse. The POSIX actor distinguishes a reusable cached directory from a traversability failure followed by an alternate claim.
+ * @evidence contracts/testing.md#execution-ownership This named E2E entry owns both launcher dispatches and the extra POSIX Node actor. TestProject supplies prepared binaries, owned fixtures and completed process results.
+ * @evidence contracts/e2e.md#necessary-boundary Inherited hooks, manifest removal, native permission denial and child exit drive actual runtime behavior. A standalone cache-key read cannot prove source execution, reacquisition or exit cleanup.
+ * @evidence contracts/e2e.md#shared-execution Two launcher and entry pairs share one project. Separate lifetimes prove cross-run source invalidation. One POSIX Node actor reuses the built SDK and never starts a compiler.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Child bytes are rewritten before each launch. The POSIX actor owns two fixture-local temp parents, restores traversal before exit, and preserves one module instance across the failed reuse. The test checks both of its cache directories after exit and removes the fixture.
+ * @evidence contracts/e2e.md#preserved-coverage Original version/status and both PID-prefix checks remain. The added actor requires actual denied reuse, the expected alternate placement and cleanup of both claims. Root and Windows hosts skip only the POSIX permission actor.
  */
 export function test_ttsx_manifest_less_child_runs_the_edited_source_on_the_next_run() {
   const child = (version: string): string =>
@@ -93,5 +95,72 @@ export function test_ttsx_manifest_less_child_runs_the_edited_source_on_the_next
       [],
       `the child ${pid} left its private cache behind`,
     );
+  }
+  if (process.platform !== "win32" && process.getuid?.() !== 0)
+    verifyDeniedDependencyCacheReuse(root);
+}
+
+/** Exercise cache reuse and alternate acquisition in one isolated Node child. */
+function verifyDeniedDependencyCacheReuse(projectRoot: string): void {
+  const fixture = TestProject.physicalPath(
+    TestProject.tmpdir("ttsx-denied-dependency-cache-"),
+  );
+  const primary = path.join(fixture, "primary");
+  const alternate = path.join(fixture, "alternate");
+  const ambient = path.join(fixture, "ambient");
+  const sdk = path.join(
+    TestProject.WORKSPACE_ROOT,
+    "packages/ttsc/lib/launcher/internal/runtime/dependencyCacheRoot.js",
+  );
+  try {
+    fs.mkdirSync(primary);
+    fs.mkdirSync(alternate);
+    fs.symlinkSync(primary, ambient, "dir");
+    const result = TestProject.spawn(
+      process.execPath,
+      [
+        "-e",
+        `
+          const assert = require("node:assert/strict");
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const { dependencyCacheRoot } = require(process.argv[1]);
+          const [primary, alternate, ambient] = process.argv.slice(2);
+          const first = dependencyCacheRoot({}, process.cwd());
+          const firstParent = path.dirname(first);
+          assert.equal(firstParent, path.join(primary, "ttsx-dep"));
+          assert.equal(dependencyCacheRoot({}, process.cwd()), first);
+          fs.chmodSync(firstParent, 0o600);
+          try {
+            assert.throws(() => fs.lstatSync(first), { code: "EACCES" });
+            fs.unlinkSync(ambient);
+            fs.symlinkSync(alternate, ambient, "dir");
+            const second = dependencyCacheRoot({}, process.cwd());
+            assert.equal(path.dirname(second), path.join(alternate, "ttsx-dep"));
+          } finally {
+            fs.chmodSync(firstParent, 0o700);
+          }
+        `,
+        sdk,
+        primary,
+        alternate,
+        ambient,
+      ],
+      {
+        cwd: projectRoot,
+        env: {
+          NODE_OPTIONS: undefined,
+          TMPDIR: ambient,
+          TTSX_RUNTIME_MANIFEST: undefined,
+        },
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    for (const parent of [primary, alternate])
+      assert.deepEqual(fs.readdirSync(path.join(parent, "ttsx-dep")), []);
+  } finally {
+    if (fs.lstatSync(ambient, { throwIfNoEntry: false }) !== undefined)
+      fs.unlinkSync(ambient);
+    fs.rmSync(fixture, { recursive: true });
   }
 }

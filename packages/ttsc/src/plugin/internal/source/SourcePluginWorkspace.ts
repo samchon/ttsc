@@ -4,9 +4,9 @@ import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
+import { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
-import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
-import { realPath } from "../../../launcher/internal/runtime/realPath";
+import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
 import type { CompilerTarget } from "./CompilerTarget";
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
@@ -16,6 +16,9 @@ import { PluginLoadAnswers } from "./PluginLoadAnswers";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
 import { formatGoWorkPath } from "./formatGoWorkPath";
+import { hasLossyGoReplacementPath } from "./hasLossyGoReplacementPath";
+import { projectWorkspaceGoEnvironmentFile } from "./projectWorkspaceGoEnvironmentFile";
+import { readPluginSourceDirectory } from "./readPluginSourceDirectory";
 import { spawnGoTool } from "./spawnGoTool";
 
 /**
@@ -48,13 +51,16 @@ export namespace SourcePluginWorkspace {
    * Copied directories and regular files are made owner-writable (`0o700` on
    * directories, `0o200` on files) so read-only source trees such as Nix stores
    * or read-only `node_modules` can receive generated files and be removed
-   * cleanly in scratch cleanup without altering keyed file bytes.
+   * cleanly in scratch cleanup without altering keyed file bytes. A source
+   * linked through a path with no UTF-8 spelling is copied through the declared
+   * link, with the physical target checked before and after. A contributing
+   * POSIX descendant with a non-UTF-8 name is refused before looking it up.
    *
    * @evidence contracts/common.md#principled-implementation The shared source-entry predicate keeps native build and metadata copies under the keyed source policy, and making the scratch copy owner-writable via lstat/chmod ensures read-only sources remain modifiable and removable without changing content digests; callers own root admission and any later digest proof.
    * @evidence contracts/common.md#clear-and-simple-design One recursive copy owner serves source modules, overlays, external replacements, contributors and metadata contexts.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No constraint interpretation or filename exception narrows the admitted copy, and permission restoration runs best-effort if copying fails so it never replaces the copy error.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes copying and owner-writable scratch permissions from later input-stability proof.
-   * @evidence contracts/portability.md#os-neutral-implementation Native filesystem operations preserve supported path identity, the shared predicate refuses observed non-root links, and lstat-guarded chmod adjusts owner write bits without following symlinks.
+   * @evidence contracts/portability.md#os-neutral-implementation The root link can retain a usable lexical path when its POSIX target has no UTF-8 spelling. POSIX names are validated as bytes before copying uses string paths. The copy verifies the byte-level root target before and after traversal. The shared predicate excludes observed non-root links, and lstat-guarded chmod adjusts owner write bits without following symlinks.
    * @evidence contracts/performance.md#efficient-algorithms Traverses admitted entries, copies their complete bytes, then walks copied entries once to add missing owner write bits; each copy entry checks cancellation and the shared naming/kind policy.
    * @evidence contracts/performance.md#reuse-equivalent-work The caller owns and reuses the resulting scratch; no historical copy cache is retained.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous copy and chmod retain no handle after returning; partial scratch cleanup remains with the enclosing metadata/build owner.
@@ -63,18 +69,76 @@ export namespace SourcePluginWorkspace {
     OwnedSynchronousProcess.checkpoint();
     fs.mkdirSync(scratch, { recursive: true });
     try {
-      fs.cpSync(source, scratch, {
+      const options: fs.CopySyncOptions = {
         recursive: true,
         filter: (input) => {
           OwnedSynchronousProcess.checkpoint();
           return copiesPluginSourceEntry(source, input);
         },
-      });
+      };
+      const sourceEntry = fs.lstatSync(source);
+      const linkedTarget = sourceEntry.isSymbolicLink()
+        ? RuntimeFilesystem.realpathWitness(source)
+        : undefined;
+      if (
+        process.platform !== "win32" &&
+        (sourceEntry.isDirectory() ||
+          (linkedTarget !== undefined &&
+            RuntimeFilesystem.rawRealpath(linkedTarget) !== undefined))
+      ) {
+        const relative = path.relative(source, scratch);
+        if (
+          relative === "" ||
+          (!path.isAbsolute(relative) &&
+            relative !== ".." &&
+            !relative.startsWith(`..${path.sep}`))
+        )
+          throw new Error(
+            `ttsc: cannot copy plugin source into itself: ${source}`,
+          );
+        copyPosixDirectory(source, scratch);
+        if (
+          linkedTarget !== undefined &&
+          RuntimeFilesystem.realpathWitness(source) !== linkedTarget
+        )
+          throw new Error(
+            `ttsc: plugin source target changed while copying: ${source}`,
+          );
+      } else {
+        fs.cpSync(source, scratch, options);
+      }
     } catch (error) {
       makeTreeOwnerWritable(scratch, true);
       throw error;
     }
     makeTreeOwnerWritable(scratch, false);
+  }
+
+  /** Copy admitted entries using the exact names qualified by enumeration. */
+  function copyPosixDirectory(source: string, target: string): void {
+    for (const { entry, name } of readPluginSourceDirectory(source)) {
+      OwnedSynchronousProcess.checkpoint();
+      const input = path.join(source, name);
+      const output = path.join(target, name);
+      if (entry.isDirectory()) {
+        if (GoSourceInputs.shouldPruneDirectory(name)) continue;
+        const current = fs.lstatSync(input, { throwIfNoEntry: false });
+        if (!current?.isDirectory()) continue;
+        const destination = fs.lstatSync(output, { throwIfNoEntry: false });
+        if (destination !== undefined && !destination.isDirectory())
+          throw new Error(
+            `ttsc: plugin source copy expected a directory at ${output}`,
+          );
+        if (destination === undefined) fs.mkdirSync(output);
+        copyPosixDirectory(input, output);
+        if (destination === undefined)
+          fs.chmodSync(output, (current.mode & 0o7777) | 0o700);
+      } else if (entry.isFile() && !GoSourceInputs.shouldOmitSourceFile(name)) {
+        fs.cpSync(input, output, {
+          filter: (file) => copiesPluginSourceEntry(source, file),
+        });
+      }
+    }
   }
 
   function makeTreeOwnerWritable(target: string, bestEffort: boolean): void {
@@ -120,9 +184,21 @@ export namespace SourcePluginWorkspace {
     goBinary: string,
     pluginName: string,
     env: NodeJS.ProcessEnv,
-    goModReader: GoModReader = createGoModReader(goBinary, pluginName, env),
+    reader?: GoModReader,
     compilerSource?: string,
+    projectRoot?: string,
+    additionalProjectRoots?: readonly string[],
   ): void {
+    const goModReader =
+      reader ??
+      createGoModReader(
+        goBinary,
+        pluginName,
+        env,
+        undefined,
+        undefined,
+        projectRoot,
+      );
     validateSourceReplacements(scratchDir, useDirs, goModReader, pluginName);
     const sourceInfo = goModReader.read(scratchDir);
     // A TypeScript 7.1 target overlays bridges and facades. Each facade shares
@@ -188,8 +264,18 @@ export namespace SourcePluginWorkspace {
     // what every listed module declares. A fixed directive rejects a module that
     // declares a patch release (`go 1.26.0` against `go 1.26`), and a module the
     // selected toolchain is too old for fails here with Go's own error.
+    GoEnvironmentReading.reportWorkspaceSettings(
+      goBinary,
+      scratchDir,
+      env,
+      projectRoot,
+      additionalProjectRoots,
+      (witness) => projectWorkspaceGoEnvironmentFile(scratchDir, env, witness),
+    );
     const settled = spawnGoTool(goBinary, ["work", "use"], {
       cwd: scratchDir,
+      projectRoot,
+      additionalProjectRoots,
       encoding: "utf8",
       env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
       windowsHide: true,
@@ -343,6 +429,7 @@ export namespace SourcePluginWorkspace {
     env: NodeJS.ProcessEnv,
     readers?: Map<string, GoModReader>,
     identities?: PluginContentIdentities.Store,
+    projectRoot?: string,
   ): GoModReader {
     const existing = readers?.get(goBinary);
     if (existing !== undefined)
@@ -363,7 +450,10 @@ export namespace SourcePluginWorkspace {
     // Shared views must forward their current label to every failed native read.
     const cache = new Map<string, GoModInfo>();
     const environment = { ...env };
+    const relativeEnvironment =
+      GoEnvironmentReading.hasRelativeFile(environment);
     let toolWitness: PluginBuildEnvironmentWitness.Record | undefined;
+    let toolCwd: string | undefined;
     // The tool part of a recorded parse's identity, formed with each qualified
     // witness; undefined without a store or a provable tool.
     let toolIdentity: unknown;
@@ -380,10 +470,17 @@ export namespace SourcePluginWorkspace {
             return emptyGoModInfo();
           throw error;
         }
+        const cwd = relativeEnvironment
+          ? createProjectTempDirectory.parent(projectRoot ?? resolved, [
+              resolved,
+            ])
+          : undefined;
         if (
           toolWitness === undefined ||
-          !PluginBuildEnvironmentWitness.holds(toolWitness)
+          cwd !== toolCwd ||
+          !PluginBuildEnvironmentWitness.reusable(toolWitness)
         ) {
+          toolCwd = cwd;
           cache.clear();
           const witness: PluginBuildEnvironmentWitness.Record = new Map();
           let launcher: fs.BigIntStats | undefined;
@@ -394,6 +491,12 @@ export namespace SourcePluginWorkspace {
           }
           if (launcher?.isFile() === true)
             PluginBuildEnvironmentWitness.add(witness, goBinary, launcher);
+          else if (path.isAbsolute(goBinary))
+            PluginBuildEnvironmentWitness.add(
+              witness,
+              goBinary,
+              launcher ?? null,
+            );
           // GOENV can change toolchain selection without changing env strings.
           // Share its existing native discovery owner; do not scan GOROOT here.
           // Do not launch a missing/unobservable tool twice just to learn that
@@ -403,12 +506,16 @@ export namespace SourcePluginWorkspace {
             launcher?.isFile() === true
               ? GoEnvironmentReading.recorded(
                   goBinary,
-                  systemTempOutsideProject(resolved),
+                  cwd ??
+                    createProjectTempDirectory.parent(projectRoot ?? resolved, [
+                      resolved,
+                    ]),
                   environment,
                   ["GOROOT"],
                   witness,
                   identities,
-                  resolved,
+                  projectRoot ?? resolved,
+                  [resolved],
                 )
               : undefined;
           if (
@@ -423,6 +530,7 @@ export namespace SourcePluginWorkspace {
                 process.platform === "win32" ? "go.exe" : "go",
               ),
             );
+          GoEnvironmentReading.reportRecovery(witness, resolved);
           const complete =
             typeof observed?.GOROOT === "string" &&
             path.isAbsolute(observed.GOROOT) &&
@@ -457,6 +565,7 @@ export namespace SourcePluginWorkspace {
           toolIdentity === undefined
             ? undefined
             : [
+                2,
                 toolIdentity,
                 crypto.createHash("sha256").update(bytes).digest("hex"),
               ];
@@ -475,10 +584,22 @@ export namespace SourcePluginWorkspace {
           goBinary,
           diagnosticPlugin,
           environment,
+          projectRoot,
+          cwd,
         );
         if (!fs.readFileSync(manifest).equals(bytes))
           throw new Error(
             `ttsc: go.mod changed while Go was reading ${manifest}`,
+          );
+        if (
+          info.directives.some(
+            ({ New }) =>
+              New?.Version === undefined && New?.Path?.includes("\ufffd"),
+          ) &&
+          hasLossyGoReplacementPath(bytes)
+        )
+          throw new Error(
+            `ttsc: local Go replacement has no UTF-8 path in ${manifest}`,
           );
         if (
           toolWitness !== undefined &&
@@ -509,23 +630,26 @@ export namespace SourcePluginWorkspace {
     goBinary: string,
     pluginName: string,
     env: NodeJS.ProcessEnv,
+    projectRoot = dir,
+    cwd = createProjectTempDirectory.parent(projectRoot, [dir]),
   ): GoModInfo {
     if (!fs.existsSync(path.join(dir, "go.mod"))) {
       return emptyGoModInfo();
     }
 
-    // `go mod edit` takes the file as an argument, so the tool runs from the
-    // system temporary directory rather than from `dir`: a copy of an external
+    // `go mod edit` takes the file as an argument, so the tool runs from a
+    // private parent outside the project, normally the system temporary
+    // directory, rather than from `dir`: a copy of an external
     // source mirrors its absolute path below the build's scratch directory, and
     // Windows refuses a working directory longer than MAX_PATH even where every
     // path the build itself opens is fine.
-    const cwd = systemTempOutsideProject(dir);
     const result = spawnGoTool(
       goBinary,
       ["mod", "edit", "-json", path.join(dir, "go.mod")],
       {
         cwd,
-        projectRoot: dir,
+        projectRoot,
+        additionalProjectRoots: [dir],
         encoding: "utf8",
         env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
         windowsHide: true,
@@ -763,21 +887,48 @@ export namespace SourcePluginWorkspace {
    * the project's own compiler was built from, which plugin and compiler hosts
    * then build against in place of the revision ttsc pins. An existing symbolic
    * link or junction is followed to its physical directory, so the key, copy,
-   * watch and report name one real directory; a path that does not exist keeps
-   * its lexical spelling so admission still names what was declared. Undefined
-   * when the variable is unset or empty. A relative path is refused, since the
-   * builds of one load run from different working directories.
+   * watch and report name one real directory. Missing targets and POSIX targets
+   * without a UTF-8 spelling retain the declaration for native lookups.
+   * Undefined when the variable is unset or empty. A relative path is refused,
+   * since the builds of one load run from different working directories.
    *
-   * @evidence contracts/common.md#principled-implementation The variable is read from the load's effective environment, as TTSC_TSGO_BINARY is, so a programmatic env override declares the source for exactly the builds it selects the compiler for; resolving an existing link once through realPath keeps keying, copying, watching and reporting on one physical directory instead of failing materialize on a root symlink, while a missing path keeps its lexical spelling for admission diagnostics.
+   * @evidence contracts/common.md#principled-implementation The variable is read from the load's effective environment, as TTSC_TSGO_BINARY is, so a programmatic env override declares the source for exactly the builds it selects the compiler for. Native resolution supplies the physical path when it is representable. Otherwise the existing lexical path remains the I/O address and the host input proof compares the target witness separately.
    * @evidence contracts/common.md#clear-and-simple-design One accessor owns the variable's reading, its absolute-path rule and best-effort physical resolution; every overlay list, watch projection and the workspace writer ask it.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A relative value is refused instead of being resolved against whichever working directory a caller happens to have; failed realpath keeps the resolved lexical spelling rather than fabricating a physical path.
-   * @evidence contracts/common.md#meaningful-documentation States what the directory is, symlink resolution, the missing-path lexical fallback, the undefined result and why a relative path is refused.
-   * @evidence contracts/portability.md#os-neutral-implementation SidecarEnvironment.read applies the platform's variable-name policy, path.isAbsolute and path.resolve apply the native path grammar, and realPath resolves native links and Windows short names via fs.realpathSync.native; no OS name is consulted.
+   * @evidence contracts/common.md#meaningful-documentation States what the directory is, when lexical spelling remains the I/O address, the undefined result and why a relative path is refused.
+   * @evidence contracts/portability.md#os-neutral-implementation SidecarEnvironment.read applies the platform's variable-name policy, path.isAbsolute and path.resolve apply the native path grammar, and the native realpath witness distinguishes POSIX byte paths from directly usable strings.
    * @evidenceExclude contracts/performance.md#efficient-algorithms One environment read, path normalization and native realpath lookup own no population-processing strategy.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The caller owns a mutable environment and links may change, so no earlier reading has a validity identity to reuse.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains no state, handle or task.
    */
   export function compilerSource(env: NodeJS.ProcessEnv): string | undefined {
+    const declaration = compilerSourceDeclaration(env);
+    if (declaration === undefined) return undefined;
+    try {
+      const target = RuntimeFilesystem.realpathWitness(declaration);
+      return RuntimeFilesystem.rawRealpath(target) === undefined
+        ? target
+        : declaration;
+    } catch {
+      return declaration;
+    }
+  }
+
+  /**
+   * Read the lexical compiler source declaration before resolving its links.
+   *
+   * @evidence contracts/common.md#principled-implementation Preserves the absolute address whose current target selects the compiler.
+   * @evidence contracts/common.md#clear-and-simple-design The physical source accessor and watch input selection share the environment read and validation.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A relative declaration fails under the existing working-directory contract.
+   * @evidence contracts/common.md#meaningful-documentation Separates the reported declaration from the physical build root.
+   * @evidence contracts/portability.md#os-neutral-implementation Uses native path grammar and environment-name identity.
+   * @evidence contracts/performance.md#efficient-algorithms Performs one environment lookup and lexical normalization without reading the source tree.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Reads the caller's current environment each time.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains no state or handle.
+   */
+  export function compilerSourceDeclaration(
+    env: NodeJS.ProcessEnv,
+  ): string | undefined {
     const value = SidecarEnvironment.read(
       env,
       SourcePluginAdmission.COMPILER_SOURCE_ENV,
@@ -788,7 +939,7 @@ export namespace SourcePluginWorkspace {
         `ttsc: ${SourcePluginAdmission.COMPILER_SOURCE_ENV} must be an absolute ` +
           `directory path, not ${JSON.stringify(value)}.`,
       );
-    return realPath(path.resolve(value));
+    return path.resolve(value);
   }
 
   /**

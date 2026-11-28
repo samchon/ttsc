@@ -1,5 +1,6 @@
 import type { TtscWatchInputBaseline } from "../transform/watch/TtscWatchInputBaseline";
 import type { TtscWatchInputEvidence } from "../transform/watch/TtscWatchInputEvidence";
+import type { TtscWorkspaceWatchEvidence } from "../transform/watch/TtscWorkspaceWatchEvidence";
 
 /**
  * One recorded state of a watched compiler input, shared by the owners that
@@ -38,6 +39,12 @@ export interface InputCondition {
 
   /** The generation's recorded state for the input. */
   evidence?: TtscWatchInputEvidence;
+
+  /** Internal recovery digest; null records an unavailable directory. */
+  recoveryTree?: string | null;
+
+  /** Independently observed metadata from a generated Go workspace. */
+  workspace?: TtscWorkspaceWatchEvidence;
 
   /** Native owner spellings notified when this state changes or is unproved. */
   owners: Set<string>;

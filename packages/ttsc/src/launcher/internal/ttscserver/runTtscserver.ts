@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { outputText } from "../../../compiler/internal/outputText";
 import { createNativeProjectContextArgs } from "../../../compiler/internal/project/createNativeProjectContextArgs";
+import { projectConsumerRoots } from "../../../compiler/internal/project/projectConsumerRoots";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { resolveBinary } from "../../../compiler/internal/resolveBinary";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
@@ -217,6 +218,8 @@ function resolveTtscserverEnv(launch: LSPLaunchOptions): TtscserverEnvironment {
   const selectionInputs =
     context.selectionInputs !== undefined &&
     (Object.keys(context.selectionInputs.descriptorFiles).length !== 0 ||
+      context.selectionInputs.rawDescriptorFiles !== undefined ||
+      context.selectionInputs.workspaceFiles !== undefined ||
       Object.keys(context.selectionInputs.sourceFiles).length !== 0)
       ? context.selectionInputs
       : undefined;
@@ -224,23 +227,26 @@ function resolveTtscserverEnv(launch: LSPLaunchOptions): TtscserverEnvironment {
     // No transport is needed without plugins or observed selection inputs.
     return { args: [], dispose() {}, env };
   }
-  const transport = materializeLSPPluginManifest({
-    initialProjectInputs: Object.fromEntries(context.initialProjectInputs),
-    plugins: serializeNativePlugins(context.nativePlugins),
-    projectContext: context.projectContext,
-    ...(selectionInputs === undefined ? {} : { selectionInputs }),
-    lspPlugins: lspPlugins.map((plugin) => ({
-      binary: plugin.binary,
-      ...(plugin.capabilities?.projectInputs === true
-        ? { initialProjectInputKey: lspPluginTransportKey(plugin) }
-        : {}),
-      name: plugin.name,
-      projectDiagnostics: plugin.capabilities?.projectDiagnostics === true,
-      projectInputs: plugin.capabilities?.projectInputs === true,
-      projectContextArgs: plugin.capabilities?.projectContextArgs === true,
-      stage: plugin.stage,
-    })),
-  });
+  const transport = materializeLSPPluginManifest(
+    {
+      initialProjectInputs: Object.fromEntries(context.initialProjectInputs),
+      plugins: serializeNativePlugins(context.nativePlugins),
+      projectContext: context.projectContext,
+      ...(selectionInputs === undefined ? {} : { selectionInputs }),
+      lspPlugins: lspPlugins.map((plugin) => ({
+        binary: plugin.binary,
+        ...(plugin.capabilities?.projectInputs === true
+          ? { initialProjectInputKey: lspPluginTransportKey(plugin) }
+          : {}),
+        name: plugin.name,
+        projectDiagnostics: plugin.capabilities?.projectDiagnostics === true,
+        projectInputs: plugin.capabilities?.projectInputs === true,
+        projectContextArgs: plugin.capabilities?.projectContextArgs === true,
+        stage: plugin.stage,
+      })),
+    },
+    context.projectContext ?? path.resolve(launch.cwd),
+  );
   // Deliver the manifest as an explicit flag rather than an inherited variable.
   // A native host that predates the flag rejects the invocation instead of
   // starting without the plugins this project declared, and nothing downstream
@@ -443,6 +449,7 @@ function captureInitialLSPProjectInputs(options: {
     });
     SidecarEnvironment.write(env, BATCH_ENV, "1");
     const result = spawnNative(plugin.binary, args, {
+      additionalProjectRoots: projectConsumerRoots(options.project.identity),
       cwd: options.project.root,
       env,
     });

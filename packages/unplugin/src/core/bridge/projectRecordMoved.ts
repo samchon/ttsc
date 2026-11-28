@@ -2,6 +2,7 @@ import { refreshProcessClockReference } from "../transform/clock/refreshProcessC
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../transform/filesystem/TtscTransformFilesystemOperations";
 import { walkProjectInputs } from "../transform/project/walkProjectInputs";
+import { captureRecoveryTreeDigest } from "../transform/watch/captureRecoveryTreeDigest";
 import { watchInputEvidenceMatchesDisk } from "../transform/watch/watchInputEvidenceMatchesDisk";
 import type { TtscProjectRecord } from "./TtscProjectRecord";
 import { membershipRecordDigest } from "./membershipRecordDigest";
@@ -65,6 +66,12 @@ export function projectRecordMoved(
   if (!projectRecordArgumentsMatch(record, compilerArgumentsIdentity))
     return record.root;
   refreshProcessClockReference(record.root, filesystem);
+  if (
+    record.recoveryTree !== undefined &&
+    captureRecoveryTreeDigest(record.recoveryTree.file, filesystem) !==
+      record.recoveryTree.digest
+  )
+    return record.recoveryTree.file;
   for (const [input, evidence] of Object.entries(record.inputs)) {
     if (evidence === null || typeof evidence !== "object") return input;
     if (

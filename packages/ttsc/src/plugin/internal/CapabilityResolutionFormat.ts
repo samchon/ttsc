@@ -45,7 +45,7 @@ export namespace CapabilityResolutionFormat {
    * positive content and physical proof now withdraws reuse, so entries from
    * before that producer rule must be discovered again.
    */
-  const FORMAT = "ttsc-capability-resolution-v8";
+  const FORMAT = "ttsc-capability-resolution-v9";
 
   /**
    * The character that joins fields a path could otherwise forge.
@@ -122,15 +122,16 @@ export namespace CapabilityResolutionFormat {
   }): string | null {
     const environment = SidecarEnvironment.merge(options.env ?? process.env);
     const resolvedCwd = path.resolve(options.cwd);
-    const preloadKey = TrustedNodeOptions.key({
-      cwd: resolvedCwd,
-      env: environment,
-      identities: options.identities,
-    });
-    if (preloadKey === null) return null;
     const runtime =
       SidecarEnvironment.read(environment, "TTSC_NODE_BINARY") ??
       process.execPath;
+    const preloadKey = TrustedNodeOptions.key({
+      cwd: resolvedCwd,
+      env: environment,
+      runtime,
+      identities: options.identities,
+    });
+    if (preloadKey === null) return null;
     if (!path.isAbsolute(runtime)) return null;
     let root: string;
     let runtimeIdentity: string;

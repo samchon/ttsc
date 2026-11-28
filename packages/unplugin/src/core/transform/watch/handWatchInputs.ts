@@ -1,3 +1,4 @@
+import { RECOVERY_TREE_DIGEST } from "./RECOVERY_TREE_DIGEST";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
 
@@ -27,13 +28,13 @@ import type { TtscWatchInput } from "./TtscWatchInput";
  * @param failed Whether they are a failed generation's, for a batching host.
  * @param environmentInputs Generation-time environment reads for a batching
  *   host's persistent key, including recorded absences.
- * @evidence contracts/common.md#principled-implementation Exact registration spellings are deduplicated with membership preferred over ordinary evidence and evidence over a recovery-only path; equal-ranked entries retain the first observation.
+ * @evidence contracts/common.md#principled-implementation Exact registration spellings are deduplicated with membership preferred over ordinary evidence and evidence over a recovery-only path; equal-ranked entries retain the first observation. The private source recovery digest accompanies the selected input so it can coexist with membership.
  * @evidence contracts/common.md#clear-and-simple-design One precedence pass feeds either the batch callback or individual callbacks, leaving evidence derivation and bundler policy with their owners.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Contract-defined precedence keeps the strongest available input meaning without inventing facts, and batch preference follows the supported callback contract.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Contract-defined precedence keeps the strongest available input meaning without inventing facts, and batch preference follows the supported callback contract. Undefined recovery means no attachment; null preserves a registered but unavailable source.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains callback preference, deduplication and precedence, with separated tags following documentation guidance.
- * @evidence contracts/performance.md#efficient-algorithms One pass performs N keyed selection operations with fixed rank checks, followed by a U-entry array copy, avoiding pairwise duplicate searches. Map hashing/comparison pays exact spelling text costs, and temporary storage retains U entries/keys. One batch or U individual callback effects add their host-owned work; no-hook delivery returns before selection/allocation.
+ * @evidence contracts/performance.md#efficient-algorithms One pass performs N keyed selection operations with fixed rank checks, followed by a U-entry array copy, avoiding pairwise duplicate searches. Duplicate registrations query the weak attachment and copy the selected input only to carry over a missing recovery digest. Map hashing/comparison pays exact spelling text costs, and temporary storage retains U entries/keys. One batch or U individual callback effects add their host-owned work; no-hook delivery returns before selection/allocation.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Callback delivery is an effect for each module; matching input values do not authorize suppressing another host notification.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The chosen map and batch are call-local; host callbacks own any retained watcher state after delivery.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The chosen map and batch are call-local; the weak attachment follows its input's lifetime, and host callbacks own retained registrations after delivery.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Deduplicates inputs by their exact spelling and hands them to host callbacks; no path is parsed.
  */
 export function handWatchInputs(
@@ -48,9 +49,24 @@ export function handWatchInputs(
   const chosen = new Map<string, TtscWatchInput>();
   for (const input of inputs) {
     const kept = chosen.get(input.file);
-    if (kept === undefined || rank(input) > rank(kept)) {
+    if (kept === undefined) {
       chosen.set(input.file, input);
+      continue;
     }
+    const winner = rank(input) > rank(kept) ? input : kept;
+    const other = winner === input ? kept : input;
+    const recovery = RECOVERY_TREE_DIGEST.get(other);
+    const workspace = winner.evidence?.workspace ?? other.evidence?.workspace;
+    const combined =
+      workspace !== undefined && winner.evidence?.workspace === undefined
+        ? { ...winner, evidence: { ...winner.evidence!, workspace } }
+        : recovery !== undefined && !RECOVERY_TREE_DIGEST.has(winner)
+          ? { ...winner }
+          : winner;
+    const retainedRecovery = RECOVERY_TREE_DIGEST.get(winner) ?? recovery;
+    if (retainedRecovery !== undefined && combined !== winner)
+      RECOVERY_TREE_DIGEST.set(combined, retainedRecovery);
+    chosen.set(input.file, combined);
   }
   const distinct = [...chosen.values()];
   if (addWatchFiles !== undefined) {

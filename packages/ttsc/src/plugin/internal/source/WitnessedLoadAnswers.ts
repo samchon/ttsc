@@ -70,11 +70,7 @@ export namespace WitnessedLoadAnswers {
     const record: PluginBuildEnvironmentWitness.Record = new Map(
       witness as [string, string][],
     );
-    return PluginBuildEnvironmentWitness.holds(
-      record,
-      undefined,
-      currentReadings,
-    )
+    return PluginBuildEnvironmentWitness.reusable(record, currentReadings)
       ? { value, witness: record }
       : undefined;
   }
@@ -103,35 +99,11 @@ export namespace WitnessedLoadAnswers {
     value: unknown,
     witness: PluginBuildEnvironmentWitness.Record,
   ): void {
-    if (store === undefined || !PluginBuildEnvironmentWitness.holds(witness))
+    if (store === undefined || !PluginBuildEnvironmentWitness.reusable(witness))
       return;
     PluginLoadAnswers.write(store, kind, identity, {
       value,
       witness: [...witness],
     });
-  }
-
-  /**
-   * Add `source`'s observations the caller has not made itself, so a caller
-   * that compares its witness after a build compares these too.
-   *
-   * @param target The caller's witness, or `undefined` for none.
-   * @param source Observations of the answer just used.
-   * @evidence contracts/common.md#principled-implementation The caller's earlier observation of a path wins, as a first observation does in the witness.
-   * @evidence contracts/common.md#clear-and-simple-design One merge serves served and fresh answers.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts No observation is dropped or rewritten.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states why the observations join the caller's.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation A map merge performs no native operation.
-   * @evidence contracts/performance.md#efficient-algorithms One pass over the source rows.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A merge coordinates no work.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Rows move into the caller's map.
-   */
-  export function join(
-    target: PluginBuildEnvironmentWitness.Record | undefined,
-    source: PluginBuildEnvironmentWitness.Record,
-  ): void {
-    if (target === undefined) return;
-    for (const [file, state] of source)
-      if (!target.has(file)) target.set(file, state);
   }
 }

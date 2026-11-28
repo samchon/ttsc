@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 
 /**
@@ -52,18 +53,34 @@ export namespace GoToolResolution {
     witness?: PluginBuildEnvironmentWitness.Record,
   ): string {
     if (process.platform !== "win32") {
+      // An already absolute path has no preceding search candidates. The build
+      // witnesses the selected SDK after its owned permission preparation.
+      const searchWitness = path.isAbsolute(binary) ? undefined : witness;
       for (const candidate of executableSearchBases(binary, env, cwd)) {
-        if (!isExecutableFile(candidate)) continue;
+        if (!isExecutableFile(candidate, searchWitness)) continue;
         try {
           fs.accessSync(candidate, fs.constants.X_OK);
-          return candidate;
         } catch {
           // A non-executable PATH entry must not shadow a later usable tool.
+          continue;
+        }
+        if (!hasParentComponent(candidate)) return candidate;
+        // Keep an executable spelling for parents that cannot round-trip UTF-8.
+        PluginBuildEnvironmentWitness.add(witness, candidate);
+        try {
+          const directory = RuntimeFilesystem.realpathWitness(
+            path.dirname(candidate),
+          );
+          return RuntimeFilesystem.rawRealpath(directory) === undefined
+            ? path.join(directory, path.basename(candidate))
+            : candidate;
+        } catch {
+          return candidate;
         }
       }
       return path.isAbsolute(binary) || !hasPathQualifier(binary)
         ? binary
-        : path.resolve(cwd, binary);
+        : workingPath(cwd, binary);
     }
     return resolveWindowsGoTool(binary, env, cwd, witness).location ?? binary;
   }
@@ -95,19 +112,20 @@ export namespace GoToolResolution {
     const candidates = executableSearchBases(binary, env, cwd, witness);
     if (isWindowsCommandWrapper(binary)) {
       return {
-        location: candidates.find(isExecutableFile) ?? null,
+        location:
+          candidates.find((file) => isExecutableFile(file, witness)) ?? null,
         wrapper: true,
       };
     }
 
     const hasExtension = windowsFileNameHasExtension(binary);
     for (const candidate of candidates) {
-      if (hasExtension && isExecutableFile(candidate)) {
+      if (hasExtension && isExecutableFile(candidate, witness)) {
         return { location: candidate, wrapper: false };
       }
       for (const extension of [".com", ".exe"]) {
         const executable = candidate + extension;
-        if (isExecutableFile(executable)) {
+        if (isExecutableFile(executable, witness)) {
           return { location: executable, wrapper: false };
         }
       }
@@ -119,7 +137,7 @@ export namespace GoToolResolution {
     for (const candidate of candidates) {
       for (const extension of wrapperExtensions) {
         const executable = candidate + extension;
-        if (isExecutableFile(executable)) {
+        if (isExecutableFile(executable, witness)) {
           return { location: executable, wrapper: true };
         }
       }
@@ -137,7 +155,7 @@ export namespace GoToolResolution {
    * @evidence contracts/common.md#clear-and-simple-design Base construction is independent of executable-extension probing, allowing Go and external-command identity readers to share it.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Search fallback uses the native POSIX default or Windows inherited PATH semantics, not a privileged compiler directory.
    * @evidence contracts/common.md#meaningful-documentation The prose states absolute/qualified handling, current-directory precedence and the disabling switch.
-   * @evidence contracts/portability.md#os-neutral-implementation Node's delimiter and native paths govern POSIX search; Windows semicolon quoting and case-insensitive PATH retrieval are explicit boundaries.
+   * @evidence contracts/portability.md#os-neutral-implementation Node's delimiter and native paths govern POSIX search. Parent components stay available to native lookup. Windows semicolon quoting and case-insensitive PATH retrieval are explicit boundaries.
    * @evidence contracts/performance.md#efficient-algorithms Absolute/qualified inputs take native path checks; bare names split complete PATH text and map directories to full resolved strings. Windows also filters/unquotes entries, can enumerate/casefold environment names and witnesses the ambient cwd-search switch. Path/name/environment bytes and intermediate arrays contribute processing/storage beyond candidate count.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This constructs bases from current arguments and owns no cross-request search cache.
@@ -150,7 +168,7 @@ export namespace GoToolResolution {
     witness?: PluginBuildEnvironmentWitness.Record,
   ): string[] {
     if (path.isAbsolute(binary)) return [binary];
-    if (hasPathQualifier(binary)) return [path.resolve(cwd, binary)];
+    if (hasPathQualifier(binary)) return [workingPath(cwd, binary)];
 
     const directories =
       process.platform === "win32"
@@ -179,7 +197,37 @@ export namespace GoToolResolution {
     ) {
       directories.unshift(cwd);
     }
-    return directories.map((dir) => path.resolve(cwd, dir, binary));
+    return process.platform === "win32"
+      ? directories.map((dir) => path.resolve(cwd, dir, binary))
+      : directories.map((dir) => workingPath(workingPath(cwd, dir), binary));
+  }
+
+  /**
+   * Make a cwd-relative path absolute while retaining POSIX parent traversal.
+   * The kernel must follow a symbolic link before it reads a following `..`.
+   *
+   * @evidence contracts/common.md#principled-implementation An absolute base anchors relative lookups. POSIX parent components remain in the lookup spelling, while Win32 uses Node's native resolution rules.
+   * @evidence contracts/common.md#clear-and-simple-design Go launcher selection and capture share the same cwd path construction.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The helper does not guess a symlink's physical target or modify the parent environment.
+   * @evidence contracts/common.md#meaningful-documentation States why POSIX parent components survive and what result the caller receives.
+   * @evidence contracts/portability.md#os-neutral-implementation Native path APIs establish absolute input and Windows drive resolution. POSIX retains the spelling for native filesystem lookup.
+   * @evidence contracts/performance.md#efficient-algorithms One bounded pass over the path components and optional normalizing pass, with no filesystem metadata read.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Path construction does not retain completed lookups.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No native resource or retained state is acquired.
+   */
+  export function workingPath(cwd: string, location = ""): string {
+    if (process.platform === "win32") return path.resolve(cwd, location);
+    const base = path.isAbsolute(cwd) ? cwd : `${process.cwd()}/${cwd}`;
+    const absolute = path.isAbsolute(location)
+      ? location
+      : location === ""
+        ? base
+        : `${base}/${location}`;
+    return hasParentComponent(absolute) ? absolute : path.normalize(absolute);
+  }
+
+  function hasParentComponent(location: string): boolean {
+    return /(?:^|\/)\.\.(?:\/|$)/.test(location);
   }
 
   /**
@@ -188,7 +236,7 @@ export namespace GoToolResolution {
    * This is a file-kind probe; POSIX executable permission is checked by the
    * build-facing resolver separately.
    *
-   * @evidence contracts/common.md#principled-implementation stat's regular-file classification rejects directories and missing candidates without claiming execute access from file existence alone.
+   * @evidence contracts/common.md#principled-implementation Native stat classifies the candidate and records that same observation when a witness is supplied. POSIX execute access follows this regular-file check.
    * @evidence contracts/common.md#clear-and-simple-design One kind probe is shared by native and wrapper candidate searches; permission policy stays with the resolver that needs it.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Candidate failures return false rather than introducing a known-tool exception that bypasses the filesystem.
    * @evidence contracts/common.md#meaningful-documentation The native paragraphs explicitly distinguish file kind from POSIX execute permission.
@@ -198,10 +246,17 @@ export namespace GoToolResolution {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Fresh file state is probed rather than cached beyond its observation.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous stat creates no lasting handle or retained state.
    */
-  export function isExecutableFile(location: string): boolean {
+  export function isExecutableFile(
+    location: string,
+    witness?: PluginBuildEnvironmentWitness.Record,
+  ): boolean {
     try {
-      return fs.statSync(location).isFile();
+      if (witness === undefined) return fs.statSync(location).isFile();
+      const observed = fs.statSync(location, { bigint: true });
+      PluginBuildEnvironmentWitness.add(witness, location, observed);
+      return observed.isFile();
     } catch {
+      PluginBuildEnvironmentWitness.add(witness, location, null);
       return false;
     }
   }

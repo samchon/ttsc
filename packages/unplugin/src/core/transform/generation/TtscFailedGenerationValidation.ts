@@ -1,3 +1,5 @@
+import type { ITtscCompilerTransformation } from "ttsc";
+
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import type { TtscFailedGenerationInputState } from "./TtscFailedGenerationInputState";
 
@@ -30,6 +32,9 @@ export interface TtscFailedGenerationValidation {
 
   /** Fingerprints of every out-of-walk and exact host input. */
   inputStates: ReadonlyMap<string, TtscFailedGenerationInputState>;
+
+  /** Exact workspace observations taken when declaring terminal failure. */
+  workspaceInputs?: ITtscCompilerTransformation.ISuccess["workspaceInputs"];
 
   /** On-disk project hashes the final attempt's walk recorded. */
   projectInputHashes: Readonly<Record<string, string>>;

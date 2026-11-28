@@ -32,7 +32,7 @@ import { windowsGoCommandArgs } from "./windowsGoCommandArgs";
  * @evidence contracts/common.md#clear-and-simple-design Output capture lifetime is separate from process selection and wrapper quoting; finally covers spawn failures and output-read failures alike.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts POSIX broker retry handles actual descriptor exhaustion and Windows cmd handles supported batch wrappers; neither changes a failed build into an assumed success.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain file capture, missing-wrapper ENOENT and the platform errno/quoting semantics; prose and tags remain distinct.
- * @evidence contracts/portability.md#os-neutral-implementation Windows cmd wrappers are isolated with verbatim arguments and case-insensitive environment lookup; native binaries and POSIX go use Node spawning and the descriptor broker.
+ * @evidence contracts/portability.md#os-neutral-implementation Windows cmd wrappers use verbatim arguments and case-insensitive environment lookup. Native binaries use Node spawning and the descriptor broker. An omitted project root retains POSIX cwd parent traversal for native capture-boundary checks.
  * @evidence contracts/performance.md#efficient-algorithms File capture avoids the pipe buffer ceiling but performs native acquisition/spawn/full output reads and decoding. Windows selection adds PATH/PATHEXT/native queries; wrapper environment/payload construction processes full argument/name bytes and regex quoting whose backtracking is not asserted linear here. Complete stdout/stderr strings and transient buffers/serialized argv data contribute memory beyond argument count.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Go commands can write build/module state and cannot share a result merely because executable and arguments match.
@@ -42,7 +42,11 @@ import { windowsGoCommandArgs } from "./windowsGoCommandArgs";
 export function spawnGoTool(
   goBinary: string,
   args: readonly string[],
-  options: SpawnSyncOptionsWithStringEncoding & { projectRoot?: string },
+  options: SpawnSyncOptionsWithStringEncoding & {
+    projectRoot?: string;
+    additionalProjectRoots?: readonly string[];
+    onStdoutBytes?: (bytes: Buffer) => void;
+  },
   captureDirectory?: string,
 ): SpawnSyncReturns<string> {
   // The child's streams go to files rather than pipes, so no output ceiling
@@ -54,10 +58,12 @@ export function spawnGoTool(
     process.env,
     captureDirectory,
     projectRoot,
+    options.additionalProjectRoots,
   );
   const temporary = path.dirname(capture.stdoutPath);
+  const { onStdoutBytes, ...nativeOptions } = options;
   const spawnOptions = {
-    ...options,
+    ...nativeOptions,
     // The relay may supervise a Go command with a neutral system-temp cwd.
     // Its receipt still uses the actual project boundary.
     projectRoot,
@@ -74,7 +80,13 @@ export function spawnGoTool(
       stderr: capture.stderrPath,
       stdout: capture.stdoutPath,
     });
-    const stdout = capture.read("stdout", "utf8") as string;
+    const bytes =
+      onStdoutBytes === undefined
+        ? undefined
+        : (capture.read("stdout", "buffer") as Buffer);
+    if (bytes !== undefined) onStdoutBytes?.(bytes);
+    const stdout =
+      bytes?.toString("utf8") ?? (capture.read("stdout", "utf8") as string);
     const stderr = capture.read("stderr", "utf8") as string;
     return {
       ...result,
@@ -191,8 +203,13 @@ function systemErrno(name: string): number | undefined {
 function spawnWorkingDirectory(
   cwd: SpawnSyncOptionsWithStringEncoding["cwd"],
 ): string {
-  if (cwd === undefined) return process.cwd();
-  return path.resolve(typeof cwd === "string" ? cwd : fileURLToPath(cwd));
+  return GoToolResolution.workingPath(
+    cwd === undefined
+      ? process.cwd()
+      : typeof cwd === "string"
+        ? cwd
+        : fileURLToPath(cwd),
+  );
 }
 
 /** Pass volatile cmd wrapper arguments through one-pass environment expansion. */

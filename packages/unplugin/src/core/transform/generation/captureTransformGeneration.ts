@@ -49,6 +49,7 @@ import { compilerGraphInputProofFailures } from "../validation/compilerGraphInpu
 import { restrictNotificationCoverageToProvenInputs } from "../validation/restrictNotificationCoverageToProvenInputs";
 import { walkSnapshotComplete } from "../validation/walkSnapshotComplete";
 import { witnessExternalDependencies } from "../validation/witnessExternalDependencies";
+import { captureRecoveryTreeDigest } from "../watch/captureRecoveryTreeDigest";
 import { TRANSFORM_FAILED_GENERATION_VALIDATIONS } from "./TRANSFORM_FAILED_GENERATION_VALIDATIONS";
 import { TRANSFORM_GENERATION_FAILURES } from "./TRANSFORM_GENERATION_FAILURES";
 import type { TtscCompilerMembershipHint } from "./TtscCompilerMembershipHint";
@@ -391,6 +392,7 @@ export async function captureTransformGeneration(props: {
     // never touched (samchon/ttsc#1488), and the host keeps serving other work
     // while it runs (samchon/ttsc#1391).
     let result: ITtscCompilerTransformation;
+    let compilerSourceBefore: TtscCachedProjectTransform["failedCompilerSource"];
     if (adopted !== undefined) {
       result = adopted.result;
       compileTrace?.("bridge-cache-hit", {
@@ -410,6 +412,26 @@ export async function captureTransformGeneration(props: {
           tsconfig: configured.path,
         },
       });
+      const name =
+        process.platform === "win32"
+          ? Object.keys(compilerEnvironment)
+              .filter((key) => key.toUpperCase() === "TTSC_TSGO_SOURCE")
+              .sort()[0]
+          : "TTSC_TSGO_SOURCE";
+      const compilerSource =
+        name === undefined ? undefined : compilerEnvironment[name];
+      if (compilerSource && path.isAbsolute(compilerSource)) {
+        const file = path.resolve(compilerSource);
+        // A repair may land after the failed read and before the exception
+        // reaches this worker. Watch from the state before invoking it.
+        compilerSourceBefore = {
+          file,
+          digest: captureRecoveryTreeDigest(file, props.filesystem, {
+            projectRoot,
+            environment: compilerEnvironment,
+          }),
+        };
+      }
       try {
         result = await new TtscCompiler({
           cwd: projectRoot,
@@ -510,6 +532,10 @@ export async function captureTransformGeneration(props: {
       scratchDirectory: envelopeScratchDirectory,
       temporaryTsconfig: envelopeTemporaryTsconfig,
     });
+    const failedCompilerSource =
+      result.type === "exception" ? compilerSourceBefore : undefined;
+    if (failedCompilerSource !== undefined)
+      externalInputPaths.push(failedCompilerSource.file);
     // A plugin's Go source is as universal an input as any host input, and the
     // tracker watches it as a whole subtree (samchon/ttsc#1487).
     const persistentValidationInputs = [
@@ -714,6 +740,7 @@ export async function captureTransformGeneration(props: {
       externalInputHashes: {},
       externalInputRealpaths: {},
       externalInputPaths,
+      ...(failedCompilerSource === undefined ? {} : { failedCompilerSource }),
       directExternalInputs,
       configStateComplete: configStable,
       projectHeldStill: walkStable,
@@ -980,6 +1007,7 @@ export async function captureTransformGeneration(props: {
       if (
         result.type !== "exception" &&
         result.observationsComplete !== false &&
+        result.workspaceReplayRequired !== true &&
         Object.keys(result.hostInputProofFailures ?? {}).length === 0 &&
         (result.type === "success"
           ? stableProjectSnapshot

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
+import { createProjectTempDirectory } from "../../internal/createProjectTempDirectory";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import { parseEnvironmentInputs } from "./parseEnvironmentInputs";
@@ -55,6 +55,8 @@ export function runNativeCheckWithObservations(
   run: (extraArgs: readonly string[]) => TtscBuildResult,
   /** Actual argv verb; legacy direct callers already represent a check. */
   command: string = "check",
+  projectRoot: string = process.cwd(),
+  additionalProjectRoots?: readonly string[],
 ): TtscBuildResult {
   const emitting =
     command === "build" && plugin.capabilities?.emitObservations === true;
@@ -67,7 +69,11 @@ export function runNativeCheckWithObservations(
   let directory: string;
   let ownership: fs.Stats;
   try {
-    directory = createCanonicalTempDirectory("ttsc-check-observations-");
+    directory = createProjectTempDirectory(
+      "ttsc-check-observations-",
+      projectRoot,
+      additionalProjectRoots,
+    );
     ownership = fs.lstatSync(directory);
   } catch (error) {
     if (emitting) return { ...run([]), observationsComplete: false };

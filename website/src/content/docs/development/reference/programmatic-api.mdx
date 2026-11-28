@@ -78,7 +78,7 @@ Plugin payload capture uses JSON serialization, including `Date` and custom `toJ
 
 Runs the configured project through the TypeScript-Go pipeline and returns the structured result as a discriminated union.
 
-For projects with no plugins, ttsc starts its native TypeScript-Go host in a separate process. That host captures `WriteFile` callbacks and returns the `output` map through `api-compile`. For projects with plugins, ttsc runs the plugin pipeline against a private system temporary directory, reads the generated text back into memory, and removes the temp directory before returning.
+For projects with no plugins, ttsc starts its native TypeScript-Go host in a separate process. That host captures `WriteFile` callbacks and returns the `output` map through `api-compile`. For projects with plugins, ttsc runs the plugin pipeline against a private system temporary directory, or the `identities` directory of the project's ttsc cache when no system temporary directory lies outside every project, reads the generated text back into memory, and removes that directory before returning.
 
 **Result shape** ([`ITtscCompilerResult`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/src/structures/ITtscCompilerResult.ts)):
 

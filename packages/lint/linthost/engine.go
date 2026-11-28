@@ -22,6 +22,7 @@ import (
   "errors"
   "fmt"
   "os"
+  "reflect"
   "runtime"
   "sort"
   "sync"
@@ -868,6 +869,23 @@ func AllRuleNames() []string {
   return names
 }
 
+// The diagnostic ledger retains retired names. A built-in must be implemented
+// in this package, and the two public extension adapters are never built-ins.
+func isBuiltInFileRule(name string, rule Rule) bool {
+  if _, known := builtInRuleCodes[name]; !known {
+    return false
+  }
+  switch rule.(type) {
+  case contributorAdapter, formatContributorAdapter:
+    return false
+  }
+  implementation := reflect.TypeOf(rule)
+  if implementation.Kind() == reflect.Pointer {
+    implementation = implementation.Elem()
+  }
+  return implementation.PkgPath() == reflect.TypeFor[Engine]().PkgPath()
+}
+
 // Engine binds a rule configuration to a Program and walks the AST once
 // per source file, dispatching each visited node to its interested rules.
 //
@@ -889,21 +907,21 @@ func AllRuleNames() []string {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Engine is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Engine is a declaration of data shape; the code that holds its values owns their lifetime.
 type Engine struct {
-  config             RuleResolver
-  rules              [][]Rule
-  enabled            map[string]Severity
-  unknown            []string
-  unknownDirectives  map[string]struct{}
-  unknownDirectiveMu sync.Mutex
-  needsTypeChecker   bool
-  needsFileChecker   bool
-  needsStandalone    bool
-  hasFileContributor bool
-  serial             bool
-  projectSettings    map[string]ProjectRuleSetting
-  configError        error
-  currentDirectory   string
-  patterns           *userPatternCache
+  config                     RuleResolver
+  rules                      [][]Rule
+  enabled                    map[string]Severity
+  unknown                    []string
+  unknownDirectives          map[string]struct{}
+  unknownDirectiveMu         sync.Mutex
+  needsTypeChecker           bool
+  needsFileChecker           bool
+  needsStandalone            bool
+  needsStandaloneFileChecker bool
+  serial                     bool
+  projectSettings            map[string]ProjectRuleSetting
+  configError                error
+  currentDirectory           string
+  patterns                   *userPatternCache
 }
 
 // SetSerial forces Engine.Run to walk files one at a time. The host calls
@@ -1059,12 +1077,13 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
     if _, invalid := invalidRuleOptions[name]; invalid {
       continue
     }
-    _, isContributor := rule.(contributorAdapter)
-    eng.hasFileContributor = eng.hasFileContributor || isContributor
     if ruleNeedsTypeChecker(rule) {
       eng.needsTypeChecker = true
       eng.needsFileChecker = true
-      eng.needsStandalone = eng.needsStandalone || isContributor
+      if !isBuiltInFileRule(name, rule) {
+        eng.needsStandalone = true
+        eng.needsStandaloneFileChecker = true
+      }
     }
     eng.enabled[name] = displaySeverities.Severity(name)
     // Dedup kinds per rule so a contributor that accidentally lists the

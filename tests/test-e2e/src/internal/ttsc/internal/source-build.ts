@@ -272,6 +272,23 @@ function fakeGoScript(root: string): string {
 }
 
 /**
+ * Give a scripted Go lock fixture a stable local SDK and version observation.
+ * The caller shares the returned environment across key and build actors.
+ */
+function fakeLocalGoEnvironment(root: string): Record<string, string> {
+  const sdk = path.join(root, "fake-go-sdk");
+  const version = "go1.26.0";
+  fs.mkdirSync(sdk, { recursive: true });
+  fs.writeFileSync(path.join(sdk, "VERSION"), `${version}\n`, "utf8");
+  return {
+    GOROOT: sdk,
+    GOTOOLCHAIN: "local",
+    GOENV: "off",
+    FAKE_GO_ENV_GOVERSION: version,
+  };
+}
+
+/**
  * Single-quotes a shell argument, escaping any embedded single quotes with the
  * `'\''` idiom. Used when embedding Node.js executable paths into POSIX shell
  * wrapper scripts.
@@ -449,6 +466,7 @@ export {
   createFakeGoBinary,
   ensureExecutableGoToolchain,
   fakeGoScript,
+  fakeLocalGoEnvironment,
   createSourcePluginWorkerScript,
   formatDuration,
   formatGoWorkPath,

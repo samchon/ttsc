@@ -18,12 +18,13 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 1. Copy the package-owned Go inputs and select a real-Go Node wrapper and empty
  *    GOENV.
  * 2. Place a one-shot edit and marker immediately after the Go environment query.
- * 3. Require the marker and kept/fresh equality, restoring both process variables.
+ * 3. Require the marker and kept/fresh equality, then restore the process
+ *    variables.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual pluginSourceState ambient call is compared with pluginSourceState(plugin, {env: process.env}) after the real wrapper writes its one-shot GOENV edit; the marker must exist and is published only after a status-zero Go query.
  * @evidence contracts/testing.md#independent-expectations An independently authored wrapper positions the edit after the selected Go query. The explicit-env call rereads the current file without ambient memo reuse, defining the stable comparison path; it does not supply a second state hash algorithm.
- * @evidence contracts/testing.md#distinguishing-cases A witnessed real post-read edit contrasts with the subsequent stable explicit fresh read; the marker rejects a fixture that never exercised the race. The complementary wrapper-rewrite and absent-to-present GOENV transitions have their own named unit.
- * @evidence contracts/testing.md#execution-ownership This named source-plugin unit directly imports the authored source API. Its native shell/cmd wrapper starts Node, which synchronously invokes the actual Go metadata tool with inherited streams before editing the owned file. It builds no native plugin, installs no consumer and starts no product host. TestProject owns temporary files; finally restores exact TTSC_GO_BINARY and GOENV presence/value. Helper scripts are inputs beneath this selectable owner, not synthetic no-child operations.
+ * @evidence contracts/testing.md#distinguishing-cases The explicit local SDK avoids a delegated recheck masking the synchronous owner's race. The marker rejects a fixture that did not make the edit. A repeated ambient call checks the resulting memo; the independent explicit setting still supplies the comparison.
+ * @evidence contracts/testing.md#execution-ownership This named source-plugin unit directly imports the authored source API. The platform wrapper synchronously invokes actual Go before editing the owned file. TestProject owns temporary inputs and finally restores every changed process variable's exact presence and value.
  */
 export const test_pluginsourcestate_witnesses_the_go_environment_file_before_reading_it =
   () => {
@@ -50,10 +51,14 @@ export const test_pluginsourcestate_witnesses_the_go_environment_file_before_rea
     const goEnvFile = path.join(root, "go-env");
     fs.writeFileSync(goEnvFile, "");
     const edited = path.join(root, "edited");
+    const sdk = child_process
+      .execFileSync("go", ["env", "GOROOT"], {
+        encoding: "utf8",
+        env: { ...process.env, GOENV: "off", GOTOOLCHAIN: "local" },
+      })
+      .trim();
     const realGo = path.join(
-      child_process
-        .execFileSync("go", ["env", "GOROOT"], { encoding: "utf8" })
-        .trim(),
+      sdk,
       "bin",
       process.platform === "win32" ? "go.exe" : "go",
     );
@@ -87,12 +92,18 @@ export const test_pluginsourcestate_witnesses_the_go_environment_file_before_rea
     );
     fs.chmodSync(wrapper, 0o755);
 
-    const saved = {
-      binary: process.env.TTSC_GO_BINARY,
-      goenv: process.env.GOENV,
-    };
+    const saved = [
+      "TTSC_GO_BINARY",
+      "GOENV",
+      "GOROOT",
+      "GOTOOLCHAIN",
+      "GOFLAGS",
+    ].map((name) => [name, process.env[name]] as const);
     process.env.TTSC_GO_BINARY = wrapper;
     process.env.GOENV = goEnvFile;
+    process.env.GOROOT = sdk;
+    process.env.GOTOOLCHAIN = "local";
+    delete process.env.GOFLAGS;
     try {
       const kept = pluginSourceState(plugin);
       assert.equal(fs.existsSync(edited), true, "the edit landed");
@@ -101,11 +112,9 @@ export const test_pluginsourcestate_witnesses_the_go_environment_file_before_rea
         pluginSourceState(plugin, { env: process.env }),
         "the kept reading is the environment file as it now is",
       );
+      assert.equal(pluginSourceState(plugin), kept);
     } finally {
-      for (const [name, value] of [
-        ["TTSC_GO_BINARY", saved.binary],
-        ["GOENV", saved.goenv],
-      ] as const) {
+      for (const [name, value] of saved) {
         if (value === undefined) delete process.env[name];
         else process.env[name] = value;
       }

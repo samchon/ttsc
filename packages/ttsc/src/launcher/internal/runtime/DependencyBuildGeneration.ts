@@ -5,6 +5,7 @@ import path from "node:path";
 import { RuntimeEmitBundle } from "../../../compiler/internal/build/RuntimeEmitBundle";
 import { resolvePhysicalPath as resolvePhysicalPathIdentity } from "../../../internal/pathIdentity/resolvePhysicalPath";
 import type { OwningModuleOptions } from "./OwningModuleOptions";
+import type { RuntimeProjectMarker } from "./RuntimeProjectMarker";
 
 /**
  * Generations of the ttsx dependency cache: immutable emit directories and the
@@ -58,6 +59,9 @@ export namespace DependencyBuildGeneration {
 
     /** Actual absolute output-to-source observations from this compiler emit. */
     emittedSources: Readonly<Record<string, readonly string[]>>;
+
+    /** Optional byte observations for compiler-owned JSON project markers. */
+    emittedProjectMarkers?: RuntimeProjectMarker.Proofs;
 
     /** Actual producer proof refusals, retained solely for diagnostics. */
     emittedSourceProofFailures?: Readonly<Record<string, string>>;
@@ -116,6 +120,9 @@ export namespace DependencyBuildGeneration {
 
     /** Actual emit provenance; historical absence requires a fresh build. */
     emittedSources?: Readonly<Record<string, readonly string[]>>;
+
+    /** Optional byte observations published with a managed generation. */
+    emittedProjectMarkers?: RuntimeProjectMarker.Proofs;
 
     /** Optional refusal context from this generation, without ownership proof. */
     emittedSourceProofFailures?: Readonly<Record<string, string>>;

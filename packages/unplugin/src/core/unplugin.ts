@@ -6,13 +6,14 @@ import {
 } from "unplugin";
 
 import type { HostWatchBridge } from "./bridge/HostWatchBridge";
+import { MANAGED_PROJECT_RECORDS } from "./bridge/MANAGED_PROJECT_RECORDS";
 import { buildHostDeclaresPolling } from "./bridge/buildHostDeclaresPolling";
 import {
   resolveConfiguredHostRoot,
   selectBuildHostRoot,
 } from "./bridge/buildHostRoot";
 import { createBuildWatchFile } from "./bridge/createBuildWatchFile";
-import { fallbackToolDirectory } from "./bridge/fallbackToolDirectory";
+import { fallbackToolDirectoryLocation } from "./bridge/fallbackToolDirectoryLocation";
 import { hostToolDirectory } from "./bridge/hostToolDirectory";
 import { openHostWatchBridge } from "./bridge/openHostWatchBridge";
 import { refreshProjectRecordFiles } from "./bridge/refreshProjectRecordFiles";
@@ -125,17 +126,10 @@ const unpluginFactory: UnpluginFactory<
     farmRoot === undefined
       ? hostToolDirectory(hostRoot())
       : farmRecordFallback(farmRoot);
-  const recordFallback = (): { fallbackToolDirectory?: string } => {
-    if (farmRoot !== undefined) return {};
-    const fallback = fallbackToolDirectory(hostRoot());
-    return fallback === undefined ? {} : { fallbackToolDirectory: fallback };
-  };
-  const recordDirectories = (): string[] => {
-    const primary = recordToolDirectory();
-    return primary === undefined
-      ? []
-      : [primary, ...Object.values(recordFallback())];
-  };
+  const recordFallback = (): string | undefined =>
+    farmRoot === undefined
+      ? fallbackToolDirectoryLocation(hostRoot())
+      : undefined;
   const closeBridge = async (): Promise<void> => {
     const open = bridge;
     bridge = undefined;
@@ -534,12 +528,30 @@ const unpluginFactory: UnpluginFactory<
             resolveCompilerEnvironment(options.runExternalCode),
           ).identity;
           const argumentsChanged = recordArgumentsIdentity !== identity;
-          recordArgumentsIdentity = identity;
           // Below the root, and in the fallback a host that cannot write there
           // keeps its records in (samchon/ttsc#1480).
-          if (opening || argumentsChanged)
-            for (const directory of recordDirectories())
-              refreshProjectRecordFiles(directory, bridge, undefined, identity);
+          if (opening || argumentsChanged) {
+            recordArgumentsIdentity = undefined;
+            const primary = recordToolDirectory();
+            if (primary !== undefined)
+              refreshProjectRecordFiles(
+                primary,
+                bridge,
+                undefined,
+                identity,
+                farmRoot !== undefined,
+              );
+            const fallback = recordFallback();
+            if (fallback !== undefined)
+              refreshProjectRecordFiles(
+                fallback,
+                bridge,
+                undefined,
+                identity,
+                true,
+              );
+            recordArgumentsIdentity = identity;
+          }
         }
       }
     },
@@ -581,6 +593,17 @@ const unpluginFactory: UnpluginFactory<
         file,
       );
       const toolDirectory = recordToolDirectory();
+      const viteServeHooks = createViteServeWatchHooks(
+        viteLifecycle.command,
+        viteLifecycle.watching,
+        serveInputs,
+        file,
+        serveStartedAt,
+      );
+      const fallback =
+        viteServeHooks === undefined && toolDirectory !== undefined
+          ? recordFallback()
+          : undefined;
       // Lifecycle admission needs an actual host declaration, rather than the
       // ordinary bridge helper's default when no watch capability is reported.
       const watching =
@@ -604,7 +627,7 @@ const unpluginFactory: UnpluginFactory<
       // What the delivery was handed, for Rollup's cache to be answered by:
       // the record, or that no cache may serve the module.
       const handed: {
-        record?: { digest: string; file: string };
+        record?: { digest: string; file: string; privateStorage?: true };
         unprovable: boolean;
       } = { unprovable: false };
       const result = await transformTtsc(
@@ -618,13 +641,7 @@ const unpluginFactory: UnpluginFactory<
           // A dev server keys each importer on its own inputs through its
           // module graph; a watcherless one has no invalidation channel and
           // needs no derivation.
-          ...(createViteServeWatchHooks(
-            viteLifecycle.command,
-            viteLifecycle.watching,
-            serveInputs,
-            file,
-            serveStartedAt,
-          ) ??
+          ...(viteServeHooks ??
             (toolDirectory === undefined
               ? {}
               : {
@@ -649,10 +666,24 @@ const unpluginFactory: UnpluginFactory<
                         handed.record = {
                           digest: registration.digest,
                           file: registration.record,
+                          ...(registration[MANAGED_PROJECT_RECORDS] === true
+                            ? { privateStorage: true as const }
+                            : {}),
                         };
                     },
                     toolDirectory,
-                    ...recordFallback(),
+                    ...(farmRoot === undefined
+                      ? {}
+                      : {
+                          [MANAGED_PROJECT_RECORDS]: "toolDirectory" as const,
+                        }),
+                    ...(fallback === undefined
+                      ? {}
+                      : {
+                          [MANAGED_PROJECT_RECORDS]:
+                            "fallbackToolDirectory" as const,
+                          fallbackToolDirectory: fallback,
+                        }),
                     watching: bridge !== undefined,
                   },
                 })),

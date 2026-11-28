@@ -40,6 +40,7 @@ export namespace RuntimeTrash {
    *   any more.
    * @param parent The cache directory that holds `directory`: the runtime root
    *   for a run, or the runtime build store for a parked build.
+   * @param canChange Current system-cache ownership check for the trash target.
    * @returns Whether the directory was moved; false leaves it in place.
    * @evidence contracts/common.md#principled-implementation The ordinary trash child of the cache directory keeps the rename in one directory tree. An aliased trash entry or a rename across volumes is refused.
    * @evidence contracts/common.md#clear-and-simple-design One rename and a unique name; the caller decides what may be retired.
@@ -50,12 +51,18 @@ export namespace RuntimeTrash {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Retirement is an effect.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The retired tree stays in the trash until a drain or `ttsc clean` deletes it; nothing is retained in memory.
    */
-  export function retire(directory: string, parent: string): boolean {
+  export function retire(
+    directory: string,
+    parent: string,
+    canChange?: (directory: string) => boolean,
+  ): boolean {
     try {
       const trash = path.join(parent, DIRNAME);
+      if (canChange?.(trash) === false) return false;
       const entry = fs.lstatSync(trash, { throwIfNoEntry: false });
       if (entry !== undefined && !entry.isDirectory()) return false;
       fs.mkdirSync(trash, { recursive: true });
+      if (canChange?.(trash) === false) return false;
       fs.renameSync(
         directory,
         path.join(
@@ -80,21 +87,26 @@ export namespace RuntimeTrash {
    * later drain.
    *
    * @param parent The directory whose trash is deleted.
+   * @param canChange Current system-cache ownership check for every directory.
    * @returns A function that stops the deletion.
-   * @evidence contracts/common.md#principled-implementation Only the trash is visited, and every entry there was retired by its owner, so no live run's file is deleted.
+   * @evidence contracts/common.md#principled-implementation System callers requalify each directory before traversal and deletion, while an explicit cache delegates authority over the trash to its caller.
    * @evidence contracts/common.md#clear-and-simple-design A depth-first walk with a small concurrency limit and one stop flag.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed removal is skipped, not retried in a loop, and recursive removal is not handed to one native call that could not be stopped.
    * @evidence contracts/common.md#meaningful-documentation The prose states the batching, what stopping does and how failures are left.
    * @evidence contracts/portability.md#os-neutral-implementation Directory entry kinds from the native listing do not follow links, so a link is unlinked and its target never visited.
-   * @evidence contracts/performance.md#efficient-algorithms One listing per directory and one unlink per file, eight at a time on the thread pool, without a stat call or reading any content.
+   * @evidence contracts/performance.md#efficient-algorithms One listing per directory and one unlink per file, eight at a time on the thread pool. System callers also recheck native identity and marker ancestry before each batch.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Deletion is an effect.
    * @evidence contracts/performance.md#bound-retention-and-release-resources At most eight removals are in flight; a directory's names are held while it is walked; stopping releases the walk after those removals settle.
    */
-  export function drain(parent: string): () => void {
+  export function drain(
+    parent: string,
+    canChange?: (directory: string) => boolean,
+  ): () => void {
     let stopped = false;
     // Files of one directory are unlinked eight at a time; subdirectories are
     // walked one after another, so no more than eight removals are in flight.
     const removeDirectory = async (directory: string): Promise<void> => {
+      if (stopped || canChange?.(directory) === false) return;
       let entries: fs.Dirent[];
       try {
         entries = await fs.promises.readdir(directory, { withFileTypes: true });
@@ -102,7 +114,8 @@ export namespace RuntimeTrash {
         return;
       }
       const files = entries.filter((entry) => !entry.isDirectory());
-      for (let index = 0; index < files.length && !stopped; index += 8)
+      for (let index = 0; index < files.length && !stopped; index += 8) {
+        if (canChange?.(directory) === false) return;
         await Promise.all(
           files
             .slice(index, index + 8)
@@ -112,12 +125,14 @@ export namespace RuntimeTrash {
                 .catch(() => undefined),
             ),
         );
+      }
       for (const entry of entries) {
         if (stopped) return;
         if (entry.isDirectory())
           await removeDirectory(path.join(directory, entry.name));
       }
-      if (!stopped) await fs.promises.rmdir(directory).catch(() => undefined);
+      if (!stopped && canChange?.(directory) !== false)
+        await fs.promises.rmdir(directory).catch(() => undefined);
     };
     const trash = path.join(parent, DIRNAME);
     void fs.promises

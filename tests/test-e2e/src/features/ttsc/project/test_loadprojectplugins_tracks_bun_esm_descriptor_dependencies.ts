@@ -43,11 +43,12 @@ export const test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies =
     assert.equal(bun.error, undefined);
     assert.equal(bun.signal, null);
 
-    const root = TestProject.tmpdir("ttsc-bun-esm-descriptor-input-");
+    const allocated = TestProject.tmpdir("ttsc-bun-esm-descriptor-input-");
     TestProject.retainTemporaryDirectory(
-      root,
+      allocated,
       "Bun descriptor descendants are not joined",
     );
+    const root = TestProject.physicalPath(allocated);
     const project = path.join(root, "project");
     const source = path.join(root, "plugin-go");
     const ambientSource = path.join(root, "ambient-plugin-go");

@@ -23,8 +23,9 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  * wrapper candidates are probed anew because those inputs can select mutable
  * behavior. Trusted `--require`/`-r` preloads (`TrustedNodeOptions`) enter the
  * key by the observed `require.cache` `module.children` graph's content
- * digests, `NODE_OPTIONS`, and `TTSC_CACHE_TRUSTED_PRELOADS`. The caller
- * vouches for stability during execution and for inputs outside that graph.
+ * digests, startup options and the child lookup context. The child must report
+ * the same graph before the probe can publish an answer. The caller vouches for
+ * stability during execution and for inputs outside that graph.
  * Cache-ineligible candidates do not acquire executable proofs used only by
  * cache lookup and publication.
  *
@@ -36,6 +37,9 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  * @param env Caller environment merged over this process's.
  * @param cwd Working directory of the probe.
  * @param identities Optional record store of the caller's plugin cache.
+ * @param onProof Receives whether the returned answer qualifies for reuse by
+ *   the surrounding runtime resolution.
+ * @param additionalProjectRoots Consumer roots excluded from probe scratch.
  * @evidence contracts/common.md#principled-implementation A child reports its own feature availability and executable; byte-aware before/after identity and same-executable proof authorize reuse only for a stable absolute runtime with empty NODE_OPTIONS or trusted `--require` preloads keyed by their observed module-graph digests, in process or through an answer recorded under that identity.
  * @evidence contracts/common.md#clear-and-simple-design One probe owner coordinates identity, spawning and parsing; the shared fingerprint helper owns file-content proof and the low-descriptor helper owns the POSIX launch distinction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Feature availability comes from the actual interpreter rather than its name; descriptor fallback handles a supported kernel constraint and failures produce unsupported capabilities, not fabricated success.
@@ -50,6 +54,8 @@ export function javascriptRuntimeCapabilities(
   env: NodeJS.ProcessEnv,
   cwd: string,
   identities?: PluginContentIdentities.Store,
+  onProof?: (proved: boolean) => void,
+  additionalProjectRoots?: readonly string[],
 ): IJavaScriptRuntimeCapabilities {
   // Inside a ttsx run this is the user's NODE_OPTIONS, not ttsx's preloads,
   // which would refuse the cache and run in the probe (#1740).
@@ -68,7 +74,10 @@ export function javascriptRuntimeCapabilities(
       : runtimeExecutableIdentity(runtime, identities);
   if (cacheKey !== undefined && beforeIdentity !== undefined) {
     const cached = runtimeCapabilityCache.get(cacheKey);
-    if (cached?.identity === beforeIdentity) return { ...cached.capabilities };
+    if (cached?.identity === beforeIdentity) {
+      onProof?.(true);
+      return { ...cached.capabilities };
+    }
     runtimeCapabilityCache.delete(cacheKey);
     // WARNING (#1723): a launch is a new process, so the memo above is empty
     // on every CLI run. The same proven executable answers the same probe; the
@@ -85,12 +94,20 @@ export function javascriptRuntimeCapabilities(
         capabilities: { ...recorded },
         identity: beforeIdentity,
       });
+      onProof?.(true);
       return recorded;
     }
   }
+  const observePreloads = cacheKey?.includes("\0") === true;
+  const preloadProbe = observePreloads
+    ? `try {
+        const fs = require("node:fs");
+        answer.preloadGraph = [...new Set(Object.keys(require.cache).map(file => fs.realpathSync.native(file)))].sort();
+      } catch {}`
+    : "";
   const args = [
     "-e",
-    `const Module = require("node:module"); process.stdout.write(JSON.stringify({ bun: typeof globalThis.Bun === "object", executable: process.execPath, registerHooks: typeof Module.registerHooks === "function" }));`,
+    `const Module = require("node:module"); const answer = { bun: typeof globalThis.Bun === "object", executable: process.execPath, registerHooks: typeof Module.registerHooks === "function" }; ${preloadProbe} process.stdout.write(JSON.stringify(answer));`,
   ];
   const options = {
     cwd,
@@ -105,16 +122,26 @@ export function javascriptRuntimeCapabilities(
     options,
     "runtime-capability-probe",
     () =>
-      OwnedSynchronousProcess.launch<string>(runtime, args, options) ??
+      OwnedSynchronousProcess.launch<string>(runtime, args, {
+        ...options,
+        additionalProjectRoots,
+      }) ??
       childProcess.spawnSync(runtime, args, options),
   );
   if (process.platform !== "win32" && isSpawnSyncFdExhaustion(result.error)) {
-    const capture = captureProcessOutput(process.env, undefined, cwd);
+    const capture = captureProcessOutput(
+      process.env,
+      undefined,
+      cwd,
+      additionalProjectRoots,
+    );
     try {
-      const retried = spawnSyncWithLowDescriptors(runtime, args, options, {
-        stderr: capture.stderrPath,
-        stdout: capture.stdoutPath,
-      });
+      const retried = spawnSyncWithLowDescriptors(
+        runtime,
+        args,
+        { ...options, additionalProjectRoots },
+        { stderr: capture.stderrPath, stdout: capture.stdoutPath },
+      );
       const stdout = capture.read("stdout", "utf8") as string;
       const stderr = capture.read("stderr", "utf8") as string;
       result = {
@@ -131,11 +158,14 @@ export function javascriptRuntimeCapabilities(
     bun: false,
     registerHooks: false,
   };
+  let observedPreloadGraph: readonly unknown[] | undefined;
   if (result.status === 0) {
     try {
       const parsed = JSON.parse(
         result.stdout,
-      ) as Partial<IJavaScriptRuntimeCapabilities>;
+      ) as Partial<IJavaScriptRuntimeCapabilities> & { preloadGraph?: unknown };
+      if (Array.isArray(parsed.preloadGraph))
+        observedPreloadGraph = parsed.preloadGraph;
       capabilities = {
         bun: parsed.bun === true,
         ...(typeof parsed.executable === "string" &&
@@ -158,21 +188,28 @@ export function javascriptRuntimeCapabilities(
   // This removes a process spawn from the common path without
   // authorizing a replaced or redirected runtime in a long-lived host.
   const afterCacheKey =
-    cacheKey === undefined
+    cacheKey === undefined ||
+    (observePreloads && observedPreloadGraph === undefined)
       ? undefined
-      : runtimeCapabilityCacheKey(runtime, effectiveEnv, cwd, identities);
+      : runtimeCapabilityCacheKey(
+          runtime,
+          effectiveEnv,
+          cwd,
+          identities,
+          observedPreloadGraph,
+        );
   const afterIdentity =
     cacheKey === undefined
       ? undefined
       : runtimeExecutableIdentity(runtime, identities);
-  if (
+  const proved =
     cacheKey !== undefined &&
     afterCacheKey === cacheKey &&
     capabilities.executable !== undefined &&
     beforeIdentity !== undefined &&
     beforeIdentity === afterIdentity &&
-    sameRuntimeExecutable(runtime, capabilities.executable)
-  ) {
+    sameRuntimeExecutable(runtime, capabilities.executable);
+  if (proved) {
     runtimeCapabilityCache.set(cacheKey, {
       capabilities: { ...capabilities },
       identity: afterIdentity,
@@ -184,6 +221,7 @@ export function javascriptRuntimeCapabilities(
       capabilities,
     );
   }
+  onProof?.(proved);
   return capabilities;
 }
 
@@ -247,9 +285,16 @@ function runtimeCapabilityCacheKey(
   env: NodeJS.ProcessEnv,
   cwd: string,
   identities: PluginContentIdentities.Store | undefined,
+  expectedPreloadGraph?: readonly unknown[],
 ): string | undefined {
   if (!path.isAbsolute(runtime)) return undefined;
-  const preloadKey = TrustedNodeOptions.key({ cwd, env, identities });
+  const preloadKey = TrustedNodeOptions.key({
+    cwd,
+    env,
+    runtime,
+    identities,
+    expectedPreloadGraph,
+  });
   if (preloadKey === null) return undefined;
   const resolved = path.resolve(runtime);
   return preloadKey === "" ? resolved : `${resolved}\0${preloadKey}`;

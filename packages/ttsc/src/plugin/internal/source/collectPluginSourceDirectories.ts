@@ -19,6 +19,7 @@ import { prunesPluginSourceDirectory } from "./prunesPluginSourceDirectory";
  * being appended to the returned list.
  *
  * @param root The plugin source directory.
+ * @param readDirectory The directory reader for this observation.
  * @returns Absolute directories, `root` first.
  * @throws When a directory cannot be read for a reason other than having
  *   vanished while it was listed.
@@ -32,7 +33,10 @@ import { prunesPluginSourceDirectory } from "./prunesPluginSourceDirectory";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This lists current directories; the consumer owns sharing and replacing watcher populations.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The listing opens no lasting watcher or handle; its caller owns resources created from the returned paths.
  */
-export function collectPluginSourceDirectories(root: string): string[] {
+export function collectPluginSourceDirectories(
+  root: string,
+  readDirectory: typeof fs.readdirSync = fs.readdirSync,
+): string[] {
   const directory = path.resolve(root);
   try {
     if (!fs.statSync(directory).isDirectory()) return [];
@@ -47,7 +51,7 @@ export function collectPluginSourceDirectories(root: string): string[] {
     directories.push(current);
     let entries: fs.Dirent[];
     try {
-      entries = fs.readdirSync(current, { withFileTypes: true });
+      entries = readDirectory(current, { withFileTypes: true });
     } catch (error) {
       if (isVanishedFilesystemEntry(error)) continue;
       throw error;

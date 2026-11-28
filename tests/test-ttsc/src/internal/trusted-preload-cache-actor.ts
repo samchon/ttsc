@@ -23,6 +23,7 @@ const { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } = createRequire(
 
 interface ITraceRow {
   event: string;
+  writerPid: number;
   data: {
     authority?: string | null;
     cacheHit?: boolean;
@@ -34,7 +35,7 @@ interface ITraceRow {
   };
 }
 
-const [cacheDir, projectDir, tsconfig, pluginFile, mode] =
+const [cacheDir, projectDir, tsconfig, pluginFile, mode, alternateHome] =
   process.argv.slice(2);
 const traceDir = process.env.TTSC_E2E_TRACE!;
 const helperEnv = TtsxNodeOptions.forHelpers(process.env);
@@ -55,7 +56,10 @@ const readTraceRows = (): ITraceRow[] =>
         .split("\n")
         .filter(Boolean)
         .map((line) => JSON.parse(line) as ITraceRow),
-    );
+    )
+    // Synchronous probe and lookup rows are written by this actor. Child
+    // writers may sort before it on one filesystem and after it on another.
+    .filter((row) => row.writerPid === process.pid);
 
 const store = PluginContentIdentities.open({
   projectRoot: projectDir!,
@@ -97,16 +101,78 @@ const descriptorDifferentNodePathRefused =
     ...descriptorAuthority,
     env: { ...helperEnv, NODE_PATH: path.join(projectDir!, "other-node-path") },
   }) === null;
+const homeVariable = process.platform === "win32" ? "USERPROFILE" : "HOME";
+const alternateHomeEnv =
+  alternateHome === undefined
+    ? undefined
+    : { ...helperEnv, [homeVariable]: alternateHome };
+let descriptorDifferentHomeRefused: boolean | undefined;
+if (alternateHomeEnv !== undefined) {
+  const original = process.env[homeVariable];
+  try {
+    // A running Node keeps its initialized search paths after an env edit.
+    // Its child would initialize under the new home even when env now agrees.
+    process.env[homeVariable] = alternateHomeEnv[homeVariable]!;
+    descriptorDifferentHomeRefused =
+      PluginDescriptorEvaluationCache.locate({
+        ...descriptorAuthority,
+        env: alternateHomeEnv,
+      }) === null;
+  } finally {
+    if (original === undefined) delete process.env[homeVariable];
+    else process.env[homeVariable] = original;
+  }
+}
 
 let descriptorCacheHit = false;
 let descriptorEvaluated = false;
 let descriptorInputs: string[] = [];
 let descriptorObservationsComplete: boolean | null = null;
+let descriptorReadFailure: string | undefined;
+let descriptorWriteAttempted = false;
 
+const observedDescriptor = {
+  hashes: new Map<string, string | null>(),
+  realpaths: new Map<string, string | null>(),
+};
 const cachedDescriptor =
   descriptorLocation === null
     ? null
-    : PluginDescriptorEvaluationCache.read(descriptorLocation);
+    : PluginDescriptorEvaluationCache.read(
+        descriptorLocation,
+        observedDescriptor,
+      );
+if (cachedDescriptor === null && descriptorLocation !== null) {
+  try {
+    const saved = JSON.parse(fs.readFileSync(descriptorLocation, "utf8")) as {
+      proof?: {
+        hashes?: Record<string, string | null>;
+        realpaths?: Record<string, string | null>;
+      };
+    };
+    const difference = (
+      expected: Record<string, string | null> | undefined,
+      observed: ReadonlyMap<string, string | null>,
+    ) => {
+      const changed: string[] = [];
+      const unobserved: string[] = [];
+      for (const [file, value] of Object.entries(expected ?? {})) {
+        if (!observed.has(file)) unobserved.push(file);
+        else if (observed.get(file) !== value) changed.push(file);
+      }
+      return { changed, unobserved };
+    };
+    descriptorReadFailure = JSON.stringify({
+      hashes: difference(saved.proof?.hashes, observedDescriptor.hashes),
+      realpaths: difference(
+        saved.proof?.realpaths,
+        observedDescriptor.realpaths,
+      ),
+    });
+  } catch (error) {
+    descriptorReadFailure = String(error);
+  }
+}
 if (cachedDescriptor !== null) {
   descriptorCacheHit = true;
   descriptorInputs = cachedDescriptor.inputs;
@@ -167,6 +233,7 @@ if (cachedDescriptor !== null) {
         expectedPreloadGraph: parsed.startupPreloadFiles,
       }) === descriptorLocation
     ) {
+      descriptorWriteAttempted = true;
       PluginDescriptorEvaluationCache.write(descriptorLocation, evaluation);
     }
   } finally {
@@ -187,6 +254,36 @@ const capabilityProbes = probeRows.filter(
     row.event === "process-result" &&
     row.data.origin === "runtime-capability-probe",
 ).length;
+const alternateHomeProbeStart = beforeProbeRows + probeRows.length;
+const alternateHomeCapabilities =
+  alternateHomeEnv === undefined
+    ? undefined
+    : javascriptRuntimeCapabilities(
+        process.execPath,
+        alternateHomeEnv,
+        projectDir!,
+        store,
+      );
+const alternateHomeProbes =
+  alternateHomeEnv === undefined
+    ? undefined
+    : readTraceRows()
+        .slice(alternateHomeProbeStart)
+        .filter(
+          (row) =>
+            row.event === "process-result" &&
+            row.data.origin === "runtime-capability-probe",
+        ).length;
+const alternateCwd = process.env.TTSC_TEST_PRELOAD_ALTERNATE_CWD;
+const alternateCapabilities =
+  alternateCwd === undefined
+    ? undefined
+    : javascriptRuntimeCapabilities(
+        process.execPath,
+        process.env,
+        alternateCwd,
+        store,
+      );
 
 const resolutionFile = CapabilityResolutionFormat.resolutionFile({
   cwd: projectDir!,
@@ -252,9 +349,15 @@ process.stdout.write(
     descriptorEvaluated,
     descriptorInputs,
     descriptorObservationsComplete,
+    descriptorReadFailure,
+    descriptorWriteAttempted,
     descriptorDifferentGraphRefused,
     descriptorDifferentNodePathRefused,
+    descriptorDifferentHomeRefused,
     capabilities,
+    alternateHomeCapabilities,
+    alternateHomeProbes,
+    alternateCapabilities,
     capabilityProbes,
     resolutionFile,
     runtimeProved: lookupEvent?.data.runtimeProved ?? null,

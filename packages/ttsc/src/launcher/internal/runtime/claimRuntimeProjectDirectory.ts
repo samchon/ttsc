@@ -5,6 +5,7 @@ import { RuntimeBuildCache } from "../../../compiler/internal/build/RuntimeBuild
 import { RuntimeTrash } from "../../../internal/RuntimeTrash";
 import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBuildCacheLayout";
 import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
+import { systemRuntimeRunTree } from "./systemRuntimeRunTree";
 import { withRuntimeDirectoryLock } from "./withRuntimeDirectoryLock";
 
 /**
@@ -18,15 +19,17 @@ import { withRuntimeDirectoryLock } from "./withRuntimeDirectoryLock";
  * default runtime-directory lock. Directory selection, abandoned-run sweeping,
  * replacement and claim publication all occur before that transaction ends.
  * Participants must preserve the selected physical namespace and share that
- * lock identity. A linked index may target an ordinary directory inside the
- * pinned runtime cache. Effects are not an atomic filesystem transaction: a
- * failure can leave created directories or a partially published record, and
- * this function does not roll them back. Caller cleanup owns those remaining
- * effects.
+ * lock identity. An explicit cache's linked index may target an ordinary
+ * directory inside the pinned runtime cache. A system run guard requalifies
+ * each candidate before replacement or retirement. Effects are not an atomic
+ * filesystem transaction: a failure can leave created directories or a
+ * partially published record, and this function does not roll them back. Caller
+ * cleanup owns those remaining effects.
  *
  * @param runtimeRoot The already-pinned physical runtime cache root.
  * @param runKey The caller's validated private run identity.
  * @param withLock The operation that serializes this root against clean.
+ * @param canChange An optional current project-boundary guard for system runs.
  * @evidence contracts/common.md#principled-implementation Project index selection and run-record publication occur inside the cooperative root-lock scope, excluding clean participants using the same stable identity. This does not certify rollback, physical namespace immutability or actual process incarnation.
  * @evidence contracts/common.md#clear-and-simple-design One operation owns pinning, sweep, replacement and claim; the caller owns virtual emit layout and eventual relinquishment.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Native filesystem operations and the default real runtime lock preserve actual ownership; supplied lock operations must serialize the same root rather than bypass coordination.
@@ -40,23 +43,48 @@ export function claimRuntimeProjectDirectory(
   runtimeRoot: string,
   runKey: string,
   withLock: typeof withRuntimeDirectoryLock = withRuntimeDirectoryLock,
+  canChange?: (directory: string) => boolean,
 ): string {
+  const directory = path.join(
+    runtimeRoot,
+    SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME,
+  );
+  const requireChange = (run: string): void => {
+    if (canChange?.(run) === false)
+      throw new Error(`ttsx: system runtime run is not available: ${run}`);
+  };
+  requireChange(path.join(directory, runKey));
   return withLock(runtimeRoot, () => {
-    const directory = path.join(
-      runtimeRoot,
-      SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME,
-    );
+    requireChange(path.join(directory, runKey));
     const runsDir = pinRuntimeProjectIndex(runtimeRoot, directory);
     const processDir = path.join(runsDir, runKey);
+    requireChange(processDir);
     // An abandoned run is retired by one rename into the runtime root's trash,
     // outside the run index, and deleted while this run's program executes,
     // not before it starts (samchon/ttsc#1859). The builds its processes asked
     // to keep, such as those of a launcher that was killed, are parked first.
     ProcessOwnedDirectory.sweep(runsDir, undefined, false, (abandoned) => {
-      RuntimeBuildCache.parkRequested(abandoned);
-      if (!RuntimeTrash.retire(abandoned, runtimeRoot))
+      const tree = systemRuntimeRunTree(abandoned, canChange);
+      if (tree === "protected") return;
+      RuntimeBuildCache.parkRequested(
+        abandoned,
+        path.join(
+          runtimeRoot,
+          SourceBuildCacheLayout.RUNTIME_BUILD_CACHE_DIRNAME,
+        ),
+        canChange,
+      );
+      if (
+        tree === "emitted-marker" ||
+        !RuntimeTrash.retire(abandoned, runtimeRoot, canChange)
+      )
         fs.rmSync(abandoned, { force: true, recursive: true });
     });
+    requireChange(processDir);
+    if (systemRuntimeRunTree(processDir, canChange) === "protected")
+      throw new Error(
+        `ttsx: system runtime run is not available: ${processDir}`,
+      );
     fs.rmSync(processDir, { recursive: true, force: true });
     ProcessOwnedDirectory.claim(processDir);
     return processDir;

@@ -16,14 +16,20 @@ interface IActorReport {
   descriptorEvaluated: boolean;
   descriptorInputs: string[];
   descriptorObservationsComplete: boolean | null;
+  descriptorReadFailure?: string;
+  descriptorWriteAttempted: boolean;
   descriptorDifferentGraphRefused: boolean;
   descriptorDifferentNodePathRefused: boolean;
+  descriptorDifferentHomeRefused?: boolean;
   capabilities: {
     bun: boolean;
     executable?: string;
     registerHooks: boolean;
   };
   capabilityProbes: number;
+  alternateCapabilities?: IActorReport["capabilities"];
+  alternateHomeCapabilities?: IActorReport["capabilities"];
+  alternateHomeProbes?: number;
   resolutionFile: string | null;
   runtimeProved: boolean | null;
   capabilityAuthority: string | null;
@@ -50,10 +56,12 @@ interface IActorReport {
  *    launches and misses when its bytes or resolution change. Verify `--import`
  *    refuses, and verify a `ttsx`-like child with `runtimeHookPreload` records
  *    only the user graph.
+ * 4. Check separate Node search contexts for alternate child home and working
+ *    directories.
  *
  * @evidence contracts/testing.md#behavioral-verification Real Node launches run the descriptor evaluator shim, PluginDescriptorEvaluationCache.locate/read/write, javascriptRuntimeCapabilities and resolveCapabilityPluginResolution with real preloads, local dependencies and runtimeHookPreload.
  * @evidence contracts/testing.md#independent-expectations Expected hits, misses, probe counts, recorded input graphs and null refusals follow directly from the observed-graph preload contract and real child execution.
- * @evidence contracts/testing.md#distinguishing-cases Covers trusted preload hits, untrusted and glob refusal, startup graph disagreement, preload and helper edits, a new resolution candidate with previous files unchanged, before-read invalidation, ttsx-like graph isolation, relative and package lookup, NODE_PATH mismatch, missing roots, unsupported flags and empty options.
+ * @evidence contracts/testing.md#distinguishing-cases Covers trusted preload hits, untrusted and glob refusal, startup graph disagreement, preload and helper edits, a new resolution candidate with previous files unchanged, before-read invalidation, ttsx-like graph isolation, relative and package lookup, the fixture's package-scope boundary, NODE_PATH and home directory mismatches, missing roots, unsupported flags and empty options.
  * @evidence contracts/testing.md#execution-ownership Unit test owning temp files and fresh Node source actors through register-unit-loader.mjs without building native artifacts, installing consumers or starting a product host.
  */
 export function test_descriptor_and_capability_caches_accept_only_trusted_builtin_preloads(): void {
@@ -65,6 +73,11 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   const preloadDir = path.join(root, "preloads");
   fs.mkdirSync(projectDir, { recursive: true });
   fs.mkdirSync(preloadDir, { recursive: true });
+  // The preload helper's type is determined by this owned scope. Proving a
+  // missing manifest in the shared system temp directory would depend on
+  // metadata changed by any other process creating a temporary file there.
+  const fixtureManifest = path.join(root, "package.json");
+  fs.writeFileSync(fixtureManifest, '{"type":"commonjs"}');
 
   const tsconfig = "tsconfig.json";
   const pluginFile = path.join(projectDir, "plugin.cjs");
@@ -143,6 +156,8 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   const runLaunch = (
     envOverrides: NodeJS.ProcessEnv,
     mode: "check" | "evaluate" | "seed-capability" | "seed-all" = "check",
+    alternateHome?: string,
+    actorDirectory = projectDir,
   ): IActorReport => {
     fs.rmSync(traceDir, { recursive: true, force: true });
     fs.mkdirSync(traceDir, { recursive: true });
@@ -165,9 +180,10 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
         tsconfig,
         pluginFile,
         mode,
+        ...(alternateHome === undefined ? [] : [alternateHome]),
       ],
       {
-        cwd: projectDir,
+        cwd: actorDirectory,
         encoding: "utf8",
         env,
         windowsHide: true,
@@ -188,7 +204,11 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
     NODE_OPTIONS: `--require=${portZeroFile}`,
     TTSC_CACHE_TRUSTED_PRELOADS: portZeroReal,
   };
-  const launch1 = runLaunch(portZeroEnv, "seed-all");
+  const launch1 = runLaunch(
+    portZeroEnv,
+    "seed-all",
+    path.join(root, "other-home"),
+  );
   assert.notEqual(
     launch1.descriptorLocation,
     null,
@@ -199,6 +219,7 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   assert.equal(launch1.descriptorObservationsComplete, true);
   assert.equal(launch1.descriptorDifferentGraphRefused, true);
   assert.equal(launch1.descriptorDifferentNodePathRefused, true);
+  assert.equal(launch1.descriptorDifferentHomeRefused, true);
   assert.ok(
     launch1.descriptorInputs.includes(portZeroReal),
     "descriptor evaluation must record the trusted preload root",
@@ -209,6 +230,8 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
     registerHooks: true,
   });
   assert.equal(launch1.capabilityProbes, 1);
+  assert.deepEqual(launch1.alternateHomeCapabilities, launch1.capabilities);
+  assert.equal(launch1.alternateHomeProbes, 1);
   assert.equal(launch1.runtimeProved, true);
   assert.notEqual(launch1.capabilityAuthority, null);
   assert.equal(launch1.capabilityAuthority, launch1.resolutionFile);
@@ -306,7 +329,11 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   assert.equal(edited1.capabilityCacheHit, false);
 
   const edited2 = runLaunch(portZeroEnv, "evaluate");
-  assert.equal(edited2.descriptorCacheHit, true);
+  assert.equal(
+    edited2.descriptorCacheHit,
+    true,
+    `edited preload cache miss (previous write attempted=${edited1.descriptorWriteAttempted}): ${edited2.descriptorReadFailure}`,
+  );
   assert.equal(edited2.capabilityProbes, 0);
   assert.equal(edited2.capabilityAuthority, edited1.capabilityAuthority);
   assert.equal(edited2.capabilityCacheHit, true);
@@ -334,6 +361,11 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
     local1.descriptorInputs.includes(localHelperReal),
     "descriptor inputs must include transitive local modules required by the preload",
   );
+  assert.ok(local1.descriptorInputs.includes(fixtureManifest));
+  assert.ok(
+    !local1.descriptorInputs.includes(path.resolve(root, "..", "package.json")),
+    "the fixture's package scope must end the preload's manifest search",
+  );
   assert.equal(local1.capabilityProbes, 1);
   assert.equal(local1.runtimeProved, true);
   assert.notEqual(local1.capabilityAuthority, null);
@@ -343,7 +375,7 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   assert.equal(
     local2.descriptorCacheHit,
     true,
-    "unchanged local preload graph must hit descriptor cache",
+    `unchanged local preload graph must hit descriptor cache (previous write attempted=${local1.descriptorWriteAttempted}): ${local2.descriptorReadFailure}`,
   );
   assert.equal(
     local2.capabilityProbes,
@@ -567,6 +599,62 @@ export function test_descriptor_and_capability_caches_accept_only_trusted_builti
   });
   assert.notEqual(packageLaunch.descriptorLocation, null);
   assert.equal(packageLaunch.descriptorDifferentNodePathRefused, true);
+
+  // A relative NODE_PATH names a different dependency in a different cwd.
+  const alternate = path.join(root, "alternate");
+  for (const [directory, bun] of [
+    [projectDir, true],
+    [alternate, false],
+  ] as const) {
+    const search = path.join(directory, "nodepath");
+    fs.mkdirSync(search, { recursive: true });
+    fs.writeFileSync(
+      path.join(search, "runtime-capability-marker.js"),
+      bun ? "globalThis.Bun = {};" : "module.exports = {};",
+    );
+  }
+  const barePreload = path.join(preloadDir, "with-node-path.cjs");
+  fs.writeFileSync(barePreload, 'require("runtime-capability-marker");');
+  const relativeSearch = runLaunch({
+    NODE_OPTIONS: `--require=${barePreload}`,
+    TTSC_CACHE_TRUSTED_PRELOADS: barePreload,
+    NODE_PATH: "nodepath",
+    TTSC_TEST_PRELOAD_ALTERNATE_CWD: alternate,
+  });
+  assert.equal(relativeSearch.descriptorLocation, null);
+  assert.equal(relativeSearch.capabilities.bun, true);
+  assert.equal(relativeSearch.alternateCapabilities?.bun, false);
+
+  // Both Node processes have the same initialized global search paths. The
+  // absolute preload itself chooses a different child from the working dir.
+  const cwdPreload = path.join(preloadDir, "with-cwd.cjs");
+  fs.writeFileSync(
+    cwdPreload,
+    'require(require("node:path").join(process.cwd(), "cwd-helper.cjs"));\n',
+  );
+  fs.writeFileSync(
+    path.join(projectDir, "cwd-helper.cjs"),
+    "module.exports = 1;",
+  );
+  fs.writeFileSync(
+    path.join(alternate, "cwd-helper.cjs"),
+    "module.exports = 2;",
+  );
+  const differentChildGraph = runLaunch(
+    {
+      NODE_OPTIONS: `--require=${cwdPreload}`,
+      TTSC_CACHE_TRUSTED_PRELOADS: fs.realpathSync.native(cwdPreload),
+      NODE_PATH: undefined,
+    },
+    "check",
+    undefined,
+    alternate,
+  );
+  assert.notEqual(differentChildGraph.resolutionFile, null);
+  assert.equal(differentChildGraph.capabilityProbes, 1);
+  assert.equal(differentChildGraph.capabilities.registerHooks, true);
+  assert.equal(differentChildGraph.runtimeProved, false);
+  assert.equal(differentChildGraph.capabilityAuthority, null);
 
   // Non-preload flags and nonexistent paths refuse.
   for (const nodeOptions of [

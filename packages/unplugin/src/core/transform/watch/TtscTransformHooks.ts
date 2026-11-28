@@ -1,3 +1,4 @@
+import { MANAGED_PROJECT_RECORDS } from "../../bridge/MANAGED_PROJECT_RECORDS";
 import type { TtscProjectRegistration } from "./TtscProjectRegistration";
 import type { TtscWatchInput } from "./TtscWatchInput";
 import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
@@ -126,6 +127,8 @@ export interface TtscTransformHooks {
    * watching session's bridge (`registerProjectRecord`).
    */
   project?: {
+    /** The directory generated under private storage by the built-in adapter. */
+    [MANAGED_PROJECT_RECORDS]?: "toolDirectory" | "fallbackToolDirectory";
     /** Called once per delivery, failed deliveries included. */
     register: TtscRegisterWatchProject;
 
@@ -154,13 +157,17 @@ export interface TtscTransformHooks {
    * snapshot of the module represents: the plugin declared the transformed file
    * volatile (the envelope's `volatile` list), or the module was handed over
    * without a complete host-observation closure, or without the project's
-   * record, which could not be written. Adapters should mark the module
-   * uncacheable where the bundler exposes that control (e.g. a webpack loader
-   * context's `cacheable(false)`), or answer the bundler's cache for it where
-   * the bundler asks instead (Rollup's `shouldTransformCachedModule`, through
-   * the module's `meta`).
+   * record, which could not be written. An opaque cache can also opt in to this
+   * callback for a generated workspace that must be resolved again. Adapters
+   * should mark the module uncacheable where the bundler exposes that control
+   * (e.g. a webpack loader context's `cacheable(false)`), or answer the
+   * bundler's cache for it where the bundler asks instead (Rollup's
+   * `shouldTransformCachedModule`, through the module's `meta`).
    */
   markVolatile?: TtscMarkVolatile;
+
+  /** Use markVolatile for workspace replay when the host has no restore hook. */
+  workspaceReplayUsesVolatility?: true;
 }
 
 /**

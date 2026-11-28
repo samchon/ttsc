@@ -281,10 +281,9 @@ type TaggedRule interface {
 // marker keeps the conservative default: it is treated as type-aware and
 // receives a live checker.
 //
-// Being treated as type-aware is not free. The host creates a standalone
-// checker spanning every source file, and the engine walks files serially so
-// that checker is never accessed concurrently. A purely syntactic rule that
-// never touches `Context.Checker` pays both costs for nothing.
+// Being treated as type-aware makes the host create a standalone checker
+// spanning every source file. The engine walks files serially when a file
+// callback uses that checker.
 //
 // A contributor whose rule is AST-only can implement this with
 // `NeedsTypeChecker() bool { return false }` to opt out of the checker path,
@@ -296,8 +295,8 @@ type TaggedRule interface {
 //
 // The method name is domain-specific so an unrelated generic method on an
 // existing contributor cannot opt out by accident. ProjectRule implementations
-// may use the same marker; the serial walk it governs is engine-wide, so one
-// type-aware project rule serializes every file rule in the run.
+// may use the same marker. Project callbacks run before the file walk, which
+// can still run in parallel when file rules use independent native checkers.
 //
 // @evidence contracts/common.md#principled-implementation The explicit checker requirement lets the host enforce checker availability and its serial-access constraint.
 // @evidence contracts/common.md#clear-and-simple-design One optional capability separates syntactic inspection from type-checker dependence.

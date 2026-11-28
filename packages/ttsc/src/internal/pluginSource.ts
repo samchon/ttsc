@@ -12,8 +12,10 @@
  * must hear, and the ttsc and TypeScript-Go versions every build is keyed on,
  * which name output kept beyond the process that produced it. This barrel is
  * the one module path such a consumer imports, so the implementation keeps one
- * declaration per file.
+ * declaration per file. Consumers also share the compiler's physical host-input
+ * identity rule through this entry.
  */
+export { realpathHostInput } from "../plugin/internal/load/realpathHostInput";
 export * from "../plugin/internal/source/CompilerTarget";
 export * from "../plugin/internal/source/IPluginSourceListing";
 export * from "../plugin/internal/source/collectPluginSourceFiles";
@@ -26,4 +28,5 @@ export * from "../plugin/internal/source/pluginSourceStateHolds";
 export * from "../plugin/internal/source/processPluginBuildEnvironment";
 export * from "../plugin/internal/source/provenPluginSourceDigest";
 export * from "../plugin/internal/source/PluginBuildEnvironmentReadings";
+export * from "../plugin/internal/source/PluginBuildEnvironmentWitness";
 export * from "../plugin/internal/source/prunesPluginSourceDirectory";

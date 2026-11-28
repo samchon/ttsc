@@ -12,10 +12,12 @@ import { stableStringify } from "../transform/utils/stableStringify";
  *
  * The identity records alias mappings, compiler overlay, plugin payloads and
  * configured project/source-root selection and effective compiler argument
- * transport. Tsconfig input state is represented separately by the delivery's
- * project record. A configured project resolves under the same native cwd rule
- * as explicit selection; it is not canonicalized to a physical alias or made
- * process-independent across different cwd spellings.
+ * transport. The record policy generation requires new delivery of older
+ * metadata that did not identify managed storage. Tsconfig input state is
+ * represented separately by the delivery's project record. A configured project
+ * resolves under the same native cwd rule as explicit selection; it is not
+ * canonicalized to a physical alias or made process-independent across
+ * different cwd spellings.
  *
  * Compiler options, plugin payloads and alias mappings preserve their actual
  * JSON order. Their consumers can observe declaration order; the host cannot
@@ -57,6 +59,7 @@ export function rollupDeliveryOptions(
         options.projectRoot === undefined
           ? null
           : path.resolve(options.projectRoot),
+      recordPolicy: 1,
     }),
   );
 }

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
@@ -23,11 +25,14 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  * 2. Change the private input and require only its dependent module to reload.
  * 3. Release that module, then change the shared declaration and require the other
  *    module to reload.
+ * 4. In a separate process, evict several compiler generations and verify their
+ *    outputs can be collected while the oldest importer's resolver watch
+ *    works.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual delivery, Vite registration and native file comparisons use an injected notification and fixture files. The host graph records reload effects.
+ * @evidence contracts/testing.md#behavioral-verification Actual delivery, Vite registration and native file comparisons use fixture files and an injected notification. A GC-enabled Node actor checks eight retired generations and records the oldest importer's reload.
  * @evidence contracts/testing.md#independent-expectations Explicit graph edges identify the single private dependent, and both modules consume the authored declaration.
- * @evidence contracts/testing.md#distinguishing-cases One shared array and small local handoffs contrast with per-module arrays, and the private change and forgotten importer exercise selective fanout.
- * @evidence contracts/testing.md#execution-ownership The unit uses the observer's supported watch seam and closes it in finally. No compiler or bundler process is needed.
+ * @evidence contracts/testing.md#distinguishing-cases One shared array contrasts with per-module registration. Private, shared and retired-generation resolver inputs exercise selective fanout through replacements and removal of one importer.
+ * @evidence contracts/testing.md#execution-ownership Uses the observer's watch seam and closes the watcher in both processes. The runner owns each temporary root, and the Node actor exits before the unit returns.
  */
 export async function test_vite_compiler_watch_groups_generation_inputs(): Promise<void> {
   const root = TestProject.physicalPath(
@@ -127,4 +132,27 @@ export async function test_vite_compiler_watch_groups_generation_inputs(): Promi
   } finally {
     await watch.dispose();
   }
+  const retired = spawnSync(
+    process.execPath,
+    [
+      "--expose-gc",
+      "--import",
+      new URL("../../../../../config/register-unit-loader.mjs", import.meta.url)
+        .href,
+      fileURLToPath(
+        new URL(
+          "../../internal/adapter-vite-serve/retired-watch-result-actor.ts",
+          import.meta.url,
+        ),
+      ),
+      TestProject.tmpdir("ttsc-vite-retired-results-"),
+    ],
+    {
+      encoding: "utf8",
+      env: { ...process.env, NODE_OPTIONS: undefined },
+      windowsHide: true,
+    },
+  );
+  assert.ifError(retired.error);
+  assert.equal(retired.status, 0, retired.stdout + retired.stderr);
 }

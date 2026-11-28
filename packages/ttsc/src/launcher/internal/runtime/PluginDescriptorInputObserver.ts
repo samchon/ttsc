@@ -56,7 +56,7 @@ export namespace PluginDescriptorInputObserver {
      *
      * @evidence contracts/common.md#principled-implementation Native physical resolution records the link target that cache validation compares against on warm reuse.
      * @evidence contracts/common.md#clear-and-simple-design Single-argument synchronous signature matches fs.realpathSync.native directly.
-     * @evidence contracts/common.md#prohibited-implementation-shortcuts Production binds directly to fs.realpathSync.native without guessing physical paths.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts Production uses native realpath and preserves non-UTF-8 paths with a physical identity witness.
      * @evidence contracts/common.md#meaningful-documentation Names the exact node:fs operation this member wraps.
      * @evidence contracts/portability.md#os-neutral-implementation Passes native paths unchanged to the platform realpath implementation.
      *
@@ -67,11 +67,11 @@ export namespace PluginDescriptorInputObserver {
     realpathSyncNative: (file: string) => string;
 
     /**
-     * Read a file's bytes, as `fs.readFileSync` does.
+     * Read a regular file's bytes, or return undefined for a nonregular handle.
      *
      * @evidence contracts/common.md#principled-implementation Synchronous byte reads supply the exact file contents hashed into descriptor input proofs.
-     * @evidence contracts/common.md#clear-and-simple-design Single-argument Buffer-returning signature matches fs.readFileSync directly.
-     * @evidence contracts/common.md#prohibited-implementation-shortcuts Production binds directly to fs.readFileSync without replacing fs globals.
+     * @evidence contracts/common.md#clear-and-simple-design The read seam returns the bytes or an unavailable marker.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts Production uses a guarded native descriptor read without replacing fs globals.
      * @evidence contracts/common.md#meaningful-documentation Names the exact node:fs byte-read operation this member wraps.
      * @evidence contracts/portability.md#os-neutral-implementation Passes native file paths unchanged and returns unmodified bytes.
      *
@@ -79,7 +79,7 @@ export namespace PluginDescriptorInputObserver {
      * @evidenceExclude contracts/performance.md#reuse-equivalent-work The filesystem seam owns no cache.
      * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous reads complete before returning and retain no handle.
      */
-    readFileSync: (file: string) => Buffer;
+    readFileSync: (file: string) => Buffer | undefined;
   }
 
   /**
@@ -159,8 +159,8 @@ export namespace PluginDescriptorInputObserver {
   const DEFAULT_FS: FilesystemOperations = {
     lstatSync: fs.lstatSync,
     statSync: fs.statSync,
-    realpathSyncNative: (file) => fs.realpathSync.native(file),
-    readFileSync: (file) => fs.readFileSync(file),
+    realpathSyncNative: RuntimeFilesystem.realpathWitness,
+    readFileSync: RuntimeFilesystem.readObservedRegularFile,
   };
 
   /** Stable public fingerprint for an existing directory candidate's kind. */
@@ -174,6 +174,7 @@ export namespace PluginDescriptorInputObserver {
         readonly exists: true;
         readonly broken: false;
         readonly isDirectory: boolean;
+        readonly isFile: boolean;
         readonly isSymlink: boolean;
         readonly metaSuffix: string;
       }
@@ -288,6 +289,7 @@ export namespace PluginDescriptorInputObserver {
           exists: true,
           broken: false,
           isDirectory: resolvedTarget.isDirectory(),
+          isFile: resolvedTarget.isFile(),
           isSymlink: true,
           metaSuffix: formatMetadataSuffix(link, resolvedTarget),
         };
@@ -296,6 +298,7 @@ export namespace PluginDescriptorInputObserver {
           exists: true,
           broken: false,
           isDirectory: link.isDirectory(),
+          isFile: link.isFile(),
           isSymlink: false,
           metaSuffix: formatMetadataSuffix(link, link),
         };
@@ -318,6 +321,7 @@ export namespace PluginDescriptorInputObserver {
   ): {
     exists: boolean;
     isDirectory: boolean;
+    isFile?: boolean;
     missing: boolean;
     signature: string | undefined;
   } {
@@ -336,6 +340,7 @@ export namespace PluginDescriptorInputObserver {
       return {
         exists: true,
         isDirectory: own.isDirectory,
+        isFile: own.isFile,
         missing: false,
         signature: `${path.relative(requested, requested)}:${own.metaSuffix}`,
       };
@@ -399,14 +404,12 @@ export namespace PluginDescriptorInputObserver {
   function readContentHash(
     ops: FilesystemOperations,
     file: string,
-    isDirectory: boolean,
   ): string | null {
-    if (isDirectory) return DIRECTORY_HASH;
     try {
-      return crypto
-        .createHash("sha256")
-        .update(ops.readFileSync(file))
-        .digest("hex");
+      const content = ops.readFileSync(file);
+      return content === undefined
+        ? null
+        : crypto.createHash("sha256").update(content).digest("hex");
     } catch {
       return null;
     }
@@ -446,7 +449,11 @@ export namespace PluginDescriptorInputObserver {
         observedRealpath = null;
         afterSignature = beforeSignature;
       } else if (before.exists && beforeSignature !== undefined) {
-        observedHash = readContentHash(ops, requested, before.isDirectory);
+        observedHash = before.isDirectory
+          ? DIRECTORY_HASH
+          : before.isFile
+            ? readContentHash(ops, requested)
+            : null;
         observedRealpath = realpathOf(ops, requested);
         afterSignature = observeMetadata(ops, requested, undefined).signature;
       } else {

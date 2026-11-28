@@ -6,10 +6,12 @@ import { EmitOwnershipIndex } from "../../compiler/internal/EmitOwnershipIndex";
 import { RuntimeBuildCache } from "../../compiler/internal/build/RuntimeBuildCache";
 import { privateRuntimeRootDir } from "../../compiler/internal/build/privateRuntimeRootDir";
 import { runBuild } from "../../compiler/internal/build/runBuild";
+import { projectConsumerRoots } from "../../compiler/internal/project/projectConsumerRoots";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveOwningProjectConfig } from "../../compiler/internal/project/resolveOwningProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
+import { OwnedSynchronousProcess } from "../../internal/OwnedSynchronousProcess";
 import { RuntimeTrash } from "../../internal/RuntimeTrash";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { systemTempOutsideProject } from "../../internal/systemTempOutsideProject";
@@ -22,9 +24,12 @@ import { resolveCacheDir } from "./resolveCacheDir";
 import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { RuntimeEmitProvenance } from "./runtime/RuntimeEmitProvenance";
+import { RuntimeFilesystem } from "./runtime/RuntimeFilesystem";
 import { claimRuntimeProjectDirectory } from "./runtime/claimRuntimeProjectDirectory";
 import { runtimeRunKey } from "./runtime/runtimeRunKey";
-import { systemRuntimeCachePath } from "./runtime/systemRuntimeCachePath";
+import { pinSystemRuntimeCachePath } from "./runtime/systemRuntimeCachePath";
+import { systemRuntimeRunCanChange } from "./runtime/systemRuntimeRunCanChange";
+import { systemRuntimeRunTree } from "./runtime/systemRuntimeRunTree";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { runtimeEmitProfile } from "./runtimeEmitProfile";
@@ -80,6 +85,10 @@ export function prepareExecution(
       processDir: string;
       /** The resolved runtime cache coordinate. */
       cacheDir: string;
+      /** Current project-boundary guard for a system cache run. */
+      canChangeRuntimeRun?: (directory: string) => boolean;
+      /** Consumer roots shared with the runtime child and prebuild workers. */
+      systemProjectRoots?: readonly string[];
       /** The runtime build store, when the persistent cache is on. */
       runtimeBuildCacheDir?: string;
       /** The entry project's config and root. */
@@ -99,6 +108,11 @@ export function prepareExecution(
 
   /** Resolved cache coordinate whose cooperative lock serializes run and clean. */
   runtimeCacheDir: string;
+
+  /** Current project-boundary guard for a system cache run. */
+  canChangeRuntimeRun?: (directory: string) => boolean;
+  /** Consumer roots shared with the runtime child and prebuild workers. */
+  systemProjectRoots?: readonly string[];
 
   /** Resolved directory coordinate holding the run when `project` is a link. */
   runtimeRunsDir: string;
@@ -161,6 +175,8 @@ export function prepareExecution(
     options.onRuntimeDirectory?.({
       processDir: context.processDir,
       cacheDir: context.cacheDir,
+      canChangeRuntimeRun: context.canChangeRuntimeRun,
+      systemProjectRoots: context.systemProjectRoots,
       runtimeBuildCacheDir: context.runtimeBuildCacheDir,
       tsconfig: context.tsconfig,
       projectRoot: context.root,
@@ -179,6 +195,8 @@ export function prepareExecution(
       emitDir: context.emitDir,
       entryFile: emittedEntry,
       runtimeCacheDir: context.cacheDir,
+      canChangeRuntimeRun: context.canChangeRuntimeRun,
+      systemProjectRoots: context.systemProjectRoots,
       runtimeRunsDir: path.dirname(context.processDir),
       entrySource: entry,
       outputs: context.outputs,
@@ -193,7 +211,12 @@ export function prepareExecution(
       rootDir: context.runtimeRootDir,
     };
   } catch (error) {
-    removeRuntimeOutput(context.processDir, context.cacheDir);
+    removeRuntimeOutput(
+      context.processDir,
+      context.cacheDir,
+      context.canChangeRuntimeRun,
+      context.systemProjectRoots,
+    );
     throw error;
   }
 }
@@ -354,7 +377,7 @@ function createProjectContext(
     explicitCacheDir === undefined
       ? defaultRuntimeCacheDir(root, env)
       : undefined;
-  const cacheDirSpelling = explicitCacheDir ?? defaultCache!.runtime;
+  const cacheDirSpelling = explicitCacheDir ?? defaultCache?.runtime;
   const runtimeCacheKey = resolveRuntimeCacheKey(options.runtimeCacheKey);
   // These adapters consume one original compiler request before generation
   // acquisition. Native expansion remains owned by the upstream compiler.
@@ -385,13 +408,16 @@ function createProjectContext(
     options.binary,
     effectiveOptions,
   );
-  fs.mkdirSync(cacheDirSpelling, { recursive: true });
-  // Pin the cache parent before deriving a generation path. Descriptors run
-  // after this point and may retarget a caller-controlled symlink or junction;
-  // every later runtime write and recursive cleanup must remain below the
-  // physical parent selected here.
+  const systemCache =
+    cacheDirSpelling === undefined
+      ? claimSystemRuntimeCacheDirectory(
+          root,
+          projectConsumerRoots(project.identity),
+          runtimeCacheKey,
+        )
+      : undefined;
   const cacheDir =
-    createFilesystemPathIdentityContext().resolve(cacheDirSpelling).path;
+    systemCache?.cacheDir ?? pinRuntimeCacheDirectory(cacheDirSpelling!);
   // The lowered orphan sources outlive the run, so they live in the resolved
   // cache root beside every other persistent part of it, and a default root
   // collects them with the rest.
@@ -404,7 +430,9 @@ function createProjectContext(
   // Validate the project index, sweep abandoned runs, and publish this run's
   // owner in one locked transaction.
   // Clean can never observe a newly selected but still unowned index.
-  const processDir = claimRuntimeProjectDirectory(cacheDir, runtimeCacheKey);
+  const processDir =
+    systemCache?.processDir ??
+    claimRuntimeProjectDirectory(cacheDir, runtimeCacheKey);
   const virtualRoot = path.join(processDir, "fs");
   const emitDir = virtualPath(
     virtualRoot,
@@ -420,8 +448,10 @@ function createProjectContext(
     cacheDir,
     runtimeCacheKey,
     processDir,
+    canChangeRuntimeRun: systemCache?.canChange,
+    systemProjectRoots: systemCache?.projectRoots,
     pluginCacheDir:
-      explicitCacheDir !== undefined || defaultCache?.systemFallback === true
+      explicitCacheDir !== undefined || cacheDirSpelling === undefined
         ? cacheDir
         : undefined,
     runtimeBuildCacheDir:
@@ -574,6 +604,8 @@ function buildProject(
   // A successful empty solution may write no directory. Own an empty output
   // container before compilation so its inventory can still prove exclusion
   // and select the checked single-entry lane without hiding enumeration errors.
+  if (context.canChangeRuntimeRun?.(context.emitDir) === false)
+    throw new Error(`ttsx: unsafe system runtime output: ${context.emitDir}`);
   fs.mkdirSync(context.emitDir, { recursive: true });
   const result = runBuild({
     binary: options.binary,
@@ -583,6 +615,8 @@ function buildProject(
     env: options.env,
     cacheDir: context.pluginCacheDir,
     runtimeCacheDir: context.runtimeBuildCacheDir,
+    canChangeRuntimeBuild: context.canChangeRuntimeRun,
+    runtimeBuildRunDir: context.processDir,
     bundleRuntimeOutputs: true,
     outDir: context.emitDir,
     // Every output this build writes stays in ttsx's private directory: a
@@ -632,7 +666,12 @@ function buildProject(
     return;
   }
 
-  removeRuntimeOutput(context.processDir, context.cacheDir);
+  removeRuntimeOutput(
+    context.processDir,
+    context.cacheDir,
+    context.canChangeRuntimeRun,
+    context.systemProjectRoots,
+  );
   const detail = [
     `ttsx: project check failed for ${context.tsconfig}`,
     result.stderr || result.stdout,
@@ -676,8 +715,8 @@ function executionProvenance(
 /**
  * The runtime cache a run uses when `--cache-dir` names none: the `ttsx` area
  * below the source-plugin cache root selected for the same project and
- * environment, or, when the default workspace-local directory is read-only, one
- * below the system temp directory keyed by the project.
+ * environment. A refused automatic workspace location leaves system temp
+ * selection and acquisition to the caller.
  *
  * Every run writes its output into a directory of its own below the cache and
  * removes it on exit, so any writable parent serves; the workspace-local
@@ -687,17 +726,18 @@ function executionProvenance(
 function defaultRuntimeCacheDir(
   root: string,
   env: NodeJS.ProcessEnv,
-): {
-  /** Whether ttsc collects the root, which it does for its own default. */
-  collected: boolean;
+):
+  | {
+      /** Whether ttsc collects the root, which it does for its own default. */
+      collected: boolean;
 
-  /** The cache root the runtime directory lives in. */
-  root: string;
+      /** The cache root the runtime directory lives in. */
+      root: string;
 
-  /** The runtime's own directory. */
-  runtime: string;
-  systemFallback?: true;
-} {
+      /** The runtime's own directory. */
+      runtime: string;
+    }
+  | undefined {
   try {
     const paths = resolveSourceBuildCachePaths(root, undefined, env);
     const local = path.join(
@@ -710,7 +750,6 @@ function defaultRuntimeCacheDir(
     const runtime = !env.TTSC_CACHE_DIR
       ? SourceBuildCacheLayout.canonicalPluginCacheRoot(local)
       : local;
-    if (env.TTSC_CACHE_DIR) fs.mkdirSync(local, { recursive: true });
     return {
       collected: !env.TTSC_CACHE_DIR,
       root: paths.root,
@@ -724,13 +763,115 @@ function defaultRuntimeCacheDir(
       throw error;
     }
   }
-  const fallback = systemRuntimeCachePath(root, systemTempOutsideProject(root));
-  return {
-    collected: false,
-    root: fallback,
-    runtime: fallback,
-    systemFallback: true,
+  return undefined;
+}
+
+/**
+ * Claim system storage outside the selected projects. A permission refusal
+ * during pinning or lock-directory creation can advance to another candidate. A
+ * started run transaction or a lock cleanup error retains its own failure.
+ */
+function claimSystemRuntimeCacheDirectory(
+  root: string,
+  additionalProjectRoots: readonly string[],
+  runKey: string,
+): {
+  cacheDir: string;
+  processDir: string;
+  canChange: (directory: string) => boolean;
+  projectRoots: readonly string[];
+} {
+  let refusal: unknown;
+  const projectRoots = [
+    root,
+    ...additionalProjectRoots,
+    process.cwd(),
+    ...OwnedSynchronousProcess.additionalProjectRoots(),
+  ];
+  for (const { directory } of systemTempOutsideProject.candidates(
+    root,
+    projectRoots,
+  )) {
+    let pinned = false;
+    let claimStarted = false;
+    try {
+      const cacheDir = pinSystemRuntimeCachePath(root, directory, projectRoots);
+      if (cacheDir === undefined) continue;
+      pinned = true;
+      const canChange = (run: string) =>
+        systemRuntimeRunCanChange(run, cacheDir, projectRoots);
+      const processDir = claimRuntimeProjectDirectory(
+        cacheDir,
+        runKey,
+        (runtimeRoot, claim) =>
+          withRuntimeDirectoryLock(
+            runtimeRoot,
+            () => {
+              claimStarted = true;
+              return claim();
+            },
+            projectRoots,
+          ),
+        canChange,
+      );
+      return { cacheDir, processDir, canChange, projectRoots };
+    } catch (error) {
+      if (
+        claimStarted ||
+        (pinned &&
+          (error as NodeJS.ErrnoException | null)?.syscall !== "mkdir") ||
+        !SourceBuildCacheLayout.refusesDefaultPath(error)
+      )
+        throw error;
+      refusal ??= error;
+    }
+  }
+  throw (
+    refusal ??
+    new Error(`ttsx: no existing system temporary directory outside ${root}`)
+  );
+}
+
+/** Pin a string-addressable cache before descriptors can retarget its alias. */
+function pinRuntimeCacheDirectory(directory: string): string {
+  if (process.platform === "win32") {
+    fs.mkdirSync(directory, { recursive: true });
+    return createFilesystemPathIdentityContext().resolve(directory).path;
+  }
+
+  const observe = (location: string): string => {
+    const physical = RuntimeFilesystem.realpathWitness(location);
+    if (physical.includes("\0"))
+      throw new Error(
+        `ttsx: runtime cache directory has no UTF-8 path: ${directory}`,
+      );
+    return physical;
   };
+  const missing: string[] = [];
+  let parent = directory;
+  for (;;) {
+    let physical: string;
+    try {
+      physical = observe(parent);
+    } catch (error) {
+      const ancestor = path.dirname(parent);
+      if (
+        (error as NodeJS.ErrnoException).code !== "ENOENT" ||
+        ancestor === parent
+      )
+        throw error;
+      missing.push(path.basename(parent));
+      parent = ancestor;
+      continue;
+    }
+    // Native mkdir must still interpret any parent components in the suffix.
+    const target =
+      missing.length === 0
+        ? physical
+        : `${physical === "/" ? "" : physical}/${missing.reverse().join("/")}`;
+    fs.mkdirSync(target, { recursive: true });
+    return observe(target);
+  }
 }
 
 /**
@@ -744,16 +885,37 @@ function defaultRuntimeCacheDir(
  * abandoned: the caller once it stopped its workers, or the next run's sweep.
  * Whoever removes it first parks the builds its processes asked to keep.
  */
-function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
+function removeRuntimeOutput(
+  directory: string,
+  runtimeCacheDir: string,
+  canChange?: (directory: string) => boolean,
+  systemProjectRoots?: readonly string[],
+): void {
   try {
-    withRuntimeDirectoryLock(runtimeCacheDir, () => {
+    if (canChange?.(directory) === false) return;
+    const remove = () => {
+      if (canChange?.(directory) === false) return;
       ProcessOwnedDirectory.relinquish(directory);
       const ownership = ProcessOwnedDirectory.ownership(directory, false);
       if (ownership !== "abandoned" && ownership !== "unowned") return;
-      RuntimeBuildCache.parkRequested(directory);
-      if (!RuntimeTrash.retire(directory, runtimeCacheDir))
+      if (canChange?.(directory) === false) return;
+      const tree = systemRuntimeRunTree(directory, canChange);
+      if (tree === "protected") return;
+      RuntimeBuildCache.parkRequested(
+        directory,
+        path.join(
+          runtimeCacheDir,
+          SourceBuildCacheLayout.RUNTIME_BUILD_CACHE_DIRNAME,
+        ),
+        canChange,
+      );
+      if (
+        tree === "emitted-marker" ||
+        !RuntimeTrash.retire(directory, runtimeCacheDir, canChange)
+      )
         fs.rmSync(directory, { recursive: true, force: true });
-    });
+    };
+    withRuntimeDirectoryLock(runtimeCacheDir, remove, systemProjectRoots);
   } catch {
     // Best effort: cleanup must not hide the original preparation failure.
   }

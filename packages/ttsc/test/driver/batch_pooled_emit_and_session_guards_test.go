@@ -1,14 +1,14 @@
 package driver_test
 
 import (
-	"path/filepath"
-	"strings"
-	"testing"
+  "path/filepath"
+  "strings"
+  "testing"
 
-	shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
-	shimtspath "github.com/microsoft/typescript-go/shim/tspath"
+  shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestDriverPooledNoEmitIncrementalWritesBuildInfoThroughEmitAllRaw verifies
@@ -27,8 +27,8 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Covers the pooled noEmit+incremental build-info lane that must remain working; forced declaration emit refusal and resident session refusal are owned by sibling tests.
 // @evidence contracts/testing.md#execution-ownership Discoverable Go unit in package driver_test using in-process LoadProgram and EmitAllRaw over a temporary project; no native binary or consumer install runs.
 func TestDriverPooledNoEmitIncrementalWritesBuildInfoThroughEmitAllRaw(t *testing.T) {
-	root := t.TempDir()
-	writeProjectFile(t, root, "tsconfig.json", `{
+  root := t.TempDir()
+  writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
     "target": "es2022",
     "module": "commonjs",
@@ -50,47 +50,47 @@ func TestDriverPooledNoEmitIncrementalWritesBuildInfoThroughEmitAllRaw(t *testin
   ]
 }
 `)
-	for _, name := range []string{"a", "b", "c", "d", "e", "f", "g", "h"} {
-		writeProjectFile(t, root, "src/"+name+".ts", "export const item_"+name+": number = 1;\n")
-	}
+  for _, name := range []string{"a", "b", "c", "d", "e", "f", "g", "h"} {
+    writeProjectFile(t, root, "src/"+name+".ts", "export const item_"+name+": number = 1;\n")
+  }
 
-	t.Setenv(shimcompiler.BatchEnv, "1")
-	prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
-	if err != nil || len(diags) != 0 || prog == nil {
-		t.Fatalf("LoadProgram: prog=%v diags=%#v err=%v", prog, diags, err)
-	}
-	defer prog.Close()
+  t.Setenv(shimcompiler.BatchEnv, "1")
+  prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
+  if err != nil || len(diags) != 0 || prog == nil {
+    t.Fatalf("LoadProgram: prog=%v diags=%#v err=%v", prog, diags, err)
+  }
+  defer prog.Close()
 
-	if count := liveCheckerPoolSize(prog.TSProgram); count <= 1 {
-		t.Fatalf("expected pooled Program (>1 checker), got %d", count)
-	}
+  if count := liveCheckerPoolSize(prog.TSProgram); count <= 1 {
+    t.Fatalf("expected pooled Program (>1 checker), got %d", count)
+  }
 
-	written := map[string]string{}
-	_, emitDiags, err := prog.EmitAllRaw(func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
-		written[filepath.ToSlash(string(fileName))] = text
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("EmitAllRaw on pooled noEmit+incremental Program failed: %v", err)
-	}
-	if len(emitDiags) != 0 {
-		t.Fatalf("EmitAllRaw diagnostics: %#v", emitDiags)
-	}
+  written := map[string]string{}
+  _, emitDiags, err := prog.EmitAllRaw(func(fileName shimtspath.RootedFilePath, text string, _ *shimcompiler.WriteFileData) error {
+    written[filepath.ToSlash(string(fileName))] = text
+    return nil
+  })
+  if err != nil {
+    t.Fatalf("EmitAllRaw on pooled noEmit+incremental Program failed: %v", err)
+  }
+  if len(emitDiags) != 0 {
+    t.Fatalf("EmitAllRaw diagnostics: %#v", emitDiags)
+  }
 
-	var sawBuildInfo bool
-	for path, content := range written {
-		if strings.HasSuffix(path, "/out/check.tsbuildinfo") {
-			if strings.TrimSpace(content) == "" {
-				t.Fatalf("written tsbuildinfo at %s was empty", path)
-			}
-			sawBuildInfo = true
-			continue
-		}
-		t.Fatalf("unexpected non-buildinfo emit artifact %q on noEmit pooled Program", path)
-	}
-	if !sawBuildInfo {
-		t.Fatalf("expected out/check.tsbuildinfo to be written, got %v", sortedKeys(written))
-	}
+  var sawBuildInfo bool
+  for path, content := range written {
+    if strings.HasSuffix(path, "/out/check.tsbuildinfo") {
+      if strings.TrimSpace(content) == "" {
+        t.Fatalf("written tsbuildinfo at %s was empty", path)
+      }
+      sawBuildInfo = true
+      continue
+    }
+    t.Fatalf("unexpected non-buildinfo emit artifact %q on noEmit pooled Program", path)
+  }
+  if !sawBuildInfo {
+    t.Fatalf("expected out/check.tsbuildinfo to be written, got %v", sortedKeys(written))
+  }
 }
 
 // TestDriverPooledProgramRefusesDeclarationShapeDigest verifies that
@@ -108,50 +108,50 @@ func TestDriverPooledNoEmitIncrementalWritesBuildInfoThroughEmitAllRaw(t *testin
 // @evidence contracts/testing.md#distinguishing-cases Compares pinned success against pooled refusal on the same source file; build-info emit under noEmit and resident Session refusal are owned by sibling tests.
 // @evidence contracts/testing.md#execution-ownership Discoverable Go unit in package driver_test using in-process LoadProgram and DeclarationShapeDigest; no native binary or consumer install runs.
 func TestDriverPooledProgramRefusesDeclarationShapeDigest(t *testing.T) {
-	root := writeNoEmitMultiFileProject(t)
-	filePath := filepath.Join(root, "src", "a.ts")
+  root := writeNoEmitMultiFileProject(t)
+  filePath := filepath.Join(root, "src", "a.ts")
 
-	t.Setenv(shimcompiler.BatchEnv, "")
-	pinned, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
-		ForceNoEmit: true,
-	})
-	if err != nil || len(diags) != 0 || pinned == nil {
-		t.Fatalf("pinned LoadProgram: prog=%v diags=%#v err=%v", pinned, diags, err)
-	}
-	defer pinned.Close()
+  t.Setenv(shimcompiler.BatchEnv, "")
+  pinned, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
+    ForceNoEmit: true,
+  })
+  if err != nil || len(diags) != 0 || pinned == nil {
+    t.Fatalf("pinned LoadProgram: prog=%v diags=%#v err=%v", pinned, diags, err)
+  }
+  defer pinned.Close()
 
-	pinnedDigest, err := pinned.DeclarationShapeDigest(pinned.SourceFile(filePath))
-	if err != nil {
-		t.Fatalf("pinned DeclarationShapeDigest failed: %v", err)
-	}
-	if pinnedDigest == "" {
-		t.Fatal("pinned DeclarationShapeDigest returned empty digest")
-	}
+  pinnedDigest, err := pinned.DeclarationShapeDigest(pinned.SourceFile(filePath))
+  if err != nil {
+    t.Fatalf("pinned DeclarationShapeDigest failed: %v", err)
+  }
+  if pinnedDigest == "" {
+    t.Fatal("pinned DeclarationShapeDigest returned empty digest")
+  }
 
-	t.Setenv(shimcompiler.BatchEnv, "1")
-	pooled, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
-		ForceNoEmit: true,
-	})
-	if err != nil || len(diags) != 0 || pooled == nil {
-		t.Fatalf("pooled LoadProgram: prog=%v diags=%#v err=%v", pooled, diags, err)
-	}
-	defer pooled.Close()
+  t.Setenv(shimcompiler.BatchEnv, "1")
+  pooled, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
+    ForceNoEmit: true,
+  })
+  if err != nil || len(diags) != 0 || pooled == nil {
+    t.Fatalf("pooled LoadProgram: prog=%v diags=%#v err=%v", pooled, diags, err)
+  }
+  defer pooled.Close()
 
-	if count := liveCheckerPoolSize(pooled.TSProgram); count <= 1 {
-		t.Fatalf("expected pooled Program (>1 checker), got %d", count)
-	}
+  if count := liveCheckerPoolSize(pooled.TSProgram); count <= 1 {
+    t.Fatalf("expected pooled Program (>1 checker), got %d", count)
+  }
 
-	digest, err := pooled.DeclarationShapeDigest(pooled.SourceFile(filePath))
-	if err == nil {
-		t.Fatalf("expected DeclarationShapeDigest to fail on pooled Program, got digest %q", digest)
-	}
-	if digest != "" {
-		t.Fatalf("expected empty digest on refusal, got %q", digest)
-	}
-	wantSubstr := "a pooled Program checked files on several checkers, and emit reads each file's own checker"
-	if !strings.Contains(err.Error(), wantSubstr) {
-		t.Fatalf("DeclarationShapeDigest error = %q, want substring %q", err.Error(), wantSubstr)
-	}
+  digest, err := pooled.DeclarationShapeDigest(pooled.SourceFile(filePath))
+  if err == nil {
+    t.Fatalf("expected DeclarationShapeDigest to fail on pooled Program, got digest %q", digest)
+  }
+  if digest != "" {
+    t.Fatalf("expected empty digest on refusal, got %q", digest)
+  }
+  wantSubstr := "a pooled Program checked files on several checkers, and emit reads each file's own checker"
+  if !strings.Contains(err.Error(), wantSubstr) {
+    t.Fatalf("DeclarationShapeDigest error = %q, want substring %q", err.Error(), wantSubstr)
+  }
 }
 
 // TestDriverNewSessionFromProgramRefusesPooledProgram verifies that
@@ -170,48 +170,48 @@ func TestDriverPooledProgramRefusesDeclarationShapeDigest(t *testing.T) {
 // @evidence contracts/testing.md#distinguishing-cases Covers pooled refusal and pinned acceptance at the NewSessionFromProgram boundary without relying on the launcher clearing TTSC_BATCH; NewSession itself is covered by the sibling checker-count test.
 // @evidence contracts/testing.md#execution-ownership Discoverable Go unit in package driver_test using in-process LoadProgram, OverlayFS and NewSessionFromProgram; no native binary or consumer install runs.
 func TestDriverNewSessionFromProgramRefusesPooledProgram(t *testing.T) {
-	root := writeNoEmitMultiFileProject(t)
+  root := writeNoEmitMultiFileProject(t)
 
-	t.Setenv(shimcompiler.BatchEnv, "1")
-	pooledOverlay := driver.NewOverlayFS(driver.DefaultFS())
-	pooled, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
-		ForceNoEmit: true,
-		FS:          pooledOverlay,
-	})
-	if err != nil || len(diags) != 0 || pooled == nil {
-		t.Fatalf("pooled LoadProgram: prog=%v diags=%#v err=%v", pooled, diags, err)
-	}
-	defer pooled.Close()
+  t.Setenv(shimcompiler.BatchEnv, "1")
+  pooledOverlay := driver.NewOverlayFS(driver.DefaultFS())
+  pooled, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
+    ForceNoEmit: true,
+    FS:          pooledOverlay,
+  })
+  if err != nil || len(diags) != 0 || pooled == nil {
+    t.Fatalf("pooled LoadProgram: prog=%v diags=%#v err=%v", pooled, diags, err)
+  }
+  defer pooled.Close()
 
-	if count := liveCheckerPoolSize(pooled.TSProgram); count <= 1 {
-		t.Fatalf("expected pooled Program (>1 checker), got %d", count)
-	}
+  if count := liveCheckerPoolSize(pooled.TSProgram); count <= 1 {
+    t.Fatalf("expected pooled Program (>1 checker), got %d", count)
+  }
 
-	refusal := func() (recovered any) {
-		defer func() { recovered = recover() }()
-		sess := driver.NewSessionFromProgram(root, pooledOverlay, pooled)
-		t.Errorf("NewSessionFromProgram(pooled) = %v, want a panic", sess)
-		return nil
-	}()
-	message, ok := refusal.(string)
-	wantSubstr := "a resident session's diagnostics must come from the checker its reads use"
-	if !ok || !strings.Contains(message, wantSubstr) {
-		t.Fatalf("NewSessionFromProgram(pooled) panic = %#v, want a message containing %q", refusal, wantSubstr)
-	}
+  refusal := func() (recovered any) {
+    defer func() { recovered = recover() }()
+    sess := driver.NewSessionFromProgram(root, pooledOverlay, pooled)
+    t.Errorf("NewSessionFromProgram(pooled) = %v, want a panic", sess)
+    return nil
+  }()
+  message, ok := refusal.(string)
+  wantSubstr := "a resident session's diagnostics must come from the checker its reads use"
+  if !ok || !strings.Contains(message, wantSubstr) {
+    t.Fatalf("NewSessionFromProgram(pooled) panic = %#v, want a message containing %q", refusal, wantSubstr)
+  }
 
-	t.Setenv(shimcompiler.BatchEnv, "")
-	pinnedOverlay := driver.NewOverlayFS(driver.DefaultFS())
-	pinned, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
-		ForceNoEmit: true,
-		FS:          pinnedOverlay,
-	})
-	if err != nil || len(diags) != 0 || pinned == nil {
-		t.Fatalf("pinned LoadProgram: prog=%v diags=%#v err=%v", pinned, diags, err)
-	}
+  t.Setenv(shimcompiler.BatchEnv, "")
+  pinnedOverlay := driver.NewOverlayFS(driver.DefaultFS())
+  pinned, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{
+    ForceNoEmit: true,
+    FS:          pinnedOverlay,
+  })
+  if err != nil || len(diags) != 0 || pinned == nil {
+    t.Fatalf("pinned LoadProgram: prog=%v diags=%#v err=%v", pinned, diags, err)
+  }
 
-	okSess := driver.NewSessionFromProgram(root, pinnedOverlay, pinned)
-	defer okSess.Close()
-	if okSess.Program() != pinned {
-		t.Fatalf("NewSessionFromProgram(pinned).Program() = %p, want %p", okSess.Program(), pinned)
-	}
+  okSess := driver.NewSessionFromProgram(root, pinnedOverlay, pinned)
+  defer okSess.Close()
+  if okSess.Program() != pinned {
+    t.Fatalf("NewSessionFromProgram(pinned).Program() = %p, want %p", okSess.Program(), pinned)
+  }
 }

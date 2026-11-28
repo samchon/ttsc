@@ -20,17 +20,26 @@ import { derivationIdentity } from "./derivationIdentity";
  * @evidence contracts/performance.md#reuse-equivalent-work The memoized set is valid for the immutable declaration, project root and identity context of one envelope generation; unrelated result objects cannot share it.
  */
 export function isVolatileFile(
-  state: TtscEnvelopeDerivation,
+  state: Pick<
+    TtscEnvelopeDerivation,
+    "identityContext" | "identities" | "selection"
+  >,
   props: {
     file: string;
     projectRoot: string;
-    result: ITtscCompilerTransformation;
+    result:
+      | Pick<
+          | ITtscCompilerTransformation.ISuccess
+          | ITtscCompilerTransformation.IFailure,
+          "type" | "volatile"
+        >
+      | Pick<ITtscCompilerTransformation.IException, "type">;
   },
 ): boolean {
   if (props.result.type === "exception") {
     return false;
   }
-  const declared = (state.volatileFiles ??= collectDeclaredIdentities(
+  const declared = (state.selection.volatileFiles ??= collectDeclaredIdentities(
     state,
     props.projectRoot,
     props.result.volatile,

@@ -104,6 +104,12 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
   /** False withdraws complete observation authority; absence asserts nothing. */
   observationsComplete?: false;
 
+  /** A later plugin load must re-establish its generated Go workspace. */
+  workspaceReplayRequired?: true;
+
+  /** Retained workspace metadata for watch qualification. */
+  workspaceInputs?: ITtscCompilerTransformation.ISuccess["workspaceInputs"];
+
   /** Compiler diagnostics and native process outcome. */
   result: TtscBuildResult;
 
@@ -132,8 +138,11 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
     projectRoot: options.projectRoot,
     tsconfig: options.tsconfig,
   });
-  return CompilationSnapshot.run(options.env, (env) =>
-    transformWithSnapshot({ ...options, env }, loaded),
+  return CompilationSnapshot.run(
+    options.env,
+    loaded.project.root,
+    [cwd, path.dirname(loaded.project.path)],
+    (env) => transformWithSnapshot({ ...options, env }, loaded),
   );
 }
 
@@ -151,6 +160,12 @@ function transformWithSnapshot(
       ...(Object.keys(loaded.pluginSources).length === 0
         ? {}
         : { pluginSources: loaded.pluginSources }),
+      ...(loaded.workspaceReplayRequired === true
+        ? {
+            workspaceReplayRequired: true as const,
+            workspaceInputs: loaded.workspaceInputs,
+          }
+        : {}),
     };
   }
   return transformProjectWithNativeHost(options, loaded.project, loaded);
@@ -231,6 +246,7 @@ function transformProjectWithNativeHost(
     binary,
     ["api-transform", "--cwd", project.root, "--tsconfig", project.path],
     {
+      additionalProjectRoots: [path.dirname(project.path)],
       cwd: project.root,
       env: SidecarEnvironment.merge(env, { [BATCH_ENV]: "1" }),
     },
@@ -456,6 +472,7 @@ function transformProjectWithPlugins(
       resolvePluginConfigDir(options),
     ),
     {
+      additionalProjectRoots: [path.dirname(project.path)],
       cwd: project.root,
       env: nativePluginEnv(
         options,
@@ -759,45 +776,53 @@ function runNativeChecks(
   };
   let snapshotsComplete = true;
   for (const plugin of checks) {
-    const checked = runNativeCheckWithObservations(plugin, (extraArgs) => {
-      const res = spawnNative(
-        plugin.binary,
-        [
-          ...createNativeCheckArgs(
-            project,
-            nativePlugins,
-            plugin,
-            resolvePluginConfigDir(options),
-          ),
-          ...extraArgs,
-        ],
-        {
-          cwd: project.root,
-          env: nativePluginEnv(
-            options,
-            project.root,
-            tsgoBinary,
-            nativePlugins,
-            plugin,
-            identities,
-          ),
-        },
-      );
-      if (res.error) {
-        throw new Error(
-          `ttsc.transform.check: failed to spawn ${plugin.binary}: ${res.error.message}`,
+    const checked = runNativeCheckWithObservations(
+      plugin,
+      (extraArgs) => {
+        const res = spawnNative(
+          plugin.binary,
+          [
+            ...createNativeCheckArgs(
+              project,
+              nativePlugins,
+              plugin,
+              resolvePluginConfigDir(options),
+            ),
+            ...extraArgs,
+          ],
+          {
+            additionalProjectRoots: [path.dirname(project.path)],
+            cwd: project.root,
+            env: nativePluginEnv(
+              options,
+              project.root,
+              tsgoBinary,
+              nativePlugins,
+              plugin,
+              identities,
+            ),
+          },
         );
-      }
-      return normalizeBuildOutput(
-        {
-          status: res.status ?? 1,
-          processCompletedNormally: res.status !== null && res.signal === null,
-          stdout: outputText(res.stdout),
-          stderr: outputText(res.stderr),
-        },
-        project.root,
-      );
-    });
+        if (res.error) {
+          throw new Error(
+            `ttsc.transform.check: failed to spawn ${plugin.binary}: ${res.error.message}`,
+          );
+        }
+        return normalizeBuildOutput(
+          {
+            status: res.status ?? 1,
+            processCompletedNormally:
+              res.status !== null && res.signal === null,
+            stdout: outputText(res.stdout),
+            stderr: outputText(res.stderr),
+          },
+          project.root,
+        );
+      },
+      "check",
+      project.root,
+      [path.dirname(project.path), options.cwd ?? process.cwd()],
+    );
     snapshotsComplete &&= checked.graph?.compilationSnapshot !== undefined;
     result = appendBuildOutput(result, checked);
     if (!snapshotsComplete && result.graph?.compilationSnapshot !== undefined) {

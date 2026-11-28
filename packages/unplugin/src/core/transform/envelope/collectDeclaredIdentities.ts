@@ -21,7 +21,7 @@ import { derivationIdentity } from "./derivationIdentity";
  *   The output Set is local and handed to the caller.
  */
 export function collectDeclaredIdentities(
-  state: TtscEnvelopeDerivation,
+  state: Pick<TtscEnvelopeDerivation, "identityContext" | "identities">,
   projectRoot: string,
   listed: unknown,
 ): Set<string> {

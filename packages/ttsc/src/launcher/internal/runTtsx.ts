@@ -5,9 +5,11 @@ import path from "node:path";
 import { RuntimeBuildCache } from "../../compiler/internal/build/RuntimeBuildCache";
 import { RuntimeEmitBundle } from "../../compiler/internal/build/RuntimeEmitBundle";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
+import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../../internal/E2ETrace";
 import { RuntimeTrash } from "../../internal/RuntimeTrash";
 import { TtsxNodeOptions } from "../../internal/TtsxNodeOptions";
+import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { TtsxEntryOptions } from "./TtsxEntryOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { parseTtsxCLI } from "./parseTtsxCLI";
@@ -16,7 +18,9 @@ import { resolveCacheDir } from "./resolveCacheDir";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { RuntimeDependencyPrebuild } from "./runtime/RuntimeDependencyPrebuild";
 import { checkNodeRuntimeSupport } from "./runtime/checkNodeRuntimeSupport";
+import { systemRuntimeRunTree } from "./runtime/systemRuntimeRunTree";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
+import { writeRuntimeManifest } from "./runtime/writeRuntimeManifest";
 
 /**
  * CLI entry point for `ttsx`. Type-checks the owning project via tsgo, emits
@@ -128,13 +132,20 @@ async function run(
     >[0],
   ): void => {
     const store = run.runtimeBuildCacheDir;
-    if (parsed.noCache || store === undefined) return;
+    if (
+      parsed.noCache ||
+      store === undefined ||
+      run.canChangeRuntimeRun?.(store) === false
+    )
+      return;
     const plugins = parsed.noPlugins ? false : undefined;
     dependencies.stop = RuntimeDependencyPrebuild.start({
       runDir: run.processDir,
       store,
       tsconfig: run.tsconfig,
       projectRoot: run.projectRoot,
+      systemProjectRoots: run.systemProjectRoots,
+      canChange: run.canChangeRuntimeRun,
       plugins,
       environment: (manifest) =>
         runtimeEnvironment(parsed, {
@@ -142,18 +153,27 @@ async function run(
           manifest,
           runDir: run.processDir,
           cacheDir: run.cacheDir,
+          systemProjectRoots: run.systemProjectRoots,
         }),
     });
-    dependencies.remember = () =>
+    dependencies.remember = () => {
+      if (run.canChangeRuntimeRun?.(store) === false) return;
       RuntimeDependencyPrebuild.remember({
         runDir: run.processDir,
         store,
         tsconfig: run.tsconfig,
         plugins,
+        canChange: run.canChangeRuntimeRun,
       });
+    };
     dependencies.release = () => {
       if (fs.existsSync(run.processDir))
-        removeRuntimeOutput(run.processDir, run.cacheDir);
+        removeRuntimeOutput(
+          run.processDir,
+          run.cacheDir,
+          run.canChangeRuntimeRun,
+          run.systemProjectRoots,
+        );
     };
   };
   let prepared: ReturnType<typeof prepareExecution>;
@@ -192,7 +212,12 @@ async function run(
     // The signal arrived while the project was prepared. Preparation has
     // finished cleaning up its own files; the runtime output goes now.
     await dependencies.stop();
-    removeRuntimeOutput(prepared.cleanupDir, prepared.runtimeCacheDir);
+    removeRuntimeOutput(
+      prepared.cleanupDir,
+      prepared.runtimeCacheDir,
+      prepared.canChangeRuntimeRun,
+      prepared.systemProjectRoots,
+    );
     signals.raiseReceived();
   }
   return runPreparedEntry(parsed, prepared, cwd, entry, signals, dependencies);
@@ -212,9 +237,10 @@ function runtimeEnvironment(
     manifest: string;
     runDir: string;
     cacheDir: string;
+    systemProjectRoots?: readonly string[];
   },
 ): NodeJS.ProcessEnv {
-  return {
+  const environment = {
     ...process.env,
     ...(parsed.noCache ? { TTSX_DISABLE_CACHE: "1" } : {}),
     // ttsc's own helpers run with what the user passed (#1740).
@@ -239,6 +265,14 @@ function runtimeEnvironment(
     TTSX_RUNTIME_RUN_DIR: run.runDir,
     TTSX_RUNTIME_RUNS_DIR: path.dirname(run.runDir),
   };
+  SidecarEnvironment.write(
+    environment,
+    "TTSX_RUNTIME_SYSTEM_PROJECTS",
+    run.systemProjectRoots === undefined
+      ? undefined
+      : JSON.stringify(run.systemProjectRoots),
+  );
+  return environment;
 }
 
 function formatError(error: unknown): string {
@@ -400,7 +434,12 @@ async function runPreparedEntry(
     stopDrain?.();
     if (cleaned) return;
     cleaned = true;
-    removeRuntimeOutput(execution.cleanupDir, execution.runtimeCacheDir);
+    removeRuntimeOutput(
+      execution.cleanupDir,
+      execution.runtimeCacheDir,
+      execution.canChangeRuntimeRun,
+      execution.systemProjectRoots,
+    );
   };
   try {
     const depCacheDir = path.join(execution.cleanupDir, "deps");
@@ -408,10 +447,9 @@ async function runPreparedEntry(
       execution.cleanupDir,
       "runtime-manifest.json",
     );
-    fs.mkdirSync(execution.cleanupDir, { recursive: true });
-    fs.writeFileSync(
+    writeRuntimeManifest(
       manifestPath,
-      JSON.stringify({
+      {
         depCacheDir,
         emitDir: execution.emitDir,
         bundledOutputs: execution.bundledOutputs,
@@ -424,9 +462,10 @@ async function runPreparedEntry(
         orphanCacheDir: execution.orphanCacheDir,
         ...(parsed.noPlugins ? { plugins: false } : {}),
         projectRoot: execution.projectRoot,
+        systemProjectRoots: execution.systemProjectRoots,
         rootDir: execution.rootDir,
-      }),
-      "utf8",
+      },
+      execution.canChangeRuntimeRun,
     );
 
     const args = [
@@ -443,10 +482,13 @@ async function runPreparedEntry(
       manifest: manifestPath,
       runDir: execution.cleanupDir,
       cacheDir: execution.runtimeCacheDir,
+      systemProjectRoots: execution.systemProjectRoots,
     });
     const drains = [execution.runtimeCacheDir, execution.runtimeBuildCacheDir]
       .filter((parent): parent is string => parent !== undefined)
-      .map((parent) => RuntimeTrash.drain(parent));
+      .map((parent) =>
+        RuntimeTrash.drain(parent, execution.canChangeRuntimeRun),
+      );
     stopDrain = () => drains.forEach((stop) => stop());
     // A fresh entry build is stored while the program runs, one bounded step
     // per turn of the event loop, so a cache miss starts the program as soon
@@ -634,12 +676,19 @@ const TERMINATION_SIGNALS: readonly NodeJS.Signals[] =
     ? ["SIGINT", "SIGBREAK"]
     : ["SIGINT", "SIGTERM", "SIGHUP"];
 
-function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
+function removeRuntimeOutput(
+  directory: string,
+  runtimeCacheDir: string,
+  canChange?: (directory: string) => boolean,
+  systemProjectRoots?: readonly string[],
+): void {
   const observe = E2ETrace.runtimeCleanup(directory, runtimeCacheDir);
   let stage = "lock";
   try {
-    withRuntimeDirectoryLock(runtimeCacheDir, () => {
+    if (canChange?.(directory) === false) return;
+    const remove = () => {
       observe?.("lock-entered");
+      if (canChange?.(directory) === false) return;
       stage = "relinquish";
       ProcessOwnedDirectory.relinquish(directory);
       stage = "ownership";
@@ -653,21 +702,34 @@ function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
       );
       observe?.("ownership", ownership);
       if (ownership === "abandoned" || ownership === "unowned") {
+        const tree = systemRuntimeRunTree(directory, canChange);
+        if (tree === "protected") return;
         stage = "remove";
         // Builds its processes did not store move into the store first, for
         // the next run that needs them.
-        RuntimeBuildCache.parkRequested(directory);
+        RuntimeBuildCache.parkRequested(
+          directory,
+          path.join(
+            runtimeCacheDir,
+            SourceBuildCacheLayout.RUNTIME_BUILD_CACHE_DIRNAME,
+          ),
+          canChange,
+        );
         // Retired by one rename, its files are deleted while a later run's
         // program executes, instead of holding this exit (samchon/ttsc#1859).
         RuntimeEmitBundle.release();
-        if (!RuntimeTrash.retire(directory, runtimeCacheDir))
+        if (
+          tree === "emitted-marker" ||
+          !RuntimeTrash.retire(directory, runtimeCacheDir, canChange)
+        )
           fs.rmSync(directory, { force: true, recursive: true });
         observe?.("removed", ownership);
       } else {
         observe?.("retained", ownership);
       }
       stage = "lock-release";
-    });
+    };
+    withRuntimeDirectoryLock(runtimeCacheDir, remove, systemProjectRoots);
     observe?.("completed");
   } catch (error) {
     observe?.(stage, undefined, error);

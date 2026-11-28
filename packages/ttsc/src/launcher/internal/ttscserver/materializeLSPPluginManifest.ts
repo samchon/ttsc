@@ -1,14 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
+import { projectConsumerRoots } from "../../../compiler/internal/project/projectConsumerRoots";
+import { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
+import type { ITtscProjectIdentity } from "../../../structures/internal/ITtscProjectIdentity";
 
 /**
  * Write the language server's plugin manifest to a private file the Go host can
  * read.
  *
- * The file lives in its own canonical temporary directory, is created
- * exclusively with POSIX mode 0600. Windows access follows the temporary
+ * The file lives in a canonical temporary directory outside the selected
+ * project's consumer roots. Without a selected project, the invocation
+ * directory supplies the boundary. The file is created exclusively with POSIX
+ * mode 0600. Windows access follows the temporary
  * directory's inherited ACL; that mode does not establish an ACL guarantee. The
  * native child consumes the file and `dispose` removes the directory after the
  * invocation. A failed disposal can be retried; forced termination can prevent
@@ -18,18 +22,25 @@ import { createCanonicalTempDirectory } from "../../../internal/createCanonicalT
  * @evidence contracts/common.md#clear-and-simple-design The returned path and disposer expose only the transport ownership needed by the launcher; serialization, acquisition and rollback stay together.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The real manifest is written through native filesystem APIs without environment-size truncation or a substituted payload; cleanup failure is reported rather than disguised as successful removal.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state POSIX permissions, Windows ACL limits, retry and forced-termination limits with separated acknowledgment tags following the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Canonical temporary-directory creation and native path joining preserve OS-neutral paths; exclusive creation is portable but POSIX mode bits are explicitly distinguished from Windows ACLs.
+ * @evidence contracts/portability.md#os-neutral-implementation Scratch allocation excludes the selected logical and physical consumer roots or the fallback invocation directory. Exclusive creation is portable, and Windows access follows inherited ACLs.
  * @evidence contracts/performance.md#efficient-algorithms JSON serialization traverses supplied properties and can invoke caller conversion before native writing, so work is not bounded only by output bytes. Canonical parent checks/directory allocation, path construction and cleanup add native costs; one transport file uses no extra per-plugin filesystem artifact.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation owns a separate consumable file, so sharing a prior transport would violate lifetime and child consumption even if JSON matched.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources One directory and file are owned by the returned disposer; acquisition rollback preserves both errors when removal also fails, and successful disposal marks completion only after removal so a failed cleanup remains retryable.
  */
-export function materializeLSPPluginManifest(manifest: unknown): {
+export function materializeLSPPluginManifest(
+  manifest: unknown,
+  project: ITtscProjectIdentity | string = process.cwd(),
+): {
   dispose(): void;
   path: string;
 } {
-  const directory = createCanonicalTempDirectory("ttsc-lsp-");
+  const directory = createProjectTempDirectory(
+    "ttsc-lsp-",
+    typeof project === "string" ? project : project.logicalProjectRoot,
+    typeof project === "string" ? undefined : projectConsumerRoots(project),
+  );
   const location = path.join(directory, "plugins.json");
   try {
     fs.writeFileSync(location, JSON.stringify(manifest), {

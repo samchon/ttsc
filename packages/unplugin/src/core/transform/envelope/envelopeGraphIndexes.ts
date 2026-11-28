@@ -37,7 +37,8 @@ import { selectListedFiles } from "./selectListedFiles";
  *   generation state, with populations driven by graph entries, retained target
  *   occurrences and proof/list text. No independent historical cache or watcher
  *   handle is acquired. Temporary construction sets and serialization strings
- *   become collectible after construction; retained indexes leave with state.
+ *   become collectible after construction. A live Vite subscription may retain
+ *   the routing indexes after the rest of the generation state is collected.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Multiple linear passes collect edges, realized members, candidates and
  *   proofs so later candidate sources cannot be misclassified as speculative.

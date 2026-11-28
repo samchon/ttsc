@@ -58,6 +58,31 @@ function existingFile(file) {
   }
 }
 
+/** Read an observed regular file without waiting on a substituted POSIX FIFO. */
+function readObservedRegularFile(file) {
+  if (process.platform === "win32") return fs.readFileSync(file);
+  const descriptor = fs.openSync(
+    file,
+    fs.constants.O_RDONLY | fs.constants.O_NONBLOCK,
+  );
+  try {
+    return fs.fstatSync(descriptor).isFile()
+      ? fs.readFileSync(descriptor)
+      : undefined;
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
+/** Parse a regular package manifest, preserving the resolver's BOM handling. */
+function readPackageManifest(file) {
+  if (!existingFile(file)) return undefined;
+  const bytes = readObservedRegularFile(file);
+  return bytes === undefined
+    ? undefined
+    : JSON.parse(bytes.toString("utf8").replace(/^﻿/, ""));
+}
+
 function missingPathError(error) {
   return !!error && (error.code === "ENOENT" || error.code === "ENOTDIR");
 }
@@ -151,14 +176,24 @@ function asFile(value) {
 }
 
 /** Realpath or normalized lexical fallback for an absolute path/file URL. */
-function selectedFile(value) {
+function selectedFile(value, realpath = fs.realpathSync.native) {
   const file = asFile(value);
   if (file === undefined) return undefined;
   try {
-    return fs.realpathSync.native(file);
+    return realpath(file);
   } catch {
     return file;
   }
+}
+
+/** Encode physical identity for the proof envelope, using the RuntimeFilesystem.realpathWitness protocol. The Go-embedded recorder has no runtime dependency on the ttsc launcher. */
+function realpathWitness(file) {
+  if (process.platform === "win32") return fs.realpathSync.native(file);
+  const bytes = fs.realpathSync.native(file, { encoding: "buffer" });
+  const spelling = bytes.toString();
+  return Buffer.from(spelling).equals(bytes)
+    ? spelling
+    : "/\0ttsc-raw/" + bytes.toString("base64url");
 }
 
 /**
@@ -333,11 +368,10 @@ function visitModuleCandidates(base, extensions, visit, bases) {
     visit(candidate);
   }
   try {
-    const manifest = JSON.parse(
-      fs
-        .readFileSync(path.join(resolvedBase, "package.json"), "utf8")
-        .replace(/^﻿/, ""),
+    const manifest = readPackageManifest(
+      path.join(resolvedBase, "package.json"),
     );
+    if (manifest === undefined) return;
     visitManifestTargets(
       manifest.exports,
       resolvedBase,
@@ -729,12 +763,10 @@ function visitImportTargetCandidates(specifier, parent, extensions, visit) {
   visitPackageManifests(parentFile, (manifest) => {
     manifestPath = manifest;
   });
-  if (manifestPath === undefined || !existingFile(manifestPath)) return;
+  if (manifestPath === undefined) return;
   let imports;
   try {
-    imports = JSON.parse(
-      fs.readFileSync(manifestPath, "utf8").replace(/^﻿/, ""),
-    ).imports;
+    imports = readPackageManifest(manifestPath)?.imports;
   } catch {
     return;
   }
@@ -811,7 +843,7 @@ function visitImportTargetCandidates(specifier, parent, extensions, visit) {
  * @evidence contracts/common.md#clear-and-simple-design One evaluation owns its input ledger, resolution tokens and final envelope; callers explicitly invalidate capability rather than manipulating proof maps.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown observations retain missing proofs and incomplete capability remains false; no expected digest or resolver monkeypatch makes reuse appear valid.
  * @evidence contracts/common.md#meaningful-documentation JSDoc describes hook ownership, entry recording, selected-file proof, final reread and capability versus stability; returned operations have native descriptions and tags are separated.
- * @evidence contracts/portability.md#os-neutral-implementation Native lstat/stat/realpath with portable ENOENT/ENOTDIR classification and URL conversion represent paths and identities; symlink ancestors are observed without equating an OS name to filesystem case policy.
+ * @evidence contracts/portability.md#os-neutral-implementation Native lstat/stat and URL conversion preserve lexical paths. Physical proofs preserve non-UTF-8 POSIX targets as opaque byte witnesses. Module selection keeps its native string paths.
  * @evidence contracts/performance.md#efficient-algorithms Sets/maps index paths and observe reuses its pre-read lstat so absent candidates skip realpathSync.native and statSync; candidate expansion, present-entry realpaths, full file hashing, ancestor-link checks and before/after metadata walks still pay native work, and finish visits its captured input list and sorts output paths with uncapped byte, path and manifest-expansion costs.
  * @evidence contracts/performance.md#reuse-equivalent-work Distinct candidates share the evaluation ledger and expanded bases; the first witness stays authoritative and contradictory later reads revoke its proof instead of refreshing it.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Returned closures retain uncapped input/proof/unstable/base collections and borrow extensions; caller-owned resolution tokens and result arrays add retention. This constructor neither starts an isolated subprocess nor installs/releases hooks; callers own those lifetimes, and synchronous observations leave no open file handles.
@@ -837,17 +869,20 @@ function createResolutionInputRecorder(options) {
       hash = null;
     } else {
       try {
-        realpath = fs.realpathSync.native(file);
+        realpath = realpathWitness(file);
       } catch {
         realpath = null;
       }
       try {
-        hash = fs.statSync(file).isDirectory()
+        const target = fs.statSync(file);
+        const bytes = target.isFile()
+          ? readObservedRegularFile(file)
+          : undefined;
+        hash = target.isDirectory()
           ? DIRECTORY_STATE
-          : crypto
-              .createHash("sha256")
-              .update(fs.readFileSync(file))
-              .digest("hex");
+          : bytes === undefined
+            ? null
+            : crypto.createHash("sha256").update(bytes).digest("hex");
       } catch {
         hash = null;
       }
@@ -1031,7 +1066,7 @@ function createResolutionInputRecorder(options) {
         // A local target, or a link retargeted after Node selected it, need not
         // have a currently discoverable package root. Its available earlier
         // file witness still belongs to the selected result and cannot be lost.
-        const selected = selectedFile(resolved);
+        const selected = selectedFile(resolved, realpathWitness);
         for (const observation of token.importPending ?? [])
           if (selected !== undefined && observation.realpath === selected)
             commit(observation);
