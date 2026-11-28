@@ -5,6 +5,7 @@ import path from "node:path";
 import { RuntimeBuildCache } from "../../compiler/internal/build/RuntimeBuildCache";
 import { RuntimeEmitBundle } from "../../compiler/internal/build/RuntimeEmitBundle";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
+import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../../internal/E2ETrace";
 import { RuntimeTrash } from "../../internal/RuntimeTrash";
 import { TtsxNodeOptions } from "../../internal/TtsxNodeOptions";
@@ -19,6 +20,7 @@ import { RuntimeDependencyPrebuild } from "./runtime/RuntimeDependencyPrebuild";
 import { checkNodeRuntimeSupport } from "./runtime/checkNodeRuntimeSupport";
 import { systemRuntimeRunTree } from "./runtime/systemRuntimeRunTree";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
+import { writeRuntimeManifest } from "./runtime/writeRuntimeManifest";
 
 /**
  * CLI entry point for `ttsx`. Type-checks the owning project via tsgo, emits
@@ -143,6 +145,7 @@ async function run(
       tsconfig: run.tsconfig,
       projectRoot: run.projectRoot,
       systemProjectRoots: run.systemProjectRoots,
+      canChange: run.canChangeRuntimeRun,
       plugins,
       environment: (manifest) =>
         runtimeEnvironment(parsed, {
@@ -150,6 +153,7 @@ async function run(
           manifest,
           runDir: run.processDir,
           cacheDir: run.cacheDir,
+          systemProjectRoots: run.systemProjectRoots,
         }),
     });
     dependencies.remember = () => {
@@ -231,9 +235,10 @@ function runtimeEnvironment(
     manifest: string;
     runDir: string;
     cacheDir: string;
+    systemProjectRoots?: readonly string[];
   },
 ): NodeJS.ProcessEnv {
-  return {
+  const environment = {
     ...process.env,
     ...(parsed.noCache ? { TTSX_DISABLE_CACHE: "1" } : {}),
     // ttsc's own helpers run with what the user passed (#1740).
@@ -258,6 +263,14 @@ function runtimeEnvironment(
     TTSX_RUNTIME_RUN_DIR: run.runDir,
     TTSX_RUNTIME_RUNS_DIR: path.dirname(run.runDir),
   };
+  SidecarEnvironment.write(
+    environment,
+    "TTSX_RUNTIME_SYSTEM_PROJECTS",
+    run.systemProjectRoots === undefined
+      ? undefined
+      : JSON.stringify(run.systemProjectRoots),
+  );
+  return environment;
 }
 
 function formatError(error: unknown): string {
@@ -431,10 +444,9 @@ async function runPreparedEntry(
       execution.cleanupDir,
       "runtime-manifest.json",
     );
-    fs.mkdirSync(execution.cleanupDir, { recursive: true });
-    fs.writeFileSync(
+    writeRuntimeManifest(
       manifestPath,
-      JSON.stringify({
+      {
         depCacheDir,
         emitDir: execution.emitDir,
         bundledOutputs: execution.bundledOutputs,
@@ -449,8 +461,8 @@ async function runPreparedEntry(
         projectRoot: execution.projectRoot,
         systemProjectRoots: execution.systemProjectRoots,
         rootDir: execution.rootDir,
-      }),
-      "utf8",
+      },
+      execution.canChangeRuntimeRun,
     );
 
     const args = [
@@ -467,6 +479,7 @@ async function runPreparedEntry(
       manifest: manifestPath,
       runDir: execution.cleanupDir,
       cacheDir: execution.runtimeCacheDir,
+      systemProjectRoots: execution.systemProjectRoots,
     });
     const drains = [execution.runtimeCacheDir, execution.runtimeBuildCacheDir]
       .filter((parent): parent is string => parent !== undefined)

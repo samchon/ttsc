@@ -250,6 +250,8 @@ Dependencies built through their own `tsconfig.json` are built once per run and 
 
 If a system cache's dependency directory or lock directory becomes linked or overlaps a project, the runtime builds the dependency in a private directory for the current process. The private build is removed when that process exits.
 
+Before starting a program from a system cache, the launcher checks the run directory again and creates its manifest exclusively. If that directory or manifest is unavailable, the launcher stops before executing the program. A refused dependency prebuild leaves the program to build its dependencies when it imports them.
+
 Raw TypeScript that no `tsconfig.json` owns is lowered and cached across runs under `<cache-root>/ttsx-orphan`. A prepared `ttsx` or `ttsc/register` run names that root in its runtime manifest: the default workspace-local cache, the `TTSC_CACHE_DIR` override, or the invocation's explicit `--cache-dir`. A runtime without that manifest uses its process-owned dependency build directory when available. The evaluation or process removes those lowerings. If the private cache is unavailable, the runtime lowers the source in a temporary directory and removes the output after reading it.
 
 The cache key covers the source, its module format, the emit arguments, the ttsc version, and the compiler binary's identity, not only its path. Upgrading `typescript` in place therefore produces the new compiler's output on the next run without clearing anything.

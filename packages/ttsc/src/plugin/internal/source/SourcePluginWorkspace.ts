@@ -10,12 +10,15 @@ import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFil
 import type { CompilerTarget } from "./CompilerTarget";
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
+import { GoToolResolution } from "./GoToolResolution";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "./PluginContentIdentities";
 import { PluginLoadAnswers } from "./PluginLoadAnswers";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
 import { formatGoWorkPath } from "./formatGoWorkPath";
+import { hasLossyGoReplacementPath } from "./hasLossyGoReplacementPath";
+import { projectWorkspaceGoEnvironmentFile } from "./projectWorkspaceGoEnvironmentFile";
 import { readPluginSourceDirectory } from "./readPluginSourceDirectory";
 import { spawnGoTool } from "./spawnGoTool";
 
@@ -262,6 +265,20 @@ export namespace SourcePluginWorkspace {
     // what every listed module declares. A fixed directive rejects a module that
     // declares a patch release (`go 1.26.0` against `go 1.26`), and a module the
     // selected toolchain is too old for fails here with Go's own error.
+    if (GoEnvironmentReading.hasRelativeFile(env)) {
+      const witness: PluginBuildEnvironmentWitness.Record = new Map();
+      PluginBuildEnvironmentWitness.add(
+        witness,
+        GoToolResolution.workingPath(
+          scratchDir,
+          SidecarEnvironment.read(env, "GOENV")!,
+        ),
+      );
+      GoEnvironmentReading.reportRecovery(
+        projectWorkspaceGoEnvironmentFile(scratchDir, env, witness),
+        scratchDir,
+      );
+    }
     const settled = spawnGoTool(goBinary, ["work", "use"], {
       cwd: scratchDir,
       projectRoot,
@@ -553,6 +570,7 @@ export namespace SourcePluginWorkspace {
           toolIdentity === undefined
             ? undefined
             : [
+                2,
                 toolIdentity,
                 crypto.createHash("sha256").update(bytes).digest("hex"),
               ];
@@ -577,6 +595,16 @@ export namespace SourcePluginWorkspace {
         if (!fs.readFileSync(manifest).equals(bytes))
           throw new Error(
             `ttsc: go.mod changed while Go was reading ${manifest}`,
+          );
+        if (
+          info.directives.some(
+            ({ New }) =>
+              New?.Version === undefined && New?.Path?.includes("\ufffd"),
+          ) &&
+          hasLossyGoReplacementPath(bytes)
+        )
+          throw new Error(
+            `ttsc: local Go replacement has no UTF-8 path in ${manifest}`,
           );
         if (
           toolWitness !== undefined &&

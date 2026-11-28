@@ -43,14 +43,17 @@ export function readDependencyCache(
 ): DependencyBuildGeneration.BuiltProject | null {
   let meta: DependencyBuildGeneration.DependencyCacheMeta;
   try {
-    if (canChange !== undefined) {
+    let text: string;
+    if (canChange === undefined) text = fs.readFileSync(metaPath, "utf8");
+    else {
       if (!canChange(cacheDir)) return null;
       const marker = fs.lstatSync(metaPath);
       if (!marker.isFile() || marker.nlink !== 1) return null;
+      const bytes = RuntimeFilesystem.readObservedRegularFile(metaPath);
+      if (bytes === undefined) return null;
+      text = bytes.toString("utf8");
     }
-    meta = JSON.parse(
-      fs.readFileSync(metaPath, "utf8"),
-    ) as DependencyBuildGeneration.DependencyCacheMeta;
+    meta = JSON.parse(text) as DependencyBuildGeneration.DependencyCacheMeta;
   } catch {
     return null;
   }
@@ -126,6 +129,19 @@ export function readDependencyCache(
   };
 }
 
+/**
+ * The managed generation check shared by dependency cache reads and runtime
+ * publication.
+ *
+ * @evidence contracts/common.md#meaningful-documentation The reader explains historical cache misses and cooperative publication; the generation check identifies the copied marker exception.
+ * @evidence contracts/common.md#principled-implementation Managed reads and publication share the generation's directory ownership and copied-marker checks.
+ * @evidence contracts/common.md#clear-and-simple-design The check groups native path qualification and copied-marker validation with the cache reader that needs them.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A project marker in managed output needs an observed compiler source and matching bytes; a filename is insufficient.
+ * @evidence contracts/portability.md#os-neutral-implementation Directory containment and native identity use platform paths and the shared filesystem witness.
+ * @evidence contracts/performance.md#efficient-algorithms Clean managed directories take the shared guard's fast path; copied markers require walking the affected ancestors and comparing observed JSON files.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Observations are current at each call because the caller can publish, move or discard a generation between reads.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Path and marker observations are synchronous and call-local; the namespace holds no handles or build generations.
+ */
 export namespace readDependencyCache {
   /**
    * Qualify a selected generation, including any JSON markers copied by its
@@ -157,15 +173,18 @@ export namespace readDependencyCache {
           const marker = path.join(current, name);
           if (!name.endsWith(".json") || !fs.lstatSync(marker).isFile())
             return false;
-          const bytes = fs.readFileSync(marker);
+          const bytes = RuntimeFilesystem.readObservedRegularFile(marker);
           if (
+            bytes === undefined ||
             !emittedSources[marker]?.some(
               (source) =>
                 path.basename(source) === name &&
                 fs.lstatSync(source, { throwIfNoEntry: false })?.isFile() ===
                   true &&
                 RuntimeFilesystem.realpathWitness(source) === source &&
-                fs.readFileSync(source).equals(bytes),
+                RuntimeFilesystem.readObservedRegularFile(source)?.equals(
+                  bytes,
+                ) === true,
             )
           )
             return false;

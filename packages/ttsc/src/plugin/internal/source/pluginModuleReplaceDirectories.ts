@@ -105,6 +105,25 @@ export function pluginModuleReplaceDirectories(
 /** Qualify the existing target or ancestry before using a string spelling. */
 function resolveReplacementPath(location: string): string {
   if (process.platform === "win32") return resolvePhysicalPath(location);
+  // Go checks an absolute replacement's literal lookup, but joins its manifest
+  // and package paths with filepath.Join. Require both lookups to agree before
+  // moving the replacement into the build's snapshot.
+  if (/(?:^|\/)\.\.(?:\/|$)/.test(location)) {
+    let native: string;
+    try {
+      native = RuntimeFilesystem.realpathWitness(location);
+      if (
+        !native.includes("\0") &&
+        native === RuntimeFilesystem.realpathWitness(path.resolve(location))
+      )
+        return native;
+    } catch {
+      // A missing literal or joined lookup cannot qualify the replacement.
+    }
+    throw new Error(
+      `ttsc: local Go replacement has no consistent physical path: ${location}`,
+    );
+  }
   let current = location;
   for (;;) {
     let physical: string | undefined;

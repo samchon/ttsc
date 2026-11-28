@@ -11,12 +11,12 @@ import { resolveGoCompiler } from "../../../../../packages/ttsc/src/plugin/inter
  * Verifies local Go replacement selection refuses a raw target before copy.
  *
  * 1. Ask Go to parse a replacement naming a valid UTF-8 path.
- * 2. On Linux, point a declared alias at a separate raw-byte directory.
- * 3. Refuse that target and missing descendants of its raw physical ancestry.
+ * 2. Reject raw path bytes encoded in a Go quote before using the JSON spelling.
+ * 3. On Linux, reject raw physical ancestry and differing absolute traversals.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the same maintained replacement reader and native Go parser used by the build before hashing and materializing an external module.
  * @evidence contracts/testing.md#independent-expectations Native fixtures give the real replacement and the valid U+FFFD directory separate filesystem entries. Returned valid selection and exact refusal diagnostics derive from the authored paths.
- * @evidence contracts/testing.md#distinguishing-cases The valid replacement-character directory runs on every host. Linux contrasts its separate raw target and a missing suffix whose existing parent cannot be represented as UTF-8.
+ * @evidence contracts/testing.md#distinguishing-cases Literal, Unicode-escaped and UTF-8 byte-escaped replacement characters differ from invalid single bytes. Linux also checks raw linked ancestry, a missing literal absolute traversal and the cleaned relative spelling Go uses.
  * @evidence contracts/testing.md#execution-ownership The fixture owns its module and temporary files. It runs actual Go metadata acquisition without compiling any plugin or mutating ambient variables.
  */
 export function test_go_replacement_rejects_a_lossy_physical_target(): void {
@@ -25,6 +25,8 @@ export function test_go_replacement_rejects_a_lossy_physical_target(): void {
   );
   const main = path.join(root, "main");
   const alias = path.join(root, "dependency-alias");
+  const outside = path.join(root, "outside");
+  const linked = path.join(root, "linked");
   const twin = path.join(root, "dependency-\ufffd");
   const raw = Buffer.concat([
     Buffer.from(`${root}/dependency-`),
@@ -57,13 +59,27 @@ export function test_go_replacement_rejects_a_lossy_physical_target(): void {
         root,
       );
     };
-    assert.deepEqual(read("../dependency-\ufffd"), [
+    const selectedTwin = [
       {
         directory: twin,
         modulePath: "example.com/dependency",
         spelled: "../dependency-\ufffd",
       },
-    ]);
+    ];
+    assert.deepEqual(read("../dependency-\ufffd"), selectedTwin);
+    for (const target of [
+      String.raw`"../dependency-\uFFFD"`,
+      String.raw`"../dependency-\xef\xbf\xbd"`,
+      String.raw`"../dependency-\ufffd" // => "../unrelated-\xff"`,
+    ])
+      assert.deepEqual(read(target), selectedTwin);
+    for (const target of [
+      String.raw`"../dependency-\xff"`,
+      String.raw`"../dependency-\377"`,
+    ])
+      assert.throws(() => read(target), {
+        message: `ttsc: local Go replacement has no UTF-8 path in ${path.join(main, "go.mod")}`,
+      });
     if (process.platform !== "linux") return;
 
     fs.mkdirSync(raw);
@@ -77,6 +93,19 @@ export function test_go_replacement_rejects_a_lossy_physical_target(): void {
       assert.throws(() => read(target), {
         message: `ttsc: local Go replacement has no UTF-8 physical path: ${path.resolve(main, target)}`,
       });
+
+    fs.mkdirSync(path.join(outside, "child"), { recursive: true });
+    fs.symlinkSync(path.join(outside, "child"), linked);
+    const traversal = `${linked}/../dependency-\ufffd`;
+    assert.equal(fs.existsSync(traversal), false);
+    assert.equal(fs.existsSync(path.resolve(traversal)), true);
+    assert.throws(() => read(traversal), {
+      message: `ttsc: local Go replacement has no consistent physical path: ${traversal}`,
+    });
+    const relative = "../linked/../dependency-\ufffd";
+    assert.deepEqual(read(relative), [
+      { ...selectedTwin[0], spelled: relative },
+    ]);
   } finally {
     if (process.platform === "linux") {
       if (fs.existsSync(alias)) fs.unlinkSync(alias);

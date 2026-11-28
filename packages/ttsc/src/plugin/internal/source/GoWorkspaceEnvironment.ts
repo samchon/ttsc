@@ -2,15 +2,13 @@ import crypto from "node:crypto";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
-import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
-import { GoToolResolution } from "./GoToolResolution";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import { WitnessedLoadAnswers } from "./WitnessedLoadAnswers";
 import { hashPluginBuildEnvironment } from "./hashPluginBuildEnvironment";
-import { isPathWithin } from "./isPathWithin";
+import { projectWorkspaceGoEnvironmentFile } from "./projectWorkspaceGoEnvironmentFile";
 import { readSourceBuildFile } from "./readSourceBuildFile";
 
 /**
@@ -236,31 +234,8 @@ export namespace GoWorkspaceEnvironment {
     external.delete(`\0directory:${directory}`);
     external.delete(path.join(directory, "go.mod"));
     external.delete(path.join(directory, "go.work"));
-    if (env !== undefined && GoEnvironmentReading.hasRelativeFile(env)) {
-      const file = GoToolResolution.workingPath(
-        directory,
-        SidecarEnvironment.read(env, "GOENV")!,
-      );
-      if (external.has(file) && insideScratch(file, directory))
-        external.delete(file);
-    }
-    return external;
-  }
-
-  /** Resolve the existing prefix without cleaning POSIX parent components. */
-  function insideScratch(file: string, scratch: string): boolean {
-    for (let current = file; ; current = path.dirname(current)) {
-      try {
-        const physical = RuntimeFilesystem.realpathWitness(current);
-        return !physical.includes("\0") && isPathWithin(physical, scratch);
-      } catch (error) {
-        if (
-          (error as NodeJS.ErrnoException).code !== "ENOENT" ||
-          path.dirname(current) === current ||
-          path.basename(current) === ".."
-        )
-          return false;
-      }
-    }
+    return env === undefined
+      ? external
+      : projectWorkspaceGoEnvironmentFile(directory, env, external);
   }
 }

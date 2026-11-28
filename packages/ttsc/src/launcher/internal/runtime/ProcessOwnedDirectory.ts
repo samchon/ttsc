@@ -1,7 +1,9 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { RuntimeFilesystem } from "./RuntimeFilesystem";
 import { isLocalProcessGone } from "./isLocalProcessGone";
 
 /**
@@ -105,6 +107,8 @@ export namespace ProcessOwnedDirectory {
    *
    * @param directory A directory this process claimed.
    * @param pid The process that owns it too.
+   * @param canChange Optional current system-run qualification. A guarded
+   *   refresh atomically replaces the leaf without opening the old inode.
    * @evidence contracts/common.md#principled-implementation A pid-named record stores this host and the admitted pid, allowing later validation to compare filename identity with its contents and conservatively probe the same native owner.
    * @evidence contracts/common.md#clear-and-simple-design One writer owns the record grammar shared by initial claim and child admission; callers retain synchronization and process-transfer policy.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual host and pid values record supported ownership transfer without special-casing a launcher or expected cleanup result.
@@ -116,12 +120,38 @@ export namespace ProcessOwnedDirectory {
    *
    * @evidence contracts/performance.md#bound-retention-and-release-resources Records can remain after their process exits until relinquishment or an admitted sweep. Distinct pid/run populations have no historical quota; unowned/unknown/live classification and native deletion failures can retain directories indefinitely. Repeated admission overwrites one pid record, not an independent process-incarnation lease.
    */
-  export function admit(directory: string, pid: number): void {
-    fs.writeFileSync(
-      recordPath(directory, pid),
-      JSON.stringify({ hostname: os.hostname(), pid }),
-      "utf8",
-    );
+  export function admit(
+    directory: string,
+    pid: number,
+    canChange?: (directory: string) => boolean,
+  ): void {
+    const file = recordPath(directory, pid);
+    const contents = JSON.stringify({ hostname: os.hostname(), pid });
+    if (canChange === undefined) {
+      fs.writeFileSync(file, contents, "utf8");
+      return;
+    }
+    const requireRun = () => {
+      if (!canChange(directory) || !fs.lstatSync(directory).isDirectory())
+        throw new Error(`ttsx: unsafe runtime run directory: ${directory}`);
+    };
+    requireRun();
+    const temporary = file + `.${crypto.randomUUID()}.tmp`;
+    const descriptor = fs.openSync(temporary, "wx");
+    let published = false;
+    try {
+      try {
+        fs.writeFileSync(descriptor, contents, "utf8");
+      } finally {
+        fs.closeSync(descriptor);
+      }
+      requireRun();
+      fs.renameSync(temporary, file);
+      published = true;
+    } finally {
+      if (!published && canChange(directory))
+        fs.rmSync(temporary, { force: true });
+    }
   }
 
   /**
@@ -278,11 +308,18 @@ export namespace ProcessOwnedDirectory {
     observe?: (observation: Observation) => void,
   ): { hostname: string; pid: number } | null {
     try {
-      const owner = JSON.parse(fs.readFileSync(file, "utf8")) as {
+      const name = path.basename(file);
+      const bytes = fs.lstatSync(file).isFile()
+        ? RuntimeFilesystem.readObservedRegularFile(file)
+        : undefined;
+      if (bytes === undefined) {
+        report(observe, { record: name, result: "invalid-record" });
+        return null;
+      }
+      const owner = JSON.parse(bytes.toString("utf8")) as {
         hostname?: unknown;
         pid?: unknown;
       };
-      const name = path.basename(file);
       const pidText =
         name === "owner.json"
           ? /^process-(\d+)-[0-9a-f]+$/.exec(

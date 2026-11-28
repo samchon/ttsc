@@ -13,7 +13,7 @@ import { systemRuntimeRunCanChange } from "../../../../../packages/ttsc/src/laun
  *
  * @evidence contracts/testing.md#behavioral-verification The native store reads real saved requests, parks and adopts the original run's output, and preserves foreign trees and an aliased pending parent.
  * @evidence contracts/testing.md#independent-expectations Authored marker and output bytes, original coordinates and an independent producer count distinguish an actual reuse from an uncached build.
- * @evidence contracts/testing.md#distinguishing-cases The fixture distinguishes marked and linked pending paths, an aliased receipt that prevents adoption, cross-run records, and guarded replacement of a hardlinked carried job.
+ * @evidence contracts/testing.md#distinguishing-cases The fixture distinguishes marked and linked pending paths, an aliased receipt that prevents adoption, cross-run records, and guarded replacement of a hardlinked carried job. A saved plan with a compiler-copied marker cannot retire the old candidate; committed and already-committed replacements can.
  * @evidence contracts/testing.md#execution-ownership The unit uses an owned temporary tree and removes the junction before removing the tree. It starts no compiler or watcher.
  */
 export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
@@ -39,7 +39,11 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
     systemRuntimeRunCanChange(directory, systemCache, [project]);
   const parks = path.join(run, "parks");
   let builds = 0;
-  const build = (emitDir: string, beforeAdopt?: () => string | undefined) => {
+  const build = (
+    emitDir: string,
+    beforeAdopt?: () => string | undefined,
+    emitJson = false,
+  ) => {
     fs.mkdirSync(emitDir, { recursive: true });
     return RuntimeBuildCache.run({
       directory: store,
@@ -56,12 +60,18 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
         ++builds;
         const output = path.join(emitDir, "main.js");
         fs.writeFileSync(output, "owned build output");
+        const json = path.join(emitDir, "package.json");
+        const sourceJson = path.join(project, "package.json");
+        if (emitJson) fs.copyFileSync(sourceJson, json);
         return {
           status: 0,
           diagnostics: [],
           stdout: "",
           stderr: "",
-          emittedSources: { [output]: [source] },
+          emittedSources: {
+            [output]: [source],
+            ...(emitJson ? { [json]: [sourceJson] } : {}),
+          },
         };
       },
     });
@@ -182,6 +192,87 @@ export function test_runtimebuildcache_keeps_system_pending_ownership(): void {
       if (process.platform === "win32") fs.rmdirSync(pending);
       else fs.unlinkSync(pending);
     }
+    fs.renameSync(redirected, pending);
+
+    const requestFor = (emitDir: string): RuntimeBuildCache.ParkRequest => {
+      for (const name of fs.readdirSync(parks)) {
+        const record = JSON.parse(
+          fs.readFileSync(path.join(parks, name), "utf8"),
+        );
+        if (record.outputs === emitDir) return record;
+      }
+      throw new Error("Missing producer park request");
+    };
+    const inputChanged = () => "input changed";
+    const sourceJson = path.join(project, "package.json");
+    fs.writeFileSync(sourceJson, '{"name":"copied-by-the-compiler"}\n');
+    const markedOutput = generation(run);
+    assert.equal(build(markedOutput, inputChanged, true).status, 0);
+    const refused = requestFor(markedOutput);
+    assert.ok(refused.replacement);
+    assert.equal(fs.existsSync(stored), true);
+    RuntimeBuildCache.parkRequested(run, store, canChange);
+    assert.equal(fs.existsSync(refused.parked), false);
+    assert.equal(fs.existsSync(stored), true);
+    assert.deepEqual(
+      fs.readFileSync(path.join(markedOutput, "package.json")),
+      fs.readFileSync(sourceJson),
+    );
+
+    const later = path.join(pending, `1-1-${crypto.randomUUID()}`);
+    fs.mkdirSync(later);
+    fs.copyFileSync(
+      path.join(stored, "job.json"),
+      path.join(later, "job.json"),
+    );
+    const newOutput = generation(run);
+    assert.equal(build(newOutput, inputChanged).status, 0);
+    const accepted = requestFor(newOutput);
+    assert.ok(accepted.replacement);
+    assert.equal(fs.existsSync(stored), true);
+    assert.equal(
+      accepted.replacement.prior.some(
+        (candidate) => candidate.directory === later,
+      ),
+      false,
+    );
+    fs.mkdirSync(path.join(later, "outputs"));
+    fs.writeFileSync(
+      path.join(later, "outputs", "keep.js"),
+      "concurrent output",
+    );
+    RuntimeBuildCache.parkRequested(run, store, canChange);
+    assert.equal(fs.existsSync(stored), false);
+    assert.equal(
+      fs.readFileSync(path.join(accepted.parked, "outputs", "main.js"), "utf8"),
+      "owned build output",
+    );
+    assert.equal(
+      fs.readFileSync(path.join(later, "outputs", "keep.js"), "utf8"),
+      "concurrent output",
+    );
+
+    const restartOutput = generation(run);
+    assert.equal(build(restartOutput, inputChanged).status, 0);
+    const restart = requestFor(restartOutput);
+    assert.ok(restart.replacement);
+    // Observe the native state a launcher leaves if it stops immediately after
+    // installing the replacement and before retiring the previous candidate.
+    fs.mkdirSync(restart.parked);
+    fs.writeFileSync(
+      path.join(restart.parked, "job.json"),
+      JSON.stringify(restart.job),
+    );
+    fs.renameSync(restartOutput, path.join(restart.parked, "outputs"));
+    assert.equal(fs.existsSync(accepted.parked), true);
+    RuntimeBuildCache.parkRequested(run, store, canChange);
+    assert.equal(fs.existsSync(accepted.parked), false);
+    assert.equal(
+      fs.readFileSync(path.join(restart.parked, "outputs", "main.js"), "utf8"),
+      "owned build output",
+    );
+    RuntimeBuildCache.parkRequested(run, store, canChange);
+    assert.equal(fs.existsSync(restart.parked), true);
   } finally {
     fs.rmSync(root, { recursive: true });
   }

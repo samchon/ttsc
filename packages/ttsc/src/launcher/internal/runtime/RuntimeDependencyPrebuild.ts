@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { E2ETrace } from "../../../internal/E2ETrace";
+import { writeRuntimeManifest } from "./writeRuntimeManifest";
 
 /**
  * Build the dependency projects a program used last time while its entry
@@ -195,6 +196,7 @@ export namespace RuntimeDependencyPrebuild {
    * @param props.tsconfig The entry project's config.
    * @param props.projectRoot The entry project's root.
    * @param props.systemProjectRoots Consumer boundaries of a system cache.
+   * @param props.canChange Current directory qualification for system storage.
    * @param props.plugins The run's plugin policy.
    * @param props.environment The environment the program will run under, for
    *   the worker manifest named.
@@ -215,11 +217,14 @@ export namespace RuntimeDependencyPrebuild {
     tsconfig: string;
     projectRoot: string;
     systemProjectRoots?: readonly string[];
+    canChange?: (directory: string) => boolean;
     plugins: false | undefined;
     environment: (manifest: string) => NodeJS.ProcessEnv;
   }): () => Promise<void> {
     let projects: string[];
     try {
+      if (props.canChange?.(props.store) === false)
+        return async () => undefined;
       const record = recordFile(props.store, props.tsconfig, props.plugins);
       let text: string;
       if (props.systemProjectRoots === undefined)
@@ -247,10 +252,9 @@ export namespace RuntimeDependencyPrebuild {
     if (projects.length === 0) return async () => undefined;
     const manifest = path.join(props.runDir, "prebuild-manifest.json");
     try {
-      fs.mkdirSync(props.runDir, { recursive: true });
-      fs.writeFileSync(
+      writeRuntimeManifest(
         manifest,
-        JSON.stringify({
+        {
           depCacheDir: path.join(props.runDir, "deps"),
           emitDir: path.join(props.runDir, "prebuild"),
           emittedSources: {},
@@ -258,7 +262,8 @@ export namespace RuntimeDependencyPrebuild {
           systemProjectRoots: props.systemProjectRoots,
           rootDir: props.projectRoot,
           ...(props.plugins === false ? { plugins: false } : {}),
-        }),
+        },
+        props.canChange,
       );
     } catch {
       return async () => undefined;
