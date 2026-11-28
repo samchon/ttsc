@@ -136,6 +136,8 @@ When a plugin assembles JavaScript, the build information marks that emit as pen
 
 The cache key includes the Go compiler and toolchain inputs. If they change during a successful plugin build, `ttsc` discards the result and retries, up to three attempts. A toolchain that keeps changing fails the build. Source changes, native compiler errors, and cleanup failures are returned directly.
 
+In `ttsc --watch`, an observed Go input such as `GOENV` can trigger another build after Go package selection or plugin compilation failed. A repair that landed before the failed build registered its recovery inputs also triggers a retry.
+
 The plugin binary cache is **project-local**. By default it lives in the workspace's `node_modules/.cache/ttsc` (the `find-cache-dir` convention). In a monorepo it resolves to the workspace root's `node_modules`, so every package builds a given plugin once and shares it; `rm -rf node_modules` (or deleting the repo) reclaims everything and ttsc keeps no machine-global cache. Plugin binaries live under `<cache-dir>/plugins` and ttsc's Go object cache under `<cache-dir>/go-build`, unless `TTSC_GO_CACHE_DIR` or a user `GOCACHE` redirects it.
 
 A launch whose binary is already cached proves its unchanged inputs from metadata recorded under `<cache-dir>/identities` and `<cache-dir>/answers` instead of reading the plugin's Go source, the Go toolchain and the JavaScript runtime again and running `go list`. [Build cache](/docs/ttsc/cache#what-is-cached) describes when a recorded digest is trusted.

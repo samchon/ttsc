@@ -432,11 +432,38 @@ export namespace PluginBuildEnvironmentWitness {
    */
   export function retryBaseline(
     entries: Iterable<readonly [string, string]>,
+    changed?: (key: string) => void,
   ): [string, string][] {
     const baseline: [string, string][] = [];
-    for (const [key] of entries)
-      if (key !== TOOLCHAIN_PROBE) baseline.push([key, currentSignature(key)]);
+    for (const [key, previous] of entries) {
+      if (key === TOOLCHAIN_PROBE) continue;
+      const current = currentSignature(key);
+      baseline.push([key, current]);
+      if (previous !== UNWITNESSABLE && previous !== current) changed?.(key);
+    }
     return baseline;
+  }
+
+  /**
+   * Keep the latest actual native reading for recovery. If only a refusal is
+   * available, retain its key for baseline sampling without claiming movement.
+   *
+   * @evidence contracts/common.md#principled-implementation Native observations replace earlier facts while a later refusal cannot erase the last state observed.
+   * @evidence contracts/common.md#clear-and-simple-design Witness encoding and refusal handling stay with their owner.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Recovery acquisition grants neither reusable output nor proof that a refusal means a changed path.
+   * @evidence contracts/common.md#meaningful-documentation Describes which state and keys survive into retry comparison.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation The operation copies captured witness strings and performs no native I/O.
+   * @evidence contracts/performance.md#efficient-algorithms Iterates the incoming keys once, retaining at most one state per native observation key.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Merging observations does not authorize cached answers.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the retained witness map.
+   */
+  export function retainForRecovery(target: Record, observed: Record): void {
+    for (const [key, signature] of observed)
+      if (
+        pathOf(key) !== undefined &&
+        (signature !== UNWITNESSABLE || !target.has(key))
+      )
+        target.set(key, signature);
   }
 
   function currentSignature(file: string): string {

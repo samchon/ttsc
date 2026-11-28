@@ -33,6 +33,8 @@ export { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
 export { RuntimeModuleFormat } from "./RuntimeModuleFormat";
 export { RuntimeProjectOwnership } from "./RuntimeProjectOwnership";
 export { dependencyCacheKey } from "./dependencyCacheKey";
+export { systemRuntimeRunCanChange } from "./systemRuntimeRunCanChange";
+export { projectConsumerRoots } from "../../../compiler/internal/project/projectConsumerRoots";
 export { dependencyCacheRoot } from "./dependencyCacheRoot";
 export { projectModuleOptions } from "./projectModuleOptions";
 export { readDependencyCache } from "./readDependencyCache";

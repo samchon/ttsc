@@ -2413,23 +2413,54 @@ function buildDependency(
     DependencyBuildGeneration,
     EmitOwnershipIndex,
     RuntimeEmitProvenance,
+    RuntimeManifestRegistry,
     SourceBuildCacheLayout,
     privateRuntimeRootDir,
+    projectConsumerRoots,
     projectModuleOptions,
+    systemRuntimeRunCanChange,
     resolveSourceBuildCachePaths,
     runBuild,
     runtimeCompilerArgs,
   } = runtimeBuildPath();
   const project = readPluginDescriptorProjectConfig(tsconfig);
   const compilerCacheDir = dependencyCompilerCache(project.root, cacheDir);
+  const publicationRun = dependencyPublicationRunDir();
+  const owner = RuntimeManifestRegistry.runtimeManifests().find(
+    (entry) => entry.depCacheDir === path.dirname(cacheDir),
+  );
+  const systemProjectRoots = owner?.systemProjectRoots;
+  const systemRun =
+    systemProjectRoots === undefined
+      ? undefined
+      : path.dirname(owner!.depCacheDir);
+  const systemCache =
+    systemRun === undefined ? undefined : path.dirname(path.dirname(systemRun));
+  const projectRoots =
+    systemProjectRoots === undefined
+      ? undefined
+      : [...systemProjectRoots, ...projectConsumerRoots(project.identity)];
+  const canChangeRuntimeBuild =
+    systemCache === undefined
+      ? undefined
+      : (directory: string) =>
+          systemRuntimeRunCanChange(directory, systemCache, projectRoots!);
   const generation = DependencyBuildGeneration.newDependencyGeneration();
   const emitDir = DependencyBuildGeneration.dependencyGenerationDir(
     cacheDir,
     generation,
   );
-  fs.rmSync(emitDir, { force: true, recursive: true });
+  if (canChangeRuntimeBuild === undefined)
+    fs.rmSync(emitDir, { force: true, recursive: true });
+  else {
+    if (!canChangeRuntimeBuild(emitDir))
+      throw new Error(`ttsx: unsafe system dependency output: ${emitDir}`);
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.mkdirSync(emitDir);
+  }
   try {
-    fs.mkdirSync(emitDir, { recursive: true });
+    if (canChangeRuntimeBuild === undefined)
+      fs.mkdirSync(emitDir, { recursive: true });
     const result = runBuild({
       cwd: project.root,
       cacheDir: compilerCacheDir,
@@ -2439,7 +2470,8 @@ function buildDependency(
         process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1"
           ? undefined
           : path.join(
-              runtimeRecordStore()?.root ??
+              systemCache ??
+                runtimeRecordStore()?.root ??
                 compilerCacheDir ??
                 resolveSourceBuildCachePaths(project.root).root,
               SourceBuildCacheLayout.RUNTIME_BUILD_CACHE_DIRNAME,
@@ -2503,7 +2535,12 @@ function buildDependency(
       tsconfig,
       // Storing the build would read its outputs back while the program
       // waits for this module (samchon/ttsc#1859); it is left to the launcher.
-      runtimePublicationRunDir: dependencyPublicationRunDir(),
+      runtimePublicationRunDir:
+        systemRun === undefined || publicationRun === systemRun
+          ? publicationRun
+          : undefined,
+      runtimeBuildRunDir: systemRun ?? publicationRun,
+      canChangeRuntimeBuild,
     });
     // Success is "the project wrote JavaScript", not the exit status: the build is
     // emit-only, so diagnostics do not fail it, and a native transform host
@@ -2577,6 +2614,7 @@ function buildDependency(
       emittedSourceProofFailures,
     };
   } catch (error) {
+    if (canChangeRuntimeBuild?.(emitDir) === false) throw error;
     throwAfterFailedArtifactCleanup(error, emitDir, true);
   }
 }

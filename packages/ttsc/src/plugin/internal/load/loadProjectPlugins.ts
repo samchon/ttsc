@@ -28,6 +28,7 @@ import type { TtscPluginSourceInputsHandler } from "../../../structures/internal
 import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason";
 import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailure";
 import { CompilerTarget } from "../source/CompilerTarget";
+import { GoEnvironmentReading } from "../source/GoEnvironmentReading";
 import { NativeSourcePackages } from "../source/NativeSourcePackages";
 import { PluginBuildEnvironmentWitness } from "../source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../source/PluginContentIdentities";
@@ -269,28 +270,87 @@ export namespace loadProjectPlugins {
     const additionalProjectRoots = projectConsumerRoots(
       projectSnapshot.project.identity,
     );
+    const publish = options.onWatchInputs;
+    const observations: PluginBuildEnvironmentWitness.Record = new Map();
+    const record =
+      publish === undefined
+        ? undefined
+        : (witness: PluginBuildEnvironmentWitness.Record): void =>
+            PluginBuildEnvironmentWitness.retainForRecovery(
+              observations,
+              witness,
+            );
+    let selected: Parameters<TtscPluginSourceInputsHandler> | undefined;
+    let handoffFailed = false;
     const sequence = stepsForProject(
-      options,
+      publish === undefined
+        ? options
+        : {
+            ...options,
+            onWatchInputs: (
+              ...args: Parameters<TtscPluginSourceInputsHandler>
+            ) => {
+              selected = args;
+              try {
+                return publish(args[0], args[1], args[2], args[3]);
+              } catch (error) {
+                handoffFailed = true;
+                throw error;
+              }
+            },
+          },
       callerEnv,
       projectSnapshot,
       additionalProjectRoots,
+      record,
     );
-    return yield* {
-      [Symbol.iterator]: () => ({
-        next: () =>
-          OwnedSynchronousProcess.withProjectRoots(additionalProjectRoots, () =>
-            sequence.next(),
+    const scoped = <T>(step: () => T): T =>
+      OwnedSynchronousProcess.withProjectRoots(additionalProjectRoots, () =>
+        GoEnvironmentReading.withRecoveryObservations(record, step),
+      );
+    try {
+      return yield* {
+        [Symbol.iterator]: () => ({
+          next: () => scoped(() => sequence.next()),
+          throw: (error: unknown) => {
+            handoffFailed = true;
+            return scoped(() => sequence.throw(error));
+          },
+          return: (result: ReturnType<typeof loadProjectPlugins>) =>
+            scoped(() => sequence.return(result)),
+        }),
+      };
+    } catch (error) {
+      if (
+        !handoffFailed &&
+        publish !== undefined &&
+        selected !== undefined &&
+        observations.size !== 0
+      ) {
+        const moved = new Set<string>();
+        const retry = new Map(
+          PluginBuildEnvironmentWitness.retryBaseline(observations, (key) =>
+            moved.add(key),
           ),
-        throw: (error: unknown) =>
-          OwnedSynchronousProcess.withProjectRoots(additionalProjectRoots, () =>
-            sequence.throw(error),
-          ),
-        return: (result: ReturnType<typeof loadProjectPlugins>) =>
-          OwnedSynchronousProcess.withProjectRoots(additionalProjectRoots, () =>
-            sequence.return(result),
-          ),
-      }),
-    };
+        );
+        const workspace = PluginBuildEnvironmentWitness.watchInputs(
+          [retry],
+          projectSnapshot.project.root,
+        );
+        const repaired = Object.entries(workspace)
+          .filter(([, { entries }]) => entries.some(([key]) => moved.has(key)))
+          .map(([anchor]) => anchor);
+        try {
+          yield publish(selected[0], selected[1], workspace, repaired);
+        } catch (publicationError) {
+          throw new AggregateError(
+            [error, publicationError],
+            `${error instanceof Error ? error.message : String(error)}\nttsc: could not publish Go workspace recovery inputs: ${publicationError instanceof Error ? publicationError.message : String(publicationError)}`,
+          );
+        }
+      }
+      throw error;
+    }
   }
 
   /** Load the selected generation between watch-input handoffs. */
@@ -299,6 +359,9 @@ export namespace loadProjectPlugins {
     callerEnv: NodeJS.ProcessEnv,
     projectSnapshot: ProjectHostInputSnapshot,
     additionalProjectRoots: readonly string[],
+    onWorkspaceFailure: Parameters<
+      typeof buildSourcePlugin
+    >[0]["onWorkspaceFailure"],
   ): WatchInputPublication.Sequence<ReturnType<typeof loadProjectPlugins>> {
     const { project } = projectSnapshot;
     const projectHostInputs = projectSnapshot.hostInputs;
@@ -549,6 +612,7 @@ export namespace loadProjectPlugins {
       Parameters<typeof buildSourcePlugin>[0]["onWorkspaceEnvironment"]
     > = ({ matchesSource, witness }) => {
       if (!matchesSource) workspaceWitnesses.push(witness);
+      onWorkspaceFailure?.(witness);
     };
     const compilerDeclaration =
       candidates.length === 0
@@ -899,15 +963,7 @@ export namespace loadProjectPlugins {
           }))
         : []),
     ];
-    const failedWorkspaces: PluginBuildEnvironmentWitness.Record[] = [];
-    const onWorkspaceFailure =
-      selectedWatchInputs === undefined
-        ? undefined
-        : (witness: PluginBuildEnvironmentWitness.Record): void => {
-            failedWorkspaces.push(witness);
-          };
-    let nativePlugins: ITtscLoadedNativePlugin[];
-    try {
+    const nativePlugins: ITtscLoadedNativePlugin[] = (() => {
       const builtTransformHosts = new Map<object, string>();
       for (const record of transformHosts) {
         builtTransformHosts.set(
@@ -971,7 +1027,7 @@ export namespace loadProjectPlugins {
         transformHosts.length === 0
           ? fallbackDriverHost
           : builtTransformHosts.get(transformHosts[0]!);
-      nativePlugins = records.map((record) => {
+      return records.map((record) => {
         const binary =
           record.stage === "transform" && record.kind === "linked"
             ? selectedTransformHost
@@ -1035,36 +1091,7 @@ export namespace loadProjectPlugins {
           stage: record.stage,
         };
       });
-    } catch (error) {
-      if (
-        selectedWatchInputs !== undefined &&
-        (failedWorkspaces.length !== 0 || workspaceWitnesses.length !== 0)
-      ) {
-        const observed: PluginBuildEnvironmentWitness.Record = new Map();
-        for (const witness of [...workspaceWitnesses, ...failedWorkspaces])
-          for (const [key, signature] of witness)
-            if (PluginBuildEnvironmentWitness.pathOf(key) !== undefined)
-              observed.set(key, signature);
-        if (observed.size !== 0) {
-          const retry = new Map(
-            PluginBuildEnvironmentWitness.retryBaseline(observed),
-          );
-          try {
-            yield options.onWatchInputs?.(
-              selectedWatchInputs,
-              sourceIdentities,
-              PluginBuildEnvironmentWitness.watchInputs([retry], project.root),
-            );
-          } catch (publicationError) {
-            throw new AggregateError(
-              [error, publicationError],
-              `${error instanceof Error ? error.message : String(error)}\nttsc: could not publish Go workspace recovery inputs: ${publicationError instanceof Error ? publicationError.message : String(publicationError)}`,
-            );
-          }
-        }
-      }
-      throw error;
-    }
+    })();
     const workspaceInputs =
       workspaceWitnesses.length === 0
         ? undefined

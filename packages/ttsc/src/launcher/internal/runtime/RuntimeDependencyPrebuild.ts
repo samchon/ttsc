@@ -124,6 +124,7 @@ export namespace RuntimeDependencyPrebuild {
    * @param props.store The runtime build store.
    * @param props.tsconfig The entry project's config.
    * @param props.projectRoot The entry project's root.
+   * @param props.systemProjectRoots Consumer boundaries of a system cache.
    * @param props.plugins The run's plugin policy.
    * @param props.environment The environment the program will run under, for
    *   the worker manifest named.
@@ -143,6 +144,7 @@ export namespace RuntimeDependencyPrebuild {
     store: string;
     tsconfig: string;
     projectRoot: string;
+    systemProjectRoots?: readonly string[];
     plugins: false | undefined;
     environment: (manifest: string) => NodeJS.ProcessEnv;
   }): () => Promise<void> {
@@ -176,6 +178,7 @@ export namespace RuntimeDependencyPrebuild {
           emitDir: path.join(props.runDir, "prebuild"),
           emittedSources: {},
           projectRoot: props.projectRoot,
+          systemProjectRoots: props.systemProjectRoots,
           rootDir: props.projectRoot,
           ...(props.plugins === false ? { plugins: false } : {}),
         }),

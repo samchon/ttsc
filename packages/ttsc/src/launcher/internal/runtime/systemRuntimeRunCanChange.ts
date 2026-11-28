@@ -7,9 +7,9 @@ import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBu
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
 
 /**
- * Requalify a direct run or a directory in system-cache trash before mutation.
- * Existing directories must keep their ordinary physical spelling and remain
- * outside current project boundaries.
+ * Requalify runtime runs, build storage and trash before mutation. Existing
+ * directories must keep their ordinary physical spelling and remain outside
+ * current project boundaries.
  *
  * @evidence contracts/common.md#principled-implementation The ordinary index and run use exact native identities. Project markers and selected roots are checked at the run, where ownership can change after cache selection.
  * @evidence contracts/common.md#clear-and-simple-design System callers share one optional mutation guard across claim and cleanup. Explicit cache callers retain their own policy.
@@ -31,12 +31,25 @@ export function systemRuntimeRunCanChange(
   );
   const relative = path.relative(runtimeRoot, directory);
   if (path.join(runtimeRoot, relative) !== directory) return false;
-  const [first, second] = relative.split(path.sep);
-  const inTrash =
-    first === RuntimeTrash.DIRNAME ||
-    (first === SourceBuildCacheLayout.RUNTIME_BUILD_CACHE_DIRNAME &&
-      second === RuntimeTrash.DIRNAME);
-  if (path.dirname(directory) !== index && !inTrash) return false;
+  const [first, second, ...rest] = relative.split(path.sep);
+  const inStore =
+    first === SourceBuildCacheLayout.RUNTIME_BUILD_CACHE_DIRNAME &&
+    (second === undefined ||
+      second === RuntimeTrash.DIRNAME ||
+      /^[0-9a-f]{64}\.(?:pending|environment)$/.test(second));
+  if (
+    first !== RuntimeTrash.DIRNAME &&
+    !inStore &&
+    !(
+      first === path.basename(index) &&
+      second !== undefined &&
+      (rest.length === 0 ||
+        rest[0] === "fs" ||
+        rest[0] === "deps" ||
+        rest[0] === "parks")
+    )
+  )
+    return false;
   try {
     if (
       !fs.lstatSync(runtimeRoot).isDirectory() ||

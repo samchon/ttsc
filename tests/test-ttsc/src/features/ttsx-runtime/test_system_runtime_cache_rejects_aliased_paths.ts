@@ -24,8 +24,9 @@ import { withRuntimeDirectoryLock } from "../../../../../packages/ttsc/src/launc
  *    storage.
  * 4. Retire an abandoned run and preserve another that gained a project marker.
  * 5. Keep marked trash and its children while draining ordinary retired output.
+ * 6. Keep a nested project inside a dead run and reclaim a proven emitted JSON.
  *
- * @evidence contracts/testing.md#behavioral-verification Real fallback pinning rejects native aliases, including the run index. Each cache refuses deterministic children owned by a selected or marked project. The system run claim retires ordinary abandoned output. Native retirement and drain exercise project markers and payloads in trash at both the root and child level. Non-root POSIX verifies native permission refusal.
+ * @evidence contracts/testing.md#behavioral-verification Real fallback pinning rejects native aliases, including the run index. Each cache refuses deterministic children owned by a selected or marked project. The system run claim retires ordinary abandoned output. Native retirement and drain exercise project markers and payloads in trash at both the root and child level. A live claim preserves a nested project in an abandoned run and reclaims a run whose copied JSON has compiler output evidence. Non-root POSIX verifies native permission refusal.
  * @evidence contracts/testing.md#independent-expectations Literal sentinel bytes establish preservation and retirement. A native ESRCH query independently establishes the authored owner is dead before product classification.
  * @evidence contracts/testing.md#distinguishing-cases Shared, cache, index, trash, lock and retired aliases are distinct refusal points. Selected and independently marked projects contrast with unmarked directories. Only a non-root POSIX run exercises file-mode refusal with ordinary entries.
  * @evidence contracts/testing.md#execution-ownership The unit uses an owned temp root and native links, stops its bounded drains, removes each link before its root and starts no installed product.
@@ -144,15 +145,33 @@ export async function test_system_runtime_cache_rejects_aliased_paths(): Promise
     const runs = path.join(fallback, "project");
     const abandoned = path.join(runs, "abandoned");
     const foreign = path.join(runs, "foreign");
+    const nested = path.join(runs, "nested");
+    const generated = path.join(runs, "generated");
     const absentPid = 0x7fffffff;
     assert.throws(() => process.kill(absentPid, 0), { code: "ESRCH" });
-    for (const directory of [abandoned, foreign]) {
+    for (const directory of [abandoned, foreign, nested, generated]) {
       fs.mkdirSync(directory, { recursive: true });
       ProcessOwnedDirectory.admit(directory, absentPid);
       assert.equal(ProcessOwnedDirectory.ownership(directory), "abandoned");
     }
     fs.writeFileSync(path.join(abandoned, "output.js"), "abandoned output");
     fs.writeFileSync(path.join(foreign, "go.work"), "go 1.24.0\n");
+    const nestedProject = path.join(nested, "fs", "user-project");
+    fs.mkdirSync(nestedProject, { recursive: true });
+    fs.writeFileSync(path.join(nestedProject, "go.work"), "go 1.24.0\n");
+    const emitted = path.join(generated, "fs", "entry", "package.json");
+    const original = path.join(source, "package.json");
+    fs.mkdirSync(path.dirname(emitted), { recursive: true });
+    fs.writeFileSync(original, '{"name":"fixture"}\n');
+    fs.copyFileSync(original, emitted);
+    fs.writeFileSync(
+      path.join(generated, "runtime-manifest.json"),
+      JSON.stringify({
+        depCacheDir: path.join(generated, "deps"),
+        emitDir: path.dirname(emitted),
+        emittedSources: { [emitted]: [original] },
+      }),
+    );
     const canChange = (directory: string) =>
       systemRuntimeRunCanChange(directory, fallback, [source]);
     assert.throws(
@@ -168,6 +187,13 @@ export async function test_system_runtime_cache_rejects_aliased_paths(): Promise
     );
     assert.equal(ProcessOwnedDirectory.ownership(fresh), "live");
     assert.equal(fs.existsSync(abandoned), false);
+    assert.equal(fs.existsSync(generated), false);
+    assert.equal(
+      fs.readFileSync(path.join(nestedProject, "go.work"), "utf8"),
+      "go 1.24.0\n",
+    );
+    assert.equal(ProcessOwnedDirectory.ownership(nested), "abandoned");
+    fs.unlinkSync(original);
     assert.equal(
       fs.readFileSync(path.join(foreign, "go.work"), "utf8"),
       "go 1.24.0\n",

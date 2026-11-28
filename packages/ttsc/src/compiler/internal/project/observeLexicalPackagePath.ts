@@ -11,13 +11,13 @@ import { TrustedPreloadGraph } from "../../../internal/TrustedPreloadGraph";
  * retains the current thread's selection, including any local hooks. This
  * helper contributes a lexical witness from Node's standard resolver.
  *
- * @evidence contracts/common.md#principled-implementation A Worker adds Node's preserve-symlinks option and runs the same createRequire resolution from the declaring config. Its lexical result can qualify a suspected lossy result but cannot substitute for the caller's selection.
+ * @evidence contracts/common.md#principled-implementation A Worker uses native preserve-symlinks and delegates createRequire with the request's conditions. When the native hook is bypassed, only a matching worker startup configuration can supply a result.
  * @evidence contracts/common.md#clear-and-simple-design One lazy worker owns bounded synchronous queries and can serve both package manifests and direct config entries.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Only resolver conditions reach worker startup. Preloads, loaders, memory flags and NODE_OPTIONS are omitted, and failures supply no guessed path.
  * @evidence contracts/common.md#meaningful-documentation States the difference between the witness and the caller's resolver with local hooks.
  * @evidence contracts/portability.md#os-neutral-implementation Node worker and module APIs carry string paths. Windows does not need a witness for invalid POSIX names.
  * @evidence contracts/performance.md#efficient-algorithms The first POSIX package request starts one worker. Later queries use one bounded wait and one native resolution without relaunching the runtime or scanning directories in ttsc.
- * @evidence contracts/performance.md#reuse-equivalent-work A process shares the worker for successful transport. Node owns internal resolution reuse, which is not evidence about later files.
+ * @evidence contracts/performance.md#reuse-equivalent-work One worker accepts different condition sets through native request hooks. Node owns its internal caches, which do not witness later files.
  * @evidence contracts/performance.md#bound-retention-and-release-resources One unreferenced worker is retained per caller isolate and each port is closed after its request. A failed transport is retired and does not retry on subsequent lookups.
  */
 export function observeLexicalPackagePath(
@@ -26,9 +26,11 @@ export function observeLexicalPackagePath(
   conditions?: readonly string[],
 ): string | undefined {
   if (unavailable) return undefined;
+  const options = resolverOptions(conditions);
+  const optionsKey = JSON.stringify(options);
   let active: Worker;
   try {
-    active = worker ?? acquireWorker(conditions);
+    active = worker?.instance ?? acquireWorker(options, optionsKey);
   } catch {
     unavailable = true;
     return undefined;
@@ -36,13 +38,20 @@ export function observeLexicalPackagePath(
   const { port1, port2 } = new MessageChannel();
   const state = new Int32Array(new SharedArrayBuffer(4));
   try {
-    active.postMessage({ from, specifier, state, reply: port2 }, [port2]);
+    active.postMessage({ from, specifier, conditions, state, reply: port2 }, [
+      port2,
+    ]);
     if (Atomics.wait(state, 0, 0, 5_000) === "timed-out") {
       retireWorker(active);
       return undefined;
     }
-    const result: unknown = receiveMessageOnPort(port1)?.message;
-    return typeof result === "string" ? result : undefined;
+    const result = receiveMessageOnPort(port1)?.message as
+      | { selected?: string; conditionsApplied: boolean }
+      | undefined;
+    return result?.conditionsApplied === true ||
+      worker?.optionsKey === optionsKey
+      ? result?.selected
+      : undefined;
   } catch {
     retireWorker(active);
     return undefined;
@@ -52,26 +61,26 @@ export function observeLexicalPackagePath(
   }
 }
 
-let worker: Worker | undefined;
+let worker: { instance: Worker; optionsKey: string } | undefined;
 let unavailable = false;
 
 function retireWorker(active: Worker): void {
   unavailable = true;
-  if (worker === active) worker = undefined;
+  if (worker?.instance === active) worker = undefined;
   void active.terminate();
 }
 
 /** Retain an idle worker without extending the owning process lifetime. */
-function acquireWorker(conditions: readonly string[] | undefined): Worker {
+function acquireWorker(options: readonly string[], optionsKey: string): Worker {
   const env = { ...process.env };
   delete env.NODE_OPTIONS;
   const created = new Worker(RESOLVE, {
     env,
     eval: true,
-    execArgv: ["--preserve-symlinks", ...resolverOptions(conditions)],
+    execArgv: ["--preserve-symlinks", ...options],
   });
   const forget = () => {
-    if (worker === created) {
+    if (worker?.instance === created) {
       worker = undefined;
       unavailable = true;
     }
@@ -79,7 +88,7 @@ function acquireWorker(conditions: readonly string[] | undefined): Worker {
   created.on("error", forget);
   created.once("exit", forget);
   created.unref();
-  worker = created;
+  worker = { instance: created, optionsKey };
   return created;
 }
 
@@ -132,13 +141,24 @@ const CONDITION_SWITCHES = new Set([
 ]);
 
 const RESOLVE = `
-const { createRequire } = require("node:module");
+const { createRequire, registerHooks } = require("node:module");
 const { parentPort } = require("node:worker_threads");
-parentPort.on("message", ({ from, specifier, state, reply }) => {
+parentPort.on("message", ({ from, specifier, conditions, state, reply }) => {
   let selected;
-  try { selected = createRequire(from).resolve(specifier); } catch {}
-  try { reply.postMessage(selected); }
+  let conditionsApplied = false;
+  const observer = conditions !== undefined && typeof registerHooks === "function"
+    ? registerHooks({ resolve(request, context, next) {
+        if (request !== specifier) return next(request, context);
+        conditionsApplied = true;
+        return next(request, { ...context, conditions });
+      } })
+    : undefined;
+  try {
+    try { selected = createRequire(from).resolve(specifier); } catch {}
+    reply.postMessage({ selected, conditionsApplied });
+  }
   finally {
+    observer?.deregister();
     reply.close();
     Atomics.store(state, 0, 1);
     Atomics.notify(state, 0);

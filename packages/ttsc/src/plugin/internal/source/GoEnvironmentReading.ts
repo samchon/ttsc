@@ -33,6 +33,69 @@ export namespace GoEnvironmentReading {
    */
   const goEnvironmentFiles = new Map<string, string | null>();
 
+  let recoveryObserver:
+    | ((witness: PluginBuildEnvironmentWitness.Record) => void)
+    | undefined;
+
+  /**
+   * Lend native Go observations to the current synchronous watch-load step.
+   *
+   * @evidence contracts/common.md#principled-implementation The active load can retain observations even when Go returns no settings or the later package selection fails.
+   * @evidence contracts/common.md#clear-and-simple-design The native settings reader owns observation, and the load owns recovery publication.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Restores the prior observer before a generator may suspend, so unrelated requests cannot borrow its watch inputs.
+   * @evidence contracts/common.md#meaningful-documentation Describes the synchronous ownership boundary.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation The scope itself performs no native operation.
+   * @evidence contracts/performance.md#efficient-algorithms Installs and restores one callback for the duration of one step.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The scope grants no reuse authority.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Callback ownership is restored in finally. The load owns any transferred observations.
+   */
+  export function withRecoveryObservations<T>(
+    observe:
+      | ((witness: PluginBuildEnvironmentWitness.Record) => void)
+      | undefined,
+    step: () => T,
+  ): T {
+    const previous = recoveryObserver;
+    recoveryObserver = observe;
+    try {
+      return step();
+    } finally {
+      recoveryObserver = previous;
+    }
+  }
+
+  /**
+   * Transfer actual native selection inputs to an active recovery observer.
+   *
+   * @evidence contracts/common.md#principled-implementation Only native witness keys are retained and selectors in the command's working directory remain with its source or scratch owner.
+   * @evidence contracts/common.md#clear-and-simple-design Both settings and package selection use the same projection into the active load.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Captured signatures are forwarded without substituting later native observations.
+   * @evidence contracts/common.md#meaningful-documentation Identifies the transfer and its owner.
+   * @evidence contracts/portability.md#os-neutral-implementation Native workspace selectors use Node path joining, and original witness keys retain byte spellings.
+   * @evidence contracts/performance.md#efficient-algorithms The active observer needs one pass over supplied keys and a map of the external observations.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Transferring proof does not validate it.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The receiving load owns the transferred map.
+   */
+  export function reportRecovery(
+    witness: PluginBuildEnvironmentWitness.Record | undefined,
+    cwd: string,
+  ): void {
+    if (recoveryObserver === undefined || witness === undefined) return;
+    const external: PluginBuildEnvironmentWitness.Record = new Map();
+    for (const [key, signature] of witness) {
+      const native = PluginBuildEnvironmentWitness.pathOf(key);
+      if (native === undefined) continue;
+      if (
+        native.file === cwd ||
+        native.file === path.join(cwd, "go.mod") ||
+        native.file === path.join(cwd, "go.work")
+      )
+        continue;
+      external.set(key, signature);
+    }
+    if (external.size !== 0) recoveryObserver(external);
+  }
+
   const localVersions = new Map<
     string,
     {
@@ -105,6 +168,38 @@ export namespace GoEnvironmentReading {
     projectRoot?: string,
     additionalProjectRoots?: readonly string[],
   ): { values: Record<string, unknown>; local: boolean } | undefined {
+    const observed =
+      witness ?? (recoveryObserver === undefined ? undefined : new Map());
+    try {
+      return readObserved(
+        goBinary,
+        cwd,
+        env,
+        keys,
+        observed,
+        identities,
+        projectRoot,
+        additionalProjectRoots,
+      );
+    } finally {
+      reportRecovery(observed, cwd);
+    }
+  }
+
+  /** Read settings while the caller owns the first native observations. */
+  function readObserved(
+    goBinary: string,
+    cwd: string,
+    env: NodeJS.ProcessEnv,
+    keys: readonly string[],
+    witness: PluginBuildEnvironmentWitness.Record | undefined,
+    identities: PluginContentIdentities.Store | undefined,
+    projectRoot: string | undefined,
+    additionalProjectRoots: readonly string[] | undefined,
+  ): { values: Record<string, unknown>; local: boolean } | undefined {
+    const configured = SidecarEnvironment.read(env, "GOENV");
+    if (configured !== undefined && path.isAbsolute(configured))
+      PluginBuildEnvironmentWitness.add(witness, configured);
     const memo = crypto.createHash("sha256").update(goBinary);
     for (const [key, value] of Object.entries(env).sort(([left], [right]) =>
       left < right ? -1 : left > right ? 1 : 0,
@@ -351,6 +446,7 @@ export namespace GoEnvironmentReading {
     );
     if (kept !== undefined) {
       PluginBuildEnvironmentWitness.join(witness, kept.witness);
+      reportRecovery(kept.witness, cwd);
       return kept.value;
     }
     const observed: PluginBuildEnvironmentWitness.Record = new Map();

@@ -1,3 +1,7 @@
+import { createRequire, registerHooks } from "node:module";
+
+import { resolveNativePackagePath } from "../../../../../packages/ttsc/src/compiler/internal/project/resolveNativePackagePath";
+import { RuntimeLoaderCapabilities } from "../../../../../packages/ttsc/src/launcher/internal/runtime/RuntimeLoaderCapabilities";
 import {
   assert,
   fs,
@@ -11,11 +15,12 @@ import {
  *
  * 1. Resolve a package export using its native require condition.
  * 2. On Linux, retarget that export's file alias to a raw byte path.
- * 3. Require lossless qualification to refuse the alias despite a readable twin.
+ * 3. Require lossless qualification to refuse the alias under ordinary and
+ *    hook-modified native conditions.
  *
  * @evidence contracts/testing.md#behavioral-verification Uses the normal project reader and Node package exports. Native require selects the declared condition and the lexical proof refuses the non-UTF-8 physical target before inherited options are read.
  * @evidence contracts/testing.md#independent-expectations The native byte target and its valid UTF-8 twin are separately authored. Explicit literals identify the intermediate export and valid result; a different fallback proves which condition selected the file.
- * @evidence contracts/testing.md#distinguishing-cases The fixture supports an ordinary package export on every host. Linux distinguishes a separate raw target from its identical-content replacement-character twin.
+ * @evidence contracts/testing.md#distinguishing-cases The ordinary export runs everywhere. Linux distinguishes a raw target from its equal-content UTF-8 twin, including when a supported local hook adds the selecting condition after the worker already ran. A resolver error supplied by a hook is preserved.
  * @evidence contracts/testing.md#execution-ownership The unit owns the package tree and all raw entries. The config reader owns its real Node resolver witness and no Go or compiler host runs.
  */
 export function test_readprojectconfig_keeps_package_extends_lexical_authority(): void {
@@ -45,6 +50,10 @@ export function test_readprojectconfig_keeps_package_extends_lexical_authority()
             default: "./ordinary.json",
           },
           "./raw-settings": "./raw-primary.json",
+          "./hooked-settings": {
+            "ttsc-test-hook": "./raw-primary.json",
+            default: "./ordinary.json",
+          },
         },
       }),
     );
@@ -65,6 +74,41 @@ export function test_readprojectconfig_keeps_package_extends_lexical_authority()
     assert.throws(() => readProjectConfig({ cwd: root, tsconfig }), {
       message: `ttsc: extended config has no UTF-8 physical path: ${alias}`,
     });
+    if (!RuntimeLoaderCapabilities.requireResolveConsultsHooks()) return;
+
+    const callerError = new Error("caller resolver refused the selection");
+    const hooks = registerHooks({
+      resolve(specifier, context, next) {
+        if (specifier === "preset/raw-settings") throw callerError;
+        if (specifier === "preset/hooked-settings")
+          return next(specifier, {
+            ...context,
+            conditions: [...context.conditions, "ttsc-test-hook"],
+          });
+        return next(specifier, context);
+      },
+    });
+    try {
+      fs.writeFileSync(
+        tsconfig,
+        '{"extends":"preset/hooked-settings","files":[]}',
+      );
+      assert.throws(() => readProjectConfig({ cwd: root, tsconfig }), {
+        message: `ttsc: extended config has no UTF-8 physical path: ${alias}`,
+      });
+      assert.throws(
+        () =>
+          resolveNativePackagePath(
+            createRequire(tsconfig),
+            tsconfig,
+            "preset/raw-settings",
+            "extended config",
+          ),
+        (error) => error === callerError,
+      );
+    } finally {
+      hooks.deregister();
+    }
   } finally {
     if (process.platform === "linux" && fs.existsSync(raw)) {
       if (fs.lstatSync(alias, { throwIfNoEntry: false })?.isSymbolicLink())

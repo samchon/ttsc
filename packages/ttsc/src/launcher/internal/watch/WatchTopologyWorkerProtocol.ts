@@ -71,6 +71,7 @@ export namespace WatchTopologyWorkerProtocol {
         inputs: readonly string[];
         identities?: PluginContentIdentities.Store;
         workspace?: ITtscCompilerTransformation.ISuccess["workspaceInputs"];
+        repairedWorkspaceAnchors?: readonly string[];
       }
     | { method: "setProjectInputs"; inputs: ITtscProjectInputSnapshot }
     | { method: "whenIdle" }

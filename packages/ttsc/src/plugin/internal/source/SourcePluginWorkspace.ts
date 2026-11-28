@@ -471,6 +471,12 @@ export namespace SourcePluginWorkspace {
           }
           if (launcher?.isFile() === true)
             PluginBuildEnvironmentWitness.add(witness, goBinary, launcher);
+          else if (path.isAbsolute(goBinary))
+            PluginBuildEnvironmentWitness.add(
+              witness,
+              goBinary,
+              launcher ?? null,
+            );
           // GOENV can change toolchain selection without changing env strings.
           // Share its existing native discovery owner; do not scan GOROOT here.
           // Do not launch a missing/unobservable tool twice just to learn that
@@ -500,6 +506,7 @@ export namespace SourcePluginWorkspace {
                 process.platform === "win32" ? "go.exe" : "go",
               ),
             );
+          GoEnvironmentReading.reportRecovery(witness, resolved);
           const complete =
             typeof observed?.GOROOT === "string" &&
             path.isAbsolute(observed.GOROOT) &&

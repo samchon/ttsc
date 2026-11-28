@@ -183,12 +183,14 @@ export class AsyncWatchTopology {
     inputs: readonly string[],
     identities?: PluginContentIdentities.Store,
     workspace?: ITtscCompilerTransformation.ISuccess["workspaceInputs"],
+    repairedWorkspaceAnchors?: readonly string[],
   ): Promise<void> {
     return this.request({
       method: "setExtraInputs",
       inputs,
       identities,
       workspace,
+      repairedWorkspaceAnchors,
     });
   }
 

@@ -54,6 +54,13 @@ export function systemTempOutsideProject(
  * @evidence contracts/performance.md#bound-retention-and-release-resources Traversal-local path sets are released when iteration ends. No handles or directories are acquired.
  */
 export namespace systemTempOutsideProject {
+  /** Recognize a marker in a native directory listing. */
+  export function isProjectMarker(name: string): boolean {
+    return PROJECT_MARKERS.includes(
+      process.platform === "win32" ? name.toLowerCase() : name,
+    );
+  }
+
   /** Yield each verified parent and the spelling supplied by its source. */
   export function* candidates(
     projectRoot: string,

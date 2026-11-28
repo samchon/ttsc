@@ -499,6 +499,7 @@ export class WatchTopology {
    * @param identities The reporting load's record store, if it opened one.
    * @param workspace Actual generated Go workspace evidence when provided. A
    *   source-only publication retains the current workspace observation.
+   * @param repairedWorkspaceAnchors Changes observed before recovery admission.
    * @evidence contracts/common.md#principled-implementation Source baselines retain unreported edits. A final workspace publication retains the producer's native observations and reports exact metadata movement through the same plugin change channel.
    * @evidence contracts/common.md#clear-and-simple-design Deduplication, baseline retention and compiler/watch reconciliation remain ordered phases.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual plugin source digest applies its owning source-selection and pruning policy; named plugins or fixture output do not replace observed input state.
@@ -512,12 +513,19 @@ export class WatchTopology {
     inputs: readonly string[],
     identities?: PluginContentIdentities.Store,
     workspace?: ITtscCompilerTransformation.ISuccess["workspaceInputs"],
+    repairedWorkspaceAnchors?: readonly string[],
   ): void {
     this.beginLexicalTransaction();
     // The latest load's store also serves later notifications; its references
     // only grow older, which can make fewer stamps separable but never more.
     this.pluginInputIdentities = identities;
-    if (workspace !== undefined) this.replaceWorkspaceInputs(workspace);
+    if (workspace !== undefined) {
+      this.replaceWorkspaceInputs(workspace);
+      for (const anchor of repairedWorkspaceAnchors ?? []) {
+        if (Object.hasOwn(workspace, anchor))
+          this.callbacks.onInputChange({ kind: "plugin", path: anchor });
+      }
+    }
     const next = uniqueExistingPaths(inputs, this.lexicalIdentities);
     if (arraysEqual(this.extraInputs, next)) return;
     this.extraInputs = next;

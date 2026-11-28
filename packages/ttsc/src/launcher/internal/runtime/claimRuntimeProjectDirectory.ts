@@ -5,6 +5,7 @@ import { RuntimeBuildCache } from "../../../compiler/internal/build/RuntimeBuild
 import { RuntimeTrash } from "../../../internal/RuntimeTrash";
 import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBuildCacheLayout";
 import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
+import { systemRuntimeRunTree } from "./systemRuntimeRunTree";
 import { withRuntimeDirectoryLock } from "./withRuntimeDirectoryLock";
 
 /**
@@ -63,12 +64,27 @@ export function claimRuntimeProjectDirectory(
     // not before it starts (samchon/ttsc#1859). The builds its processes asked
     // to keep, such as those of a launcher that was killed, are parked first.
     ProcessOwnedDirectory.sweep(runsDir, undefined, false, (abandoned) => {
-      if (canChange?.(abandoned) === false) return;
-      RuntimeBuildCache.parkRequested(abandoned);
-      if (!RuntimeTrash.retire(abandoned, runtimeRoot, canChange))
+      const tree = systemRuntimeRunTree(abandoned, canChange);
+      if (tree === "protected") return;
+      RuntimeBuildCache.parkRequested(
+        abandoned,
+        path.join(
+          runtimeRoot,
+          SourceBuildCacheLayout.RUNTIME_BUILD_CACHE_DIRNAME,
+        ),
+        canChange,
+      );
+      if (
+        tree === "emitted-marker" ||
+        !RuntimeTrash.retire(abandoned, runtimeRoot, canChange)
+      )
         fs.rmSync(abandoned, { force: true, recursive: true });
     });
     requireChange(processDir);
+    if (systemRuntimeRunTree(processDir, canChange) === "protected")
+      throw new Error(
+        `ttsx: system runtime run is not available: ${processDir}`,
+      );
     fs.rmSync(processDir, { recursive: true, force: true });
     ProcessOwnedDirectory.claim(processDir);
     return processDir;

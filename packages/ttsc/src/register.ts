@@ -5,10 +5,11 @@ import { prepareExecution } from "./launcher/internal/prepareExecution";
 import { type RuntimeManifest } from "./launcher/internal/runtime/RuntimeManifest";
 import { installRuntimeHooks } from "./launcher/internal/runtime/installRuntimeHooks";
 import { runtimeRunKey } from "./launcher/internal/runtime/runtimeRunKey";
+import { systemRuntimeRunTree } from "./launcher/internal/runtime/systemRuntimeRunTree";
 
 const cleanupDirectories = new Map<
   string,
-  ((directory: string) => boolean) | undefined
+  { canChange?: (directory: string) => boolean; manifest: RuntimeManifest }
 >();
 let runtimeSequence = 0;
 
@@ -25,8 +26,7 @@ function prepareEntry(filename: string): RuntimeManifest {
   const execution = prepareExecution(filename, {
     runtimeCacheKey: `register-${runtimeRunKey()}-${++runtimeSequence}`,
   });
-  cleanupDirectories.set(execution.cleanupDir, execution.canChangeRuntimeRun);
-  return {
+  const manifest: RuntimeManifest = {
     depCacheDir: path.join(execution.cleanupDir, "deps"),
     emitDir: execution.emitDir,
     bundledOutputs: execution.bundledOutputs,
@@ -38,8 +38,14 @@ function prepareEntry(filename: string): RuntimeManifest {
     moduleOptions: execution.moduleOptions,
     orphanCacheDir: execution.orphanCacheDir,
     projectRoot: execution.projectRoot,
+    systemProjectRoots: execution.systemProjectRoots,
     rootDir: execution.rootDir,
   };
+  cleanupDirectories.set(execution.cleanupDir, {
+    canChange: execution.canChangeRuntimeRun,
+    manifest,
+  });
+  return manifest;
 }
 
 /**
@@ -51,9 +57,10 @@ function prepareEntry(filename: string): RuntimeManifest {
  * process termination can bypass this callback.
  */
 function cleanupRuntimeOutputs(): void {
-  for (const [directory, canChange] of cleanupDirectories) {
+  for (const [directory, { canChange, manifest }] of cleanupDirectories) {
     try {
-      if (canChange?.(directory) === false) continue;
+      if (systemRuntimeRunTree(directory, canChange, manifest) === "protected")
+        continue;
       fs.rmSync(directory, { force: true, recursive: true });
     } catch {
       // Best effort: cleanup must not replace the host process exit status.

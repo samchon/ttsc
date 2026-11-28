@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { RuntimeTrash } from "../../../internal/RuntimeTrash";
+import { readPosixDirectoryEntries } from "../../../plugin/internal/source/readPosixDirectoryEntries";
 import { recordCacheFileUse } from "../../../plugin/internal/source/recordCacheFileUse";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import { RuntimeBuildExplanation } from "./RuntimeBuildExplanation";
@@ -79,8 +80,10 @@ export namespace RuntimeBuildCache {
   export function run(props: {
     /** Collected single-file cache root, or undefined to bypass persistence. */
     directory?: string;
-    /** Recheck the system build store's trash before moving outputs there. */
-    canChangeTrash?: (directory: string) => boolean;
+    /** Current project boundary for a system build store and its run. */
+    canChange?: (directory: string) => boolean;
+    /** Qualified run containing this build's isolated output. */
+    runDir?: string;
     /** Empty private output directory owned by this build's caller. */
     emitDir: string;
     /** Source runtime consumers read run-owned bundled outputs lazily. */
@@ -174,7 +177,25 @@ export namespace RuntimeBuildCache {
       moved = [file, ...moved.filter((entry) => entry !== file)].slice(0, 16);
       if (movedFile !== undefined)
         try {
-          fs.writeFileSync(movedFile, JSON.stringify(moved));
+          if (props.canChange === undefined)
+            fs.writeFileSync(movedFile, JSON.stringify(moved));
+          else if (
+            props.canChange(path.dirname(movedFile)) &&
+            fs
+              .lstatSync(movedFile, { throwIfNoEntry: false })
+              ?.isSymbolicLink() !== true
+          ) {
+            const temporary = movedFile + "." + crypto.randomUUID() + ".tmp";
+            try {
+              fs.writeFileSync(temporary, JSON.stringify(moved), {
+                flag: "wx",
+              });
+              fs.renameSync(temporary, movedFile);
+            } finally {
+              if (props.canChange(path.dirname(temporary)))
+                fs.rmSync(temporary, { force: true });
+            }
+          }
         } catch {
           /* Only the order of a later replay depends on it. */
         }
@@ -246,6 +267,7 @@ export namespace RuntimeBuildCache {
       return props.build();
     }
     const directory = props.directory;
+    if (props.canChange?.(directory) === false) return props.build();
     // A plugin's environment reads are reported by its build, after the
     // request is named, so they cannot name the request's document. Each build
     // is stored and parked under the identity and the values of exactly the
@@ -276,7 +298,7 @@ export namespace RuntimeBuildCache {
       Object.keys(result.environmentInputs ?? {}).sort();
     /** Register `names` as a variable set some build of this identity read. */
     const register = (names: readonly string[]): void => {
-      if (names.length === 0) return;
+      if (names.length === 0 || props.canChange?.(sets) === false) return;
       const file = path.join(sets, digest(JSON.stringify(names)) + ".json");
       // One set is always the same bytes, so an existing file is final.
       if (fs.existsSync(file)) return;
@@ -303,10 +325,14 @@ export namespace RuntimeBuildCache {
     const candidates: { key: string; set?: string }[] = [];
     try {
       const registered: { names: string[]; set: string; used: number }[] = [];
-      for (const name of fs.readdirSync(sets)) {
+      for (const name of props.canChange?.(sets) === false
+        ? []
+        : fs.readdirSync(sets)) {
         if (!name.endsWith(".json")) continue;
         const set = path.join(sets, name);
         try {
+          if (props.canChange !== undefined && !fs.lstatSync(set).isFile())
+            continue;
           const names: unknown = JSON.parse(fs.readFileSync(set, "utf8"));
           if (
             Array.isArray(names) &&
@@ -348,7 +374,10 @@ export namespace RuntimeBuildCache {
       );
     movedFile = path.join(directory, identity + ".moved.json");
     try {
-      const recorded: unknown = JSON.parse(fs.readFileSync(movedFile, "utf8"));
+      const recorded: unknown =
+        props.canChange !== undefined && !fs.lstatSync(movedFile).isFile()
+          ? undefined
+          : JSON.parse(fs.readFileSync(movedFile, "utf8"));
       if (
         Array.isArray(recorded) &&
         recorded.every((entry) => typeof entry === "string")
@@ -371,6 +400,7 @@ export namespace RuntimeBuildCache {
       const restored: string[] = [];
       let operation = "lookup";
       try {
+        if (props.canChange?.(directory) === false) return "missing";
         const stat = fs.lstatSync(file);
         operation = "document-validation";
         if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_BYTES)
@@ -383,6 +413,8 @@ export namespace RuntimeBuildCache {
         )
           throw new Error("invalid runtime cache checksum");
         const entry = JSON.parse(record.payload);
+        if (props.canChange !== undefined && !fs.lstatSync(bodies).isFile())
+          throw new Error("aliased runtime cache outputs");
         const document = RuntimeEmitBundle.inspect(bodies);
         // A bundle published for another record, or left by an interrupted
         // publication, never supplies this record's outputs.
@@ -405,6 +437,11 @@ export namespace RuntimeBuildCache {
           if (!names.has(path.relative(entry.emitDir, output)))
             throw new Error("missing runtime cache provenance output");
         operation = "output-restoration";
+        if (
+          props.canChange !== undefined &&
+          !canMoveTree(props.emitDir, props.canChange)
+        )
+          throw new Error("unsafe runtime restore destination");
         // Stamped before restoring: a restored bundle can be a link to the
         // same file, whose stamps then stay as its validation saw them.
         recordCacheFileUse(file);
@@ -511,6 +548,8 @@ export namespace RuntimeBuildCache {
       const pending = [outputs];
       while (pending.length !== 0) {
         const current = pending.pop()!;
+        if (props.canChange?.(current) === false)
+          throw new Error("unsafe runtime publication outputs");
         for (const child of fs.readdirSync(current, { withFileTypes: true })) {
           const target = path.join(current, child.name);
           if (child.isSymbolicLink()) throw new Error("aliased runtime output");
@@ -588,6 +627,7 @@ export namespace RuntimeBuildCache {
         return false;
       }
       yield;
+      if (props.canChange?.(directory) === false) return false;
       fs.mkdirSync(directory, { recursive: true });
       if (fs.lstatSync(directory).isSymbolicLink()) {
         report("not-recorded", "aliased-cache-directory", key);
@@ -730,7 +770,10 @@ export namespace RuntimeBuildCache {
         },
         park() {
           const request = this.request();
-          if (request !== undefined && !park(request))
+          if (
+            request !== undefined &&
+            !park(request, props.runDir, directory, props.canChange)
+          )
             report(
               "not-recorded",
               "cache-publication-io-or-output-failure",
@@ -742,7 +785,8 @@ export namespace RuntimeBuildCache {
       else
         try {
           const request = pending.request();
-          if (request !== undefined) saveParkRequest(props.parkIn, request);
+          if (request !== undefined)
+            saveParkRequest(props.parkIn, request, props.canChange);
         } catch {
           report(
             "not-recorded",
@@ -755,10 +799,12 @@ export namespace RuntimeBuildCache {
     const discard = (parked: string): void => {
       if (
         fs.existsSync(parked) &&
-        !RuntimeTrash.retire(parked, directory, props.canChangeTrash)
+        canMoveTree(parked, props.canChange) &&
+        !RuntimeTrash.retire(parked, directory, props.canChange)
       )
         try {
-          fs.rmSync(parked, { force: true, recursive: true });
+          if (canMoveTree(parked, props.canChange))
+            fs.rmSync(parked, { force: true, recursive: true });
         } catch {
           /* Collection owns what cannot be removed now. */
         }
@@ -766,12 +812,14 @@ export namespace RuntimeBuildCache {
     /** The parked builds under `key`, newest first. */
     const parkedBuilds = (key: string): string[] => {
       const root = documentOf(key).parked;
+      if (props.canChange?.(root) === false) return [];
       try {
         return fs
           .readdirSync(root)
           .sort()
           .reverse()
-          .map((name) => path.join(root, name));
+          .map((name) => path.join(root, name))
+          .filter((parked) => props.canChange?.(parked) !== false);
       } catch {
         return [];
       }
@@ -798,9 +846,13 @@ export namespace RuntimeBuildCache {
           }
           const job = (() => {
             try {
-              return JSON.parse(
-                fs.readFileSync(path.join(parked, "job.json"), "utf8"),
-              );
+              const jobFile = path.join(parked, "job.json");
+              if (
+                props.canChange !== undefined &&
+                !fs.lstatSync(jobFile).isFile()
+              )
+                return undefined;
+              return JSON.parse(fs.readFileSync(jobFile, "utf8"));
             } catch {
               return undefined;
             }
@@ -820,6 +872,7 @@ export namespace RuntimeBuildCache {
           }
           try {
             const outputs = path.join(parked, "outputs");
+            if (!canMoveTree(parked, props.canChange)) continue;
             if (props.defer === undefined && props.parkIn === undefined) {
               published = finish(
                 job.result,
@@ -870,13 +923,25 @@ export namespace RuntimeBuildCache {
             if (props.parkIn !== undefined) {
               // If this process is stopped after taking the directory, the
               // run owner must be able to return it even before outputs move.
-              saveParkRequest(props.parkIn, {
-                outputs: props.emitDir,
-                parked: parkDestination(key),
-                carried: moved,
-                job: carry.job,
-              });
+              saveParkRequest(
+                props.parkIn,
+                {
+                  outputs: props.emitDir,
+                  parked: parkDestination(key),
+                  carried: moved,
+                  job: carry.job,
+                },
+                props.canChange,
+              );
             }
+            if (
+              props.canChange?.(moved) === false ||
+              props.canChange?.(props.emitDir) === false ||
+              (props.canChange !== undefined &&
+                (fs.lstatSync(moved, { throwIfNoEntry: false }) !== undefined ||
+                  !canMoveTree(parked, props.canChange)))
+            )
+              continue;
             fs.rmdirSync(props.emitDir);
             fs.renameSync(parked, moved);
             fs.renameSync(path.join(moved, "outputs"), props.emitDir);
@@ -886,7 +951,8 @@ export namespace RuntimeBuildCache {
             if (props.parkIn !== undefined) report("parked", undefined, key);
           } catch {
             /* Taken by a concurrent run, or unreadable: this run builds. */
-            fs.mkdirSync(props.emitDir, { recursive: true });
+            if (props.canChange?.(props.emitDir) !== false)
+              fs.mkdirSync(props.emitDir, { recursive: true });
           }
         }
       }
@@ -1036,8 +1102,13 @@ export namespace RuntimeBuildCache {
   const PARKS_DIRNAME = "parks";
 
   /** Record a move before the run owner can clean up this process's outputs. */
-  function saveParkRequest(runDir: string, request: ParkRequest): void {
+  function saveParkRequest(
+    runDir: string,
+    request: ParkRequest,
+    canChange?: (directory: string) => boolean,
+  ): void {
     const parks = path.join(runDir, PARKS_DIRNAME);
+    if (canChange?.(parks) === false) return;
     fs.mkdirSync(parks, { recursive: true });
     // The owner reads requests only after this process stops. A torn write
     // leaves the store untouched because adoption requires this write first.
@@ -1054,7 +1125,9 @@ export namespace RuntimeBuildCache {
    * directory goes.
    *
    * @param runDir The run's directory.
-   * @evidence contracts/common.md#principled-implementation Each request names outputs inside the run, which no process reads any more when the owner calls this.
+   * @param store The run's qualified persistent build store.
+   * @param canChange Current project and path ownership for a system cache.
+   * @evidence contracts/common.md#principled-implementation A system request may move only this run's dependency generation or its matching carried directory to a new qualified store path.
    * @evidence contracts/common.md#clear-and-simple-design One listing and one park per request.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A malformed request is skipped; its outputs go with the run.
    * @evidence contracts/common.md#meaningful-documentation The prose states when to call it.
@@ -1063,8 +1136,13 @@ export namespace RuntimeBuildCache {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Parking is an effect.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Nothing is retained.
    */
-  export function parkRequested(runDir: string): void {
+  export function parkRequested(
+    runDir: string,
+    store?: string,
+    canChange?: (directory: string) => boolean,
+  ): void {
     const parks = path.join(runDir, PARKS_DIRNAME);
+    if (canChange?.(parks) === false) return;
     let names: string[];
     try {
       names = fs.readdirSync(parks);
@@ -1073,8 +1151,10 @@ export namespace RuntimeBuildCache {
     }
     for (const name of names)
       try {
+        const file = path.join(parks, name);
+        if (canChange !== undefined && !fs.lstatSync(file).isFile()) continue;
         const request = JSON.parse(
-          fs.readFileSync(path.join(parks, name), "utf8"),
+          fs.readFileSync(file, "utf8"),
         ) as Partial<ParkRequest>;
         if (
           typeof request.outputs === "string" &&
@@ -1082,7 +1162,7 @@ export namespace RuntimeBuildCache {
           path.isAbsolute(request.outputs) &&
           path.isAbsolute(request.parked)
         )
-          park(request as ParkRequest);
+          park(request as ParkRequest, runDir, store, canChange, true);
       } catch {
         /* A torn request leaves its outputs to the run. */
       }
@@ -1094,6 +1174,10 @@ export namespace RuntimeBuildCache {
    * failed move of a fresh build removes its partial parked directory.
    *
    * @param request A request from {@link Publication.request}.
+   * @param runDir The build's owning run for a system cache.
+   * @param store The build's selected persistent store.
+   * @param canChange Current project and path ownership for a system cache.
+   * @param recorded Whether the request came from a process's saved plan.
    * @returns Whether the build was parked.
    * @evidence contracts/common.md#principled-implementation Fresh parking writes the job before moving the outputs. Adoption recovery keeps any outputs still in the carried directory, or moves them back there before returning that directory to the store.
    * @evidence contracts/common.md#clear-and-simple-design One function serves the launcher's own publication and requests left by its program's processes.
@@ -1104,8 +1188,20 @@ export namespace RuntimeBuildCache {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Parking is an effect.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The parked directory lives in the store until a request adopts or discards it, or collection removes it.
    */
-  export function park(request: ParkRequest): boolean {
+  export function park(
+    request: ParkRequest,
+    runDir?: string,
+    store?: string,
+    canChange?: (directory: string) => boolean,
+    recorded = false,
+  ): boolean {
+    let created = false;
     try {
+      if (
+        canChange !== undefined &&
+        !canPark(request, runDir, store, canChange, recorded)
+      )
+        return false;
       if (request.carried !== undefined) {
         // The adopted directory goes back whole; its job is rewritten only
         // when the adoption recorded what the job lacked.
@@ -1121,7 +1217,13 @@ export namespace RuntimeBuildCache {
         fs.renameSync(request.carried, request.parked);
         return true;
       }
-      fs.mkdirSync(request.parked, { recursive: true });
+      if (canChange === undefined)
+        fs.mkdirSync(request.parked, { recursive: true });
+      else {
+        fs.mkdirSync(path.dirname(request.parked), { recursive: true });
+        fs.mkdirSync(request.parked);
+      }
+      created = true;
       fs.writeFileSync(
         path.join(request.parked, "job.json"),
         JSON.stringify(request.job),
@@ -1129,7 +1231,12 @@ export namespace RuntimeBuildCache {
       fs.renameSync(request.outputs, path.join(request.parked, "outputs"));
       return true;
     } catch {
-      if (request.carried !== undefined) return false;
+      if (
+        request.carried !== undefined ||
+        (canChange !== undefined &&
+          (!created || !canMoveTree(request.parked, canChange)))
+      )
+        return false;
       try {
         fs.rmSync(request.parked, { force: true, recursive: true });
       } catch {
@@ -1137,6 +1244,111 @@ export namespace RuntimeBuildCache {
       }
       return false;
     }
+  }
+
+  /** Check a complete move tree without following linked directories. */
+  function canMoveTree(
+    directory: string,
+    canChange?: (directory: string) => boolean,
+  ): boolean {
+    if (canChange === undefined) return true;
+    if (!canChange(directory)) return false;
+    try {
+      const children =
+        process.platform === "win32"
+          ? fs.readdirSync(directory, { withFileTypes: true })
+          : readPosixDirectoryEntries(directory);
+      return children.every((child) => {
+        const name = child.name.toString();
+        return (
+          (!Buffer.isBuffer(child.name) ||
+            Buffer.from(name).equals(child.name)) &&
+          !child.isSymbolicLink() &&
+          (!child.isDirectory() ||
+            canMoveTree(path.join(directory, name), canChange))
+        );
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  /** Qualify the recorded build plan against its original run and store. */
+  function canPark(
+    request: ParkRequest,
+    runDir: string | undefined,
+    store: string | undefined,
+    canChange: (directory: string) => boolean,
+    recorded: boolean,
+  ): boolean {
+    if (
+      runDir === undefined ||
+      store === undefined ||
+      !canChange(runDir) ||
+      !canChange(request.parked)
+    )
+      return false;
+    const [area, key, generation, ...extra] = path
+      .relative(runDir, request.outputs)
+      .split(path.sep);
+    const dependencyOutput =
+      area === "deps" &&
+      /^[0-9a-f]{16}$/.test(key ?? "") &&
+      /^gen-[0-9a-f]{32}$/.test(generation ?? "") &&
+      extra.length === 0;
+    if (!dependencyOutput && (recorded || area !== "fs")) return false;
+    if (
+      path.join(runDir, path.relative(runDir, request.outputs)) !==
+      request.outputs
+    )
+      return false;
+    const pending = path.dirname(request.parked);
+    if (
+      path.dirname(pending) !== store ||
+      !/^[0-9a-f]{64}\.pending$/.test(path.basename(pending)) ||
+      !/^\d+-\d+-[0-9a-f-]{36}$/.test(path.basename(request.parked)) ||
+      fs.lstatSync(request.parked, { throwIfNoEntry: false }) !== undefined
+    )
+      return false;
+    if (request.carried !== undefined) {
+      const prefix = request.outputs + ".parked-";
+      if (
+        typeof request.carried !== "string" ||
+        !request.carried.startsWith(prefix) ||
+        !/^[0-9a-f-]{36}$/.test(request.carried.slice(prefix.length)) ||
+        !canMoveTree(request.carried, canChange)
+      )
+        return false;
+      const jobFile = path.join(request.carried, "job.json");
+      if (!fs.lstatSync(jobFile).isFile()) return false;
+      const previous = JSON.parse(fs.readFileSync(jobFile, "utf8"));
+      if (
+        previous?.format !== PARKED_FORMAT ||
+        (request.job !== undefined &&
+          (typeof request.job !== "object" ||
+            request.job === null ||
+            !("emitDir" in request.job) ||
+            request.job.emitDir !== previous.emitDir))
+      )
+        return false;
+      if (
+        fs
+          .lstatSync(path.join(request.carried, "outputs"), {
+            throwIfNoEntry: false,
+          })
+          ?.isDirectory()
+      )
+        return true;
+    } else if (
+      typeof request.job !== "object" ||
+      request.job === null ||
+      !("format" in request.job) ||
+      request.job.format !== PARKED_FORMAT ||
+      !("emitDir" in request.job) ||
+      request.job.emitDir !== request.outputs
+    )
+      return false;
+    return canMoveTree(request.outputs, canChange);
   }
 
   const PARKED_FORMAT = "ttsx-runtime-parked-v1";

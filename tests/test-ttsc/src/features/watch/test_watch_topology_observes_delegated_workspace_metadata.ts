@@ -17,11 +17,13 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 1. Publish ordinary source and exact workspace metadata.
  * 2. Edit only the external SDK and retain its baseline through a source-only
  *    publication. Observe one plugin invalidation.
- * 3. Remove the workspace publication, edit again, and verify it stays quiet.
+ * 3. Publish a repair detected before admission. Verify one immediate event and no
+ *    repeated event once its refreshed baseline is installed.
+ * 4. Remove the workspace publication, edit again, and verify it stays quiet.
  *
  * @evidence contracts/testing.md#behavioral-verification Real metadata replay observes the edited external file and sends an actual plugin input change, while the listing and native-subscription seams reveal no additional work for the SDK.
  * @evidence contracts/testing.md#independent-expectations The real file edit is the only mutation after initial registration. Its literal path and the known source-only publication determine the expected plugin callback.
- * @evidence contracts/testing.md#distinguishing-cases A source-only publication preserves the SDK observation. An explicit empty workspace retires it while the same plugin source remains.
+ * @evidence contracts/testing.md#distinguishing-cases A source-only publication preserves SDK observation. A verified change before recovery publication is delivered once, and a witness refusal alone reports no change. An empty workspace retires the observation while the same plugin source remains.
  * @evidence contracts/testing.md#execution-ownership Uses native temporary files, production polling and the actual topology with recorded native subscriptions and supplied compiler membership. Closes the topology and aborts the callback deadline in finally.
  */
 export async function test_watch_topology_observes_delegated_workspace_metadata(): Promise<void> {
@@ -90,6 +92,34 @@ export async function test_watch_topology_observes_delegated_workspace_metadata(
     );
     assert.equal(listings, before);
     assert.equal(recorded.watchers.length, count);
+    changes.length = 0;
+    const failed: PluginBuildEnvironmentWitness.Record = new Map();
+    PluginBuildEnvironmentWitness.add(failed, tool);
+    const refused: PluginBuildEnvironmentWitness.Record = new Map();
+    PluginBuildEnvironmentWitness.refuse(refused, tool);
+    const recovery: PluginBuildEnvironmentWitness.Record = new Map();
+    PluginBuildEnvironmentWitness.retainForRecovery(recovery, failed);
+    PluginBuildEnvironmentWitness.retainForRecovery(recovery, refused);
+    fs.appendFileSync(tool, " repaired before admission");
+    const moved: string[] = [];
+    const baseline = new Map(
+      PluginBuildEnvironmentWitness.retryBaseline(recovery, (key) =>
+        moved.push(key),
+      ),
+    );
+    assert.deepEqual(moved, [tool]);
+    PluginBuildEnvironmentWitness.retryBaseline(refused, () =>
+      assert.fail("refusal alone is not movement"),
+    );
+    topology.setExtraInputs(
+      [plugin],
+      undefined,
+      PluginBuildEnvironmentWitness.watchInputs([baseline], root),
+      moved,
+    );
+    assert.deepEqual(changes, [{ kind: "plugin", path: tool }]);
+    await setTimeout(450);
+    assert.deepEqual(changes, [{ kind: "plugin", path: tool }]);
     topology.setExtraInputs([plugin], undefined, {});
     fs.appendFileSync(tool, " after retirement");
     await setTimeout(450);

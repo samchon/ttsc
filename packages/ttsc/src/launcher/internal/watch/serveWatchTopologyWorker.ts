@@ -64,6 +64,7 @@ async function execute(
         request.inputs,
         request.identities,
         request.workspace,
+        request.repairedWorkspaceAnchors,
       );
       break;
     case "setProjectInputs":

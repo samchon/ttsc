@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 
 import { EmitOwnershipIndex } from "../../../compiler/internal/EmitOwnershipIndex";
 import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
@@ -258,6 +259,11 @@ export namespace RuntimeManifestRegistry {
             ),
           }
         : {}),
+      ...(manifest.systemProjectRoots === undefined
+        ? {}
+        : {
+            systemProjectRoots: Object.freeze([...manifest.systemProjectRoots]),
+          }),
       ...(outputs === undefined
         ? {}
         : {
@@ -323,6 +329,14 @@ export namespace RuntimeManifestRegistry {
     ) {
       return false;
     }
+    if (
+      manifest.systemProjectRoots !== undefined &&
+      (!Array.isArray(manifest.systemProjectRoots) ||
+        !manifest.systemProjectRoots.every(
+          (root) => typeof root === "string" && path.isAbsolute(root),
+        ))
+    )
+      return false;
     if (manifest.moduleOptions !== undefined) {
       if (
         manifest.moduleOptions === null ||

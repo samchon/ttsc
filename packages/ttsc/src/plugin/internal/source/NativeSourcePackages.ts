@@ -7,6 +7,7 @@ import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProce
 import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
 import { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
 import { CompilerTarget } from "./CompilerTarget";
+import { GoEnvironmentReading } from "./GoEnvironmentReading";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
 import { GoWorkspaceEnvironment } from "./GoWorkspaceEnvironment";
@@ -155,6 +156,7 @@ export namespace NativeSourcePackages {
     ensureExecutableGoToolchain(goBinary, compiler.bundled);
     if (path.isAbsolute(goBinary))
       PluginBuildEnvironmentWitness.add(launcherWitness, goBinary);
+    GoEnvironmentReading.reportRecovery(launcherWitness, moduleRoot);
     // WARNING (#1721): never drop this lookup or narrow its identity. Without
     // it every warm launch and every unplugin generation copied the module
     // twice and ran `go list` twice (6 s+ on Windows) to rediscover an answer
@@ -170,6 +172,7 @@ export namespace NativeSourcePackages {
             opts.identities,
             launcherWitness,
           );
+    GoEnvironmentReading.reportRecovery(selection?.witness, moduleRoot);
     const identity = selection?.identity;
     const useOrigin =
       selection !== undefined &&
@@ -290,6 +293,7 @@ export namespace NativeSourcePackages {
           identities: opts.identities,
           projectRoot: opts.projectRoot,
         });
+        GoEnvironmentReading.reportRecovery(freshWorkspace.witness, scratch);
         if (freshWorkspace.qualified) workspace = freshWorkspace;
       }
       const observed = read({

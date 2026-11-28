@@ -71,6 +71,9 @@ export interface RuntimeManifest {
    */
   readonly orphanCacheDir?: string;
 
+  /** Consumer boundaries enforced for the run's system fallback cache. */
+  readonly systemProjectRoots?: readonly string[];
+
   /**
    * `false` when the run disabled transform plugins (`ttsx --no-plugins`). A
    * TypeScript root the program reaches outside every checked build is part of

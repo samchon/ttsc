@@ -661,8 +661,14 @@ function runWatch(
       inputs: readonly string[],
       identities?: PluginContentIdentities.Store,
       workspace?: ITtscCompilerTransformation.ISuccess["workspaceInputs"],
+      repairedWorkspaceAnchors?: readonly string[],
     ) => {
-      return topology?.setExtraInputs(inputs, identities, workspace);
+      return topology?.setExtraInputs(
+        inputs,
+        identities,
+        workspace,
+        repairedWorkspaceAnchors,
+      );
     },
     onProjectInputs: (inputs: ITtscProjectInputSnapshot) => {
       return topology?.setProjectInputs(inputs);
