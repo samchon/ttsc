@@ -45,6 +45,7 @@ export function spawnGoTool(
   options: SpawnSyncOptionsWithStringEncoding & {
     projectRoot?: string;
     additionalProjectRoots?: readonly string[];
+    onStdoutBytes?: (bytes: Buffer) => void;
   },
   captureDirectory?: string,
 ): SpawnSyncReturns<string> {
@@ -60,8 +61,9 @@ export function spawnGoTool(
     options.additionalProjectRoots,
   );
   const temporary = path.dirname(capture.stdoutPath);
+  const { onStdoutBytes, ...nativeOptions } = options;
   const spawnOptions = {
-    ...options,
+    ...nativeOptions,
     // The relay may supervise a Go command with a neutral system-temp cwd.
     // Its receipt still uses the actual project boundary.
     projectRoot,
@@ -78,7 +80,13 @@ export function spawnGoTool(
       stderr: capture.stderrPath,
       stdout: capture.stdoutPath,
     });
-    const stdout = capture.read("stdout", "utf8") as string;
+    const bytes =
+      onStdoutBytes === undefined
+        ? undefined
+        : (capture.read("stdout", "buffer") as Buffer);
+    if (bytes !== undefined) onStdoutBytes?.(bytes);
+    const stdout =
+      bytes?.toString("utf8") ?? (capture.read("stdout", "utf8") as string);
     const stderr = capture.read("stderr", "utf8") as string;
     return {
       ...result,

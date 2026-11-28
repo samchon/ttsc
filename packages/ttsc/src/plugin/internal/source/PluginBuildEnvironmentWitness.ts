@@ -53,8 +53,8 @@ export namespace PluginBuildEnvironmentWitness {
 
   /**
    * Record `file`'s metadata before reading it, unless already recorded.
-   * `observed` reuses a stat the caller just took before the same read, or
-   * null when that native stat failed.
+   * `observed` reuses a stat the caller just took before the same read, or null
+   * when that native stat failed.
    *
    * @evidence contracts/common.md#principled-implementation First-write retention keeps the earliest metadata even when a path contributes more than once; caller-provided metadata is from the same pre-read observation.
    * @evidence contracts/common.md#clear-and-simple-design Optional output makes one reader usable with or without a witness and leaves signature encoding in one helper.
@@ -202,6 +202,26 @@ export namespace PluginBuildEnvironmentWitness {
       !witness.has(TOOLCHAIN_PROBE) &&
       holds(witness, undefined, currentReadings)
     );
+  }
+
+  /**
+   * Check whether a prior reading covers every newly observed launcher input.
+   * Callers still validate the rest of the prior evidence at admission.
+   *
+   * @evidence contracts/common.md#principled-implementation Every current selection observation must exist in the prior reading with the same signature, and an unproved prior dispatch cannot qualify.
+   * @evidence contracts/common.md#clear-and-simple-design Captured observations compare directly before composing answers, separately from filesystem validation.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing or contradictory observation declines shared authority.
+   * @evidence contracts/common.md#meaningful-documentation The contract states the coverage rule and responsibility for later validation.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This compares previously captured strings and does not access the filesystem.
+   * @evidence contracts/performance.md#efficient-algorithms Iterates the current selection observations with one lookup each, without restatting the SDK.
+   * @evidence contracts/performance.md#reuse-equivalent-work Matching launcher inputs let callers reuse a prior digest after remaining validation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The comparison owns no retained state or handles.
+   */
+  export function covers(prior: Record, current: Record): boolean {
+    if (prior.has(TOOLCHAIN_PROBE)) return false;
+    for (const [key, signature] of current)
+      if (prior.get(key) !== signature) return false;
+    return true;
   }
 
   /**

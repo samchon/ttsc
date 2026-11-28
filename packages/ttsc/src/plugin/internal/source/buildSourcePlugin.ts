@@ -227,6 +227,8 @@ function buildSourcePluginAttempt(
     environmentWitness,
   );
   ensureExecutableGoToolchain(goBinary, compiler.bundled);
+  if (path.isAbsolute(goBinary))
+    PluginBuildEnvironmentWitness.add(environmentWitness, goBinary);
   OwnedSynchronousProcess.checkpoint();
   const identities =
     opts.identities ??

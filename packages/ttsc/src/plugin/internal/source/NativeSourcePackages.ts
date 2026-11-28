@@ -143,27 +143,47 @@ export namespace NativeSourcePackages {
     const env = SidecarEnvironment.merge(opts.env ?? process.env);
     const { moduleRoot } = resolvePluginGoModule(opts.source, opts.pluginName);
     const compiler = resolveGoCompiler(env);
+    const launcherWitness: PluginBuildEnvironmentWitness.Record = new Map();
     const goBinary = GoToolResolution.resolveGoToolForBuild(
       compiler.binary,
       env,
       moduleRoot,
+      launcherWitness,
     );
     ensureExecutableGoToolchain(goBinary, compiler.bundled);
+    if (path.isAbsolute(goBinary))
+      PluginBuildEnvironmentWitness.add(launcherWitness, goBinary);
     // WARNING (#1721): never drop this lookup or narrow its identity. Without
     // it every warm launch and every unplugin generation copied the module
     // twice and ran `go list` twice (6 s+ on Windows) to rediscover an answer
     // its unchanged inputs already determined.
-    const identity =
+    const selection =
       opts.identities === undefined
         ? undefined
-        : selectionIdentity(opts, moduleRoot, goBinary, env, opts.identities);
-    if (identity !== undefined) {
+        : selectionIdentity(
+            opts,
+            moduleRoot,
+            goBinary,
+            env,
+            opts.identities,
+            launcherWitness,
+          );
+    const identity = selection?.identity;
+    if (selection !== undefined) {
       const recalled = recallSelection(
-        PluginLoadAnswers.read(opts.identities, SELECTION_ANSWER, identity),
+        PluginLoadAnswers.read(
+          opts.identities,
+          SELECTION_ANSWER,
+          selection.identity,
+        ),
         moduleRoot,
         opts.packages.length,
       );
-      if (recalled !== undefined) return recalled;
+      if (
+        recalled !== undefined &&
+        PluginBuildEnvironmentWitness.reusable(selection.witness)
+      )
+        return recalled;
     }
     const sourceRoots = [
       moduleRoot,
@@ -255,16 +275,17 @@ export namespace NativeSourcePackages {
         additionalProjectRoots: sourceRoots,
       });
       if (
-        identity !== undefined &&
+        selection !== undefined &&
         copiesKeyed &&
         observed.every((input) => input.Error === undefined) &&
         JSON.stringify(overlayDigests(env, opts.identities)) ===
-          JSON.stringify(identity.overlays)
+          JSON.stringify(selection.identity.overlays) &&
+        PluginBuildEnvironmentWitness.reusable(selection.witness)
       )
         PluginLoadAnswers.write(
           opts.identities,
           SELECTION_ANSWER,
-          identity,
+          selection.identity,
           observed.map((input) => ({
             ...input,
             Dir:
@@ -596,7 +617,7 @@ const SELECTION_FIELDS = "-json=Dir,Name,GoFiles,CgoFiles,Error";
  * key does.
  */
 interface ISelectionIdentity {
-  format: 1;
+  format: 2;
   command: readonly string[];
   mode: "proposal" | "actual";
   module: string;
@@ -613,7 +634,13 @@ function selectionIdentity(
   goBinary: string,
   env: NodeJS.ProcessEnv,
   identities: PluginContentIdentities.Store,
-): ISelectionIdentity | undefined {
+  launcherWitness: PluginBuildEnvironmentWitness.Record,
+):
+  | {
+      identity: ISelectionIdentity;
+      witness: PluginBuildEnvironmentWitness.Record;
+    }
+  | undefined {
   try {
     const readings = opts.readings ?? {};
     const directory = (root: string): string => {
@@ -627,8 +654,14 @@ function selectionIdentity(
     };
     const resolvedRoot = path.resolve(moduleRoot);
     let environment = readings.environments?.get(resolvedRoot);
-    if (environment === undefined) {
-      const witness: PluginBuildEnvironmentWitness.Record = new Map();
+    let witness = readings.witnesses?.get(resolvedRoot);
+    if (
+      environment === undefined ||
+      witness === undefined ||
+      !PluginBuildEnvironmentWitness.covers(witness, launcherWitness) ||
+      !PluginBuildEnvironmentWitness.reusable(witness)
+    ) {
+      witness = new Map(launcherWitness);
       environment = readPluginBuildEnvironment(
         goBinary,
         moduleRoot,
@@ -646,37 +679,44 @@ function selectionIdentity(
         ? resolvePluginGoModule(genericHostSource(), opts.pluginName).moduleRoot
         : undefined;
     return {
-      format: 1,
-      command: [
-        "list",
-        ...GoSourceInputs.BUILD_FLAGS,
-        "-find",
-        "-e",
-        SELECTION_FIELDS,
-      ],
-      mode: opts.proposal === true ? "proposal" : "actual",
-      module: directory(moduleRoot),
-      environment,
-      variables: Object.entries(
-        GoSourceInputs.goBuildEnv(goBinary, undefined, env),
-      )
-        .filter(
-          (entry): entry is [string, string] =>
-            entry[1] !== undefined && /^(GO|CGO_)/i.test(entry[0]),
+      witness,
+      identity: {
+        format: 2,
+        command: [
+          "list",
+          ...GoSourceInputs.BUILD_FLAGS,
+          "-find",
+          "-e",
+          SELECTION_FIELDS,
+        ],
+        mode: opts.proposal === true ? "proposal" : "actual",
+        module: directory(moduleRoot),
+        environment,
+        variables: Object.entries(
+          GoSourceInputs.goBuildEnv(goBinary, undefined, env),
         )
-        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)),
-      manifests:
-        host === undefined
-          ? null
-          : ["go.mod", "go.sum"].map((name) =>
-              fileDigest(path.join(host, name)),
-            ),
-      overlays: (readings.overlays ?? selectionOverlayDirs(env)).map(directory),
-      entries: opts.packages.map((input) => [
-        input.entry,
-        input.name ?? null,
-        input.source === undefined ? null : directory(input.source),
-      ]),
+          .filter(
+            (entry): entry is [string, string] =>
+              entry[1] !== undefined && /^(GO|CGO_)/i.test(entry[0]),
+          )
+          .sort(([left], [right]) =>
+            left < right ? -1 : left > right ? 1 : 0,
+          ),
+        manifests:
+          host === undefined
+            ? null
+            : ["go.mod", "go.sum"].map((name) =>
+                fileDigest(path.join(host, name)),
+              ),
+        overlays: (readings.overlays ?? selectionOverlayDirs(env)).map(
+          directory,
+        ),
+        entries: opts.packages.map((input) => [
+          input.entry,
+          input.name ?? null,
+          input.source === undefined ? null : directory(input.source),
+        ]),
+      },
     };
   } catch {
     // An identity that cannot be formed only costs the real observation.

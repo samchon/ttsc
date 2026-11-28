@@ -1681,11 +1681,14 @@ function loadCommonJsDescriptor(
   const effectiveEnv = TtsxNodeOptions.forHelpers(loadEnv);
   const runtime = pluginDescriptorRuntimeBinary(effectiveEnv);
   const ttsx = effectiveEnv.TTSC_TTSX_BINARY ?? process.env.TTSC_TTSX_BINARY;
+  const additionalProjectRoots = descriptorConsumerRoots(context);
   const runtimeCapabilities = javascriptRuntimeCapabilities(
     runtime,
     effectiveEnv,
     descriptorCache.projectRoot,
     descriptorCache.identities,
+    undefined,
+    additionalProjectRoots,
   );
   const node =
     !runtimeCapabilities.bun &&
@@ -1696,6 +1699,7 @@ function loadCommonJsDescriptor(
           effectiveEnv,
           descriptorCache.projectRoot,
           descriptorCache.identities,
+          additionalProjectRoots,
         );
   const cacheAuthority = {
     additionalRuntime: node,
@@ -1749,7 +1753,7 @@ function loadCommonJsDescriptor(
   const dir = createProjectTempDirectory(
     "ttsc-plugin-descriptor-",
     descriptorCache.projectRoot,
-    [context.cwd, path.dirname(context.tsconfig), context.dirname],
+    additionalProjectRoots,
   );
   const out = path.join(dir, "descriptor.json");
   const inputsOut = path.join(dir, "descriptor-inputs.ndjson");
@@ -1804,6 +1808,7 @@ function loadCommonJsDescriptor(
           shim,
         ],
         {
+          additionalProjectRoots,
           cwd: descriptorCache.projectRoot,
           env: {
             ...descriptorRecordEnvironment(
@@ -2209,16 +2214,22 @@ function loadDescriptorViaTtsx(
   // Binary discovery prefers the instance environment, then the ambient
   // process.env (where `withPluginLoaderEnv` injects ttsc's own node/ttsx paths
   // just before this runs), then the running interpreter.
+  const additionalProjectRoots = descriptorConsumerRoots(context);
   const node = resolveNodeBinary(
     effectiveEnv,
     descriptorCache.projectRoot,
     descriptorCache.identities,
+    additionalProjectRoots,
   );
   const ttsx = effectiveEnv.TTSC_TTSX_BINARY ?? process.env.TTSC_TTSX_BINARY;
   if (node === undefined || ttsx === undefined || ttsx.length === 0) {
     return undefined;
   }
-  const dir = createTypedEvaluationTempDir(descriptorCache, context);
+  const dir = createTypedEvaluationTempDir(
+    descriptorCache,
+    context,
+    additionalProjectRoots,
+  );
   const out = path.join(dir, "descriptor.json");
   const inputsOut = path.join(dir, "descriptor-inputs.ndjson");
   const shim = path.join(dir, "load-descriptor.mts");
@@ -2243,7 +2254,7 @@ function loadDescriptorViaTtsx(
       { cwd: descriptorCache.projectRoot },
       "plugin-descriptor",
     );
-    const result = spawnOwnedDescriptor(node, [ttsx, "--no-plugins", shim], {
+    const evaluationOptions: childProcess.SpawnSyncOptionsWithStringEncoding = {
       cwd: descriptorCache.projectRoot,
       encoding: "utf8",
       env: {
@@ -2280,7 +2291,13 @@ function loadDescriptorViaTtsx(
       // human output needs no output ceiling.
       stdio: ["ignore", 2, 2],
       windowsHide: true,
-    });
+    };
+    const result = spawnOwnedDescriptor(
+      node,
+      [ttsx, "--no-plugins", shim],
+      evaluationOptions,
+      additionalProjectRoots,
+    );
     E2ETrace.result(trace, result);
     const processFailure = pluginDescriptorProcessFailure(result, request);
     if (processFailure) {
@@ -2712,6 +2729,13 @@ function ttscPackageRoot(): string {
   return path.resolve(__dirname, "..", "..", "..", "..");
 }
 
+/** Boundaries shared by probe, evaluation and command receipt scratch. */
+function descriptorConsumerRoots(
+  context: ITtscPluginFactoryContext,
+): string[] {
+  return [context.cwd, path.dirname(context.tsconfig), context.dirname];
+}
+
 /**
  * Prefer system temporary storage for the typed evaluator. A same-volume
  * identities directory can keep the generated TypeScript entry on the
@@ -2721,17 +2745,13 @@ function ttscPackageRoot(): string {
 function createTypedEvaluationTempDir(
   cache: DescriptorCacheOptions,
   context: ITtscPluginFactoryContext,
+  additionalProjectRoots: readonly string[],
 ): string {
   const prefix = "ttsc-plugin-descriptor-";
   const source = path.dirname(context.filename);
   const sameVolume = (directory: string): boolean =>
     !path.isAbsolute(path.relative(source, directory));
-  const roots = [
-    context.cwd,
-    path.dirname(context.tsconfig),
-    context.dirname,
-    process.cwd(),
-  ];
+  const roots = [...additionalProjectRoots, process.cwd()];
   const candidates = systemTempOutsideProject.candidates(
     cache.projectRoot,
     roots,
@@ -2799,9 +2819,13 @@ function spawnOwnedDescriptor(
   command: string,
   args: readonly string[],
   options: childProcess.SpawnSyncOptionsWithStringEncoding,
+  additionalProjectRoots: readonly string[],
 ): childProcess.SpawnSyncReturns<string> {
   return (
-    OwnedSynchronousProcess.launch<string>(command, args, options) ??
+    OwnedSynchronousProcess.launch<string>(command, args, {
+      ...options,
+      additionalProjectRoots,
+    }) ??
     childProcess.spawnSync(command, args, options)
   );
 }

@@ -21,6 +21,27 @@ import type {
  */
 export namespace OwnedSynchronousProcess {
   /**
+   * Native spawn options with the consumer roots the receipt allocator must
+   * exclude. The primary project root can differ from the command's cwd.
+   *
+   * @evidence contracts/common.md#principled-implementation The producer supplies all known consumer boundaries independently of native argv and cwd.
+   * @evidence contracts/common.md#clear-and-simple-design Spawn options carry boundary data through the same worker message as the rest of one command.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A helper's neutral cwd does not substitute for the project roots that own its inputs.
+   * @evidence contracts/common.md#meaningful-documentation Describes the placement owner and the relationship between the primary project and cwd.
+   * @evidence contracts/portability.md#os-neutral-implementation Worker-cloneable native path strings retain their spelling. The receipt allocator owns native identity checks.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This type carries input data and performs no native allocation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Boundary options grant no reuse authority.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This type allocates no native resource. The command owner releases accepted receipt storage.
+   */
+  export interface CommandOptions extends SpawnSyncOptions {
+    /** The primary consumer root when cwd is a separate working directory. */
+    projectRoot?: string;
+
+    /** Other consumer roots excluded from receipt storage. */
+    additionalProjectRoots?: readonly string[];
+  }
+
+  /**
    * One synchronous task's cancellation, command relay and retirement records.
    * The asynchronous owner supplies these collections and joins/reports them
    * after the synchronous scope restores its predecessor.
@@ -55,7 +76,7 @@ export namespace OwnedSynchronousProcess {
     launch?: (
       command: string,
       args: readonly string[],
-      options: SpawnSyncOptions,
+      options: CommandOptions,
     ) => ReturnType<typeof spawnSync>;
 
     /** Optional original retirement promises, awaited after synchronous work. */
@@ -167,7 +188,7 @@ export namespace OwnedSynchronousProcess {
   export function launch<T extends string | Buffer = Buffer<ArrayBuffer>>(
     command: string,
     args: readonly string[],
-    options: SpawnSyncOptions,
+    options: CommandOptions,
   ): SpawnSyncReturns<T> | undefined {
     if (current?.launch === undefined) return undefined;
     checkpoint();

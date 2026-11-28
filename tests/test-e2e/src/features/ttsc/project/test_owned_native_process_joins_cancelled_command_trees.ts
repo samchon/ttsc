@@ -18,8 +18,8 @@ import { FixtureFiles } from "../../../internal/FixtureFiles";
  *    static Node inputs. Verify transport and native POSIX cwd traversal.
  * 2. Enroll live targets, then require their original lifetimes retired and late
  *    effects absent.
- * 3. Require recovery, including system temp fallback when the primary parent
- *    is read-only, and reject an incompatible supervisor before target admission.
+ * 3. Require recovery with an excluded consumer root and a read-only primary
+ *    temp directory, and reject an incompatible supervisor before admission.
  * 4. Cancel an actual resolver runtime probe and reject active/queued work after
  *    unknown proof.
  *
@@ -650,22 +650,22 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
       }
     });
     await check("recovery after cancellation", () => echo({ input: "" }, ""));
-    if (process.platform !== "win32" && process.getuid?.() !== 0)
-      await check("receipt fallback after primary TEMP refusal", async () => {
-        const primary = TestProject.tmpdir("ttsc-readonly-receipt-parent-");
-        fs.chmodSync(primary, 0o500);
-        try {
-          assert.throws(() => fs.accessSync(primary, fs.constants.W_OK), {
-            code: "EACCES",
-          });
-          const actor = `
+    if (process.platform !== "win32" && process.getuid?.() !== 0) {
+      const primary = TestProject.tmpdir("ttsc-readonly-receipt-parent-");
+      const actor = `
             const assert = require("node:assert/strict");
             const { OwnedNativeProcess } = require(process.argv[1]);
+            const additionalProjectRoots = process.argv.slice(2);
+            const target = [
+              "const fs = require('node:fs');",
+              "if (process.argv[1] && fs.readdirSync(process.argv[1]).length) process.exit(4);",
+              "console.log('receipt fallback');",
+            ].join("");
             const retired = [];
             OwnedNativeProcess.run(
               process.execPath,
-              ["-e", "console.log('receipt fallback')"],
-              { projectRoot: process.cwd(), encoding: "utf8" },
+              ["-e", target, ...additionalProjectRoots],
+              { projectRoot: process.cwd(), additionalProjectRoots, encoding: "utf8" },
               undefined,
               (state) => retired.push(state),
             ).then((result) => {
@@ -677,26 +677,39 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
               process.exitCode = 1;
             });
           `;
-          const result = await owner.OwnedNativeProcess.run(
-            process.execPath,
-            ["-e", actor, sdkModule],
-            {
-              cwd: root,
-              env: {
-                ...env,
-                NODE_OPTIONS: undefined,
-                TMPDIR: primary,
-              },
-              encoding: "utf8",
+      const runActor = async (additionalProjectRoots: string[]) => {
+        const result = await owner.OwnedNativeProcess.run(
+          process.execPath,
+          ["-e", actor, sdkModule, ...additionalProjectRoots],
+          {
+            cwd: root,
+            env: {
+              ...env,
+              NODE_OPTIONS: undefined,
+              TMPDIR: primary,
             },
-          );
-          assert.equal(result.status, 0, String(result.stderr));
-          assert.equal(result.stdout, "receipt fallback\n");
-          assert.deepEqual(fs.readdirSync(primary), []);
+            encoding: "utf8",
+          },
+        );
+        assert.equal(result.status, 0, String(result.stderr));
+        assert.equal(result.stdout, "receipt fallback\n");
+        assert.deepEqual(fs.readdirSync(primary), []);
+      };
+      await check("receipt skips a writable additional root", () =>
+        runActor([primary]),
+      );
+      await check("receipt fallback after primary TEMP refusal", async () => {
+        fs.chmodSync(primary, 0o500);
+        try {
+          assert.throws(() => fs.accessSync(primary, fs.constants.W_OK), {
+            code: "EACCES",
+          });
+          await runActor([]);
         } finally {
           fs.chmodSync(primary, 0o700);
         }
       });
+    }
     await check("actual RPC runtime authority cancellation", async () => {
       const result = await observe(
         (signal) =>

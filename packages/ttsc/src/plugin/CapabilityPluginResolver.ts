@@ -6,6 +6,7 @@ import { type MessagePort, Worker } from "node:worker_threads";
 
 import { E2ETrace } from "../internal/E2ETrace";
 import { OwnedNativeProcess } from "../internal/OwnedNativeProcess";
+import type { OwnedSynchronousProcess } from "../internal/OwnedSynchronousProcess";
 import { serializeCompilerError } from "../internal/serializeCompilerError";
 import { workerModuleUrl } from "../internal/workerModuleUrl";
 import type { ITtscCapabilityPlugin } from "./ITtscCapabilityPlugin";
@@ -523,7 +524,7 @@ interface WorkerReply {
   ownershipFailed?: boolean;
   command: string;
   args: string[];
-  options: SpawnSyncOptions & { projectRoot?: string };
+  options: OwnedSynchronousProcess.CommandOptions;
   done: SharedArrayBuffer;
   boundary: string;
   port: MessagePort;

@@ -1,4 +1,4 @@
-import { type SpawnSyncOptions, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 
 import { E2ETrace } from "./E2ETrace";
 import { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
@@ -37,7 +37,7 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
 export function spawnSyncResilient(
   command: string,
   args: readonly string[],
-  options: SpawnSyncOptions,
+  options: OwnedSynchronousProcess.CommandOptions,
   output?: SpawnSyncOutputFiles,
 ): ReturnType<typeof spawnSync> {
   const nativeArgs = [...args];

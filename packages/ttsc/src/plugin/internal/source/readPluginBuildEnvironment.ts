@@ -52,7 +52,7 @@ export function readPluginBuildEnvironment(
 ): string {
   const identity = [
     // Older answers do not carry the current native cwd and delegation proof.
-    6,
+    7,
     goBinary ?? null,
     directory,
     path.isAbsolute(directory) ? null : process.cwd(),

@@ -39,6 +39,7 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  * @param identities Optional record store of the caller's plugin cache.
  * @param onProof Receives whether the returned answer qualifies for reuse by
  *   the surrounding runtime resolution.
+ * @param additionalProjectRoots Consumer roots excluded from probe scratch.
  * @evidence contracts/common.md#principled-implementation A child reports its own feature availability and executable; byte-aware before/after identity and same-executable proof authorize reuse only for a stable absolute runtime with empty NODE_OPTIONS or trusted `--require` preloads keyed by their observed module-graph digests, in process or through an answer recorded under that identity.
  * @evidence contracts/common.md#clear-and-simple-design One probe owner coordinates identity, spawning and parsing; the shared fingerprint helper owns file-content proof and the low-descriptor helper owns the POSIX launch distinction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Feature availability comes from the actual interpreter rather than its name; descriptor fallback handles a supported kernel constraint and failures produce unsupported capabilities, not fabricated success.
@@ -54,6 +55,7 @@ export function javascriptRuntimeCapabilities(
   cwd: string,
   identities?: PluginContentIdentities.Store,
   onProof?: (proved: boolean) => void,
+  additionalProjectRoots?: readonly string[],
 ): IJavaScriptRuntimeCapabilities {
   // Inside a ttsx run this is the user's NODE_OPTIONS, not ttsx's preloads,
   // which would refuse the cache and run in the probe (#1740).
@@ -120,16 +122,26 @@ export function javascriptRuntimeCapabilities(
     options,
     "runtime-capability-probe",
     () =>
-      OwnedSynchronousProcess.launch<string>(runtime, args, options) ??
+      OwnedSynchronousProcess.launch<string>(runtime, args, {
+        ...options,
+        additionalProjectRoots,
+      }) ??
       childProcess.spawnSync(runtime, args, options),
   );
   if (process.platform !== "win32" && isSpawnSyncFdExhaustion(result.error)) {
-    const capture = captureProcessOutput(process.env, undefined, cwd);
+    const capture = captureProcessOutput(
+      process.env,
+      undefined,
+      cwd,
+      additionalProjectRoots,
+    );
     try {
-      const retried = spawnSyncWithLowDescriptors(runtime, args, options, {
-        stderr: capture.stderrPath,
-        stdout: capture.stdoutPath,
-      });
+      const retried = spawnSyncWithLowDescriptors(
+        runtime,
+        args,
+        { ...options, additionalProjectRoots },
+        { stderr: capture.stderrPath, stdout: capture.stdoutPath },
+      );
       const stdout = capture.read("stdout", "utf8") as string;
       const stderr = capture.read("stderr", "utf8") as string;
       result = {

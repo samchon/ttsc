@@ -9,6 +9,7 @@ import { GoToolResolution } from "../../../../../packages/ttsc/src/plugin/intern
 import { PluginBuildEnvironmentReadings } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentReadings";
 import { PluginBuildEnvironmentWitness } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginContentIdentities";
+import { computeCacheKey } from "../../../../../packages/ttsc/src/plugin/internal/source/computeCacheKey";
 import { pluginBuildEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginBuildEnvironment";
 import { readPluginBuildEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/readPluginBuildEnvironment";
 import { TestProject } from "../../../../utils/src/TestProject";
@@ -27,7 +28,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#behavioral-verification The direct answer reader over a real Go SDK and private store returns the working digest while selection holds, then produces a different digest and refuses the preceding witness whenever Go's selection files move.
  * @evidence contracts/testing.md#independent-expectations Go's toolchain selection rules give the ancestor workspace precedence and reject the authored higher requirement with path-only lookup. Restoring the original requirement restores the original build inputs.
  * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selectors, native link retargeting, dot-parent launcher and capture boundaries and a Linux launcher parent without a UTF-8 spelling. Relative cache and pending requests start under two bases. With a second SDK, earlier PATH candidates invalidate initial and delegated selection, including a POSIX candidate that only gained execute permission.
- * @evidence contracts/testing.md#execution-ownership The unit runs native Go queries in temporary modules, through the real preparation worker and a bounded POSIX Node child with its own temp environment. It restores cwd without changing environment variables, copies already installed executables and runs no plugin build or installed ttsc host.
+ * @evidence contracts/testing.md#execution-ownership The unit runs native Go queries in temporary modules, through the real preparation worker and a bounded POSIX Node child with its own temp environment. The worker case pins and restores its Go variables and cwd. It copies already installed executables and runs no plugin build or installed ttsc host.
  */
 export async function test_plugin_build_environment_follows_toolchain_selection_files(): Promise<void> {
   const root = TestProject.physicalPath(
@@ -115,7 +116,7 @@ export async function test_plugin_build_environment_follows_toolchain_selection_
     verifyNativeDotParentDirectory(binary, root, env, store());
   if (process.platform === "linux")
     verifyRawLauncherParent(binary, root, env, store());
-  await verifyRelativeDirectoryRequests(root);
+  await verifyRelativeDirectoryRequests(root, binary);
 }
 
 /** A dot-parent lookup can reach a native directory with no UTF-8 spelling. */
@@ -131,9 +132,12 @@ function verifyRawLauncherParent(
   fs.mkdirSync(native("/bin"), { recursive: true });
   fs.mkdirSync(native("/child"));
   fs.mkdirSync(native("/src/runtime"), { recursive: true });
+  fs.mkdirSync(native("/pkg/tool"), { recursive: true });
   fs.symlinkSync(binary, native("/bin/go"));
   const alias = path.join(root, "raw-launcher-child");
+  const validGoRoot = raw.toString();
   fs.symlinkSync(native("/child"), alias, "dir");
+  fs.symlinkSync(raw, validGoRoot, "dir");
   try {
     const relative = `./${path.basename(alias)}/../bin/go`;
     const requested = `${root}/${relative}`;
@@ -152,7 +156,14 @@ function verifyRawLauncherParent(
     });
     assert.equal(nativeGo.status, 0, nativeGo.stderr);
     assert.equal(
-      pluginBuildEnvironment(root, launchEnv, undefined, store, undefined, root),
+      pluginBuildEnvironment(
+        root,
+        launchEnv,
+        undefined,
+        store,
+        undefined,
+        root,
+      ),
       readPluginBuildEnvironment(
         binary,
         root,
@@ -163,16 +174,54 @@ function verifyRawLauncherParent(
         root,
       ),
     );
+    fs.unlinkSync(native("/bin/go"));
+    fs.copyFileSync(binary, native("/bin/go"));
+    fs.chmodSync(native("/bin/go"), 0o755);
+    const rawGo = spawnSync(requested, ["env", "-json", "GOROOT"], {
+      cwd: root,
+      env: launchEnv,
+      encoding: "utf8",
+    });
+    assert.equal(rawGo.status, 0, rawGo.stderr);
+    assert.equal(JSON.parse(rawGo.stdout).GOROOT, validGoRoot);
+    const rawBytes = spawnSync(requested, ["env", "GOROOT"], {
+      cwd: root,
+      env: launchEnv,
+    });
+    assert.equal(rawBytes.status, 0, rawBytes.stderr.toString());
+    assert.deepEqual(rawBytes.stdout, native("\n"));
+    const unsafe: PluginBuildEnvironmentWitness.Record = new Map();
+    pluginBuildEnvironment(root, launchEnv, unsafe, store, undefined, root);
+    assert.equal(PluginBuildEnvironmentWitness.holds(unsafe), false);
+
+    const addressed = SidecarEnvironment.merge(launchEnv, {
+      GOROOT: validGoRoot,
+    });
+    const realAlias: PluginBuildEnvironmentWitness.Record = new Map();
+    pluginBuildEnvironment(root, addressed, realAlias, store, undefined, root);
+    assert.equal(PluginBuildEnvironmentWitness.reusable(realAlias), true);
   } finally {
     fs.unlinkSync(alias);
+    fs.unlinkSync(validGoRoot);
     fs.unlinkSync(native("/bin/go"));
-    for (const suffix of ["/bin", "/child", "/src/runtime", "/src", ""])
+    for (const suffix of [
+      "/bin",
+      "/child",
+      "/src/runtime",
+      "/src",
+      "/pkg/tool",
+      "/pkg",
+      "",
+    ])
       fs.rmdirSync(native(suffix));
   }
 }
 
 /** Use the same input spelling at two successive native working directories. */
-async function verifyRelativeDirectoryRequests(root: string): Promise<void> {
+async function verifyRelativeDirectoryRequests(
+  root: string,
+  binary: string,
+): Promise<void> {
   const first = path.join(root, "relative-a");
   const second = path.join(root, "relative-b");
   for (const base of [first, second]) {
@@ -183,7 +232,16 @@ async function verifyRelativeDirectoryRequests(root: string): Promise<void> {
     );
   }
   const original = process.cwd();
+  const pinned = { TTSC_GO_BINARY: binary, GOTOOLCHAIN: "local", GOENV: "off" };
+  const previous = new Map(
+    Object.keys(pinned).map((name) => [
+      name,
+      SidecarEnvironment.read(process.env, name),
+    ]),
+  );
   try {
+    for (const [name, value] of Object.entries(pinned))
+      SidecarEnvironment.write(process.env, name, value);
     process.chdir(first);
     const initial = PluginBuildEnvironmentReadings.read("module", false, root);
     assert.equal(PluginBuildEnvironmentReadings.cached("module"), initial);
@@ -218,6 +276,8 @@ async function verifyRelativeDirectoryRequests(root: string): Promise<void> {
     );
   } finally {
     process.chdir(original);
+    for (const [name, value] of previous)
+      SidecarEnvironment.write(process.env, name, value);
   }
 }
 
@@ -510,4 +570,29 @@ function verifyDelegatedEnvironment(props: {
     );
   }
   assert.notEqual(readInitialLauncher().digest, later.digest);
+
+  const key = (sharePrior: boolean): string => {
+    const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
+    const goBinary = GoToolResolution.resolveGoToolForBuild(
+      path.basename(binary),
+      configured,
+      module,
+      environmentWitness,
+    );
+    return computeCacheKey({
+      dir: module,
+      entry: ".",
+      env: configured,
+      environmentWitness,
+      environmentDigests: new Map(sharePrior ? [[module, later.digest]] : []),
+      environmentWitnesses: new Map(
+        sharePrior ? [[module, later.witness]] : [],
+      ),
+      goBinary,
+      identities: store,
+      ttscVersion: "launcher-witness-unit",
+      tsgoVersion: "7.0.0",
+    });
+  };
+  assert.equal(key(true), key(false));
 }

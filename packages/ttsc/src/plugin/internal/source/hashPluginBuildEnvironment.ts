@@ -612,9 +612,10 @@ function resolveGoRootCacheIdentity(
   witness: PluginBuildEnvironmentWitness.Record | undefined,
   identities: PluginContentIdentities.Store | undefined,
 ): string {
-  const realpath = filesystem.realpath ?? fs.realpathSync.native;
-  // `root` was already resolved by `resolveRealPath(goRoot)` (or falls back to
-  // `realpath` once if not yet canonicalized). Ordinary subdirectories inherit
+  const realpath = filesystem.realpath ?? RuntimeFilesystem.realpathWitness;
+  // Resolve the root once. A physical byte witness still identifies a raw
+  // target, while filesystem operations keep using the reported usable alias.
+  // Ordinary subdirectories inherit
   // `path.join(physical, entry.name)` because Dirent distinguishes symlinks and
   // junctions, and symlinked directories pass their already-resolved target so
   // `realpathSync.native` runs once for the root and once per actual link.
@@ -622,7 +623,9 @@ function resolveGoRootCacheIdentity(
   const resolved = (() => {
     try {
       rootPhysical = realpath(goRoot);
-      return rootPhysical;
+      return RuntimeFilesystem.rawRealpath(rootPhysical) === undefined
+        ? rootPhysical
+        : goRoot;
     } catch {
       return goRoot;
     }

@@ -1,4 +1,4 @@
-import type { SpawnSyncOptions, spawnSync } from "node:child_process";
+import type { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
   MessageChannel,
@@ -122,7 +122,7 @@ function commandRelay(
   request: Request,
   command: string,
   args: readonly string[],
-  options: SpawnSyncOptions,
+  options: OwnedSynchronousProcess.CommandOptions,
 ): ReturnType<typeof spawnSync> {
   const done = new SharedArrayBuffer(4);
   const { port1, port2 } = new MessageChannel();

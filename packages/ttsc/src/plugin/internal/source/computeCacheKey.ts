@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { GoToolResolution } from "./GoToolResolution";
 import type { ITtscBuildContributor } from "./ITtscBuildContributor";
-import type { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
+import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "./PluginContentIdentities";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import type { SourcePluginWorkspace } from "./SourcePluginWorkspace";
@@ -182,7 +182,15 @@ export function computeCacheKey(inputs: {
       ? undefined
       : inputs.environmentWitnesses?.get(environmentDirectory);
   let environment: string;
-  if (sharedDigest !== undefined && sharedWitness !== undefined) {
+  if (
+    sharedDigest !== undefined &&
+    sharedWitness !== undefined &&
+    inputs.environmentWitness !== undefined &&
+    PluginBuildEnvironmentWitness.covers(
+      sharedWitness,
+      inputs.environmentWitness,
+    )
+  ) {
     // The build compares this witness after it ran, exactly as it would its
     // own reading's, so a toolchain change since the reading still refuses.
     for (const [file, state] of sharedWitness)

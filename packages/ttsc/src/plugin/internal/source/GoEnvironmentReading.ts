@@ -153,6 +153,25 @@ export namespace GoEnvironmentReading {
       }
       const activeRoot = parsed.GOROOT;
       const activeVersion = parsed.GOVERSION;
+      if (
+        process.platform !== "win32" &&
+        typeof activeRoot === "string" &&
+        activeRoot.includes("\ufffd") &&
+        !confirmsGoRootBytes(
+          goBinary,
+          cwd,
+          env,
+          activeRoot,
+          witness,
+          projectRoot,
+        )
+      ) {
+        // A decoded path can point to a different, usable SDK. Its metadata
+        // cannot stand in for the root used by the native process.
+        delete parsed.GOROOT;
+        PluginBuildEnvironmentWitness.refuse(witness, goBinary);
+        return { values: parsed, local: false };
+      }
       const local =
         matchesLauncherRoot(goBinary, env, parsed.GOROOT) &&
         (SidecarEnvironment.read(env, "GOTOOLCHAIN") === "local" ||
@@ -237,6 +256,35 @@ export namespace GoEnvironmentReading {
     if (named !== undefined && named !== null)
       PluginBuildEnvironmentWitness.refuse(witness, named);
     return undefined;
+  }
+
+  /** Confirm the plain Go value before trusting an ambiguous JSON spelling. */
+  function confirmsGoRootBytes(
+    goBinary: string,
+    cwd: string,
+    env: NodeJS.ProcessEnv,
+    root: string,
+    witness: PluginBuildEnvironmentWitness.Record | undefined,
+    projectRoot: string | undefined,
+  ): boolean {
+    if (witness !== undefined && !PluginBuildEnvironmentWitness.holds(witness))
+      return false;
+    let bytes: Buffer | undefined;
+    const result = spawnGoTool(goBinary, ["env", "GOROOT"], {
+      cwd,
+      projectRoot,
+      encoding: "utf8",
+      env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
+      onStdoutBytes: (stdout) => {
+        bytes = stdout;
+      },
+      windowsHide: true,
+    });
+    return (
+      result.error === undefined &&
+      result.status === 0 &&
+      bytes?.equals(Buffer.from(`${root}\n`)) === true
+    );
   }
 
   /**
@@ -569,7 +617,7 @@ export namespace GoEnvironmentReading {
   }
 
   /** Answer family of {@link recorded} (`WitnessedLoadAnswers`). */
-  const RECORDED_READING = "go-environment-reading-v5";
+  const RECORDED_READING = "go-environment-reading-v6";
 
   // A wrong hint is safe: the reading compares it with the `GOENV` Go reports
   // and runs again with the reported file witnessed.

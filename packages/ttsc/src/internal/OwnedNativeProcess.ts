@@ -1,5 +1,4 @@
 import {
-  type SpawnSyncOptions,
   type SpawnSyncReturns,
   spawn,
 } from "node:child_process";
@@ -8,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { resolveBinary } from "../compiler/internal/resolveBinary";
+import type { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
 import { createProjectTempDirectory } from "./createProjectTempDirectory";
 
 /**
@@ -40,9 +40,10 @@ export namespace OwnedNativeProcess {
    * causes. Output fields and extra receipt fields are omitted. Diagnostic data
    * never authorizes release.
    *
-   * The receipt directory stays outside the supplied project boundary, or the
-   * command's working directory when no boundary is supplied. A permission
-   * refusal can advance to another qualified system temporary parent.
+   * The receipt directory stays outside the primary and additional consumer
+   * roots. The command's working directory supplies the primary boundary when
+   * no project root is supplied. A permission refusal can advance to another
+   * qualified system temporary parent.
    * POSIX working-directory spelling retains parent components for native
    * lookup after following links.
    *
@@ -63,7 +64,7 @@ export namespace OwnedNativeProcess {
   export async function run(
     command: string,
     args: readonly string[],
-    options: SpawnSyncOptions & { projectRoot?: string },
+    options: OwnedSynchronousProcess.CommandOptions,
     signal?: AbortSignal,
     observeRetirement?: (
       state: "joined" | "not-started" | "unknown",
@@ -172,6 +173,7 @@ export namespace OwnedNativeProcess {
     const directory = createProjectTempDirectory(
       "ttsc-owned-process-",
       options.projectRoot ?? cwd,
+      options.additionalProjectRoots,
     );
     const resultFile = path.join(directory, "result.json");
     let retirement: "joined" | "not-started" | "unknown" = "not-started";
