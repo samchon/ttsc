@@ -16,12 +16,12 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 2. Retarget the link to an identical tree and deliver the replacement event.
  * 3. Deliver a source edit through the new physical watcher.
  * 4. Observe a missing target appearing and recover from a retarget during
- *    enumeration without a link event. Exercise raw target recovery on
- *    filesystems that support names containing invalid UTF-8.
+ *    enumeration without a link event. Verify idle and close ownership of that
+ *    retry and exercise raw target recovery where supported.
  *
  * @evidence contracts/testing.md#behavioral-verification The maintained WatchTopology reconciles a native directory junction or symlink while a supplied observer records the physical subscriptions and delivers events.
  * @evidence contracts/testing.md#independent-expectations The actual link target and the missing selected directory are checked before delivering their event. Exact registration handles establish which watch receives it and which must retire.
- * @evidence contracts/testing.md#distinguishing-cases Exercises retargeting, a source edit, missing-target appearance, and a retarget during enumeration whose empty destination produces no child notification. Raw POSIX registration and delivery preserve exact bytes. The stale registration has to close.
+ * @evidence contracts/testing.md#distinguishing-cases Exercises retargeting, a source edit, missing-target appearance, and a retarget during enumeration whose empty destination produces no child notification. The idle barrier includes a retry queued by a pending notification, and close cancels an outstanding retry. Raw POSIX registration and delivery preserve exact bytes.
  * @evidence contracts/testing.md#execution-ownership The test owns all fixture paths and closes the topology. Event delivery is controlled through the public observer dependency without replacing native filesystem operations.
  */
 export async function test_watch_topology_rebinds_retargeted_plugin_source(): Promise<void> {
@@ -111,6 +111,13 @@ export async function test_watch_topology_rebinds_retargeted_plugin_source(): Pr
       path.dirname(target),
     );
   };
+  const moveAfterListing = (prior: string, next: string): void => {
+    afterDirectoryRead = (directory) => {
+      if (directory !== prior) return;
+      afterDirectoryRead = undefined;
+      retarget(next);
+    };
+  };
   let byteFixture: { root: Buffer; source: Buffer; file: Buffer } | undefined;
   try {
     const beforePluginWatches = watchers.length;
@@ -165,11 +172,7 @@ export async function test_watch_topology_rebinds_retargeted_plugin_source(): Pr
     for (const directory of [empty, extra])
       fs.mkdirSync(directory, { recursive: true });
     changes.length = 0;
-    afterDirectoryRead = (directory) => {
-      if (directory !== missing) return;
-      afterDirectoryRead = undefined;
-      retarget(empty);
-    };
+    moveAfterListing(missing, empty);
     topology.setExtraInputs([alias, extra]);
     assert.equal(
       afterDirectoryRead,
@@ -184,13 +187,49 @@ export async function test_watch_topology_rebinds_retargeted_plugin_source(): Pr
     await flush();
     assert.deepEqual(changes, [{ kind: "plugin", path: alias }]);
 
-    if (process.platform === "win32") return;
+    const barrierTarget = path.join(root, "barrier", "src");
+    fs.mkdirSync(barrierTarget, { recursive: true });
+    changes.length = 0;
+    moveAfterListing(empty, barrierTarget);
+    emptyWatch.listener("rename", null);
+    await topology.whenIdle();
+    assert.equal(afterDirectoryRead, undefined);
+    assert.equal(emptyWatch.active, false);
+    const barrierWatch = watchAt(barrierTarget);
+    assert.deepEqual(changes, [{ kind: "plugin", path: alias }]);
+
+    const closeWithPendingRetry = async (directory: string): Promise<void> => {
+      const closeTarget = path.join(root, "close", "src");
+      const closeExtra = path.join(root, "close-extra");
+      for (const location of [closeTarget, closeExtra])
+        fs.mkdirSync(location, { recursive: true });
+      moveAfterListing(directory, closeTarget);
+      changes.length = 0;
+      topology.setExtraInputs([alias, extra, closeExtra]);
+      assert.equal(afterDirectoryRead, undefined);
+      const beforeClose = watchers.length;
+      const beforeByteClose = byteWatches.length;
+      const idle = topology.whenIdle();
+      topology.close();
+      await idle;
+      assert.equal(watchers.length, beforeClose);
+      assert.equal(byteWatches.length, beforeByteClose);
+      assert.ok(watchers.every((watcher) => !watcher.active));
+      assert.deepEqual(changes, []);
+    };
+    if (process.platform === "win32") {
+      await closeWithPendingRetry(barrierTarget);
+      return;
+    }
     const raw = Buffer.from([0xff, 0x2d, 0x72, 0x61, 0x77]);
     const rawParent = Buffer.concat([Buffer.from(`${root}/`), raw]);
     try {
       fs.mkdirSync(rawParent);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "EILSEQ") return;
+      if ((error as NodeJS.ErrnoException).code === "EILSEQ") {
+        await closeWithPendingRetry(barrierTarget);
+        return;
+      }
       throw error;
     }
     const rawSource = Buffer.concat([rawParent, Buffer.from("/src")]);
@@ -204,7 +243,7 @@ export async function test_watch_topology_rebinds_retargeted_plugin_source(): Pr
     assert.ok(linkWatch.active);
     linkWatch.listener("rename", path.basename(link));
     await flush();
-    assert.equal(emptyWatch.active, false);
+    assert.equal(barrierWatch.active, false);
     const waiting = byteWatches.find(
       (watcher) => watcher.active && watcher.location.equals(rawParent),
     );
@@ -225,6 +264,7 @@ export async function test_watch_topology_rebinds_retargeted_plugin_source(): Pr
     assert.deepEqual(changes, [
       { kind: "plugin", path: path.join(alias, "compiler.go") },
     ]);
+    await closeWithPendingRetry(alias);
   } finally {
     topology.close();
     assert.ok(byteWatches.every((watcher) => !watcher.active));

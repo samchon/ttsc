@@ -15,7 +15,12 @@ import { selectResolutionCandidateInputs } from "./selectResolutionCandidateInpu
 /** Dependency metadata borrowed from a generation by watch routing. */
 type Dependencies = Pick<
   ITtscCompilerTransformation.ISuccess | ITtscCompilerTransformation.IFailure,
-  "type" | "dependencies" | "dependenciesComplete" | "hostInputs" | "volatile"
+  | "type"
+  | "dependencies"
+  | "dependenciesComplete"
+  | "hostInputs"
+  | "volatile"
+  | "workspaceInputs"
 >;
 
 /**

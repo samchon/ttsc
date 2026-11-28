@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
@@ -23,6 +24,29 @@ import { readSourceBuildFile } from "./readSourceBuildFile";
  */
 export namespace GoWorkspaceEnvironment {
   const KIND = "go-workspace-environment-v2";
+
+  /**
+   * Skip a generated workspace probe only when the explicit local setting has
+   * native origin evidence. The caller separately validates that evidence.
+   *
+   * @evidence contracts/common.md#principled-implementation Explicit local disables Go's automatic dispatch. An earlier unproved reading cannot establish which executable or SDK will handle the workspace.
+   * @evidence contracts/common.md#clear-and-simple-design Binary and package selection reuse the same shortcut decision.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A requested Go mode alone cannot make a failed native query into evidence.
+   * @evidence contracts/common.md#meaningful-documentation States the two prerequisites and the caller's responsibility for validity.
+   * @evidence contracts/portability.md#os-neutral-implementation The shared environment accessor uses native variable identity on Windows and POSIX.
+   * @evidence contracts/performance.md#efficient-algorithms One environment lookup and one marker check require no new subprocess or SDK walk.
+   * @evidence contracts/performance.md#reuse-equivalent-work Only proved explicit local origin settings can bypass workspace observation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains no resource or verdict.
+   */
+  export function canUseOrigin(
+    env: NodeJS.ProcessEnv,
+    witness: PluginBuildEnvironmentWitness.Record,
+  ): boolean {
+    return (
+      SidecarEnvironment.read(env, "GOTOOLCHAIN") === "local" &&
+      PluginBuildEnvironmentWitness.hasToolchainProof(witness)
+    );
+  }
 
   /**
    * Refine the binary key when the generated workspace uses a different

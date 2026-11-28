@@ -390,7 +390,11 @@ function resolveGoBuildEnvironment(
       identities,
       projectRoot,
     );
-    if (reading === undefined)
+    if (
+      reading === undefined ||
+      typeof reading.values.GOVERSION !== "string" ||
+      reading.values.GOVERSION === ""
+    )
       PluginBuildEnvironmentWitness.requireToolchainProbe(witness);
     if (reading !== undefined) {
       local = reading.local;

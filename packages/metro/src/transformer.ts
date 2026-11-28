@@ -265,6 +265,7 @@ export async function transform(params: {
         // that no file fingerprint can represent; the snapshot marks it and
         // getCacheKey degrades to a per-run nonce (no cross-run reuse).
         markVolatile: () => recorder().recordVolatile({ project }),
+        workspaceReplayUsesVolatility: true,
       },
     );
     // A file the program does not contain comes back as `undefined` from the

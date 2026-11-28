@@ -3,7 +3,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { systemRuntimeCachePath } from "../../../../../packages/ttsc/src/launcher/internal/runtime/systemRuntimeCachePath";
+import {
+  pinSystemRuntimeCachePath,
+  systemRuntimeCachePath,
+} from "../../../../../packages/ttsc/src/launcher/internal/runtime/systemRuntimeCachePath";
 import { withRuntimeDirectoryLock } from "../../../../../packages/ttsc/src/launcher/internal/runtime/withRuntimeDirectoryLock";
 
 /**
@@ -13,13 +16,15 @@ import { withRuntimeDirectoryLock } from "../../../../../packages/ttsc/src/launc
  * 2. Redirect each cache and lock component to a visible source directory.
  * 3. Require refusal, an unchanged target, and success with ordinary entries.
  *
- * @evidence contracts/testing.md#behavioral-verification Real system fallback selection and lock acquisition reject native filesystem aliases. The unoccupied selection creates nothing, and the normal path grants a real lease.
+ * @evidence contracts/testing.md#behavioral-verification Real fallback selection and pinning reject native aliases, including the run index. A cache containing a selected config is ineligible before it is used. An ordinary cache can be pinned and grants a real lease.
  * @evidence contracts/testing.md#independent-expectations A literal sentinel and unchanged source listing establish the target's preservation. Neither result is derived from cache metadata or a mocked filesystem.
- * @evidence contracts/testing.md#distinguishing-cases Existing aliases at the shared system child, project cache, sibling lock and retired child each contrast with missing or ordinary entries.
+ * @evidence contracts/testing.md#distinguishing-cases Shared, cache, index, lock and retired aliases are distinct refusal points. An ordinary nested project contrasts with an ordinary disjoint cache.
  * @evidence contracts/testing.md#execution-ownership A synchronous unit uses an owned temp root and native links, removes each link before its root and starts no compiler, watcher or installed product.
  */
 export function test_system_runtime_cache_rejects_aliased_paths(): void {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsx-private-fallback-"));
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), "ttsx-private-fallback-")),
+  );
   const source = path.join(root, "src");
   const temporary = path.join(root, "system-temp");
   try {
@@ -33,6 +38,7 @@ export function test_system_runtime_cache_rejects_aliased_paths(): void {
     for (const location of [
       shared,
       fallback,
+      path.join(fallback, "project"),
       `${fallback}.lock`,
       path.join(`${fallback}.lock`, "retired"),
     ]) {
@@ -41,6 +47,10 @@ export function test_system_runtime_cache_rejects_aliased_paths(): void {
       try {
         assert.throws(
           () => systemRuntimeCachePath(source, temporary),
+          /unsafe system runtime cache directory/,
+        );
+        assert.throws(
+          () => pinSystemRuntimeCachePath(source, temporary, [source]),
           /unsafe system runtime cache directory/,
         );
         if (location.startsWith(`${fallback}.lock`))
@@ -59,6 +69,18 @@ export function test_system_runtime_cache_rejects_aliased_paths(): void {
       }
     }
     assert.equal(systemRuntimeCachePath(source, temporary), fallback);
+    const selected = path.join(fallback, "selected");
+    fs.mkdirSync(selected);
+    fs.writeFileSync(path.join(selected, "custom.json"), '{"files":[]}');
+    assert.equal(
+      pinSystemRuntimeCachePath(source, temporary, [source, selected]),
+      undefined,
+    );
+    assert.deepEqual(fs.readdirSync(selected), ["custom.json"]);
+    assert.equal(
+      pinSystemRuntimeCachePath(source, temporary, [source]),
+      fallback,
+    );
     assert.equal(
       withRuntimeDirectoryLock(fallback, () => "joined"),
       "joined",

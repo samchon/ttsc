@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 
 import { E2ETrace } from "../../../internal/E2ETrace";
 import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
@@ -34,6 +35,64 @@ import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFil
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Witness maps are created and released by callers, not retained by this namespace.
  */
 export namespace PluginBuildEnvironmentWitness {
+  /**
+   * Group native observations by usable watch spelling. Raw paths retain their
+   * exact keys and use their nearest UTF-8 ancestor for notification delivery.
+   *
+   * @evidence contracts/common.md#principled-implementation Replays the original metadata keys, including raw path bytes, and assigns a representable watch anchor.
+   * @evidence contracts/common.md#clear-and-simple-design The owner of key encoding also translates it to watch registrations.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Only the registration path is translated; literal raw path keys remain intact.
+   * @evidence contracts/common.md#meaningful-documentation Specifies the reason for assigning a raw input an ancestor watch.
+   * @evidence contracts/portability.md#os-neutral-implementation Raw POSIX components are shortened before UTF-8 decoding; ordinary spellings use native path resolution.
+   * @evidence contracts/performance.md#efficient-algorithms Visits each witness entry and may decode each ancestor of a raw key without native I/O.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Groups belong to the current load.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The result borrows witness strings and holds no handle.
+   */
+  export function watchInputs(
+    witnesses: readonly Record[],
+    projectRoot: string,
+  ): { [anchor: string]: { entries: [string, string][]; recursive?: true } } {
+    const groups = new Map<
+      string,
+      { entries: [string, string][]; recursive?: true }
+    >();
+    for (const witness of witnesses)
+      for (const [key, signature] of witness) {
+        if (key === TOOLCHAIN_PROBE) continue;
+        const file = key.startsWith(DIRECTORY_PREFIX)
+          ? key.slice(DIRECTORY_PREFIX.length)
+          : key.startsWith(LINK_PREFIX)
+            ? key.slice(LINK_PREFIX.length)
+            : key;
+        let raw = RuntimeFilesystem.rawRealpath(file);
+        const recursive = raw !== undefined;
+        let anchor = projectRoot;
+        if (raw !== undefined) {
+          while (raw.length !== 0) {
+            const spelling = raw.toString();
+            if (Buffer.from(spelling).equals(raw)) {
+              anchor = spelling;
+              break;
+            }
+            const separator = raw.lastIndexOf(47);
+            if (separator <= 0) {
+              anchor = "/";
+              break;
+            }
+            raw = raw.subarray(0, separator);
+          }
+        } else if (path.isAbsolute(file)) {
+          anchor = path.resolve(file);
+        }
+        const group: { entries: [string, string][]; recursive?: true } =
+          groups.get(anchor) ?? { entries: [] };
+        group.entries.push([key, signature]);
+        if (recursive) group.recursive = true;
+        groups.set(anchor, group);
+      }
+    return Object.fromEntries(groups);
+  }
+
   /**
    * Each witnessed path's metadata when it was first read. Link observations
    * use qualified internal keys so link spelling and followed target state
@@ -183,6 +242,23 @@ export namespace PluginBuildEnvironmentWitness {
   }
 
   /**
+   * Check dispatch eligibility without repeating native witness validation. The
+   * caller still checks whether the recorded inputs hold.
+   *
+   * @evidence contracts/common.md#principled-implementation A recorded probe requirement excludes dispatch reuse independently of whether the observed paths still hold.
+   * @evidence contracts/common.md#clear-and-simple-design The witness owns interpretation of its private dispatch marker.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Absence of the marker does not substitute for the caller's validity check.
+   * @evidence contracts/common.md#meaningful-documentation Distinguishes dispatch eligibility from current native validation.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This reads one private map key without native lookup.
+   * @evidence contracts/performance.md#efficient-algorithms One map lookup avoids repeating a validation already performed by the caller.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The predicate does not retain a validity verdict.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the witness.
+   */
+  export function hasToolchainProof(witness: Record): boolean {
+    return !witness.has(TOOLCHAIN_PROBE);
+  }
+
+  /**
    * Whether a recorded answer can replace a fresh native reading.
    *
    * @evidence contracts/common.md#principled-implementation Requires proved dispatch as well as unchanged path and environment observations.
@@ -199,8 +275,7 @@ export namespace PluginBuildEnvironmentWitness {
     currentReadings?: Map<string, string>,
   ): boolean {
     return (
-      !witness.has(TOOLCHAIN_PROBE) &&
-      holds(witness, undefined, currentReadings)
+      hasToolchainProof(witness) && holds(witness, undefined, currentReadings)
     );
   }
 
@@ -218,7 +293,7 @@ export namespace PluginBuildEnvironmentWitness {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The comparison owns no retained state or handles.
    */
   export function covers(prior: Record, current: Record): boolean {
-    if (prior.has(TOOLCHAIN_PROBE)) return false;
+    if (!hasToolchainProof(prior)) return false;
     for (const [key, signature] of current)
       if (prior.get(key) !== signature) return false;
     return true;
@@ -244,7 +319,7 @@ export namespace PluginBuildEnvironmentWitness {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Validation retains no handles or additional historical state.
    */
   export function holds(
-    witness: Record,
+    witness: Iterable<readonly [string, string]>,
     observation?: string,
     currentReadings?: Map<string, string>,
   ): boolean {

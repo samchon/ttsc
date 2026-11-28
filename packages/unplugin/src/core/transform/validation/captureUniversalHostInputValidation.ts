@@ -1,4 +1,5 @@
 import path from "node:path";
+import { PluginBuildEnvironmentWitness } from "ttsc/plugin-source";
 import {
   PluginBuildEnvironmentReadings,
   processPluginBuildEnvironment,
@@ -90,6 +91,17 @@ export function captureUniversalHostInputValidation(
       detail: "observer-incomplete",
     });
   }
+  if (result.type !== "exception")
+    for (const [anchor, state] of Object.entries(
+      result.workspaceInputs ?? {},
+    )) {
+      if (!PluginBuildEnvironmentWitness.holds(state.entries))
+        recordGenerationProofFailure(failures, {
+          domain: "host",
+          kind: "snapshot-mismatch",
+          path: anchor,
+        });
+    }
   const environmentChanged = environmentInputMismatch(
     result.type === "exception" ? undefined : result.environmentInputs,
     environment,

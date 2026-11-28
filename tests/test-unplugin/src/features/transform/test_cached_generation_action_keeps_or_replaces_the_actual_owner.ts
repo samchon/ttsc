@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 import { selectCachedGenerationAction } from "../../../../../packages/unplugin/src/core/transform/cache/selectCachedGenerationAction";
+import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
 import type { TtscTransformHooks } from "../../../../../packages/unplugin/src/core/transform/watch/TtscTransformHooks";
 import { notifyVolatileDelivery } from "../../../../../packages/unplugin/src/core/transform/watch/notifyVolatileDelivery";
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
@@ -20,13 +21,16 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
  *
  * @evidence contracts/testing.md#behavioral-verification Production selectCachedGenerationAction directly used by transformTtsc returns serve/retry/capture and applies identity-guarded eviction; exact cache Promise assertions distinguish losing current or sibling state. Actual notifyVolatileDelivery separately marks a declared module, leaves an ordinary module quiet, accepts absent hooks/callbacks, preserves the callback receiver and propagates its exact Error.
  * @evidence contracts/testing.md#independent-expectations Literal actions, exact Promise identities and independently SHA-256-hashed source specify the oracle. Actual changed file bytes establish mismatch; no native producer or compiler response is substituted. Literal one versus zero callback counts follow the authored immutable volatile list; an independently created Error and the exact hooks object establish propagation and receiver expectations.
- * @evidence contracts/testing.md#distinguishing-cases Stable source serves, declared volatility captures, changed source without a sibling captures, and changed source with a newer Promise retries that replacement. Incomplete observation, fresh-only delivery and an unproven no-pass snapshot must also capture; each variant has an independent cache/root disposed in finally. Five separate delivery rows contrast declared/ordinary input, absent hook object, absent callback and a throwing callback without changing declarations between calls.
+ * @evidence contracts/testing.md#distinguishing-cases An unchanged snapshot can enter a new pass, while workspace replay permits only reuse within its original pass. Declared volatility, changed source, replacement ownership, incomplete observation, fresh-only delivery and an unproven no-pass snapshot cover the other decisions. Notification rows distinguish explicit file volatility from opt-in workspace replay and cover absent hooks and a throwing callback.
  * @evidence contracts/testing.md#execution-ownership Unit test: one synchronous function runs selectCachedGenerationAction, the function transformTtsc calls to choose serve, retry or capture, once per variant over a temporary config and source file and a handwritten cached generation. A native producer or compiler is never run, so how a real generation is captured is not covered here. The production-used notification operation is called directly, not reached by a fabricated compiler or cache-injection seam. Its separate direct invocation does not certify transformTtsc capture/notification assembly or native volatile acquisition.
  */
 export function test_cached_generation_action_keeps_or_replaces_the_actual_owner(): void {
   const failures: Error[] = [];
   for (const variant of [
     "valid",
+    "next-pass",
+    "workspace-same-pass",
+    "workspace-next-pass",
     "volatile",
     "changed",
     "replaced",
@@ -41,6 +45,24 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
     const replacement = Promise.resolve({ ...good });
     try {
       let delivered = source;
+      if (variant === "next-pass" || variant === "workspace-next-pass") {
+        good.projectDirectories = walkProjectInputs(
+          good.projectRoot,
+          undefined,
+          good.membershipPolicy,
+        ).directories;
+        good.hostInputValidation = {
+          covered: new Set(),
+          entries: new Map(),
+          missing: new Map(),
+          trees: new Map(),
+        };
+      }
+      if (
+        variant === "workspace-same-pass" ||
+        variant === "workspace-next-pass"
+      )
+        good.result.workspaceReplayRequired = true;
       if (variant === "incomplete") good.projectSnapshotComplete = false;
       if (variant === "fresh-only") good.freshDeliveryOnly = true;
       if (variant === "volatile") good.result.volatile = ["src/main.ts"];
@@ -53,13 +75,22 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
         environment: {},
         cache,
         cached: good,
-        epoch: variant === "no-pass" ? undefined : 1,
+        epoch:
+          variant === "no-pass"
+            ? undefined
+            : variant === "next-pass" || variant === "workspace-next-pass"
+              ? 2
+              : 1,
         file,
         generation,
         key,
         source: delivered,
       });
-      if (variant === "valid") {
+      if (
+        variant === "valid" ||
+        variant === "next-pass" ||
+        variant === "workspace-same-pass"
+      ) {
         assert.equal(action, "serve");
         assert.equal(cache.get(key), generation);
       } else if (variant === "replaced") {
@@ -78,16 +109,23 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
   for (const variant of [
     "volatile",
     "ordinary",
+    "workspace-opaque-cache",
+    "workspace-record-cache",
     "no-hooks",
     "no-callback",
     "throw",
   ] as const) {
     const fixture = createCachedDeliveryUnitFixture();
+    const workspace =
+      variant === "workspace-opaque-cache" ||
+      variant === "workspace-record-cache";
+    const volatile = variant === "volatile" || variant === "throw";
     const cached = {
       ...fixture.good,
       result: {
         ...fixture.good.result,
-        volatile: variant === "ordinary" ? [] : ["src/main.ts"],
+        volatile: volatile ? ["src/main.ts"] : [],
+        ...(workspace ? { workspaceReplayRequired: true as const } : {}),
       },
     };
     let calls = 0;
@@ -96,6 +134,9 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
       variant === "no-callback"
         ? {}
         : {
+            ...(variant === "workspace-opaque-cache"
+              ? { workspaceReplayUsesVolatility: true as const }
+              : {}),
             markVolatile: function (this: TtscTransformHooks): void {
               assert.equal(
                 this,
@@ -118,18 +159,17 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
         assert.equal(calls, 1);
       } else {
         assert.doesNotThrow(notify);
-        assert.equal(calls, variant === "volatile" ? 1 : 0);
+        const notified =
+          variant === "volatile" || variant === "workspace-opaque-cache";
+        assert.equal(calls, notified ? 1 : 0);
         assert.doesNotThrow(notify);
         assert.equal(
           calls,
-          variant === "volatile" ? 2 : 0,
+          notified ? 2 : 0,
           "warm declaration reuse does not suppress delivery notification",
         );
       }
-      assert.deepEqual(
-        cached.result.volatile,
-        variant === "ordinary" ? [] : ["src/main.ts"],
-      );
+      assert.deepEqual(cached.result.volatile, volatile ? ["src/main.ts"] : []);
     } catch (error) {
       failures.push(new Error("delivery-" + variant, { cause: error }));
     } finally {

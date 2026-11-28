@@ -1,8 +1,11 @@
 import { spawnSync } from "node:child_process";
 
+import { captureProcessOutput } from "../../../../../packages/ttsc/src/compiler/internal/captureProcessOutput";
 import { type CanonicalTempDirectoryOperations } from "../../../../../packages/ttsc/src/internal/CanonicalTempDirectoryOperations";
 import { createCanonicalTempDirectory } from "../../../../../packages/ttsc/src/internal/createCanonicalTempDirectory";
 import { createProjectTempDirectory } from "../../../../../packages/ttsc/src/internal/createProjectTempDirectory";
+import { SourceBuildCacheLayout } from "../../../../../packages/ttsc/src/plugin/internal/source/SourceBuildCacheLayout";
+import { selectedRecordIdentityTempParent } from "../../../../../packages/ttsc/src/plugin/internal/source/selectedRecordIdentityTempParent";
 import { assert, fs, path, workspaceRoot } from "../../internal/script-unit";
 
 /**
@@ -19,9 +22,9 @@ import { assert, fs, path, workspaceRoot } from "../../internal/script-unit";
  * 3. Reject invalid prefixes, non-directory parents/children and escaped
  *    postflights.
  * 4. Distinguish a POSIX byte path from a legitimate U+FFFD sibling before
- *    allocating directly or selecting ambient temporary storage.
+ *    allocating directly or selecting ambient or record-backed storage.
  *
- * @evidence contracts/testing.md#behavioral-verification createCanonicalTempDirectory pins its physical parent across alias retargeting, preserves the victim sentinel and rejects non-directory or escaped postflights.
+ * @evidence contracts/testing.md#behavioral-verification createCanonicalTempDirectory pins its physical parent across alias retargeting and rejects invalid layouts. Descriptor output capture falls back to system storage when a record-backed parent has no usable string path.
  * @evidence contracts/testing.md#independent-expectations The explicitly observed operation order, physical parent and literal victim sentinel independently define safe creation and deletion.
  * @evidence contracts/testing.md#distinguishing-cases Successful alias handoff contrasts with invalid prefixes, non-directories and escaped children. Linux also contrasts a non-UTF-8 parent and the ordinary U+FFFD directory its lossy decoding would name.
  * @evidence contracts/testing.md#execution-ownership Calls the creator directly using native operations and injected failure probes. A bounded Linux Node child supplies its own TMPDIR to the selector. No native compiler or ttsc host runs. Finally removes the owned fixture.
@@ -142,6 +145,8 @@ function verifyRawParent(root: string, project: string): void {
     Buffer.from([0xff]),
   ]);
   const lookalike = path.join(root, "native-\ufffd");
+  const rawIdentities = Buffer.concat([raw, Buffer.from("/identities")]);
+  const lookalikeIdentities = path.join(lookalike, "identities");
   const alias = path.join(root, "raw-temp-alias");
   try {
     fs.mkdirSync(raw);
@@ -152,9 +157,42 @@ function verifyRawParent(root: string, project: string): void {
       /temporary directory parent has no UTF-8 path/,
     );
     assert.deepEqual(fs.readdirSync(lookalike), []);
+    const authoredCache = path.join(alias, "node_modules", ".cache", "ttsc");
+    assert.throws(
+      () => SourceBuildCacheLayout.defaultWorkspaceCachePath(authoredCache),
+      /cache path has no UTF-8 spelling/,
+    );
+    assert.throws(
+      () => SourceBuildCacheLayout.canonicalPluginCacheRoot(authoredCache),
+      /cache path has no UTF-8 spelling/,
+    );
+    assert.deepEqual(fs.readdirSync(raw), []);
+    assert.deepEqual(fs.readdirSync(lookalike), []);
     const legitimate = createCanonicalTempDirectory("child-", lookalike);
     assert.equal(path.dirname(legitimate), lookalike);
     fs.rmdirSync(legitimate);
+
+    fs.mkdirSync(rawIdentities);
+    fs.mkdirSync(lookalikeIdentities);
+    assert.equal(selectedRecordIdentityTempParent(alias, [project]), undefined);
+    assert.equal(
+      selectedRecordIdentityTempParent(lookalike, [alias, project]),
+      lookalikeIdentities,
+    );
+    const capture = captureProcessOutput(
+      { TTSC_PLUGIN_DESCRIPTOR_LOAD: "1", TTSC_PLUGIN_RECORD_ROOT: alias },
+      undefined,
+      project,
+    );
+    try {
+      assert.notEqual(
+        path.dirname(path.dirname(capture.stdoutPath)),
+        lookalikeIdentities,
+      );
+      assert.deepEqual(fs.readdirSync(lookalikeIdentities), []);
+    } finally {
+      capture.dispose();
+    }
 
     const selector = path.join(
       workspaceRoot,
@@ -187,6 +225,7 @@ function verifyRawParent(root: string, project: string): void {
     );
   } finally {
     if (fs.existsSync(alias)) fs.unlinkSync(alias);
+    if (fs.existsSync(rawIdentities)) fs.rmdirSync(rawIdentities);
     if (fs.existsSync(raw)) fs.rmdirSync(raw);
   }
 }

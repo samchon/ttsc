@@ -171,8 +171,9 @@ export namespace NativeSourcePackages {
             launcherWitness,
           );
     const identity = selection?.identity;
-    const explicitLocal =
-      SidecarEnvironment.read(env, "GOTOOLCHAIN") === "local";
+    const useOrigin =
+      selection !== undefined &&
+      GoWorkspaceEnvironment.canUseOrigin(env, selection.witness);
     const workspaceIdentity = [
       "package-selection",
       identity,
@@ -180,10 +181,10 @@ export namespace NativeSourcePackages {
       goToolVariables(env),
     ];
     let workspace =
-      explicitLocal || selection === undefined
+      useOrigin || selection === undefined
         ? undefined
         : GoWorkspaceEnvironment.recall(opts.identities, workspaceIdentity);
-    if (selection !== undefined && (explicitLocal || workspace !== undefined)) {
+    if (selection !== undefined && (useOrigin || workspace !== undefined)) {
       const recalled = recallSelection(
         PluginLoadAnswers.read(opts.identities, SELECTION_ANSWER, [
           selection.identity,
@@ -281,11 +282,7 @@ export namespace NativeSourcePackages {
       let freshWorkspace:
         | ReturnType<typeof GoWorkspaceEnvironment.observe>
         | undefined;
-      if (
-        !explicitLocal &&
-        workspace === undefined &&
-        selection !== undefined
-      ) {
+      if (!useOrigin && workspace === undefined && selection !== undefined) {
         freshWorkspace = GoWorkspaceEnvironment.observe({
           directory: scratch,
           env,
@@ -311,7 +308,7 @@ export namespace NativeSourcePackages {
         JSON.stringify(overlayDigests(env, opts.identities)) ===
           JSON.stringify(selection.identity.overlays) &&
         PluginBuildEnvironmentWitness.reusable(selection.witness) &&
-        (explicitLocal ||
+        (useOrigin ||
           (workspace !== undefined &&
             PluginBuildEnvironmentWitness.reusable(workspace.witness)))
       ) {

@@ -84,6 +84,7 @@ export function deliverCachedTransform(props: {
       reportMissingProgramOutput(cached, error, epoch);
       notifyWatchInputs(hooks, cached, file, selection);
       markCachedSourceServed(cached, file);
+      notifyVolatileDelivery(hooks, cached, file);
       return undefined;
     }
     notifyWatchInputs(hooks, cached, file, selection);

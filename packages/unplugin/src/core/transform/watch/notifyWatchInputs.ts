@@ -168,6 +168,7 @@ function groupedWatchMatcher(
       dependencies: result.dependencies,
       dependenciesComplete: result.dependenciesComplete,
       hostInputs: result.hostInputs,
+      workspaceInputs: result.workspaceInputs,
       volatile: result.volatile,
     },
     [...selectPluginSourceInputs(result).keys()],

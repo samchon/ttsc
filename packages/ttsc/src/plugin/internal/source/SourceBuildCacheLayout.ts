@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
+import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
 import type { ITtscSourceBuildCachePaths } from "./ITtscSourceBuildCachePaths";
 import { pruneCacheFileRoot } from "./pruneCacheFileRoot";
 import { pruneGoBuildCacheRoot } from "./pruneGoBuildCacheRoot";
@@ -226,7 +227,7 @@ export namespace SourceBuildCacheLayout {
    * @evidence contracts/common.md#clear-and-simple-design One read-only check serves both cache selection and the workspace marker writer.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts An unavailable or linked cache entry is not assumed safe. Only observed absence can leave a component to be created.
    * @evidence contracts/common.md#meaningful-documentation The prose specifies the physical installation, linked-installation rule and pre-write boundary.
-   * @evidence contracts/portability.md#os-neutral-implementation Native lstat and realpath observe symlinks and junctions, and native path functions derive each child.
+   * @evidence contracts/portability.md#os-neutral-implementation Native lstat and lossless realpath observe symlinks and junctions. A parent with no UTF-8 spelling cannot authorize a string-addressed cache.
    * @evidence contracts/performance.md#efficient-algorithms A fixed number of native filesystem observations checks the three layout levels without enumerating their contents.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Every call observes the current installation and cache entries.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The read-only check retains no handle or filesystem state.
@@ -240,12 +241,12 @@ export namespace SourceBuildCacheLayout {
       path.basename(installation) !== NODE_MODULES_DIRNAME
     )
       throw new Error(`ttsc: invalid default workspace cache layout: ${root}`);
-    const workspace = fs.realpathSync.native(path.dirname(installation));
+    const workspace = stringCachePath(path.dirname(installation));
     let modules = path.join(workspace, NODE_MODULES_DIRNAME);
     const installed = fs.lstatSync(modules, { throwIfNoEntry: false });
     if (installed !== undefined) {
       try {
-        modules = fs.realpathSync.native(modules);
+        modules = stringCachePath(modules);
       } catch (error) {
         const code = (error as NodeJS.ErrnoException).code;
         if (code !== "ENOENT" && code !== "ENOTDIR") throw error;
@@ -279,6 +280,16 @@ export namespace SourceBuildCacheLayout {
     });
   }
 
+  /** Resolve an address that later cache operations can use losslessly. */
+  function stringCachePath(location: string): string {
+    const physical = RuntimeFilesystem.realpathWitness(location);
+    if (physical.includes("\0"))
+      throw unsafeWorkspaceCache(
+        `ttsc: cache path has no UTF-8 spelling: ${location}`,
+      );
+    return physical;
+  }
+
   /**
    * Report whether one collected directory listing is empty or has a marker.
    *
@@ -309,30 +320,47 @@ export namespace SourceBuildCacheLayout {
 
   /**
    * Resolve the current default plugin cache to an ordinary physical spelling.
-   * Missing root directories are created. Returned spelling avoids following
-   * the caller's original ancestor alias again, but no retained directory
-   * handle prevents later replacement of the physical path.
+   * Missing root directories are created only after an existing POSIX ancestor
+   * proves representable as a string. Returned spelling avoids following the
+   * caller's original ancestor alias again, but no retained directory handle
+   * prevents later replacement of the physical path.
    *
    * @evidence contracts/common.md#principled-implementation lstat rejects an aliased leaf and realpath checks the current root against its observed physical parent. The returned spelling removes the original ancestor alias from later lookups, subject to path identity remaining stable after these non-atomic metadata observations.
    * @evidence contracts/common.md#clear-and-simple-design This boundary returns a physical spelling or throws; downstream collectors receive no partially validated path state.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Filesystem identity comes from actual entry types and realpath rather than special-cased path strings.
    * @evidence contracts/common.md#meaningful-documentation Native prose states creation, current physical spelling and the absence of a directory-handle identity pin; the inline comment explains avoidance of the original ancestor alias.
-   * @evidence contracts/portability.md#os-neutral-implementation Native realpath and lstat handle physical paths and links; textual equality here compares resolved parent spellings and does not infer volume case policy from an OS name.
-   * @evidence contracts/performance.md#efficient-algorithms A fixed number of metadata operations performs validation, with path resolution and recursive creation dependent on ancestor depth.
+   * @evidence contracts/portability.md#os-neutral-implementation Lossless native realpath and lstat handle physical paths and links. POSIX parents with no string address are refused, and parent comparisons do not substitute an OS-wide case policy.
+   * @evidence contracts/performance.md#efficient-algorithms The POSIX preflight walks to the nearest existing ancestor only when needed. Native path resolution and recursive creation depend on ancestor depth; neither validation nor creation enumerates directories.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Mutable aliases are validated per invocation rather than memoized without an invalidation witness.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This operation returns a path and retains no handles or root history. Created directories belong to the selected cache owner; their lifetime and eviction remain with that caller's cache policy.
    */
   export function canonicalPluginCacheRoot(root: string): string {
+    const parent = path.dirname(root);
+    let physicalParent: string | undefined;
+    if (process.platform !== "win32") {
+      // Close the string-path boundary before mkdir even when the requested
+      // cache has several missing ancestors below an existing alias.
+      for (let ancestor = parent; ; ancestor = path.dirname(ancestor)) {
+        try {
+          const physical = stringCachePath(ancestor);
+          if (ancestor === parent) physicalParent = physical;
+          break;
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+          if (path.dirname(ancestor) === ancestor) throw error;
+        }
+      }
+    }
     fs.mkdirSync(root, { recursive: true });
-    const physicalParent = fs.realpathSync.native(path.dirname(root));
+    physicalParent ??= stringCachePath(parent);
     const stats = fs.lstatSync(root);
     if (!stats.isDirectory() || stats.isSymbolicLink()) {
       throw new Error(`ttsc: unsafe plugin cache root: ${root}`);
     }
     // Later lookups use this resolved spelling instead of the caller's original
     // ancestor alias; this is not a handle pin against physical-path replacement.
-    const physicalRoot = fs.realpathSync.native(root);
+    const physicalRoot = stringCachePath(root);
     if (path.dirname(physicalRoot) !== physicalParent) {
       throw new Error(`ttsc: plugin cache root escaped its parent: ${root}`);
     }

@@ -30,11 +30,14 @@ export function selectHostInputs(props: {
     | Pick<
         | ITtscCompilerTransformation.ISuccess
         | ITtscCompilerTransformation.IFailure,
-        "type" | "hostInputs"
+        "type" | "hostInputs" | "workspaceInputs"
       >
     | Pick<ITtscCompilerTransformation.IException, "type">;
 }): string[] {
   return props.result.type === "exception"
     ? []
-    : selectListedFiles(props.projectRoot, props.result.hostInputs);
+    : [
+        ...selectListedFiles(props.projectRoot, props.result.hostInputs),
+        ...Object.keys(props.result.workspaceInputs ?? {}),
+      ];
 }

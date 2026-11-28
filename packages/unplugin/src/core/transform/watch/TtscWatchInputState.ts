@@ -61,6 +61,16 @@ export type TtscWatchInputState =
       digest: string;
     }
   | {
+      /** External native metadata observed in a generated Go workspace. */
+      codec: "workspace";
+
+      /** Its original native witness keys and signatures. */
+      entries: readonly (readonly [string, string])[];
+
+      /** Raw descendants use an ancestor watch and bounded polling. */
+      recursive?: true;
+    }
+  | {
       /**
        * The project's root-file membership, which the adapter's project walk
        * decides rather than the compiler (samchon/ttsc#1419). The input's path

@@ -20,7 +20,7 @@ import { evictGeneration } from "./evictGeneration";
  * proof can stand in for it. A serving decision does not perform output
  * selection or host notification, which remain with delivery.
  *
- * @evidence contracts/common.md#principled-implementation The actual generation's volatility, recorded environment reads and recorded source proof decide serving; identity-guarded eviction then distinguishes a sibling's current replacement from an empty capture slot.
+ * @evidence contracts/common.md#principled-implementation A generation requiring workspace replay serves only within its original delivery epoch. Volatility, recorded environment reads and recorded source proof also decide serving. Identity-guarded eviction distinguishes a sibling's replacement from an empty capture slot.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous operation selects serve/retry/capture and owns mismatch eviction, while its production caller owns awaiting, notification settling, native capture and output delivery.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Decisions inspect the supplied actual generation and validators without fabricating a producer result, capability or success; no injectable compiler callback or test-only branch is introduced.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the caller's awaited-Promise and settled-notification responsibilities and separates the decision from producer and delivery effects.
@@ -56,11 +56,13 @@ export function selectCachedGenerationAction(props: {
   reportDivergence?: boolean;
   proof?: TtscGenerationProof.Transaction;
 }): "serve" | "retry" | "capture" {
+  const result = props.cached.result;
   if (
+    (result.type === "exception" ||
+      result.workspaceReplayRequired !== true ||
+      props.cached.deliveryEpoch === props.epoch) &&
     environmentInputMismatch(
-      props.cached.result.type === "exception"
-        ? undefined
-        : props.cached.result.environmentInputs,
+      result.type === "exception" ? undefined : result.environmentInputs,
       props.environment,
     ) === undefined &&
     !isVolatileFile(envelopeDerivation(props.cached), {

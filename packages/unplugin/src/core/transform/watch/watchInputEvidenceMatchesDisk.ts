@@ -1,3 +1,5 @@
+import { PluginBuildEnvironmentWitness } from "ttsc/plugin-source";
+
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
@@ -41,8 +43,15 @@ export function watchInputEvidenceMatchesDisk(
   projectRoot?: string,
 ): boolean {
   const state = evidence.state;
+  if (evidence.workspace !== undefined) {
+    if (!PluginBuildEnvironmentWitness.holds(evidence.workspace.entries))
+      return false;
+    if (state === undefined) return true;
+  }
   if (state === undefined || state.codec === "membership") return false;
   try {
+    if (state.codec === "workspace")
+      return PluginBuildEnvironmentWitness.holds(state.entries);
     if (state.codec === "tree") {
       return pluginSourceHolds(
         file,

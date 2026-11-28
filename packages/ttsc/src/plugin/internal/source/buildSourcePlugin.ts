@@ -334,7 +334,9 @@ function buildSourcePluginAttempt(
       qualified: true,
       witness: environmentWitness,
     };
-    if (SidecarEnvironment.read(env, "GOTOOLCHAIN") !== "local") {
+    if (!GoWorkspaceEnvironment.canUseOrigin(env, environmentWitness)) {
+      const originQualified =
+        PluginBuildEnvironmentWitness.hasToolchainProof(environmentWitness);
       const identity = ["binary", originKey, goBinary, goToolVariables(env)];
       const kept = GoWorkspaceEnvironment.recall(identities, identity);
       let workspace = kept;
@@ -397,7 +399,7 @@ function buildSourcePluginAttempt(
       const sourceEnvironment = environmentDigests.get(path.resolve(dir));
       const sameEnvironment = workspace.value === sourceEnvironment;
       workspaceEnvironment = {
-        matchesSource: qualified && local && sameEnvironment,
+        matchesSource: originQualified && qualified && local && sameEnvironment,
         qualified,
         witness:
           preparedDirectory === undefined

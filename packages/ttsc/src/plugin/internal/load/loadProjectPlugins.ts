@@ -197,6 +197,11 @@ export function loadProjectPlugins(options: {
   /** A later load must recreate the generated Go workspace before reuse. */
   workspaceReplayRequired?: true;
 
+  /** Full external workspace metadata grouped by watchable paths. */
+  workspaceInputs?: ReturnType<
+    typeof PluginBuildEnvironmentWitness.watchInputs
+  >;
+
   /**
    * Record store this load proved its inputs through, for the invocation's
    * later native spawns (#1723); absent when the project loads no plugin.
@@ -1012,27 +1017,6 @@ export namespace loadProjectPlugins {
       };
     });
     const finalPhase = HostInputObservationPhase.create();
-    const workspaceInputs = new Set<string>();
-    for (const witness of workspaceWitnesses)
-      for (const key of witness.keys()) {
-        const file = key.startsWith("\0directory:")
-          ? key.slice("\0directory:".length)
-          : key.startsWith("\0link:")
-            ? key.slice("\0link:".length)
-            : key;
-        if (
-          path.isAbsolute(file) &&
-          !file.includes("\0") &&
-          path.resolve(file) === file
-        )
-          workspaceInputs.add(file);
-      }
-    const workspaceHostInputs = [...workspaceInputs];
-    const workspaceHashes = hashHostInputPaths(workspaceHostInputs, finalPhase);
-    const workspaceRealpaths = realpathHostInputPaths(
-      workspaceHostInputs,
-      finalPhase,
-    );
     const currentWorkspaceReadings = new Map<string, string>();
     const workspacesQualified = workspaceWitnesses.every((witness) =>
       PluginBuildEnvironmentWitness.holds(
@@ -1046,22 +1030,16 @@ export namespace loadProjectPlugins {
         project,
         context,
         records,
-        [...projectHostInputs, ...workspaceHostInputs],
-        mergeObservedHostInputHashes(
-          revalidateHostInputHashes(
-            projectHostInputHashes,
-            projectHostInputs,
-            finalPhase,
-          ),
-          workspaceHashes,
+        projectHostInputs,
+        revalidateHostInputHashes(
+          projectHostInputHashes,
+          projectHostInputs,
+          finalPhase,
         ),
-        mergeObservedHostInputRealpaths(
-          revalidateHostInputRealpaths(
-            projectHostInputRealpaths,
-            projectHostInputs,
-            finalPhase,
-          ),
-          workspaceRealpaths,
+        revalidateHostInputRealpaths(
+          projectHostInputRealpaths,
+          projectHostInputs,
+          finalPhase,
         ),
       ),
       descriptorReadsDeclared: loadedEntries.every(
@@ -1077,7 +1055,13 @@ export namespace loadProjectPlugins {
         : {}),
       ...(workspaceWitnesses.length === 0
         ? {}
-        : { workspaceReplayRequired: true as const }),
+        : {
+            workspaceReplayRequired: true as const,
+            workspaceInputs: PluginBuildEnvironmentWitness.watchInputs(
+              workspaceWitnesses,
+              project.root,
+            ),
+          }),
       // The directories the watch inputs named before the builds, as the builds
       // read them. Package selection shares these readings and also reads a
       // linked plugin's module root, which no build keys on, so only the build

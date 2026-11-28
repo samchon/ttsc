@@ -102,6 +102,9 @@ export class WatchTopology {
    */
   private pendingPluginNotifications = new Map<string, Set<string>>();
   private pluginNotificationsScheduled = false;
+  private pluginAliasRetry:
+    | { aliases: Set<string>; immediate: NodeJS.Immediate }
+    | undefined;
   private extraWatchers = new Map<string, DirectoryWatcher>();
 
   /** The plugin inputs whose directories the last sync already watched. */
@@ -235,11 +238,11 @@ export class WatchTopology {
    * belong to a later barrier; this does not freeze the filesystem.
    *
    * @evidence contracts/common.md#principled-implementation A check-phase observation follows delivered events, and every notification, recovery and registration queue must be empty before completion.
-   * @evidence contracts/common.md#clear-and-simple-design The topology owns the barrier because it alone owns all five scheduled queues.
+   * @evidence contracts/common.md#clear-and-simple-design The topology owns the barrier because it owns every scheduled decision, including retries of moved plugin aliases.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Queue state establishes completion without a quiet-time estimate or an invented filesystem snapshot.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes delivered work from later mutations and explains the post-build queued-decision race.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation The barrier observes owned JavaScript queues without a separate native operation.
-   * @evidence contracts/performance.md#efficient-algorithms Each check turn inspects five flags and two map sizes; notification processing retains its owning traversal and native-operation costs.
+   * @evidence contracts/performance.md#efficient-algorithms Each check turn inspects five scheduling flags, one optional retry and two map sizes; notification processing retains its owning traversal and native-operation costs.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call observes current work rather than reusing an earlier completion.
    * @evidence contracts/performance.md#bound-retention-and-release-resources One immediate callback and promise remain live per waiting call; continuous new work can prevent completion and no deadline is imposed.
    */
@@ -250,6 +253,7 @@ export class WatchTopology {
       !this.closed &&
       (this.notificationsScheduled ||
         this.pluginNotificationsScheduled ||
+        this.pluginAliasRetry !== undefined ||
         this.compilerPostRegistrationReconciliationScheduled ||
         this.projectInputRecoveryScheduled ||
         this.projectInputPostRegistrationReconciliationScheduled ||
@@ -598,10 +602,14 @@ export class WatchTopology {
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Shutdown decides no equivalence of compilation or fingerprint work.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources On successful completion all five watcher maps clear and the lexical transaction is replaced; queued tasks observe the closed guard. A thrown close can leave later maps retained, and backend closure is not joined. Snapshot/declaration/pending byte state remains until replaced or the facade is released.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Close cancels the alias retry before releasing watchers. On successful completion all five watcher maps clear and the lexical transaction is replaced; other queued tasks observe the closed guard. A thrown close can leave later maps retained, and backend closure is not joined. Snapshot/declaration/pending byte state remains until replaced or the facade is released.
    */
   public close(): void {
     this.closed = true;
+    if (this.pluginAliasRetry !== undefined) {
+      clearImmediate(this.pluginAliasRetry.immediate);
+      this.pluginAliasRetry = undefined;
+    }
     closeWatchers(this.fileWatchers);
     closeWatchers(this.directoryWatchers);
     closeWatchers(this.extraWatchers);
@@ -1225,24 +1233,34 @@ export class WatchTopology {
         if (this.isPluginInput(entry)) this.notePluginNotification(entry);
       }
     }
-    const aliasesToRetry = racedAliases;
-    if (aliasesToRetry !== undefined && retryRacedAlias)
-      setImmediate(() => {
-        if (this.closed) return;
-        this.beginLexicalTransaction();
-        // A link move can precede the new subscription and leave no child
-        // entries to replay. Compare the declaration against its old state.
-        for (const input of this.extraInputs)
-          if (aliasesToRetry.has(input))
-            this.recordPluginNotification(input, input);
-        if (
-          this.pluginNotificationsScheduled ||
-          this.pendingPluginNotifications.size === 0
-        )
-          return;
-        this.pluginNotificationsScheduled = true;
-        this.decidePluginNotifications(false);
-      });
+    if (racedAliases !== undefined && retryRacedAlias)
+      this.schedulePluginAliasRetry(racedAliases);
+  }
+
+  /** Coalesce refused aliases into one owned reconciliation turn. */
+  private schedulePluginAliasRetry(aliases: Set<string>): void {
+    const pending = this.pluginAliasRetry;
+    if (pending !== undefined) {
+      for (const input of aliases) pending.aliases.add(input);
+      return;
+    }
+    const immediate = setImmediate(() => {
+      this.pluginAliasRetry = undefined;
+      if (this.closed) return;
+      this.beginLexicalTransaction();
+      // A link move can precede the new subscription and leave no child
+      // entries to replay. Compare the declaration against its old state.
+      for (const input of this.extraInputs)
+        if (aliases.has(input)) this.recordPluginNotification(input, input);
+      if (
+        this.pluginNotificationsScheduled ||
+        this.pendingPluginNotifications.size === 0
+      )
+        return;
+      this.pluginNotificationsScheduled = true;
+      this.decidePluginNotifications(false);
+    });
+    this.pluginAliasRetry = { aliases, immediate };
   }
 
   private syncProjectInputWatchers(

@@ -4,7 +4,7 @@ import {
   TestUnpluginRuntime,
 } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -39,6 +39,212 @@ import { shellQuote } from "../internal/ttsc/internal/source-build";
  * consumer does not install; test_e2e_installation owns its packed identity.
  */
 export namespace BatchWorkspace {
+  /**
+   * Verifies that binary adoption uses the SDK selected by a generated
+   * workspace.
+   *
+   * 1. Borrow two installed Go SDKs and expose the newer SDK later on PATH.
+   * 2. Build twice under the same overlay and compare the returned binary.
+   * 3. Add an earlier SDK candidate and require a different executable result.
+   *
+   * @evidence contracts/testing.md#behavioral-verification The production builder compiles and reuses a real executable, then chooses a different cache artifact after delegation changes.
+   * @evidence contracts/testing.md#independent-expectations Authored main functions print distinct literal values when the selected SDK defaults enable their tags.
+   * @evidence contracts/testing.md#distinguishing-cases Contrasts cold publication, stable adoption, and changed PATH precedence with unchanged source and overlay bytes. Hosts with one installed SDK report unavailable coverage.
+   * @evidence contracts/testing.md#execution-ownership Runs inside the existing BatchWorkspace preparation with installed Go executables, the current object-cache policy and a separate plugin cache.
+   * @evidence contracts/e2e.md#necessary-boundary Real Go builds and executable outputs prove the generated workspace reading survives production cache admission.
+   * @evidence contracts/e2e.md#shared-execution Borrows installed SDKs and copies only the delegated executable, with two compilations for distinct defaults.
+   * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture owns its source, overlay, candidate cache and SDK aliases. It removes the aliases without modifying the installed SDK.
+   * @evidence contracts/e2e.md#preserved-coverage Separate transitions cover workspace selection, stable adoption and invalidation without replacing the existing Go epoch corpus.
+   */
+  function verifyGeneratedWorkspaceBinary(root: string, binary: string): void {
+    const env = { ...process.env, GOTOOLCHAIN: "local", GOROOT: undefined };
+    const tools = JSON.parse(
+      execFileSync(
+        binary,
+        ["env", "-json", "GOVERSION", "GOROOT", "GOMODCACHE", "GOOS", "GOARCH"],
+        {
+          cwd: root,
+          env,
+          encoding: "utf8",
+        },
+      ),
+    ) as Record<string, string>;
+    const registry = path.join(tools.GOMODCACHE!, "golang.org");
+    const platform = `.${tools.GOOS}-${tools.GOARCH}`;
+    const prefix = "toolchain@v0.0.1-";
+    const downloaded = fs.existsSync(registry)
+      ? fs
+          .readdirSync(registry)
+          .find(
+            (entry) =>
+              entry.startsWith(prefix) &&
+              entry.endsWith(platform) &&
+              entry.slice(prefix.length, -platform.length) !==
+                tools.GOVERSION &&
+              fs.existsSync(
+                path.join(registry, entry, "bin", path.basename(binary)),
+              ),
+          )
+      : undefined;
+    const system = spawnSync("go", ["env", "-json", "GOVERSION", "GOROOT"], {
+      cwd: root,
+      env,
+      encoding: "utf8",
+    });
+    const installed =
+      system.status === 0
+        ? (JSON.parse(system.stdout) as { GOVERSION: string; GOROOT: string })
+        : undefined;
+    const alternate =
+      downloaded !== undefined
+        ? {
+            GOVERSION: downloaded.slice(prefix.length, -platform.length),
+            GOROOT: path.join(registry, downloaded),
+          }
+        : installed?.GOVERSION === tools.GOVERSION
+          ? undefined
+          : installed;
+    if (alternate === undefined) {
+      assert.notEqual(
+        process.env.TTSC_TEST_REQUIRE_GO_DELEGATION,
+        "1",
+        "CI must prepare the comparison Go SDK for binary adoption",
+      );
+      process.stdout.write(
+        "Generated workspace binary adoption requires a second installed Go SDK\n",
+      );
+      return;
+    }
+    const { GOVERSION: alternateVersion, GOROOT: alternateRoot } = alternate;
+    const alternateNewer =
+      alternateVersion.localeCompare(tools.GOVERSION!, "en", {
+        numeric: true,
+      }) > 0;
+    const [olderVersion, newerVersion] = alternateNewer
+      ? [tools.GOVERSION!, alternateVersion]
+      : [alternateVersion, tools.GOVERSION!];
+    const newerRoot = alternateNewer ? alternateRoot : tools.GOROOT!;
+    const older = alternateNewer
+      ? binary
+      : path.join(alternateRoot, "bin", path.basename(binary));
+    const fixture = path.join(root, "generated-workspace-binary");
+    const source = path.join(fixture, "source");
+    const overlay = path.join(fixture, "overlay");
+    for (const [directory, name, version] of [
+      [source, "source", olderVersion],
+      [overlay, "overlay", newerVersion],
+    ] as const) {
+      fs.mkdirSync(directory, { recursive: true });
+      fs.writeFileSync(
+        path.join(directory, "go.mod"),
+        `module example.com/${name}\n\ngo ${version.slice(2)}\n`,
+      );
+    }
+    fs.writeFileSync(
+      path.join(fixture, "go.work"),
+      `go ${olderVersion.slice(2)}\n`,
+    );
+    const early = path.join(fixture, "early");
+    const late = path.join(fixture, "late");
+    const links: string[] = [];
+    try {
+      const install = (sdk: string, tag: string): void => {
+        fs.writeFileSync(path.join(sdk, "go.env"), `GOFLAGS=-tags=${tag}\n`);
+        for (const relative of ["src", "pkg"]) {
+          const link = path.join(sdk, relative);
+          fs.symlinkSync(
+            path.join(newerRoot, relative),
+            link,
+            process.platform === "win32" ? "junction" : "dir",
+          );
+          links.push(link);
+        }
+        const launcher = path.join(
+          sdk,
+          "bin",
+          newerVersion + path.extname(binary),
+        );
+        fs.copyFileSync(
+          path.join(newerRoot, "bin", path.basename(binary)),
+          launcher,
+        );
+        fs.chmodSync(launcher, 0o755);
+        assert.equal(
+          execFileSync(launcher, ["env", "GOROOT"], {
+            cwd: fixture,
+            env,
+            encoding: "utf8",
+          }).trim(),
+          sdk,
+        );
+      };
+      for (const sdk of [early, late])
+        fs.mkdirSync(path.join(sdk, "bin"), { recursive: true });
+      for (const tag of ["earliest", "latest"])
+        fs.writeFileSync(
+          path.join(source, `${tag}.go`),
+          `//go:build ${tag}\n\npackage main\n\nimport "fmt"\n\nfunc main() { fmt.Println(${JSON.stringify(tag)}) }\n`,
+        );
+      install(late, "latest");
+      const buildEnv = {
+        ...env,
+        CGO_ENABLED: "0",
+        GOENV: "off",
+        GOFLAGS: undefined,
+        GOTOOLCHAIN: "path",
+        GOWORK: "auto",
+        PATH: [early, late]
+          .map((sdk) => path.join(sdk, "bin"))
+          .join(path.delimiter),
+        TTSC_GO_BINARY: older,
+      };
+      const assertOriginSDK = () => {
+        for (const cwd of [source, overlay])
+          assert.equal(
+            execFileSync(older, ["env", "GOVERSION"], {
+              cwd,
+              env: buildEnv,
+              encoding: "utf8",
+            }).trim(),
+            olderVersion,
+          );
+      };
+      const build = () =>
+        buildSourcePlugin({
+          source,
+          baseDir: fixture,
+          cacheDir: path.join(fixture, "cache"),
+          overlayDirs: [overlay],
+          env: buildEnv,
+          pluginName: "generated-workspace-binary",
+          quiet: true,
+          ttscVersion: "workspace-integration",
+          tsgoVersion: "7.0.0-dev",
+        });
+      const execute = (artifact: string) =>
+        execFileSync(artifact, [], {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+      assertOriginSDK();
+      const first = build();
+      assert.equal(execute(first), "latest\n");
+      const firstIdentity = fs.statSync(first, { bigint: true });
+      assert.equal(build(), first);
+      assert.equal(
+        fs.statSync(first, { bigint: true }).mtimeNs,
+        firstIdentity.mtimeNs,
+      );
+      install(early, "earliest");
+      assertOriginSDK();
+      const second = build();
+      assert.notEqual(second, first);
+      assert.equal(execute(second), "earliest\n");
+    } finally {
+      for (const link of links) fs.unlinkSync(link);
+    }
+  }
+
   export interface Workspace {
     /** Exact tmpdir allocation key; native root is a separate input authority. */
     allocatedRoot: string;
@@ -2077,6 +2283,7 @@ export namespace BatchWorkspace {
         "restored dependency bytes must reuse the original publication",
       );
       assert.equal(countBuilds(), coldBuildCount + 5);
+      verifyGeneratedWorkspaceBinary(container, actualGo.binary);
       assert.deepEqual(
         fs.readFileSync(first),
         rebuiltBytes,

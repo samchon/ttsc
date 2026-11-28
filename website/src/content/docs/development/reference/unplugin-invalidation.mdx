@@ -181,7 +181,7 @@ Later deliveries reuse the accepted snapshot and digest while its input revision
 
 `bridge/registerProjectRecord.ts` puts the record on the host's own file channel, the one that watches the module itself, and registers the inputs with the session's bridge when the host is watching. A failed delivery writes the recovery inputs, read now, so the repair moves the record wherever it lands; a rejected one registers the record the last generation wrote with the selection alone.
 
-A Go plugin whose generated workspace must be resolved again can still provide a watched delivery. Its record includes the workspace's observed external files. On cache restore, the record requests a new delivery so Go can resolve the generated workspace again.
+A Go plugin whose generated workspace must be resolved again can still provide a watched delivery. Its record includes the workspace's observed external files. The next build pass resolves the workspace before reusing compiler output, including when a persistent record requests a new delivery. Metro marks its snapshot volatile so the next run resolves the workspace too.
 
 A record lives below the host's tool directory. When that cannot be written, it lives below the fallback the host accepts (`bridge/fallbackToolDirectory.ts`, samchon/ttsc#1480): one directory per host root below the user's own temporary directory (`filesystem/userStateDirectory.ts`), in its long spelling. Every adapter but the Turbopack loader accepts it, and Farm only on its root's drive (`farm/farmRecordFallback.ts`). The first place a write lands is the one handed over, since only a record the adapter can write can move.
 

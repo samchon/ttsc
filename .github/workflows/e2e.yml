@@ -147,9 +147,18 @@ jobs:
           fs.mkdirSync(root, { recursive: true });
           fs.appendFileSync(process.env.GITHUB_OUTPUT, "root=" + root + "\n");
           NODE
+      - name: Prepare a second Go SDK for workspace cache regression
+        shell: pwsh
+        run: |
+          $env:GOTOOLCHAIN = 'local'
+          $installed = go env GOVERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:GOTOOLCHAIN = if ($installed -eq 'go1.27.4') { 'go1.27.3' } else { 'go1.27.4' }
+          go version
       - run: pnpm test:e2e
         env:
           TTSC_E2E_TRACE: ${{ steps.e2e-trace.outputs.root }}
+          TTSC_TEST_REQUIRE_GO_DELEGATION: "1"
       - name: Preserve E2E diagnostic observations
         if: ${{ always() && steps.e2e-trace.outcome == 'success' }}
         uses: actions/upload-artifact@v7

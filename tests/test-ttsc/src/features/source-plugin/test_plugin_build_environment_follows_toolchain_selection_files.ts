@@ -31,7 +31,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#behavioral-verification The direct answer reader over a real Go SDK and private store returns the working digest while selection holds, then produces a different digest and refuses the preceding witness whenever Go's selection files move.
  * @evidence contracts/testing.md#independent-expectations Go's toolchain selection rules give the ancestor workspace precedence and reject the authored higher requirement with path-only lookup. Restoring the original requirement restores the original build inputs.
  * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selectors, native link retargeting, dot-parent launcher and capture boundaries and a Linux launcher parent without a UTF-8 spelling. Relative cache and pending requests start under two bases. With a second SDK, earlier PATH candidates invalidate initial and delegated selection, including a POSIX candidate that only gained execute permission.
- * @evidence contracts/testing.md#execution-ownership The unit runs native Go queries in temporary modules, through the real preparation worker and a bounded POSIX Node child with its own temp environment. The worker case pins and restores its Go variables and cwd. It copies already installed executables and runs no plugin build or installed ttsc host.
+ * @evidence contracts/testing.md#execution-ownership The unit runs native Go queries in temporary modules, through the real preparation worker and a bounded POSIX Node child with its own temp environment. The worker case pins and restores its Go variables and cwd. Real package inspection prepares a scratch workspace and shares the answer store and installed SDKs with the direct workspace observations. No plugin build or installed ttsc host runs.
  */
 export async function test_plugin_build_environment_follows_toolchain_selection_files(): Promise<void> {
   const root = TestProject.physicalPath(
@@ -709,6 +709,35 @@ function verifyGeneratedWorkspaceToolchain(props: {
   const localIdentity = "local-workspace-control";
   const local = GoWorkspaceEnvironment.observe(opts);
   assert.equal(local.local, true);
+  const explicitLocal = SidecarEnvironment.merge(env, { GOTOOLCHAIN: "local" });
+  const failedOrigin: PluginBuildEnvironmentWitness.Record = new Map();
+  // Node cannot answer `go env`. Keep its actual failed query separate from
+  // the explicit local setting and still-held executable metadata.
+  readPluginBuildEnvironment(
+    process.execPath,
+    workspace,
+    explicitLocal,
+    failedOrigin,
+    props.store,
+    undefined,
+    props.root,
+  );
+  assert.equal(PluginBuildEnvironmentWitness.holds(failedOrigin), true);
+  assert.equal(
+    GoWorkspaceEnvironment.canUseOrigin(explicitLocal, failedOrigin),
+    false,
+  );
+  assert.equal(
+    GoWorkspaceEnvironment.canUseOrigin(explicitLocal, local.witness),
+    true,
+  );
+  const unqualified = GoWorkspaceEnvironment.binaryKey(
+    sourceKey,
+    local.value,
+    local.value,
+    false,
+  );
+  assert.notEqual(unqualified, sourceKey);
   assert.equal(
     GoWorkspaceEnvironment.recall(props.store, localIdentity),
     undefined,
@@ -762,4 +791,45 @@ function verifyGeneratedWorkspaceToolchain(props: {
   assert.equal(artifact(local), sourceKey);
   assert.notEqual(artifact(prior), sourceKey);
   assert.notEqual(artifact(changed), artifact(prior));
+
+  // The source is under an older ancestor workspace, but inspection must
+  // generate its own workspace from the newer source module's requirement.
+  fs.unlinkSync(path.join(workspace, "go.work"));
+  fs.writeFileSync(
+    path.join(workspace, "go.mod"),
+    `module example.com/source\n\ngo ${props.newerVersion.slice(2)}\n`,
+  );
+  fs.writeFileSync(path.join(workspace, "base.go"), "package source\n");
+  const ancestor = path.join(props.root, "go.work");
+  fs.writeFileSync(ancestor, `go ${props.olderVersion.slice(2)}\n`);
+  const earlier = path.join(
+    early,
+    "bin",
+    props.newerVersion + path.extname(props.newer),
+  );
+  fs.unlinkSync(earlier);
+  try {
+    const origin = native();
+    assert.equal(origin.status, 0, origin.stderr);
+    assert.equal(origin.stdout.trim(), props.olderVersion);
+    const inspect = () =>
+      NativeSourcePackages.inspect({
+        source: workspace,
+        packages: [{ entry: "." }],
+        env: SidecarEnvironment.merge(env, { TTSC_GO_BINARY: props.older }),
+        identities: props.store,
+        pluginName: "generated-workspace-inspection",
+        projectRoot: props.root,
+      })[0];
+    const before = inspect();
+    assert.equal(before?.Error, undefined);
+    assert.deepEqual(before?.GoFiles, ["base.go", "workspace_late.go"]);
+    install(early, "workspace_early");
+    assert.equal(native().stdout.trim(), props.olderVersion);
+    const after = inspect();
+    assert.equal(after?.Error, undefined);
+    assert.deepEqual(after?.GoFiles, ["base.go", "workspace_early.go"]);
+  } finally {
+    fs.unlinkSync(ancestor);
+  }
 }

@@ -45,6 +45,14 @@ export function evidencedWatchInput(
   const external = cached.externalInputHashes ?? {};
   const identity = derivationIdentity(state, input);
   const spelling = path.resolve(input);
+  const workspace =
+    cached.result.type === "exception"
+      ? undefined
+      : cached.result.workspaceInputs?.[spelling];
+  const workspaceEvidence =
+    workspace === undefined
+      ? {}
+      : { workspace: { codec: "workspace" as const, ...workspace } };
   // A plugin's source directory is proven by the state its binary was built
   // from, whatever else observed the path (samchon/ttsc#1487).
   const digest = selectPluginSourceInputs(cached.result).get(spelling);
@@ -52,6 +60,7 @@ export function evidencedWatchInput(
     return {
       file: spell(input),
       evidence: {
+        ...workspaceEvidence,
         identity,
         missing: false,
         state: { codec: "tree", digest },
@@ -100,6 +109,7 @@ export function evidencedWatchInput(
   return {
     file: spell(input),
     evidence: {
+      ...workspaceEvidence,
       identity,
       missing,
       ...(stateEvidence === undefined ? {} : { state: stateEvidence }),

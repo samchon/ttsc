@@ -107,6 +107,9 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
   /** A later plugin load must re-establish its generated Go workspace. */
   workspaceReplayRequired?: true;
 
+  /** Retained workspace metadata for watch qualification. */
+  workspaceInputs?: ITtscCompilerTransformation.ISuccess["workspaceInputs"];
+
   /** Compiler diagnostics and native process outcome. */
   result: TtscBuildResult;
 
@@ -158,7 +161,10 @@ function transformWithSnapshot(
         ? {}
         : { pluginSources: loaded.pluginSources }),
       ...(loaded.workspaceReplayRequired === true
-        ? { workspaceReplayRequired: true as const }
+        ? {
+            workspaceReplayRequired: true as const,
+            workspaceInputs: loaded.workspaceInputs,
+          }
         : {}),
     };
   }

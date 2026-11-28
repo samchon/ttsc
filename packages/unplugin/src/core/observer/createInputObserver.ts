@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
-import { pluginSourceCovers } from "ttsc/plugin-source";
+import {
+  PluginBuildEnvironmentWitness,
+  pluginSourceCovers,
+} from "ttsc/plugin-source";
 
 import { refreshProcessClockReference } from "../transform/clock/refreshProcessClockReference";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
@@ -396,8 +399,13 @@ export function createInputObserver(
     for (const condition of entry.conditions.values()) {
       const state = condition.evidence?.state;
       membership ||= state?.codec === "membership";
-      tree ||= state?.codec === "tree" || condition.recoveryTree !== undefined;
-      unresolvedTree ||= condition.recoveryTree === null;
+      const rawWorkspace =
+        state?.codec === "workspace" && state.recursive === true;
+      tree ||=
+        state?.codec === "tree" ||
+        condition.recoveryTree !== undefined ||
+        rawWorkspace;
+      unresolvedTree ||= condition.recoveryTree === null || rawWorkspace;
     }
     if (!membership) memberships.delete(entry);
     if (!tree) trees.delete(entry);
@@ -495,6 +503,7 @@ export function createInputObserver(
             return (
               codec !== "membership" &&
               codec !== "tree" &&
+              codec !== "workspace" &&
               condition.recoveryTree === undefined &&
               codec !== "predicates"
             );
@@ -535,7 +544,9 @@ export function createInputObserver(
           removedCondition = true;
           continue;
         }
-        if (state?.codec === "tree") {
+        if (state?.codec === "workspace") {
+          changed = !PluginBuildEnvironmentWitness.holds(state.entries);
+        } else if (state?.codec === "tree") {
           if (!referenceMinted) {
             refreshProcessClockReference(
               projectRoot ?? entry.file,
@@ -1212,6 +1223,11 @@ export function createInputObserver(
             recoveryTree = true;
             if (condition.recoveryTree === null) polled.add(entry);
           }
+          if (state?.codec === "workspace" && state.recursive === true) {
+            trees.add(entry);
+            polled.add(entry);
+            recoveryTree = true;
+          }
         }
         if (memberships.has(entry) || trees.has(entry))
           entry.physical = realpath(entry.file) ?? entry.file;
@@ -1267,9 +1283,7 @@ export function createInputObserver(
       ownerInputs.delete(owner);
       ownerRegistrations.delete(owner);
       for (const [registration, key] of previous) {
-        const file = registration.endsWith("\0")
-          ? registration.slice(0, -1)
-          : registration;
+        const file = registration.split("\0", 1)[0]!;
         const entry = entries.get(file);
         const condition = entry?.conditions.get(key);
         condition?.owners.delete(owner);
@@ -1302,7 +1316,7 @@ export function createInputObserver(
         inputs = [
           ...inputs,
           ...[...previous.keys()]
-            .filter((file) => !file.endsWith("\0") && !reported.has(file))
+            .filter((file) => !file.includes("\0") && !reported.has(file))
             .map((file) => ({ file })),
         ];
       }
@@ -1330,7 +1344,14 @@ export function createInputObserver(
             : state?.codec === "membership"
               ? `membership\0${state.digest}`
               : JSON.stringify(evidence ?? null);
-        current.set(recoveryTree === undefined ? file : `${file}\0`, key);
+        current.set(
+          recoveryTree !== undefined
+            ? `${file}\0`
+            : state?.codec === "workspace"
+              ? `${file}\0workspace`
+              : file,
+          key,
+        );
         let entry = entries.get(file);
         if (entry === undefined) {
           entry = {
@@ -1370,6 +1391,15 @@ export function createInputObserver(
             for (const scope of entry.scopes) {
               scope.watcher?.track?.(entry.file, true);
             }
+          } else if (state?.codec === "workspace") {
+            recorded.add(entry);
+            if (state.recursive === true) {
+              trees.add(entry);
+              polled.add(entry);
+              entry.physical ??= realpath(entry.file) ?? entry.file;
+              for (const scope of entry.scopes)
+                scope.watcher?.track?.(entry.physical, true);
+            }
           } else if (state?.codec === "tree" || recoveryTree !== undefined) {
             // A plugin's source is proven at once, as a membership is: a file
             // below it can have moved after the capture proved its state, and
@@ -1391,15 +1421,26 @@ export function createInputObserver(
       };
       for (const input of inputs) {
         const recoveryTree = RECOVERY_TREE_DIGEST.get(input);
-        if (recoveryTree === undefined || input.evidence !== undefined)
+        if (input.evidence?.workspace !== undefined) {
+          const { workspace, ...evidence } = input.evidence;
+          if (evidence.state !== undefined)
+            register({ file: input.file, evidence });
+          register({
+            file: input.file,
+            evidence: {
+              identity: input.evidence.identity,
+              missing: false,
+              state: workspace,
+            },
+          });
+        } else if (recoveryTree === undefined || input.evidence !== undefined) {
           register(input);
+        }
         if (recoveryTree !== undefined) register(input, recoveryTree);
       }
       for (const [registration, key] of previous) {
         if (current.get(registration) === key) continue;
-        const file = registration.endsWith("\0")
-          ? registration.slice(0, -1)
-          : registration;
+        const file = registration.split("\0", 1)[0]!;
         const entry = entries.get(file);
         const condition = entry?.conditions.get(key);
         condition?.owners.delete(owner);

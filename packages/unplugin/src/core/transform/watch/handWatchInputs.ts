@@ -56,13 +56,17 @@ export function handWatchInputs(
     const winner = rank(input) > rank(kept) ? input : kept;
     const other = winner === input ? kept : input;
     const recovery = RECOVERY_TREE_DIGEST.get(other);
-    if (recovery !== undefined && !RECOVERY_TREE_DIGEST.has(winner)) {
-      const combined = { ...winner };
-      RECOVERY_TREE_DIGEST.set(combined, recovery);
-      chosen.set(input.file, combined);
-    } else {
-      chosen.set(input.file, winner);
-    }
+    const workspace = winner.evidence?.workspace ?? other.evidence?.workspace;
+    const combined =
+      workspace !== undefined && winner.evidence?.workspace === undefined
+        ? { ...winner, evidence: { ...winner.evidence!, workspace } }
+        : recovery !== undefined && !RECOVERY_TREE_DIGEST.has(winner)
+          ? { ...winner }
+          : winner;
+    const retainedRecovery = RECOVERY_TREE_DIGEST.get(winner) ?? recovery;
+    if (retainedRecovery !== undefined && combined !== winner)
+      RECOVERY_TREE_DIGEST.set(combined, retainedRecovery);
+    chosen.set(input.file, combined);
   }
   const distinct = [...chosen.values()];
   if (addWatchFiles !== undefined) {

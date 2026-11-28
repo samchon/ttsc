@@ -542,6 +542,7 @@ function isPublicationResult(value: unknown): boolean {
   if (
     value.observationsComplete !== undefined ||
     value.workspaceReplayRequired !== undefined ||
+    value.workspaceInputs !== undefined ||
     (value.hostInputProofFailures !== undefined &&
       (!isPublicationRecord(value.hostInputProofFailures) ||
         Object.keys(value.hostInputProofFailures).length !== 0))

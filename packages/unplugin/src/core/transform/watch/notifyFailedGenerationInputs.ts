@@ -84,7 +84,12 @@ export function notifyFailedGenerationInputs(
     seen.add(spelling);
     // The adapter reads current availability for ordinary inputs because
     // failure replay does not re-prove them.
-    const watched = { file: spell(spelling) };
+    const workspace =
+      cached.result.type === "failure" &&
+      cached.result.workspaceInputs?.[spelling] !== undefined;
+    const watched = workspace
+      ? evidencedWatchInput(cached, state, spelling, spell)
+      : { file: spell(spelling) };
     if (spelling === compilerSource?.file)
       RECOVERY_TREE_DIGEST.set(watched, compilerSource.digest);
     inputs.push(watched);
@@ -101,6 +106,8 @@ export function notifyFailedGenerationInputs(
     append(input);
   }
   if (cached.result.type === "failure") {
+    for (const input of Object.keys(cached.result.workspaceInputs ?? {}))
+      append(input);
     for (const diagnostic of cached.result.diagnostics) {
       if (typeof diagnostic.file === "string" && diagnostic.file.length !== 0) {
         append(path.resolve(cached.projectRoot, diagnostic.file));

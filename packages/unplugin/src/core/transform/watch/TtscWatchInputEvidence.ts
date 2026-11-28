@@ -29,6 +29,8 @@ import type { TtscWatchInputState } from "./TtscWatchInputState";
  *   retained state at runtime.
  */
 export interface TtscWatchInputEvidence {
+  /** Independent workspace metadata sharing the same watch spelling. */
+  workspace?: Extract<TtscWatchInputState, { codec: "workspace" }>;
   /** Memoized filesystem identity of the input. */
   identity: string;
 

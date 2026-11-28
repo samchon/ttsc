@@ -20,6 +20,7 @@ import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult"
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import { buildSingleRootInMemory } from "./buildSingleRootInMemory";
 import { DependencyBuildGeneration } from "./runtime/DependencyBuildGeneration";
+import { RuntimeFilesystem } from "./runtime/RuntimeFilesystem";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { runtimeEmitProfile } from "./runtimeEmitProfile";
 import { singleRootProjectConfig } from "./singleRootProjectConfig";
@@ -422,7 +423,7 @@ function allocatePrivateConfigDirectory(
         original.has(ancestor) || dependencyDirectory(ancestor) === undefined,
     );
   const prefix = ".ttsx-config-";
-  const run = fs.realpathSync.native(runDirectory);
+  const run = RuntimeFilesystem.realpathWitness(runDirectory);
   let refusal: unknown;
   const allocate = (directory: string): string | undefined => {
     if (!accepts(directory)) return undefined;
@@ -434,7 +435,7 @@ function allocatePrivateConfigDirectory(
       return undefined;
     }
   };
-  const local = allocate(run);
+  const local = run.includes("\0") ? undefined : allocate(run);
   if (local !== undefined) return local;
   for (const { directory } of systemTempOutsideProject.candidates(projectRoot, [
     configDir,

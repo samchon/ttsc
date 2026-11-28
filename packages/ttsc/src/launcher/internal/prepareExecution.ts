@@ -11,6 +11,7 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { resolveOwningProjectConfig } from "../../compiler/internal/project/resolveOwningProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
+import { OwnedSynchronousProcess } from "../../internal/OwnedSynchronousProcess";
 import { RuntimeTrash } from "../../internal/RuntimeTrash";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { systemTempOutsideProject } from "../../internal/systemTempOutsideProject";
@@ -25,7 +26,7 @@ import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { RuntimeEmitProvenance } from "./runtime/RuntimeEmitProvenance";
 import { claimRuntimeProjectDirectory } from "./runtime/claimRuntimeProjectDirectory";
 import { runtimeRunKey } from "./runtime/runtimeRunKey";
-import { systemRuntimeCachePath } from "./runtime/systemRuntimeCachePath";
+import { pinSystemRuntimeCachePath } from "./runtime/systemRuntimeCachePath";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { runtimeEmitProfile } from "./runtimeEmitProfile";
@@ -739,12 +740,19 @@ function pinSystemRuntimeCacheDirectory(
   additionalProjectRoots: readonly string[],
 ): string {
   let refusal: unknown;
-  for (const { directory } of systemTempOutsideProject.candidates(root, [
+  const projectRoots = [
+    root,
     ...additionalProjectRoots,
     process.cwd(),
-  ])) {
+    ...OwnedSynchronousProcess.additionalProjectRoots(),
+  ];
+  for (const { directory } of systemTempOutsideProject.candidates(
+    root,
+    projectRoots,
+  )) {
     try {
-      return pinRuntimeCacheDirectory(systemRuntimeCachePath(root, directory));
+      const pinned = pinSystemRuntimeCachePath(root, directory, projectRoots);
+      if (pinned !== undefined) return pinned;
     } catch (error) {
       if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
       refusal ??= error;

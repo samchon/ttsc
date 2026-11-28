@@ -288,8 +288,11 @@ function recordOf(
       record.recoveryTree = { file: input.file, digest };
       continue;
     }
-    if (input.evidence !== undefined)
-      record.inputs[input.file] = input.evidence;
+    if (input.evidence !== undefined) {
+      const { workspace, ...evidence } = input.evidence;
+      if (workspace === undefined || evidence.state !== undefined)
+        record.inputs[input.file] = evidence;
+    }
   }
   return record;
 }
@@ -304,7 +307,11 @@ function readUnrecordedState(
   input: TtscWatchInput,
   identities: ReturnType<typeof createHostPathIdentityContext>,
 ): TtscWatchInput {
-  if (input.evidence?.state !== undefined || RECOVERY_TREE_DIGEST.has(input))
+  if (
+    input.evidence?.state !== undefined ||
+    input.evidence?.workspace !== undefined ||
+    RECOVERY_TREE_DIGEST.has(input)
+  )
     return input;
   const hash = hostInputStateHash(input.file) ?? MISSING_INPUT_STATE;
   const missing = hash === MISSING_INPUT_STATE;
