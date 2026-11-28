@@ -51,6 +51,8 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
  * @param identities Record store that lets a new process prove the GOROOT
  *   corpus and executable bytes from their metadata (`PluginContentIdentities`,
  *   #1722); without it every process reads them.
+ * @returns Whether the settings probe established that the launcher handled the
+ *   command without delegating.
  * @evidence contracts/common.md#principled-implementation Fixed artifact flags, observed compiler bytes/version, selected reported-or-fallback build values, named command executables and selected SDK files enter the same framed identity used by source-state reporting. Fallback values and metadata-qualified reuse are explicit premises, not complete observation of arbitrary toolchain inputs. GOFLAGS enters without ttsc's own build tags, so the caller's environment reproduces a 7.1 or compiler-batch load's digest; targets and compiler sources are separated by their overlay modules in the build key.
  * @evidence contracts/common.md#clear-and-simple-design Private helpers separate compiler identity, Go-reported settings, external variables and SDK content while sharing one hash sink and optional pre-read witness.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache signatures use observed metadata and effective Go settings. Only a matched installed platform package can stand for its SDK tree. The mutable-SDK fallback needs a complete content witness for reuse.
@@ -69,7 +71,7 @@ export function hashPluginBuildEnvironment(
   witness?: PluginBuildEnvironmentWitness.Record,
   identities?: PluginContentIdentities.Store,
   projectRoot?: string,
-): void {
+): boolean {
   // Fixed artifact policy must invalidate binaries and reported source states
   // together, including binaries cached before this policy was introduced.
   hash.update(
@@ -90,7 +92,7 @@ export function hashPluginBuildEnvironment(
       ]),
     );
   }
-  hashGoBuildEnvironment(
+  const local = hashGoBuildEnvironment(
     hash,
     goBinary,
     directory,
@@ -101,6 +103,7 @@ export function hashPluginBuildEnvironment(
     projectRoot,
   );
   hashExternalGoBuildEnvironment(hash, env);
+  return local;
 }
 
 // Go build environment values that can change the produced binary or decide
@@ -340,8 +343,8 @@ function hashGoBuildEnvironment(
   witness: PluginBuildEnvironmentWitness.Record | undefined,
   identities: PluginContentIdentities.Store | undefined,
   projectRoot: string | undefined,
-): void {
-  const values = resolveGoBuildEnvironment(
+): boolean {
+  const { values, local } = resolveGoBuildEnvironment(
     goBinary,
     cwd,
     env,
@@ -356,6 +359,7 @@ function hashGoBuildEnvironment(
       hash.update(JSON.stringify([key, value]));
     }
   }
+  return local;
 }
 
 function resolveGoBuildEnvironment(
@@ -366,8 +370,9 @@ function resolveGoBuildEnvironment(
   witness: PluginBuildEnvironmentWitness.Record | undefined,
   identities: PluginContentIdentities.Store | undefined,
   projectRoot: string | undefined,
-): Map<string, string> {
+): { values: Map<string, string>; local: boolean } {
   const values = new Map<string, string>();
+  let local = false;
   if (goBinary !== undefined) {
     const compiler = SidecarEnvironment.read(env, "GOROOT")
       ? undefined
@@ -388,6 +393,7 @@ function resolveGoBuildEnvironment(
     if (reading === undefined)
       PluginBuildEnvironmentWitness.requireToolchainProbe(witness);
     if (reading !== undefined) {
+      local = reading.local;
       try {
         for (const key of GO_BUILD_ENV_KEYS) {
           const raw = reading.values[key];
@@ -429,7 +435,7 @@ function resolveGoBuildEnvironment(
       );
     }
   }
-  return values;
+  return { values, local };
 }
 
 function normalizeGoBuildEnvValue(
@@ -612,7 +618,12 @@ function resolveGoRootCacheIdentity(
   witness: PluginBuildEnvironmentWitness.Record | undefined,
   identities: PluginContentIdentities.Store | undefined,
 ): string {
-  const realpath = filesystem.realpath ?? RuntimeFilesystem.realpathWitness;
+  const realpath = (file: string): string => {
+    const raw = RuntimeFilesystem.rawRealpath(file);
+    return raw === undefined && filesystem.realpath !== undefined
+      ? filesystem.realpath(file)
+      : RuntimeFilesystem.realpathWitness(raw ?? file);
+  };
   // Resolve the root once. A physical byte witness still identifies a raw
   // target, while filesystem operations keep using the reported usable alias.
   // Ordinary subdirectories inherit
@@ -638,6 +649,7 @@ function resolveGoRootCacheIdentity(
     witness,
     identities?.references,
     realpath,
+    filesystem.readRawFile !== undefined,
     rootPhysical,
   );
   if (!snapshot.complete)
@@ -664,6 +676,7 @@ function resolveGoRootCacheIdentity(
               undefined,
               references,
               realpath,
+              filesystem.readRawFile !== undefined,
             );
       return current.complete
         ? { separable: current.separable, signature: current.signature }
@@ -673,11 +686,13 @@ function resolveGoRootCacheIdentity(
       const hash = crypto.createHash("sha256");
       hash.update(JSON.stringify(snapshot.topology));
       for (const file of snapshot.files) {
-        const relative = path
-          .relative(resolved, file)
-          .split(path.sep)
-          .join("/");
-        const contents = filesystem.readFile(file);
+        const relative = sdkRelative(resolved, file);
+        const raw = RuntimeFilesystem.rawRealpath(file);
+        const contents =
+          raw === undefined
+            ? filesystem.readFile(file)
+            : filesystem.readRawFile?.(raw);
+        if (contents === undefined) continue;
         hash.update(JSON.stringify([relative, contents.length]));
         hash.update(contents);
       }
@@ -695,9 +710,10 @@ function resolveGoRootCacheIdentity(
 
 function collectGoRootIdentitySnapshot(
   root: string,
-  witness?: PluginBuildEnvironmentWitness.Record,
-  references?: ReadonlyMap<bigint, bigint>,
-  realpath: (file: string) => string = fs.realpathSync.native,
+  witness: PluginBuildEnvironmentWitness.Record | undefined,
+  references: ReadonlyMap<bigint, bigint> | undefined,
+  realpath: (file: string) => string,
+  canReadRawFiles: boolean,
   rootPhysical?: string,
 ): GoRootIdentitySnapshot {
   const out: string[] = [];
@@ -712,13 +728,22 @@ function collectGoRootIdentitySnapshot(
     realpath,
     rootPhysical,
   );
-  out.sort();
+  if (out.some((file) => file.includes("\0"))) {
+    const names = new Map(out.map((file) => [file, sdkRelative(root, file)]));
+    out.sort((left, right) => {
+      const a = names.get(left)!;
+      const b = names.get(right)!;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+  } else out.sort();
   const signature = crypto.createHash("sha256");
   signature.update(JSON.stringify(topology));
   for (const file of out) {
-    const relative = path.relative(root, file).split(path.sep).join("/");
+    const relative = sdkRelative(root, file);
     try {
-      const stats = fs.statSync(file, { bigint: true });
+      const raw = RuntimeFilesystem.rawRealpath(file);
+      if (raw !== undefined && !canReadRawFiles) state.complete = false;
+      const stats = fs.statSync(raw ?? file, { bigint: true });
       PluginBuildEnvironmentWitness.add(witness, file, stats);
       if (!stats.isFile()) {
         state.complete = false;
@@ -760,7 +785,7 @@ function walkGoRootIdentity(
   topology: string[],
   state: { complete: boolean },
   witness?: PluginBuildEnvironmentWitness.Record,
-  realpath: (file: string) => string = fs.realpathSync.native,
+  realpath: (file: string) => string = RuntimeFilesystem.realpathWitness,
   rootPhysical?: string,
 ): void {
   // Go follows SDK junctions and file links. Observe the same target, including
@@ -773,13 +798,13 @@ function walkGoRootIdentity(
   const visited = new Set<string>();
   while (pending.length !== 0) {
     const { dir, physical: knownPhysical } = pending.pop()!;
-    const relative = path.relative(root, dir).split(path.sep).join("/");
+    const relative = sdkRelative(root, dir);
     PluginBuildEnvironmentWitness.add(witness, dir);
-    let entries: fs.Dirent[];
+    let entries: fs.Dirent<string | Buffer>[];
     let physical: string;
     try {
       physical = knownPhysical ?? realpath(dir);
-      const target = path.relative(root, physical).split(path.sep).join("/");
+      const target = sdkRelative(root, physical);
       topology.push(JSON.stringify([relative, target]));
       // The SDK root selects compiler/source regions. Within any selected
       // region, every payload can contribute through imports, embeds or tools.
@@ -788,19 +813,18 @@ function walkGoRootIdentity(
       const key = JSON.stringify([physical, policy]);
       if (visited.has(key)) continue;
       visited.add(key);
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-      entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      entries = sdkDirectoryEntries(dir);
     } catch {
       state.complete = false;
       continue;
     }
     for (const entry of entries) {
-      const file = path.join(dir, entry.name);
-      const rel = path.relative(root, file).split(path.sep).join("/");
+      const file = sdkJoin(dir, entry.name);
+      const rel = sdkRelative(root, file);
       let directory = entry.isDirectory();
       let regular = entry.isFile();
       let entryPhysical: string | undefined = directory
-        ? path.join(physical, entry.name)
+        ? sdkJoin(physical, entry.name)
         : undefined;
       if (entry.isSymbolicLink()) {
         if (
@@ -811,18 +835,20 @@ function walkGoRootIdentity(
         PluginBuildEnvironmentWitness.addLink(witness, file);
         PluginBuildEnvironmentWitness.add(witness, file);
         try {
-          topology.push(JSON.stringify([rel, "link", fs.readlinkSync(file)]));
-          const stats = fs.statSync(file, { bigint: true });
+          const native = RuntimeFilesystem.rawRealpath(file) ?? file;
+          const target =
+            process.platform === "win32"
+              ? fs.readlinkSync(native)
+              : sdkPathSpelling(
+                  fs.readlinkSync(native, { encoding: "buffer" }),
+                );
+          topology.push(JSON.stringify([rel, "link", target]));
+          const stats = fs.statSync(native, { bigint: true });
           directory = stats.isDirectory();
           regular = stats.isFile();
           const linkTarget = realpath(file);
           entryPhysical = linkTarget;
-          topology.push(
-            JSON.stringify([
-              rel,
-              path.relative(root, linkTarget).split(path.sep).join("/"),
-            ]),
-          );
+          topology.push(JSON.stringify([rel, sdkRelative(root, linkTarget)]));
         } catch (error) {
           const code = (error as NodeJS.ErrnoException).code;
           if (code !== "ENOENT" && code !== "ENOTDIR") state.complete = false;
@@ -832,7 +858,12 @@ function walkGoRootIdentity(
             // following-target and link witnesses reject later appearances
             // and retargeting before publication or environment reuse.
             try {
-              if (!fs.lstatSync(file).isSymbolicLink()) state.complete = false;
+              if (
+                !fs
+                  .lstatSync(RuntimeFilesystem.rawRealpath(file) ?? file)
+                  .isSymbolicLink()
+              )
+                state.complete = false;
               else topology.push(JSON.stringify([rel, "missing-target"]));
             } catch {
               state.complete = false;
@@ -846,6 +877,60 @@ function walkGoRootIdentity(
       else if (regular && shouldHashGoRootPath(rel, false)) out.push(file);
     }
   }
+}
+
+/**
+ * Read the common string listing once, resolving ambiguous POSIX names
+ * losslessly.
+ */
+function sdkDirectoryEntries(dir: string): fs.Dirent<string | Buffer>[] {
+  const native = RuntimeFilesystem.rawRealpath(dir) ?? dir;
+  const entries = fs.readdirSync(native, { withFileTypes: true });
+  if (
+    process.platform !== "win32" &&
+    entries.some((entry) => entry.name.includes("\ufffd"))
+  ) {
+    const byteEntries = fs.readdirSync(native, {
+      withFileTypes: true,
+      encoding: "buffer",
+    });
+    return byteEntries.sort((a, b) => Buffer.compare(a.name, b.name));
+  }
+  return entries.sort((a, b) =>
+    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+  );
+}
+
+/** Append one native directory entry without replacing undecodable bytes. */
+function sdkJoin(parent: string, name: string | Buffer): string {
+  const raw = RuntimeFilesystem.rawRealpath(parent);
+  if (raw === undefined && typeof name === "string")
+    return path.join(parent, name);
+  const directory = raw ?? Buffer.from(parent);
+  const separator = directory.at(-1) === 0x2f ? "" : "/";
+  return RuntimeFilesystem.nativePathWitness(
+    Buffer.concat([directory, Buffer.from(separator), Buffer.from(name)]),
+  );
+}
+
+/** Relative POSIX bytes use a reversible spelling per path component. */
+function sdkRelative(root: string, file: string): string {
+  const raw = RuntimeFilesystem.rawRealpath(file);
+  if (raw === undefined)
+    return path.relative(root, file).split(path.sep).join("/");
+  return path.posix
+    .relative(Buffer.from(root).toString("latin1"), raw.toString("latin1"))
+    .split("/")
+    .map((component) => sdkPathSpelling(Buffer.from(component, "latin1")))
+    .join("/");
+}
+
+/** NUL keeps native spellings and framed POSIX byte spellings disjoint. */
+function sdkPathSpelling(bytes: Buffer): string {
+  const spelling = bytes.toString();
+  return Buffer.from(spelling).equals(bytes)
+    ? spelling
+    : `\0${bytes.toString("base64url")}`;
 }
 
 function shouldHashGoRootPath(rel: string, isDir: boolean): boolean {

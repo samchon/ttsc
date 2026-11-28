@@ -76,7 +76,7 @@ export function readPluginBuildEnvironment(
     goBinary,
     directory,
     env,
-    { readFile: readSourceBuildFile },
+    { readFile: readSourceBuildFile, readRawFile: readSourceBuildFile },
     observed,
     identities,
     projectRoot,

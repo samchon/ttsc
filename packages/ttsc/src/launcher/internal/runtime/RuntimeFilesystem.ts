@@ -37,9 +37,26 @@ export namespace RuntimeFilesystem {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call observes current filesystem state.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The helper retains no resources beyond its returned witness.
    */
-  export function realpathWitness(file: string): string {
+  export function realpathWitness(file: string | Buffer): string {
     if (process.platform === "win32") return fs.realpathSync.native(file);
-    const bytes = fs.realpathSync.native(file, { encoding: "buffer" });
+    return nativePathWitness(
+      fs.realpathSync.native(file, { encoding: "buffer" }),
+    );
+  }
+
+  /**
+   * Encode an absolute POSIX path for native observations and proof storage.
+   *
+   * @evidence contracts/common.md#principled-implementation A UTF-8 round trip produces the native spelling or a reserved base64url byte witness.
+   * @evidence contracts/common.md#clear-and-simple-design Directory enumeration and realpath use one byte encoding.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts An undecodable path never becomes a lossy spelling.
+   * @evidence contracts/common.md#meaningful-documentation States the absolute-path input and purpose of the encoded result.
+   * @evidence contracts/portability.md#os-neutral-implementation POSIX callers preserve raw filesystem bytes when UTF-8 cannot carry them.
+   * @evidence contracts/performance.md#efficient-algorithms Encoding and verification scale with the bytes of one path.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation encodes only the supplied bytes.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Temporary buffers and the returned text are local to one encoding.
+   */
+  export function nativePathWitness(bytes: Buffer): string {
     const spelling = bytes.toString();
     return Buffer.from(spelling).equals(bytes)
       ? spelling

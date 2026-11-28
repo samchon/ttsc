@@ -2,9 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createNativeProjectContextJson } from "../compiler/internal/project/createNativeProjectContextJson";
+import { projectConsumerRoots } from "../compiler/internal/project/projectConsumerRoots";
+import { resolveProjectIdentity } from "../compiler/internal/project/resolveProjectIdentity";
 import { resolveBinary } from "../compiler/internal/resolveBinary";
 import { SidecarEnvironment } from "../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../internal/E2ETrace";
+import { OwnedSynchronousProcess } from "../internal/OwnedSynchronousProcess";
 import { TrustedNodeOptions } from "../internal/TrustedNodeOptions";
 import { javascriptRuntimeCapabilities } from "../internal/javascriptRuntimeCapabilities";
 import type {
@@ -103,13 +106,45 @@ export function resolveCapabilityPluginResolution(options: {
   // Discovery and an explicit local tsconfig can select different files from
   // the same cwd. NUL cannot occur in a filename, so this discovery key cannot
   // collide with an explicitly supplied path.
-  const tsconfig = options.tsconfig ?? `${String.fromCharCode(0)}discovered`;
+  const tsconfig = options.tsconfig ?? DISCOVERED_CONFIG;
+  const roots = capabilityConsumerRoots(cwd, tsconfig);
+  return OwnedSynchronousProcess.withProjectRoots(roots ?? [], () =>
+    resolveWithinProject(options, cwd, tsconfig, roots),
+  );
+}
+
+/** Preserve the selected config boundary before probing any runtime. */
+function capabilityConsumerRoots(
+  cwd: string,
+  tsconfig: string,
+): string[] | undefined {
+  try {
+    return projectConsumerRoots(
+      resolveProjectIdentity({
+        cwd,
+        tsconfig: tsconfig === DISCOVERED_CONFIG ? undefined : tsconfig,
+      }),
+    );
+  } catch {
+    // Actual project loading owns invalid or missing config diagnostics.
+    return undefined;
+  }
+}
+
+/** Resolve using the scratch boundaries of this synchronous request. */
+function resolveWithinProject(
+  options: Parameters<typeof resolveCapabilityPluginResolution>[0],
+  cwd: string,
+  tsconfig: string,
+  roots: readonly string[] | undefined,
+): ITtscCapabilityPluginResolution {
   // WARNING (#1725): every lookup proved the runtime by streaming it, and a hit
   // proved the plugin sources and the whole GOROOT by their bytes, in each
   // process. One store of the project's plugin cache serves every proof of
   // this resolution, opened only once the runtime may be cached at all.
   const identities = capabilityRecordStore(cwd);
-  const runtimeProved = capabilityRuntimeAuthorityComplete(cwd, identities);
+  const runtimeProved =
+    roots !== undefined && capabilityRuntimeAuthorityComplete(cwd, identities);
   const authority = runtimeProved
     ? CapabilityResolutionFormat.resolutionFile({
         cwd,
@@ -372,23 +407,27 @@ function resolved(
   return {
     isCurrent: () => {
       try {
-        if (
-          authority === null ||
-          !capabilityRuntimeAuthorityComplete(cwd, identities) ||
-          CapabilityResolutionFormat.resolutionFile({
+        if (authority === null) return false;
+        const roots = capabilityConsumerRoots(cwd, tsconfig);
+        if (roots === undefined) return false;
+        return OwnedSynchronousProcess.withProjectRoots(roots, () => {
+          if (
+            !capabilityRuntimeAuthorityComplete(cwd, identities) ||
+            CapabilityResolutionFormat.resolutionFile({
+              cwd,
+              tsconfig,
+              identities: identities(),
+            }) !== authority
+          )
+            return false;
+          const current = readCapabilityResolution({
             cwd,
             tsconfig,
+            version,
             identities: identities(),
-          }) !== authority
-        )
-          return false;
-        const current = readCapabilityResolution({
-          cwd,
-          tsconfig,
-          version,
-          identities: identities(),
+          });
+          return current !== null && JSON.stringify(current) === proof;
         });
-        return current !== null && JSON.stringify(current) === proof;
       } catch {
         return false;
       }
@@ -397,6 +436,8 @@ function resolved(
     status: "resolved",
   };
 }
+
+const DISCOVERED_CONFIG = "\0discovered";
 
 /**
  * This build, as the resolution cache's key material.

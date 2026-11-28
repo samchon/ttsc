@@ -34,11 +34,53 @@ export namespace OwnedSynchronousProcess {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This type allocates no native resource. The command owner releases accepted receipt storage.
    */
   export interface CommandOptions extends SpawnSyncOptions {
-    /** The primary consumer root when cwd is a separate working directory. */
-    projectRoot?: string;
+    /** Primary consumer root, or null for a projectless command. */
+    projectRoot?: string | null;
 
     /** Other consumer roots excluded from receipt storage. */
     additionalProjectRoots?: readonly string[];
+  }
+
+  /**
+   * Carry the selected project's consumer roots through a synchronous task. A
+   * nested task adds its boundaries for the duration of its own callback.
+   *
+   * @evidence contracts/common.md#principled-implementation The producer supplies selected roots before scratch or relay work, and finally restores the prior roots.
+   * @evidence contracts/common.md#clear-and-simple-design The same scope provides roots to direct scratch and delegated commands.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The scope never applies task roots to later callers or asynchronous continuations.
+   * @evidence contracts/common.md#meaningful-documentation Describes the synchronous scope and its nested ownership.
+   * @evidence contracts/portability.md#os-neutral-implementation Holds native path spellings without performing filesystem lookup.
+   * @evidence contracts/performance.md#efficient-algorithms Combines distinct outer and inner roots before running the callback.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Scope data grants no cached process or filesystem proof.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The combined root list remains scoped to one callback and no handle is acquired.
+   */
+  export function withProjectRoots<T>(
+    roots: readonly string[],
+    callback: () => T,
+  ): T {
+    const previous = projectRoots;
+    projectRoots = [...new Set([...previous, ...roots])];
+    try {
+      return callback();
+    } finally {
+      projectRoots = previous;
+    }
+  }
+
+  /**
+   * Borrow the current synchronous task's scratch boundaries.
+   *
+   * @evidence contracts/common.md#principled-implementation The active task supplies its selected roots, or an empty list when unscoped.
+   * @evidence contracts/common.md#clear-and-simple-design Scratch owners share the same task boundary list.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A caller cannot use this list as physical containment proof.
+   * @evidence contracts/common.md#meaningful-documentation Describes the borrowed list's synchronous lifetime.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation The accessor performs no native lookup.
+   * @evidence contracts/performance.md#efficient-algorithms Returns one borrowed array reference.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The scope grants no reusable result.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The getter retains nothing.
+   */
+  export function additionalProjectRoots(): readonly string[] {
+    return projectRoots;
   }
 
   /**
@@ -176,12 +218,12 @@ export namespace OwnedSynchronousProcess {
    * Delegate a command only through the installed owner's synchronous relay.
    * Undefined means no relay is installed; callers retain their native path.
    *
-   * @evidence contracts/common.md#principled-implementation The explicit relay receives the original command, argv and options, with cancellation guards before and after real completion.
+   * @evidence contracts/common.md#principled-implementation The relay receives the original command and argv with caller and task boundaries combined. Cancellation guards run before and after completion.
    * @evidence contracts/common.md#clear-and-simple-design Optional delegation preserves ordinary synchronous callers without importing supervisor policy here.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Undefined denotes absent delegation, never fabricated command success; the relay must return the actual joined command result.
    * @evidence contracts/common.md#meaningful-documentation Native prose identifies optional delegation and the ordinary caller's fallback responsibility.
    * @evidence contracts/portability.md#os-neutral-implementation Node spawn argument/options types cross the seam without shell string assembly; native containment remains the relay owner's responsibility.
-   * @evidence contracts/performance.md#efficient-algorithms A relay lookup and two guards surround one opaque synchronous launch; command execution, output buffers and joining are delegated costs.
+   * @evidence contracts/performance.md#efficient-algorithms Scoped launches merge root lists once before delegating native execution, output and joining.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Effectful commands are never cached or deduplicated by this seam.
    * @evidence contracts/performance.md#bound-retention-and-release-resources This function retains no child itself; the supplied relay owns actual containment and completion before returning, while scope restoration belongs to run.
    */
@@ -192,7 +234,21 @@ export namespace OwnedSynchronousProcess {
   ): SpawnSyncReturns<T> | undefined {
     if (current?.launch === undefined) return undefined;
     checkpoint();
-    const result = current.launch(command, args, options);
+    const result = current.launch(
+      command,
+      args,
+      projectRoots.length === 0
+        ? options
+        : {
+            ...options,
+            additionalProjectRoots: [
+              ...new Set([
+                ...projectRoots,
+                ...(options.additionalProjectRoots ?? []),
+              ]),
+            ],
+          },
+    );
     checkpoint();
     return result as SpawnSyncReturns<T>;
   }
@@ -239,3 +295,4 @@ export namespace OwnedSynchronousProcess {
 }
 
 let current: OwnedSynchronousProcess.Scope | undefined;
+let projectRoots: readonly string[] = [];

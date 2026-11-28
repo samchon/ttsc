@@ -9,12 +9,14 @@ import { createProjectTempDirectory } from "../../../internal/createProjectTempD
 import { CompilerTarget } from "./CompilerTarget";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
+import { GoWorkspaceEnvironment } from "./GoWorkspaceEnvironment";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "./PluginContentIdentities";
 import { PluginLoadAnswers } from "./PluginLoadAnswers";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
 import { ensureExecutableGoToolchain } from "./ensureExecutableGoToolchain";
+import { goToolVariables } from "./goToolVariables";
 import { pluginSourceDigest } from "./pluginSourceDigest";
 import { readPluginBuildEnvironment } from "./readPluginBuildEnvironment";
 import { resolveGoCompiler } from "./resolveGoCompiler";
@@ -169,13 +171,24 @@ export namespace NativeSourcePackages {
             launcherWitness,
           );
     const identity = selection?.identity;
-    if (selection !== undefined) {
+    const explicitLocal =
+      SidecarEnvironment.read(env, "GOTOOLCHAIN") === "local";
+    const workspaceIdentity = [
+      "package-selection",
+      identity,
+      goBinary,
+      goToolVariables(env),
+    ];
+    let workspace =
+      explicitLocal || selection === undefined
+        ? undefined
+        : GoWorkspaceEnvironment.recall(opts.identities, workspaceIdentity);
+    if (selection !== undefined && (explicitLocal || workspace !== undefined)) {
       const recalled = recallSelection(
-        PluginLoadAnswers.read(
-          opts.identities,
-          SELECTION_ANSWER,
+        PluginLoadAnswers.read(opts.identities, SELECTION_ANSWER, [
           selection.identity,
-        ),
+          workspace?.value ?? null,
+        ]),
         moduleRoot,
         opts.packages.length,
       );
@@ -265,6 +278,21 @@ export namespace NativeSourcePackages {
         opts.projectRoot,
         sourceRoots,
       );
+      if (
+        !explicitLocal &&
+        workspace === undefined &&
+        selection !== undefined
+      ) {
+        const observedWorkspace = GoWorkspaceEnvironment.observe({
+          directory: scratch,
+          env,
+          goBinary,
+          identities: opts.identities,
+          identity: workspaceIdentity,
+          projectRoot: opts.projectRoot,
+        });
+        if (observedWorkspace.qualified) workspace = observedWorkspace;
+      }
       const observed = read({
         cwd: scratch,
         entries: opts.packages.map((input) => input.entry),
@@ -280,12 +308,15 @@ export namespace NativeSourcePackages {
         observed.every((input) => input.Error === undefined) &&
         JSON.stringify(overlayDigests(env, opts.identities)) ===
           JSON.stringify(selection.identity.overlays) &&
-        PluginBuildEnvironmentWitness.reusable(selection.witness)
+        PluginBuildEnvironmentWitness.reusable(selection.witness) &&
+        (explicitLocal ||
+          (workspace !== undefined &&
+            PluginBuildEnvironmentWitness.reusable(workspace.witness)))
       )
         PluginLoadAnswers.write(
           opts.identities,
           SELECTION_ANSWER,
-          selection.identity,
+          [selection.identity, workspace?.value ?? null],
           observed.map((input) => ({
             ...input,
             Dir:

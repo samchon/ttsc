@@ -83,6 +83,7 @@ export namespace GoEnvironmentReading {
    *
    * @param identities Optional record store carrying the hint across processes.
    * @param projectRoot Consumer boundary for child output and scratch.
+   * @param additionalProjectRoots Other consumer roots excluded from scratch.
    * @returns Go's values and whether the launcher supplied them, or `undefined`
    *   when native acquisition or JSON decoding failed.
    * @evidence contracts/common.md#principled-implementation Actual Go supplies values and the environment-file path; pre-read metadata and bounded rediscovery preserve the earliest file witness instead of attaching a later state to an earlier read.
@@ -90,7 +91,7 @@ export namespace GoEnvironmentReading {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A remembered file name is only a discovery hint. Every call executes Go, and unresolved movement marks its witness unproven rather than lending a historical positive verdict.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why file discovery can repeat and distinguish unavailable acquisition from current authority.
    * @evidence contracts/portability.md#os-neutral-implementation Go reports its actual environment-file location; native path metadata and the existing Go process owner supply observation and execution semantics.
-   * @evidence contracts/performance.md#efficient-algorithms Hashing the complete tool/environment identity and up to three settings queries process full name/value/output bytes. A cold same-root answer can additionally query the launcher's local version once. File discovery uses metadata without an SDK walk.
+   * @evidence contracts/performance.md#efficient-algorithms Hashing the complete tool/environment identity and up to three JSON settings queries process full name/value/output bytes. A POSIX root containing the replacement character can add one plain byte confirmation to each settings query. A cold same-root answer can also query the launcher's local version once. File discovery uses metadata without an SDK walk.
    * @evidence contracts/performance.md#reuse-equivalent-work Each call queries current Go settings. File-location hints are shared in process and through the record store. A same-root launcher version is reused in process only for the same executable, environment and working directory while their metadata evidence holds.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The module retains one file-location hint per tool and environment and one current version proof per launcher path without eviction. The answer store collects persisted hints. Command capture belongs to spawnGoTool and the caller owns the settings witness.
    */
@@ -102,6 +103,7 @@ export namespace GoEnvironmentReading {
     witness: PluginBuildEnvironmentWitness.Record | undefined,
     identities?: PluginContentIdentities.Store,
     projectRoot?: string,
+    additionalProjectRoots?: readonly string[],
   ): { values: Record<string, unknown>; local: boolean } | undefined {
     const memo = crypto.createHash("sha256").update(goBinary);
     for (const [key, value] of Object.entries(env).sort(([left], [right]) =>
@@ -131,6 +133,7 @@ export namespace GoEnvironmentReading {
       if (named !== undefined && named !== null)
         PluginBuildEnvironmentWitness.add(witness, named);
       const result = spawnGoTool(goBinary, args, {
+        additionalProjectRoots,
         cwd,
         projectRoot,
         encoding: "utf8",
@@ -164,6 +167,7 @@ export namespace GoEnvironmentReading {
           activeRoot,
           witness,
           projectRoot,
+          additionalProjectRoots,
         )
       ) {
         // A decoded path can point to a different, usable SDK. Its metadata
@@ -184,6 +188,7 @@ export namespace GoEnvironmentReading {
                 memoKey,
                 witness,
                 projectRoot,
+                additionalProjectRoots,
               )));
       const reading = { values: parsed, local };
       let repeatForToolchain = false;
@@ -266,11 +271,13 @@ export namespace GoEnvironmentReading {
     root: string,
     witness: PluginBuildEnvironmentWitness.Record | undefined,
     projectRoot: string | undefined,
+    additionalProjectRoots: readonly string[] | undefined,
   ): boolean {
     if (witness !== undefined && !PluginBuildEnvironmentWitness.holds(witness))
       return false;
     let bytes: Buffer | undefined;
     const result = spawnGoTool(goBinary, ["env", "GOROOT"], {
+      additionalProjectRoots,
       cwd,
       projectRoot,
       encoding: "utf8",
@@ -313,7 +320,7 @@ export namespace GoEnvironmentReading {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No handwritten Go value or path is assumed: the values and the environment-file location still come from Go.
    * @evidence contracts/common.md#meaningful-documentation Native prose lists each witnessed dependency and why it can change the answer.
    * @evidence contracts/portability.md#os-neutral-implementation The key preserves Go's original cwd spelling and the caller's base for a relative cwd. Native directory identity qualifies the selected ancestry, and Go reports its own GOROOT and GOENV.
-   * @evidence contracts/performance.md#efficient-algorithms A hit hashes the variables and observes the physical and possible PWD ancestry, SDK and delegated PATH evidence recorded at the miss. A miss runs up to three settings queries and can add one cold launcher-version query when the reported root matches the launcher.
+   * @evidence contracts/performance.md#efficient-algorithms A hit hashes the variables and observes the physical and possible PWD ancestry, SDK and delegated PATH evidence recorded at the miss. A miss runs up to three JSON settings queries, each with a plain POSIX byte confirmation if the reported root contains the replacement character. It can also add one cold launcher-version query when the root matches the launcher.
    * @evidence contracts/performance.md#reuse-equivalent-work Equal tool, directory, keys and variables share one Go run across processes while the witness holds.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Records belong to the answer store's collector; nothing is retained in memory.
    */
@@ -325,6 +332,7 @@ export namespace GoEnvironmentReading {
     witness: PluginBuildEnvironmentWitness.Record | undefined,
     identities: PluginContentIdentities.Store | undefined,
     projectRoot?: string,
+    additionalProjectRoots?: readonly string[],
   ): Record<string, unknown> | undefined {
     const identity = [
       1,
@@ -355,6 +363,7 @@ export namespace GoEnvironmentReading {
       observed,
       identities,
       projectRoot,
+      additionalProjectRoots,
     );
     if (reading === undefined) return undefined;
     const { values } = reading;
@@ -412,6 +421,7 @@ export namespace GoEnvironmentReading {
     memoKey: string,
     witness: PluginBuildEnvironmentWitness.Record | undefined,
     projectRoot: string | undefined,
+    additionalProjectRoots: readonly string[] | undefined,
   ): string | undefined {
     const directory = nativeWorkingDirectory(cwd);
     const identity = JSON.stringify([memoKey, directory]);
@@ -429,6 +439,7 @@ export namespace GoEnvironmentReading {
     PluginBuildEnvironmentWitness.add(observed, goBinary);
     PluginBuildEnvironmentWitness.addDirectoryIdentity(observed, directory);
     const result = spawnGoTool(goBinary, ["env", "-json", "GOVERSION"], {
+      additionalProjectRoots,
       cwd,
       projectRoot,
       encoding: "utf8",

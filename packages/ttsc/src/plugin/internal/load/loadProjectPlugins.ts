@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { WatchInputPublication } from "../../../compiler/internal/build/WatchInputPublication";
+import { projectConsumerRoots } from "../../../compiler/internal/project/projectConsumerRoots";
 import { readJsonFile } from "../../../compiler/internal/project/readJsonFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
@@ -256,6 +257,7 @@ export namespace loadProjectPlugins {
       tsconfig: options.tsconfig,
     });
     const { project } = projectSnapshot;
+    const additionalProjectRoots = projectConsumerRoots(project.identity);
     const projectHostInputs = projectSnapshot.hostInputs;
     const projectHostInputHashes = projectSnapshot.hostInputHashes;
     const projectHostInputRealpaths = projectSnapshot.hostInputRealpaths;
@@ -313,9 +315,15 @@ export namespace loadProjectPlugins {
     // project's TypeScript line; the target travels in the environment.
     const effectiveEnv = CompilerTarget.buildEnv(
       callerEnv,
-      CompilerTarget.resolve(project.root, callerEnv, identities),
+      CompilerTarget.resolve(
+        project.root,
+        callerEnv,
+        identities,
+        additionalProjectRoots,
+      ),
       project.root,
       identities,
+      additionalProjectRoots,
     );
     const cwd = path.resolve(options.cwd ?? process.cwd());
     const context = {
@@ -333,6 +341,7 @@ export namespace loadProjectPlugins {
       identities,
       projectRoot: project.root,
       version: pluginBuildVersions(project.root).ttsc,
+      additionalProjectRoots,
     };
     const loadedEntries = withPluginLoaderEnv(
       () =>
@@ -445,6 +454,7 @@ export namespace loadProjectPlugins {
           };
         }),
       identities,
+      additionalProjectRoots,
     );
     const plugins = composePluginSources(
       entries,
@@ -491,6 +501,10 @@ export namespace loadProjectPlugins {
       string,
       PluginBuildEnvironmentWitness.Record
     >();
+    let workspaceEnvironmentsMatchSources = true;
+    const onWorkspaceEnvironment = (matchesSource: boolean): void => {
+      workspaceEnvironmentsMatchSources &&= matchesSource;
+    };
     const compilerDeclaration =
       candidates.length === 0
         ? undefined
@@ -857,6 +871,7 @@ export namespace loadProjectPlugins {
           source: record.source,
           environmentDigests,
           environmentWitnesses,
+          onWorkspaceEnvironment,
           overlayDirs,
           sourceDigests,
           ttscVersion,
@@ -883,6 +898,7 @@ export namespace loadProjectPlugins {
             ),
             environmentDigests,
             environmentWitnesses,
+            onWorkspaceEnvironment,
             overlayDirs,
             sourceDigests,
             ttscVersion,
@@ -915,6 +931,7 @@ export namespace loadProjectPlugins {
                 source: record.source,
                 environmentDigests,
                 environmentWitnesses,
+                onWorkspaceEnvironment,
                 overlayDirs,
                 sourceDigests,
                 ttscVersion,
@@ -980,7 +997,8 @@ export namespace loadProjectPlugins {
       discoveryInputsComplete: project.configInputsComplete === true,
       ...(identities === undefined ? {} : { identities }),
       nativePlugins: orderNativePlugins(nativePlugins),
-      ...(loadedEntries.some((entry) => !entry.observationsComplete)
+      ...(!workspaceEnvironmentsMatchSources ||
+      loadedEntries.some((entry) => !entry.observationsComplete)
         ? { observationsComplete: false as const }
         : {}),
       // The directories the watch inputs named before the builds, as the builds
@@ -1631,6 +1649,9 @@ interface DescriptorCacheOptions {
   /** Source-project cache anchor, independent of descriptor consumer context. */
   projectRoot: string;
 
+  /** Invocation and selected config directories excluded from scratch. */
+  additionalProjectRoots: readonly string[];
+
   /** This ttsc build's version. */
   version: string;
 }
@@ -1681,7 +1702,10 @@ function loadCommonJsDescriptor(
   const effectiveEnv = TtsxNodeOptions.forHelpers(loadEnv);
   const runtime = pluginDescriptorRuntimeBinary(effectiveEnv);
   const ttsx = effectiveEnv.TTSC_TTSX_BINARY ?? process.env.TTSC_TTSX_BINARY;
-  const additionalProjectRoots = descriptorConsumerRoots(context);
+  const additionalProjectRoots = descriptorConsumerRoots(
+    descriptorCache,
+    context,
+  );
   const runtimeCapabilities = javascriptRuntimeCapabilities(
     runtime,
     effectiveEnv,
@@ -2214,7 +2238,10 @@ function loadDescriptorViaTtsx(
   // Binary discovery prefers the instance environment, then the ambient
   // process.env (where `withPluginLoaderEnv` injects ttsc's own node/ttsx paths
   // just before this runs), then the running interpreter.
-  const additionalProjectRoots = descriptorConsumerRoots(context);
+  const additionalProjectRoots = descriptorConsumerRoots(
+    descriptorCache,
+    context,
+  );
   const node = resolveNodeBinary(
     effectiveEnv,
     descriptorCache.projectRoot,
@@ -2527,10 +2554,16 @@ function errorMessage(error: unknown): string {
 function withPluginLoaderEnv<T>(
   run: () => T,
   identities: PluginContentIdentities.Store | undefined,
+  additionalProjectRoots: readonly string[],
 ): T {
   const previousNode = process.env.TTSC_NODE_BINARY;
   const previousTtsx = process.env.TTSC_TTSX_BINARY;
-  const node = resolveNodeBinary({}, process.cwd(), identities);
+  const node = resolveNodeBinary(
+    {},
+    process.cwd(),
+    identities,
+    additionalProjectRoots,
+  );
   if (process.env.TTSC_NODE_BINARY === undefined && node !== undefined) {
     process.env.TTSC_NODE_BINARY = node;
   }
@@ -2731,9 +2764,10 @@ function ttscPackageRoot(): string {
 
 /** Boundaries shared by probe, evaluation and command receipt scratch. */
 function descriptorConsumerRoots(
+  cache: DescriptorCacheOptions,
   context: ITtscPluginFactoryContext,
 ): string[] {
-  return [context.cwd, path.dirname(context.tsconfig), context.dirname];
+  return [...cache.additionalProjectRoots, context.dirname];
 }
 
 /**
@@ -2825,7 +2859,6 @@ function spawnOwnedDescriptor(
     OwnedSynchronousProcess.launch<string>(command, args, {
       ...options,
       additionalProjectRoots,
-    }) ??
-    childProcess.spawnSync(command, args, options)
+    }) ?? childProcess.spawnSync(command, args, options)
   );
 }

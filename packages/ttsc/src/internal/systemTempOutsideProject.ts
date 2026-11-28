@@ -2,6 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
+
 /**
  * Select an existing system temporary directory outside the current project. An
  * ambient TEMP can be a missing or redirected project path. Resolve both sides
@@ -37,7 +39,8 @@ export function systemTempOutsideProject(
 
 /**
  * Find verified system temp parents in preference order. Each caller owns
- * allocation and can advance past a parent that refuses its write.
+ * allocation and can advance past a parent that refuses its write. The current
+ * synchronous task's project roots join those passed by the caller.
  *
  * @evidence contracts/common.md#principled-implementation Each candidate is an existing native directory outside the given project boundaries and any project found in the candidate's ancestry.
  * @evidence contracts/common.md#clear-and-simple-design Both first-choice selection and callers that retry allocation share the same read-only policy.
@@ -55,7 +58,11 @@ export namespace systemTempOutsideProject {
     additionalProjectRoots: readonly string[] = [],
   ): Generator<{ spelling: string; directory: string }> {
     const roots = new Set<string>();
-    for (const input of new Set([projectRoot, ...additionalProjectRoots])) {
+    for (const input of new Set([
+      projectRoot,
+      ...additionalProjectRoots,
+      ...OwnedSynchronousProcess.additionalProjectRoots(),
+    ])) {
       let directory = fs.realpathSync.native(input);
       if (path.dirname(directory) !== directory) roots.add(directory);
       for (;;) {

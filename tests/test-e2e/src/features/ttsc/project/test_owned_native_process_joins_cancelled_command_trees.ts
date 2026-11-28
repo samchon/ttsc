@@ -18,10 +18,10 @@ import { FixtureFiles } from "../../../internal/FixtureFiles";
  *    static Node inputs. Verify transport and native POSIX cwd traversal.
  * 2. Enroll live targets, then require their original lifetimes retired and late
  *    effects absent.
- * 3. Require recovery with an excluded consumer root and a read-only primary
- *    temp directory, and reject an incompatible supervisor before admission.
- * 4. Cancel an actual resolver runtime probe and reject active/queued work after
- *    unknown proof.
+ * 3. Require recovery with an excluded consumer root and a read-only primary temp
+ *    directory, and reject an incompatible supervisor before admission.
+ * 4. Check receipt placement during a real external-config runtime probe, then
+ *    cancel a probe and reject active/queued work after unknown proof.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual run calls exercise the Go helper and Node commands. Literal argv, environment, cwd, stdin hex, diagnostic text and status23 assert transport; ENOENT and ENOBUFS assert failure identity. A ready test observer enrolls each live command before effects or fast exit; product join must immediately yield retired on its original kernel lifetime. Parent and grandchild enrollment precedes cancellation, which must preserve original abort identity and prevent the unchanged 500ms late marker. Every command observes its joined, not-started or unknown classification. A watcher and final listing observe project-local TEMP. A POSIX actor with a traversable but unwritable primary TEMP must run its target and receive joined retirement. Incompatible and missing supervisors cannot admit the marker target. Null, unproved object and malformed nested receipt fields remain unknown and retained; literal diagnostic expectations require approved native fields or structure markers and exclude authored output/extra decoys. Original execution, verification and cleanup failures remain observable.
  * @evidence contracts/testing.md#independent-expectations Authored Node inputs independently report argv/cwd/env/stdin and prescribe status23. Literal bytes distinguish DataView slices and latin1 encoding. Native retained Windows handles, Linux pidfds or Darwin knotes supply original lifetime authority, independent from SDK receipts and numeric PID reuse; wait uses zero timeout after product join. The grandchild's original publication clock and 500ms marker supply a separate effect oracle. An incompatible preload writes null, never a valid cleanup certificate. Actual retained directory/null receipt observations require preservation; unknown is lack of retirement authority, not an asserted OS refusal or reproduced PID reuse.
@@ -30,7 +30,7 @@ import { FixtureFiles } from "../../../internal/FixtureFiles";
  * @evidence contracts/e2e.md#necessary-boundary Native containment and the SDK's control pipe/result receipt must retire a real Node descendant tree; pure parsing or synthetic promise settlement cannot establish that connection.
  * @evidence contracts/e2e.md#shared-execution One existing runtime consumer supplies the SDK installation and already built product helper. The Runtime caller lends its ready observer after all descendant controller requests settle; standalone callers prepare one isolated test observer/session. The lender owns its one final close. Separate command lifetimes distinguish nonzero, missing target, overflow and cancellation. Three resolver actors require conflicting helper/preload environments or queued-admission scheduling and separate workers, while sharing the SDK and observer without another installation or TypeScript Program. Actual configured-plugin runtime probing precedes descriptor preparation.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One copied fixture owns unique role/session publications and markers. Live target gates precede effects; grandchild enrollment leaves its timer and interval unchanged. Nonce, role, PID and opaque target acknowledgements must match. Inner actors request original-lifetime retirement proof before success; the containing E2E native owner supplies operator cancellation, and finally awaits every operation and closes the observer through its explicit closed acknowledgement and actual original process close. Positive readiness and completion have no test-authored expiry; actual operation settlement, protocol failure and supported cancellation remain distinct. Only actor options.env changes isolated authority, never the test environment. Unknown observer or product retirement retains exact allocations and blocks unsafe later target work; observed incompatible-helper exit cannot certify its unknown SDK tree. Fixed actor error receipts are atomic diagnostic snapshots checked against the current session and role, and the enrolled PID when enrollment was observed; missing, partial or foreign snapshots cannot certify closure or erase the original failure, and late publication remains unknown. Actual SDK serialization preserves causes and aggregates without a second serializer. Normal roots remain exit-tracked.
- * @evidence contracts/e2e.md#preserved-coverage Existing transport, input, missing-target, overflow, tree, recovery, RPC and supervisor-refusal rows collect outcomes alongside a POSIX read-only TEMP actor that shares the prepared SDK and helper. The queued-command row blocks only the main dispatcher until real worker command publication. Explicit close then cancels without retained ownership failures and retires the actor's original lifetime. The containing native owner's closure adjudication controls input release or retention while callbacks are blocked. RPC cancellation retains the original Error through worker close. Unknown proof retains first/queued rejection, one helper admission and the exact retained directory. The invalid row independently collects null, unproved object and malformed field cases with distinct helper lifetimes. Missing target/supervisor rows require no target admission. Native platform units, cold publication and MCP EOF coverage remain separate.
+ * @evidence contracts/e2e.md#preserved-coverage Existing transport, input, missing-target, overflow, tree, recovery, RPC and supervisor-refusal rows collect outcomes alongside the scratch-placement actors. A trusted preload observes receipt placement while the real external-config worker probe is alive. The queued-command row blocks only the main dispatcher until real worker command publication. Explicit close then cancels without retained ownership failures and retires the actor's original lifetime. The containing native owner's closure adjudication controls input release or retention while callbacks are blocked. RPC cancellation retains the original Error through worker close. Unknown proof retains first/queued rejection, one helper admission and the exact retained directory. The invalid row independently collects null, unproved object and malformed field cases with distinct helper lifetimes. Missing target/supervisor rows require no target admission. Native platform units, cold publication and MCP EOF coverage remain separate.
  */
 export async function test_owned_native_process_joins_cancelled_command_trees(
   consumerRoot: string,
@@ -710,6 +710,76 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
         }
       });
     }
+    await check(
+      "capability probe receipt skips external config directory",
+      async () => {
+        const configDirectory = TestProject.tmpdir("ttsc-capability-consumer-");
+        const tsconfig = path.join(configDirectory, "custom.json");
+        fs.writeFileSync(tsconfig, '{"files":["entry.ts"]}');
+        fs.writeFileSync(
+          path.join(configDirectory, "entry.ts"),
+          "export {};\n",
+        );
+        const proof = path.join(root, "capability-receipt.txt");
+        const preload = path.join(root, "observe-capability-receipt.cjs");
+        fs.writeFileSync(
+          preload,
+          `
+          if (process.argv.length === 1) {
+            const fs = require("node:fs");
+            const receipts = fs.readdirSync(${JSON.stringify(configDirectory)})
+              .filter((name) => name.startsWith("ttsc-owned-process-"));
+            fs.appendFileSync(${JSON.stringify(proof)}, receipts.length + "\\n");
+          }
+        `,
+        );
+        const result = await owner.OwnedNativeProcess.run(
+          process.execPath,
+          [
+            "-e",
+            `
+            const assert = require("node:assert/strict");
+            const { CapabilityPluginResolver } = require(process.argv[1]);
+            const resolver = new CapabilityPluginResolver();
+            (async () => {
+              try {
+                const result = await resolver.resolve({
+                  capability: "lsp",
+                  cwd: process.cwd(),
+                  tsconfig: process.argv[2],
+                });
+                assert.equal(result.status, "resolved");
+                await result.release();
+              } finally {
+                await resolver.close();
+              }
+            })().catch((error) => {
+              console.error(error);
+              process.exitCode = 1;
+            });
+          `,
+            sdkIndex,
+            tsconfig,
+          ],
+          {
+            cwd: root,
+            env: {
+              ...env,
+              NODE_OPTIONS: "--require " + JSON.stringify(preload),
+              TEMP: configDirectory,
+              TMP: configDirectory,
+              TMPDIR: configDirectory,
+              TTSC_CACHE_DIR: path.join(root, "capability-receipt-cache"),
+              TTSC_CACHE_TRUSTED_PRELOADS: TestProject.physicalPath(preload),
+              TTSC_NODE_BINARY: process.execPath,
+            },
+            encoding: "utf8",
+          },
+        );
+        assert.equal(result.status, 0, String(result.stderr));
+        assert.match(fs.readFileSync(proof, "utf8"), /^(?:0\n)+$/);
+      },
+    );
     await check("actual RPC runtime authority cancellation", async () => {
       const result = await observe(
         (signal) =>

@@ -1,7 +1,4 @@
-import {
-  type SpawnSyncReturns,
-  spawn,
-} from "node:child_process";
+import { type SpawnSyncReturns, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,11 +38,11 @@ export namespace OwnedNativeProcess {
    * never authorizes release.
    *
    * The receipt directory stays outside the primary and additional consumer
-   * roots. The command's working directory supplies the primary boundary when
-   * no project root is supplied. A permission refusal can advance to another
-   * qualified system temporary parent.
-   * POSIX working-directory spelling retains parent components for native
-   * lookup after following links.
+   * roots. The command's working directory supplies the boundary by default. A
+   * projectless command uses the system temp marker checks. A permission
+   * refusal can advance to another qualified system temporary parent. POSIX
+   * working-directory spelling retains parent components for native lookup
+   * after following links.
    *
    * Enabled private tracing may receive a frozen scalar copy of an accepted
    * receipt through the existing retirement observer. The original helper has
@@ -172,7 +169,7 @@ export namespace OwnedNativeProcess {
     })}\n`;
     const directory = createProjectTempDirectory(
       "ttsc-owned-process-",
-      options.projectRoot ?? cwd,
+      options.projectRoot === null ? undefined : (options.projectRoot ?? cwd),
       options.additionalProjectRoots,
     );
     const resultFile = path.join(directory, "result.json");

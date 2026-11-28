@@ -301,18 +301,30 @@ export namespace PluginBuildEnvironmentWitness {
   /** Observe the link before its target, under the same metadata premise. */
   function linkSignature(file: string): string {
     try {
-      const stat = fs.lstatSync(file, { bigint: true });
+      const native = RuntimeFilesystem.rawRealpath(file) ?? file;
+      const stat = fs.lstatSync(native, { bigint: true });
       return JSON.stringify([
         stat.dev.toString(),
         stat.ino.toString(),
         stat.size.toString(),
         stat.mtimeNs.toString(),
         stat.ctimeNs.toString(),
-        fs.readlinkSync(file),
+        process.platform === "win32"
+          ? fs.readlinkSync(native)
+          : posixLinkTarget(native),
       ]);
     } catch {
       return "missing";
     }
+  }
+
+  /** Preserve native link bytes without changing valid UTF-8 signatures. */
+  function posixLinkTarget(file: string | Buffer): string | [string, string] {
+    const target = fs.readlinkSync(file, { encoding: "buffer" });
+    const spelling = target.toString();
+    return Buffer.from(spelling).equals(target)
+      ? spelling
+      : ["bytes", target.toString("base64url")];
   }
 
   function directorySignature(
@@ -321,10 +333,11 @@ export namespace PluginBuildEnvironmentWitness {
     physical?: string,
   ): string {
     try {
-      const stat = observed ?? fs.statSync(directory, { bigint: true });
+      const native = RuntimeFilesystem.rawRealpath(directory) ?? directory;
+      const stat = observed ?? fs.statSync(native, { bigint: true });
       if (!stat.isDirectory()) return "missing";
       return JSON.stringify([
-        physical ?? RuntimeFilesystem.realpathWitness(directory),
+        physical ?? RuntimeFilesystem.realpathWitness(native),
         stat.dev.toString(),
         stat.ino.toString(),
         stat.mode.toString(),
@@ -344,7 +357,11 @@ export namespace PluginBuildEnvironmentWitness {
   function signature(file: string, observed?: fs.BigIntStats | null): string {
     if (observed === null) return "missing";
     try {
-      const stat = observed ?? fs.statSync(file, { bigint: true });
+      const stat =
+        observed ??
+        fs.statSync(RuntimeFilesystem.rawRealpath(file) ?? file, {
+          bigint: true,
+        });
       return [
         stat.dev,
         stat.ino,

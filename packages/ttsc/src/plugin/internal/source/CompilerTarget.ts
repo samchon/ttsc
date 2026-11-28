@@ -108,6 +108,7 @@ export namespace CompilerTarget {
    * @param projectRoot Project whose compiler is resolved.
    * @param env Effective environment of the load.
    * @param identities Optional record store of the project's plugin cache.
+   * @param additionalProjectRoots Consumer roots excluded from version scratch.
    * @evidence contracts/common.md#principled-implementation resolveTsgo locates the same compiler the project's build runs; its manifest version is used, and a custom binary is asked for --version since it has no manifest. An unresolvable compiler maps to the 7.0 default, leaving the build's own resolution to report it.
    * @evidence contracts/common.md#clear-and-simple-design Version reading stays here and line mapping in lineOf; callers receive only the line.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The project's real compiler decides the target; no fixture name or path pattern does.
@@ -121,8 +122,14 @@ export namespace CompilerTarget {
     projectRoot: string,
     env: NodeJS.ProcessEnv,
     identities?: PluginContentIdentities.Store,
+    additionalProjectRoots?: readonly string[],
   ): Line {
-    const version = installedVersion(projectRoot, env, identities);
+    const version = installedVersion(
+      projectRoot,
+      env,
+      identities,
+      additionalProjectRoots,
+    );
     const { line, newer } = lineOf(version);
     if (newer && !warned.has(version)) {
       warned.add(version);
@@ -160,6 +167,7 @@ export namespace CompilerTarget {
     line: Line,
     cwd: string,
     identities?: PluginContentIdentities.Store,
+    additionalProjectRoots?: readonly string[],
   ): NodeJS.ProcessEnv {
     const additions: string[] = [];
     if (line === "7.1") additions.push(TYPESCRIPT_7_1_TAG);
@@ -167,7 +175,7 @@ export namespace CompilerTarget {
     if (additions.length === 0) return env;
     const current =
       SidecarEnvironment.read(env, "GOFLAGS") ||
-      storedGoFlags(env, cwd, identities);
+      storedGoFlags(env, cwd, identities, additionalProjectRoots);
     const flags = parseFlags(current);
     if (flags === undefined) return env;
     const setting = flags.tags.at(-1);
@@ -333,6 +341,7 @@ export namespace CompilerTarget {
     env: NodeJS.ProcessEnv,
     cwd: string,
     identities: PluginContentIdentities.Store | undefined,
+    additionalProjectRoots: readonly string[] | undefined,
   ): string {
     const goBinary = GoToolResolution.resolveGoToolForBuild(
       resolveGoCompiler(env).binary,
@@ -346,6 +355,8 @@ export namespace CompilerTarget {
       ["GOFLAGS"],
       undefined,
       identities,
+      undefined,
+      additionalProjectRoots,
     );
     return typeof values?.GOFLAGS === "string" ? values.GOFLAGS : "";
   }
@@ -359,6 +370,7 @@ export namespace CompilerTarget {
     projectRoot: string,
     env: NodeJS.ProcessEnv,
     identities: PluginContentIdentities.Store | undefined,
+    additionalProjectRoots: readonly string[] | undefined,
   ): string {
     let tsgo: ReturnType<typeof resolveTsgo>;
     try {
@@ -379,6 +391,7 @@ export namespace CompilerTarget {
       if (typeof recorded === "string") return recorded;
     }
     const result = spawnNative(tsgo.binary, ["--version"], {
+      additionalProjectRoots,
       cwd: projectRoot,
       env,
     });

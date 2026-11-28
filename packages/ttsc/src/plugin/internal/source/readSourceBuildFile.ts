@@ -13,7 +13,7 @@ import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFil
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each operation reads current file bytes.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The shared reader closes any descriptor before returning. The caller owns the returned bytes.
  */
-export function readSourceBuildFile(location: string): Buffer {
+export function readSourceBuildFile(location: string | Buffer): Buffer {
   const bytes = RuntimeFilesystem.readObservedRegularFile(location);
   if (bytes === undefined)
     throw new Error(

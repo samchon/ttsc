@@ -151,6 +151,7 @@ export function computeCacheKey(inputs: {
   // binaries produced by the former absolute-ancestry layout out of this
   // layout's cache admissions, including callers with no SDK overlays.
   hash.update(JSON.stringify(["external-source-layout", 1]));
+  hash.update(JSON.stringify(["generated-workspace-toolchain", 1]));
   const overlays = [...(inputs.overlayDirs ?? [])].sort();
   // Hash contributors in sorted-by-name order so two consumers with the
   // same logical set produce the same key regardless of declaration order
@@ -269,6 +270,7 @@ export function computeCacheKey(inputs: {
 const DEFAULT_SOURCE_BUILD_FILESYSTEM: SourceBuildFilesystemOperations =
   Object.freeze({
     readFile: readSourceBuildFile,
+    readRawFile: readSourceBuildFile,
   });
 
 function hashSourceDirectory(

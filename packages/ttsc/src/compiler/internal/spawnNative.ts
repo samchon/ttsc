@@ -57,6 +57,13 @@ export function spawnNative(
   },
 ): SpawnSyncReturns<string | Buffer> {
   const viaNode = /\.(?:[cm]?js|ts)$/i.test(binary);
+  const spawnOptions = {
+    additionalProjectRoots: options.additionalProjectRoots,
+    cwd: options.cwd,
+    env: options.env,
+    projectRoot: options.projectless === true ? null : undefined,
+    windowsHide: true,
+  };
   if (!viaNode) {
     ensureExecutable(binary);
   }
@@ -69,10 +76,8 @@ export function spawnNative(
       viaNode ? process.execPath : binary,
       viaNode ? [binary, ...args] : [...args],
       {
-        cwd: options.cwd,
-        env: options.env,
+        ...spawnOptions,
         stdio: ["ignore", "pipe", "pipe"],
-        windowsHide: true,
         maxBuffer: Infinity,
       },
     );
@@ -106,10 +111,8 @@ export function spawnNative(
       viaNode ? process.execPath : binary,
       viaNode ? [binary, ...args] : [...args],
       {
-        cwd: options.cwd,
-        env: options.env,
+        ...spawnOptions,
         stdio: ["ignore", capture.stdoutFd, capture.stderrFd],
-        windowsHide: true,
       },
       { stderr: capture.stderrPath, stdout: capture.stdoutPath },
     );

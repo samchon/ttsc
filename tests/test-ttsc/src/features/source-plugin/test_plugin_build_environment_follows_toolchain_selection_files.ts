@@ -6,9 +6,11 @@ import path from "node:path";
 import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/SidecarEnvironment";
 import { GoEnvironmentReading } from "../../../../../packages/ttsc/src/plugin/internal/source/GoEnvironmentReading";
 import { GoToolResolution } from "../../../../../packages/ttsc/src/plugin/internal/source/GoToolResolution";
+import { GoWorkspaceEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/GoWorkspaceEnvironment";
 import { PluginBuildEnvironmentReadings } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentReadings";
 import { PluginBuildEnvironmentWitness } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginContentIdentities";
+import { SourcePluginWorkspace } from "../../../../../packages/ttsc/src/plugin/internal/source/SourcePluginWorkspace";
 import { computeCacheKey } from "../../../../../packages/ttsc/src/plugin/internal/source/computeCacheKey";
 import { pluginBuildEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginBuildEnvironment";
 import { readPluginBuildEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/readPluginBuildEnvironment";
@@ -595,4 +597,124 @@ function verifyDelegatedEnvironment(props: {
     });
   };
   assert.equal(key(true), key(false));
+  const alternateIsNewer =
+    version.localeCompare(local.GOVERSION, "en", {
+      numeric: true,
+    }) > 0;
+  verifyGeneratedWorkspaceToolchain({
+    older: alternateIsNewer ? binary : executable,
+    olderVersion: alternateIsNewer ? local.GOVERSION : version,
+    newer: alternateIsNewer ? executable : binary,
+    newerVersion: alternateIsNewer ? version : local.GOVERSION,
+    env,
+    root,
+    store,
+  });
+}
+
+/** An overlay can require a toolchain the source module alone never selects. */
+function verifyGeneratedWorkspaceToolchain(props: {
+  older: string;
+  olderVersion: string;
+  newer: string;
+  newerVersion: string;
+  env: NodeJS.ProcessEnv;
+  root: string;
+  store: PluginContentIdentities.Store | undefined;
+}): void {
+  const workspace = path.join(props.root, "generated-workspace");
+  const overlay = path.join(props.root, "workspace-overlay");
+  for (const [directory, version, name] of [
+    [workspace, props.olderVersion, "source"],
+    [overlay, props.newerVersion, "overlay"],
+  ] as const) {
+    fs.mkdirSync(directory);
+    fs.writeFileSync(
+      path.join(directory, "go.mod"),
+      `module example.com/${name}\n\ngo ${version.slice(2)}\n`,
+    );
+  }
+  const early = path.join(props.root, "workspace-early");
+  const late = path.join(props.root, "workspace-late");
+  const install = (sdk: string, tag: string): void => {
+    const tool = path.join(
+      sdk,
+      "bin",
+      props.newerVersion + path.extname(props.newer),
+    );
+    fs.copyFileSync(props.newer, tool);
+    if (process.platform !== "win32") fs.chmodSync(tool, 0o755);
+    fs.writeFileSync(path.join(sdk, "go.env"), `GOFLAGS=-tags=${tag}\n`);
+  };
+  for (const sdk of [early, late])
+    for (const component of ["bin", "pkg/tool", "src/runtime"])
+      fs.mkdirSync(path.join(sdk, component), { recursive: true });
+  install(late, "workspace_late");
+  const env = SidecarEnvironment.merge(props.env, {
+    PATH: [early, late]
+      .map((name) => path.join(name, "bin"))
+      .join(path.delimiter),
+    GOTOOLCHAIN: "path",
+  });
+  const opts = {
+    directory: workspace,
+    env,
+    goBinary: props.older,
+    identities: props.store,
+    identity: "overlay-switch-control",
+    projectRoot: props.root,
+  };
+  const native = () =>
+    spawnSync(props.older, ["env", "GOVERSION"], {
+      cwd: workspace,
+      env,
+      encoding: "utf8",
+      windowsHide: true,
+    });
+  assert.equal(native().stdout.trim(), props.olderVersion);
+  SourcePluginWorkspace.writeGoWork(
+    workspace,
+    [],
+    props.older,
+    "workspace-sdk-local-unit",
+    env,
+    undefined,
+    undefined,
+    props.root,
+  );
+  const localIdentity = "local-workspace-control";
+  const local = GoWorkspaceEnvironment.observe({
+    ...opts,
+    identity: localIdentity,
+  });
+  assert.equal(local.local, true);
+  fs.unlinkSync(path.join(workspace, "go.work"));
+  if (props.store !== undefined)
+    assert.equal(
+      GoWorkspaceEnvironment.recall(props.store, localIdentity)?.value,
+      local.value,
+    );
+  SourcePluginWorkspace.writeGoWork(
+    workspace,
+    [overlay],
+    props.older,
+    "workspace-sdk-unit",
+    env,
+    undefined,
+    undefined,
+    props.root,
+  );
+  assert.equal(native().stdout.trim(), props.newerVersion);
+  const prior = GoWorkspaceEnvironment.observe(opts);
+  assert.equal(prior.qualified, true);
+  assert.equal(
+    GoWorkspaceEnvironment.recall(props.store, opts.identity),
+    undefined,
+  );
+  install(early, "workspace_early");
+  assert.equal(PluginBuildEnvironmentWitness.holds(prior.witness), false);
+  assert.equal(native().stdout.trim(), props.newerVersion);
+  const changed = GoWorkspaceEnvironment.observe(opts);
+  assert.equal(changed.qualified, true);
+  assert.notEqual(changed.value, prior.value);
 }

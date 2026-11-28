@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { OwnedSynchronousProcess } from "../../internal/OwnedSynchronousProcess";
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
 import { createProjectTempDirectory } from "../../internal/createProjectTempDirectory";
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
@@ -57,6 +58,7 @@ export function captureProcessOutput(
       ? SidecarEnvironment.read(env, "TTSC_PLUGIN_RECORD_ROOT")
       : undefined;
   const recordParent = selectedRecordIdentityTempParent(recordRoot, [
+    ...OwnedSynchronousProcess.additionalProjectRoots(),
     ...additionalProjectRoots,
     ...(projectRoot === null ? [] : [projectRoot, process.cwd()]),
   ]);
