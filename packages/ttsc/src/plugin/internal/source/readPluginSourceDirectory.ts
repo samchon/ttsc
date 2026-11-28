@@ -15,7 +15,7 @@ import { readPosixDirectoryEntries } from "./readPosixDirectoryEntries";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Valid UTF-8 containing U+FFFD is admitted and an unavailable byte spelling is never substituted with it.
  * @evidence contracts/common.md#meaningful-documentation States why the string boundary refuses a name and how the diagnostic identifies it.
  * @evidence contracts/portability.md#os-neutral-implementation Windows uses native string names. POSIX uses buffer names and a UTF-8 validity check before emitting strings.
- * @evidence contracts/performance.md#efficient-algorithms One native readdir and a linear pass over the entry name bytes; no stat is needed to check an ordinary Dirent name.
+ * @evidence contracts/performance.md#efficient-algorithms Checks entry name bytes in one pass. Node and Windows use typed listings, while Bun on POSIX classifies each byte name with lstat and checks the parent after a missing-component error.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each caller needs its own current entries.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The generator owns one temporary directory listing and no open handle.
  */

@@ -706,6 +706,8 @@ export namespace RuntimeBuildCache {
         directory: string;
         /** A job to write over the carried one; undefined keeps it. */
         job?: unknown;
+        /** Native receipt proof for an adopted launcher directory. */
+        launcherAdoption?: ParkRequest["launcherAdoption"];
       },
       prior?: NonNullable<ParkRequest["replacement"]>["prior"],
     ): boolean => {
@@ -728,7 +730,28 @@ export namespace RuntimeBuildCache {
           if (settled) return true;
           try {
             const next = steps.next();
-            if (next.done === true) return (settled = true);
+            if (next.done === true) {
+              if (
+                next.value === true &&
+                carried?.launcherAdoption !== undefined
+              ) {
+                try {
+                  if (
+                    props.canChange?.(carried.directory) === true &&
+                    parkedIdentity(carried.directory) ===
+                      carried.launcherAdoption.carriedIdentity
+                  )
+                    fs.writeFileSync(
+                      path.join(carried.directory, PUBLISHED_FALLBACK),
+                      "",
+                      { flag: "wx" },
+                    );
+                } catch {
+                  /* The receipt still preserves the build if marking fails. */
+                }
+              }
+              return (settled = true);
+            }
             return next.value instanceof Promise
               ? next.value.then(
                   () => undefined,
@@ -858,9 +881,11 @@ export namespace RuntimeBuildCache {
     // from; one older than a build this request adopted or built since goes.
     // Each candidate key holds the builds of other values apart, so a request
     // only meets the parked builds of its own values.
-    if (props.recordParked !== undefined) {
+    let hasPublishedFallback = false;
+    const tryParked = (fallbackOnly: boolean): TtscBuildResult | undefined => {
+      if (props.recordParked === undefined) return undefined;
       let adopted: TtscBuildResult | undefined;
-      let carried: { directory: string; job?: unknown } | undefined;
+      let carried: Parameters<typeof defer>[4];
       let receiptRefused = false;
       for (const { key } of candidates) {
         if (adopted !== undefined || receiptRefused) break;
@@ -870,6 +895,20 @@ export namespace RuntimeBuildCache {
             if (props.canChange === undefined) discard(parked);
             continue;
           }
+          let publishedFallback = false;
+          if (props.canChange !== undefined)
+            try {
+              publishedFallback =
+                fs
+                  .lstatSync(path.join(parked, PUBLISHED_FALLBACK), {
+                    throwIfNoEntry: false,
+                  })
+                  ?.isFile() === true;
+            } catch {
+              continue;
+            }
+          if (publishedFallback) hasPublishedFallback = true;
+          if (publishedFallback !== fallbackOnly) continue;
           const job = (() => {
             try {
               const jobFile = path.join(parked, "job.json");
@@ -913,6 +952,11 @@ export namespace RuntimeBuildCache {
               // Managed readers retain the parked output because the two
               // public files can be torn by another publisher.
               if (published && props.canChange === undefined) discard(parked);
+              if (published && fallbackOnly) {
+                const restored = lookup({ key });
+                if (restored !== "missing" && restored !== undefined)
+                  return restored;
+              }
               continue;
             }
             const result: TtscBuildResult =
@@ -999,7 +1043,7 @@ export namespace RuntimeBuildCache {
             fs.rmdirSync(props.emitDir);
             fs.renameSync(parked, moved);
             fs.renameSync(path.join(moved, "outputs"), props.emitDir);
-            carried = carry;
+            carried = { ...carry, launcherAdoption };
             adopted = relocated;
             report("reused", "parked", key);
             if (props.parkIn !== undefined) report("parked", undefined, key);
@@ -1016,15 +1060,22 @@ export namespace RuntimeBuildCache {
           defer(adopted, lift, undefined, true, carried);
         return adopted;
       }
-    }
-    // A parked build is newer than the stored record of the same request, so
-    // it is tried first; the record still serves when no parked build does.
+      return undefined;
+    };
+    const freshParked = tryParked(false);
+    if (freshParked !== undefined) return freshParked;
+    // A fresh parked build may be newer than the record. An adopted launcher
+    // build parked after publication is a backup for a torn record/bundle.
     let missing = true;
     for (const candidate of candidates) {
       const reused = lookup(candidate);
       if (reused === "missing") continue;
       missing = false;
       if (reused !== undefined) return reused;
+    }
+    if (hasPublishedFallback) {
+      const fallback = tryParked(true);
+      if (fallback !== undefined) return fallback;
     }
     if (missing) report("miss", "document-missing", key);
     const previousParked =
@@ -1212,7 +1263,7 @@ export namespace RuntimeBuildCache {
    * @param runDir The run's directory.
    * @param store The run's qualified persistent build store.
    * @param canChange Current project and path ownership for a system cache.
-   * @evidence contracts/common.md#principled-implementation A system request may move only this run's dependency generation or its matching carried directory to a new qualified store path.
+   * @evidence contracts/common.md#principled-implementation A system request may move this run's dependency generation or recover a launcher fs carry whose native identities and environment variant match the saved adoption.
    * @evidence contracts/common.md#clear-and-simple-design One listing and one park per request.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A malformed request is skipped; its outputs go with the run.
    * @evidence contracts/common.md#meaningful-documentation The prose states when to call it.
@@ -1656,6 +1707,9 @@ export namespace RuntimeBuildCache {
   }
 
   const PARKED_FORMAT = "ttsx-runtime-parked-v1";
+
+  /** An adopted launcher build kept as fallback after record publication. */
+  const PUBLISHED_FALLBACK = "publication-completed";
 
   /** A value as a publication step sequence with no step of its own. */
   // eslint-disable-next-line require-yield
