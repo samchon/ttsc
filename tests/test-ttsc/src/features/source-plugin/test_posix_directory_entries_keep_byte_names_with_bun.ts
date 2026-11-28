@@ -10,14 +10,14 @@ import { readPosixDirectoryEntries } from "../../../../../packages/ttsc/src/plug
  *
  * @evidence contracts/testing.md#behavioral-verification Selects the Bun compatibility branch under the unit runner and uses native listing and metadata calls on a real directory.
  * @evidence contracts/testing.md#independent-expectations Authored directory and Go file entries supply the expected name bytes and kinds before a transient sibling is removed.
- * @evidence contracts/testing.md#distinguishing-cases The typed listing deliberately omits its names. The names-only listing preserves both kinds and, on POSIX, an invalid UTF-8 byte. A vanished child leaves both Go files present, a vanished parent reports ENOENT, and other kind errors fail the read.
+ * @evidence contracts/testing.md#distinguishing-cases The typed listing deliberately omits its names. The names-only listing preserves both kinds and an invalid UTF-8 byte wherever the volume admits one. Windows and volumes returning EILSEQ use an ASCII name instead. A vanished child leaves both Go files present, a vanished parent reports ENOENT, and other kind errors fail the read.
  * @evidence contracts/testing.md#execution-ownership The test owns its temp directory and restores the runtime marker and filesystem method before cleanup.
  */
 export function test_posix_directory_entries_keep_byte_names_with_bun(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-byte-entries-"));
-  const byteName =
+  let byteName =
     process.platform === "win32" ? Buffer.from("file") : Buffer.from([0xff]);
-  const file = Buffer.concat([Buffer.from(root + path.sep), byteName]);
+  let file = Buffer.concat([Buffer.from(root + path.sep), byteName]);
   const transient = path.join(root, "transient.go");
   const removed = path.join(root, "directory", "removed");
   const readdir = fs.readdirSync;
@@ -30,7 +30,15 @@ export function test_posix_directory_entries_keep_byte_names_with_bun(): void {
     fs.writeFileSync(path.join(root, "main.go"), "package fixture");
     fs.writeFileSync(path.join(root, "helper.go"), "package fixture");
     fs.writeFileSync(transient, "package fixture");
-    fs.writeFileSync(file, "");
+    try {
+      fs.writeFileSync(file, "");
+    } catch (error) {
+      // UTF-8-only volumes, such as APFS, refuse the raw name.
+      if ((error as NodeJS.ErrnoException).code !== "EILSEQ") throw error;
+      byteName = Buffer.from("file");
+      file = Buffer.concat([Buffer.from(root + path.sep), byteName]);
+      fs.writeFileSync(file, "");
+    }
     Object.defineProperty(process.versions, "bun", {
       configurable: true,
       value: "test",
