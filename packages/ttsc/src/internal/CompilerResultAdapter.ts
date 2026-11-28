@@ -40,6 +40,7 @@ interface ProjectTransformation {
   hostInputRealpaths?: Record<string, string | null>;
   hostInputs?: string[];
   observationsComplete?: false;
+  workspaceReplayRequired?: true;
   pluginSources?: Record<string, string>;
   result: TtscBuildResult;
   sourceMaps?: Record<string, ITtscCompilerTransformation.ISourceMap>;
@@ -245,6 +246,7 @@ export function toCompilerTransformation(
     hostInputRealpaths,
     hostInputs,
     observationsComplete,
+    workspaceReplayRequired,
     pluginSources,
     result,
     sourceMaps,
@@ -282,6 +284,9 @@ export function toCompilerTransformation(
     ...(hostInputRealpaths === undefined ? {} : { hostInputRealpaths }),
     ...(hostInputs === undefined ? {} : { hostInputs }),
     ...(observationsComplete === undefined ? {} : { observationsComplete }),
+    ...(workspaceReplayRequired === undefined
+      ? {}
+      : { workspaceReplayRequired }),
     ...(pluginSources === undefined ? {} : { pluginSources }),
     ...(sourceMaps === undefined ? {} : { sourceMaps }),
     ...(volatile === undefined ? {} : { volatile }),

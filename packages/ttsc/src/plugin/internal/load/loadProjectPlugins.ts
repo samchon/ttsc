@@ -29,7 +29,7 @@ import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason"
 import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailure";
 import { CompilerTarget } from "../source/CompilerTarget";
 import { NativeSourcePackages } from "../source/NativeSourcePackages";
-import type { PluginBuildEnvironmentWitness } from "../source/PluginBuildEnvironmentWitness";
+import { PluginBuildEnvironmentWitness } from "../source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../source/PluginContentIdentities";
 import { SourceBuildCacheLayout } from "../source/SourceBuildCacheLayout";
 import { SourcePluginWorkspace } from "../source/SourcePluginWorkspace";
@@ -194,6 +194,9 @@ export function loadProjectPlugins(options: {
    */
   observationsComplete?: false;
 
+  /** A later load must recreate the generated Go workspace before reuse. */
+  workspaceReplayRequired?: true;
+
   /**
    * Record store this load proved its inputs through, for the invocation's
    * later native spawns (#1723); absent when the project loads no plugin.
@@ -238,7 +241,8 @@ export namespace loadProjectPlugins {
   /**
    * Produce one load, suspending at each watch-input handoff before continuing.
    * Internal build orchestration consumes the whole sequence with its chosen
-   * completion runner; it must deliver rejection back into the sequence.
+   * completion runner. Each step and its cleanup inherit the selected project's
+   * scratch boundaries, which are restored before suspension.
    */
   export function* steps(
     options: Parameters<typeof loadProjectPlugins>[0],
@@ -256,8 +260,41 @@ export namespace loadProjectPlugins {
       projectRoot: options.projectRoot,
       tsconfig: options.tsconfig,
     });
+    const additionalProjectRoots = projectConsumerRoots(
+      projectSnapshot.project.identity,
+    );
+    const sequence = stepsForProject(
+      options,
+      callerEnv,
+      projectSnapshot,
+      additionalProjectRoots,
+    );
+    return yield* {
+      [Symbol.iterator]: () => ({
+        next: () =>
+          OwnedSynchronousProcess.withProjectRoots(additionalProjectRoots, () =>
+            sequence.next(),
+          ),
+        throw: (error: unknown) =>
+          OwnedSynchronousProcess.withProjectRoots(additionalProjectRoots, () =>
+            sequence.throw(error),
+          ),
+        return: (result: ReturnType<typeof loadProjectPlugins>) =>
+          OwnedSynchronousProcess.withProjectRoots(additionalProjectRoots, () =>
+            sequence.return(result),
+          ),
+      }),
+    };
+  }
+
+  /** Load the selected generation between watch-input handoffs. */
+  function* stepsForProject(
+    options: Parameters<typeof loadProjectPlugins>[0],
+    callerEnv: NodeJS.ProcessEnv,
+    projectSnapshot: ProjectHostInputSnapshot,
+    additionalProjectRoots: readonly string[],
+  ): WatchInputPublication.Sequence<ReturnType<typeof loadProjectPlugins>> {
     const { project } = projectSnapshot;
-    const additionalProjectRoots = projectConsumerRoots(project.identity);
     const projectHostInputs = projectSnapshot.hostInputs;
     const projectHostInputHashes = projectSnapshot.hostInputHashes;
     const projectHostInputRealpaths = projectSnapshot.hostInputRealpaths;
@@ -501,9 +538,11 @@ export namespace loadProjectPlugins {
       string,
       PluginBuildEnvironmentWitness.Record
     >();
-    let workspaceEnvironmentsMatchSources = true;
-    const onWorkspaceEnvironment = (matchesSource: boolean): void => {
-      workspaceEnvironmentsMatchSources &&= matchesSource;
+    const workspaceWitnesses: PluginBuildEnvironmentWitness.Record[] = [];
+    const onWorkspaceEnvironment: NonNullable<
+      Parameters<typeof buildSourcePlugin>[0]["onWorkspaceEnvironment"]
+    > = ({ matchesSource, witness }) => {
+      if (!matchesSource) workspaceWitnesses.push(witness);
     };
     const compilerDeclaration =
       candidates.length === 0
@@ -973,21 +1012,56 @@ export namespace loadProjectPlugins {
       };
     });
     const finalPhase = HostInputObservationPhase.create();
+    const workspaceInputs = new Set<string>();
+    for (const witness of workspaceWitnesses)
+      for (const key of witness.keys()) {
+        const file = key.startsWith("\0directory:")
+          ? key.slice("\0directory:".length)
+          : key.startsWith("\0link:")
+            ? key.slice("\0link:".length)
+            : key;
+        if (
+          path.isAbsolute(file) &&
+          !file.includes("\0") &&
+          path.resolve(file) === file
+        )
+          workspaceInputs.add(file);
+      }
+    const workspaceHostInputs = [...workspaceInputs];
+    const workspaceHashes = hashHostInputPaths(workspaceHostInputs, finalPhase);
+    const workspaceRealpaths = realpathHostInputPaths(
+      workspaceHostInputs,
+      finalPhase,
+    );
+    const currentWorkspaceReadings = new Map<string, string>();
+    const workspacesQualified = workspaceWitnesses.every((witness) =>
+      PluginBuildEnvironmentWitness.holds(
+        witness,
+        "descriptor-workspace-publication",
+        currentWorkspaceReadings,
+      ),
+    );
     return {
       ...collectHostInputSnapshot(
         project,
         context,
         records,
-        projectHostInputs,
-        revalidateHostInputHashes(
-          projectHostInputHashes,
-          projectHostInputs,
-          finalPhase,
+        [...projectHostInputs, ...workspaceHostInputs],
+        mergeObservedHostInputHashes(
+          revalidateHostInputHashes(
+            projectHostInputHashes,
+            projectHostInputs,
+            finalPhase,
+          ),
+          workspaceHashes,
         ),
-        revalidateHostInputRealpaths(
-          projectHostInputRealpaths,
-          projectHostInputs,
-          finalPhase,
+        mergeObservedHostInputRealpaths(
+          revalidateHostInputRealpaths(
+            projectHostInputRealpaths,
+            projectHostInputs,
+            finalPhase,
+          ),
+          workspaceRealpaths,
         ),
       ),
       descriptorReadsDeclared: loadedEntries.every(
@@ -997,10 +1071,13 @@ export namespace loadProjectPlugins {
       discoveryInputsComplete: project.configInputsComplete === true,
       ...(identities === undefined ? {} : { identities }),
       nativePlugins: orderNativePlugins(nativePlugins),
-      ...(!workspaceEnvironmentsMatchSources ||
+      ...(!workspacesQualified ||
       loadedEntries.some((entry) => !entry.observationsComplete)
         ? { observationsComplete: false as const }
         : {}),
+      ...(workspaceWitnesses.length === 0
+        ? {}
+        : { workspaceReplayRequired: true as const }),
       // The directories the watch inputs named before the builds, as the builds
       // read them. Package selection shares these readings and also reads a
       // linked plugin's module root, which no build keys on, so only the build

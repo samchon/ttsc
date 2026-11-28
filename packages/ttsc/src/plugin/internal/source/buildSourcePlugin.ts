@@ -129,8 +129,12 @@ export function buildSourcePlugin(opts: {
    */
   environmentWitnesses?: Map<string, PluginBuildEnvironmentWitness.Record>;
 
-  /** Whether the successful workspace can be reproved via the source module. */
-  onWorkspaceEnvironment?: (matchesSource: boolean) => void;
+  /** The successful workspace's external proof and source-replay eligibility. */
+  onWorkspaceEnvironment?: (workspace: {
+    matchesSource: boolean;
+    qualified: boolean;
+    witness: PluginBuildEnvironmentWitness.Record;
+  }) => void;
 
   filesystem?: Partial<SourceBuildFilesystemOperations>;
 
@@ -173,7 +177,7 @@ export function buildSourcePlugin(opts: {
         ? undefined
         : new Map(attempt === 0 ? opts.environmentWitnesses : []);
     try {
-      const { binary, workspaceMatchesOrigin } = buildSourcePluginAttempt(
+      const { binary, workspaceEnvironment } = buildSourcePluginAttempt(
         attempt === 0
           ? { ...opts, environmentWitnesses }
           : { ...opts, environmentWitnesses, goModReaders: undefined },
@@ -188,7 +192,7 @@ export function buildSourcePlugin(opts: {
         opts.environmentDigests?.set(directory, digest);
       for (const [directory, witness] of environmentWitnesses ?? [])
         opts.environmentWitnesses?.set(directory, witness);
-      opts.onWorkspaceEnvironment?.(workspaceMatchesOrigin);
+      opts.onWorkspaceEnvironment?.(workspaceEnvironment);
       return binary;
     } catch (error) {
       if (
@@ -214,7 +218,12 @@ function buildSourcePluginAttempt(
   env: NodeJS.ProcessEnv,
   sourceDigests: Map<string, string>,
   environmentDigests: Map<string, string>,
-): { binary: string; workspaceMatchesOrigin: boolean } {
+): {
+  binary: string;
+  workspaceEnvironment: Parameters<
+    NonNullable<typeof opts.onWorkspaceEnvironment>
+  >[0];
+} {
   OwnedSynchronousProcess.checkpoint();
   const { dir, entry, source } = resolveSourceBuildTarget(opts);
   const overlayDirs = [
@@ -320,11 +329,18 @@ function buildSourcePluginAttempt(
   let taskFailure: { error: unknown } | undefined;
   try {
     let key = originKey;
-    let workspaceMatchesOrigin = true;
+    let workspaceEnvironment = {
+      matchesSource: true,
+      qualified: true,
+      witness: environmentWitness,
+    };
     if (SidecarEnvironment.read(env, "GOTOOLCHAIN") !== "local") {
       const identity = ["binary", originKey, goBinary, goToolVariables(env)];
       const kept = GoWorkspaceEnvironment.recall(identities, identity);
       let workspace = kept;
+      let freshWorkspace:
+        | ReturnType<typeof GoWorkspaceEnvironment.observe>
+        | undefined;
       let qualified = true;
       let local = true;
       if (workspace === undefined) {
@@ -358,10 +374,10 @@ function buildSourcePluginAttempt(
           filesystem: opts.filesystem,
           goBinary,
           identities,
-          identity,
           projectRoot: opts.baseDir,
         });
         workspace = observed;
+        freshWorkspace = observed;
         qualified = observed.qualified;
         local = observed.local;
       }
@@ -371,21 +387,32 @@ function buildSourcePluginAttempt(
         opts.pluginName,
         "workspace-key-created",
       );
-      const sameEnvironment =
-        workspace.value === environmentDigests.get(path.resolve(dir));
-      workspaceMatchesOrigin = qualified && local && sameEnvironment;
-      if (!qualified || !sameEnvironment)
-        key = crypto
-          .createHash("sha256")
-          .update(
-            JSON.stringify([
-              originKey,
-              workspace.value,
-              qualified ? null : crypto.randomUUID(),
-            ]),
-          )
-          .digest("hex")
-          .slice(0, 32);
+      if (preparedDirectory !== undefined && freshWorkspace !== undefined)
+        GoWorkspaceEnvironment.remember(
+          identities,
+          identity,
+          preparedDirectory,
+          freshWorkspace,
+        );
+      const sourceEnvironment = environmentDigests.get(path.resolve(dir));
+      const sameEnvironment = workspace.value === sourceEnvironment;
+      workspaceEnvironment = {
+        matchesSource: qualified && local && sameEnvironment,
+        qualified,
+        witness:
+          preparedDirectory === undefined
+            ? environmentWitness
+            : GoWorkspaceEnvironment.externalWitness(
+                preparedDirectory,
+                environmentWitness,
+              ),
+      };
+      key = GoWorkspaceEnvironment.binaryKey(
+        originKey,
+        sourceEnvironment,
+        workspace.value,
+        qualified,
+      );
     }
     OwnedSynchronousProcess.checkpoint();
     const managePluginCache = !opts.cacheDir && !env.TTSC_CACHE_DIR;
@@ -431,7 +458,7 @@ function buildSourcePluginAttempt(
         outcome: "held-binary",
       });
       touchCacheEntry(cacheDir);
-      return { binary: binaryPath, workspaceMatchesOrigin };
+      return { binary: binaryPath, workspaceEnvironment };
     }
     fs.mkdirSync(cacheDir, { recursive: true });
     const label = opts.label ?? "source plugin";
@@ -522,7 +549,7 @@ function buildSourcePluginAttempt(
         protectedEntries: [cacheDir],
       });
     }
-    return { binary: built, workspaceMatchesOrigin };
+    return { binary: built, workspaceEnvironment };
   } catch (error) {
     taskFailure = { error };
     throw error;

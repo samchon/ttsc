@@ -113,7 +113,7 @@ export function createRollupCachedModuleProof(
         digests.delete(key);
         digests.delete(keyOf(file, privateStorage !== true));
         try {
-          refreshProjectRecordFile(
+          const refreshed = refreshProjectRecordFile(
             file,
             undefined,
             undefined,
@@ -121,6 +121,10 @@ export function createRollupCachedModuleProof(
             privateStorage === true,
             privateStorage === true,
           );
+          if (refreshed === false) {
+            proven.set(key, false);
+            return true;
+          }
         } catch (error) {
           if (privateStorage !== true) throw error;
           // A failed managed signal can leave exactly the stale digest the

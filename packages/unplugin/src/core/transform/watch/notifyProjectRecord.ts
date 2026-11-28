@@ -277,6 +277,10 @@ function recordOf(
     root: cached.projectRoot,
     signal: 0,
     tsconfig: cached.tsconfig,
+    ...(cached.result.type !== "exception" &&
+    cached.result.workspaceReplayRequired === true
+      ? { workspaceReplayRequired: true as const }
+      : {}),
   };
   for (const input of inputs) {
     const digest = RECOVERY_TREE_DIGEST.get(input);

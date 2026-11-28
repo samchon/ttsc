@@ -45,7 +45,8 @@ import { TestProject } from "../../../utils/src/TestProject";
  * 1. In a root of its own, write the records of two projects whose recorded
  *    declarations were edited since, and assert the build starts of Rollup and
  *    of a Vite dev server without a watcher leave both records where they are.
- * 2. Seed both records in Farm's private directory and start its configured build.
+ * 2. Seed Farm's private directory with a stale record and an unchanged record
+ *    whose generated Go workspace needs replay. Start its configured build.
  * 3. Write both records again, start Rollup, and ask whether a module of the first
  *    project it would serve from its cache must run; assert it must, its record
  *    moved and the other's did not, and asking for another module of the same
@@ -53,7 +54,7 @@ import { TestProject } from "../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification unplugin.raw buildStart leaves two stale records untouched for Rollup/Vite serve, refreshes both for Farm, and Rollup cache lookup proves only its named project once.
  * @evidence contracts/testing.md#independent-expectations Literal signal zero/one expectations and independently edited declaration bytes specify which host must prove which record; no cached compiler output generates the oracle.
- * @evidence contracts/testing.md#distinguishing-cases Rollup, Vite serve with watch null and Farm differ by cache ownership; two projects distinguish global proof from per-module proof and repeated same-project lookup. Opaque cache startup accepts ordinary missing and empty directories, refuses populated, empty, and dangling aliases, and reports a failed update to an existing stale record during detached and watching admission where native permissions enforce read-only files.
+ * @evidence contracts/testing.md#distinguishing-cases Rollup, Vite serve with watch null and Farm differ by cache ownership; two projects distinguish global proof from per-module proof and repeated same-project lookup. An unchanged record with a generated Go workspace replay requirement also moves on Farm startup. Opaque cache startup accepts ordinary missing and empty directories, refuses populated, empty, and dangling aliases, and reports a failed update to an existing stale record during detached and watching admission where native permissions enforce read-only files.
  * @evidence contracts/testing.md#execution-ownership Calls raw buildStart/configResolved/shouldTransformCachedModule against host doubles and temporary records. Finally restores cwd and removes the unique Farm fixture storage. No bundler or compiler producer runs.
  */
 export async function test_build_start_proves_records_only_for_a_cache_it_cannot_answer(): Promise<void> {
@@ -83,7 +84,7 @@ export async function test_build_start_proves_records_only_for_a_cache_it_cannot
     const tsconfig = path.join(directory, "tsconfig.json");
     const declaration = path.join(directory, "src", "types.d.ts");
     const record = projectRecordFile(tool, tsconfig);
-    const write = (target = tool) => {
+    const write = (target = tool, workspaceReplayRequired?: true) => {
       const file = projectRecordFile(target, tsconfig);
       fs.writeFileSync(declaration, `declare const ${name}: 1;\n`);
       const policy = readProjectMembershipPolicy(tsconfig);
@@ -104,8 +105,12 @@ export async function test_build_start_proves_records_only_for_a_cache_it_cannot
         root: directory,
         signal: 0,
         tsconfig,
+        ...(workspaceReplayRequired === true
+          ? { workspaceReplayRequired }
+          : {}),
       });
-      fs.writeFileSync(declaration, `declare const ${name}: 2;\n`);
+      if (workspaceReplayRequired !== true)
+        fs.writeFileSync(declaration, `declare const ${name}: 2;\n`);
       return file;
     };
     write();
@@ -136,14 +141,14 @@ export async function test_build_start_proves_records_only_for_a_cache_it_cannot
 
     // 2. A host with a cache of its own.
     const firstFarm = first.write(farmTool);
-    const secondFarm = second.write(farmTool);
+    const secondFarm = second.write(farmTool, true);
     const farm = unplugin.raw(undefined, { framework: "farm" });
     (farm.farm!.configResolved as (config: unknown) => void)({ root });
     await farm.buildStart!.call({
       getNativeBuildContext: () => ({ context: {}, framework: "farm" }),
     } as never);
     assert.equal(signal(firstFarm), 1, "Farm proves every record");
-    assert.equal(signal(secondFarm), 1);
+    assert.equal(signal(secondFarm), 1, "Farm must replay the Go workspace");
     assert.equal(
       signal(first.record),
       0,

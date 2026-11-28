@@ -541,6 +541,7 @@ function isPublicationResult(value: unknown): boolean {
   // certify cross-worker reuse. Unsupported marker shapes are not ignored.
   if (
     value.observationsComplete !== undefined ||
+    value.workspaceReplayRequired !== undefined ||
     (value.hostInputProofFailures !== undefined &&
       (!isPublicationRecord(value.hostInputProofFailures) ||
         Object.keys(value.hostInputProofFailures).length !== 0))

@@ -58,7 +58,9 @@ export function readProjectRecordFile(
     (candidate.environmentInputs !== undefined &&
       !isEnvironmentInputs(candidate.environmentInputs)) ||
     (candidate.recoveryTree !== undefined &&
-      !isRecoveryTree(candidate.recoveryTree))
+      !isRecoveryTree(candidate.recoveryTree)) ||
+    (candidate.workspaceReplayRequired !== undefined &&
+      candidate.workspaceReplayRequired !== true)
   ) {
     return undefined;
   }
@@ -80,6 +82,9 @@ export function readProjectRecordFile(
     ...(candidate.recoveryTree === undefined
       ? {}
       : { recoveryTree: candidate.recoveryTree }),
+    ...(candidate.workspaceReplayRequired === true
+      ? { workspaceReplayRequired: true as const }
+      : {}),
     root: candidate.root,
     signal: candidate.signal,
     tsconfig: candidate.tsconfig,

@@ -96,6 +96,9 @@ export interface TtscProjectRecord {
   /** Source observation taken before the failed compiler invocation. */
   recoveryTree?: { file: string; digest: string | null };
 
+  /** A restoring host must request delivery under a newly resolved workspace. */
+  workspaceReplayRequired?: true;
+
   /** The project root the walk starts from and every input lies below or beside. */
   root: string;
 

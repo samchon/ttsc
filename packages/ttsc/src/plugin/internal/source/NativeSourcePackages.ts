@@ -278,20 +278,22 @@ export namespace NativeSourcePackages {
         opts.projectRoot,
         sourceRoots,
       );
+      let freshWorkspace:
+        | ReturnType<typeof GoWorkspaceEnvironment.observe>
+        | undefined;
       if (
         !explicitLocal &&
         workspace === undefined &&
         selection !== undefined
       ) {
-        const observedWorkspace = GoWorkspaceEnvironment.observe({
+        freshWorkspace = GoWorkspaceEnvironment.observe({
           directory: scratch,
           env,
           goBinary,
           identities: opts.identities,
-          identity: workspaceIdentity,
           projectRoot: opts.projectRoot,
         });
-        if (observedWorkspace.qualified) workspace = observedWorkspace;
+        if (freshWorkspace.qualified) workspace = freshWorkspace;
       }
       const observed = read({
         cwd: scratch,
@@ -312,7 +314,14 @@ export namespace NativeSourcePackages {
         (explicitLocal ||
           (workspace !== undefined &&
             PluginBuildEnvironmentWitness.reusable(workspace.witness)))
-      )
+      ) {
+        if (freshWorkspace !== undefined)
+          GoWorkspaceEnvironment.remember(
+            opts.identities,
+            workspaceIdentity,
+            scratch,
+            freshWorkspace,
+          );
         PluginLoadAnswers.write(
           opts.identities,
           SELECTION_ANSWER,
@@ -325,6 +334,7 @@ export namespace NativeSourcePackages {
                 : path.relative(scratch, input.Dir),
           })),
         );
+      }
       return observed;
     } catch (error) {
       taskFailure = { error };
@@ -648,7 +658,7 @@ const SELECTION_FIELDS = "-json=Dir,Name,GoFiles,CgoFiles,Error";
  * key does.
  */
 interface ISelectionIdentity {
-  format: 2;
+  format: 3;
   command: readonly string[];
   mode: "proposal" | "actual";
   module: string;
@@ -712,7 +722,7 @@ function selectionIdentity(
     return {
       witness,
       identity: {
-        format: 2,
+        format: 3,
         command: [
           "list",
           ...GoSourceInputs.BUILD_FLAGS,

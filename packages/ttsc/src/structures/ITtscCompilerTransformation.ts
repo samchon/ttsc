@@ -439,6 +439,9 @@ export namespace ITtscCompilerTransformation {
      */
     observationsComplete?: false;
 
+    /** A later plugin load must re-establish its generated Go workspace. */
+    workspaceReplayRequired?: true;
+
     /**
      * The state of every Go source directory the transform's plugins supplied
      * to their binaries, by absolute path: each plugin's module root and each
@@ -554,6 +557,9 @@ export namespace ITtscCompilerTransformation {
      * {@link ISuccess.observationsComplete}.
      */
     observationsComplete?: false;
+
+    /** Workspace replay requirement, as in {@link ISuccess}. */
+    workspaceReplayRequired?: true;
 
     /** Plugin source states; same contract as {@link ISuccess.pluginSources}. */
     pluginSources?: Record<string, string>;

@@ -105,6 +105,7 @@ export function refreshProjectRecordFiles(
       compilerArgumentsIdentity,
       privateStorage,
       privateStorage,
+      true,
     );
   }
 }

@@ -1,7 +1,9 @@
+import { spawnSync } from "node:child_process";
+
 import { type CanonicalTempDirectoryOperations } from "../../../../../packages/ttsc/src/internal/CanonicalTempDirectoryOperations";
 import { createCanonicalTempDirectory } from "../../../../../packages/ttsc/src/internal/createCanonicalTempDirectory";
 import { createProjectTempDirectory } from "../../../../../packages/ttsc/src/internal/createProjectTempDirectory";
-import { assert, fs, path } from "../../internal/script-unit";
+import { assert, fs, path, workspaceRoot } from "../../internal/script-unit";
 
 /**
  * Verifies temporary cleanup retains the directory's physical spelling.
@@ -16,11 +18,13 @@ import { assert, fs, path } from "../../internal/script-unit";
  * 2. Assert writes and cleanup remain below the original physical parent.
  * 3. Reject invalid prefixes, non-directory parents/children and escaped
  *    postflights.
+ * 4. Distinguish a POSIX byte path from a legitimate U+FFFD sibling before
+ *    allocating directly or selecting ambient temporary storage.
  *
  * @evidence contracts/testing.md#behavioral-verification createCanonicalTempDirectory pins its physical parent across alias retargeting, preserves the victim sentinel and rejects non-directory or escaped postflights.
  * @evidence contracts/testing.md#independent-expectations The explicitly observed operation order, physical parent and literal victim sentinel independently define safe creation and deletion.
- * @evidence contracts/testing.md#distinguishing-cases Successful alias handoff contrasts with empty/navigation/path prefixes, non-directory parents and postflight children, and escaped-child failures. Prefix rejection must precede every filesystem operation; cleanup removes the original physical child while the retargeted victim survives.
- * @evidence contracts/testing.md#execution-ownership Calls createCanonicalTempDirectory directly with real fs operations and a private junction fixture, plus supported injected operations for failure cases. No process, native build or ttsc host runs, and finally removes the accepted fixture root.
+ * @evidence contracts/testing.md#distinguishing-cases Successful alias handoff contrasts with invalid prefixes, non-directories and escaped children. Linux also contrasts a non-UTF-8 parent and the ordinary U+FFFD directory its lossy decoding would name.
+ * @evidence contracts/testing.md#execution-ownership Calls the creator directly using native operations and injected failure probes. A bounded Linux Node child supplies its own TMPDIR to the selector. No native compiler or ttsc host runs. Finally removes the owned fixture.
  */
 export function test_createcanonicaltempdirectory_retains_physical_cleanup_path() {
   const root = createProjectTempDirectory(
@@ -125,7 +129,64 @@ export function test_createcanonicaltempdirectory_retains_physical_cleanup_path(
         }),
       /escaped its physical parent/,
     );
+    if (process.platform === "linux") verifyRawParent(root, project);
   } finally {
     fs.rmSync(root, { force: true, recursive: true });
+  }
+}
+
+/** Neither allocator may select the valid directory a raw path decodes to. */
+function verifyRawParent(root: string, project: string): void {
+  const raw = Buffer.concat([
+    Buffer.from(`${root}/native-`),
+    Buffer.from([0xff]),
+  ]);
+  const lookalike = path.join(root, "native-\ufffd");
+  const alias = path.join(root, "raw-temp-alias");
+  try {
+    fs.mkdirSync(raw);
+    fs.mkdirSync(lookalike);
+    fs.symlinkSync(raw, alias);
+    assert.throws(
+      () => createCanonicalTempDirectory("child-", alias),
+      /temporary directory parent has no UTF-8 path/,
+    );
+    assert.deepEqual(fs.readdirSync(lookalike), []);
+    const legitimate = createCanonicalTempDirectory("child-", lookalike);
+    assert.equal(path.dirname(legitimate), lookalike);
+    fs.rmdirSync(legitimate);
+
+    const selector = path.join(
+      workspaceRoot,
+      "packages/ttsc/src/internal/systemTempOutsideProject.ts",
+    );
+    const result = spawnSync(
+      process.execPath,
+      [
+        "--import",
+        path.join(workspaceRoot, "config/register-unit-loader.mjs"),
+        "-e",
+        `const { systemTempOutsideProject } = require(${JSON.stringify(selector)});
+        process.stdout.write(JSON.stringify([...systemTempOutsideProject.candidates(${JSON.stringify(project)})]));`,
+      ],
+      {
+        env: { ...process.env, TMPDIR: alias },
+        encoding: "utf8",
+        timeout: 10_000,
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const candidates: { directory: string; spelling: string }[] = JSON.parse(
+      result.stdout,
+    );
+    assert.ok(
+      candidates.every(
+        ({ directory, spelling }) =>
+          directory !== lookalike && spelling !== alias,
+      ),
+    );
+  } finally {
+    if (fs.existsSync(alias)) fs.unlinkSync(alias);
+    if (fs.existsSync(raw)) fs.rmdirSync(raw);
   }
 }

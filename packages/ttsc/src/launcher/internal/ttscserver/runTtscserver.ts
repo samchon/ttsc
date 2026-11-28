@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { outputText } from "../../../compiler/internal/outputText";
 import { createNativeProjectContextArgs } from "../../../compiler/internal/project/createNativeProjectContextArgs";
+import { projectConsumerRoots } from "../../../compiler/internal/project/projectConsumerRoots";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { resolveBinary } from "../../../compiler/internal/resolveBinary";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
@@ -242,8 +243,7 @@ function resolveTtscserverEnv(launch: LSPLaunchOptions): TtscserverEnvironment {
         stage: plugin.stage,
       })),
     },
-    context.projectContext?.logicalProjectRoot ?? path.resolve(launch.cwd),
-    [path.resolve(launch.cwd)],
+    context.projectContext ?? path.resolve(launch.cwd),
   );
   // Deliver the manifest as an explicit flag rather than an inherited variable.
   // A native host that predates the flag rejects the invocation instead of
@@ -447,7 +447,7 @@ function captureInitialLSPProjectInputs(options: {
     });
     SidecarEnvironment.write(env, BATCH_ENV, "1");
     const result = spawnNative(plugin.binary, args, {
-      additionalProjectRoots: [path.dirname(options.project.path)],
+      additionalProjectRoots: projectConsumerRoots(options.project.identity),
       cwd: options.project.root,
       env,
     });

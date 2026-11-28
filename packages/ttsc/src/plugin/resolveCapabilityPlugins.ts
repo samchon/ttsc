@@ -242,7 +242,9 @@ function resolveWithinProject(
           identities: identities(),
         }) === authority) &&
       loaded.descriptorReadsDeclared &&
-      loaded.discoveryInputsComplete
+      loaded.discoveryInputsComplete &&
+      loaded.observationsComplete !== false &&
+      loaded.workspaceReplayRequired !== true
         ? writeCapabilityResolution(
             {
               cwd,
@@ -271,7 +273,9 @@ function resolveWithinProject(
         authority !== null &&
         authorityUnchanged === true &&
         loaded.descriptorReadsDeclared &&
-        loaded.discoveryInputsComplete,
+        loaded.discoveryInputsComplete &&
+        loaded.observationsComplete !== false &&
+        loaded.workspaceReplayRequired !== true,
       recorded: recorded !== null,
     });
     return recorded === null

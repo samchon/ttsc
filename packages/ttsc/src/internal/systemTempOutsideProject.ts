@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { RuntimeFilesystem } from "../launcher/internal/runtime/RuntimeFilesystem";
 import { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
 
 /**
@@ -12,13 +13,13 @@ import { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
  * redirected. A Git worktree or workspace declaration expands a nested
  * project's boundary. The temp path's ancestry also exposes projects outside
  * the invocation directory. An operation that reads several projects can supply
- * their roots together.
+ * their roots together. A temp candidate needs a lossless string spelling.
  *
  * @evidence contracts/common.md#principled-implementation Both sides are physically resolved. Explicit project/worktree boundaries and project markers along the temp ancestry block placement for every candidate, including the Windows account temp supplied independently of USERPROFILE.
  * @evidence contracts/common.md#clear-and-simple-design Directory selection is read-only. Each caller owns any required mkdir, payload and cleanup below the returned physical path.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The function never creates a missing TEMP or selects a project directory as a fallback.
  * @evidence contracts/common.md#meaningful-documentation The prose states why ambient TEMP is insufficient and what expands the project boundary.
- * @evidence contracts/portability.md#os-neutral-implementation Native realpath resolves links and junctions; native relative paths distinguish descendants from separate volumes and sibling names.
+ * @evidence contracts/portability.md#os-neutral-implementation Native realpath expands links and junctions. Candidate paths must round-trip through strings, and a raw POSIX project root can still contribute ancestors representable by a string.
  * @evidence contracts/performance.md#efficient-algorithms Bounded candidate and project ancestry walks use filesystem lookups without enumerating directories or reading manifests. Windows account lookup runs only after the ambient candidates are refused.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A changed mount or TEMP setting requires a fresh observation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No filesystem state is created and no resource is retained.
@@ -46,7 +47,7 @@ export function systemTempOutsideProject(
  * @evidence contracts/common.md#clear-and-simple-design Both first-choice selection and callers that retry allocation share the same read-only policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Rejected or missing parents are skipped without creating them or assuming their aliases are safe.
  * @evidence contracts/common.md#meaningful-documentation The comment states the preference order and who owns allocation.
- * @evidence contracts/portability.md#os-neutral-implementation Native platform candidates, realpath, and path-relative checks establish the physical parent. The requested spelling is available for lexical boundaries.
+ * @evidence contracts/portability.md#os-neutral-implementation Lossless native realpath and path-relative checks establish the physical parent and exclude paths with no UTF-8 spelling. The requested spelling stays available for lexical boundaries.
  * @evidence contracts/performance.md#efficient-algorithms A bounded candidate list and ancestor walks use metadata lookups. Later candidates are observed only on demand.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each iteration qualifies the current layout independently.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Traversal-local path sets are released when iteration ends. No handles or directories are acquired.
@@ -63,8 +64,11 @@ export namespace systemTempOutsideProject {
       ...additionalProjectRoots,
       ...OwnedSynchronousProcess.additionalProjectRoots(),
     ])) {
-      let directory = fs.realpathSync.native(input);
-      if (path.dirname(directory) !== directory) roots.add(directory);
+      const physical = RuntimeFilesystem.realpathWitness(input);
+      const raw = RuntimeFilesystem.rawRealpath(physical);
+      let directory = raw === undefined ? physical : stringAncestor(raw);
+      if (raw === undefined && path.dirname(directory) !== directory)
+        roots.add(directory);
       for (;;) {
         if (
           fs.existsSync(path.join(directory, ".git")) ||
@@ -82,8 +86,9 @@ export namespace systemTempOutsideProject {
       seen.add(candidate);
       let physical: string;
       try {
-        physical = fs.realpathSync.native(candidate);
-        if (!fs.lstatSync(physical).isDirectory()) continue;
+        physical = RuntimeFilesystem.realpathWitness(candidate);
+        if (physical.includes("\0") || !fs.lstatSync(physical).isDirectory())
+          continue;
       } catch {
         continue;
       }
@@ -113,6 +118,18 @@ export namespace systemTempOutsideProject {
         directory = parent;
       }
     }
+  }
+}
+
+/** Find the first POSIX ancestor a string-addressable candidate could share. */
+function stringAncestor(raw: Buffer): string {
+  // A representable path cannot descend through a raw component. A higher
+  // workspace marker can still place it inside the same checkout.
+  let bytes = raw;
+  for (;;) {
+    bytes = bytes.subarray(0, Math.max(1, bytes.lastIndexOf(0x2f)));
+    const spelling = bytes.toString();
+    if (Buffer.from(spelling).equals(bytes)) return spelling;
   }
 }
 

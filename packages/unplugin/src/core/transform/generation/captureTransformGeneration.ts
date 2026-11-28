@@ -1007,6 +1007,7 @@ export async function captureTransformGeneration(props: {
       if (
         result.type !== "exception" &&
         result.observationsComplete !== false &&
+        result.workspaceReplayRequired !== true &&
         Object.keys(result.hostInputProofFailures ?? {}).length === 0 &&
         (result.type === "success"
           ? stableProjectSnapshot

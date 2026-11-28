@@ -6,6 +6,7 @@ import { EmitOwnershipIndex } from "../../compiler/internal/EmitOwnershipIndex";
 import { RuntimeBuildCache } from "../../compiler/internal/build/RuntimeBuildCache";
 import { privateRuntimeRootDir } from "../../compiler/internal/build/privateRuntimeRootDir";
 import { runBuild } from "../../compiler/internal/build/runBuild";
+import { projectConsumerRoots } from "../../compiler/internal/project/projectConsumerRoots";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveOwningProjectConfig } from "../../compiler/internal/project/resolveOwningProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
@@ -354,7 +355,7 @@ function createProjectContext(
     explicitCacheDir === undefined
       ? defaultRuntimeCacheDir(root, env)
       : undefined;
-  const cacheDirSpelling = explicitCacheDir ?? defaultCache!.runtime;
+  const cacheDirSpelling = explicitCacheDir ?? defaultCache?.runtime;
   const runtimeCacheKey = resolveRuntimeCacheKey(options.runtimeCacheKey);
   // These adapters consume one original compiler request before generation
   // acquisition. Native expansion remains owned by the upstream compiler.
@@ -385,13 +386,13 @@ function createProjectContext(
     options.binary,
     effectiveOptions,
   );
-  fs.mkdirSync(cacheDirSpelling, { recursive: true });
-  // Pin the cache parent before deriving a generation path. Descriptors run
-  // after this point and may retarget a caller-controlled symlink or junction;
-  // every later runtime write and recursive cleanup must remain below the
-  // physical parent selected here.
   const cacheDir =
-    createFilesystemPathIdentityContext().resolve(cacheDirSpelling).path;
+    cacheDirSpelling === undefined
+      ? pinSystemRuntimeCacheDirectory(
+          root,
+          projectConsumerRoots(project.identity),
+        )
+      : pinRuntimeCacheDirectory(cacheDirSpelling);
   // The lowered orphan sources outlive the run, so they live in the resolved
   // cache root beside every other persistent part of it, and a default root
   // collects them with the rest.
@@ -421,7 +422,7 @@ function createProjectContext(
     runtimeCacheKey,
     processDir,
     pluginCacheDir:
-      explicitCacheDir !== undefined || defaultCache?.systemFallback === true
+      explicitCacheDir !== undefined || cacheDirSpelling === undefined
         ? cacheDir
         : undefined,
     runtimeBuildCacheDir:
@@ -676,8 +677,8 @@ function executionProvenance(
 /**
  * The runtime cache a run uses when `--cache-dir` names none: the `ttsx` area
  * below the source-plugin cache root selected for the same project and
- * environment, or, when the default workspace-local directory is read-only, one
- * below the system temp directory keyed by the project.
+ * environment. A refused automatic workspace location leaves system temp
+ * selection and acquisition to the caller.
  *
  * Every run writes its output into a directory of its own below the cache and
  * removes it on exit, so any writable parent serves; the workspace-local
@@ -687,17 +688,18 @@ function executionProvenance(
 function defaultRuntimeCacheDir(
   root: string,
   env: NodeJS.ProcessEnv,
-): {
-  /** Whether ttsc collects the root, which it does for its own default. */
-  collected: boolean;
+):
+  | {
+      /** Whether ttsc collects the root, which it does for its own default. */
+      collected: boolean;
 
-  /** The cache root the runtime directory lives in. */
-  root: string;
+      /** The cache root the runtime directory lives in. */
+      root: string;
 
-  /** The runtime's own directory. */
-  runtime: string;
-  systemFallback?: true;
-} {
+      /** The runtime's own directory. */
+      runtime: string;
+    }
+  | undefined {
   try {
     const paths = resolveSourceBuildCachePaths(root, undefined, env);
     const local = path.join(
@@ -724,13 +726,40 @@ function defaultRuntimeCacheDir(
       throw error;
     }
   }
-  const fallback = systemRuntimeCachePath(root, systemTempOutsideProject(root));
-  return {
-    collected: false,
-    root: fallback,
-    runtime: fallback,
-    systemFallback: true,
-  };
+  return undefined;
+}
+
+/**
+ * Create and pin the cache outside every selected project directory. A
+ * permission refusal advances to another candidate. Run ownership starts in the
+ * separate lock transaction after one cache directory has been selected.
+ */
+function pinSystemRuntimeCacheDirectory(
+  root: string,
+  additionalProjectRoots: readonly string[],
+): string {
+  let refusal: unknown;
+  for (const { directory } of systemTempOutsideProject.candidates(root, [
+    ...additionalProjectRoots,
+    process.cwd(),
+  ])) {
+    try {
+      return pinRuntimeCacheDirectory(systemRuntimeCachePath(root, directory));
+    } catch (error) {
+      if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
+      refusal ??= error;
+    }
+  }
+  throw (
+    refusal ??
+    new Error(`ttsx: no existing system temporary directory outside ${root}`)
+  );
+}
+
+/** Pin the physical cache before descriptors can retarget a caller alias. */
+function pinRuntimeCacheDirectory(directory: string): string {
+  fs.mkdirSync(directory, { recursive: true });
+  return createFilesystemPathIdentityContext().resolve(directory).path;
 }
 
 /**

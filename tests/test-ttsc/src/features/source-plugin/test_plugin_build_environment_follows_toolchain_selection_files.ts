@@ -7,6 +7,7 @@ import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/in
 import { GoEnvironmentReading } from "../../../../../packages/ttsc/src/plugin/internal/source/GoEnvironmentReading";
 import { GoToolResolution } from "../../../../../packages/ttsc/src/plugin/internal/source/GoToolResolution";
 import { GoWorkspaceEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/GoWorkspaceEnvironment";
+import { NativeSourcePackages } from "../../../../../packages/ttsc/src/plugin/internal/source/NativeSourcePackages";
 import { PluginBuildEnvironmentReadings } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentReadings";
 import { PluginBuildEnvironmentWitness } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginContentIdentities";
@@ -661,7 +662,6 @@ function verifyGeneratedWorkspaceToolchain(props: {
     env,
     goBinary: props.older,
     identities: props.store,
-    identity: "overlay-switch-control",
     projectRoot: props.root,
   };
   const native = () =>
@@ -672,6 +672,30 @@ function verifyGeneratedWorkspaceToolchain(props: {
       windowsHide: true,
     });
   assert.equal(native().stdout.trim(), props.olderVersion);
+  for (const tag of ["workspace_late", "workspace_early"])
+    fs.writeFileSync(
+      path.join(workspace, `${tag}.go`),
+      `//go:build ${tag}\n\npackage source\n`,
+    );
+  const sourceKey = computeCacheKey({
+    dir: workspace,
+    entry: ".",
+    env,
+    goBinary: props.older,
+    identities: props.store,
+    overlayDirs: [overlay],
+    ttscVersion: "workspace-sdk-unit",
+    tsgoVersion: "7.0.0",
+  });
+  const selectedFiles = (): readonly string[] | undefined =>
+    NativeSourcePackages.read({
+      cwd: workspace,
+      entries: ["."],
+      env,
+      goBinary: props.older,
+      pluginName: "workspace-sdk-unit",
+      projectRoot: props.root,
+    })[0]?.GoFiles;
   SourcePluginWorkspace.writeGoWork(
     workspace,
     [],
@@ -683,11 +707,13 @@ function verifyGeneratedWorkspaceToolchain(props: {
     props.root,
   );
   const localIdentity = "local-workspace-control";
-  const local = GoWorkspaceEnvironment.observe({
-    ...opts,
-    identity: localIdentity,
-  });
+  const local = GoWorkspaceEnvironment.observe(opts);
   assert.equal(local.local, true);
+  assert.equal(
+    GoWorkspaceEnvironment.recall(props.store, localIdentity),
+    undefined,
+  );
+  GoWorkspaceEnvironment.remember(props.store, localIdentity, workspace, local);
   fs.unlinkSync(path.join(workspace, "go.work"));
   if (props.store !== undefined)
     assert.equal(
@@ -707,14 +733,33 @@ function verifyGeneratedWorkspaceToolchain(props: {
   assert.equal(native().stdout.trim(), props.newerVersion);
   const prior = GoWorkspaceEnvironment.observe(opts);
   assert.equal(prior.qualified, true);
+  const delegatedIdentity = "overlay-switch-control";
+  GoWorkspaceEnvironment.remember(
+    props.store,
+    delegatedIdentity,
+    workspace,
+    prior,
+  );
   assert.equal(
-    GoWorkspaceEnvironment.recall(props.store, opts.identity),
+    GoWorkspaceEnvironment.recall(props.store, delegatedIdentity),
     undefined,
   );
+  assert.deepEqual(selectedFiles(), ["workspace_late.go"]);
   install(early, "workspace_early");
   assert.equal(PluginBuildEnvironmentWitness.holds(prior.witness), false);
   assert.equal(native().stdout.trim(), props.newerVersion);
   const changed = GoWorkspaceEnvironment.observe(opts);
   assert.equal(changed.qualified, true);
   assert.notEqual(changed.value, prior.value);
+  assert.deepEqual(selectedFiles(), ["workspace_early.go"]);
+  const artifact = (workspace: typeof prior) =>
+    GoWorkspaceEnvironment.binaryKey(
+      sourceKey,
+      local.value,
+      workspace.value,
+      workspace.qualified,
+    );
+  assert.equal(artifact(local), sourceKey);
+  assert.notEqual(artifact(prior), sourceKey);
+  assert.notEqual(artifact(changed), artifact(prior));
 }

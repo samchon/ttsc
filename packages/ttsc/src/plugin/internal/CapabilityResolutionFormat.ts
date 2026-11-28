@@ -45,7 +45,7 @@ export namespace CapabilityResolutionFormat {
    * positive content and physical proof now withdraws reuse, so entries from
    * before that producer rule must be discovered again.
    */
-  const FORMAT = "ttsc-capability-resolution-v8";
+  const FORMAT = "ttsc-capability-resolution-v9";
 
   /**
    * The character that joins fields a path could otherwise forge.

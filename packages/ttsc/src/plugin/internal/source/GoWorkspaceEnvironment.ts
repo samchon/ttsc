@@ -22,7 +22,41 @@ import { readSourceBuildFile } from "./readSourceBuildFile";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The namespace retains no resource or in-memory state.
  */
 export namespace GoWorkspaceEnvironment {
-  const KIND = "go-workspace-environment";
+  const KIND = "go-workspace-environment-v2";
+
+  /**
+   * Refine the binary key when the generated workspace uses a different
+   * environment. Unqualified observations need an identity unique to this
+   * build.
+   *
+   * @evidence contracts/common.md#principled-implementation The base key already identifies the source environment. A different observed environment adds an independent content component, and a nonce makes an unqualified observation ineligible for adoption of another binary.
+   * @evidence contracts/common.md#clear-and-simple-design One key constructor serves the binary cache and its native regression.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No prior stable key is returned for unproved workspace environment.
+   * @evidence contracts/common.md#meaningful-documentation States when the key remains unchanged and when a build needs an exclusive identity.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation The operation hashes text and does not interpret native paths.
+   * @evidence contracts/performance.md#efficient-algorithms Equality uses the supplied digests. Other cases hash their framed bytes once.
+   * @evidence contracts/performance.md#reuse-equivalent-work Equal source and workspace digests share verified binary identities; unqualified content never authorizes sharing.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The key constructor retains no data or handles.
+   */
+  export function binaryKey(
+    originKey: string,
+    sourceEnvironment: string | undefined,
+    workspace: string,
+    qualified: boolean,
+  ): string {
+    if (qualified && workspace === sourceEnvironment) return originKey;
+    return crypto
+      .createHash("sha256")
+      .update(
+        JSON.stringify([
+          originKey,
+          workspace,
+          qualified ? null : crypto.randomUUID(),
+        ]),
+      )
+      .digest("hex")
+      .slice(0, 32);
+  }
 
   /**
    * Replay an unchanged local workspace under the same generation inputs.
@@ -52,17 +86,16 @@ export namespace GoWorkspaceEnvironment {
 
   /**
    * Read the materialized workspace. The returned proof includes its own files.
-   * A record retains external evidence and omits the disposable selectors whose
-   * generation inputs the caller has keyed.
+   * The caller separately decides whether those files match the cache key.
    *
-   * @evidence contracts/common.md#principled-implementation The ordinary toolchain hasher runs with the generated workspace as cwd. Only a fully proven local result is persisted, and scratch-only observations remain available for live admission.
-   * @evidence contracts/common.md#clear-and-simple-design Actual toolchain hashing stays with the existing environment reader. This member controls workspace record eligibility.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown or delegated workspaces never supply saved authority for omission of native preparation.
-   * @evidence contracts/common.md#meaningful-documentation Specifies the difference between live and persisted evidence.
-   * @evidence contracts/portability.md#os-neutral-implementation The caller supplies a physical scratch directory. Native path names identify the two generated selectors to exclude from persistence.
+   * @evidence contracts/common.md#principled-implementation The ordinary toolchain hasher runs with the generated workspace as cwd and validates the resulting observations.
+   * @evidence contracts/common.md#clear-and-simple-design The existing reader hashes the actual SDK; this operation returns live evidence separately from publication.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Observation alone publishes no answer and does not widen a string-only custom SDK reader to native byte paths.
+   * @evidence contracts/common.md#meaningful-documentation Specifies the caller's responsibility to compare the materialized inputs against the key.
+   * @evidence contracts/portability.md#os-neutral-implementation The native reader supplies both ordinary and raw POSIX byte paths by default. An injected ordinary reader keeps its own byte-path policy.
    * @evidence contracts/performance.md#efficient-algorithms One native environment-hash operation and one bounded iteration over its witness qualify the answer. The SDK digest owner can reuse observed file bytes.
-   * @evidence contracts/performance.md#reuse-equivalent-work The external proof and key allow later requests to skip materialization of local workspaces only.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns scratch lifecycle and the record store owns persisted data.
+   * @evidence contracts/performance.md#reuse-equivalent-work The SDK reader can retain qualified byte identities; the workspace itself is observed live.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns scratch lifecycle and the returned observation.
    */
   export function observe(opts: {
     directory: string;
@@ -70,7 +103,6 @@ export namespace GoWorkspaceEnvironment {
     filesystem?: Partial<SourceBuildFilesystemOperations>;
     goBinary: string;
     identities?: PluginContentIdentities.Store;
-    identity: unknown;
     projectRoot?: string;
   }): {
     value: string;
@@ -88,6 +120,11 @@ export namespace GoWorkspaceEnvironment {
       {
         realpath: opts.filesystem?.realpath,
         readFile: opts.filesystem?.readFile ?? readSourceBuildFile,
+        readRawFile:
+          opts.filesystem?.readRawFile ??
+          (opts.filesystem?.readFile === undefined
+            ? readSourceBuildFile
+            : undefined),
       },
       witness,
       opts.identities,
@@ -95,19 +132,64 @@ export namespace GoWorkspaceEnvironment {
     );
     const value = hash.digest("hex");
     const qualified = PluginBuildEnvironmentWitness.reusable(witness);
-    if (local && qualified) {
-      const external = new Map(witness);
-      external.delete(`\0directory:${opts.directory}`);
-      external.delete(path.join(opts.directory, "go.mod"));
-      external.delete(path.join(opts.directory, "go.work"));
-      WitnessedLoadAnswers.write(
-        opts.identities,
-        KIND,
-        opts.identity,
-        value,
-        external,
-      );
-    }
     return { value, witness, qualified, local };
+  }
+
+  /**
+   * Save local workspace evidence after the caller proves the generated inputs
+   * match its key. Keep external evidence beyond the scratch directory's life.
+   *
+   * @evidence contracts/common.md#principled-implementation Only local workspace observations that still hold qualify. The caller proves the content identity before invoking publication.
+   * @evidence contracts/common.md#clear-and-simple-design The observation owner delegates durable publication to the caller's content-validation boundary.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The three disposable observations are dropped only after live validation. External SDK evidence remains validated by the store.
+   * @evidence contracts/common.md#meaningful-documentation States the caller's precondition and why scratch observations are removed.
+   * @evidence contracts/portability.md#os-neutral-implementation Native joined paths identify the two generated selectors, and the witness checks native metadata.
+   * @evidence contracts/performance.md#efficient-algorithms Checks the live observations before copying the witness map and removing scratch selectors. The store validates the external entries again at publication.
+   * @evidence contracts/performance.md#reuse-equivalent-work Equal generation inputs can replay the persisted local proof under unchanged external observations.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The shared answer store retains the persisted record and the caller owns the scratch directory.
+   */
+  export function remember(
+    identities: PluginContentIdentities.Store | undefined,
+    identity: unknown,
+    directory: string,
+    observation: ReturnType<typeof observe>,
+  ): void {
+    if (
+      !observation.local ||
+      !observation.qualified ||
+      !PluginBuildEnvironmentWitness.reusable(observation.witness)
+    )
+      return;
+    WitnessedLoadAnswers.write(
+      identities,
+      KIND,
+      identity,
+      observation.value,
+      externalWitness(directory, observation.witness),
+    );
+  }
+
+  /**
+   * Keep the external observations from a live workspace proof. The caller
+   * separately checks the generated inputs while their directory still exists.
+   *
+   * @evidence contracts/common.md#principled-implementation Excludes only the physical scratch directory and two generated selectors owned by the caller.
+   * @evidence contracts/common.md#clear-and-simple-design One projection serves durable proofs and outer build consumers.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Removing scratch observations does not validate any external metadata.
+   * @evidence contracts/common.md#meaningful-documentation Identifies the omitted inputs and the caller's validation responsibility.
+   * @evidence contracts/portability.md#os-neutral-implementation Native path joins identify the two module and workspace selectors.
+   * @evidence contracts/performance.md#efficient-algorithms Copies the witness map and removes three fixed keys.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Projection does not cache its own result.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the result.
+   */
+  export function externalWitness(
+    directory: string,
+    witness: PluginBuildEnvironmentWitness.Record,
+  ): PluginBuildEnvironmentWitness.Record {
+    const external = new Map(witness);
+    external.delete(`\0directory:${directory}`);
+    external.delete(path.join(directory, "go.mod"));
+    external.delete(path.join(directory, "go.work"));
+    return external;
   }
 }

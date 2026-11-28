@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -36,12 +37,13 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    follows the observed directory authority, not a platform-default guess.
  * 5. Carry intermediate links and reachable or missing physical endpoints to the
  *    native host under their own parents, including a representable POSIX raw
- *    link.
+ *    link. Verify that the manifest stays outside a POSIX config alias's
+ *    physical directory.
  *
  * @evidence contracts/testing.md#behavioral-verification Snapshot operations distinguish child-content edits from reload-file, immediate-topology and link-identity drift and preserve framed raw identities. Selection capture records the raw intermediate link fingerprint independently of its unchanged reached bytes. Manifest transport carries 8192 inputs and disposes its directory twice safely.
  * @evidence contracts/testing.md#independent-expectations Authored file and directory mutations define whether each snapshot must stay current or become stale; link, raw directory, empty-directory and missing-directory digests use independent sha256 framing (`symlink\0`/`directory\0`, target or native physical path bytes, NUL, `missing\0` or the empty-topology hash). Missing Windows suffix casing uses the supported authority observation without certifying that classifier itself. The test cannot prove agreement with the Go validator or startup host, only with this written framing; the manifest expectation is the literal count 8192 and a size above 64 KiB.
  * @evidence contracts/testing.md#distinguishing-cases Child contents remain current while exact-file edits and immediate topology invalidate. Exact-entry retarget uses a Windows leaf junction or POSIX leaf file symlink: both own link identity, but junction framing has missing content while the POSIX link reaches file bytes. POSIX preserves original different-content and added same-content retargets; Windows empty-directory retarget isolates identity. Native directory-link retarget is mandatory. POSIX raw bytes/backslash names and Windows Unicode junction bytes retain their distinct native input domains. Only an observed EILSEQ creation refusal selects UTF-8 recovery after an unchanged directory/link assertion; other preparation errors fail; manifest contents and repeated disposal are asserted separately.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/ttscserver entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/ttscserver entry exercises the owning operations on isolated inputs. A Node child supplies a controlled temporary environment for the manifest boundary case without changing the test runner's environment. No native host, build or consumer installation executes.
  */
 export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
   (): void => {
@@ -373,6 +375,10 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
         }
         assert.equal(fs.existsSync(manifestDirectory), false);
       });
+      if (process.platform !== "win32")
+        verify("manifest excludes the physical config directory", () => {
+          verifyManifestConfigBoundary();
+        });
       verify("plugin selection watches every link in the source path", () => {
         const link = path.join(root, "source-link");
         const middleName =
@@ -517,6 +523,76 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
       fs.rmSync(root, { force: true, recursive: true });
     }
   };
+
+/** Exercise manifest allocation with a file alias and controlled child temp. */
+function verifyManifestConfigBoundary(): void {
+  const root = TestProject.physicalPath(
+    TestProject.tmpdir("ttscserver-manifest-config-", "/tmp"),
+  );
+  const invocation = path.join(root, "invocation");
+  const logical = path.join(root, "logical");
+  const physical = path.join(root, "physical");
+  try {
+    for (const dir of [invocation, logical, physical]) fs.mkdirSync(dir);
+    const config = path.join(logical, "tsconfig.json");
+    fs.writeFileSync(path.join(physical, "custom.json"), "{}");
+    fs.symlinkSync(path.join(physical, "custom.json"), config);
+    const loader = new URL(
+      "../../../../../config/register-unit-loader.mjs",
+      import.meta.url,
+    );
+    const manifestModule = new URL(
+      "../../../../../packages/ttsc/src/launcher/internal/ttscserver/materializeLSPPluginManifest.ts",
+      import.meta.url,
+    );
+    const identityModule = new URL(
+      "../../../../../packages/ttsc/src/compiler/internal/project/resolveProjectIdentity.ts",
+      import.meta.url,
+    );
+    const result = spawnSync(
+      process.execPath,
+      [
+        "--import",
+        loader.href,
+        "--input-type=module",
+        "--eval",
+        `
+        import path from "node:path";
+        import { materializeLSPPluginManifest } from ${JSON.stringify(manifestModule.href)};
+        import { resolveProjectIdentity } from ${JSON.stringify(identityModule.href)};
+        const identity = resolveProjectIdentity({ tsconfig: ${JSON.stringify(config)} });
+        const parents = [identity.logicalProjectRoot, identity.physicalProjectRoot];
+        for (const project of [process.cwd(), identity]) {
+          const transport = materializeLSPPluginManifest({}, project);
+          try {
+            parents.push(path.dirname(path.dirname(transport.path)));
+          } finally {
+            transport.dispose();
+          }
+        }
+        process.stdout.write(JSON.stringify(parents));
+        `,
+      ],
+      {
+        cwd: invocation,
+        env: { ...process.env, NODE_OPTIONS: undefined, TMPDIR: physical },
+        encoding: "utf8",
+        timeout: 30_000,
+      },
+    );
+    assert.ifError(result.error);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), [
+      logical,
+      physical,
+      physical,
+      fs.realpathSync.native("/tmp"),
+    ]);
+    assert.deepEqual(fs.readdirSync(physical), ["custom.json"]);
+  } finally {
+    fs.rmSync(root, { recursive: true });
+  }
+}
 
 function verifyRawDirectoryIdentity(
   root: string,

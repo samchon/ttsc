@@ -104,6 +104,9 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
   /** False withdraws complete observation authority; absence asserts nothing. */
   observationsComplete?: false;
 
+  /** A later plugin load must re-establish its generated Go workspace. */
+  workspaceReplayRequired?: true;
+
   /** Compiler diagnostics and native process outcome. */
   result: TtscBuildResult;
 
@@ -154,6 +157,9 @@ function transformWithSnapshot(
       ...(Object.keys(loaded.pluginSources).length === 0
         ? {}
         : { pluginSources: loaded.pluginSources }),
+      ...(loaded.workspaceReplayRequired === true
+        ? { workspaceReplayRequired: true as const }
+        : {}),
     };
   }
   return transformProjectWithNativeHost(options, loaded.project, loaded);

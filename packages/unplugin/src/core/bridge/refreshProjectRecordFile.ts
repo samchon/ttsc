@@ -28,6 +28,9 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * record that cannot be read proves nothing and is moved too. A record whose
  * tsconfig is gone is removed instead, the one move no delivery has to end.
  *
+ * A persisted workspace replay requirement moves the record before either
+ * restoration path can use it. Opaque hosts require that move to succeed.
+ *
  * A watching session's bridge takes the record instead
  * (`projectRecordWatchInputs`): the bridge proves the recorded inputs as it
  * takes them, moves a record it finds stale and again until a delivery answers,
@@ -42,6 +45,7 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  *
  * @param file The project record (`projectRecordFile`).
  * @param bridge The watching session's bridge, when the host has one.
+ * @returns False when this record needs a new workspace delivery.
  * @throws When startup requires invalidation and the record cannot be moved.
  * @evidence contracts/common.md#principled-implementation
  *   An unreadable record proves nothing and is signaled; a vanished project is
@@ -76,7 +80,8 @@ export function refreshProjectRecordFile(
   compilerArgumentsIdentity?: string,
   privateStorage = false,
   required = false,
-): void {
+  opaqueRestore = false,
+): false | void {
   if (privateStorage && !privateProjectRecordAvailable(file)) {
     if (required)
       throw new Error(
@@ -115,6 +120,10 @@ export function refreshProjectRecordFile(
       // Held by another process; the next proof removes it.
     }
     return;
+  }
+  if (record.workspaceReplayRequired === true) {
+    signalProjectRecordFile(file, privateStorage, required || opaqueRestore);
+    return false;
   }
   if (bridge !== undefined) {
     if (!projectRecordArgumentsMatch(record, compilerArgumentsIdentity)) {

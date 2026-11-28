@@ -148,7 +148,8 @@ export namespace RuntimeBuildInputs {
       loaded !== undefined &&
       (!loaded.discoveryInputsComplete ||
         !loaded.descriptorReadsDeclared ||
-        loaded.observationsComplete === false)
+        loaded.observationsComplete === false ||
+        loaded.workspaceReplayRequired === true)
     ) {
       RuntimeBuildExplanation.report({
         outcome: "ineligible",
@@ -157,7 +158,9 @@ export namespace RuntimeBuildInputs {
           ? "incomplete-plugin-discovery"
           : !loaded.descriptorReadsDeclared
             ? "undeclared-descriptor-inputs"
-            : "incomplete-descriptor-observations",
+            : loaded.workspaceReplayRequired === true
+              ? "plugin-workspace-replay-required"
+              : "incomplete-descriptor-observations",
       });
       return undefined;
     }
