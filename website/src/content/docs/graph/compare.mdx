@@ -2,27 +2,27 @@ import TtscWebsiteBenchmarkGraphCommon from "../../../components/benchmark/graph
 
 # Comparison
 
-Four tools give a coding agent a view of a codebase over MCP: `@ttsc/graph`, [`codegraph`](https://github.com/colbymchenry/codegraph), [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp), and [`serena`](https://github.com/oraios/serena).
+Five tools give a coding agent a view of a codebase over MCP: `@ttsc/graph`, [`codegraph`](https://github.com/colbymchenry/codegraph), [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp), [`serena`](https://github.com/oraios/serena), and [ClickHouse Loom](https://github.com/ClickHouse/loom).
 
 `@ttsc/graph` focuses on open-ended questions about a TypeScript project. The comparison below covers each tool's resolution backend, query results, setup, and agent instructions.
 
-Every claim about another tool below links to the source it comes from, and the full list is in [Sources](#sources). The facts are current as of mid-2026 and taken from each tool's own repository and docs. All four are moving targets, so check the linked sources before relying on a specific number.
+Every claim about another tool below links to the source it comes from, and the full list is in [Sources](#sources). The facts come from each tool's own repository and docs. Check the linked sources before relying on a specific number.
 
 ## At a glance
 
-|  | `@ttsc/graph` | `codegraph` | `codebase-memory-mcp` | `serena` |
-| --- | --- | --- | --- | --- |
-| Resolution backend | Real TypeScript compiler (type-checked program) | tree-sitter AST | tree-sitter grammars into a relation graph | Language server (LSP) |
-| Language scope | TypeScript only | 20+ | 158 | 40+ |
-| A query returns | Index: names, edges, signatures, spans (no bodies) | Verbatim source bodies grouped by file, plus call paths | Graph rows via an openCypher subset; snippets by exact qualified name | Symbol overviews, then source bodies on demand |
-| MCP tool surface | 1 | 1 by default (others via `CODEGRAPH_MCP_TOOLS`) | 14 | 40+ documented, about 27 active by default |
-| Setup step | No separate command; the graph is built with the type-check when the server starts | `codegraph init` | `index_repository`, auto-index off by default | `serena project index`, then language-server start |
-| Instruction strategy | States a condition, first-class `escape`, does not force | Forces hard: call before Read, do not grep | No MCP-handshake instructions; install-time skills and hooks | Replacement system prompt; recommends disabling Claude Code's own read and edit tools |
-| Its own headline claim | About 10x fewer tokens on open-ended questions | 58% fewer tool calls, file reads to about zero | Up to 120x fewer tokens on structural queries | Symbol tools "more token-efficient than typical alternatives" |
+|  | `@ttsc/graph` | `codegraph` | `codebase-memory-mcp` | `serena` | **ClickHouse Loom** |
+| --- | --- | --- | --- | --- | --- |
+| Resolution backend | Real TypeScript compiler (type-checked program) | tree-sitter AST | tree-sitter grammars into a relation graph | Language server (LSP) | Fast-tier parsing, with optional SCIP compiler indexes |
+| Language scope | TypeScript only | 20+ | 158 | 40+ | Multiple languages, with coverage by indexing tier |
+| A query returns | Index: names, edges, signatures, spans (no bodies) | Verbatim source bodies grouped by file, plus call paths | Graph rows via an openCypher subset; snippets by exact qualified name | Symbol overviews, then source bodies on demand | Search hits, symbol definitions with source, caller paths, or diff impact, depending on the tool |
+| MCP tool surface | 1 | 1 by default (others via `CODEGRAPH_MCP_TOOLS`) | 14 | 40+ documented, about 27 active by default | Multiple code tools in the `coding` toolset |
+| Setup step | No separate command; the graph is built with the type-check when the server starts | `codegraph init` | `index_repository`, auto-index off by default | `serena project index`, then language-server start | Configure a repository and branch on the server, then build the index |
+| Instruction strategy | States a condition, first-class `escape`, does not force | Forces hard: call before Read, do not grep | No MCP-handshake instructions; install-time skills and hooks | Replacement system prompt; recommends disabling Claude Code's own read and edit tools | Coding-agent plugins set the repository scope and supply usage guidance |
+| Its own headline claim | About 10x fewer tokens on open-ended questions | 58% fewer tool calls, file reads to about zero | Up to 120x fewer tokens on structural queries | Symbol tools "more token-efficient than typical alternatives" | — |
 
 ## Measured cost
 
-The chart below is the shared onboarding question across the benchmark repositories, on the primary model lane. `@ttsc/graph` holds a flat, low median token cost as the repository grows, while the comparators swing with repository size and sometimes land above the no-MCP baseline.
+The chart below shows the shared onboarding question across the benchmark repositories, on the primary model lane. The chart reports the original four tools and the no-MCP baseline. `@ttsc/graph` holds a flat, low median token cost as the repository grows, while the comparators swing with repository size and sometimes land above the no-MCP baseline.
 
 <TtscWebsiteBenchmarkGraphCommon summary />
 
@@ -36,9 +36,11 @@ The [full benchmark](/docs/benchmark/graph) adds the per-repository prompts, eve
 
 `codegraph` returns whole source bodies. Its own instructions describe the output as the same shape the Read tool gives you and tell the agent to "treat the source it returns as already Read" ([`server-instructions.ts`](https://github.com/colbymchenry/codegraph/blob/main/src/mcp/server-instructions.ts)). That is a good fit for editing a known symbol. On a broad question that touches many files it is the opposite of flat: the response grows with the code it pulls in, and past a cap it spills into a follow-up call.
 
-`codebase-memory-mcp` has the most graph-like core of the three. Underneath it builds a real relation graph of calls and dependencies, close to the one `@ttsc/graph` returns. Its `query_graph` tool takes a read-only openCypher subset, and `get_code_snippet` takes an exact qualified name of the form `<project>.<path>.<name>` ([tool set](https://github.com/DeusData/codebase-memory-mcp)). The relation data is there; reaching it takes a query language or a name resolved from an earlier call.
+`codebase-memory-mcp` builds a graph of calls and dependencies, close to the one `@ttsc/graph` returns. Its `query_graph` tool takes a read-only openCypher subset, and `get_code_snippet` takes an exact qualified name of the form `<project>.<path>.<name>` ([tool set](https://github.com/DeusData/codebase-memory-mcp)). The relation data is there; reaching it takes a query language or a name resolved from an earlier call.
 
 `serena` returns symbol overviews and then source bodies on demand through its symbol tools ([tools](https://oraios.github.io/serena/01-about/035_tools.html)), rather than a whole-graph index.
+
+Loom offers separate operations for search hits, symbol bodies, caller paths, and the impact of a diff. Operations such as `code.symbol` and `code.impact` can attach memories linked to the returned code. [Code index](https://github.com/ClickHouse/loom/blob/v1.3.0/docs/features/code-index/overview.md) · [Memory linked to code](https://github.com/ClickHouse/loom/blob/v1.3.0/docs/use-cases/memory-linked-to-code.md)
 
 ## How relationships are resolved
 
@@ -58,7 +60,7 @@ The [full benchmark](/docs/benchmark/graph) adds the per-repository prompts, eve
 
 `codebase-memory-mcp` exposes fourteen tools and sends no instructions over the MCP handshake. Its guidance ships instead as install-time skill files and hooks that its installer writes per agent, and auto-indexing is off by default ([install and tools](https://github.com/DeusData/codebase-memory-mcp)). An agent wired to the server without that setup has fourteen tools and little telling it which to use when.
 
-`serena` has the broadest surface, over forty tools documented and around twenty-seven active by default ([tools](https://oraios.github.io/serena/01-about/035_tools.html)), spanning retrieval, symbolic editing, memory, and project management. To get the agent to use them over its own read and edit loop, serena's recommended Claude Code setup goes furthest of the four. It launches Claude Code with a serena-supplied replacement system prompt (`claude --system-prompt="$(serena prompts print-cc-system-prompt-override)"`) and recommends disabling Claude Code's own built-in tools, naming `replace_string_in_file`, `apply_patch`, `list_dir`, `file_search`, and `grep_search` ([Claude Code setup](https://oraios.github.io/serena/02-usage/030_clients.html)).
+`serena` has the broadest surface, over forty tools documented and around twenty-seven active by default ([tools](https://oraios.github.io/serena/01-about/035_tools.html)), spanning retrieval, symbolic editing, memory, and project management. To get the agent to use them over its own read and edit loop, serena's recommended Claude Code setup goes furthest among these setups. It launches Claude Code with a serena-supplied replacement system prompt (`claude --system-prompt="$(serena prompts print-cc-system-prompt-override)"`) and recommends disabling Claude Code's own built-in tools, naming `replace_string_in_file`, `apply_patch`, `list_dir`, `file_search`, and `grep_search` ([Claude Code setup](https://oraios.github.io/serena/02-usage/030_clients.html)).
 
 Its reasoning is that Claude Code's built-in tool descriptions run about sixteen thousand tokens and bias the model so strongly toward the built-ins that it is otherwise hard to get it to reach for serena at all. The breadth is deliberate, since serena aims to handle reading and editing, not only orientation.
 
@@ -68,11 +70,13 @@ The [launch post](/blog/i-made-ts-compiler-graph-mcp) explains the typed request
 
 `@ttsc/graph` has no separate index step or `init` command. Its native compiler session checks the current project snapshot before each graph operation. Unchanged calls reuse the warm in-memory indexes, source edits reuse tsgo's incremental Program when safe, and config, root-file-set, deletion, or module-resolution changes reload before the tool answers. A refresh failure returns an error rather than the previous graph.
 
-The others build an index first. `codegraph` needs `codegraph init` to construct the graph into a local `.codegraph/` directory, `codebase-memory-mcp` needs `index_repository` (and auto-indexing turned on if you want it kept current), and `serena` activates the project and starts a language server, which carries a cold-start before the first answer.
+`codegraph` needs `codegraph init` to construct the graph into a local `.codegraph/` directory, `codebase-memory-mcp` needs `index_repository` (and auto-indexing turned on if you want it kept current), and `serena` activates the project and starts a language server, which carries a cold-start before the first answer.
+
+Loom's server indexes committed history on each configured branch. Multiple agents can query the same index, and `code.index_status` shows how far the index has advanced. Use a checkout to inspect working-tree changes. [Repositories](https://github.com/ClickHouse/loom/blob/v1.3.0/docs/features/code-index/repositories.md) · [Index freshness](https://github.com/ClickHouse/loom/blob/v1.3.0/docs/features/code-index/freshness.md)
 
 ## Language scope
 
-This is where `@ttsc/graph` gives up the most. It is TypeScript only, because a compiler-exact graph is bound to one compiler. `codegraph` covers 20-plus languages, `serena` 40-plus, and `codebase-memory-mcp` 158. If your work is not in TypeScript, `@ttsc/graph` has nothing to hand over, and one of the others is the right pick.
+This is where `@ttsc/graph` gives up the most. It is TypeScript only, because a compiler-exact graph is bound to one compiler. `codegraph` covers 20-plus languages, `serena` 40-plus, and `codebase-memory-mcp` 158. Loom covers multiple languages, and its [language support table](https://github.com/ClickHouse/loom/blob/v1.3.0/docs/features/code-index/overview.md#language-support) lists symbols, fast-tier edges, and compiler-tier coverage separately. If your work is not in TypeScript, `@ttsc/graph` has nothing to hand over, and one of the others is the right pick.
 
 Inside TypeScript, the trade runs the other way. `@ttsc/graph` spends its narrow scope on depth: a resolved graph and an architecture and impact projection, in one index. It trades breadth for depth on purpose, which is the opposite bet from the multi-language tools.
 
@@ -81,3 +85,4 @@ Inside TypeScript, the trade runs the other way. `@ttsc/graph` spends its narrow
 - `codegraph`: MCP instruction text and tool guidance in [`src/mcp/server-instructions.ts`](https://github.com/colbymchenry/codegraph/blob/main/src/mcp/server-instructions.ts); project [README](https://github.com/colbymchenry/codegraph) for `codegraph_explore`, the `CODEGRAPH_MCP_TOOLS` gate, tree-sitter extraction, and `codegraph init`.
 - `codebase-memory-mcp`: [repository](https://github.com/DeusData/codebase-memory-mcp) for the fourteen tools (including `query_graph` with its openCypher subset and `get_code_snippet` by qualified name), the install-time skills and hooks written per agent, auto-index defaulting off, and the 158-language tree-sitter coverage.
 - `serena`: [tools list](https://oraios.github.io/serena/01-about/035_tools.html) for the tool count, the [Claude Code setup](https://oraios.github.io/serena/02-usage/030_clients.html) for the replacement system prompt and the recommendation to disable Claude Code's built-in read and edit tools, [configuration and contexts](https://oraios.github.io/serena/02-usage/050_configuration.html) for context behavior, and the [`claude-code` context](https://github.com/oraios/serena/blob/main/src/serena/resources/config/contexts/claude-code.yml).
+- ClickHouse Loom: [code index overview](https://github.com/ClickHouse/loom/blob/v1.3.0/docs/features/code-index/overview.md) for the toolset, supported languages, and compiler tiers, [repository configuration](https://github.com/ClickHouse/loom/blob/v1.3.0/docs/features/code-index/repositories.md) for setup, and the [coding-agent guide](https://github.com/ClickHouse/loom/blob/v1.3.0/docs/getting-started/connect-a-coding-agent.md) for client setup and guidance.
