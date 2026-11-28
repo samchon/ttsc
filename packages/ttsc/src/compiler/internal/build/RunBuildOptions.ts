@@ -23,6 +23,8 @@ import type { RuntimeBuildCache } from "./RuntimeBuildCache";
 export type RunBuildOptions = TtscBuildOptions & {
   /** Persistent private-runtime emit documents; absence keeps ordinary builds. */
   runtimeCacheDir?: string;
+  /** Recheck ownership before retiring into a system runtime build store. */
+  canChangeRuntimeTrash?: (directory: string) => boolean;
 
   /** Prefer a run-owned bundle for admitted runtime outputs. */
   bundleRuntimeOutputs?: boolean;

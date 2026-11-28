@@ -2,8 +2,8 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-import { observeLexicalPackagePath } from "./observeLexicalPackagePath";
 import { readJsonFile } from "./readJsonFile";
+import { resolveNativePackagePath } from "./resolveNativePackagePath";
 import { resolvePhysicalProjectPath } from "./resolvePhysicalProjectPath";
 import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
 
@@ -84,13 +84,19 @@ export function resolveTsconfigExtends(
   }
   let selected: string;
   try {
-    selected = resolveNativePackagePath(resolver, tsconfig, normalized);
+    selected = resolveNativePackagePath(
+      resolver,
+      tsconfig,
+      normalized,
+      "extended config",
+    );
   } catch (error) {
     if (unrepresentable(error)) throw error;
     selected = resolveNativePackagePath(
       resolver,
       tsconfig,
       `${normalized}.json`,
+      "extended config",
     );
   }
   onInput?.(selected);
@@ -120,6 +126,7 @@ function resolvePackageManifestTsconfig(
       resolver,
       tsconfig,
       `${specifier}/package.json`,
+      "extended config",
     );
   } catch (error) {
     if (unrepresentable(error)) throw error;
@@ -168,52 +175,6 @@ function isBarePackageRoot(specifier: string): boolean {
     return specifier.split("/").length === 2;
   }
   return !specifier.includes("/");
-}
-
-/** Keep the caller's selection and qualify any matching native lexical input. */
-function resolveNativePackagePath(
-  resolver: NodeRequire,
-  tsconfig: string,
-  specifier: string,
-): string {
-  let selected: string;
-  try {
-    selected = resolver.resolve(specifier);
-  } catch (error) {
-    rejectLossyPackagePath(tsconfig, specifier);
-    throw error;
-  }
-  rejectLossyPackagePath(tsconfig, specifier, selected);
-  return selected;
-}
-
-/** A lexical witness can refute lossless ownership without replacing hooks. */
-function rejectLossyPackagePath(
-  tsconfig: string,
-  specifier: string,
-  selected?: string,
-): void {
-  const lexical = observeLexicalPackagePath(tsconfig, specifier);
-  if (lexical === undefined || !path.isAbsolute(lexical)) return;
-  try {
-    resolvePhysicalProjectPath(lexical, "extended config");
-  } catch (error) {
-    if (
-      !unrepresentable(error) ||
-      selected === undefined ||
-      selected === lexical
-    )
-      throw error;
-    // The old spelling is used only for comparison. A different path chosen
-    // by a registered hook is still the caller's authority.
-    let ordinary: string | undefined;
-    try {
-      ordinary = fs.realpathSync(lexical);
-    } catch {
-      // The standard resolver could not produce a readable string path here.
-    }
-    if (ordinary === selected) throw error;
-  }
 }
 
 function unrepresentable(error: unknown): boolean {

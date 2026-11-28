@@ -899,126 +899,172 @@ export namespace loadProjectPlugins {
           }))
         : []),
     ];
-    const builtTransformHosts = new Map<object, string>();
-    for (const record of transformHosts) {
-      builtTransformHosts.set(
-        record,
-        buildSourcePlugin({
-          baseDir: context.projectRoot,
-          cacheDir: options.cacheDir,
-          contributors: mergeContributors(
-            record.contributors,
-            hostContributors,
-          ),
-          env: effectiveEnv,
-          goModReaders: packageReaders,
-          identities: sourceIdentities,
-          pluginName: record.label,
-          packageOwnership: packageOwnership(record.source, record.label, true),
-          source: record.source,
-          environmentDigests,
-          environmentWitnesses,
-          onWorkspaceEnvironment,
-          overlayDirs,
-          sourceDigests,
-          ttscVersion,
-          tsgoVersion,
-        }),
-      );
-    }
-    const fallbackDriverHost =
-      transformHosts.length === 0 && linkedContributors.length !== 0
-        ? buildSourcePlugin({
+    const failedWorkspaces: PluginBuildEnvironmentWitness.Record[] = [];
+    const onWorkspaceFailure =
+      selectedWatchInputs === undefined
+        ? undefined
+        : (witness: PluginBuildEnvironmentWitness.Record): void => {
+            failedWorkspaces.push(witness);
+          };
+    let nativePlugins: ITtscLoadedNativePlugin[];
+    try {
+      const builtTransformHosts = new Map<object, string>();
+      for (const record of transformHosts) {
+        builtTransformHosts.set(
+          record,
+          buildSourcePlugin({
             baseDir: context.projectRoot,
             cacheDir: options.cacheDir,
-            contributors: linkedContributors,
+            contributors: mergeContributors(
+              record.contributors,
+              hostContributors,
+            ),
             env: effectiveEnv,
             goModReaders: packageReaders,
             identities: sourceIdentities,
-            label: "linked plugin host",
-            pluginName: "linked-plugin-host",
-            source: path.join(ttscPackageRoot(), "cmd", "utility-host"),
+            pluginName: record.label,
             packageOwnership: packageOwnership(
-              path.join(ttscPackageRoot(), "cmd", "utility-host"),
-              "linked-plugin-host",
+              record.source,
+              record.label,
               true,
             ),
+            source: record.source,
             environmentDigests,
             environmentWitnesses,
             onWorkspaceEnvironment,
+            onWorkspaceFailure,
             overlayDirs,
             sourceDigests,
             ttscVersion,
             tsgoVersion,
-          })
-        : undefined;
-    const selectedTransformHost =
-      transformHosts.length === 0
-        ? fallbackDriverHost
-        : builtTransformHosts.get(transformHosts[0]!);
-    const nativePlugins: ITtscLoadedNativePlugin[] = records.map((record) => {
-      const binary =
-        record.stage === "transform" && record.kind === "linked"
-          ? selectedTransformHost
-          : record.stage === "transform"
-            ? builtTransformHosts.get(record)
-            : buildSourcePlugin({
-                baseDir: context.projectRoot,
-                cacheDir: options.cacheDir,
-                contributors: record.contributors,
-                env: effectiveEnv,
-                goModReaders: packageReaders,
-                identities: sourceIdentities,
-                pluginName: record.label,
-                packageOwnership: packageOwnership(
-                  record.source,
-                  record.label,
-                  false,
-                ),
-                source: record.source,
-                environmentDigests,
-                environmentWitnesses,
-                onWorkspaceEnvironment,
-                overlayDirs,
-                sourceDigests,
-                ttscVersion,
-                tsgoVersion,
-              });
-      if (binary === undefined) {
-        throw new Error(
-          `ttsc: plugin "${record.label}" is a linked Go package, but no compiler host is available`,
+          }),
         );
       }
-      return {
-        binary,
-        // This fallback is compiled from our utility-host, whose actual writer
-        // publishes provenance and supports a separate compiler argument cwd,
-        // and which serves the resident analysis check (`check-serve`, #1864).
-        // A separately selected executable host must opt in itself; a linked
-        // library cannot certify that foreign host. An undeclared capability
-        // only withholds the optional protocol: build execution still runs such
-        // a host and observes it from outside, never rejecting it.
-        capabilities:
-          record.stage === "transform" &&
-          record.kind === "linked" &&
-          fallbackDriverHost !== undefined
-            ? {
-                ...record.capabilities,
-                compilerArgsCwd: true,
-                emitProvenance: true,
-                emitObservations: true,
-                residentCheck: true,
-              }
-            : record.capabilities,
-        config: record.config,
-        contributors: record.contributors,
-        kind: record.kind,
-        name: record.name,
-        reportsTypeScriptDiagnostics: record.reportsTypeScriptDiagnostics,
-        source: record.source,
-        stage: record.stage,
-      };
-    });
+      const fallbackDriverHost =
+        transformHosts.length === 0 && linkedContributors.length !== 0
+          ? buildSourcePlugin({
+              baseDir: context.projectRoot,
+              cacheDir: options.cacheDir,
+              contributors: linkedContributors,
+              env: effectiveEnv,
+              goModReaders: packageReaders,
+              identities: sourceIdentities,
+              label: "linked plugin host",
+              pluginName: "linked-plugin-host",
+              source: path.join(ttscPackageRoot(), "cmd", "utility-host"),
+              packageOwnership: packageOwnership(
+                path.join(ttscPackageRoot(), "cmd", "utility-host"),
+                "linked-plugin-host",
+                true,
+              ),
+              environmentDigests,
+              environmentWitnesses,
+              onWorkspaceEnvironment,
+              onWorkspaceFailure,
+              overlayDirs,
+              sourceDigests,
+              ttscVersion,
+              tsgoVersion,
+            })
+          : undefined;
+      const selectedTransformHost =
+        transformHosts.length === 0
+          ? fallbackDriverHost
+          : builtTransformHosts.get(transformHosts[0]!);
+      nativePlugins = records.map((record) => {
+        const binary =
+          record.stage === "transform" && record.kind === "linked"
+            ? selectedTransformHost
+            : record.stage === "transform"
+              ? builtTransformHosts.get(record)
+              : buildSourcePlugin({
+                  baseDir: context.projectRoot,
+                  cacheDir: options.cacheDir,
+                  contributors: record.contributors,
+                  env: effectiveEnv,
+                  goModReaders: packageReaders,
+                  identities: sourceIdentities,
+                  pluginName: record.label,
+                  packageOwnership: packageOwnership(
+                    record.source,
+                    record.label,
+                    false,
+                  ),
+                  source: record.source,
+                  environmentDigests,
+                  environmentWitnesses,
+                  onWorkspaceEnvironment,
+                  onWorkspaceFailure,
+                  overlayDirs,
+                  sourceDigests,
+                  ttscVersion,
+                  tsgoVersion,
+                });
+        if (binary === undefined) {
+          throw new Error(
+            `ttsc: plugin "${record.label}" is a linked Go package, but no compiler host is available`,
+          );
+        }
+        return {
+          binary,
+          // This fallback is compiled from our utility-host, whose actual writer
+          // publishes provenance and supports a separate compiler argument cwd,
+          // and which serves the resident analysis check (`check-serve`, #1864).
+          // A separately selected executable host must opt in itself; a linked
+          // library cannot certify that foreign host. An undeclared capability
+          // only withholds the optional protocol: build execution still runs such
+          // a host and observes it from outside, never rejecting it.
+          capabilities:
+            record.stage === "transform" &&
+            record.kind === "linked" &&
+            fallbackDriverHost !== undefined
+              ? {
+                  ...record.capabilities,
+                  compilerArgsCwd: true,
+                  emitProvenance: true,
+                  emitObservations: true,
+                  residentCheck: true,
+                }
+              : record.capabilities,
+          config: record.config,
+          contributors: record.contributors,
+          kind: record.kind,
+          name: record.name,
+          reportsTypeScriptDiagnostics: record.reportsTypeScriptDiagnostics,
+          source: record.source,
+          stage: record.stage,
+        };
+      });
+    } catch (error) {
+      if (
+        selectedWatchInputs !== undefined &&
+        (failedWorkspaces.length !== 0 || workspaceWitnesses.length !== 0)
+      ) {
+        const observed: PluginBuildEnvironmentWitness.Record = new Map();
+        for (const witness of [...workspaceWitnesses, ...failedWorkspaces])
+          for (const [key, signature] of witness)
+            if (PluginBuildEnvironmentWitness.pathOf(key) !== undefined)
+              observed.set(key, signature);
+        if (observed.size !== 0) {
+          const retry = new Map(
+            PluginBuildEnvironmentWitness.retryBaseline(observed),
+          );
+          try {
+            yield options.onWatchInputs?.(
+              selectedWatchInputs,
+              sourceIdentities,
+              PluginBuildEnvironmentWitness.watchInputs([retry], project.root),
+            );
+          } catch (publicationError) {
+            throw new AggregateError(
+              [error, publicationError],
+              `${error instanceof Error ? error.message : String(error)}\nttsc: could not publish Go workspace recovery inputs: ${publicationError instanceof Error ? publicationError.message : String(publicationError)}`,
+            );
+          }
+        }
+      }
+      throw error;
+    }
     const workspaceInputs =
       workspaceWitnesses.length === 0
         ? undefined

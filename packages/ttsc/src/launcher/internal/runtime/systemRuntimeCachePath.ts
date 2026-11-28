@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { RuntimeTrash } from "../../../internal/RuntimeTrash";
 import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
 import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBuildCacheLayout";
 import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
@@ -11,15 +12,15 @@ import { RuntimeFilesystem } from "./RuntimeFilesystem";
  * Locate the existing or prospective ttsx cache within verified system temp.
  * The caller supplies a physical temporary directory outside the project. Each
  * existing child must be an ordinary directory before the caller may create the
- * runtime root. The run index, sibling lock and retirement directory also
- * require ordinary directory entries. These observations require stable names.
+ * runtime root. The run index, trash directories and sibling lock also require
+ * ordinary directory entries. These observations require stable names.
  *
  * @evidence contracts/common.md#principled-implementation The predictable runtime and lock coordinates are checked without following links before use, so a safe system parent does not authorize redirected cache writes.
  * @evidence contracts/common.md#clear-and-simple-design The helper computes and validates the fallback path. Runtime creation and lock admission remain with their existing owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Native metadata distinguishes absent names, links and ordinary directories. No attempted write supplies the validation result.
  * @evidence contracts/common.md#meaningful-documentation The prose states the verified parent premise, the checked children, and the path stability limit.
  * @evidence contracts/portability.md#os-neutral-implementation Native path construction and lstat observe POSIX links and Windows junctions without an assumed separator or case policy.
- * @evidence contracts/performance.md#efficient-algorithms Hashing consumes the project path bytes and five metadata observations validate the candidate without enumerating its contents.
+ * @evidence contracts/performance.md#efficient-algorithms Hashing consumes the project path bytes and a fixed set of metadata observations validate the candidate without enumerating its contents.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A new call needs current directory information.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The function acquires no handles and writes nothing.
  */
@@ -45,6 +46,7 @@ export function systemRuntimeCachePath(
     path.join(fallback, SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME),
     lock,
     retired,
+    ...trashPaths(fallback),
   ]) {
     const entry = fs.lstatSync(candidate, { throwIfNoEntry: false });
     if (entry !== undefined && !entry.isDirectory())
@@ -94,8 +96,8 @@ export function pinSystemRuntimeCachePath(
   );
   const roots = [root, ...projectRoots];
   const eligible = () =>
-    [fallback, index, lock, retired].every((directory) =>
-      systemTempOutsideProject.allowsChild(directory, roots),
+    [fallback, index, lock, retired, ...trashPaths(fallback)].every(
+      (directory) => systemTempOutsideProject.allowsChild(directory, roots),
     );
   if (!eligible()) return undefined;
   for (const [current, next] of [
@@ -118,6 +120,19 @@ export function pinSystemRuntimeCachePath(
   requireWritableParent(lock);
   requireWritableParent(retired);
   return fallback;
+}
+
+/** List the runtime trash and the store ancestry that a drain can traverse. */
+function trashPaths(runtimeRoot: string): string[] {
+  const store = path.join(
+    runtimeRoot,
+    SourceBuildCacheLayout.RUNTIME_BUILD_CACHE_DIRNAME,
+  );
+  return [
+    path.join(runtimeRoot, RuntimeTrash.DIRNAME),
+    store,
+    path.join(store, RuntimeTrash.DIRNAME),
+  ];
 }
 
 /** Check the first existing directory that would receive a claim write. */

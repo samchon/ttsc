@@ -6,6 +6,7 @@ import {
   child_process,
   computeCacheKey,
   createFakeGoBinary,
+  fakeLocalGoEnvironment,
   fs,
   inspectPluginBuildLock,
   os,
@@ -30,7 +31,7 @@ import {
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this generic export, invoking the built workspace builder/inspector with scripted Go admission over actual native filesystem locks/PID absence. The fixture does not prove real Go compilation or packed installation.
  * @evidence contracts/e2e.md#necessary-boundary The builder must connect native PID absence, legacy fence retirement, process-backed tool invocation and v3 finalization. The assertion concerns that admission/publication connection rather than contributor compiler semantics.
  * @evidence contracts/e2e.md#shared-execution One scripted executable/module/private cache supplies key computation and actual recovery build, separate from real-Go producer profiles. Missing publication and recovery results are observed, not native process/build totals or shared hits.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked source/cache/root hold the aged lock/candidate; the seed child is independently ESRCH-absent before its owner record. TTSC_GO_BINARY/three cache variables restore their exact original absence/value in finally. Root is conservatively retained because sync builder return/lock finalization does not certify arbitrary descendant closure.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked source/cache/root hold the aged lock/candidate; the seed child is independently ESRCH-absent before its owner record. The key and build share the fixture's explicit local SDK environment, and every overridden variable is restored in finally. Root is retained because sync builder return/lock finalization does not certify arbitrary descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Exited-child success, binary existence and exact released inspection remain the original assertions. The stub verifies copied fixture inputs while its literal binary only witnesses publication, not compiler validity.
  */
 export const test_buildsourceplugin_reclaims_dead_legacy_plugin_lock = () => {
@@ -44,17 +45,19 @@ export const test_buildsourceplugin_reclaims_dead_legacy_plugin_lock = () => {
   const cacheDir = path.join(root, "cache");
 
   const fakeGo = createFakeGoBinary(root);
-  const saved = {
-    go: process.env.TTSC_GO_BINARY,
-    cache: process.env.TTSC_CACHE_DIR,
-    goCache: process.env.TTSC_GO_CACHE_DIR,
-    gocache: process.env.GOCACHE,
+  const environment = {
+    ...fakeLocalGoEnvironment(root),
+    TTSC_GO_BINARY: fakeGo,
+    TTSC_CACHE_DIR: undefined,
+    TTSC_GO_CACHE_DIR: undefined,
+    GOCACHE: undefined,
   };
-  process.env.TTSC_GO_BINARY = fakeGo;
-  delete process.env.TTSC_CACHE_DIR;
-  delete process.env.TTSC_GO_CACHE_DIR;
-  delete process.env.GOCACHE;
+  const saved = Object.keys(environment).map(
+    (key) => [key, process.env[key]] as const,
+  );
   try {
+    for (const [key, value] of Object.entries(environment))
+      setEnvironment(key, value);
     const key = computeCacheKey({
       dir: plugin,
       entry: ".",
@@ -110,14 +113,12 @@ export const test_buildsourceplugin_reclaims_dead_legacy_plugin_lock = () => {
     });
 
     assert.equal(fs.existsSync(binary), true);
+    assert.equal(path.dirname(binary), cacheEntry);
     assert.deepEqual(inspectPluginBuildLock(lockDir), {
       state: "released",
     });
   } finally {
-    restore("TTSC_GO_BINARY", saved.go);
-    restore("TTSC_CACHE_DIR", saved.cache);
-    restore("TTSC_GO_CACHE_DIR", saved.goCache);
-    restore("GOCACHE", saved.gocache);
+    for (const [key, value] of saved) setEnvironment(key, value);
   }
 };
 
@@ -140,7 +141,7 @@ function writePluginSource(root: string): void {
   }
 }
 
-function restore(key: string, value: string | undefined): void {
+function setEnvironment(key: string, value: string | undefined): void {
   if (value === undefined) delete process.env[key];
   else process.env[key] = value;
 }

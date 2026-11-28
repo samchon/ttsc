@@ -604,6 +604,7 @@ function buildProject(
     env: options.env,
     cacheDir: context.pluginCacheDir,
     runtimeCacheDir: context.runtimeBuildCacheDir,
+    canChangeRuntimeTrash: context.canChangeRuntimeRun,
     bundleRuntimeOutputs: true,
     outDir: context.emitDir,
     // Every output this build writes stays in ttsx's private directory: a
@@ -880,7 +881,7 @@ function removeRuntimeOutput(
       if (ownership !== "abandoned" && ownership !== "unowned") return;
       if (canChange?.(directory) === false) return;
       RuntimeBuildCache.parkRequested(directory);
-      if (!RuntimeTrash.retire(directory, runtimeCacheDir))
+      if (!RuntimeTrash.retire(directory, runtimeCacheDir, canChange))
         fs.rmSync(directory, { recursive: true, force: true });
     });
   } catch {

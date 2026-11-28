@@ -458,7 +458,9 @@ async function runPreparedEntry(
     });
     const drains = [execution.runtimeCacheDir, execution.runtimeBuildCacheDir]
       .filter((parent): parent is string => parent !== undefined)
-      .map((parent) => RuntimeTrash.drain(parent));
+      .map((parent) =>
+        RuntimeTrash.drain(parent, execution.canChangeRuntimeRun),
+      );
     stopDrain = () => drains.forEach((stop) => stop());
     // A fresh entry build is stored while the program runs, one bounded step
     // per turn of the event loop, so a cache miss starts the program as soon
@@ -679,7 +681,7 @@ function removeRuntimeOutput(
         // Retired by one rename, its files are deleted while a later run's
         // program executes, instead of holding this exit (samchon/ttsc#1859).
         RuntimeEmitBundle.release();
-        if (!RuntimeTrash.retire(directory, runtimeCacheDir))
+        if (!RuntimeTrash.retire(directory, runtimeCacheDir, canChange))
           fs.rmSync(directory, { force: true, recursive: true });
         observe?.("removed", ownership);
       } else {

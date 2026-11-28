@@ -18,7 +18,11 @@ import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFil
  */
 export function resolvePhysicalProjectPath(
   location: string,
-  owner: "selected config" | "extended config" | "project root",
+  owner:
+    | "selected config"
+    | "extended config"
+    | "project root"
+    | "bundled Go executable",
 ): string {
   let physical: string;
   try {

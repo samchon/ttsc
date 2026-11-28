@@ -98,6 +98,7 @@ export namespace runBuild {
         ? build()
         : RuntimeBuildCache.run({
             directory: options.runtimeCacheDir,
+            canChangeTrash: options.canChangeRuntimeTrash,
             emitDir: options.isolateOutputsTo!,
             bundle: options.bundleRuntimeOutputs,
             project: execution.tsconfig,

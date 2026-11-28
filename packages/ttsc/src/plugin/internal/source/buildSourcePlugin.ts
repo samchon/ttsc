@@ -89,7 +89,9 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * publication. Observed cancellation releases held leases and scratch without
  * starting a new post-build maintenance pass. Native calls and delegated
  * hashing can delay observation; these checkpoints do not impose a hard
- * execution deadline.
+ * execution deadline. A watch owner can receive external observations on final
+ * failure. These observations support recovery and do not enter the successful
+ * digest maps.
  *
  * @evidence contracts/common.md#principled-implementation Each of at most three toolchain epochs compares materialized source digests and checks its own pre-read witness before Go reads replacement metadata, before build or publication, and before cache adoption. A changed epoch publishes nothing and starts again only after its scratch and key lease finish; first source readings and request variables remain fixed. Caller digest maps receive only successful authority. Opted-in cancellation guards stage, copy-entry, native-command, reader and publication admission, while cleanup still finishes. Metadata observations are not an atomic snapshot, and existing executable bytes remain trusted cache-producer output.
  * @evidence contracts/common.md#clear-and-simple-design One owner sequences target resolution, key creation, cache selection and fenced build coordination; private helpers own scratch materialization, Go workspace semantics and publication cleanup.
@@ -135,6 +137,9 @@ export function buildSourcePlugin(opts: {
     witness: PluginBuildEnvironmentWitness.Record;
   }) => void;
 
+  /** External native observations retained when the final build attempt fails. */
+  onWorkspaceFailure?: (witness: PluginBuildEnvironmentWitness.Record) => void;
+
   filesystem?: Partial<SourceBuildFilesystemOperations>;
 
   /**
@@ -166,6 +171,7 @@ export function buildSourcePlugin(opts: {
   // Source authority belongs to the request, not to a discarded toolchain
   // epoch. Keep its first readings even when the toolchain is read again.
   const sourceDigests = new Map(opts.sourceDigests);
+  let recoveryWitness: PluginBuildEnvironmentWitness.Record | undefined;
   for (let attempt = 0; ; attempt += 1) {
     OwnedSynchronousProcess.checkpoint();
     const environmentDigests = new Map(opts.environmentDigests);
@@ -183,6 +189,11 @@ export function buildSourcePlugin(opts: {
         env,
         sourceDigests,
         environmentDigests,
+        opts.onWorkspaceFailure === undefined
+          ? undefined
+          : (witness) => {
+              recoveryWitness = witness;
+            },
       );
       OwnedSynchronousProcess.checkpoint();
       for (const [directory, digest] of sourceDigests)
@@ -198,8 +209,11 @@ export function buildSourcePlugin(opts: {
         !(error instanceof PluginBuildEnvironmentChangedError) ||
         !error.retryable ||
         attempt === 2
-      )
+      ) {
+        if (recoveryWitness !== undefined)
+          opts.onWorkspaceFailure?.(new Map(recoveryWitness));
         throw error;
+      }
       E2ETrace.capabilityResolution(
         "plugin-build-environment-epoch-discarded",
         {
@@ -217,6 +231,9 @@ function buildSourcePluginAttempt(
   env: NodeJS.ProcessEnv,
   sourceDigests: Map<string, string>,
   environmentDigests: Map<string, string>,
+  retainRecoveryWitness?: (
+    witness: PluginBuildEnvironmentWitness.Record,
+  ) => void,
 ): {
   binary: string;
   workspaceEnvironment: Parameters<
@@ -235,6 +252,7 @@ function buildSourcePluginAttempt(
   const contributors = opts.contributors ?? [];
   const compiler = resolveGoCompiler(env);
   const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
+  retainRecoveryWitness?.(environmentWitness);
   const goBinary = GoToolResolution.resolveGoToolForBuild(
     compiler.binary,
     env,
@@ -383,18 +401,6 @@ function buildSourcePluginAttempt(
         local = observed.local;
       }
       PluginBuildEnvironmentWitness.join(environmentWitness, workspace.witness);
-      requireBuildEnvironment(
-        environmentWitness,
-        opts.pluginName,
-        "workspace-key-created",
-      );
-      if (preparedDirectory !== undefined && freshWorkspace !== undefined)
-        GoWorkspaceEnvironment.remember(
-          identities,
-          identity,
-          preparedDirectory,
-          freshWorkspace,
-        );
       const sourceEnvironment = environmentDigests.get(path.resolve(dir));
       const sameEnvironment = workspace.value === sourceEnvironment;
       workspaceEnvironment = {
@@ -408,6 +414,19 @@ function buildSourcePluginAttempt(
                 environmentWitness,
               ),
       };
+      retainRecoveryWitness?.(workspaceEnvironment.witness);
+      requireBuildEnvironment(
+        environmentWitness,
+        opts.pluginName,
+        "workspace-key-created",
+      );
+      if (preparedDirectory !== undefined && freshWorkspace !== undefined)
+        GoWorkspaceEnvironment.remember(
+          identities,
+          identity,
+          preparedDirectory,
+          freshWorkspace,
+        );
       key = GoWorkspaceEnvironment.binaryKey(
         originKey,
         sourceEnvironment,

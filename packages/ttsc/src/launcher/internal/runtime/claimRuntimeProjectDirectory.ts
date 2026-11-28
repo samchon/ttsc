@@ -65,7 +65,7 @@ export function claimRuntimeProjectDirectory(
     ProcessOwnedDirectory.sweep(runsDir, undefined, false, (abandoned) => {
       if (canChange?.(abandoned) === false) return;
       RuntimeBuildCache.parkRequested(abandoned);
-      if (!RuntimeTrash.retire(abandoned, runtimeRoot))
+      if (!RuntimeTrash.retire(abandoned, runtimeRoot, canChange))
         fs.rmSync(abandoned, { force: true, recursive: true });
     });
     requireChange(processDir);

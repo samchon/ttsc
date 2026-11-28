@@ -79,6 +79,8 @@ export namespace RuntimeBuildCache {
   export function run(props: {
     /** Collected single-file cache root, or undefined to bypass persistence. */
     directory?: string;
+    /** Recheck the system build store's trash before moving outputs there. */
+    canChangeTrash?: (directory: string) => boolean;
     /** Empty private output directory owned by this build's caller. */
     emitDir: string;
     /** Source runtime consumers read run-owned bundled outputs lazily. */
@@ -751,7 +753,10 @@ export namespace RuntimeBuildCache {
     };
     /** Remove one parked build by a rename into the store's trash. */
     const discard = (parked: string): void => {
-      if (fs.existsSync(parked) && !RuntimeTrash.retire(parked, directory))
+      if (
+        fs.existsSync(parked) &&
+        !RuntimeTrash.retire(parked, directory, props.canChangeTrash)
+      )
         try {
           fs.rmSync(parked, { force: true, recursive: true });
         } catch {

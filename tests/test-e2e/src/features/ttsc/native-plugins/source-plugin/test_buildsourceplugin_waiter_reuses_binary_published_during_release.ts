@@ -4,6 +4,7 @@ import {
   assert,
   createFakeGoBinary,
   createSourcePluginWorkerScript,
+  fakeLocalGoEnvironment,
   fs,
   path,
   spawnSourcePluginWorker,
@@ -48,6 +49,7 @@ export const test_buildsourceplugin_waiter_reuses_binary_published_during_releas
     const plugin = path.join(root, "plugin");
     writePluginSource(plugin);
     const fakeGo = createFakeGoBinary(root);
+    const environment = fakeLocalGoEnvironment(root);
     const script = createSourcePluginWorkerScript({
       cacheDir: path.join(root, "cache"),
       pluginName: "lock-publish-race",
@@ -64,6 +66,7 @@ export const test_buildsourceplugin_waiter_reuses_binary_published_during_releas
     try {
       const holder = spawnSourcePluginWorker({
         env: {
+          ...environment,
           FAKE_GO_BUILD_BARRIER_FILE: holderBarrier,
           FAKE_GO_BUILD_RELEASE_FILE: holderRelease,
         },
@@ -78,7 +81,7 @@ export const test_buildsourceplugin_waiter_reuses_binary_published_during_releas
       );
 
       const waiter = spawnSourcePluginWorker({
-        env: { FAKE_GO_INVOCATION_LOG: waiterLog },
+        env: { ...environment, FAKE_GO_INVOCATION_LOG: waiterLog },
         goBinary: fakeGo,
         script,
       });

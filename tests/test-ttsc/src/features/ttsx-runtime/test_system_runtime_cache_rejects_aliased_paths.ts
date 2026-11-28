@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
+import { RuntimeTrash } from "../../../../../packages/ttsc/src/internal/RuntimeTrash";
 import { ProcessOwnedDirectory } from "../../../../../packages/ttsc/src/launcher/internal/runtime/ProcessOwnedDirectory";
 import { claimRuntimeProjectDirectory } from "../../../../../packages/ttsc/src/launcher/internal/runtime/claimRuntimeProjectDirectory";
 import { dependencyCacheRoot } from "../../../../../packages/ttsc/src/launcher/internal/runtime/dependencyCacheRoot";
@@ -21,13 +23,14 @@ import { withRuntimeDirectoryLock } from "../../../../../packages/ttsc/src/launc
  * 3. Refuse project-owned and read-only cache children, then claim ordinary
  *    storage.
  * 4. Retire an abandoned run and preserve another that gained a project marker.
+ * 5. Keep marked trash and its children while draining ordinary retired output.
  *
- * @evidence contracts/testing.md#behavioral-verification Real fallback pinning rejects native aliases, including the run index. Each cache refuses deterministic children owned by a selected or marked project. The system run claim retires an ordinary abandoned run and preserves an abandoned run that became a marked project. Non-root POSIX verifies native permission refusal.
+ * @evidence contracts/testing.md#behavioral-verification Real fallback pinning rejects native aliases, including the run index. Each cache refuses deterministic children owned by a selected or marked project. The system run claim retires ordinary abandoned output. Native retirement and drain exercise project markers and payloads in trash at both the root and child level. Non-root POSIX verifies native permission refusal.
  * @evidence contracts/testing.md#independent-expectations Literal sentinel bytes establish preservation and retirement. A native ESRCH query independently establishes the authored owner is dead before product classification.
- * @evidence contracts/testing.md#distinguishing-cases Shared, cache, index, lock and retired aliases are distinct refusal points. Selected and independently marked projects contrast with unmarked directories. Only a non-root POSIX run exercises file-mode refusal with ordinary entries.
- * @evidence contracts/testing.md#execution-ownership A synchronous unit uses an owned temp root and native links, removes each link before its root and starts no compiler, watcher or installed product.
+ * @evidence contracts/testing.md#distinguishing-cases Shared, cache, index, trash, lock and retired aliases are distinct refusal points. Selected and independently marked projects contrast with unmarked directories. Only a non-root POSIX run exercises file-mode refusal with ordinary entries.
+ * @evidence contracts/testing.md#execution-ownership The unit uses an owned temp root and native links, stops its bounded drains, removes each link before its root and starts no installed product.
  */
-export function test_system_runtime_cache_rejects_aliased_paths(): void {
+export async function test_system_runtime_cache_rejects_aliased_paths(): Promise<void> {
   const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), "ttsx-private-fallback-")),
   );
@@ -47,6 +50,8 @@ export function test_system_runtime_cache_rejects_aliased_paths(): void {
       shared,
       fallback,
       path.join(fallback, "project"),
+      path.join(fallback, ".trash"),
+      path.join(fallback, "runtime-builds", ".trash"),
       `${fallback}.lock`,
       path.join(`${fallback}.lock`, "retired"),
     ]) {
@@ -176,6 +181,58 @@ export function test_system_runtime_cache_rejects_aliased_paths(): void {
       fs.readFileSync(path.join(trash, retired, "output.js"), "utf8"),
       "abandoned output",
     );
+    const trashProject = path.join(trash, "package.json");
+    fs.writeFileSync(trashProject, "{}\n");
+    assert.equal(
+      pinSystemRuntimeCachePath(source, temporary, [source]),
+      undefined,
+    );
+    assert.equal(RuntimeTrash.retire(fresh, fallback, canChange), false);
+    assert.equal(ProcessOwnedDirectory.ownership(fresh), "live");
+    let markedRootChecked = false;
+    const stopMarkedDrain = RuntimeTrash.drain(fallback, (directory) => {
+      markedRootChecked = directory === trash;
+      return canChange(directory);
+    });
+    try {
+      const deadline = Date.now() + 5000;
+      while (!markedRootChecked && Date.now() < deadline) await delay(10);
+      assert.equal(markedRootChecked, true);
+      assert.equal(fs.readFileSync(trashProject, "utf8"), "{}\n");
+    } finally {
+      stopMarkedDrain();
+    }
+    fs.unlinkSync(trashProject);
+
+    const foreignChild = path.join(trash, "foreign", "nested-project");
+    fs.mkdirSync(foreignChild, { recursive: true });
+    const childMarker = path.join(foreignChild, "go.work");
+    const childPayload = path.join(foreignChild, "keep.ts");
+    fs.writeFileSync(childMarker, "go 1.24.0\n");
+    fs.writeFileSync(childPayload, "keep project source");
+    const ordinaryRetired = path.join(trash, retired);
+    let markedChildChecked = false;
+    const stopDrain = RuntimeTrash.drain(fallback, (directory) => {
+      if (directory === foreignChild) markedChildChecked = true;
+      return canChange(directory);
+    });
+    try {
+      const deadline = Date.now() + 5000;
+      while (
+        (!markedChildChecked || fs.existsSync(ordinaryRetired)) &&
+        Date.now() < deadline
+      )
+        await delay(10);
+      assert.equal(markedChildChecked, true);
+      assert.equal(fs.existsSync(ordinaryRetired), false);
+      assert.equal(fs.readFileSync(childMarker, "utf8"), "go 1.24.0\n");
+      assert.equal(
+        fs.readFileSync(childPayload, "utf8"),
+        "keep project source",
+      );
+    } finally {
+      stopDrain();
+    }
     const dependencyParent = path.join(temporary, "ttsx-dep");
     fs.mkdirSync(dependencyParent);
     assert.equal(
