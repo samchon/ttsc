@@ -1,4 +1,5 @@
 import type { PluginContentIdentities } from "../../plugin/internal/source/PluginContentIdentities";
+import type { ITtscCompilerTransformation } from "../ITtscCompilerTransformation";
 import type { ITtscProjectInputSnapshot } from "./ITtscProjectInputSnapshot";
 import type { TtscCommonOptions } from "./TtscCommonOptions";
 
@@ -46,7 +47,10 @@ export interface TtscSingleFileEmitOptions extends TtscCommonOptions {
  * entries await a returned promise before reading or building those sources;
  * synchronous entries require a synchronous handler. Separate function
  * alternatives preserve TypeScript's void-handler assignability, including
- * ignored non-promise return values.
+ * ignored non-promise return values. A final publication can also carry the
+ * native evidence from the generated Go workspace. An empty workspace payload
+ * retires the previous workspace while a source-only publication leaves it
+ * under observation.
  *
  * @evidence contracts/common.md#principled-implementation Readonly roots describe the actual native-plugin sources whose later edits need observation; separate void and Promise function alternatives preserve existing ignored-return callback assignability while exposing asynchronous completion.
  * @evidence contracts/common.md#clear-and-simple-design The handoff leaves watcher construction and lifetime with the invocation owner, while its completion determines when the producer may continue.
@@ -61,10 +65,12 @@ export type TtscPluginSourceInputsHandler =
   | ((
       inputs: readonly string[],
       identities?: PluginContentIdentities.Store,
+      workspace?: ITtscCompilerTransformation.ISuccess["workspaceInputs"],
     ) => void)
   | ((
       inputs: readonly string[],
       identities?: PluginContentIdentities.Store,
+      workspace?: ITtscCompilerTransformation.ISuccess["workspaceInputs"],
     ) => Promise<void>);
 
 /**

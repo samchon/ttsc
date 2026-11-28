@@ -24,6 +24,7 @@ import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuild
 import { legacyGlobalCacheTargets } from "../../plugin/internal/source/legacyGlobalCacheTargets";
 import { resolveCleanTargets } from "../../plugin/internal/source/resolveCleanTargets";
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
+import type { ITtscCompilerTransformation } from "../../structures/ITtscCompilerTransformation";
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { PendingResidentCheckWatchChanges } from "./PendingResidentCheckWatchChanges";
@@ -659,8 +660,9 @@ function runWatch(
     onWatchInputs: (
       inputs: readonly string[],
       identities?: PluginContentIdentities.Store,
+      workspace?: ITtscCompilerTransformation.ISuccess["workspaceInputs"],
     ) => {
-      return topology?.setExtraInputs(inputs, identities);
+      return topology?.setExtraInputs(inputs, identities, workspace);
     },
     onProjectInputs: (inputs: ITtscProjectInputSnapshot) => {
       return topology?.setProjectInputs(inputs);

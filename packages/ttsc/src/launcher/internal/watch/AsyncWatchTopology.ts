@@ -4,6 +4,7 @@ import { Worker } from "node:worker_threads";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { workerModuleUrl } from "../../../internal/workerModuleUrl";
 import type { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
+import type { ITtscCompilerTransformation } from "../../../structures/ITtscCompilerTransformation";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import type { WatchTopologyWorkerProtocol } from "./WatchTopologyWorkerProtocol";
 
@@ -166,7 +167,8 @@ export class AsyncWatchTopology {
   }
 
   /**
-   * Capture plugin baselines before the caller starts reading or building.
+   * Capture plugin source baselines before reading or building, and transfer
+   * the generated workspace's existing evidence after Go reports it.
    *
    * @evidence contracts/common.md#principled-implementation Awaited completion follows the core's baseline capture and preserves the supplied record store's separability references through structured cloning.
    * @evidence contracts/common.md#clear-and-simple-design One publication carries inputs and their existing proof store together.
@@ -180,8 +182,14 @@ export class AsyncWatchTopology {
   public setExtraInputs(
     inputs: readonly string[],
     identities?: PluginContentIdentities.Store,
+    workspace?: ITtscCompilerTransformation.ISuccess["workspaceInputs"],
   ): Promise<void> {
-    return this.request({ method: "setExtraInputs", inputs, identities });
+    return this.request({
+      method: "setExtraInputs",
+      inputs,
+      identities,
+      workspace,
+    });
   }
 
   /**

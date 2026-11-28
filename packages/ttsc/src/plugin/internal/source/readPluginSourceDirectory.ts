@@ -2,6 +2,7 @@ import { isUtf8 } from "node:buffer";
 import fs from "node:fs";
 
 import { GoSourceInputs } from "./GoSourceInputs";
+import { readPosixDirectoryEntries } from "./readPosixDirectoryEntries";
 
 /**
  * Read source entries whose names can pass through the snapshot's string paths.
@@ -24,10 +25,7 @@ export function* readPluginSourceDirectory(directory: string) {
       yield { entry, name: entry.name };
     return;
   }
-  for (const entry of fs.readdirSync(directory, {
-    encoding: "buffer",
-    withFileTypes: true,
-  })) {
+  for (const entry of readPosixDirectoryEntries(directory)) {
     const name = entry.name.toString("utf8");
     if (name.includes("\ufffd") && !isUtf8(entry.name)) {
       if (

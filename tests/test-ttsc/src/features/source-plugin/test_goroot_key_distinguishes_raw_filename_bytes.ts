@@ -13,11 +13,11 @@ import { computeCacheKey } from "../../../../../packages/ttsc/src/plugin/interna
  * 1. Write a raw-name SDK file and a distinct UTF-8 lookalike.
  * 2. Require stable native and byte-reader reuse and refuse a string-only reader's
  *    proof.
- * 3. Rewrite the raw file in place and require a new fingerprint and proof.
+ * 3. Rewrite the raw file in place and repeat under a raw parent directory.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the build key owner with actual SDK entries and validates the resulting environment witnesses before and after an in-place rewrite.
  * @evidence contracts/testing.md#independent-expectations Native Buffer addresses author distinct files with independent content, and the rewrite keeps the valid-name file unchanged. The key must change without an expected production-derived digest.
- * @evidence contracts/testing.md#distinguishing-cases The Linux fixture distinguishes raw bytes, a valid UTF-8 replacement character, an unchanged warm hit, an injected reader with byte-path support, and an injected reader restricted to ordinary strings.
+ * @evidence contracts/testing.md#distinguishing-cases The Linux fixture distinguishes raw names from UTF-8 replacement-character names under both string and raw parents, an unchanged warm hit, an injected reader with byte-path support, and an injected reader restricted to ordinary strings.
  * @evidence contracts/testing.md#execution-ownership The direct source unit creates and removes its own SDK and module. An explicit GOROOT and no Go binary select the identity path without spawning a compiler or writing ambient variables.
  */
 export function test_goroot_key_distinguishes_raw_filename_bytes(): void {
@@ -35,7 +35,16 @@ export function test_goroot_key_distinguishes_raw_filename_bytes(): void {
     Buffer.from(`${source}/directory-`),
     Buffer.from([0xfe]),
   ]);
-  const rawDescendant = Buffer.concat([rawDirectory, Buffer.from("/child.go")]);
+  const rawDescendant = Buffer.concat([
+    rawDirectory,
+    Buffer.from("/child-"),
+    Buffer.from([0xff]),
+    Buffer.from(".go"),
+  ]);
+  const unicodeDescendant = Buffer.concat([
+    rawDirectory,
+    Buffer.from("/child-\ufffd.go"),
+  ]);
   try {
     fs.mkdirSync(source, { recursive: true });
     fs.mkdirSync(plugin);
@@ -95,6 +104,7 @@ export function test_goroot_key_distinguishes_raw_filename_bytes(): void {
     fs.unlinkSync(raw);
     fs.mkdirSync(rawDirectory);
     fs.writeFileSync(rawDescendant, "package first\n");
+    fs.writeFileSync(unicodeDescendant, "package literal\n");
     const beforeDescendant = key();
     assert.equal(
       PluginBuildEnvironmentWitness.reusable(
@@ -104,11 +114,16 @@ export function test_goroot_key_distinguishes_raw_filename_bytes(): void {
     );
     fs.writeFileSync(rawDescendant, "package second\n");
     assert.equal(
+      fs.readFileSync(unicodeDescendant, "utf8"),
+      "package literal\n",
+    );
+    assert.equal(
       PluginBuildEnvironmentWitness.holds(beforeDescendant.environmentWitness),
       false,
     );
     assert.notEqual(key().digest, beforeDescendant.digest);
     fs.unlinkSync(rawDescendant);
+    fs.unlinkSync(unicodeDescendant);
     fs.rmdirSync(rawDirectory);
     const onlyUnicode = key(stringReader);
     assert.equal(
@@ -119,6 +134,7 @@ export function test_goroot_key_distinguishes_raw_filename_bytes(): void {
   } finally {
     if (fs.existsSync(raw)) fs.unlinkSync(raw);
     if (fs.existsSync(rawDescendant)) fs.unlinkSync(rawDescendant);
+    if (fs.existsSync(unicodeDescendant)) fs.unlinkSync(unicodeDescendant);
     if (fs.existsSync(rawDirectory)) fs.rmdirSync(rawDirectory);
     fs.rmSync(root, { recursive: true });
   }

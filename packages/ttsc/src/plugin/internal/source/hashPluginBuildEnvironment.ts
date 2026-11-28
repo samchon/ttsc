@@ -12,6 +12,7 @@ import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "./PluginContentIdentities";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
 import { packagedGoRootIdentity } from "./packagedGoRootIdentity";
+import { readPosixDirectoryEntries } from "./readPosixDirectoryEntries";
 import { resolveGoCompiler } from "./resolveGoCompiler";
 
 /**
@@ -884,24 +885,27 @@ function walkGoRootIdentity(
 }
 
 /**
- * Read the common string listing once, resolving ambiguous POSIX names
- * losslessly.
+ * Read the common string listing once. A raw POSIX parent or an ambiguous name
+ * requires the byte listing, including when an unknown Dirent kind makes Node
+ * look up a lossy string name and report a missing entry.
  */
 function sdkDirectoryEntries(dir: string): fs.Dirent<string | Buffer>[] {
-  const native = RuntimeFilesystem.rawRealpath(dir) ?? dir;
-  const entries = fs.readdirSync(native, { withFileTypes: true });
-  if (
-    process.platform !== "win32" &&
-    entries.some((entry) => entry.name.includes("\ufffd"))
-  ) {
-    const byteEntries = fs.readdirSync(native, {
-      withFileTypes: true,
-      encoding: "buffer",
-    });
-    return byteEntries.sort((a, b) => Buffer.compare(a.name, b.name));
+  const posix = process.platform !== "win32";
+  const raw = posix ? RuntimeFilesystem.rawRealpath(dir) : undefined;
+  if (raw === undefined) {
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      if (!posix || !entries.some((entry) => entry.name.includes("\ufffd")))
+        return entries.sort((a, b) =>
+          a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+        );
+    } catch (error) {
+      if (!posix || (error as NodeJS.ErrnoException).code !== "ENOENT")
+        throw error;
+    }
   }
-  return entries.sort((a, b) =>
-    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+  return readPosixDirectoryEntries(raw ?? dir).sort((a, b) =>
+    Buffer.compare(a.name, b.name),
   );
 }
 

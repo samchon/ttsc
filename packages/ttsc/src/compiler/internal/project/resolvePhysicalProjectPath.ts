@@ -30,6 +30,11 @@ export function resolvePhysicalProjectPath(
     return location;
   }
   if (physical.includes("\0"))
-    throw new Error(`ttsc: ${owner} has no UTF-8 physical path: ${location}`);
+    throw Object.assign(
+      new Error(`ttsc: ${owner} has no UTF-8 physical path: ${location}`),
+      {
+        code: "TTSC_UNREPRESENTABLE_PROJECT_PATH",
+      },
+    );
   return physical;
 }

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type { ITtscPlugin } from "../../../structures/ITtscPlugin";
-import { PluginPackageResolution } from "./PluginPackageResolution";
+import { resolvePluginSourcePath } from "./resolvePluginSourcePath";
 
 /**
  * Validate contributor records before native host compilation.
@@ -11,12 +11,12 @@ import { PluginPackageResolution } from "./PluginPackageResolution";
  * not _test.go. It does not parse package syntax, build constraints or platform
  * suffixes; actual Go compilation owns buildability.
  *
- * @evidence contracts/common.md#principled-implementation Ordered record checks establish unique accepted names, absolute observed source directories and a regular non-test .go filename before best-effort physical normalization. These checks do not certify Go package buildability or freeze filesystem identity.
+ * @evidence contracts/common.md#principled-implementation Ordered checks establish unique names and absolute sources. Lossless physical qualification precedes directory admission and a regular non-test Go filename check. These checks do not certify Go buildability or freeze filesystem identity.
  * @evidence contracts/common.md#clear-and-simple-design One traversal owns contributor admission; a private directory predicate isolates regular non-test filename discovery.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual loader now calls this unchanged guard; unit callers do not replace contributor compilation or transport assertions.
- * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes filename preflight from actual buildability; returned source strings use best-effort native realpath and can retain original spelling on failure.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes filename preflight from actual buildability. A physical source must have a lossless string path.
  *
- * @evidence contracts/portability.md#os-neutral-implementation Native path.isAbsolute, fs.stat, readdir and resolveRealPath preserve platform path and physical-source distinctions rather than using POSIX string heuristics.
+ * @evidence contracts/portability.md#os-neutral-implementation Native absolute-path validation, stat and listing operate on the source qualified by the shared lossless physical resolver.
  * @evidence contracts/performance.md#efficient-algorithms Each contributor is checked with indexed seen-name membership and one direct directory listing, without recursive payload scans. Name regex/hash and path/entry text, native existence/stat/realpath operations and complete immediate-entry materialization contribute cost; record count alone does not bound that work.
  * @evidence contracts/performance.md#reuse-equivalent-work Within one request the seen-name set avoids repeated name searches; filesystem admission is reobserved because callers may mutate contributor source between requests.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Name sets and directory listings are invocation-local; returned ordered records transfer to the caller. Their bytes grow with accepted records and names/paths, while a listing materializes all immediate entries; no population ceiling or historical cache is owned here and synchronous filesystem APIs retain no open handle.
@@ -64,7 +64,8 @@ export function validatePluginContributors(
           `got ${JSON.stringify(source)}`,
       );
     }
-    if (!fs.existsSync(source) || !fs.statSync(source).isDirectory()) {
+    const physical = resolvePluginSourcePath(source, "contributor source");
+    if (!fs.existsSync(physical) || !fs.statSync(physical).isDirectory()) {
       throw new Error(
         `ttsc: plugin "${plugin.name}" contributors[${index}].source must be an existing directory: ${source}`,
       );
@@ -72,12 +73,12 @@ export function validatePluginContributors(
     // Reject a directory lacking a regular non-test Go filename before
     // native host compilation can attribute a failure to scratch paths.
     // Filename admission does not certify package syntax or build constraints.
-    if (!hasBuildableGoSource(source)) {
+    if (!hasBuildableGoSource(physical)) {
       throw new Error(
         `ttsc: plugin "${plugin.name}" contributors[${index}].source must contain at least one non-test ".go" file: ${source}`,
       );
     }
-    out.push({ name, source: PluginPackageResolution.resolveRealPath(source) });
+    out.push({ name, source: physical });
   }
   return out;
 }

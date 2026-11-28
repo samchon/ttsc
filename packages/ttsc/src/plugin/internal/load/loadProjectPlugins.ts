@@ -59,6 +59,7 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
 import { rejectJsTransformFunctions } from "./rejectJsTransformFunctions";
 import { requirePluginSource } from "./requirePluginSource";
 import { resolveNativeSource } from "./resolveNativeSource";
+import { resolvePluginSourcePath } from "./resolvePluginSourcePath";
 import { validatePluginContributors } from "./validatePluginContributors";
 import { validatePluginSource } from "./validatePluginSource";
 import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
@@ -313,7 +314,7 @@ export namespace loadProjectPlugins {
             projectSnapshot.discovery,
           ).filter((entry) => entry.config.enabled !== false);
     if (entries.length === 0) {
-      yield options.onWatchInputs?.([]);
+      yield options.onWatchInputs?.([], undefined, {});
       const finalPhase = HostInputObservationPhase.create();
       return {
         ...collectHostInputSnapshot(
@@ -769,10 +770,12 @@ export namespace loadProjectPlugins {
     );
     // Admission can now narrow the provisional interests without restamping the
     // retained package/module baselines. Final host errors still keep these roots.
-    yield options.onWatchInputs?.(
-      sourceWatchInputs(buildDirectories),
-      sourceIdentities,
-    );
+    const selectedWatchInputs =
+      options.onWatchInputs === undefined
+        ? undefined
+        : sourceWatchInputs(buildDirectories);
+    if (selectedWatchInputs !== undefined)
+      yield options.onWatchInputs?.(selectedWatchInputs, sourceIdentities);
     const keyedDirectories = new Set(buildDirectories);
     const linkedContributors = records
       .filter((record) => record.stage === "transform")
@@ -1016,6 +1019,19 @@ export namespace loadProjectPlugins {
         stage: record.stage,
       };
     });
+    const workspaceInputs =
+      workspaceWitnesses.length === 0
+        ? undefined
+        : PluginBuildEnvironmentWitness.watchInputs(
+            workspaceWitnesses,
+            project.root,
+          );
+    if (selectedWatchInputs !== undefined)
+      yield options.onWatchInputs?.(
+        selectedWatchInputs,
+        sourceIdentities,
+        workspaceInputs ?? {},
+      );
     const finalPhase = HostInputObservationPhase.create();
     const currentWorkspaceReadings = new Map<string, string>();
     const workspacesQualified = workspaceWitnesses.every((witness) =>
@@ -1053,14 +1069,11 @@ export namespace loadProjectPlugins {
       loadedEntries.some((entry) => !entry.observationsComplete)
         ? { observationsComplete: false as const }
         : {}),
-      ...(workspaceWitnesses.length === 0
+      ...(workspaceInputs === undefined
         ? {}
         : {
             workspaceReplayRequired: true as const,
-            workspaceInputs: PluginBuildEnvironmentWitness.watchInputs(
-              workspaceWitnesses,
-              project.root,
-            ),
+            workspaceInputs,
           }),
       // The directories the watch inputs named before the builds, as the builds
       // read them. Package selection shares these readings and also reads a
@@ -2697,8 +2710,9 @@ function restoreEnv(
 }
 
 function resolvePluginSource(source: string, projectRoot: string): string {
-  return PluginPackageResolution.resolveRealPath(
+  return resolvePluginSourcePath(
     path.isAbsolute(source) ? source : path.resolve(projectRoot, source),
+    "plugin source",
   );
 }
 

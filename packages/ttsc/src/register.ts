@@ -6,7 +6,10 @@ import { type RuntimeManifest } from "./launcher/internal/runtime/RuntimeManifes
 import { installRuntimeHooks } from "./launcher/internal/runtime/installRuntimeHooks";
 import { runtimeRunKey } from "./launcher/internal/runtime/runtimeRunKey";
 
-const cleanupDirectories = new Set<string>();
+const cleanupDirectories = new Map<
+  string,
+  ((directory: string) => boolean) | undefined
+>();
 let runtimeSequence = 0;
 
 /**
@@ -22,7 +25,7 @@ function prepareEntry(filename: string): RuntimeManifest {
   const execution = prepareExecution(filename, {
     runtimeCacheKey: `register-${runtimeRunKey()}-${++runtimeSequence}`,
   });
-  cleanupDirectories.add(execution.cleanupDir);
+  cleanupDirectories.set(execution.cleanupDir, execution.canChangeRuntimeRun);
   return {
     depCacheDir: path.join(execution.cleanupDir, "deps"),
     emitDir: execution.emitDir,
@@ -43,12 +46,14 @@ function prepareEntry(filename: string): RuntimeManifest {
  * Remove every register-owned transient emit when the JavaScript host exits.
  * Cleanup is best-effort and does not override the host's exit status.
  *
- * Each recorded transient tree is visited once. Failed deletions may leave disk
- * output, and abrupt process termination can bypass this callback.
+ * Each recorded transient tree is visited once. System cache runs must still
+ * qualify before deletion. Failed deletions may leave disk output, and abrupt
+ * process termination can bypass this callback.
  */
 function cleanupRuntimeOutputs(): void {
-  for (const directory of cleanupDirectories) {
+  for (const [directory, canChange] of cleanupDirectories) {
     try {
+      if (canChange?.(directory) === false) continue;
       fs.rmSync(directory, { force: true, recursive: true });
     } catch {
       // Best effort: cleanup must not replace the host process exit status.

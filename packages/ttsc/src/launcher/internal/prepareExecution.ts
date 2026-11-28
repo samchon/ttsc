@@ -28,6 +28,7 @@ import { RuntimeFilesystem } from "./runtime/RuntimeFilesystem";
 import { claimRuntimeProjectDirectory } from "./runtime/claimRuntimeProjectDirectory";
 import { runtimeRunKey } from "./runtime/runtimeRunKey";
 import { pinSystemRuntimeCachePath } from "./runtime/systemRuntimeCachePath";
+import { systemRuntimeRunCanChange } from "./runtime/systemRuntimeRunCanChange";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { runtimeEmitProfile } from "./runtimeEmitProfile";
@@ -83,6 +84,8 @@ export function prepareExecution(
       processDir: string;
       /** The resolved runtime cache coordinate. */
       cacheDir: string;
+      /** Current project-boundary guard for a system cache run. */
+      canChangeRuntimeRun?: (directory: string) => boolean;
       /** The runtime build store, when the persistent cache is on. */
       runtimeBuildCacheDir?: string;
       /** The entry project's config and root. */
@@ -102,6 +105,9 @@ export function prepareExecution(
 
   /** Resolved cache coordinate whose cooperative lock serializes run and clean. */
   runtimeCacheDir: string;
+
+  /** Current project-boundary guard for a system cache run. */
+  canChangeRuntimeRun?: (directory: string) => boolean;
 
   /** Resolved directory coordinate holding the run when `project` is a link. */
   runtimeRunsDir: string;
@@ -164,6 +170,7 @@ export function prepareExecution(
     options.onRuntimeDirectory?.({
       processDir: context.processDir,
       cacheDir: context.cacheDir,
+      canChangeRuntimeRun: context.canChangeRuntimeRun,
       runtimeBuildCacheDir: context.runtimeBuildCacheDir,
       tsconfig: context.tsconfig,
       projectRoot: context.root,
@@ -182,6 +189,7 @@ export function prepareExecution(
       emitDir: context.emitDir,
       entryFile: emittedEntry,
       runtimeCacheDir: context.cacheDir,
+      canChangeRuntimeRun: context.canChangeRuntimeRun,
       runtimeRunsDir: path.dirname(context.processDir),
       entrySource: entry,
       outputs: context.outputs,
@@ -196,7 +204,11 @@ export function prepareExecution(
       rootDir: context.runtimeRootDir,
     };
   } catch (error) {
-    removeRuntimeOutput(context.processDir, context.cacheDir);
+    removeRuntimeOutput(
+      context.processDir,
+      context.cacheDir,
+      context.canChangeRuntimeRun,
+    );
     throw error;
   }
 }
@@ -428,6 +440,7 @@ function createProjectContext(
     cacheDir,
     runtimeCacheKey,
     processDir,
+    canChangeRuntimeRun: systemCache?.canChange,
     pluginCacheDir:
       explicitCacheDir !== undefined || cacheDirSpelling === undefined
         ? cacheDir
@@ -640,7 +653,11 @@ function buildProject(
     return;
   }
 
-  removeRuntimeOutput(context.processDir, context.cacheDir);
+  removeRuntimeOutput(
+    context.processDir,
+    context.cacheDir,
+    context.canChangeRuntimeRun,
+  );
   const detail = [
     `ttsx: project check failed for ${context.tsconfig}`,
     result.stderr || result.stdout,
@@ -744,7 +761,11 @@ function claimSystemRuntimeCacheDirectory(
   root: string,
   additionalProjectRoots: readonly string[],
   runKey: string,
-): { cacheDir: string; processDir: string } {
+): {
+  cacheDir: string;
+  processDir: string;
+  canChange: (directory: string) => boolean;
+} {
   let refusal: unknown;
   const projectRoots = [
     root,
@@ -762,6 +783,8 @@ function claimSystemRuntimeCacheDirectory(
       const cacheDir = pinSystemRuntimeCachePath(root, directory, projectRoots);
       if (cacheDir === undefined) continue;
       pinned = true;
+      const canChange = (run: string) =>
+        systemRuntimeRunCanChange(run, cacheDir, projectRoots);
       const processDir = claimRuntimeProjectDirectory(
         cacheDir,
         runKey,
@@ -770,8 +793,9 @@ function claimSystemRuntimeCacheDirectory(
             claimStarted = true;
             return claim();
           }),
+        canChange,
       );
-      return { cacheDir, processDir };
+      return { cacheDir, processDir, canChange };
     } catch (error) {
       if (
         claimStarted ||
@@ -842,12 +866,19 @@ function pinRuntimeCacheDirectory(directory: string): string {
  * abandoned: the caller once it stopped its workers, or the next run's sweep.
  * Whoever removes it first parks the builds its processes asked to keep.
  */
-function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
+function removeRuntimeOutput(
+  directory: string,
+  runtimeCacheDir: string,
+  canChange?: (directory: string) => boolean,
+): void {
   try {
+    if (canChange?.(directory) === false) return;
     withRuntimeDirectoryLock(runtimeCacheDir, () => {
+      if (canChange?.(directory) === false) return;
       ProcessOwnedDirectory.relinquish(directory);
       const ownership = ProcessOwnedDirectory.ownership(directory, false);
       if (ownership !== "abandoned" && ownership !== "unowned") return;
+      if (canChange?.(directory) === false) return;
       RuntimeBuildCache.parkRequested(directory);
       if (!RuntimeTrash.retire(directory, runtimeCacheDir))
         fs.rmSync(directory, { recursive: true, force: true });

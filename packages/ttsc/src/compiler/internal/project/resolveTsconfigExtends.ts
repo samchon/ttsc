@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import { observeLexicalPackagePath } from "./observeLexicalPackagePath";
 import { readJsonFile } from "./readJsonFile";
 import { resolvePhysicalProjectPath } from "./resolvePhysicalProjectPath";
 import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
@@ -18,9 +19,11 @@ import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
  *   Node's resolver is asked for the specifier and for the specifier with
  *   `.json` appended. Selected module paths use realpath when it succeeds and
  *   retain the selected spelling when it fails. A known non-UTF-8 physical path
- *   is rejected before reading. Node's resolver does not reproduce every
- *   TypeScript-Go module condition or expose its full search topology;
- *   observers therefore cannot certify module-chain freshness.
+ *   is rejected before reading. On POSIX a lexical Node resolution can detect a
+ *   discarded alias while the caller's selected result remains authoritative.
+ *   Node's resolver does not reproduce every TypeScript-Go module condition or
+ *   expose its full search topology; observers therefore cannot certify
+ *   module-chain freshness.
  *
  * The one rule both of the workspace's config readers use: ttsc's project
  * reader canonicalizes the answer before it reads the chain further, and
@@ -38,8 +41,8 @@ import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
  * @evidence contracts/common.md#clear-and-simple-design One shared config resolver owns file-versus-module selection, with a small manifest-preset helper and an optional input observer rather than a parallel package resolver.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The .json fallback and manifest tsconfig field address supported compiler differences; selected malformed manifests are errors rather than swallowed faults or fixture-specific paths.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc distinguishes lexical file spelling, physical module identity, preset selection and observation limits; param and acknowledgment spacing follows the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Config separators are folded before native file resolution, package presets use createRequire from their declaring config, and filesystem identities use native realpath instead of POSIX path parsing.
- * @evidence contracts/performance.md#efficient-algorithms File selection performs at most two native stats plus path text construction; package branches can make manifest and entrypoint resolution attempts, parse the selected manifest bytes, test config candidates and attempt realpath. Node's ancestor/package search and native operations have delegated costs, not fixed costs implied by a bounded local branch count.
+ * @evidence contracts/portability.md#os-neutral-implementation Native createRequire owns package resolution from the declaring config. A POSIX worker with Node's preserve-symlinks option can witness a lossy result without selecting a different package or overriding live local hooks.
+ * @evidence contracts/performance.md#efficient-algorithms File selection performs at most two native stats plus path text construction. Package branches can resolve a manifest and entrypoint, parse manifest bytes and qualify native paths. POSIX shares one lazy worker and asks it once per attempted package resolution. Node owns search costs.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This resolver owns no result cache; Node's internal module-resolution cache is outside its control and therefore cannot justify an owning freshness proof.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources All paths, require objects and parsed manifest data belong to this invocation; no cache registry or process handle is acquired here.
@@ -65,6 +68,7 @@ export function resolveTsconfigExtends(
   // and the `<specifier>.json` fallback below both miss them.
   const viaManifest = resolvePackageManifestTsconfig(
     resolver,
+    tsconfig,
     normalized,
     onInput,
   );
@@ -80,9 +84,14 @@ export function resolveTsconfigExtends(
   }
   let selected: string;
   try {
-    selected = resolver.resolve(normalized);
-  } catch {
-    selected = resolver.resolve(`${normalized}.json`);
+    selected = resolveNativePackagePath(resolver, tsconfig, normalized);
+  } catch (error) {
+    if (unrepresentable(error)) throw error;
+    selected = resolveNativePackagePath(
+      resolver,
+      tsconfig,
+      `${normalized}.json`,
+    );
   }
   onInput?.(selected);
   return resolvePhysicalProjectPath(selected, "extended config");
@@ -98,6 +107,7 @@ export function resolveTsconfigExtends(
  */
 function resolvePackageManifestTsconfig(
   resolver: NodeRequire,
+  tsconfig: string,
   specifier: string,
   onInput?: (file: string) => void,
 ): string | undefined {
@@ -106,8 +116,13 @@ function resolvePackageManifestTsconfig(
   }
   let manifestPath: string;
   try {
-    manifestPath = resolver.resolve(`${specifier}/package.json`);
+    manifestPath = resolveNativePackagePath(
+      resolver,
+      tsconfig,
+      `${specifier}/package.json`,
+    );
   } catch (error) {
+    if (unrepresentable(error)) throw error;
     // Node parses a package's manifest while resolving into it, so a malformed
     // preset manifest fails here rather than at the read below. Swallowing it
     // would turn a broken manifest into a confusing downstream
@@ -153,6 +168,59 @@ function isBarePackageRoot(specifier: string): boolean {
     return specifier.split("/").length === 2;
   }
   return !specifier.includes("/");
+}
+
+/** Keep the caller's selection and qualify any matching native lexical input. */
+function resolveNativePackagePath(
+  resolver: NodeRequire,
+  tsconfig: string,
+  specifier: string,
+): string {
+  let selected: string;
+  try {
+    selected = resolver.resolve(specifier);
+  } catch (error) {
+    rejectLossyPackagePath(tsconfig, specifier);
+    throw error;
+  }
+  rejectLossyPackagePath(tsconfig, specifier, selected);
+  return selected;
+}
+
+/** A lexical witness can refute lossless ownership without replacing hooks. */
+function rejectLossyPackagePath(
+  tsconfig: string,
+  specifier: string,
+  selected?: string,
+): void {
+  const lexical = observeLexicalPackagePath(tsconfig, specifier);
+  if (lexical === undefined || !path.isAbsolute(lexical)) return;
+  try {
+    resolvePhysicalProjectPath(lexical, "extended config");
+  } catch (error) {
+    if (
+      !unrepresentable(error) ||
+      selected === undefined ||
+      selected === lexical
+    )
+      throw error;
+    // The old spelling is used only for comparison. A different path chosen
+    // by a registered hook is still the caller's authority.
+    let ordinary: string | undefined;
+    try {
+      ordinary = fs.realpathSync(lexical);
+    } catch {
+      // The standard resolver could not produce a readable string path here.
+    }
+    if (ordinary === selected) throw error;
+  }
+}
+
+function unrepresentable(error: unknown): boolean {
+  return (
+    (error as NodeJS.ErrnoException | null)?.code ===
+    "TTSC_UNREPRESENTABLE_PROJECT_PATH"
+  );
 }
 
 /** Whether a path is a regular file; any failure to stat counts as not. */

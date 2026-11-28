@@ -17,10 +17,12 @@ import { createProjectInputPathIdentityContext } from "../../../internal/pathIde
 import { isProjectInputPathIdentityWithin } from "../../../internal/pathIdentity/isProjectInputPathIdentityWithin";
 import { resolveProjectInputPath } from "../../../internal/pathIdentity/resolveProjectInputPath";
 import { pluginInputAliasEntries } from "../../../plugin/internal/load/pluginInputAliasEntries";
+import { PluginBuildEnvironmentWitness } from "../../../plugin/internal/source/PluginBuildEnvironmentWitness";
 import { PluginContentIdentities } from "../../../plugin/internal/source/PluginContentIdentities";
 import { collectPluginSourceDirectories } from "../../../plugin/internal/source/collectPluginSourceDirectories";
 import { pluginSourceCovers } from "../../../plugin/internal/source/pluginSourceCovers";
 import { prunesPluginSourceDirectory } from "../../../plugin/internal/source/prunesPluginSourceDirectory";
+import type { ITtscCompilerTransformation } from "../../../structures/ITtscCompilerTransformation";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOptions";
@@ -81,6 +83,12 @@ export class WatchTopology {
   private directories = new Map<string, string>();
   private directoryWatchers = new Map<string, DirectoryWatcher>();
   private extraInputs: readonly string[] = [];
+  private workspaceEntries: {
+    anchor: string;
+    witness: [string, string];
+  }[] = [];
+  private workspaceCursor = 0;
+  private workspaceTimer: NodeJS.Timeout | undefined;
 
   /**
    * What each plugin input held when last observed, by path key: the digest a
@@ -489,23 +497,27 @@ export class WatchTopology {
    *
    * @param inputs Plugin source directories and files the load reported.
    * @param identities The reporting load's record store, if it opened one.
-   * @evidence contracts/common.md#principled-implementation Published plugin inputs define the source corpus, and retaining existing pre-build baselines keeps unreported edits visible.
+   * @param workspace Actual generated Go workspace evidence when provided. A
+   *   source-only publication retains the current workspace observation.
+   * @evidence contracts/common.md#principled-implementation Source baselines retain unreported edits. A final workspace publication retains the producer's native observations and reports exact metadata movement through the same plugin change channel.
    * @evidence contracts/common.md#clear-and-simple-design Deduplication, baseline retention and compiler/watch reconciliation remain ordered phases.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual plugin source digest applies its owning source-selection and pruning policy; named plugins or fixture output do not replace observed input state.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains baseline timing and why existing inputs are not restamped following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and canonical backend registration govern source trees; lexical keys preserve declarations and unknown names, folding ASCII only under measured insensitive parents rather than an OS-derived rule.
-   * @evidence contracts/performance.md#efficient-algorithms Input/path keys deduplicate with text and native case/ancestor work; only newly admitted inputs compute initial source digests, each proven from the selected files' metadata when the load's records hold and read from the selected pruned corpus otherwise; the following reconciliation pays project configuration, directory traversal and watcher work but answers membership from each project's last compiler listing; fixed publication count does not bound delegated bytes or backend work.
+   * @evidence contracts/performance.md#efficient-algorithms Source reconciliation pays native path and watcher costs and reuses available compiler listings. A final workspace publication traverses its entries once; its settled timer validates at most 256 metadata entries per turn without rehashing SDK contents or opening SDK file watchers.
    * @evidence contracts/performance.md#reuse-equivalent-work Unchanged ordered input sets return immediately; a changed set reuses each project's last compiler listing under the same arguments, since plugin inputs cannot move Program membership; existing inputs reuse their recorded digest until actual notification processing establishes changed consumed state; a new input's digest is the one the load recorded while its metadata holds.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Publications replace input/digest populations and case-observation caches without a population cap; synchronization attempts obsolete watcher closure. Native/supplied closure has its own lifetime and can throw; owner close does not prove every backend has stopped or every retained snapshot byte was released.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Publications replace input/digest populations and case observations without a population cap. The workspace lane retains one exact metadata list and one unreferenced timer, replaced on final publication and cleared on close. Source watcher shutdown retains its backend's closure semantics.
    */
   public setExtraInputs(
     inputs: readonly string[],
     identities?: PluginContentIdentities.Store,
+    workspace?: ITtscCompilerTransformation.ISuccess["workspaceInputs"],
   ): void {
     this.beginLexicalTransaction();
     // The latest load's store also serves later notifications; its references
     // only grow older, which can make fewer stamps separable but never more.
     this.pluginInputIdentities = identities;
+    if (workspace !== undefined) this.replaceWorkspaceInputs(workspace);
     const next = uniqueExistingPaths(inputs, this.lexicalIdentities);
     if (arraysEqual(this.extraInputs, next)) return;
     this.extraInputs = next;
@@ -529,6 +541,56 @@ export class WatchTopology {
     // per load (samchon/ttsc#1741). A membership change meanwhile reaches the
     // refresh its own notification starts, which lists again.
     this.refreshCompilerInputs(false, false, true);
+  }
+
+  private replaceWorkspaceInputs(
+    workspace: NonNullable<
+      ITtscCompilerTransformation.ISuccess["workspaceInputs"]
+    >,
+  ): void {
+    clearTimeout(this.workspaceTimer);
+    this.workspaceTimer = undefined;
+    this.workspaceCursor = 0;
+    const entries: typeof this.workspaceEntries = [];
+    const seen = new Map<string, string>();
+    for (const [anchor, group] of Object.entries(workspace)) {
+      for (const [key, signature] of group.entries) {
+        if (
+          PluginBuildEnvironmentWitness.pathOf(key) === undefined ||
+          seen.get(key) === signature
+        )
+          continue;
+        entries.push({ anchor, witness: [key, signature] });
+        seen.set(key, signature);
+      }
+    }
+    this.workspaceEntries = entries;
+    this.scheduleWorkspacePoll();
+  }
+
+  /** Poll exact metadata in a single off-thread, bounded lane. */
+  private scheduleWorkspacePoll(): void {
+    if (this.closed || this.workspaceEntries.length === 0) return;
+    this.workspaceTimer = setTimeout(() => {
+      this.workspaceTimer = undefined;
+      if (this.closed) return;
+      const end = this.workspaceCursor + 256;
+      const batch = this.workspaceEntries.slice(this.workspaceCursor, end);
+      const readings = PluginBuildEnvironmentWitness.retryBaseline(
+        batch.map((entry) => entry.witness),
+      );
+      this.workspaceCursor = end >= this.workspaceEntries.length ? 0 : end;
+      const changed = new Set<string>();
+      for (const [index, entry] of batch.entries()) {
+        const signature = readings[index]![1];
+        if (signature === entry.witness[1]) continue;
+        entry.witness[1] = signature;
+        changed.add(entry.anchor);
+      }
+      this.scheduleWorkspacePoll();
+      for (const anchor of changed)
+        this.callbacks.onInputChange({ kind: "plugin", path: anchor });
+    }, 200).unref();
   }
 
   /**
@@ -605,6 +667,9 @@ export class WatchTopology {
    */
   public close(): void {
     this.closed = true;
+    clearTimeout(this.workspaceTimer);
+    this.workspaceTimer = undefined;
+    this.workspaceEntries = [];
     if (this.pluginAliasRetry !== undefined) {
       clearImmediate(this.pluginAliasRetry.immediate);
       this.pluginAliasRetry = undefined;

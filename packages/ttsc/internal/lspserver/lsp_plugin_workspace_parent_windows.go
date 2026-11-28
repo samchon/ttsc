@@ -8,7 +8,9 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-var workspaceQueryDirectoryFile = windows.NewLazySystemDLL("ntdll.dll").NewProc("NtQueryDirectoryFile")
+var workspaceNTDLL = windows.NewLazySystemDLL("ntdll.dll")
+var workspaceQueryDirectoryFile = workspaceNTDLL.NewProc("NtQueryDirectoryFile")
+var workspaceQueryVolumeInformationFile = workspaceNTDLL.NewProc("NtQueryVolumeInformationFile")
 
 // The parent directory can still supply the ordinary entry's metadata when
 // opening that entry for attributes is denied. Query the single native name,
@@ -26,7 +28,7 @@ func windowsWorkspaceParentMetadata(location string) (workspaceWindowsMetadata, 
 	if err != nil {
 		return workspaceWindowsMetadata{}, false
 	}
-	handle, err := windows.CreateFile(directory, windows.FILE_LIST_DIRECTORY|windows.FILE_READ_ATTRIBUTES,
+	handle, err := windows.CreateFile(directory, windows.FILE_LIST_DIRECTORY,
 		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE,
 		nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
 	if err != nil {
@@ -51,13 +53,28 @@ func windowsWorkspaceParentMetadata(location string) (workspaceWindowsMetadata, 
 		entry.attributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
 		return workspaceWindowsMetadata{}, false
 	}
-	var info windows.ByHandleFileInformation
-	if windows.GetFileInformationByHandle(handle, &info) != nil {
+	// Query the volume from the same list-only handle. A label that does
+	// not fit in this header does not affect the serial number.
+	const fileFsVolumeInformation = 1
+	var volume struct {
+		creation            int64
+		serial, labelLength uint32
+		supportsObjects     uint8
+		label               [1]uint16
+	}
+	status = windows.IO_STATUS_BLOCK{}
+	result, _, _ = workspaceQueryVolumeInformationFile.Call(uintptr(handle),
+		uintptr(unsafe.Pointer(&status)), uintptr(unsafe.Pointer(&volume)),
+		unsafe.Sizeof(volume), fileFsVolumeInformation)
+	code := windows.NTStatus(result)
+	if status.Status == windows.STATUS_NOT_IMPLEMENTED || code == windows.STATUS_NOT_IMPLEMENTED {
+		volume.serial = 0
+	} else if uint32(code)>>30 == 3 || status.Information < unsafe.Offsetof(volume.labelLength) {
 		return workspaceWindowsMetadata{}, false
 	}
 	return workspaceWindowsMetadata{
 		attributes: entry.attributes,
-		device:     info.VolumeSerialNumber,
+		device:     volume.serial,
 		inode:      uint64(entry.fileID),
 		size:       uint64(entry.size),
 		modified:   workspaceWindowsNanoseconds(entry.modified),

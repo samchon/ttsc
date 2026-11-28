@@ -153,7 +153,11 @@ async function run(
       });
     dependencies.release = () => {
       if (fs.existsSync(run.processDir))
-        removeRuntimeOutput(run.processDir, run.cacheDir);
+        removeRuntimeOutput(
+          run.processDir,
+          run.cacheDir,
+          run.canChangeRuntimeRun,
+        );
     };
   };
   let prepared: ReturnType<typeof prepareExecution>;
@@ -192,7 +196,11 @@ async function run(
     // The signal arrived while the project was prepared. Preparation has
     // finished cleaning up its own files; the runtime output goes now.
     await dependencies.stop();
-    removeRuntimeOutput(prepared.cleanupDir, prepared.runtimeCacheDir);
+    removeRuntimeOutput(
+      prepared.cleanupDir,
+      prepared.runtimeCacheDir,
+      prepared.canChangeRuntimeRun,
+    );
     signals.raiseReceived();
   }
   return runPreparedEntry(parsed, prepared, cwd, entry, signals, dependencies);
@@ -400,7 +408,11 @@ async function runPreparedEntry(
     stopDrain?.();
     if (cleaned) return;
     cleaned = true;
-    removeRuntimeOutput(execution.cleanupDir, execution.runtimeCacheDir);
+    removeRuntimeOutput(
+      execution.cleanupDir,
+      execution.runtimeCacheDir,
+      execution.canChangeRuntimeRun,
+    );
   };
   try {
     const depCacheDir = path.join(execution.cleanupDir, "deps");
@@ -634,12 +646,18 @@ const TERMINATION_SIGNALS: readonly NodeJS.Signals[] =
     ? ["SIGINT", "SIGBREAK"]
     : ["SIGINT", "SIGTERM", "SIGHUP"];
 
-function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
+function removeRuntimeOutput(
+  directory: string,
+  runtimeCacheDir: string,
+  canChange?: (directory: string) => boolean,
+): void {
   const observe = E2ETrace.runtimeCleanup(directory, runtimeCacheDir);
   let stage = "lock";
   try {
+    if (canChange?.(directory) === false) return;
     withRuntimeDirectoryLock(runtimeCacheDir, () => {
       observe?.("lock-entered");
+      if (canChange?.(directory) === false) return;
       stage = "relinquish";
       ProcessOwnedDirectory.relinquish(directory);
       stage = "ownership";
@@ -653,6 +671,7 @@ function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
       );
       observe?.("ownership", ownership);
       if (ownership === "abandoned" || ownership === "unowned") {
+        if (canChange?.(directory) === false) return;
         stage = "remove";
         // Builds its processes did not store move into the store first, for
         // the next run that needs them.

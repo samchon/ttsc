@@ -1793,7 +1793,7 @@ export namespace BuildExecution {
         });
         nativePlugins = pluginLoad.nativePlugins;
       } else {
-        yield options.onWatchInputs?.([]);
+        yield options.onWatchInputs?.([], undefined, {});
       }
     } catch (error) {
       pluginSetupFailure = {
