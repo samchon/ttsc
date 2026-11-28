@@ -54,6 +54,8 @@ export interface ILSPPluginSelectionInputs {
     inode?: string;
     owner?: string;
     group?: string;
+    /** Base64 of the physical directory path when the directory was observed. */
+    physical?: string;
     /** Base64 of the exact native link payload. */
     target?: string;
   }[];

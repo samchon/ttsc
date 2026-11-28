@@ -16,6 +16,7 @@ import { PluginLoadAnswers } from "./PluginLoadAnswers";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
 import { formatGoWorkPath } from "./formatGoWorkPath";
+import { readPluginSourceDirectory } from "./readPluginSourceDirectory";
 import { spawnGoTool } from "./spawnGoTool";
 
 /**
@@ -50,13 +51,14 @@ export namespace SourcePluginWorkspace {
    * or read-only `node_modules` can receive generated files and be removed
    * cleanly in scratch cleanup without altering keyed file bytes. A source
    * linked through a path with no UTF-8 spelling is copied through the declared
-   * link, with the physical target checked before and after.
+   * link, with the physical target checked before and after. A contributing
+   * POSIX descendant with a non-UTF-8 name is refused before looking it up.
    *
    * @evidence contracts/common.md#principled-implementation The shared source-entry predicate keeps native build and metadata copies under the keyed source policy, and making the scratch copy owner-writable via lstat/chmod ensures read-only sources remain modifiable and removable without changing content digests; callers own root admission and any later digest proof.
    * @evidence contracts/common.md#clear-and-simple-design One recursive copy owner serves source modules, overlays, external replacements, contributors and metadata contexts.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No constraint interpretation or filename exception narrows the admitted copy, and permission restoration runs best-effort if copying fails so it never replaces the copy error.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes copying and owner-writable scratch permissions from later input-stability proof.
-   * @evidence contracts/portability.md#os-neutral-implementation The root link can retain a usable lexical path when its POSIX target has no UTF-8 spelling. The copy verifies the byte-level target before and after reading its immediate entries. The shared predicate excludes observed non-root links, and lstat-guarded chmod adjusts owner write bits without following symlinks.
+   * @evidence contracts/portability.md#os-neutral-implementation The root link can retain a usable lexical path when its POSIX target has no UTF-8 spelling. POSIX names are validated as bytes before copying uses string paths. The copy verifies the byte-level root target before and after traversal. The shared predicate excludes observed non-root links, and lstat-guarded chmod adjusts owner write bits without following symlinks.
    * @evidence contracts/performance.md#efficient-algorithms Traverses admitted entries, copies their complete bytes, then walks copied entries once to add missing owner write bits; each copy entry checks cancellation and the shared naming/kind policy.
    * @evidence contracts/performance.md#reuse-equivalent-work The caller owns and reuses the resulting scratch; no historical copy cache is retained.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous copy and chmod retain no handle after returning; partial scratch cleanup remains with the enclosing metadata/build owner.
@@ -72,18 +74,31 @@ export namespace SourcePluginWorkspace {
           return copiesPluginSourceEntry(source, input);
         },
       };
-      const linkedTarget = fs.lstatSync(source).isSymbolicLink()
+      const sourceEntry = fs.lstatSync(source);
+      const linkedTarget = sourceEntry.isSymbolicLink()
         ? RuntimeFilesystem.realpathWitness(source)
         : undefined;
       if (
-        linkedTarget !== undefined &&
-        RuntimeFilesystem.rawRealpath(linkedTarget) !== undefined
+        process.platform !== "win32" &&
+        (sourceEntry.isDirectory() ||
+          (linkedTarget !== undefined &&
+            RuntimeFilesystem.rawRealpath(linkedTarget) !== undefined))
       ) {
-        // Keep the root alias in every lookup. The ordinary copy policy still
-        // applies to each entry below it.
-        for (const name of fs.readdirSync(source))
-          fs.cpSync(path.join(source, name), path.join(scratch, name), options);
-        if (RuntimeFilesystem.realpathWitness(source) !== linkedTarget)
+        const relative = path.relative(source, scratch);
+        if (
+          relative === "" ||
+          (!path.isAbsolute(relative) &&
+            relative !== ".." &&
+            !relative.startsWith(`..${path.sep}`))
+        )
+          throw new Error(
+            `ttsc: cannot copy plugin source into itself: ${source}`,
+          );
+        copyPosixDirectory(source, scratch);
+        if (
+          linkedTarget !== undefined &&
+          RuntimeFilesystem.realpathWitness(source) !== linkedTarget
+        )
           throw new Error(
             `ttsc: plugin source target changed while copying: ${source}`,
           );
@@ -95,6 +110,33 @@ export namespace SourcePluginWorkspace {
       throw error;
     }
     makeTreeOwnerWritable(scratch, false);
+  }
+
+  /** Copy admitted entries using the exact names qualified by enumeration. */
+  function copyPosixDirectory(source: string, target: string): void {
+    for (const { entry, name } of readPluginSourceDirectory(source)) {
+      OwnedSynchronousProcess.checkpoint();
+      const input = path.join(source, name);
+      const output = path.join(target, name);
+      if (entry.isDirectory()) {
+        if (GoSourceInputs.shouldPruneDirectory(name)) continue;
+        const current = fs.lstatSync(input, { throwIfNoEntry: false });
+        if (!current?.isDirectory()) continue;
+        const destination = fs.lstatSync(output, { throwIfNoEntry: false });
+        if (destination !== undefined && !destination.isDirectory())
+          throw new Error(
+            `ttsc: plugin source copy expected a directory at ${output}`,
+          );
+        if (destination === undefined) fs.mkdirSync(output);
+        copyPosixDirectory(input, output);
+        if (destination === undefined)
+          fs.chmodSync(output, (current.mode & 0o7777) | 0o700);
+      } else if (entry.isFile() && !GoSourceInputs.shouldOmitSourceFile(name)) {
+        fs.cpSync(input, output, {
+          filter: (file) => copiesPluginSourceEntry(source, file),
+        });
+      }
+    }
   }
 
   function makeTreeOwnerWritable(target: string, bestEffort: boolean): void {

@@ -81,24 +81,25 @@ let processRoot: string | undefined;
  */
 function processPrivateRoot(projectRoot: string): string {
   const projectRoots = [projectRoot, process.cwd()];
-  if (
-    processRoot !== undefined &&
-    systemTempOutsideProject.allowsChild(
-      path.dirname(processRoot),
-      projectRoots,
-    ) &&
-    fs.lstatSync(processRoot, { throwIfNoEntry: false })?.isDirectory() ===
-      true &&
-    RuntimeFilesystem.realpathWitness(processRoot) === processRoot
-  ) {
-    try {
+  let refusal: unknown;
+  try {
+    if (
+      processRoot !== undefined &&
+      systemTempOutsideProject.allowsChild(
+        path.dirname(processRoot),
+        projectRoots,
+      ) &&
+      fs.lstatSync(processRoot, { throwIfNoEntry: false })?.isDirectory() ===
+        true &&
+      RuntimeFilesystem.realpathWitness(processRoot) === processRoot
+    ) {
       fs.accessSync(processRoot, fs.constants.W_OK | fs.constants.X_OK);
       return processRoot;
-    } catch (error) {
-      if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
     }
+  } catch (error) {
+    if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
+    refusal = error;
   }
-  let refusal: unknown;
   let directory: string | undefined;
   for (const candidate of systemTempOutsideProject.candidates(
     projectRoot,

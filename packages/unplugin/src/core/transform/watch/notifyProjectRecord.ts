@@ -284,7 +284,9 @@ function recordOf(
   };
   for (const input of inputs) {
     const digest = RECOVERY_TREE_DIGEST.get(input);
-    if (digest !== undefined) {
+    // Workspace recovery is live-only. Restoring its record requires a new
+    // workspace delivery, so keep the separate compiler source slot intact.
+    if (digest !== undefined && input.evidence?.workspace === undefined) {
       record.recoveryTree = { file: input.file, digest };
       continue;
     }

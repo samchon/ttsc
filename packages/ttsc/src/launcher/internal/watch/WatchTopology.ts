@@ -286,7 +286,6 @@ export class WatchTopology {
         : [...programFiles];
     const next = resolveWatchTopology(
       this.options,
-      this.extraInputs,
       this.lexicalIdentities,
       (project, options) => {
         const question = listingQuestion(project, options);
@@ -524,7 +523,7 @@ export class WatchTopology {
       );
     }
     this.pluginInputStates = states;
-    // Plugin inputs join the watched files and directories, never Program
+    // Plugin inputs join their own watch lane. They cannot move Program
     // membership, so the compiler's last answer stands. A load reports up to
     // three different sets, and asking again for each spawned tsgo three times
     // per load (samchon/ttsc#1741). A membership change meanwhile reaches the
@@ -2338,7 +2337,6 @@ type CompilerFileMovement = {
 
 function resolveWatchTopology(
   options: WatchTopologyOptions,
-  extraInputs: readonly string[],
   identities: ProjectInputPathIdentityContext,
   getCompilerInputs: typeof listCompilerInputs,
 ): ResolvedWatchTopology {
@@ -2423,7 +2421,6 @@ function resolveWatchTopology(
     }
   }
   CompilerProjectSelection.assertCurrent(selection);
-  addPaths(files, extraInputs, identities);
   return {
     analysisOnly,
     directories: collectTopologyDirectories(files.values(), roots, identities),

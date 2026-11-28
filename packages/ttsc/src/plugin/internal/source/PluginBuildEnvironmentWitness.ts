@@ -273,6 +273,29 @@ export namespace PluginBuildEnvironmentWitness {
   }
 
   /**
+   * Retain the dependencies of a nested reading. If two observations of an
+   * input disagree, their combined reading has no proof for that input. A
+   * refusal stays in force across subsequent reads.
+   *
+   * @evidence contracts/common.md#principled-implementation New observations extend the caller's proof. Conflicting or refused observations leave proof of the combined reading unavailable.
+   * @evidence contracts/common.md#clear-and-simple-design The witness owner interprets the refusal sentinel when composing readings.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts An earlier positive stat cannot hide a nested refusal, and a later positive stat cannot recover it.
+   * @evidence contracts/common.md#meaningful-documentation Describes how repeated observations and explicit refusal affect combined proof.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Map keys retain their supplied spelling without a new lookup.
+   * @evidence contracts/performance.md#efficient-algorithms A single pass over the nested rows probes the existing observations without native I/O.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The caller already owns both observations.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The target keeps one signature per key. No handle or additional collection is retained.
+   */
+  export function join(target: Record | undefined, source: Record): void {
+    if (target === undefined) return;
+    for (const [key, observed] of source) {
+      const previous = target.get(key);
+      if (previous === undefined) target.set(key, observed);
+      else if (previous !== observed) refuse(target, key);
+    }
+  }
+
+  /**
    * Require Go to select the toolchain again before this reading can be reused.
    * The current build can still validate the paths it actually observed.
    *

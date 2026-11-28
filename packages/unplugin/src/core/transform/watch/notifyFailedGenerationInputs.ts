@@ -10,6 +10,7 @@ import { RECOVERY_TREE_DIGEST } from "./RECOVERY_TREE_DIGEST";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
 import type { TtscWatchInput } from "./TtscWatchInput";
 import type { TtscWatchSelection } from "./TtscWatchSelection";
+import { captureRecoveryTreeDigest } from "./captureRecoveryTreeDigest";
 import { evidencedWatchInput } from "./evidencedWatchInput";
 import { handWatchInputs } from "./handWatchInputs";
 import { notifyProjectRecord } from "./notifyProjectRecord";
@@ -38,7 +39,9 @@ import { selectionInputs } from "./selectionInputs";
  *
  * An exception also retains the declared compiler source's filesystem state.
  * The observer and project record can detect repairs anywhere in that source. A
- * rejected success can still supply workspace proof for its recovery watch.
+ * rejected success supplies its refreshed workspace baseline. Ordinary evidence
+ * at the same path is observed again for recovery instead of reusing the
+ * rejected generation's state. A shared plugin source keeps its current tree.
  *
  * @param file The delivered module, as the host spelled it, which decides the
  *   spelling every input is handed under (`hostSpelling`).
@@ -79,6 +82,7 @@ export function notifyFailedGenerationInputs(
   // Keep the compiler's spellings for the record and use its retained state
   // where available.
   const recorded: string[] = [];
+  const workspaceRecovery = new Map<string, TtscWatchInput>();
   const seen = new Set<string>();
   const append = (input: string): void => {
     const spelling = path.resolve(input);
@@ -89,13 +93,42 @@ export function notifyFailedGenerationInputs(
       return;
     }
     seen.add(spelling);
-    // The adapter reads current availability for ordinary inputs because
-    // failure replay does not re-prove them.
     const workspace = workspaceInputs?.[spelling];
-    const watched =
-      workspace !== undefined
-        ? evidencedWatchInput(cached, state, spelling, spell, workspace)
-        : { file: spell(spelling) };
+    let watched: TtscWatchInput = { file: spell(spelling) };
+    if (workspace !== undefined) {
+      const retired = evidencedWatchInput(
+        cached,
+        state,
+        spelling,
+        (file) => file,
+      ).evidence!;
+      const codec = retired.state?.codec;
+      const recovery =
+        codec !== undefined && codec !== "tree"
+          ? selectionInputs(
+              [spelling],
+              selection.filesystem,
+              (file) => file,
+            )[0]!
+          : {
+              file: spelling,
+              evidence: { identity: retired.identity, missing: false },
+            };
+      const current: TtscWatchInput = {
+        ...recovery,
+        evidence: { ...recovery.evidence!, workspace },
+      };
+      workspaceRecovery.set(spelling, current);
+      watched = { ...current, file: watched.file };
+      if (codec === "tree") {
+        const digest = captureRecoveryTreeDigest(
+          spelling,
+          selection.filesystem,
+        );
+        RECOVERY_TREE_DIGEST.set(current, digest);
+        RECOVERY_TREE_DIGEST.set(watched, digest);
+      }
+    }
     if (spelling === compilerSource?.file)
       RECOVERY_TREE_DIGEST.set(watched, compilerSource.digest);
     inputs.push(watched);
@@ -147,13 +180,9 @@ export function notifyFailedGenerationInputs(
       true,
       () =>
         recorded.map((input) => {
-          const watched = evidencedWatchInput(
-            cached,
-            state,
-            input,
-            (spelling) => spelling,
-            workspaceBaseline?.[input],
-          );
+          const watched =
+            workspaceRecovery.get(input) ??
+            evidencedWatchInput(cached, state, input, (spelling) => spelling);
           if (input === compilerSource?.file)
             RECOVERY_TREE_DIGEST.set(watched, compilerSource.digest);
           return watched;

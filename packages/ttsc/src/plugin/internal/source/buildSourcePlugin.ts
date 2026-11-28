@@ -26,7 +26,6 @@ import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOpe
 import { SourcePackageArtifacts } from "./SourcePackageArtifacts";
 import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { SourcePluginWorkspace } from "./SourcePluginWorkspace";
-import { WitnessedLoadAnswers } from "./WitnessedLoadAnswers";
 import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
 import { computeCacheKey } from "./computeCacheKey";
 import { createExternalSourceSnapshotLayout } from "./createExternalSourceSnapshotLayout";
@@ -383,7 +382,7 @@ function buildSourcePluginAttempt(
         qualified = observed.qualified;
         local = observed.local;
       }
-      WitnessedLoadAnswers.join(environmentWitness, workspace.witness);
+      PluginBuildEnvironmentWitness.join(environmentWitness, workspace.witness);
       requireBuildEnvironment(
         environmentWitness,
         opts.pluginName,

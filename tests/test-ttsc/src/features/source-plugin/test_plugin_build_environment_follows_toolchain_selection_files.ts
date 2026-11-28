@@ -30,7 +30,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification The direct answer reader over a real Go SDK and private store returns the working digest while selection holds, then produces a different digest and refuses the preceding witness whenever Go's selection files move.
  * @evidence contracts/testing.md#independent-expectations Go's toolchain selection rules give the ancestor workspace precedence and reject the authored higher requirement with path-only lookup. Restoring the original requirement restores the original build inputs.
- * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selectors, native link retargeting, dot-parent launcher and capture boundaries and a Linux launcher parent without a UTF-8 spelling. Relative cache and pending requests start under two bases. With a second SDK, earlier PATH candidates invalidate initial and delegated selection, including a POSIX candidate that only gained execute permission.
+ * @evidence contracts/testing.md#distinguishing-cases Covers absent, created, removed and edited selectors, native link retargeting, dot-parent launcher and capture boundaries and a Linux launcher parent without a UTF-8 spelling. An earlier positive launcher stat cannot erase a nested refusal. Relative cache and pending requests start under two bases. With a second SDK, earlier PATH candidates invalidate initial and delegated selection, including a POSIX candidate that only gained execute permission.
  * @evidence contracts/testing.md#execution-ownership The unit runs native Go queries in temporary modules, through the real preparation worker and a bounded POSIX Node child with its own temp environment. The worker case pins and restores its Go variables and cwd. Real package inspection prepares a scratch workspace and shares the answer store and installed SDKs with the direct workspace observations. No plugin build or installed ttsc host runs.
  */
 export async function test_plugin_build_environment_follows_toolchain_selection_files(): Promise<void> {
@@ -58,6 +58,13 @@ export async function test_plugin_build_environment_follows_toolchain_selection_
     "bin",
     process.platform === "win32" ? "go.exe" : "go",
   );
+  const initial: PluginBuildEnvironmentWitness.Record = new Map();
+  const unreadable: PluginBuildEnvironmentWitness.Record = new Map();
+  PluginBuildEnvironmentWitness.add(initial, binary);
+  PluginBuildEnvironmentWitness.refuse(unreadable, binary);
+  assert.equal(PluginBuildEnvironmentWitness.holds(initial), true);
+  PluginBuildEnvironmentWitness.join(initial, unreadable);
+  assert.equal(PluginBuildEnvironmentWitness.holds(initial), false);
   const store = () =>
     PluginContentIdentities.open({
       projectRoot: root,

@@ -11,7 +11,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * Verifies cancellation before cache admission and after scratch output.
  *
  * The package-owned static Go inputs are copied into isolated workspace roots;
- * an explicit command relay produces metadata and output without running Go.
+ * an explicit command relay produces metadata with a consistent Go version and
+ * output without running Go.
  *
  * 1. Cancel while fingerprint bytes are read and after scratch output is written.
  * 2. Verify no cancelled publication, digest admission or active lease survives.
@@ -63,18 +64,20 @@ export async function test_buildsourceplugin_cancellation_refuses_late_artifact_
       let reads = 0;
       let builds = 0;
       let scratch: string | undefined;
+      const goVersion = "go1.26.0";
       const scope: OwnedSynchronousProcess.Scope = {
         cancel,
         retirements,
         launch: (_command, args, options) => {
           let stdout = "";
           if (args[0] === "version")
-            stdout = "go version go1.26.0 authored/unit\n";
+            stdout = `go version ${goVersion} authored/unit\n`;
           else if (args[0] === "env")
             stdout = JSON.stringify({
               GOROOT: sdk,
               GOENV: "off",
               GOTOOLCHAIN: "local",
+              GOVERSION: goVersion,
               CGO_ENABLED: "0",
             });
           else if (args[0] === "mod")

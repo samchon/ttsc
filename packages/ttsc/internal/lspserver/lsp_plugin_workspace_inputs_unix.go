@@ -36,8 +36,15 @@ func (input pluginWorkspaceFile) current() bool {
 		return false
 	}
 	if input.Kind == "directory" {
-		return (input.Owner == "" || fmt.Sprint(stat.Uid) == input.Owner) &&
-			(input.Group == "" || fmt.Sprint(stat.Gid) == input.Group)
+		if (input.Owner != "" && fmt.Sprint(stat.Uid) != input.Owner) ||
+			(input.Group != "" && fmt.Sprint(stat.Gid) != input.Group) {
+			return false
+		}
+		if input.physical != "" {
+			physical, err := workspacePhysicalDirectory(input.location)
+			return err == nil && physical == input.physical
+		}
+		return true
 	}
 	return (input.Size == "" || fmt.Sprint(stat.Size) == input.Size) &&
 		(input.Modified == "" || fmt.Sprint(stat.Mtim.Nano()) == input.Modified) &&

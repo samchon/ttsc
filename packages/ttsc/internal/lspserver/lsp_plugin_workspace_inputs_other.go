@@ -5,6 +5,7 @@ package lspserver
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 func initialWorkspaceFileIdentity(input pluginWorkspaceFile) os.FileInfo {
@@ -52,6 +53,12 @@ func (input pluginWorkspaceFile) current() bool {
 			if !info.Mode().IsRegular() {
 				return false
 			}
+		}
+	}
+	if input.physical != "" {
+		physical, err := filepath.EvalSymlinks(input.location)
+		if err != nil || physical != input.physical {
+			return false
 		}
 	}
 	return (!info.Mode().IsRegular() || input.Size == "" || fmt.Sprint(info.Size()) == input.Size) &&

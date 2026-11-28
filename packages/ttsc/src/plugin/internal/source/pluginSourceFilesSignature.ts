@@ -141,6 +141,8 @@ function sign(
   ) => { separable: boolean; signature: string } | undefined,
 ): { separable: boolean; signature: string } | undefined {
   const hash = crypto.createHash("sha256");
+  // Records produced by the former POSIX string walk could omit native names.
+  if (process.platform !== "win32") hash.update("utf8-source-names\0");
   let separable = true;
   for (const file of files) {
     const observed = evidence(file);

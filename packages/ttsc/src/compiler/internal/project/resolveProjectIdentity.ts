@@ -3,13 +3,15 @@ import path from "node:path";
 
 import type { ITtscProjectIdentity } from "../../../structures/internal/ITtscProjectIdentity";
 import type { ITtscProjectLocatorOptions } from "../../../structures/internal/ITtscProjectLocatorOptions";
+import { resolvePhysicalProjectPath } from "./resolvePhysicalProjectPath";
 
 /**
  * Resolve the selected config while retaining its lexical spelling separately
  * from the best-effort physical paths supplied to the TypeScript Program. A
  * successful realpath resolves aliases; any realpath failure retains the
  * selected spelling, so the returned physical fields do not prove that a native
- * lookup succeeded or that the filesystem remains unchanged.
+ * lookup succeeded or that the filesystem remains unchanged. A resolved POSIX
+ * byte path without a UTF-8 spelling cannot own the compiler configuration.
  *
  * The optional observer receives lexical selection candidates before their
  * existence checks, including missing nearer configs. This lets a reuse owner
@@ -21,13 +23,13 @@ import type { ITtscProjectLocatorOptions } from "../../../structures/internal/IT
  * @param onInput Observer called before each selection candidate's existence
  *   check; errors thrown by this callback propagate.
  * @returns Selected lexical paths and best-effort physical config/root paths.
- * @throws When no config is selected or an observer fails. Directory probes
- *   suppress stat failures, and physical lookup suppresses realpath failures.
+ * @throws When no config is selected, a physical path has no UTF-8 spelling, or
+ *   an observer fails. An unavailable native lookup retains the spelling.
  * @evidence contracts/common.md#principled-implementation Explicit file/directory selection and nearest ancestor search preserve the actual lexical config path separately from physical Program identity; observations precede candidate checks so absence remains a selection premise.
  * @evidence contracts/common.md#clear-and-simple-design One selection operation returns both identities and forwards observations through a single callback without introducing its own caching or project policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Config names and precedence express the supported CLI contract; no consumer-specific paths or guessed physical-root equivalence replace actual filesystem selection.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains lexical/physical distinction and the observer's absent-candidate purpose, with paragraph and tag separation following the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Native resolve/dirname/join and realpath implement OS-neutral ancestor traversal and symlink identity; reaching a root is detected by parent equality rather than drive or slash parsing.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path operations implement ancestor traversal. Shared physical qualification rejects POSIX byte paths that cannot represent compiler ownership.
  * @evidence contracts/performance.md#efficient-algorithms Nearest-config discovery checks at most two names per ancestor and stops at the first existing candidate; an explicit config avoids that walk but still performs existence/directory checks. Native path construction scans text, filesystem probes and two realpath attempts have delegated costs, and the observer can perform additional work for each candidate. No directory contents are enumerated here.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation reads current selection and owns no reusable cross-call result; its observer supplies premises to the actual cache owner.
@@ -85,9 +87,13 @@ export function resolveProjectIdentity(
     }
     logicalConfigPath = found;
   }
-  const physicalConfigPath = resolveRealPath(logicalConfigPath);
-  const physicalProjectRoot = resolveRealPath(
+  const physicalConfigPath = resolvePhysicalProjectPath(
+    logicalConfigPath,
+    "selected config",
+  );
+  const physicalProjectRoot = resolvePhysicalProjectPath(
     explicitProjectRoot ?? path.dirname(physicalConfigPath),
+    "project root",
   );
   return {
     ...(explicitProjectRoot === undefined ? {} : { explicitProjectRoot }),
@@ -102,18 +108,6 @@ export function resolveProjectIdentity(
 /** Resolve `target` against `cwd` when it is not already absolute. */
 function resolveAbsolutePath(cwd: string, target: string): string {
   return path.isAbsolute(target) ? target : path.resolve(cwd, target);
-}
-
-/**
- * Resolve symlinks on `location`, returning the original path when
- * `realpathSync` fails (e.g. when the file does not yet exist).
- */
-function resolveRealPath(location: string): string {
-  try {
-    return fs.realpathSync(location);
-  } catch {
-    return location;
-  }
 }
 
 /**

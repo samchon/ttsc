@@ -31,12 +31,14 @@ type NativePluginWorkspaceFile struct {
 	Inode    string  `json:"inode,omitempty"`
 	Owner    string  `json:"owner,omitempty"`
 	Group    string  `json:"group,omitempty"`
+	Physical string  `json:"physical,omitempty"`
 	Target   string  `json:"target,omitempty"`
 }
 
 type pluginWorkspaceFile struct {
 	NativePluginWorkspaceFile
 	location string
+	physical string
 	target   string
 	initial  os.FileInfo
 }
@@ -59,7 +61,14 @@ func newPluginWorkspaceFile(wire NativePluginWorkspaceFile) (pluginWorkspaceFile
 		(wire.Kind != "link" && wire.Target != "") {
 		return pluginWorkspaceFile{}, fmt.Errorf("invalid workspace selection link for %q", wire.Path)
 	}
-	out := pluginWorkspaceFile{NativePluginWorkspaceFile: wire, location: location, target: string(target)}
+	physical, err := base64.StdEncoding.Strict().DecodeString(wire.Physical)
+	if err != nil || base64.StdEncoding.EncodeToString(physical) != wire.Physical ||
+		(wire.Physical != "" && (wire.Kind != "directory" || wire.Mode == nil ||
+			!isAbsoluteLocalLSPProjectInputPath(string(physical), runtime.GOOS) ||
+			(runtime.GOOS == "windows" && !utf8.Valid(physical)))) {
+		return pluginWorkspaceFile{}, fmt.Errorf("invalid workspace selection physical path for %q", wire.Path)
+	}
+	out := pluginWorkspaceFile{NativePluginWorkspaceFile: wire, location: location, physical: string(physical), target: string(target)}
 	out.initial = initialWorkspaceFileIdentity(out)
 	return out, nil
 }

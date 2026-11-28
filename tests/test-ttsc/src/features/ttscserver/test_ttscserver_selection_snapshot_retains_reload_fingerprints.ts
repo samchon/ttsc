@@ -74,6 +74,7 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
           fs.writeFileSync(selector, "first");
           const witness: PluginBuildEnvironmentWitness.Record = new Map();
           PluginBuildEnvironmentWitness.add(witness, selector);
+          PluginBuildEnvironmentWitness.addDirectoryIdentity(witness, root);
           const input = {
             deferredHostInputs: [],
             hostInputHashes: {},
@@ -87,11 +88,18 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
           };
           const observed = captureLSPPluginSelectionInputs(input);
           assert.deepEqual(observed?.descriptorFiles, {});
-          assert.equal(observed?.workspaceFiles?.length, 1);
-          const entry = observed?.workspaceFiles?.[0];
+          assert.equal(observed?.workspaceFiles?.length, 2);
+          const entry = observed?.workspaceFiles?.find(
+            ({ kind }) => kind === "stat",
+          );
           assert.equal(entry?.path, Buffer.from(selector).toString("base64"));
           assert.equal(entry?.kind, "stat");
           assert.equal(entry?.size, "5");
+          assert.equal(
+            observed?.workspaceFiles?.find(({ kind }) => kind === "directory")
+              ?.physical,
+            Buffer.from(fs.realpathSync.native(root)).toString("base64"),
+          );
           fs.appendFileSync(selector, " moved");
           assert.equal(captureLSPPluginSelectionInputs(input), undefined);
         },

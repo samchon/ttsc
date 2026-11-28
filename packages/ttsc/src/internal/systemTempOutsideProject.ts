@@ -182,6 +182,8 @@ const PROJECT_MARKERS = [
   ".git",
   "pnpm-workspace.yaml",
   "tsconfig.json",
+  "jsconfig.json",
   "package.json",
   "go.mod",
+  "go.work",
 ];

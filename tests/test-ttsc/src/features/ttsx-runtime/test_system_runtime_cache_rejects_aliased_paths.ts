@@ -87,13 +87,24 @@ export function test_system_runtime_cache_rejects_aliased_paths(): void {
       undefined,
     );
     assert.deepEqual(fs.readdirSync(selected), ["custom.json"]);
-    const workspace = path.join(shared, "package.json");
-    fs.writeFileSync(workspace, '{"name":"unrelated"}');
-    assert.equal(
-      pinSystemRuntimeCachePath(source, temporary, [source]),
-      undefined,
-    );
-    fs.unlinkSync(workspace);
+    for (const [name, content] of [
+      ["package.json", '{"name":"unrelated"}'],
+      ["jsconfig.json", '{"files":[]}'],
+      ["go.work", "go 1.24.0\n"],
+    ] as const) {
+      const marker = path.join(shared, name);
+      fs.writeFileSync(marker, content);
+      try {
+        assert.equal(
+          pinSystemRuntimeCachePath(source, temporary, [source]),
+          undefined,
+          name,
+        );
+        assert.equal(fs.readFileSync(marker, "utf8"), content);
+      } finally {
+        fs.unlinkSync(marker);
+      }
+    }
     fs.rmdirSync(`${fallback}.lock`);
     const exercisesPermission =
       process.platform !== "win32" && process.getuid?.() !== 0;

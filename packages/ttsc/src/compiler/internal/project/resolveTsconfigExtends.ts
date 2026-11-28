@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 import { readJsonFile } from "./readJsonFile";
+import { resolvePhysicalProjectPath } from "./resolvePhysicalProjectPath";
 import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
 
 /**
@@ -16,9 +17,10 @@ import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
  *   bare package root selects its preset through `package.json#tsconfig`, then
  *   Node's resolver is asked for the specifier and for the specifier with
  *   `.json` appended. Selected module paths use realpath when it succeeds and
- *   retain the selected spelling when it fails. Node's resolver does not
- *   reproduce every TypeScript-Go module condition or expose its full search
- *   topology; observers therefore cannot certify module-chain freshness.
+ *   retain the selected spelling when it fails. A known non-UTF-8 physical path
+ *   is rejected before reading. Node's resolver does not reproduce every
+ *   TypeScript-Go module condition or expose its full search topology;
+ *   observers therefore cannot certify module-chain freshness.
  *
  * The one rule both of the workspace's config readers use: ttsc's project
  * reader canonicalizes the answer before it reads the chain further, and
@@ -71,19 +73,19 @@ export function resolveTsconfigExtends(
       ? [viaManifest]
       : [viaManifest, `${viaManifest}.json`]) {
       onInput?.(candidate);
-      if (isFile(candidate)) return resolveRealPath(candidate);
+      if (isFile(candidate))
+        return resolvePhysicalProjectPath(candidate, "extended config");
     }
     throw new Error(`ttsc: extended tsconfig not found: ${viaManifest}`);
   }
+  let selected: string;
   try {
-    const selected = resolver.resolve(normalized);
-    onInput?.(selected);
-    return resolveRealPath(selected);
+    selected = resolver.resolve(normalized);
   } catch {
-    const selected = resolver.resolve(`${normalized}.json`);
-    onInput?.(selected);
-    return resolveRealPath(selected);
+    selected = resolver.resolve(`${normalized}.json`);
   }
+  onInput?.(selected);
+  return resolvePhysicalProjectPath(selected, "extended config");
 }
 
 /**
@@ -159,17 +161,5 @@ function isFile(location: string): boolean {
     return fs.statSync(location).isFile();
   } catch {
     return false;
-  }
-}
-
-/**
- * Resolve symlinks on `location`, returning the original path when
- * `realpathSync` fails.
- */
-function resolveRealPath(location: string): string {
-  try {
-    return fs.realpathSync(location);
-  } catch {
-    return location;
   }
 }

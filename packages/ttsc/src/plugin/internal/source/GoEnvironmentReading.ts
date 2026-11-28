@@ -350,7 +350,7 @@ export namespace GoEnvironmentReading {
         typeof value === "object" && value !== null && !Array.isArray(value),
     );
     if (kept !== undefined) {
-      WitnessedLoadAnswers.join(witness, kept.witness);
+      PluginBuildEnvironmentWitness.join(witness, kept.witness);
       return kept.value;
     }
     const observed: PluginBuildEnvironmentWitness.Record = new Map();
@@ -372,7 +372,7 @@ export namespace GoEnvironmentReading {
         observed,
         path.join(values.GOROOT, "go.env"),
       );
-    WitnessedLoadAnswers.join(witness, observed);
+    PluginBuildEnvironmentWitness.join(witness, observed);
     WitnessedLoadAnswers.write(
       identities,
       RECORDED_READING,
@@ -430,7 +430,7 @@ export namespace GoEnvironmentReading {
       kept?.identity === identity &&
       PluginBuildEnvironmentWitness.holds(kept.witness)
     ) {
-      WitnessedLoadAnswers.join(witness, kept.witness);
+      PluginBuildEnvironmentWitness.join(witness, kept.witness);
       return kept.value;
     }
     if (witness !== undefined && !PluginBuildEnvironmentWitness.holds(witness))
@@ -455,7 +455,7 @@ export namespace GoEnvironmentReading {
       if (typeof value !== "string" || value === "") return undefined;
       if (!PluginBuildEnvironmentWitness.holds(observed)) return undefined;
       localVersions.set(goBinary, { identity, value, witness: observed });
-      WitnessedLoadAnswers.join(witness, observed);
+      PluginBuildEnvironmentWitness.join(witness, observed);
       return value;
     } catch {
       return undefined;

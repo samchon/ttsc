@@ -184,6 +184,12 @@ function captureWorkspaceFiles(
         snapshot.target = fs
           .readlinkSync(native, { encoding: "buffer" })
           .toString("base64");
+      if (kind === "directory") {
+        const physical = RuntimeFilesystem.realpathWitness(native);
+        snapshot.physical = Buffer.from(
+          RuntimeFilesystem.rawRealpath(physical) ?? physical,
+        ).toString("base64");
+      }
       snapshot.mode = Number(stat.mode);
       if (kind !== "directory") {
         snapshot.modified = stat.mtimeNs.toString();

@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 
-import type { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
+import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginContentIdentities } from "./PluginContentIdentities";
 import { WitnessedLoadAnswers } from "./WitnessedLoadAnswers";
 import { goToolVariables } from "./goToolVariables";
@@ -66,7 +66,7 @@ export function readPluginBuildEnvironment(
     currentReadings,
   );
   if (kept !== undefined) {
-    WitnessedLoadAnswers.join(witness, kept.witness);
+    PluginBuildEnvironmentWitness.join(witness, kept.witness);
     return kept.value;
   }
   const observed: PluginBuildEnvironmentWitness.Record = new Map();
@@ -82,7 +82,7 @@ export function readPluginBuildEnvironment(
     projectRoot,
   );
   const environment = hash.digest("hex");
-  WitnessedLoadAnswers.join(witness, observed);
+  PluginBuildEnvironmentWitness.join(witness, observed);
   WitnessedLoadAnswers.write(identities, KIND, identity, environment, observed);
   return environment;
 }
