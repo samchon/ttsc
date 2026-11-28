@@ -1350,7 +1350,10 @@ function emitOrphanSource(
       return hit;
     }
   }
-  const outDir = createProjectTempDirectory("ttsx-orphan-");
+  const outDir = createProjectTempDirectory(
+    "ttsx-orphan-",
+    isolatedEmitScratchOwner(),
+  );
   try {
     spawnNative(
       tsgo,
@@ -1472,7 +1475,10 @@ function emitCommonJsForNameScan(real: string): string | null {
     commonJsNameScanSources.set(real, null);
     return null;
   }
-  const outDir = createProjectTempDirectory("ttsx-export-scan-");
+  const outDir = createProjectTempDirectory(
+    "ttsx-export-scan-",
+    isolatedEmitScratchOwner(),
+  );
   try {
     // Compile the owned JavaScript, not the original TypeScript whose project
     // may already have erased or transformed declarations. No source executes.
@@ -1498,6 +1504,21 @@ function emitCommonJsForNameScan(real: string): string | null {
     return null;
   } finally {
     fs.rmSync(outDir, { force: true, recursive: true });
+  }
+}
+
+/**
+ * The project of the run's checked entry. Isolated emit scratch stays outside
+ * it, and its record store supplies the private parent when no system temporary
+ * directory qualifies. A runtime without a readable manifest has none, and its
+ * scratch keeps the projectless placement.
+ */
+function isolatedEmitScratchOwner(): string | undefined {
+  try {
+    return runtimeBuildPath().RuntimeManifestRegistry.runtimeManifests()[0]
+      ?.projectRoot;
+  } catch {
+    return undefined;
   }
 }
 

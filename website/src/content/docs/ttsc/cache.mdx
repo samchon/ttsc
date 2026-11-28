@@ -32,7 +32,7 @@ A recorded digest is reused while each file keeps its recorded identity, size an
 
 The same checks apply to binaries and plugin sources in package stores, including Nix. A read-only package directory can still contain files whose bytes change in place.
 
-Native tools use private storage for command receipts and Go compiler work files. A project-local or missing system temp directory is skipped. The capability worker exchanges native results in memory.
+Native tools use private storage for command receipts and Go compiler work files. A project-local or missing system temp directory is skipped. When every system temp directory lies below a project marker, such as a `package.json` in the home directory that contains Windows TEMP or a project at a container's root, that work uses the `identities` directory of the project's ttsc cache. The capability worker exchanges native results in memory.
 
 `ttsx` and `ttsc/register` also keep the TypeScript they lower for a package that no tsconfig owns, such as one shipping raw `.ts` under `node_modules`, under `<root>/ttsx-orphan`, keyed by the source bytes and the compiler that lowered them.
 

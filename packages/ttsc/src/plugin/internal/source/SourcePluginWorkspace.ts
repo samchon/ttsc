@@ -4,8 +4,8 @@ import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
+import { createProjectTempDirectory } from "../../../internal/createProjectTempDirectory";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
-import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
 import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFilesystem";
 import type { CompilerTarget } from "./CompilerTarget";
 import { GoEnvironmentReading } from "./GoEnvironmentReading";
@@ -471,7 +471,9 @@ export namespace SourcePluginWorkspace {
           throw error;
         }
         const cwd = relativeEnvironment
-          ? systemTempOutsideProject(projectRoot ?? resolved, [resolved])
+          ? createProjectTempDirectory.parent(projectRoot ?? resolved, [
+              resolved,
+            ])
           : undefined;
         if (
           toolWitness === undefined ||
@@ -505,7 +507,7 @@ export namespace SourcePluginWorkspace {
               ? GoEnvironmentReading.recorded(
                   goBinary,
                   cwd ??
-                    systemTempOutsideProject(projectRoot ?? resolved, [
+                    createProjectTempDirectory.parent(projectRoot ?? resolved, [
                       resolved,
                     ]),
                   environment,
@@ -629,14 +631,15 @@ export namespace SourcePluginWorkspace {
     pluginName: string,
     env: NodeJS.ProcessEnv,
     projectRoot = dir,
-    cwd = systemTempOutsideProject(projectRoot, [dir]),
+    cwd = createProjectTempDirectory.parent(projectRoot, [dir]),
   ): GoModInfo {
     if (!fs.existsSync(path.join(dir, "go.mod"))) {
       return emptyGoModInfo();
     }
 
-    // `go mod edit` takes the file as an argument, so the tool runs from the
-    // system temporary directory rather than from `dir`: a copy of an external
+    // `go mod edit` takes the file as an argument, so the tool runs from a
+    // private parent outside the project, normally the system temporary
+    // directory, rather than from `dir`: a copy of an external
     // source mirrors its absolute path below the build's scratch directory, and
     // Windows refuses a working directory longer than MAX_PATH even where every
     // path the build itself opens is fine.

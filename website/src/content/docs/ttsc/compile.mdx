@@ -142,7 +142,7 @@ The plugin binary cache is **project-local**. By default it lives in the workspa
 
 A launch whose binary is already cached proves its unchanged inputs from metadata recorded under `<cache-dir>/identities` and `<cache-dir>/answers` instead of reading the plugin's Go source, the Go toolchain and the JavaScript runtime again and running `go list`. [Build cache](/docs/ttsc/cache#what-is-cached) describes when a recorded digest is trusted.
 
-The native process supervisor keeps its completion receipt in a system temporary directory outside the project. If the preferred location refuses the write, the supervisor tries the remaining system temp locations outside the project before starting the command.
+The native process supervisor keeps its completion receipt in a system temporary directory outside the project. If the preferred location refuses the write, the supervisor tries the remaining system temp locations outside the project, then the `identities` directory of the project's ttsc cache, before starting the command.
 
 Override the root with `--cache-dir` or `TTSC_CACHE_DIR` (relative `--cache-dir` resolves from `--cwd`, relative `TTSC_CACHE_DIR`/`TTSC_GO_CACHE_DIR` from the project root). Point these at a directory **dedicated to ttsc**, and use `ttsc` as the root's basename when `ttsc clean` should remove its nested `go-build/` as well as `plugins/`. The basename is a deletion-safety boundary, so do not set `TTSC_CACHE_DIR` to a shared cache such as `~/.cache`; use a dedicated path such as `.ttsc-cache/ttsc`. Before deleting anything, `ttsc clean` validates every resolved target, including an external `TTSC_GO_CACHE_DIR`, and refuses a filesystem root or a lexical/physical path that equals or contains the project.
 
