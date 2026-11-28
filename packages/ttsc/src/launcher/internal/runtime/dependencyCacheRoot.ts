@@ -5,7 +5,9 @@ import { RuntimeEmitBundle } from "../../../compiler/internal/build/RuntimeEmitB
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
+import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBuildCacheLayout";
 import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
+import { RuntimeFilesystem } from "./RuntimeFilesystem";
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
 
 /**
@@ -31,14 +33,14 @@ import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
  *
  * @param env Environment to read the descriptor-evaluation variables from.
  * @param projectRoot Project whose emitted dependencies need private storage.
- * @evidence contracts/common.md#principled-implementation Descriptor-owned output, a checked run's depCacheDir and a manifest-less process directory are distinct lifetime authorities; selecting in that order keeps dependency emit with the owner that removes it.
- * @evidence contracts/common.md#clear-and-simple-design One root selector owns the three supported execution contexts, with process-directory acquisition isolated in a private helper.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing manifest selects a genuinely process-owned cache rather than persistent path-only reuse; descriptor channels are explicit host inputs, not fixture-specific names.
+ * @evidence contracts/common.md#principled-implementation Descriptor, checked-run and manifest-less directories have distinct owners. A manifest-less candidate needs an ordinary and project-free deterministic parent before exclusive child acquisition and owner publication.
+ * @evidence contracts/common.md#clear-and-simple-design The selector owns the three execution contexts. The namespace's single-candidate native claim is separate from retry, sweep and exit cleanup.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing manifest selects a genuinely process-owned cache. Existing aliases and project overlap cannot supply ownership, and failed rollback cannot advance as a clean refusal.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain descriptor, run and process ownership and cleanup after forced termination, with the injected environment documented following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Environment selection follows native Windows alias rules. Native realpath/mkdtemp postflight selects a physical temp child; preserving that namespace and distinct host-label ownership remain premises, not path-handle guarantees.
  * @evidence contracts/performance.md#efficient-algorithms Environment/path selection processes its key/text inputs. Registry access may first read/decode/snapshot inherited manifest bytes or rebuild its M-entry view, then selection scans until a cache is found. First manifest-less acquisition pays sibling names/records/native probes and canonical-child IO; later orphan requests reuse the stored root but still perform context selection.
- * @evidence contracts/performance.md#reuse-equivalent-work All manifest-less dependency builds in one process share its lazily acquired root; descriptor and run roots share only their explicit owning evaluation or run, avoiding cross-run stale path-only cache reuse.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The process retains one private directory and exit callback. Failed admission attempts rollback and can report combined admission/removal failure; canonical acquisition can fail before this rollback scope. Exit cleanup and later admitted sweeping are best effort, with no historical quota or guaranteed reclamation time; descriptor/run roots transfer cleanup to their owners.
+ * @evidence contracts/performance.md#reuse-equivalent-work Manifest-less builds reuse the current process-owned directory while it still qualifies for their project. Descriptor and run roots share only their explicit owning evaluation or run.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources A new project can disqualify the current private directory. Each accepted directory retains its own exit cleanup. Failed admission attempts rollback and can report both admission and cleanup errors. Canonical acquisition can fail before that rollback scope. Exit cleanup and later sweeps remain best effort.
  */
 export function dependencyCacheRoot(
   env: NodeJS.ProcessEnv = process.env,
@@ -78,46 +80,138 @@ let processRoot: string | undefined;
  * processes on this host that are gone.
  */
 function processPrivateRoot(projectRoot: string): string {
-  if (processRoot !== undefined) return processRoot;
-  const parent = path.join(systemTempOutsideProject(projectRoot), "ttsx-dep");
-  try {
-    fs.mkdirSync(parent);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  const projectRoots = [projectRoot, process.cwd()];
+  if (
+    processRoot !== undefined &&
+    systemTempOutsideProject.allowsChild(
+      path.dirname(processRoot),
+      projectRoots,
+    ) &&
+    fs.lstatSync(processRoot, { throwIfNoEntry: false })?.isDirectory() ===
+      true &&
+    RuntimeFilesystem.realpathWitness(processRoot) === processRoot
+  ) {
+    try {
+      fs.accessSync(processRoot, fs.constants.W_OK | fs.constants.X_OK);
+      return processRoot;
+    } catch (error) {
+      if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
+    }
   }
-  if (!fs.lstatSync(parent).isDirectory())
-    throw new Error(`ttsx: unsafe private dependency cache: ${parent}`);
+  let refusal: unknown;
+  let directory: string | undefined;
+  for (const candidate of systemTempOutsideProject.candidates(
+    projectRoot,
+    projectRoots,
+  )) {
+    try {
+      directory = dependencyCacheRoot.claimUnderTemporary(
+        candidate.directory,
+        projectRoots,
+      );
+      if (directory !== undefined) break;
+    } catch (error) {
+      if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
+      refusal ??= error;
+    }
+  }
+  if (directory === undefined)
+    throw (
+      refusal ??
+      new Error(`ttsx: no private dependency cache outside ${projectRoot}`)
+    );
+  const owned = directory;
+  const parent = path.dirname(owned);
   ProcessOwnedDirectory.sweep(
     parent,
-    (name) => name.startsWith(PROCESS_ROOT_PREFIX),
+    (name) => {
+      if (!name.startsWith(PROCESS_ROOT_PREFIX)) return false;
+      const sibling = path.join(parent, name);
+      try {
+        return (
+          fs.lstatSync(sibling, { throwIfNoEntry: false })?.isDirectory() ===
+            true && systemTempOutsideProject.allowsChild(sibling, projectRoots)
+        );
+      } catch {
+        return false;
+      }
+    },
     true,
   );
-  const directory = createCanonicalTempDirectory(
-    `${PROCESS_ROOT_PREFIX}${process.pid}-`,
-    parent,
-  );
-  try {
-    ProcessOwnedDirectory.admit(directory, process.pid);
-  } catch (error) {
-    try {
-      fs.rmSync(directory, { force: true, recursive: true });
-    } catch (cleanupError) {
-      throw new AggregateError(
-        [error, cleanupError],
-        "ttsx: failed to admit and remove the private dependency cache",
-      );
-    }
-    throw error;
-  }
   process.once("exit", () => {
     try {
       // The builds below were served through descriptors this process holds.
       RuntimeEmitBundle.release();
-      fs.rmSync(directory, { force: true, recursive: true });
+      fs.rmSync(owned, { force: true, recursive: true });
     } catch {
       // Best effort: the next manifest-less process sweeps what remains.
     }
   });
-  processRoot = directory;
-  return directory;
+  processRoot = owned;
+  return owned;
+}
+
+/**
+ * Native admission for one qualified system temp candidate.
+ *
+ * @evidence contracts/common.md#principled-implementation Ordinary directory observations and project qualification precede exclusive allocation and owner publication.
+ * @evidence contracts/common.md#clear-and-simple-design A single-candidate claim stays separate from caller-owned retries, sweeping and exit cleanup.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts An alias or project overlap cannot supply an accepted parent. A rollback failure preserves both errors and prevents retry.
+ * @evidence contracts/common.md#meaningful-documentation The claim describes its ineligibility and rollback outcomes.
+ * @evidence contracts/portability.md#os-neutral-implementation Native lstat, lossless realpath and the canonical creator validate directory identity on supported platforms.
+ * @evidence contracts/performance.md#efficient-algorithms Directory qualification walks ancestry without enumeration. An acquired directory writes one owner record before transfer.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each accepted directory is exclusively allocated for one claim.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns an accepted directory. Failed publication attempts rollback, whose error can leave the directory behind.
+ */
+export namespace dependencyCacheRoot {
+  /**
+   * Create an ordinary dependency parent and admit one exclusive process root.
+   * A project-owned or linked parent is ineligible. A failed owner write
+   * removes the acquired directory before its permission error can request a
+   * new candidate.
+   */
+  export function claimUnderTemporary(
+    temporary: string,
+    projectRoots: readonly string[],
+  ): string | undefined {
+    const parent = path.join(temporary, "ttsx-dep");
+    if (!systemTempOutsideProject.allowsChild(parent, projectRoots))
+      return undefined;
+    const present = fs.lstatSync(parent, { throwIfNoEntry: false });
+    if (
+      (present !== undefined && !present.isDirectory()) ||
+      RuntimeFilesystem.realpathWitness(temporary) !== temporary
+    )
+      return undefined;
+    try {
+      fs.mkdirSync(parent);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
+    if (
+      !fs.lstatSync(parent).isDirectory() ||
+      RuntimeFilesystem.realpathWitness(parent) !== parent
+    )
+      throw new Error(`ttsx: unsafe private dependency cache: ${parent}`);
+    if (!systemTempOutsideProject.allowsChild(parent, projectRoots))
+      return undefined;
+    const directory = createCanonicalTempDirectory(
+      `${PROCESS_ROOT_PREFIX}${process.pid}-`,
+      parent,
+    );
+    try {
+      ProcessOwnedDirectory.admit(directory, process.pid);
+    } catch (error) {
+      try {
+        fs.rmSync(directory, { recursive: true });
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [error, cleanupError],
+          "ttsx: failed to admit and remove the private dependency cache",
+        );
+      }
+      throw error;
+    }
+    return directory;
+  }
 }

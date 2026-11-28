@@ -11,14 +11,15 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * 1. Check an excluded entry using automatic and explicitly selected types.
  * 2. Replace the ordinary cache with a linked directory and repeat.
- * 3. Check a workspace member whose types live at an intermediate ancestor. Repeat
- *    with its installed compiler and verify a rejected emit leaves no output.
+ * 3. Check a workspace member with types at an intermediate ancestor, including a
+ *    dependency alias to a byte-named directory where supported. Repeat with
+ *    its installed compiler and verify a rejected emit leaves no output.
  * 4. Verify cleanup empties the private system-temp parent and preserves the cache
  *    link and its target.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the maintained single-root build with real TypeScript-Go, original ambient declaration packages and a native cache link. The installed compiler route must report the incompatible assignment and leave the private output tree empty.
  * @evidence contracts/testing.md#independent-expectations The authored globals are available only through the original dependency search population.
- * @evidence contracts/testing.md#distinguishing-cases Automatic @types, an ordinary explicitly named package and an explicitly configured type root run with both cache layouts. A workspace member has an intermediate dependency installation that the workspace cache would skip. With an installed compiler, that member distinguishes a failed type check from an emit with errors.
+ * @evidence contracts/testing.md#distinguishing-cases Automatic @types, an ordinary explicitly named package and an explicitly configured type root run with both cache layouts. A workspace member has an intermediate dependency installation that the workspace cache would skip. Its POSIX byte-named installation also has a UTF-8 lookalike with incompatible types. With an installed compiler, the member distinguishes a failed type check from an emit with errors.
  * @evidence contracts/testing.md#execution-ownership The unit owns its source, dependency link, output and temporary configuration roots and executes the real native compiler through buildSingleRootProject.
  */
 export function test_single_root_build_recovers_type_search_from_refused_cache(): void {
@@ -200,6 +201,14 @@ export function test_single_root_build_recovers_type_search_from_refused_cache()
       fs.readFileSync(path.join(memberEmit, memberJs), "utf8"),
       /seen\s*=\s*marker/,
     );
+    if (process.platform !== "win32")
+      verifyByteNamedInstallation({
+        directory: apps,
+        emitDir: path.join(privateDirectory, "workspace-raw-member"),
+        source: memberSource,
+        config: memberConfig,
+        output: memberJs,
+      });
     const workspaceModules = path.join(workspace, "node_modules");
     const installedCompiler = path.join(workspaceModules, "typescript");
     fs.mkdirSync(workspaceModules, { recursive: true });
@@ -242,5 +251,54 @@ export function test_single_root_build_recovers_type_search_from_refused_cache()
       else process.env[name] = value;
     });
     if (usesLink) fs.unlinkSync(cache);
+  }
+}
+
+/** A directory link must reach the original package, even with a UTF-8 twin. */
+function verifyByteNamedInstallation(props: {
+  directory: string;
+  emitDir: string;
+  source: string;
+  config: string;
+  output: string;
+}): void {
+  const installation = path.join(props.directory, "node_modules");
+  const bytes = Buffer.concat([
+    Buffer.from(`${installation}-`),
+    Buffer.from([0xff]),
+  ]);
+  try {
+    fs.renameSync(installation, bytes);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EILSEQ") return;
+    throw error;
+  }
+  try {
+    fs.symlinkSync(bytes, installation, "dir");
+    const twin = path.join(bytes.toString(), "named");
+    fs.mkdirSync(twin, { recursive: true });
+    fs.writeFileSync(path.join(twin, "package.json"), '{"types":"types.d.ts"}');
+    fs.writeFileSync(path.join(twin, "types.d.ts"), "declare const marker: 2;");
+    buildSingleRootProject({
+      source: props.source,
+      tsconfig: props.config,
+      projectRoot: path.dirname(props.config),
+      key: "workspace-raw-member",
+      emitDir: props.emitDir,
+      role: "entry",
+      checked: true,
+      options: {
+        binary: TestProject.TSGO_BINARY,
+        env: { TTSC_TEST_PRIVATE_OVERLAY: "1" },
+      },
+    });
+    assert.match(
+      fs.readFileSync(path.join(props.emitDir, props.output), "utf8"),
+      /seen\s*=\s*marker/,
+    );
+  } finally {
+    if (fs.lstatSync(installation, { throwIfNoEntry: false })?.isSymbolicLink())
+      fs.unlinkSync(installation);
+    fs.renameSync(bytes, installation);
   }
 }

@@ -22,12 +22,14 @@ import (
 // can be queried again. A source directory's listing is an input as
 // well, counted by the build's own rule, which the launcher hands over as data
 // rather than the host keeping a copy of it.
+// Workspace inputs travel separately as native metadata and do not add editor
+// watch directories.
 //
-// @evidence contracts/common.md#principled-implementation Directory-grouped filename/digest maps distinguish recorded descriptor candidates from source populations whose listing also affects selection.
+// @evidence contracts/common.md#principled-implementation Directory-grouped filename/digest maps distinguish descriptor candidates from source populations. Workspace entries preserve native metadata and are admitted to the periodic check.
 // @evidence contracts/common.md#clear-and-simple-design Build-owned omission and pruning rules travel as data rather than duplicated host build policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Launcher-observed inputs and source rules supply the baseline instead of a fixed package-specific list. The wire shape does not prove producer completeness or capture freshness; host normalization and comparisons own its admission.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain directory grouping, missing candidates and listing ownership, with separated member prose under the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation The host validates absolute local directories and recorded file-entry names, then attempts native directory identity with lexical/unknown-case fallback. Base64 preserves POSIX entry bytes outside UTF-8 for direct native checks. Policy-name lists remain literal entry filters, and sequential comparisons are not an atomic filesystem capture.
+// @evidence contracts/portability.md#os-neutral-implementation The host validates absolute local directories and recorded file-entry names, then attempts native directory identity with lexical/unknown-case fallback. Base64 preserves POSIX entry bytes outside UTF-8 and exact workspace spellings for native checks. Policy-name lists remain literal entry filters, and sequential comparisons are not an atomic filesystem capture.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
 // @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
@@ -42,6 +44,9 @@ type NativePluginSelectionInputs struct {
   // RawDescriptorFiles maps base64-encoded POSIX paths that contain non-UTF-8
   // bytes to their entry fingerprints.
   RawDescriptorFiles map[string]string `json:"rawDescriptorFiles,omitempty"`
+
+  // WorkspaceFiles retain external Go toolchain metadata for native polling.
+  WorkspaceFiles []NativePluginWorkspaceFile `json:"workspaceFiles,omitempty"`
 
   // SourceFiles maps every plugin source directory to the name of every file
   // directly inside it that the build keys on, with its digest. A directory
@@ -64,6 +69,7 @@ type pluginSelectionInputs struct {
   directories     map[string]*pluginSelectionDirectory
   rawDirectories  []*pluginSelectionDirectory
   rawFiles        map[string]string
+  workspaceFiles  []pluginWorkspaceFile
   omittedNames    []string
   omittedSuffixes []string
   prunedNames     []string
@@ -155,6 +161,13 @@ func newPluginSelectionInputs(
     }
     out.rawFiles[location] = digest
   }
+  for _, wire := range inputs.WorkspaceFiles {
+    file, err := newPluginWorkspaceFile(wire)
+    if err != nil {
+      return pluginSelectionInputs{}, err
+    }
+    out.workspaceFiles = append(out.workspaceFiles, file)
+  }
   return out, nil
 }
 
@@ -178,7 +191,15 @@ func (inputs pluginSelectionInputs) current() bool {
       return false
     }
   }
-  return inputs.rawFilesCurrent()
+  if !inputs.rawFilesCurrent() {
+    return false
+  }
+  for _, file := range inputs.workspaceFiles {
+    if !file.current() {
+      return false
+    }
+  }
+  return true
 }
 
 // rawSelectionCurrent checks the directory groups and files that cannot be

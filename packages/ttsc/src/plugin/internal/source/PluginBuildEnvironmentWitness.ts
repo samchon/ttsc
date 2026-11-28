@@ -36,35 +36,68 @@ import { RuntimeFilesystem } from "../../../launcher/internal/runtime/RuntimeFil
  */
 export namespace PluginBuildEnvironmentWitness {
   /**
+   * Recover the exact native path and kind of a filesystem witness key.
+   *
+   * @evidence contracts/common.md#principled-implementation The namespace's encoding distinguishes followed metadata, links, directory identity, and non-filesystem observations.
+   * @evidence contracts/common.md#clear-and-simple-design Consumers use one decoder and retain their own observation policy.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Returns the original path spelling without resolving parent traversal or decoding raw bytes into a lossy string.
+   * @evidence contracts/common.md#meaningful-documentation Identifies the returned native path and its observation kind.
+   * @evidence contracts/portability.md#os-neutral-implementation Qualified keys preserve native path strings and opaque byte spellings.
+   * @evidence contracts/performance.md#efficient-algorithms Checks fixed prefixes and slices the matched spelling.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Decoding retains no result.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Allocates no native resource.
+   */
+  export function pathOf(
+    key: string,
+  ): { file: string; kind: "stat" | "link" | "directory" } | undefined {
+    if (key === TOOLCHAIN_PROBE || key.startsWith(ENVIRONMENT_PREFIX))
+      return undefined;
+    if (key.startsWith(DIRECTORY_PREFIX))
+      return { file: key.slice(DIRECTORY_PREFIX.length), kind: "directory" };
+    if (key.startsWith(LINK_PREFIX))
+      return { file: key.slice(LINK_PREFIX.length), kind: "link" };
+    return { file: key, kind: "stat" };
+  }
+
+  /**
    * Group native observations by usable watch spelling. Raw paths retain their
    * exact keys and use their nearest UTF-8 ancestor for notification delivery.
+   * A POSIX path with parent traversal must first resolve natively, and keeps
+   * polling its original spelling so an alias retarget remains observable.
    *
    * @evidence contracts/common.md#principled-implementation Replays the original metadata keys, including raw path bytes, and assigns a representable watch anchor.
    * @evidence contracts/common.md#clear-and-simple-design The owner of key encoding also translates it to watch registrations.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Only the registration path is translated; literal raw path keys remain intact.
    * @evidence contracts/common.md#meaningful-documentation Specifies the reason for assigning a raw input an ancestor watch.
-   * @evidence contracts/portability.md#os-neutral-implementation Raw POSIX components are shortened before UTF-8 decoding; ordinary spellings use native path resolution.
-   * @evidence contracts/performance.md#efficient-algorithms Visits each witness entry and may decode each ancestor of a raw key without native I/O.
+   * @evidence contracts/portability.md#os-neutral-implementation Raw POSIX components are shortened before UTF-8 decoding. POSIX parent traversal resolves through the native filesystem before selecting an anchor.
+   * @evidence contracts/performance.md#efficient-algorithms Visits each witness entry. Raw decoding can visit its ancestors, and a POSIX parent traversal can require native realpath across its existing ancestry. No payload bytes are read.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Groups belong to the current load.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The result borrows witness strings and holds no handle.
    */
   export function watchInputs(
     witnesses: readonly Record[],
     projectRoot: string,
-  ): { [anchor: string]: { entries: [string, string][]; recursive?: true } } {
+  ): {
+    [anchor: string]: {
+      entries: [string, string][];
+      recursive?: true;
+      poll?: true;
+    };
+  } {
     const groups = new Map<
       string,
-      { entries: [string, string][]; recursive?: true }
+      { entries: [string, string][]; recursive?: true; poll?: true }
     >();
     for (const witness of witnesses)
       for (const [key, signature] of witness) {
         if (key === TOOLCHAIN_PROBE) continue;
-        const file = key.startsWith(DIRECTORY_PREFIX)
-          ? key.slice(DIRECTORY_PREFIX.length)
-          : key.startsWith(LINK_PREFIX)
-            ? key.slice(LINK_PREFIX.length)
-            : key;
-        let raw = RuntimeFilesystem.rawRealpath(file);
+        const file = pathOf(key)?.file ?? projectRoot;
+        const traverses =
+          process.platform !== "win32" &&
+          path.isAbsolute(file) &&
+          /(?:^|\/)\.\.(?:\/|$)/.test(file);
+        const location = traverses ? nativeWatchLocation(file) : file;
+        let raw = RuntimeFilesystem.rawRealpath(location);
         const recursive = raw !== undefined;
         let anchor = projectRoot;
         if (raw !== undefined) {
@@ -81,16 +114,31 @@ export namespace PluginBuildEnvironmentWitness {
             }
             raw = raw.subarray(0, separator);
           }
-        } else if (path.isAbsolute(file)) {
-          anchor = path.resolve(file);
+        } else if (path.isAbsolute(location)) {
+          anchor = path.resolve(location);
         }
-        const group: { entries: [string, string][]; recursive?: true } =
-          groups.get(anchor) ?? { entries: [] };
+        const group: {
+          entries: [string, string][];
+          recursive?: true;
+          poll?: true;
+        } = groups.get(anchor) ?? { entries: [] };
         group.entries.push([key, signature]);
         if (recursive) group.recursive = true;
+        if (traverses) group.poll = true;
         groups.set(anchor, group);
       }
     return Object.fromEntries(groups);
+  }
+
+  /** Recover a native anchor while keeping the original lookup in the witness. */
+  function nativeWatchLocation(file: string): string {
+    for (let location = file; ; location = path.dirname(location)) {
+      try {
+        return RuntimeFilesystem.realpathWitness(location);
+      } catch {
+        if (location === "/") return location;
+      }
+    }
   }
 
   /**
@@ -327,13 +375,7 @@ export namespace PluginBuildEnvironmentWitness {
       if (file === TOOLCHAIN_PROBE) continue;
       let current = currentReadings?.get(file);
       if (current === undefined) {
-        current = file.startsWith(ENVIRONMENT_PREFIX)
-          ? environmentSignature(file.slice(ENVIRONMENT_PREFIX.length))
-          : file.startsWith(LINK_PREFIX)
-            ? linkSignature(file.slice(LINK_PREFIX.length))
-            : file.startsWith(DIRECTORY_PREFIX)
-              ? directorySignature(file.slice(DIRECTORY_PREFIX.length))
-              : signature(file);
+        current = currentSignature(file);
         currentReadings?.set(file, current);
       }
       if (current !== recorded) {
@@ -351,6 +393,37 @@ export namespace PluginBuildEnvironmentWitness {
       }
     }
     return true;
+  }
+
+  /**
+   * Observe the exact native keys of a failed workspace for retry comparison.
+   *
+   * @evidence contracts/common.md#principled-implementation Current signatures are captured with the same key interpretation as validation, even after the original observation moved.
+   * @evidence contracts/common.md#clear-and-simple-design This shares native signature decoding with holds.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The result gives only a retry baseline and supplies no proof of the original build or toolchain dispatch.
+   * @evidence contracts/common.md#meaningful-documentation The comment identifies the exact keys and the retry owner.
+   * @evidence contracts/portability.md#os-neutral-implementation The signature reader preserves raw native paths, link identity and environment naming rules.
+   * @evidence contracts/performance.md#efficient-algorithms Each supplied key costs a native metadata observation or environment lookup and one retained text pair.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A new terminal verdict requires current observations.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the returned entries. No native handle is retained.
+   */
+  export function retryBaseline(
+    entries: Iterable<readonly [string, string]>,
+  ): [string, string][] {
+    const baseline: [string, string][] = [];
+    for (const [key] of entries)
+      if (key !== TOOLCHAIN_PROBE) baseline.push([key, currentSignature(key)]);
+    return baseline;
+  }
+
+  function currentSignature(file: string): string {
+    if (file.startsWith(ENVIRONMENT_PREFIX))
+      return environmentSignature(file.slice(ENVIRONMENT_PREFIX.length));
+    if (file.startsWith(LINK_PREFIX))
+      return linkSignature(file.slice(LINK_PREFIX.length));
+    if (file.startsWith(DIRECTORY_PREFIX))
+      return directorySignature(file.slice(DIRECTORY_PREFIX.length));
+    return signature(file);
   }
 
   /** A recorded state no signature equals. */

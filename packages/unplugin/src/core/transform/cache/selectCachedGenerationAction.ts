@@ -20,7 +20,7 @@ import { evictGeneration } from "./evictGeneration";
  * proof can stand in for it. A serving decision does not perform output
  * selection or host notification, which remain with delivery.
  *
- * @evidence contracts/common.md#principled-implementation A generation requiring workspace replay serves only within its original delivery epoch. Volatility, recorded environment reads and recorded source proof also decide serving. Identity-guarded eviction distinguishes a sibling's replacement from an empty capture slot.
+ * @evidence contracts/common.md#principled-implementation A generation requiring workspace replay serves in its original registered pass or to an unregistered caller that joined its pending capture. Volatility, recorded environment reads and recorded source proof also decide serving. Identity-guarded eviction distinguishes a sibling's replacement from an empty capture slot.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous operation selects serve/retry/capture and owns mismatch eviction, while its production caller owns awaiting, notification settling, native capture and output delivery.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Decisions inspect the supplied actual generation and validators without fabricating a producer result, capability or success; no injectable compiler callback or test-only branch is introduced.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the caller's awaited-Promise and settled-notification responsibilities and separates the decision from producer and delivery effects.
@@ -43,6 +43,8 @@ export function selectCachedGenerationAction(props: {
   cache: TtscTransformCache | undefined;
   cached: TtscCachedProjectTransform;
   epoch: number | undefined;
+  /** The caller joined this exact generation while its capture was pending. */
+  joinedCapture?: boolean;
   file: string;
   generation: Promise<TtscCachedProjectTransform>;
   key: string;
@@ -60,7 +62,8 @@ export function selectCachedGenerationAction(props: {
   if (
     (result.type === "exception" ||
       result.workspaceReplayRequired !== true ||
-      props.cached.deliveryEpoch === props.epoch) &&
+      (props.cached.deliveryEpoch === props.epoch &&
+        (props.epoch !== undefined || props.joinedCapture === true))) &&
     environmentInputMismatch(
       result.type === "exception" ? undefined : result.environmentInputs,
       props.environment,

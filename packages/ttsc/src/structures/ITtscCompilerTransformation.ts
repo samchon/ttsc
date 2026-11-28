@@ -446,7 +446,11 @@ export namespace ITtscCompilerTransformation {
     workspaceInputs?: Readonly<
       Record<
         string,
-        { entries: readonly (readonly [string, string])[]; recursive?: true }
+        {
+          entries: readonly (readonly [string, string])[];
+          recursive?: true;
+          poll?: true;
+        }
       >
     >;
 

@@ -21,7 +21,7 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
  *
  * @evidence contracts/testing.md#behavioral-verification Production selectCachedGenerationAction directly used by transformTtsc returns serve/retry/capture and applies identity-guarded eviction; exact cache Promise assertions distinguish losing current or sibling state. Actual notifyVolatileDelivery separately marks a declared module, leaves an ordinary module quiet, accepts absent hooks/callbacks, preserves the callback receiver and propagates its exact Error.
  * @evidence contracts/testing.md#independent-expectations Literal actions, exact Promise identities and independently SHA-256-hashed source specify the oracle. Actual changed file bytes establish mismatch; no native producer or compiler response is substituted. Literal one versus zero callback counts follow the authored immutable volatile list; an independently created Error and the exact hooks object establish propagation and receiver expectations.
- * @evidence contracts/testing.md#distinguishing-cases An unchanged snapshot can enter a new pass, while workspace replay permits only reuse within its original pass. Declared volatility, changed source, replacement ownership, incomplete observation, fresh-only delivery and an unproven no-pass snapshot cover the other decisions. Notification rows distinguish explicit file volatility from opt-in workspace replay and cover absent hooks and a throwing callback.
+ * @evidence contracts/testing.md#distinguishing-cases An unchanged snapshot can enter a new pass. Workspace replay serves in its original pass or if an unregistered caller joined the pending capture, while later unregistered calls and the next pass require a new capture. Declared volatility, changed source, replacement ownership and incomplete proof cover the other decisions. Notification rows distinguish explicit file volatility from opt-in workspace replay.
  * @evidence contracts/testing.md#execution-ownership Unit test: one synchronous function runs selectCachedGenerationAction, the function transformTtsc calls to choose serve, retry or capture, once per variant over a temporary config and source file and a handwritten cached generation. A native producer or compiler is never run, so how a real generation is captured is not covered here. The production-used notification operation is called directly, not reached by a fabricated compiler or cache-injection seam. Its separate direct invocation does not certify transformTtsc capture/notification assembly or native volatile acquisition.
  */
 export function test_cached_generation_action_keeps_or_replaces_the_actual_owner(): void {
@@ -31,6 +31,8 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
     "next-pass",
     "workspace-same-pass",
     "workspace-next-pass",
+    "workspace-unregistered",
+    "workspace-joined-capture",
     "volatile",
     "changed",
     "replaced",
@@ -45,7 +47,12 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
     const replacement = Promise.resolve({ ...good });
     try {
       let delivered = source;
-      if (variant === "next-pass" || variant === "workspace-next-pass") {
+      const nextPass =
+        variant === "next-pass" || variant === "workspace-next-pass";
+      const unregistered =
+        variant === "workspace-unregistered" ||
+        variant === "workspace-joined-capture";
+      if (nextPass || unregistered) {
         good.projectDirectories = walkProjectInputs(
           good.projectRoot,
           undefined,
@@ -60,9 +67,11 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
       }
       if (
         variant === "workspace-same-pass" ||
-        variant === "workspace-next-pass"
+        variant === "workspace-next-pass" ||
+        unregistered
       )
         good.result.workspaceReplayRequired = true;
+      if (unregistered) delete good.deliveryEpoch;
       if (variant === "incomplete") good.projectSnapshotComplete = false;
       if (variant === "fresh-only") good.freshDeliveryOnly = true;
       if (variant === "volatile") good.result.volatile = ["src/main.ts"];
@@ -76,11 +85,8 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
         cache,
         cached: good,
         epoch:
-          variant === "no-pass"
-            ? undefined
-            : variant === "next-pass" || variant === "workspace-next-pass"
-              ? 2
-              : 1,
+          variant === "no-pass" || unregistered ? undefined : nextPass ? 2 : 1,
+        joinedCapture: variant === "workspace-joined-capture",
         file,
         generation,
         key,
@@ -89,7 +95,8 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
       if (
         variant === "valid" ||
         variant === "next-pass" ||
-        variant === "workspace-same-pass"
+        variant === "workspace-same-pass" ||
+        variant === "workspace-joined-capture"
       ) {
         assert.equal(action, "serve");
         assert.equal(cache.get(key), generation);

@@ -81,7 +81,7 @@ import { singleRootProjectConfig } from "./singleRootProjectConfig";
  * @evidence contracts/common.md#clear-and-simple-design This boundary selects the in-memory route when it is available and otherwise owns single-root overlay construction and cleanup, delegates project parsing/building, and isolates writable-directory diagnostics in a private helper.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Private emit layout, disabled declaration/composite products and checked versus installed-package diagnostics are runtime contract distinctions, not source patches or tests-only compiler modes.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the in-memory route and when it is unavailable, overlay placement, wide rootDir, diagnostics and cleanup, while separately documented input members preserve their ownership facts.
- * @evidence contracts/portability.md#os-neutral-implementation Shared filesystem identity selects the source volume from resolved native identity when available and retained spelling otherwise. Normal overlay placement compares a physical cache path against the physically resolved config directory. Overlay JSON converts only native separators, preserving literal POSIX backslashes. Exclusive creation refuses occupied names, and explicit compiler paths avoid shell interpolation.
+ * @evidence contracts/portability.md#os-neutral-implementation Shared filesystem identity selects the source volume from resolved native identity when available and retained spelling otherwise. Normal overlay placement compares a physical cache path against the physically resolved config directory. A dependency mirror retains the original alias when its target has non-UTF-8 bytes. Overlay JSON converts only native separators, preserving literal POSIX backslashes. Exclusive creation refuses occupied names, and explicit compiler paths avoid shell interpolation.
  * @evidence contracts/performance.md#efficient-algorithms An admitted in-memory build uses one API session. The command-line route parses the original chain and restates the path options before parsing its overlay. The mirror checks original and candidate ancestry for dependency directories, then allocates one directory and at most one dependency link per original ancestor. Identity, serialization, effective-options preparation and compilation contribute path/input/output byte costs.
  * @evidence contracts/performance.md#reuse-equivalent-work One effective-options reader for this overlay and exact forwarded tokens is shared by runtime lowering, emit classification and rootDir selection, avoiding duplicate response-file compiler queries. Callers own sharing of completed build generations.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Exclusive open establishes ownership of one transient tsconfig and descriptor. The descriptor is closed before parsing. Failure and final cleanup attempt to retire the acquired overlay or its owning private mirror and links, including on partial mirror creation. Cleanup errors can leave those artifacts; the caller owns emit storage and delegated build lifetimes.
@@ -465,14 +465,16 @@ function configAncestors(configDir: string): string[] {
   return ancestors.reverse();
 }
 
-/** Resolve a present dependency directory without creating one. */
+/** Resolve a dependency directory, retaining its alias for a byte path. */
 function dependencyDirectory(ancestor: string): string | undefined {
+  const candidate = path.join(ancestor, "node_modules");
   try {
-    const target = fs.realpathSync.native(path.join(ancestor, "node_modules"));
-    return fs.statSync(target).isDirectory() ? target : undefined;
+    const target = RuntimeFilesystem.realpathWitness(candidate);
+    const bytes = RuntimeFilesystem.rawRealpath(target);
+    if (!fs.statSync(bytes ?? target).isDirectory()) return undefined;
+    return bytes === undefined ? target : candidate;
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code !== "ENOENT" && code !== "ENOTDIR") throw error;
+    if (!RuntimeFilesystem.isMissingPathError(error)) throw error;
     return undefined;
   }
 }

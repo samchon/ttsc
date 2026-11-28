@@ -40,6 +40,24 @@ export interface ILSPPluginSelectionInputs {
    */
   rawDescriptorFiles?: Record<string, string>;
 
+  /** Metadata baselines of external Go workspace inputs, polled natively. */
+  workspaceFiles?: readonly {
+    /** Base64 of the exact native absolute path. */
+    path: string;
+    kind: "directory" | "link" | "stat";
+    /** Missing when the witnessed operation could not observe the entry. */
+    mode?: number;
+    modified?: string;
+    size?: string;
+    changed?: string;
+    device?: string;
+    inode?: string;
+    owner?: string;
+    group?: string;
+    /** Base64 of the exact native link payload. */
+    target?: string;
+  }[];
+
   /**
    * Every plugin source directory an observer watches
    * (`collectPluginSourceDirectories`), with the name of every file directly

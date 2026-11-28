@@ -24,6 +24,7 @@ import { resolveCacheDir } from "./resolveCacheDir";
 import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { RuntimeEmitProvenance } from "./runtime/RuntimeEmitProvenance";
+import { RuntimeFilesystem } from "./runtime/RuntimeFilesystem";
 import { claimRuntimeProjectDirectory } from "./runtime/claimRuntimeProjectDirectory";
 import { runtimeRunKey } from "./runtime/runtimeRunKey";
 import { pinSystemRuntimeCachePath } from "./runtime/systemRuntimeCachePath";
@@ -387,13 +388,16 @@ function createProjectContext(
     options.binary,
     effectiveOptions,
   );
-  const cacheDir =
+  const systemCache =
     cacheDirSpelling === undefined
-      ? pinSystemRuntimeCacheDirectory(
+      ? claimSystemRuntimeCacheDirectory(
           root,
           projectConsumerRoots(project.identity),
+          runtimeCacheKey,
         )
-      : pinRuntimeCacheDirectory(cacheDirSpelling);
+      : undefined;
+  const cacheDir =
+    systemCache?.cacheDir ?? pinRuntimeCacheDirectory(cacheDirSpelling!);
   // The lowered orphan sources outlive the run, so they live in the resolved
   // cache root beside every other persistent part of it, and a default root
   // collects them with the rest.
@@ -406,7 +410,9 @@ function createProjectContext(
   // Validate the project index, sweep abandoned runs, and publish this run's
   // owner in one locked transaction.
   // Clean can never observe a newly selected but still unowned index.
-  const processDir = claimRuntimeProjectDirectory(cacheDir, runtimeCacheKey);
+  const processDir =
+    systemCache?.processDir ??
+    claimRuntimeProjectDirectory(cacheDir, runtimeCacheKey);
   const virtualRoot = path.join(processDir, "fs");
   const emitDir = virtualPath(
     virtualRoot,
@@ -713,7 +719,6 @@ function defaultRuntimeCacheDir(
     const runtime = !env.TTSC_CACHE_DIR
       ? SourceBuildCacheLayout.canonicalPluginCacheRoot(local)
       : local;
-    if (env.TTSC_CACHE_DIR) fs.mkdirSync(local, { recursive: true });
     return {
       collected: !env.TTSC_CACHE_DIR,
       root: paths.root,
@@ -731,14 +736,15 @@ function defaultRuntimeCacheDir(
 }
 
 /**
- * Create and pin the cache outside every selected project directory. A
- * permission refusal advances to another candidate. Run ownership starts in the
- * separate lock transaction after one cache directory has been selected.
+ * Claim system storage outside the selected projects. A permission refusal
+ * during pinning or lock-directory creation can advance to another candidate. A
+ * started run transaction or a lock cleanup error retains its own failure.
  */
-function pinSystemRuntimeCacheDirectory(
+function claimSystemRuntimeCacheDirectory(
   root: string,
   additionalProjectRoots: readonly string[],
-): string {
+  runKey: string,
+): { cacheDir: string; processDir: string } {
   let refusal: unknown;
   const projectRoots = [
     root,
@@ -750,11 +756,30 @@ function pinSystemRuntimeCacheDirectory(
     root,
     projectRoots,
   )) {
+    let pinned = false;
+    let claimStarted = false;
     try {
-      const pinned = pinSystemRuntimeCachePath(root, directory, projectRoots);
-      if (pinned !== undefined) return pinned;
+      const cacheDir = pinSystemRuntimeCachePath(root, directory, projectRoots);
+      if (cacheDir === undefined) continue;
+      pinned = true;
+      const processDir = claimRuntimeProjectDirectory(
+        cacheDir,
+        runKey,
+        (runtimeRoot, claim) =>
+          withRuntimeDirectoryLock(runtimeRoot, () => {
+            claimStarted = true;
+            return claim();
+          }),
+      );
+      return { cacheDir, processDir };
     } catch (error) {
-      if (!SourceBuildCacheLayout.refusesDefaultPath(error)) throw error;
+      if (
+        claimStarted ||
+        (pinned &&
+          (error as NodeJS.ErrnoException | null)?.syscall !== "mkdir") ||
+        !SourceBuildCacheLayout.refusesDefaultPath(error)
+      )
+        throw error;
       refusal ??= error;
     }
   }
@@ -764,10 +789,46 @@ function pinSystemRuntimeCacheDirectory(
   );
 }
 
-/** Pin the physical cache before descriptors can retarget a caller alias. */
+/** Pin a string-addressable cache before descriptors can retarget its alias. */
 function pinRuntimeCacheDirectory(directory: string): string {
-  fs.mkdirSync(directory, { recursive: true });
-  return createFilesystemPathIdentityContext().resolve(directory).path;
+  if (process.platform === "win32") {
+    fs.mkdirSync(directory, { recursive: true });
+    return createFilesystemPathIdentityContext().resolve(directory).path;
+  }
+
+  const observe = (location: string): string => {
+    const physical = RuntimeFilesystem.realpathWitness(location);
+    if (physical.includes("\0"))
+      throw new Error(
+        `ttsx: runtime cache directory has no UTF-8 path: ${directory}`,
+      );
+    return physical;
+  };
+  const missing: string[] = [];
+  let parent = directory;
+  for (;;) {
+    let physical: string;
+    try {
+      physical = observe(parent);
+    } catch (error) {
+      const ancestor = path.dirname(parent);
+      if (
+        (error as NodeJS.ErrnoException).code !== "ENOENT" ||
+        ancestor === parent
+      )
+        throw error;
+      missing.push(path.basename(parent));
+      parent = ancestor;
+      continue;
+    }
+    // Native mkdir must still interpret any parent components in the suffix.
+    const target =
+      missing.length === 0
+        ? physical
+        : `${physical === "/" ? "" : physical}/${missing.reverse().join("/")}`;
+    fs.mkdirSync(target, { recursive: true });
+    return observe(target);
+  }
 }
 
 /**

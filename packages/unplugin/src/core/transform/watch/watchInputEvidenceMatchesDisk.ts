@@ -50,8 +50,6 @@ export function watchInputEvidenceMatchesDisk(
   }
   if (state === undefined || state.codec === "membership") return false;
   try {
-    if (state.codec === "workspace")
-      return PluginBuildEnvironmentWitness.holds(state.entries);
     if (state.codec === "tree") {
       return pluginSourceHolds(
         file,

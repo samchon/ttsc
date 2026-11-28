@@ -218,6 +218,8 @@ function resolveTtscserverEnv(launch: LSPLaunchOptions): TtscserverEnvironment {
   const selectionInputs =
     context.selectionInputs !== undefined &&
     (Object.keys(context.selectionInputs.descriptorFiles).length !== 0 ||
+      context.selectionInputs.rawDescriptorFiles !== undefined ||
+      context.selectionInputs.workspaceFiles !== undefined ||
       Object.keys(context.selectionInputs.sourceFiles).length !== 0)
       ? context.selectionInputs
       : undefined;

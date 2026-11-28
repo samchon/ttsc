@@ -61,6 +61,7 @@ export function notifyRejectedGenerationInputs(
       rejection.validation.cached,
       file,
       selection,
+      rejection.validation.workspaceInputs,
     );
     return;
   }

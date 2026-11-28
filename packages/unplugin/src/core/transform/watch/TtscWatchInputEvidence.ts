@@ -1,4 +1,5 @@
 import type { TtscWatchInputState } from "./TtscWatchInputState";
+import type { TtscWorkspaceWatchEvidence } from "./TtscWorkspaceWatchEvidence";
 
 /**
  * What the generation already knows about one derived watch input, handed to
@@ -30,7 +31,7 @@ import type { TtscWatchInputState } from "./TtscWatchInputState";
  */
 export interface TtscWatchInputEvidence {
   /** Independent workspace metadata sharing the same watch spelling. */
-  workspace?: Extract<TtscWatchInputState, { codec: "workspace" }>;
+  workspace?: TtscWorkspaceWatchEvidence;
   /** Memoized filesystem identity of the input. */
   identity: string;
 

@@ -1,4 +1,7 @@
-import { PluginBuildEnvironmentReadings } from "ttsc/plugin-source";
+import {
+  PluginBuildEnvironmentReadings,
+  PluginBuildEnvironmentWitness,
+} from "ttsc/plugin-source";
 
 import { refreshProcessClockReference } from "../clock/refreshProcessClockReference";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
@@ -42,7 +45,8 @@ import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
  * directory this process keeps (`refreshProcessClockReference`). The declared
  * compiler source from a failed invocation is compared with its precompile
  * observation before the walk, since a nested repair can leave the directory's
- * own metadata unchanged.
+ * own metadata unchanged. Retained workspace observations likewise compare
+ * their native input signatures before the broader walk.
  *
  * The shared verdict remains until its scheduled setImmediate eviction runs.
  * Writes after confirmation can therefore be missed by that window's later
@@ -115,6 +119,8 @@ function environmentChanged(
     captureRecoveryTreeDigest(source.file, filesystem) !== source.digest
   )
     return true;
+  for (const { entries } of Object.values(validation.workspaceInputs ?? {}))
+    if (!PluginBuildEnvironmentWitness.holds(entries)) return true;
   refreshProcessClockReference(validation.cached.projectRoot, filesystem);
   const identities = envelopeDerivation(validation.cached).identityContext;
   const current = collectProjectInputSnapshot(

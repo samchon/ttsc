@@ -18,6 +18,7 @@ import { projectMembershipMatches } from "../transform/project/projectMembership
 import { watchLocationIdentity } from "../transform/tracker/watchLocationIdentity";
 import { RECOVERY_TREE_DIGEST } from "../transform/watch/RECOVERY_TREE_DIGEST";
 import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
+import type { TtscWorkspaceWatchEvidence } from "../transform/watch/TtscWorkspaceWatchEvidence";
 import { captureRecoveryTreeDigest } from "../transform/watch/captureRecoveryTreeDigest";
 import { captureWatchInputBaseline } from "../transform/watch/captureWatchInputBaseline";
 import { captureWatchInputBaselines } from "../transform/watch/captureWatchInputBaselines";
@@ -399,13 +400,15 @@ export function createInputObserver(
     for (const condition of entry.conditions.values()) {
       const state = condition.evidence?.state;
       membership ||= state?.codec === "membership";
-      const rawWorkspace =
-        state?.codec === "workspace" && state.recursive === true;
+      const rawWorkspace = condition.workspace?.recursive === true;
       tree ||=
         state?.codec === "tree" ||
         condition.recoveryTree !== undefined ||
         rawWorkspace;
-      unresolvedTree ||= condition.recoveryTree === null || rawWorkspace;
+      unresolvedTree ||=
+        condition.recoveryTree === null ||
+        rawWorkspace ||
+        condition.workspace?.poll === true;
     }
     if (!membership) memberships.delete(entry);
     if (!tree) trees.delete(entry);
@@ -503,7 +506,7 @@ export function createInputObserver(
             return (
               codec !== "membership" &&
               codec !== "tree" &&
-              codec !== "workspace" &&
+              condition.workspace === undefined &&
               condition.recoveryTree === undefined &&
               codec !== "predicates"
             );
@@ -544,8 +547,10 @@ export function createInputObserver(
           removedCondition = true;
           continue;
         }
-        if (state?.codec === "workspace") {
-          changed = !PluginBuildEnvironmentWitness.holds(state.entries);
+        if (condition.workspace !== undefined) {
+          changed = !PluginBuildEnvironmentWitness.holds(
+            condition.workspace.entries,
+          );
         } else if (state?.codec === "tree") {
           if (!referenceMinted) {
             refreshProcessClockReference(
@@ -1223,7 +1228,8 @@ export function createInputObserver(
             recoveryTree = true;
             if (condition.recoveryTree === null) polled.add(entry);
           }
-          if (state?.codec === "workspace" && state.recursive === true) {
+          if (condition.workspace?.poll === true) polled.add(entry);
+          if (condition.workspace?.recursive === true) {
             trees.add(entry);
             polled.add(entry);
             recoveryTree = true;
@@ -1330,10 +1336,13 @@ export function createInputObserver(
       const register = (
         input: TtscWatchInput,
         recoveryTree?: string | null,
+        workspace?: TtscWorkspaceWatchEvidence,
       ) => {
         const file = path.resolve(input.file);
         const evidence =
-          recoveryTree === undefined ? input.evidence : undefined;
+          recoveryTree === undefined && workspace === undefined
+            ? input.evidence
+            : undefined;
         const state = evidence?.state;
         // A membership is keyed by its digest alone, which covers its policy:
         // its directory list only grows the registration, and serializing it
@@ -1341,13 +1350,15 @@ export function createInputObserver(
         const key =
           recoveryTree !== undefined
             ? `recovery\0${recoveryTree}`
-            : state?.codec === "membership"
-              ? `membership\0${state.digest}`
-              : JSON.stringify(evidence ?? null);
+            : workspace !== undefined
+              ? `workspace\0${JSON.stringify(workspace)}`
+              : state?.codec === "membership"
+                ? `membership\0${state.digest}`
+                : JSON.stringify(evidence ?? null);
         current.set(
           recoveryTree !== undefined
             ? `${file}\0`
-            : state?.codec === "workspace"
+            : workspace !== undefined
               ? `${file}\0workspace`
               : file,
           key,
@@ -1375,10 +1386,13 @@ export function createInputObserver(
           condition = {
             evidence,
             baseline:
-              evidence?.state === undefined && recoveryTree === undefined
+              evidence?.state === undefined &&
+              recoveryTree === undefined &&
+              workspace === undefined
                 ? captureWatchInputBaseline(file)
                 : undefined,
             recoveryTree,
+            workspace,
             owners: new Set(),
           };
           entry.conditions.set(key, condition);
@@ -1391,9 +1405,10 @@ export function createInputObserver(
             for (const scope of entry.scopes) {
               scope.watcher?.track?.(entry.file, true);
             }
-          } else if (state?.codec === "workspace") {
+          } else if (workspace !== undefined) {
             recorded.add(entry);
-            if (state.recursive === true) {
+            if (workspace.poll === true) polled.add(entry);
+            if (workspace.recursive === true) {
               trees.add(entry);
               polled.add(entry);
               entry.physical ??= realpath(entry.file) ?? entry.file;
@@ -1425,14 +1440,7 @@ export function createInputObserver(
           const { workspace, ...evidence } = input.evidence;
           if (evidence.state !== undefined)
             register({ file: input.file, evidence });
-          register({
-            file: input.file,
-            evidence: {
-              identity: input.evidence.identity,
-              missing: false,
-              state: workspace,
-            },
-          });
+          register(input, undefined, workspace);
         } else if (recoveryTree === undefined || input.evidence !== undefined) {
           register(input);
         }

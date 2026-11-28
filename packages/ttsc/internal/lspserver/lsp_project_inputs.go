@@ -111,14 +111,28 @@ func (s *NativePluginSource) ProjectInputReloadFingerprintsAreCurrent() bool {
   return projectInputReloadFingerprintsAreCurrent(snapshot) && selection.current()
 }
 
-func (s *NativePluginSource) rawPluginSelectionCheck() func() bool {
+func (s *NativePluginSource) polledPluginSelectionCheck() func() bool {
   s.projectInputsMu.RLock()
   selection := s.selection
   s.projectInputsMu.RUnlock()
-  if len(selection.rawFiles) == 0 && len(selection.rawDirectories) == 0 {
+  if len(selection.rawFiles) == 0 && len(selection.rawDirectories) == 0 && len(selection.workspaceFiles) == 0 {
     return nil
   }
-  return selection.rawSelectionCurrent
+  // A mutable SDK can have many witnesses. Check every entry before startup,
+  // then rotate through a fixed number per live poll.
+  index := 0
+  return func() bool {
+    if !selection.rawSelectionCurrent() {
+      return false
+    }
+    for range min(len(selection.workspaceFiles), 512) {
+      if !selection.workspaceFiles[index].current() {
+        return false
+      }
+      index = (index + 1) % len(selection.workspaceFiles)
+    }
+    return true
+  }
 }
 
 // ProjectInputMatchesURI tests a watched URI against retained dependency/glob

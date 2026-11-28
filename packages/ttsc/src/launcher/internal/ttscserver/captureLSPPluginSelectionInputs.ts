@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import { HostInputObservationPhase } from "../../../plugin/internal/load/HostInputObservationPhase";
@@ -5,6 +6,7 @@ import { hashHostInputPaths } from "../../../plugin/internal/load/hashHostInputP
 import { pluginInputAliasEntries } from "../../../plugin/internal/load/pluginInputAliasEntries";
 import { realpathHostInputPaths } from "../../../plugin/internal/load/realpathHostInputPaths";
 import { GoSourceInputs } from "../../../plugin/internal/source/GoSourceInputs";
+import { PluginBuildEnvironmentWitness } from "../../../plugin/internal/source/PluginBuildEnvironmentWitness";
 import { collectPluginSourceDirectories } from "../../../plugin/internal/source/collectPluginSourceDirectories";
 import { collectPluginSourceFiles } from "../../../plugin/internal/source/collectPluginSourceFiles";
 import { pluginSourceStateHolds } from "../../../plugin/internal/source/pluginSourceStateHolds";
@@ -41,12 +43,12 @@ import { LSPProjectInputDigest } from "./LSPProjectInputDigest";
  *   cache proves its plugin sources from records.
  * @returns The inputs, or `undefined` when the load no longer describes the
  *   filesystem and the selection has to be loaded again.
- * @evidence contracts/common.md#principled-implementation The manifest groups ordinary candidate and source-file digests by directory and carries POSIX byte paths separately. Recorded content and physical-target proofs and all plugin-source states are compared again before return; a detected mismatch rejects capture, while sequential reads and unproven paths do not certify every post-load change.
+ * @evidence contracts/common.md#principled-implementation The manifest groups ordinary candidate and source-file digests by directory and carries POSIX byte paths separately. Workspace metadata is projected separately and published only while the original witness holds. Recorded content and physical-target proofs and all plugin-source states are compared again before return.
  * @evidence contracts/common.md#clear-and-simple-design Candidate filtering, source enumeration and proof comparison remain separate; the private recorder owns basename insertion into prototype-free maps, including names such as __proto__.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Source omission rules come from the binary builder's shared constants; stale proofs return undefined instead of replacing a loaded selection with guessed current evidence.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain selection versus program refresh, deferred config inputs and the startup race; parameter/result documentation and separated tags follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path operations retain declared spellings, including encoded POSIX physical bytes. Volume roots have no basename and are left out of file-entry maps. Native realpath observations detect retargeting independently of content equality.
- * @evidence contracts/performance.md#efficient-algorithms Path normalization/filtering allocates candidate arrays and an excluded set. Each source is walked for directories and again for files; file framing is followed by separate recorded content/realpath proof reads and plugin-source state validation, including its native/toolchain costs. Maps retain path keys and digests while temporary walk/read buffers coexist; directory grouping avoids repeating directory keys per file.
+ * @evidence contracts/performance.md#efficient-algorithms Path filtering and source walks retain candidate arrays, digest maps and temporary read buffers. Workspace entries pay one metadata projection per key and a separate witness comparison, with no extra SDK content reads. Source-state proof retains its own native and toolchain costs.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This capture validates a particular completed load against current filesystem state; retained plugin/binary reuse belongs to that load's owner, and cached post-load readings would miss drift.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned maps transfer to the session builder. Supported readers and source-state helpers own their native acquisition/release boundaries; this mapper stores no cross-call capture or running task, and local output has no independent population or byte ceiling.
@@ -57,6 +59,9 @@ export function captureLSPPluginSelectionInputs(loaded: {
   hostInputRealpaths: Readonly<Record<string, string | null>>;
   hostInputs: readonly string[];
   pluginSources: Readonly<Record<string, string>>;
+  workspaceInputs?: ReturnType<
+    typeof PluginBuildEnvironmentWitness.watchInputs
+  >;
   project?: { root: string };
 }): ILSPPluginSelectionInputs | undefined {
   const excluded = new Set(
@@ -130,14 +135,75 @@ export function captureLSPPluginSelectionInputs(loaded: {
       })
     )
       return undefined;
+  const workspaceFiles = captureWorkspaceFiles(loaded.workspaceInputs);
+  if (workspaceFiles === undefined) return undefined;
   return {
     omittedNames: GoSourceInputs.OMITTED_SOURCE_FILE_NAMES,
     omittedSuffixes: GoSourceInputs.OMITTED_SOURCE_FILE_SUFFIXES,
     prunedDirectoryNames: GoSourceInputs.PRUNED_SOURCE_DIRECTORY_NAMES,
     descriptorFiles,
     ...(Object.keys(rawDescriptorFiles).length !== 0 && { rawDescriptorFiles }),
+    ...(workspaceFiles.length !== 0 && { workspaceFiles }),
     sourceFiles,
   };
+}
+
+/** Project held workspace metadata onto the native session's polling lane. */
+function captureWorkspaceFiles(
+  workspace: Parameters<
+    typeof captureLSPPluginSelectionInputs
+  >[0]["workspaceInputs"],
+): NonNullable<ILSPPluginSelectionInputs["workspaceFiles"]> | undefined {
+  type Entry = NonNullable<ILSPPluginSelectionInputs["workspaceFiles"]>[number];
+  const entries = Object.values(workspace ?? {}).flatMap(
+    ({ entries }) => entries,
+  );
+  const snapshots = new Map<string, Entry>();
+  for (const [key] of entries) {
+    if (snapshots.has(key)) continue;
+    const entry = PluginBuildEnvironmentWitness.pathOf(key);
+    if (entry === undefined) continue;
+    const { file, kind } = entry;
+    const raw = RuntimeFilesystem.rawRealpath(file);
+    if (raw === undefined && !path.isAbsolute(file)) continue;
+    const native = raw ?? file;
+    const snapshot: Entry = {
+      path: Buffer.from(native).toString("base64"),
+      kind,
+    };
+    try {
+      const stat =
+        kind === "link"
+          ? fs.lstatSync(native, { bigint: true })
+          : fs.statSync(native, { bigint: true });
+      if (kind === "directory" && !stat.isDirectory()) {
+        snapshots.set(key, snapshot);
+        continue;
+      }
+      if (kind === "link")
+        snapshot.target = fs
+          .readlinkSync(native, { encoding: "buffer" })
+          .toString("base64");
+      snapshot.mode = Number(stat.mode);
+      if (kind !== "directory") {
+        snapshot.modified = stat.mtimeNs.toString();
+        if (kind !== "link" || process.platform !== "win32")
+          snapshot.size = stat.size.toString();
+        snapshot.changed = stat.ctimeNs.toString();
+      }
+      snapshot.device = stat.dev.toString();
+      snapshot.inode = stat.ino.toString();
+      if (kind === "directory") {
+        snapshot.owner = stat.uid.toString();
+        snapshot.group = stat.gid.toString();
+      }
+    } catch {
+      // The original witness uses the same unavailable-state rule.
+    }
+    snapshots.set(key, snapshot);
+  }
+  if (!PluginBuildEnvironmentWitness.holds(entries)) return undefined;
+  return [...snapshots.values()];
 }
 
 /** Record `file`'s digest under its directory. */

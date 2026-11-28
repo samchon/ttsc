@@ -9,6 +9,7 @@ import { TRANSFORM_CACHE_CASE_POLICIES } from "./cache/TRANSFORM_CACHE_CASE_POLI
 import { TRANSFORM_CACHE_DEPENDENCY_WITNESSES } from "./cache/TRANSFORM_CACHE_DEPENDENCY_WITNESSES";
 import { TRANSFORM_CACHE_MEMBERSHIP_POLICIES } from "./cache/TRANSFORM_CACHE_MEMBERSHIP_POLICIES";
 import { TRANSFORM_RESULT_FILESYSTEM } from "./cache/TRANSFORM_RESULT_FILESYSTEM";
+import type { TtscCachedProjectTransform } from "./cache/TtscCachedProjectTransform";
 import type { TtscTransformCache } from "./cache/TtscTransformCache";
 import { awaitOrEvict } from "./cache/awaitOrEvict";
 import { createTransformCacheKey } from "./cache/createTransformCacheKey";
@@ -37,6 +38,9 @@ import type { TtscWatchSelection } from "./watch/TtscWatchSelection";
 import { notifyRejectedGenerationInputs } from "./watch/notifyRejectedGenerationInputs";
 import { prepareProjectRecordDirectories } from "./watch/prepareProjectRecordDirectories";
 import { recordedDependencyWitnesses } from "./watch/recordedDependencyWitnesses";
+
+/** Exact captures still available to join before they settle. */
+const PENDING_CAPTURES = new WeakSet<Promise<TtscCachedProjectTransform>>();
 
 /**
  * Apply the ttsc plugin transform to a single source file.
@@ -71,7 +75,7 @@ import { recordedDependencyWitnesses } from "./watch/recordedDependencyWitnesses
  * @param hooks - Optional adapter callbacks; see {@link TtscTransformHooks}.
  *   Dependency notifications fire on cache hits too; watch registrations are
  *   per build, not per compilation.
- * @evidence contracts/common.md#principled-implementation Project selection and generation-qualified admission preserve compiler disk authority; preparation shares selection, keys, capture and input proofs with delivery, while host effects and first-delivery permission remain exclusive to actual delivery. Fresh-only success still requires an explicit nonwatching lifecycle, coherent project declaration and supported host-cache withdrawal because incomplete observation cannot establish watch invalidation.
+ * @evidence contracts/common.md#principled-implementation Project selection and generation-qualified admission preserve compiler disk authority; preparation shares selection, keys, capture and input proofs with delivery, while host effects and first-delivery permission remain exclusive to actual delivery. An unregistered caller can join an exact pending capture without granting reuse of settled workspace-restricted output. Fresh-only success requires an explicit nonwatching lifecycle, coherent project declaration and supported host-cache withdrawal.
  * @evidence contracts/common.md#clear-and-simple-design One coordinator mode shares project selection, admission, compilation and output selection between preparation and delivery; dedicated owners retain proof and lifetime internals, and delivery alone performs host notification.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Wrapper modules cannot poison source baselines. Preparation skips handoff rather than postcompile proof, and superseded preparation stops without reviving withdrawn generations. Incomplete local results share only explicitly nonwatching first deliveries in their exact pass; unknown/watching lifecycles or unsupported withdrawal reject and evict without invented persistent records or dependency closure.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and argument tags explain project scope, no-transform outcomes, cache epochs and per-build notifications; coordinator prose identifies delivery-only effects and postpreparation admission, with maintained invalidation reference context.
@@ -225,6 +229,7 @@ async function runTransformTtsc(
       }
     }
     if (transformed !== undefined) {
+      const joinedCapture = PENDING_CAPTURES.has(transformed);
       const cached = await awaitOrEvict(cache, key, transformed).catch(
         (rejection: unknown) => {
           if (!preparing)
@@ -277,6 +282,7 @@ async function runTransformTtsc(
         cache,
         cached,
         epoch,
+        joinedCapture,
         file,
         generation: transformed,
         key,
@@ -348,7 +354,15 @@ async function runTransformTtsc(
             : (TRANSFORM_CACHE_DEPENDENCY_WITNESSES.get(cache)?.get(key) ??
               recordedDependencyWitnesses(hooks?.project, tsconfig)),
       });
-      cache?.set(key, transformed);
+      if (cache !== undefined) {
+        const pending = transformed;
+        PENDING_CAPTURES.add(pending);
+        const settled = (): void => {
+          PENDING_CAPTURES.delete(pending);
+        };
+        void pending.then(settled, settled);
+        cache.set(key, pending);
+      }
     }
     const generation = transformed;
     const cached = await awaitOrEvict(cache, key, generation).catch(

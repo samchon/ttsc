@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
+import { PluginBuildEnvironmentWitness } from "ttsc/plugin-source";
 
 import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
 import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
@@ -26,6 +27,7 @@ import { compilerGraphInputProofFailures } from "../../../../../packages/unplugi
 import { matchesUniversalHostInputs } from "../../../../../packages/unplugin/src/core/transform/validation/matchesUniversalHostInputs";
 import { walkSnapshotComplete } from "../../../../../packages/unplugin/src/core/transform/validation/walkSnapshotComplete";
 import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
+import { notifyRejectedGenerationInputs } from "../../../../../packages/unplugin/src/core/transform/watch/notifyRejectedGenerationInputs";
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
 import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 
@@ -48,6 +50,7 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
  *   Literal callback counts one/two/three, failed flags, exact source path without evidence, selected config Node SHA/native realpath and the supplied recovered output distinguish rejection, replay and subsequent ready delivery. Actual EIO and the failed directory path define the failed-walk baseline; two formatter records do not assert two captures.
  * @evidence contracts/testing.md#distinguishing-cases Same pass versus new/undefined pass, failure versus successful missing output, current versus replaced promise, stable versus changed environment and fresh observed recovery are contrasted without inventing a compiler result from the validator. Native graph files with EACCES supplied reads contrast null and independent original SHA; both keep absent signatures. A native dangling file link (directory junction on Windows) separately distinguishes retained lexical metadata from absent target/readable content: null matches while unreadable, but literal bytes exposed only through the supported read capability cannot match null. The target stays absent, metadata stays identical, initial deliveries retain their ready owner and later callers retain one terminal error and rejected owner. A declared native config with its own recorded SHA admits normally; omission of that hash key rejects admission as content-proof-missing, distinct from a known null hash.
  *   The recovery row contrasts inaccessible versus readable enumeration, first rejection versus retained replay, ordinary recovery omission versus current routing proof, and old terminal refusal versus a new supplied ready owner.
+ *   A terminal verdict from successful but unstable output observes a new SDK baseline after the compiler's witness moves. The failed verdict then remains stable and hands off that same baseline until a later nested SDK edit refutes replay.
  * @evidence contracts/testing.md#execution-ownership This named unit calls source functions in process over a native temporary corpus and authored protocol data. setImmediate separates actual comparison turns; no compiler, synthetic Go peer, product host or native notification is run. Cache owners are reset in finally. Missing-proof inputs are validator consumer data, not native producer receipts. EACCES and alternate bytes belong to the supported cache read capability, not a reproduced native permission failure. The formatter is given two actual validator results, not a claim that capture executed twice. A rejected promise is supported cache input; awaitOrEvict and transformTtsc own terminal retention/replay without private table writes. Changed environment is checked only through replay selection, never through a subsequent coordinator call that would start a compiler. Initial acquisition, rejected-attempt union/cleanup ordering, native IPC and per-attempt clock registration are outside this unit.
  *   A scripted filesystem capability supplies real EIO walk failure to the existing terminal consumer path. Native post-compile acquisition and the next capture are outside this row; the repaired generation is explicitly observed and supplied by the caller before coordinator delivery.
  */
@@ -121,9 +124,9 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
     assert.equal(replaysTerminalGeneration(verdict, 2, props), false);
     assert.equal(replaysTerminalGeneration(verdict, undefined, props), false);
 
-    const observe = () => {
-      TRANSFORM_RESULT_FILESYSTEM.set(fixture.good.result, filesystem);
-      const cached = observeValidationUnitGeneration(root, fixture.good.result);
+    const observe = (result = fixture.good.result) => {
+      TRANSFORM_RESULT_FILESYSTEM.set(result, filesystem);
+      const cached = observeValidationUnitGeneration(root, result);
       cached.deliveryEpoch = 1;
       const identities = envelopeDerivation(cached).identityContext;
       const snapshot = collectProjectInputSnapshot(
@@ -179,6 +182,62 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
         currentSource: fs.readFileSync(fixture.file, "utf8"),
       }),
       true,
+    );
+
+    const sdk = path.join(root, "node_modules", "sdk");
+    const tool = path.join(sdk, "bin", "go");
+    fs.mkdirSync(path.dirname(tool), { recursive: true });
+    fs.writeFileSync(tool, "original tool");
+    const witness: PluginBuildEnvironmentWitness.Record = new Map();
+    PluginBuildEnvironmentWitness.add(witness, tool);
+    const workspace = { entries: [...witness] };
+    const attemptedWorkspace = observe({
+      ...fixture.good.result,
+      workspaceInputs: { [sdk]: workspace },
+    });
+    fs.appendFileSync(tool, " changed during capture");
+    assert.equal(PluginBuildEnvironmentWitness.holds(workspace.entries), false);
+    const unstableWorkspace = createUnstableGenerationError(
+      root,
+      [createGenerationProofFailures()],
+      attemptedWorkspace.validation,
+    );
+    const workspaceProps = {
+      ...props,
+      currentSource: fs.readFileSync(fixture.file, "utf8"),
+    };
+    assert.equal(
+      replaysTerminalGeneration(unstableWorkspace, 1, workspaceProps),
+      true,
+    );
+    let deliveredWorkspace = false;
+    notifyRejectedGenerationInputs(
+      {
+        addWatchFiles: (inputs, failed) => {
+          assert.equal(failed, true);
+          const input = inputs.find(({ file }) => file === sdk);
+          const entries = input?.evidence?.workspace?.entries;
+          assert.ok(entries);
+          assert.notDeepEqual(entries, workspace.entries);
+          assert.equal(PluginBuildEnvironmentWitness.holds(entries), true);
+          deliveredWorkspace = true;
+        },
+      },
+      unstableWorkspace,
+      fixture.file,
+      { consulted: [], filesystem, tsconfig: fixture.good.tsconfig },
+    );
+    assert.equal(deliveredWorkspace, true);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(
+      replaysTerminalGeneration(unstableWorkspace, 1, workspaceProps),
+      true,
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    fs.appendFileSync(tool, " changed after terminal failure");
+    assert.equal(
+      replaysTerminalGeneration(unstableWorkspace, 1, workspaceProps),
+      false,
     );
 
     const moduleFiles = [

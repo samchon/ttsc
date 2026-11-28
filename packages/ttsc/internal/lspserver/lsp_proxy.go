@@ -347,8 +347,8 @@ func NewProxy(opts ProxyOptions) *Proxy {
 // still blocked. ErrFrameClosed, context.Canceled and os.ErrClosed are omitted
 // from the returned first error. Context cancellation requests source shutdown;
 // interrupting blocked injected streams remains their owner's responsibility.
-// Sessions with byte paths that cannot be watched through Unicode LSP
-// notifications periodically recheck those fingerprints after initialization.
+// Sessions with byte paths or Go workspace inputs periodically recheck their
+// native evidence after initialization without depending on editor events.
 //
 // Once the editor has sent `exit` and the upstream has ended, Run returns
 // without waiting for the editor's stream to close: `exit` ends the session,
@@ -373,14 +373,14 @@ func (p *Proxy) Run(ctx context.Context) error {
   go func() { editorDone <- p.pumpEditorToUpstream(ctx) }()
   go func() { upstreamDone <- p.pumpUpstreamToEditor(ctx) }()
 
-  var rawSelectionTick <-chan time.Time
-  var rawSelectionCurrent func() bool
-  if source, ok := p.source.(interface{ rawPluginSelectionCheck() func() bool }); ok {
-    rawSelectionCurrent = source.rawPluginSelectionCheck()
-    if rawSelectionCurrent != nil {
+  var polledSelectionTick <-chan time.Time
+  var polledSelectionCurrent func() bool
+  if source, ok := p.source.(interface{ polledPluginSelectionCheck() func() bool }); ok {
+    polledSelectionCurrent = source.polledPluginSelectionCheck()
+    if polledSelectionCurrent != nil {
       ticker := time.NewTicker(time.Second)
       defer ticker.Stop()
-      rawSelectionTick = ticker.C
+      polledSelectionTick = ticker.C
     }
   }
   var first error
@@ -393,11 +393,11 @@ func (p *Proxy) Run(ctx context.Context) error {
     case err = <-upstreamDone:
       upstreamPending = false
     case err = <-p.asyncErrCh:
-    case <-rawSelectionTick:
+    case <-polledSelectionTick:
       p.projectInputWatchMu.Lock()
       ready := p.projectInputWatchReady
       p.projectInputWatchMu.Unlock()
-      if first == nil && ready && ctx.Err() == nil && !rawSelectionCurrent() {
+      if first == nil && ready && ctx.Err() == nil && !polledSelectionCurrent() {
         err = p.writePluginSelectionChanged()
         if err == nil {
           err = ErrLSPPluginSelectionChanged

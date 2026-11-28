@@ -9,16 +9,17 @@ import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies that Go workspace metadata retains mode, directory membership and
- * raw POSIX file changes when delivered to the live observer.
+ * exact POSIX path changes when delivered to the live observer.
  *
  * 1. Compare a file before and after a mode-only change.
  * 2. Check a directory observer after a child appears.
- * 3. On POSIX, poll a representable ancestor after changing a raw filename.
+ * 3. On POSIX, retain parent traversal after an alias and poll its retarget.
+ * 4. Poll a representable ancestor after changing a raw filename where supported.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls the native witness and adapter disk proof for mode, then the production observer for directory and raw changes.
- * @evidence contracts/testing.md#independent-expectations Fixture operations change permissions, add a file or replace raw file bytes without touching the ordinary comparison surface.
- * @evidence contracts/testing.md#distinguishing-cases Stable registration stays quiet. Mode fails disk proof, a directory event wakes the ordinary registration, and a poll wakes the raw registration without a usable filename event.
- * @evidence contracts/testing.md#execution-ownership Uses real temporary filesystem inputs, injected event/poll delivery and the real observer. Closes the observer and restores file accessibility.
+ * @evidence contracts/testing.md#behavioral-verification Calls the native witness and adapter disk proof for mode, then the production observer for directory, alias and raw changes.
+ * @evidence contracts/testing.md#independent-expectations Fixture operations change permissions, add a file, retarget a link where lexical normalization reaches a different parent, or replace raw file bytes.
+ * @evidence contracts/testing.md#distinguishing-cases Stable registrations stay quiet. A directory event reports membership change, and polling detects both an alias retarget and a changed raw file without an event.
+ * @evidence contracts/testing.md#execution-ownership Uses real temporary filesystem inputs, injected event/poll delivery and the real observer. Closes the observer, restores file accessibility, and unlinks raw filenames by bytes. Darwin EILSEQ skips only the raw filename case.
  */
 export async function test_workspace_metadata_wakes_the_observer(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -33,7 +34,7 @@ export async function test_workspace_metadata_wakes_the_observer(): Promise<void
   const evidence = {
     identity: file,
     missing: false,
-    workspace: { codec: "workspace" as const, entries: [...mode] },
+    workspace: { entries: [...mode] },
   };
   assert.equal(watchInputEvidenceMatchesDisk(file, evidence), true);
   fs.chmodSync(file, 0o444);
@@ -70,7 +71,7 @@ export async function test_workspace_metadata_wakes_the_observer(): Promise<void
         evidence: {
           identity: anchor,
           missing: false,
-          workspace: { codec: "workspace" as const, ...group },
+          workspace: group,
         },
       })),
     );
@@ -89,21 +90,61 @@ export async function test_workspace_metadata_wakes_the_observer(): Promise<void
 
     if (process.platform !== "win32") {
       loads.length = 0;
-      const raw = Buffer.concat([Buffer.from(sdk + "/"), Buffer.from([0xff])]);
-      fs.writeFileSync(raw, "raw");
-      const bytes = new Map<string, string>();
-      const key = "/\0ttsc-raw/" + raw.toString("base64url");
-      PluginBuildEnvironmentWitness.add(bytes, key);
-      const groups = PluginBuildEnvironmentWitness.watchInputs([bytes], root);
-      assert.deepEqual(Object.keys(groups), [sdk]);
-      assert.equal(groups[sdk]?.recursive, true);
-      register(bytes);
+      const child = path.join(sdk, "child");
+      const lexical = path.join(root, "lexical");
+      const alias = path.join(lexical, "alias");
+      fs.mkdirSync(child);
+      fs.mkdirSync(lexical);
+      fs.symlinkSync(child, alias, "dir");
+      const candidate = `${alias}/../go`;
+      fs.writeFileSync(path.join(lexical, "go"), "unrelated");
+      const traversal = new Map<string, string>();
+      PluginBuildEnvironmentWitness.add(traversal, candidate);
+      const projected = PluginBuildEnvironmentWitness.watchInputs(
+        [traversal],
+        root,
+      );
+      assert.deepEqual(Object.keys(projected), [file]);
+      assert.equal(projected[file]?.poll, true);
+      assert.equal(projected[file]?.entries[0]?.[0], candidate);
+      register(traversal);
       assert.deepEqual(loads, []);
-      fs.writeFileSync(raw, "changed raw bytes");
+      fs.unlinkSync(alias);
+      fs.symlinkSync(sdk, alias, "dir");
       assert.ok(poll);
       poll();
       await new Promise((resolve) => setTimeout(resolve, 30));
       assert.deepEqual(loads, [module]);
+
+      loads.length = 0;
+      const raw = Buffer.concat([Buffer.from(sdk + "/"), Buffer.from([0xff])]);
+      try {
+        fs.writeFileSync(raw, "raw");
+      } catch (error) {
+        if (
+          process.platform === "darwin" &&
+          (error as NodeJS.ErrnoException).code === "EILSEQ"
+        )
+          return;
+        throw error;
+      }
+      try {
+        const bytes = new Map<string, string>();
+        const key = "/\0ttsc-raw/" + raw.toString("base64url");
+        PluginBuildEnvironmentWitness.add(bytes, key);
+        const groups = PluginBuildEnvironmentWitness.watchInputs([bytes], root);
+        assert.deepEqual(Object.keys(groups), [sdk]);
+        assert.equal(groups[sdk]?.recursive, true);
+        register(bytes);
+        assert.deepEqual(loads, []);
+        fs.writeFileSync(raw, "changed raw bytes");
+        assert.ok(poll);
+        poll();
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        assert.deepEqual(loads, [module]);
+      } finally {
+        fs.unlinkSync(raw);
+      }
     }
   } finally {
     await observer.dispose();

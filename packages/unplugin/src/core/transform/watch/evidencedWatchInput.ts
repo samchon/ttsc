@@ -8,6 +8,7 @@ import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
 import { toProjectKey } from "../project/toProjectKey";
 import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
 import type { TtscWatchInput } from "./TtscWatchInput";
+import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
 import type { TtscWatchInputState } from "./TtscWatchInputState";
 
 /**
@@ -41,18 +42,17 @@ export function evidencedWatchInput(
   state: TtscEnvelopeDerivation,
   input: string,
   spell: (input: string) => string,
+  workspaceBaseline?: TtscWatchInputEvidence["workspace"],
 ): TtscWatchInput {
   const external = cached.externalInputHashes ?? {};
   const identity = derivationIdentity(state, input);
   const spelling = path.resolve(input);
   const workspace =
-    cached.result.type === "exception"
+    workspaceBaseline ??
+    (cached.result.type === "exception"
       ? undefined
-      : cached.result.workspaceInputs?.[spelling];
-  const workspaceEvidence =
-    workspace === undefined
-      ? {}
-      : { workspace: { codec: "workspace" as const, ...workspace } };
+      : cached.result.workspaceInputs?.[spelling]);
+  const workspaceEvidence = workspace === undefined ? {} : { workspace };
   // A plugin's source directory is proven by the state its binary was built
   // from, whatever else observed the path (samchon/ttsc#1487).
   const digest = selectPluginSourceInputs(cached.result).get(spelling);

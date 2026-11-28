@@ -11,6 +11,7 @@ import { initialLSPProjectInputSnapshotIsCurrent } from "../../../../../packages
 import { materializeLSPPluginManifest } from "../../../../../packages/ttsc/src/launcher/internal/ttscserver/materializeLSPPluginManifest";
 import { hashHostInputPaths } from "../../../../../packages/ttsc/src/plugin/internal/load/hashHostInputPaths";
 import { realpathHostInputPaths } from "../../../../../packages/ttsc/src/plugin/internal/load/realpathHostInputPaths";
+import { PluginBuildEnvironmentWitness } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentWitness";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -40,7 +41,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    link. Verify that the manifest stays outside a POSIX config alias's
  *    physical directory.
  *
- * @evidence contracts/testing.md#behavioral-verification Snapshot operations distinguish child-content edits from reload-file, immediate-topology and link-identity drift and preserve framed raw identities. Selection capture records the raw intermediate link fingerprint independently of its unchanged reached bytes. Manifest transport carries 8192 inputs and disposes its directory twice safely.
+ * @evidence contracts/testing.md#behavioral-verification Snapshot operations distinguish child-content edits from reload-file, immediate-topology and link-identity drift and preserve framed raw identities. Selection capture records the raw intermediate link fingerprint independently of its unchanged reached bytes. It carries workspace-only metadata and rejects a witness that moved before capture. Manifest transport carries 8192 inputs and disposes its directory twice safely.
  * @evidence contracts/testing.md#independent-expectations Authored file and directory mutations define whether each snapshot must stay current or become stale; link, raw directory, empty-directory and missing-directory digests use independent sha256 framing (`symlink\0`/`directory\0`, target or native physical path bytes, NUL, `missing\0` or the empty-topology hash). Missing Windows suffix casing uses the supported authority observation without certifying that classifier itself. The test cannot prove agreement with the Go validator or startup host, only with this written framing; the manifest expectation is the literal count 8192 and a size above 64 KiB.
  * @evidence contracts/testing.md#distinguishing-cases Child contents remain current while exact-file edits and immediate topology invalidate. Exact-entry retarget uses a Windows leaf junction or POSIX leaf file symlink: both own link identity, but junction framing has missing content while the POSIX link reaches file bytes. POSIX preserves original different-content and added same-content retargets; Windows empty-directory retarget isolates identity. Native directory-link retarget is mandatory. POSIX raw bytes/backslash names and Windows Unicode junction bytes retain their distinct native input domains. Only an observed EILSEQ creation refusal selects UTF-8 recovery after an unchanged directory/link assertion; other preparation errors fail; manifest contents and repeated disposal are asserted separately.
  * @evidence contracts/testing.md#execution-ownership This matching src/features/ttscserver entry exercises the owning operations on isolated inputs. A Node child supplies a controlled temporary environment for the manifest boundary case without changing the test runner's environment. No native host, build or consumer installation executes.
@@ -66,6 +67,35 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
           failures.push(new Error(name, { cause }));
         }
       };
+      verify(
+        "workspace metadata stays separate from descriptor content",
+        () => {
+          const selector = path.join(root, "workspace-goenv");
+          fs.writeFileSync(selector, "first");
+          const witness: PluginBuildEnvironmentWitness.Record = new Map();
+          PluginBuildEnvironmentWitness.add(witness, selector);
+          const input = {
+            deferredHostInputs: [],
+            hostInputHashes: {},
+            hostInputRealpaths: {},
+            hostInputs: [],
+            pluginSources: {},
+            workspaceInputs: PluginBuildEnvironmentWitness.watchInputs(
+              [witness],
+              root,
+            ),
+          };
+          const observed = captureLSPPluginSelectionInputs(input);
+          assert.deepEqual(observed?.descriptorFiles, {});
+          assert.equal(observed?.workspaceFiles?.length, 1);
+          const entry = observed?.workspaceFiles?.[0];
+          assert.equal(entry?.path, Buffer.from(selector).toString("base64"));
+          assert.equal(entry?.kind, "stat");
+          assert.equal(entry?.size, "5");
+          fs.appendFileSync(selector, " moved");
+          assert.equal(captureLSPPluginSelectionInputs(input), undefined);
+        },
+      );
       verify("ordinary reload content and topology", () => {
         const first = fingerprintInitialLSPProjectInputSnapshot({
           files: [reloadFile],

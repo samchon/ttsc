@@ -4,6 +4,7 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
 import { formatUnknownError } from "../diagnostics/formatUnknownError";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { hostSpelling } from "../envelope/hostSpelling";
+import type { TtscFailedGenerationValidation } from "../generation/TtscFailedGenerationValidation";
 import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 import { RECOVERY_TREE_DIGEST } from "./RECOVERY_TREE_DIGEST";
 import type { TtscTransformHooks } from "./TtscTransformHooks";
@@ -36,7 +37,8 @@ import { selectionInputs } from "./selectionInputs";
  * narrows the set back to the derived inputs.
  *
  * An exception also retains the declared compiler source's filesystem state.
- * The observer and project record can detect repairs anywhere in that source.
+ * The observer and project record can detect repairs anywhere in that source. A
+ * rejected success can still supply workspace proof for its recovery watch.
  *
  * @param file The delivered module, as the host spelled it, which decides the
  *   spelling every input is handed under (`hostSpelling`).
@@ -56,6 +58,7 @@ export function notifyFailedGenerationInputs(
   cached: TtscCachedProjectTransform,
   file: string,
   selection: TtscWatchSelection,
+  workspaceBaseline?: TtscFailedGenerationValidation["workspaceInputs"],
 ): void {
   if (
     hooks === undefined ||
@@ -69,6 +72,10 @@ export function notifyFailedGenerationInputs(
   const spell = hostSpelling(state.project, file);
   const inputs: TtscWatchInput[] = [];
   const compilerSource = cached.failedCompilerSource;
+  const result = cached.result;
+  const workspaceInputs =
+    workspaceBaseline ??
+    (result.type === "exception" ? undefined : result.workspaceInputs);
   // Keep the compiler's spellings for the record and use its retained state
   // where available.
   const recorded: string[] = [];
@@ -84,12 +91,11 @@ export function notifyFailedGenerationInputs(
     seen.add(spelling);
     // The adapter reads current availability for ordinary inputs because
     // failure replay does not re-prove them.
-    const workspace =
-      cached.result.type === "failure" &&
-      cached.result.workspaceInputs?.[spelling] !== undefined;
-    const watched = workspace
-      ? evidencedWatchInput(cached, state, spelling, spell)
-      : { file: spell(spelling) };
+    const workspace = workspaceInputs?.[spelling];
+    const watched =
+      workspace !== undefined
+        ? evidencedWatchInput(cached, state, spelling, spell, workspace)
+        : { file: spell(spelling) };
     if (spelling === compilerSource?.file)
       RECOVERY_TREE_DIGEST.set(watched, compilerSource.digest);
     inputs.push(watched);
@@ -105,9 +111,8 @@ export function notifyFailedGenerationInputs(
   for (const input of cached.externalInputPaths ?? []) {
     append(input);
   }
+  for (const input of Object.keys(workspaceInputs ?? {})) append(input);
   if (cached.result.type === "failure") {
-    for (const input of Object.keys(cached.result.workspaceInputs ?? {}))
-      append(input);
     for (const diagnostic of cached.result.diagnostics) {
       if (typeof diagnostic.file === "string" && diagnostic.file.length !== 0) {
         append(path.resolve(cached.projectRoot, diagnostic.file));
@@ -147,6 +152,7 @@ export function notifyFailedGenerationInputs(
             state,
             input,
             (spelling) => spelling,
+            workspaceBaseline?.[input],
           );
           if (input === compilerSource?.file)
             RECOVERY_TREE_DIGEST.set(watched, compilerSource.digest);

@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { systemTempOutsideProject } from "../../../internal/systemTempOutsideProject";
 import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBuildCacheLayout";
-import { isPathWithin } from "../../../plugin/internal/source/isPathWithin";
 import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
 
@@ -48,16 +48,17 @@ export function systemRuntimeCachePath(
   ]) {
     const entry = fs.lstatSync(candidate, { throwIfNoEntry: false });
     if (entry !== undefined && !entry.isDirectory())
-      throw unsafeDirectory(candidate);
+      throw new UnsafeSystemRuntimeCacheDirectory(candidate);
   }
   return fallback;
 }
 
 /**
  * Create each missing child under its observed physical parent. A cache or lock
- * that overlaps a known project leaves this temp candidate ineligible.
- * Revalidate native identities before creation and again before returning.
- * These checks do not hold a directory handle across a namespace change.
+ * that overlaps a known project leaves this temp candidate ineligible. An
+ * existing alias also excludes the candidate before creation starts. Revalidate
+ * native identities before creation and again before returning. These checks do
+ * not hold a directory handle across a namespace change.
  *
  * @evidence contracts/common.md#principled-implementation The qualified temp parent and deterministic children keep their exact physical spellings. Known project roots exclude storage and its sibling lock before creation.
  * @evidence contracts/common.md#clear-and-simple-design The existing layout check owns ordinary-directory admission, and this operation owns nonrecursive creation and postflight.
@@ -73,13 +74,30 @@ export function pinSystemRuntimeCachePath(
   temporary: string,
   projectRoots: readonly string[],
 ): string | undefined {
-  const fallback = systemRuntimeCachePath(root, temporary);
+  let fallback: string;
+  try {
+    requirePhysical(temporary);
+    fallback = systemRuntimeCachePath(root, temporary);
+  } catch (error) {
+    if (error instanceof UnsafeSystemRuntimeCacheDirectory) return undefined;
+    throw error;
+  }
   const parent = path.dirname(fallback);
   const lock = `${fallback}.lock`;
-  const roots = [...new Set([root, ...projectRoots])];
-  const overlaps = () =>
-    roots.some((spelling) => overlapsProject(spelling, parent, fallback, lock));
-  if (overlaps()) return undefined;
+  const index = path.join(
+    fallback,
+    SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME,
+  );
+  const retired = path.join(
+    lock,
+    DependencyBuildLockProtocol.DEP_BUILD_LOCK_RETIRED_DIR,
+  );
+  const roots = [root, ...projectRoots];
+  const eligible = () =>
+    [fallback, index, lock, retired].every((directory) =>
+      systemTempOutsideProject.allowsChild(directory, roots),
+    );
+  if (!eligible()) return undefined;
   for (const [current, next] of [
     [temporary, parent],
     [parent, fallback],
@@ -95,29 +113,19 @@ export function pinSystemRuntimeCachePath(
   }
   systemRuntimeCachePath(root, temporary);
   requirePhysical(fallback);
-  return overlaps() ? undefined : fallback;
+  if (!eligible()) return undefined;
+  requireWritableParent(index);
+  requireWritableParent(lock);
+  requireWritableParent(retired);
+  return fallback;
 }
 
-/** Check both writable trees and their shared allocation parent. */
-function overlapsProject(
-  spelling: string,
-  parent: string,
-  fallback: string,
-  lock: string,
-): boolean {
-  const project = RuntimeFilesystem.realpathWitness(spelling);
-  const bytes = RuntimeFilesystem.rawRealpath(project);
-  if (bytes !== undefined)
-    return [fallback, lock].some((location) => {
-      const prefix = Buffer.from(location + path.sep);
-      return bytes.subarray(0, prefix.length).equals(prefix);
-    });
-  return (
-    path.dirname(project) !== project &&
-    (isPathWithin(parent, project) ||
-      isPathWithin(project, fallback) ||
-      isPathWithin(project, lock))
-  );
+/** Check the first existing directory that would receive a claim write. */
+function requireWritableParent(directory: string): void {
+  let parent = directory;
+  while (fs.lstatSync(parent, { throwIfNoEntry: false }) === undefined)
+    parent = path.dirname(parent);
+  fs.accessSync(parent, fs.constants.W_OK | fs.constants.X_OK);
 }
 
 /** Refuse link-following as proof of the selected physical directory. */
@@ -126,9 +134,11 @@ function requirePhysical(directory: string): void {
     !fs.lstatSync(directory).isDirectory() ||
     RuntimeFilesystem.realpathWitness(directory) !== directory
   )
-    throw unsafeDirectory(directory);
+    throw new UnsafeSystemRuntimeCacheDirectory(directory);
 }
 
-function unsafeDirectory(directory: string): Error {
-  return new Error(`ttsx: unsafe system runtime cache directory: ${directory}`);
+class UnsafeSystemRuntimeCacheDirectory extends Error {
+  public constructor(directory: string) {
+    super(`ttsx: unsafe system runtime cache directory: ${directory}`);
+  }
 }

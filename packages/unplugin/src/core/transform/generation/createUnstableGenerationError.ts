@@ -1,4 +1,5 @@
 import path from "node:path";
+import { PluginBuildEnvironmentWitness } from "ttsc/plugin-source";
 
 import { disposeCachedTransform } from "../cache/disposeCachedTransform";
 import { TtscUnstableGenerationError } from "../errors/TtscUnstableGenerationError";
@@ -27,8 +28,9 @@ function formatGenerationFailurePath(
  * Build the terminal error shared by waiters of an unstable generation, with
  * bounded per-attempt witnesses and a retained retry comparison baseline. Live
  * generation fields detach and their cleanup is attempted before the error
- * retains that data; failed native cleanup is not certified released. Producer
- * details and native paths are JSON-escaped for safe diagnostics.
+ * retains that data; failed native cleanup is not certified released. Native
+ * workspace keys are observed at this terminal boundary for later comparison.
+ * Producer details and native paths are JSON-escaped for safe diagnostics.
  *
  * @evidence contracts/common.md#principled-implementation Each attempted proof contributes its classified witnesses and omitted count, while absent retained entries remain an explicit incomplete proof; the validation baseline identifies the environment that can authorize retry.
  * @evidence contracts/common.md#clear-and-simple-design Error rendering stays here, path attribution uses one private formatter and live generation disposal delegates to the shared lifecycle owner.
@@ -77,5 +79,25 @@ export function createUnstableGenerationError(
   // never serve a module. Release every live resource before its terminal
   // verdict is retained in the cache.
   disposeCachedTransform(validation.cached);
-  return new TtscUnstableGenerationError(lines.join("\n"), validation);
+  const result = validation.cached.result;
+  const workspace =
+    result.type === "exception" ? undefined : result.workspaceInputs;
+  const workspaceInputs =
+    workspace === undefined
+      ? undefined
+      : Object.fromEntries(
+          Object.entries(workspace).map(([anchor, state]) => [
+            anchor,
+            {
+              ...state,
+              entries: PluginBuildEnvironmentWitness.retryBaseline(
+                state.entries,
+              ),
+            },
+          ]),
+        );
+  return new TtscUnstableGenerationError(lines.join("\n"), {
+    ...validation,
+    workspaceInputs,
+  });
 }
